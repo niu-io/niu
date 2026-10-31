@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import RequestTiming from '../../../../src/features/executions/components/RequestTiming';
+import RequestTiming from '../../../../app/features/executions/components/RequestTiming';
 
 describe('request phase timing', () => {
   it('uses observed offsets and does not substitute missing output timing', () => {

@@ -1104,6 +1104,135 @@ pub(crate) fn router(state: AppState) -> Router {
     let app = billing_and_pricing_routes(app);
     let app = provider_and_platform_routes(app);
     let app = auth_and_operator_routes(app);
+    let app = app.merge(
+        Router::new()
+            .route(
+                "/api/v1/workspaces/{workspace}/pools",
+                get(super::workspace_review::pools),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/pools/{slug}",
+                get(super::workspace_review::pool),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/pools/{slug}/history",
+                get(super::workspace_review::pool_history),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/pools/{slug}/selections",
+                get(super::workspace_review::pool_selections),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/events",
+                get(super::workspace_review::subscriptions),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/events/{slug}",
+                get(super::workspace_review::subscription),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/events/{slug}/deliveries",
+                get(super::workspace_review::deliveries),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/evaluations",
+                get(super::workspace_review::evaluations),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/evaluations/{slug}",
+                get(super::workspace_review::evaluation),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/evaluations/{slug}/runs",
+                get(super::workspace_review::runs),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/evaluations/{slug}/runs/{run}",
+                get(super::workspace_review::run),
+            )
+            .route(
+                "/api/v1/workspaces/{workspace}/evaluations/{slug}/compare",
+                get(super::workspace_review::compare),
+            )
+            .route("/v1/evaluations", get(super::workspace_evaluations::list))
+            .route(
+                "/v1/evaluations/fingerprint",
+                post(super::workspace_evaluations::fingerprint),
+            )
+            .route(
+                "/v1/evaluations/{slug}",
+                get(super::workspace_evaluations::get).put(super::workspace_evaluations::put),
+            )
+            .route(
+                "/v1/evaluations/{slug}/attempts",
+                get(super::workspace_evaluations::attempts),
+            )
+            .route(
+                "/v1/evaluations/{slug}/runs",
+                get(super::workspace_evaluations::runs).post(super::workspace_evaluations::record),
+            )
+            .route(
+                "/v1/evaluations/{slug}/runs/{run}",
+                get(super::workspace_evaluations::run),
+            )
+            .route(
+                "/v1/evaluations/{slug}/compare",
+                get(super::workspace_evaluations::compare),
+            )
+            .route("/v1/events", get(super::workspace_events::list))
+            .route("/v1/events/log", get(super::workspace_events::log))
+            .route(
+                "/v1/events/{slug}",
+                get(super::workspace_events::get).put(super::workspace_events::put),
+            )
+            .route(
+                "/v1/events/{slug}/history",
+                get(super::workspace_events::history),
+            )
+            .route(
+                "/v1/events/{slug}/deliveries",
+                get(super::workspace_events::deliveries),
+            )
+            .route(
+                "/v1/events/{slug}/test",
+                post(super::workspace_events::test),
+            )
+            .route("/v1/pools", get(super::workspace_pools::list))
+            .route("/v1/pools/preview", post(super::workspace_pools::preview))
+            .route(
+                "/v1/pools/{slug}",
+                get(super::workspace_pools::get).put(super::workspace_pools::put),
+            )
+            .route(
+                "/v1/pools/{slug}/selections",
+                get(super::workspace_pools::selections),
+            )
+            .route(
+                "/v1/pools/{slug}/history",
+                get(super::workspace_pools::history),
+            )
+            .layer(DefaultBodyLimit::max(65536))
+            .layer(middleware::from_fn(password_response_headers)),
+    );
+
+    let app = app.merge(
+        Router::new()
+            .route(
+                "/api/v1/auth/agents",
+                post(crate::admin::agent_authorizations::create),
+            )
+            .route(
+                "/api/v1/auth/agents/token",
+                post(crate::admin::agent_authorizations::exchange),
+            )
+            .route(
+                "/api/v1/auth/agents/{code}",
+                get(crate::admin::agent_authorizations::view)
+                    .post(crate::admin::agent_authorizations::decide),
+            )
+            .layer(DefaultBodyLimit::max(16384))
+            .layer(middleware::from_fn(password_response_headers)),
+    );
     let app = app
         .merge(super::static_site::router())
         .route("/healthz", get(health))
@@ -1596,7 +1725,8 @@ async fn public_models(
 ///                     "spending_limits",
 ///                     "rate_limits",
 ///                     "usage_window",
-///                     "allowed_cidrs"
+///                     "allowed_cidrs",
+///                     "management_capabilities"
 ///                   ],
 ///                   "properties": {
 ///                     "object": {
@@ -1768,6 +1898,23 @@ async fn public_models(
 ///                         "type": "string"
 ///                       },
 ///                       "description": "Current source-IP allowlist, or null for no allowlist restriction."
+///                     },
+///                     "management_capabilities": {
+///                       "type": "array",
+///                       "maxItems": 6,
+///                       "uniqueItems": true,
+///                       "items": {
+///                         "type": "string",
+///                         "enum": [
+///                           "pools:read",
+///                           "pools:write",
+///                           "events:read",
+///                           "events:write",
+///                           "evaluations:read",
+///                           "evaluations:write"
+///                         ]
+///                       },
+///                       "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
 ///                     }
 ///                   }
 ///                 }
@@ -1791,11 +1938,18 @@ async fn inspect_key(
     let principal = state
         .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
         .await?;
-    let data = state
+    let mut data = state
         .store
         .key_introspection(&principal)
         .await
         .map_err(ApiError::from_store)?;
+    data["management_capabilities"] = json!(
+        state
+            .store
+            .agent_key_capabilities(principal.scope(), principal.key_id())
+            .await
+            .map_err(ApiError::from_store)?
+    );
     Ok(Json(json!({ "data": data })))
 }
 

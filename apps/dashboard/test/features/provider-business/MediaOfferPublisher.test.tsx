@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import MediaOfferPublisher from '../../../src/features/provider-business/MediaOfferPublisher';
+import MediaOfferPublisher from '../../../app/features/provider-business/MediaOfferPublisher';
 const vendor='d392e2a3-9983-4c50-8801-77bc5d7b01d4';
 const offer='b95802b3-70d5-4d58-b455-33be672a09a5';
 const model={model_alias:'fixture-video',api_key_name:'Video credential',vendor_id:vendor,vendor_revision:'4',model_revision:'2',schema_revision:'private-schema',channel:'ark-direct-v1',offer_revision:offer};

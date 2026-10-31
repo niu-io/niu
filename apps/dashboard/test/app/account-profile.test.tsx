@@ -1,7 +1,7 @@
 import {act,render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {describe,it,expect,vi} from 'vitest';
-import AccountProfile from '../../src/features/account/AccountProfile';
+import AccountProfile from '../../app/features/account/AccountProfile';
 const profile={name:'Example member',email:'member@example.test',avatar_data_url:null,revision:0};
 
 describe('account profile',()=>{

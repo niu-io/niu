@@ -2,11 +2,11 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import ContentRules from "../../../src/features/guardrails/ContentRules";
+import ContentRules from "../../../app/features/guardrails/ContentRules";
 import {
   contentRulesError,
   type ContentRule,
-} from "../../../src/features/guardrails/rules";
+} from "../../../app/features/guardrails/rules";
 function Harness({
   stage = "input",
   disabled = false,

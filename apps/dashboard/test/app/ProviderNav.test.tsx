@@ -3,8 +3,8 @@ import { it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { ProviderNav } from '@/app/AppLayout';
-import type { DashboardContext } from '@/app/dashboard-context';
+import { ProviderNav } from '@/shell/AppLayout';
+import type { DashboardContext } from '@/shell/dashboard-context';
 
 it('keeps Admin sections independent of the Provider directory', () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:[{id:'supplier-a',name:'OpenRouter'}]})));

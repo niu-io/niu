@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import KeyGuardrailHistory from '../../../src/features/keys/components/KeyGuardrailHistory';
+import KeyGuardrailHistory from '../../../app/features/keys/components/KeyGuardrailHistory';
 const change = { assignment_revision: 2, policy_revision: null, policy_name: null, actor_name: 'Workspace member', created_at: '2026-10-03T01:00:00Z' };
 const show = () => render(<KeyGuardrailHistory token="reader" endpoint="/key/guardrail" />);
 

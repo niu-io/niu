@@ -1,0 +1,146 @@
+import type { VideoSchema } from './video-schema';
+import type { CatalogMetadata } from '@/shell/dashboard-context';
+export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
+export type ProviderIntegration = {
+  integration_type: ProviderIntegrationType | null;
+  effective_type: ProviderIntegrationType;
+  source: 'connection' | 'provider' | 'unspecified';
+  revision: number;
+};
+export const integrationLabels: Record<ProviderIntegrationType, string> = {
+  openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom',
+};
+export type ProviderAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
+export type VendorAdapter = ProviderAdapter;
+
+export const providerAdapterLabels: Record<ProviderAdapter, string> = {
+  openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic',
+  gemini: 'Google Gemini', ark: 'Volcengine Ark',
+};
+export const vendorAdapterLabels = providerAdapterLabels;
+
+export const providerAdapterApiLabels: Record<ProviderAdapter, string> = {
+  openrouter: 'OpenRouter API', openai: 'OpenAI-compatible API',
+  anthropic: 'Anthropic Messages API', gemini: 'Google Gemini API', ark: 'Ark-compatible API',
+};
+export const vendorAdapterApiLabels = providerAdapterApiLabels;
+
+export type ProviderConnection = {
+  id: string;
+  name: string;
+  adapter: ProviderAdapter;
+  api_base: string;
+  enabled: boolean;
+  revision: number;
+  has_credential: boolean;
+  owner_funded?: boolean;
+  provider?: { id: string; name: string } | null;
+  supplier?: { id: string; name: string } | null;
+};
+export type Vendor = ProviderConnection;
+
+export type ModelCapabilities = {
+  catalog?: CatalogMetadata;
+  video_schema?: VideoSchema;
+  supports_tool_calls: boolean;
+  supports_streaming_tool_calls: boolean;
+  supports_structured_output: boolean;
+  supports_embeddings: boolean;
+  supports_embedding_dimensions: boolean;
+  supports_embedding_base64: boolean;
+  supports_responses: boolean;
+};
+
+export type ProviderModel = {
+  alias: string;
+  vendor_id: string;
+  upstream_model: string;
+  public_catalog: boolean;
+  enabled: boolean;
+  capabilities: ModelCapabilities;
+  available?: boolean;
+  owner_funded?: boolean;
+  pricing: Record<string, unknown> | null;
+  revision: number;
+};
+export type VendorModel = ProviderModel;
+
+export type ProviderCatalogModel = {
+  catalog?: CatalogMetadata;
+  id: string;
+  name: string;
+  context_length: number | null;
+};
+
+export type ProviderDiscoveryEvidence = {
+  integration: ProviderIntegration;
+  inventory_scope: 'credential_filtered' | 'instance_reported';
+  credential_access: 'catalog_read_succeeded';
+  inference_verified: false;
+  management_access: 'not_checked';
+  prices: 'advertised_only';
+};
+
+export type ProviderModelCheck = {
+  status:
+    | 'connected'
+    | 'credentials_rejected'
+    | 'endpoint_unavailable'
+    | 'private_endpoint_blocked'
+    | 'invalid_endpoint'
+    | 'redirect_blocked'
+    | 'provider_rate_limited'
+    | 'provider_error'
+    | 'model_catalog_unavailable'
+    | 'model_catalog_too_large'
+    | 'invalid_model_catalog';
+  model: 'listed' | 'not_listed' | 'unknown';
+  http_status: number | null;
+  duration_ms: number;
+  checked_at_ms: number;
+};
+
+export type ProviderConnectionWrite = {
+  name: string;
+  api_base: string;
+  enabled: boolean;
+  api_key?: string;
+  expected_revision: number;
+};
+export type VendorWrite = ProviderConnectionWrite;
+
+export type ModelWrite = Omit<ProviderModel, 'vendor_id' | 'revision' | 'pricing' | 'available' | 'owner_funded'> & {
+  pricing?: Record<string, unknown> | null;
+  expected_revision: number | null;
+};
+
+import { ApiRequestError as ProviderRequestError, cachedGet, markCachedStale, peekCachedGet, prefetchGet, request } from '@/lib/api-client';
+export { cachedGet, markCachedStale, peekCachedGet, prefetchGet, ProviderRequestError, ProviderRequestError as VendorRequestError, request };
+
+// A timeout, transport failure or server error cannot establish that a write
+// was rejected before commit. Explicit client rejections retain correction flow.
+export function writeMayHaveCommitted(reason: unknown): boolean {
+  return !(reason instanceof ProviderRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408);
+}
+
+export function defaultApiBase(adapter: ProviderAdapter) {
+  const defaults: Record<ProviderAdapter, string> = {
+    openrouter: 'https://openrouter.ai/api/v1', openai: 'https://api.openai.com/v1',
+    anthropic: 'https://api.anthropic.com/v1', gemini: 'https://generativelanguage.googleapis.com/v1beta',
+    // Ark-compatible services need their own explicit configured endpoint.
+    ark: '',
+  };
+  return defaults[adapter];
+}
+
+export function emptyCapabilities(): ModelCapabilities {
+  return {
+    supports_tool_calls: false,
+    supports_streaming_tool_calls: false,
+    supports_structured_output: false,
+    supports_embeddings: false,
+    supports_embedding_dimensions: false,
+    supports_embedding_base64: false,
+    supports_responses: false,
+  };
+}

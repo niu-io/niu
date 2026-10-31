@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useAccountAppearance } from '../../src/app/useAccountAppearance';
-import { readTheme, saveTheme } from '../../src/app/theme';
+import { useAccountAppearance } from '../../app/shell/useAccountAppearance';
+import { readTheme, saveTheme } from '../../app/shell/theme';
 
 describe('saved account appearance', () => {
   it('retains the same member cache while refreshing the authoritative preference', async () => {

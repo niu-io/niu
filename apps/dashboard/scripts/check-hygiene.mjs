@@ -18,12 +18,12 @@ function walk(dir, files = []) {
 
 const errors = [];
 
-if (existsSync(join(root, 'src/lib/useRead.ts'))) {
-  errors.push('src/lib/useRead.ts must remain removed (dead hook).');
+if (existsSync(join(root, 'app/lib/useRead.ts'))) {
+  errors.push('app/lib/useRead.ts must remain removed (dead hook).');
 }
 
 let requestDefinitions = 0;
-for (const file of [...walk(join(root, 'src')), ...walk(join(root, 'test'))]) {
+for (const file of [...walk(join(root, 'app')), ...walk(join(root, 'test'))]) {
   const rel = relative(root, file);
   const text = readFileSync(file, 'utf8');
   if (/from\s+['"]cn['"]/.test(text)) {
@@ -32,19 +32,19 @@ for (const file of [...walk(join(root, 'src')), ...walk(join(root, 'test'))]) {
   if (/sdks\/javascript\/src\//.test(text)) {
     errors.push(`${rel}: imports relative SDK source instead of '@niu-io/sdk'.`);
   }
-  if (rel.startsWith('src/') && /\.catch\(\([^)]*\)\s*=>\s*\{\s*\}\)/.test(text)) {
+  if (rel.startsWith('app/') && /\.catch\(\([^)]*\)\s*=>\s*\{\s*\}\)/.test(text)) {
     errors.push(`${rel}: contains an uncommented empty .catch(() => {}) block.`);
   }
   if (/export\s+async\s+function\s+request\s*</.test(text)) {
     requestDefinitions += 1;
-    if (rel !== 'src/lib/api-client.ts') {
-      errors.push(`${rel}: defines duplicate request<T> helper outside src/lib/api-client.ts.`);
+    if (rel !== 'app/lib/api-client.ts') {
+      errors.push(`${rel}: defines duplicate request<T> helper outside app/lib/api-client.ts.`);
     }
   }
 }
 
 if (requestDefinitions !== 1) {
-  errors.push(`Expected exactly 1 request<T> definition in src/lib/api-client.ts, found ${requestDefinitions}.`);
+  errors.push(`Expected exactly 1 request<T> definition in app/lib/api-client.ts, found ${requestDefinitions}.`);
 }
 
 if (errors.length > 0) {

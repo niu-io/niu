@@ -3,13 +3,13 @@ import {
   IconAlertTriangle, IconArrowRight, IconBolt, IconCheck, IconCopy, IconFileText, IconLayoutGrid, IconMicrophone,
   IconPhoto, IconRefresh, IconSearch, IconSearchOff, IconTypography, IconVideo, type IconProps,
 } from '@tabler/icons-react';
-import { Button } from '../../../dashboard/src/components/ui/button';
-import { Input } from '../../../dashboard/src/components/ui/input';
-import { Skeleton } from '../../../dashboard/src/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '../../../dashboard/src/components/ui/tabs';
-import ProviderLogo from '../../../dashboard/src/components/ProviderLogo';
-import { modelIdentity } from '../../../dashboard/src/lib/providers';
-import { useLocale } from '../../../dashboard/src/app/locale';
+import { Button } from '../../../dashboard/app/components/ui/button';
+import { Input } from '../../../dashboard/app/components/ui/input';
+import { Skeleton } from '../../../dashboard/app/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '../../../dashboard/app/components/ui/tabs';
+import ProviderLogo from '../../../dashboard/app/components/ProviderLogo';
+import { modelIdentity } from '../../../dashboard/app/lib/providers';
+import { useLocale } from '../../../dashboard/app/shell/locale';
 
 type PublicModel = {
   id: string;

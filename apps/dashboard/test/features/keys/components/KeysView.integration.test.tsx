@@ -1,15 +1,15 @@
-vi.mock('../../../../src/app/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
+vi.mock('../../../../app/shell/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { expect, it, vi } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import KeysView from '../../../../src/features/keys/components/KeysView';
+import KeysView from '../../../../app/features/keys/components/KeysView';
 
 const expectedBaseUrl = () => `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/+$/, '')}/v1`;
 
 const {rememberChatKey} = vi.hoisted(() => ({rememberChatKey:vi.fn()}));
 
-vi.mock('../../../../src/app/dashboard-context', () => ({
+vi.mock('../../../../app/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     workspaces: [{ id: 'project-1', name: 'Production', organization_id: 'org-1', organization_name: 'Acme' }],
     workspace: { id: 'project-1', name: 'Production', organization_id: 'org-1', organization_name: 'Acme' },

@@ -43,10 +43,10 @@ class DashboardSnapshotTests(unittest.TestCase):
                 (target / shared_css).write_text('changed shared theme')
                 self.assertIn(shared_css, module.changed_inputs(target, manifest))
                 (target / shared_css).write_bytes((repo / shared_css).read_bytes())
-            (repo / 'apps/dashboard/src/fixture.ts').write_text('changed original')
+            (repo / 'apps/dashboard/app/fixture.ts').write_text('changed original')
             self.assertEqual(module.changed_inputs(target, manifest), [])
-            (target / 'apps/dashboard/src/fixture.ts').write_text('changed captured input')
-            self.assertEqual(module.changed_inputs(target, manifest), ['apps/dashboard/src/fixture.ts'])
+            (target / 'apps/dashboard/app/fixture.ts').write_text('changed captured input')
+            self.assertEqual(module.changed_inputs(target, manifest), ['apps/dashboard/app/fixture.ts'])
 
     def test_branded_link_becomes_copied_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -65,7 +65,7 @@ class DashboardSnapshotTests(unittest.TestCase):
             repo = self.fixture(root)
             outside = root / 'private'
             outside.write_text('private fixture')
-            (repo / 'apps/dashboard/src/private').symlink_to(outside)
+            (repo / 'apps/dashboard/app/private').symlink_to(outside)
             target = root / 'snapshot'
             target.mkdir()
             with self.assertRaisesRegex(RuntimeError, 'branded assets'):
@@ -99,7 +99,7 @@ class DashboardSnapshotTests(unittest.TestCase):
         self.assertFalse(report['qualified_snapshot'])
 
     def test_changed_captured_source_denies_qualification(self):
-        report = self.run_qualification(lambda repo, cwd: (cwd / 'src/fixture.ts').write_text('changed'))
+        report = self.run_qualification(lambda repo, cwd: (cwd / 'app/fixture.ts').write_text('changed'))
         self.assertTrue(report['changed_snapshot_inputs'])
         self.assertFalse(report['qualified_snapshot'])
 

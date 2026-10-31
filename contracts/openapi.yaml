@@ -13,7 +13,7 @@ info:
 
     ## Authentication and scope
     Inference uses a workspace API key. Management operations require the member session,
-    platform authority or Provider membership stated by that operation. These credentials
+    platform authority, explicit delegated workspace capability or Provider membership stated by that operation. These credentials
     are not interchangeable. See each operation's security scheme and access description.
     Legacy `project` path segments refer to workspaces; legacy `provider` paths refer to Providers.
 
@@ -33,6 +33,50 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace}/pools:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools'
+  /api/v1/workspaces/{workspace}/pools/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}'
+  /api/v1/workspaces/{workspace}/pools/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}~1history'
+  /api/v1/workspaces/{workspace}/pools/{slug}/selections:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}~1selections'
+  /api/v1/workspaces/{workspace}/events:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1events'
+  /api/v1/workspaces/{workspace}/events/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1events~1{slug}'
+  /api/v1/workspaces/{workspace}/events/{slug}/deliveries:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1events~1{slug}~1deliveries'
+  /api/v1/workspaces/{workspace}/evaluations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1evaluations'
+  /api/v1/workspaces/{workspace}/evaluations/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1evaluations~1{slug}'
+  /api/v1/workspaces/{workspace}/evaluations/{slug}/runs:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1evaluations~1{slug}~1runs'
+  /api/v1/workspaces/{workspace}/evaluations/{slug}/runs/{run}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1evaluations~1{slug}~1runs~1{run}'
+  /api/v1/workspaces/{workspace}/evaluations/{slug}/compare:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1evaluations~1{slug}~1compare'
+  /v1/evaluations:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations'
+  /v1/evaluations/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations~1{slug}'
+  /v1/evaluations/fingerprint:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations~1fingerprint'
+  /v1/evaluations/{slug}/attempts:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations~1{slug}~1attempts'
+  /v1/evaluations/{slug}/runs:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations~1{slug}~1runs'
+  /v1/evaluations/{slug}/runs/{run}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations~1{slug}~1runs~1{run}'
+  /v1/evaluations/{slug}/compare:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1evaluations~1{slug}~1compare'
+  /api/v1/auth/agents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1agents'
+  /api/v1/auth/agents/token:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1agents~1token'
+  /api/v1/auth/agents/{code}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1agents~1{code}'
   /api/v1/organizations/{organization}/billing/units/charges/{attempt}/refunds:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1units~1charges~1{attempt}~1refunds'
   /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals:
@@ -2509,6 +2553,28 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1capture'
   /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1{session}~1turns~1{turn}~1intent'
+  /v1/events:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1events'
+  /v1/events/log:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1events~1log'
+  /v1/events/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}'
+  /v1/events/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1history'
+  /v1/events/{slug}/deliveries:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1deliveries'
+  /v1/events/{slug}/test:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1test'
+  /v1/pools:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1pools'
+  /v1/pools/preview:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1preview'
+  /v1/pools/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}'
+  /v1/pools/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}~1history'
+  /v1/pools/{slug}/selections:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}~1selections'
   /v1/key:
     $ref: './generated/handler-operations.json#/paths/~1v1~1key'
   /v1/generations/{id}:

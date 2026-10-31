@@ -365,7 +365,7 @@ async fn resolve_pool(
 }
 
 /// Weighted selection among the highest-priority eligible inference routes.
-pub(super) fn select_candidate<T>(
+pub(crate) fn select_candidate<T>(
     eligible: Vec<(&niu_storage::RoutePoolCandidate, T)>,
 ) -> Option<T> {
     let priority = eligible
@@ -720,7 +720,10 @@ pub(crate) async fn resolve_model(
     })
 }
 
-fn supports_protocol(model: &ModelConfig, protocol: &crate::guardrails::input::Protocol) -> bool {
+pub(crate) fn supports_protocol(
+    model: &ModelConfig,
+    protocol: &crate::guardrails::input::Protocol,
+) -> bool {
     use crate::guardrails::input::Protocol;
     match protocol {
         Protocol::Chat => model.protocol().supports_chat_completions(),

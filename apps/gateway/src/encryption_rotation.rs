@@ -125,6 +125,23 @@ impl Inventory<'_> {
                 after = Some((row.vendor_id, row.revision));
             }
         }
+        let mut after = None;
+        loop {
+            let page = self
+                .store
+                .event_signing_credential_page(after)
+                .await
+                .map_err(|_| "Cannot inventory resource event signing credentials")?;
+            if page.is_empty() {
+                break;
+            }
+            for (id, scope, ciphertext) in page {
+                let aad = CredentialCipher::event_subscription_aad(scope, id);
+                self.record(Target::EventSubscription(id), &aad, &ciphertext)
+                    .await?;
+                after = Some(id);
+            }
+        }
         if let Some((_, ciphertext)) = self
             .store
             .payment_gateway_configuration()

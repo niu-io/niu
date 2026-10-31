@@ -62,6 +62,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         );
     for path in [
         "/login",
+        "/connect",
         "/installation",
         "/admin",
         "/admin/customers",

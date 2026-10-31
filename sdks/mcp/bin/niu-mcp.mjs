@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { prepareSigningSecret } from "./signing-secrets.mjs";
+import { credentialEnvironment } from "./credentials.mjs";
 import { readFileSync } from "node:fs";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
@@ -29,12 +31,12 @@ function isWithinRoot(rootPath, candidatePath) {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
 const hostedSource = readFileSync(new URL("../hosted/niu.io.json", import.meta.url), "utf8");
 
-start(process.argv.slice(2), process.env, {
+start(process.argv.slice(2), { ...process.env, NIU_API_KEY: process.env.NIU_API_KEY || "not-connected", NIU_BASE_URL: process.env.NIU_BASE_URL || (process.env.NIU_API_KEY?.trim() ? undefined : "https://niu.io/v1") }, {
+  resolveEnvironment: () => credentialEnvironment(process.env),
   hostedSource,
-  lines,
+  lines: readline.createInterface({ input: process.stdin, crlfDelay: Infinity }),
   write(line) {
     process.stdout.write(`${line}\n`);
   },
@@ -45,6 +47,7 @@ start(process.argv.slice(2), process.env, {
     redirect: "error",
     signal: AbortSignal.timeout(180_000),
   }),
+  prepareSigningSecret,
   async writeBinaryFile(targetPath, bytes) {
     if (typeof targetPath !== "string" || targetPath.trim() === "" || targetPath.includes("\0")) {
       throw new Error("output_path must be a valid file path");

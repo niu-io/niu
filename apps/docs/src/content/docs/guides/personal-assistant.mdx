@@ -1,0 +1,77 @@
+---
+title: Build with Niu
+description: Give your coding agent one setup prompt, authorize access in Niu and review working results.
+---
+
+Tell Claude Code, Codex or DeepSeek Harness what you want to accomplish. Niu gives your agent model information, authorized management and execution evidence. You set the goal and spending authority, sign in when needed, and review the results.
+
+This guide accompanies the **0.3 preview**. The agent must check [installation availability](/docs/install.md) before setup. The preview is not a published release; do not assume its packages or authorization endpoints are already available on every deployment.
+
+## Connect your agent
+
+Paste this into your coding agent:
+
+```text
+Install and configure Niu by following https://niu.io/docs/install.md.
+```
+
+The agent identifies its host, installs the supported integration and opens Niu's verification page. Sign in, match the displayed code, select your workspace and review the requested access and duration. The agent receives its credential privately, then checks current grants and available models itself. A successful installation or browser sign-in alone does not prove that connection is working.
+
+Do not carry passwords, session cookies, API keys or tool output through the conversation. If the deployment does not support the flow yet, the agent should explain the missing prerequisite. The older workspace-key setup remains an [optional manual reference](/docs/guides/mcp/).
+
+## Start from a runnable example
+
+The 0.3 source includes `examples/personal-assistant`: a WebApp that turns meeting notes into an action plan and an editable follow-up draft. It saves results on its backend so you can reopen them. Nothing is sent on your behalf.
+
+Give your agent this task after connecting:
+
+```text
+Run the personal-assistant source example from the Niu 0.3 checkout.
+Read its README, install dependencies and start the app. Give me its URL.
+Use the included sample notes and acceptance reference to demonstrate it.
+Before paid testing, agree with me on candidate models, acceptance criteria,
+maximum requests and a spending budget. Retrieve Niu evidence yourself.
+Keep application credentials on the server and outside Git and conversation;
+do not reuse an expiring agent-management credential as a production app key.
+Show that an edited result survives an app restart.
+```
+
+The [source example](https://github.com/niu-io/niu/tree/main/examples/personal-assistant) and [application spec](/docs/specs/personal-assistant.md) are part of this source delivery; the public repository link becomes usable when that source is published. Running the example is also work your coding agent can do. A separate installation tutorial for its dependencies is unnecessary.
+
+Once it runs, load the sample notes, generate a result within the agreed budget, edit it and save. Restart the app and reopen the saved result. Then tell the agent which tasks you actually want it to handle. External services such as mail or calendars need their own connections and authority.
+
+## Work in reviewable steps
+
+For a new application, give the agent [the full spec](/docs/specs/personal-assistant.md) and your requirements:
+
+```text
+Build the application described in SPEC.md with Niu.
+My tasks: [two or three concrete things I want to accomplish].
+A good result: [example input and acceptable output].
+My waiting-time target: [target].
+My test authority: [candidate models, maximum requests and budget/currency].
+
+Use Niu directly. Show me a working result at each checkpoint in the spec.
+Keep unknown costs explicit. Ask before expanding the paid workload or authority.
+```
+
+The checkpoints are a running application, a model choice backed by task samples, and a persistent result you can revisit. You review whether the result is useful; the agent handles configuration, source changes, verification and diagnostics.
+
+The agent can discover prices and capabilities, record attributed evaluations, compare matched samples and manage a workspace model pool **when those capabilities are available and explicitly delegated**. Published token prices alone do not establish value. Unknown or owner-funded costs are not zero. Niu does not guarantee the best model or successful task completion.
+
+## Review and improve
+
+Your workspace provides **Model pools**, **Evaluations**, **Event subscriptions**, **Logs** and **Activity**. Use them to inspect saved policy revisions, task judgments, current notification authority, request performance and customer charges. You can still try models directly through Models and Generations.
+
+The agent should read this evidence itself. Give feedback about the outcome:
+
+```text
+The action plan is useful, but the follow-up draft is too slow.
+Use our existing Niu evaluation and request evidence to propose an improvement.
+Keep the same acceptance samples and remain within our approved test scope.
+Verify the change against the baseline and show me the working app.
+```
+
+For continuous feedback, an authorized agent can subscribe to model-pool changes and recorded evaluations. A notification is not permission for more paid work, and delivery does not guarantee a sleeping host will wake. Keep the goal, acceptance criteria and spending authority explicit.
+
+Your agent can consult the [capability map](/docs/agents.md), [pool workflow](/docs/pools.md), [evaluation workflow](/docs/evaluations.md), [event workflow](/docs/events.md) and generated API/SDK references as needed. You do not need to read them to use this workflow.

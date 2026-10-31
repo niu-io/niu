@@ -78,6 +78,18 @@ Location: **header**. Optional. Optional opaque task correlation key. Requests w
 }
 ```
 
+### x-niu-evaluation
+
+Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.
+
+```json
+{
+  "type": "string",
+  "maxLength": 200,
+  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+}
+```
+
 ## Request body
 
 ### application/json

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mediaPriceExample } from '../../src/lib/media-price';
+import { mediaPriceExample } from '../../app/lib/media-price';
 describe('media price examples',()=>{
   it('preserves sub-cent prices without floating point',()=>expect(mediaPriceExample('0.00000007',9,'1000000','0','1000000','HalfEven')).toBe('0.000000070'));
   it('applies a minimum floor rather than adding it',()=>expect(mediaPriceExample('2',2,'10','20','10','HalfEven')).toBe('4.00'));

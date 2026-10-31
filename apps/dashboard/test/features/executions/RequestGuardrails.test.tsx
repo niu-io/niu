@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import RequestGuardrails from '../../../src/features/executions/components/RequestGuardrails';
+import RequestGuardrails from '../../../app/features/executions/components/RequestGuardrails';
 const decision = { stage: 'dispatch', outcome: 'allowed', coverage: 'model_provider_access', workspace_policy_name: 'Saved restriction', workspace_revision: 4, key_policy_name: null, key_policy_revision: null, input_inspection: { outcome: 'redacted', elapsed_ms: 1 }, output_inspection: { outcome: 'blocked', reason: 'pattern_denial', elapsed_ms: 2 } };
 function view(endpoint = '/scoped/requests/attempt/guardrails') { return <MemoryRouter><RequestGuardrails token="reader" endpoint={endpoint} historyPath="/workspaces/demo/guardrails/history" /></MemoryRouter>; }
 describe('request Guardrails diagnosis', () => {

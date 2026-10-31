@@ -35,6 +35,10 @@ impl ApiError {
             niu_storage::StoreError::InvalidVendor => {
                 Self::invalid_request("Invalid vendor or model configuration")
             }
+            niu_storage::StoreError::EvaluationBindingMismatch => Self::invalid_request(
+                "Evaluation sample does not match the pinned definition or effective request fingerprint. Inspect the evaluation revision and sample before retrying.",
+            ),
+            niu_storage::StoreError::EvaluationGrantRequired => Self::forbidden(),
             niu_storage::StoreError::InvalidObservation => Self::invalid_request(
                 "Invalid execution record version, graph, identifiers or size",
             ),
@@ -152,6 +156,7 @@ impl ApiError {
                 kind: "reconciliation_required",
                 message: "Execution or usage evidence remains unresolved",
             },
+            niu_storage::StoreError::AgentAuthorizationPollLimited => Self::sign_in_limited(),
             niu_storage::StoreError::Unauthorized => Self::unauthorized(),
             niu_storage::StoreError::InvalidAccount => {
                 Self::invalid_request("Invalid account or quota configuration")

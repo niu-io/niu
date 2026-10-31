@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import OverviewRoute from '../../../src/features/overview/page';
-import ModelsRoute from '../../../src/features/models/page';
-import { SidebarProvider } from '../../../src/components/ui/sidebar';
-import type { DashboardContext } from '../../../src/app/dashboard-context';
+import OverviewRoute from '../../../app/features/overview/page';
+import ModelsRoute from '../../../app/features/models/page';
+import { SidebarProvider } from '../../../app/components/ui/sidebar';
+import type { DashboardContext } from '../../../app/shell/dashboard-context';
 
 const fixture = vi.hoisted(() => ({ context: {} as DashboardContext }));
-vi.mock('../../../src/app/dashboard-context', () => ({ useDashboardContext: () => fixture.context }));
-vi.mock('../../../src/features/executions/components/GatewayActivity', () => ({ default: () => <div>Customer activity</div> }));
+vi.mock('../../../app/shell/dashboard-context', () => ({ useDashboardContext: () => fixture.context }));
+vi.mock('../../../app/features/executions/components/GatewayActivity', () => ({ default: () => <div>Customer activity</div> }));
 
 describe('customer model workflow', () => {
   it('lets an installation administrator connect the first upstream route', () => {

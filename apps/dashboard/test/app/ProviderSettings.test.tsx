@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import ProviderSettings from '@/features/provider-business/ProviderSettings';
-vi.mock('@/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'test' }) }));
+vi.mock('@/shell/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'test' }) }));
 it('loads saved provider identity, saves with revision and refreshes navigation', async () => {
   let profile = { name: 'Provider', description: 'Existing description', website_url: 'https://example.com', logo_url: '', revision: 2 };
   const fetch = vi.fn(async (_url: string, init: RequestInit) => {

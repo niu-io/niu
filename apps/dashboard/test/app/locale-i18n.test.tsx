@@ -8,15 +8,15 @@ import {
   normalizeLocale,
   readLocale,
   saveLocale,
-} from '@/app/locale';
-import { BrandingProvider } from '@/app/branding';
+} from '@/shell/locale';
+import { BrandingProvider } from '@/shell/branding';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import AccountMenu from '@/app/AccountMenu';
+import AccountMenu from '@/shell/AccountMenu';
 import { SettingsDialog } from '@/features/account/settings-page';
 import LoginRoute from '@/features/login/page';
 import PublicHeader from '../../../docs/src/components/PublicHeader';
 import WorkspaceKeyConnection from '../../../docs/src/components/live-api/WorkspaceKeyConnection';
-import type { DashboardContext } from '@/app/dashboard-context';
+import type { DashboardContext } from '@/shell/dashboard-context';
 
 function stubDashboardContext(overrides: Partial<DashboardContext> = {}): DashboardContext {
   return {
@@ -124,7 +124,7 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
 
     render(<PublicHeader path="/docs/quickstart/" />);
     expect(screen.getByRole('link', { name: 'Niu home' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Why Niu?' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Blog' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
 
     expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('EN');
@@ -136,7 +136,7 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
     expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('中文');
     expect(screen.getByRole('link', { name: 'Niu 牛元首页' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '为什么选择牛元？' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '博客' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '文档' })).toBeTruthy();
   });
 

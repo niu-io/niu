@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { expect, it, vi } from 'vitest';
-import HelpPage from '../../../src/features/help/page';
+import HelpPage from '../../../app/features/help/page';
 
 it('loads deep links directly and keeps the iframe source stable when navigating', async () => {
   const router = createMemoryRouter([{ path: '/help/*', Component: HelpPage }], { initialEntries: ['/help/getting-started/?q=test#requirements'] });

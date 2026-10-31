@@ -2,8 +2,8 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
-@source '../../../dashboard/src/components/ui/button.tsx';
-@source '../../../dashboard/src/components/ui/dropdown-menu.tsx';
+@source '../../../dashboard/app/components/ui/button.tsx';
+@source '../../../dashboard/app/components/ui/dropdown-menu.tsx';
 @source '../../../docs/src/components/ThemeMenu.tsx';
 @source '../../../docs/src/components/PublicNavigationMenu.tsx';
 @source '../components/SiteHeader.astro';
@@ -17,11 +17,11 @@
 
 @source '../../../docs/src/components/PublicHeader.tsx';
 
-@source '../../../dashboard/src/components/ui/input.tsx';
-@source '../../../dashboard/src/components/ui/badge.tsx';
+@source '../../../dashboard/app/components/ui/input.tsx';
+@source '../../../dashboard/app/components/ui/badge.tsx';
 @source '../components/PublicModelCatalog.tsx';
-@source '../../../dashboard/src/components/ui/tabs.tsx';
-@source '../../../dashboard/src/components/ui/skeleton.tsx';
+@source '../../../dashboard/app/components/ui/tabs.tsx';
+@source '../../../dashboard/app/components/ui/skeleton.tsx';
 @theme inline {
  --color-input:var(--input); --color-primary:var(--primary); --color-primary-foreground:var(--primary-foreground);
  --color-secondary:var(--secondary); --color-secondary-foreground:var(--secondary-foreground); --color-muted:var(--muted);

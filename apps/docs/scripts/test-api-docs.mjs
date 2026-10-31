@@ -163,3 +163,41 @@ test('workspace aliases preserve payload contracts and require qualified session
    }
  }
 });
+
+test('workspace pool documentation distinguishes delegated read, preview and mutation authority', async () => {
+  const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
+  for (const [path, method, grant] of [
+    ['/v1/pools', 'get', 'pools:read'],
+    ['/v1/pools/preview', 'post', 'pools:read'],
+    ['/v1/pools/{slug}', 'put', 'pools:write'],
+    ['/v1/pools/{slug}/selections', 'get', 'pools:read'],
+  ]) assert.deepEqual(deriveOperationAuthority(path, method, { security: [{ bearerAuth: [] }] }), {
+    audience: 'model', principals: ['workspace_api_key'], required_capability: grant, scope: 'workspace',
+  });
+});
+test('event documentation keeps subscription writes and targeted tests separate from reads/inference', async () => {
+  const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
+  for (const [path, method, capability] of [
+    ['/v1/events', 'get', 'events:read'], ['/v1/events/log', 'get', 'events:read'],
+    ['/v1/events/{slug}', 'put', 'events:write'], ['/v1/events/{slug}/test', 'post', 'events:write'],
+  ]) assert.equal(deriveOperationAuthority(path, method, { security: [{ bearerAuth: [] }] }).required_capability, capability);
+});
+test('evaluation docs separate non-dispatching fingerprints from evidence writes', async () => {
+  const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
+  for (const [path,method,capability] of [
+    ['/v1/evaluations','get','evaluations:read'],
+    ['/v1/evaluations/fingerprint','post','evaluations:read'],
+    ['/v1/evaluations/{slug}','put','evaluations:write'],
+    ['/v1/evaluations/{slug}/runs','post','evaluations:write'],
+    ['/v1/evaluations/{slug}/attempts','get','evaluations:read'],
+  ]) assert.equal(deriveOperationAuthority(path,method,{security:[{bearerAuth:[]}]}).required_capability,capability);
+});
+test('human management review requires member Read rather than delegated inference authority', async () => {
+  const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
+  for (const resource of ['pools','events','evaluations']) {
+    const authority=deriveOperationAuthority(`/api/v1/workspaces/{workspace}/${resource}`,'get',{security:[{bearerAuth:[]}]});
+    assert.deepEqual(authority.principals,['operator_session','installation_admin']);
+    assert.equal(authority.required_capability,'read');
+    assert.equal(authority.scope,'workspace');
+  }
+});

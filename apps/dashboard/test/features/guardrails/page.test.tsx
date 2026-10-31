@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Link, MemoryRouter, Route, Routes } from "react-router";
-import GuardrailsRoute from "../../../src/features/guardrails/page";
-import type { DashboardContext } from "../../../src/app/dashboard-context";
+import GuardrailsRoute from "../../../app/features/guardrails/page";
+import type { DashboardContext } from "../../../app/shell/dashboard-context";
 
 const fixture = vi.hoisted(() => ({ context: {} as DashboardContext }));
-vi.mock("../../../src/app/dashboard-context", () => ({
+vi.mock("../../../app/shell/dashboard-context", () => ({
   useDashboardContext: () => fixture.context,
 }));
 

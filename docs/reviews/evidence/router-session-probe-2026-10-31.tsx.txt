@@ -1,0 +1,28 @@
+import {it,vi,expect} from 'vitest';
+import {act,render,screen,waitFor} from '@testing-library/react';
+import {createMemoryRouter,RouterProvider} from 'react-router';
+import AppLayout from '../../app/shell/AppLayout';
+import {useDashboardContext} from '../../app/shell/dashboard-context';
+function Probe(){const c=useDashboardContext();return <div data-testid="identity-probe">{c.session?.operator?.id}|{c.workspace?.name}|{c.workspaces.map(w=>w.name).join(',')}</div>}
+it('reviews a returning browser tab after its cookie identity changes',async()=>{
+ let who='alice';let workspaceReads=0;
+ vi.stubGlobal('fetch',vi.fn(async(input)=>{
+ const p=String(input);
+ if(p==='/api/v1/auth/config')return Response.json({password_login:true});
+ if(p==='/healthz')return Response.json({status:'ok',model_count:0});
+ if(p==='/api/v1/session')return Response.json({data:{kind:'operator',operator:{id:who,role:'viewer',organization_id:'org-'+who,project_id:'ws-'+who},permissions:{read:true,write:false,manage_operators:false},provider_memberships:[]}});
+ if(p==='/api/v1/workspaces'){workspaceReads++;return Response.json({data:[{id:'ws-'+who,slug:'space-'+who,name:'Private '+who,organization_id:'org-'+who,organization_name:who}]});}
+ if(p==='/api/v1/organizations')return Response.json({data:[{id:'org-'+who,name:who}]});
+ if(p.startsWith('/api/v1/payments/readiness'))return Response.json({data:{ready:true,reason:null}});
+ return Response.json({data:[]});
+ }));
+ const router=createMemoryRouter([{element:<AppLayout/>,children:[{path:'workspaces/:workspace',element:<Probe/>}]}],{initialEntries:['/workspaces/default']});
+ render(<RouterProvider router={router}/>);
+ await waitFor(()=>expect(screen.getByTestId('identity-probe').textContent).toContain('alice|Private alice'));
+ who='bob';
+ await act(async()=>{window.dispatchEvent(new Event('focus'))});
+ await waitFor(()=>expect(screen.getByTestId('identity-probe').textContent).toContain('bob|'));
+ console.log('IDENTITY_REVIEW',screen.getByTestId('identity-probe').textContent,'workspace fetches',workspaceReads);
+ expect(screen.getByTestId('identity-probe').textContent).toContain('Private alice');
+ expect(workspaceReads).toBe(1);
+});

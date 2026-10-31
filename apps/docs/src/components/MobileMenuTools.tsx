@@ -1,7 +1,7 @@
 import { IconSearch } from '@tabler/icons-react';
-import { Button } from '../../../dashboard/src/components/ui/button';
+import { Button } from '../../../dashboard/app/components/ui/button';
 import ThemeMenu from './ThemeMenu';
-import { useLocale } from '../../../dashboard/src/app/locale';
+import { useLocale } from '../../../dashboard/app/shell/locale';
 
 export default function MobileMenuTools() {
   useLocale();

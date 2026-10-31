@@ -2,6 +2,9 @@
 // Ordered rules classify the existing API; they do not rename wire contracts.
 const groups = [
   ['Model APIs', [
+    ['Workspace resource events', 'Delegated subscriptions, signed notifications, event reconciliation and delivery evidence.', '^/v1/events(?:/|$)'],
+    ['Evaluations', 'Attributed task judgments, verified inputs, customer-charge evidence and matched comparisons.', '^/v1/evaluations(?:/|$)'],
+    ['Workspace model pools', 'Customer-owned model policies and execution selections. Explicit delegated capabilities are required; these are separate from platform supply pools.', '^/v1/pools(?:/|$)'],
     ['Model discovery', 'Discover models and their published capabilities.', '^/(?:v1/models|catalog/v1/models|api/v1/models)$'],
     ['Chat completions', 'OpenAI-compatible Chat requests, including dashboard-key invocation.', '/chat/completions$'],
     ['Responses', 'Responses API requests.', '^/v1/responses$'],
@@ -20,6 +23,7 @@ const groups = [
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],
   ['Workspaces and content', [
+    ['Agent management review', 'Read-only member review of agent-managed pools, event subscriptions and evaluation evidence.', '^/api/v1/workspaces/[^/]+/(?:pools|events|evaluations)(?:/|$)'],
     ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/[^/]+/projects(?:/[^/]+)?)?$)'],
     ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chats(?:/|$)'],
     ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/(?:projects|workspaces)/[^/]+/(?:generations(?:/|$)|sessions(?:/|$)|tasks(?:/|$)|artifacts(?:/|$)|video/(?:draft|intents))'],
@@ -55,6 +59,15 @@ export function deriveOperationAuthority(path, method, operation) {
       required_capability: 'public',
       scope: 'installation',
     };
+  }
+  if (/^\/v1\/evaluations(?:\/|$)/.test(path)) {
+    return { audience: 'model', principals: ['workspace_api_key'], required_capability: method === 'put' || (method === 'post' && path.endsWith('/runs')) ? 'evaluations:write' : 'evaluations:read', scope: 'workspace' };
+  }
+  if (/^\/v1\/events(?:\/|$)/.test(path)) {
+    return { audience: 'model', principals: ['workspace_api_key'], required_capability: ['put','post'].includes(method) ? 'events:write' : 'events:read', scope: 'workspace' };
+  }
+  if (/^\/v1\/pools(?:\/|$)/.test(path)) {
+    return { audience: 'model', principals: ['workspace_api_key'], required_capability: method === 'put' ? 'pools:write' : 'pools:read', scope: 'workspace' };
   }
   if (/^\/(?:v1|v1beta)(?:\/|$)/.test(path)) {
     return {

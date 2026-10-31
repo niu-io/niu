@@ -1,9 +1,9 @@
-vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
+vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import MediaRatePublisher from '../../../src/features/provider-business/MediaRatePublisher';
-import MediaRateHistory from '../../../src/features/provider-business/MediaRateHistory';
+import MediaRatePublisher from '../../../app/features/provider-business/MediaRatePublisher';
+import MediaRateHistory from '../../../app/features/provider-business/MediaRateHistory';
 const organization = '11111111-1111-4111-8111-111111111111';
 const vendor = '22222222-2222-4222-8222-222222222222';
 const endpoint = `/api/v1/organizations/${organization}/billing`;

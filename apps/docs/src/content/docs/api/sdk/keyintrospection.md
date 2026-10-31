@@ -9,6 +9,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type KeyIntrospection = {
+    management_capabilities?: AgentManagementCapability[];
     object: 'api_key';
     label: string;
     allowed_models: string[];

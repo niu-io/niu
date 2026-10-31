@@ -2,9 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BrandingProvider, defaultBranding, parseBranding, previewPalette } from '../../src/app/branding';
-import { applyTheme, setDeploymentPalette } from '../../src/app/theme';
-import BrandingPage from '../../src/features/branding/page';
+import { BrandingProvider, defaultBranding, parseBranding, previewPalette } from '../../app/shell/branding';
+import { applyTheme, setDeploymentPalette } from '../../app/shell/theme';
+import BrandingPage from '../../app/features/branding/page';
 
 // Vitest stubs CSS imports. Use the real checked-in token source for preview
 // resolution; browser verification separately exercises Vite's raw import.

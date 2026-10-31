@@ -35,6 +35,16 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
         Self::insert_route_generation(&mut *tx, attempt, admission.route_generation).await?;
+        if let Some(binding) = &admission.evaluation {
+            Self::insert_evaluation_binding_in_tx(
+                &mut tx,
+                scope,
+                principal.key_id(),
+                attempt,
+                binding,
+            )
+            .await?;
+        }
         if let Some(route) = &admission.managed_route {
             Self::insert_managed_route(&mut *tx, attempt, route).await?;
         }

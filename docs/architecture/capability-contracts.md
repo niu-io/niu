@@ -1,5 +1,7 @@
 # Capability and adapter contracts
 
+Coding-agent client plugins are a separate integration layer, governed by the [agent-oriented principles](../product/agent-oriented-principles.md). The server-side hooks and observers below do not establish agent host integration or a customer event-subscription API.
+
 Status: the unified Rust Plugin API (`niu.plugin.v1`, backward-compatible with `niu.extension.v1`) is implemented in `crates/plugin-api` alongside the service helper runtime in `crates/plugin-sdk`. Built-in open-source plugins in `plugins/hello-echo`, `plugins/request-tagger`, and `plugins/webhook-audit`, together with the synthetic reference fixture in `tests/extensions/reference-extension`, implement and exercise each capability.
 
 ## Role in the unified Plugin architecture

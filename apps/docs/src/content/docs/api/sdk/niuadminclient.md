@@ -15,6 +15,96 @@ Generated from the checked-in source. Do not edit this reference by hand.
 constructor(options: NiuAdminOptions);
 ```
 
+### listWorkspaceReviewPools
+
+```typescript
+/** Read-only member review; no workspace API key or agent delegation required. */
+listWorkspaceReviewPools(workspace: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').WorkspaceModelPool>>;
+```
+
+### getWorkspaceReviewPool
+
+```typescript
+getWorkspaceReviewPool(workspace: string, slug: string, options?: RequestOptions): Promise<{
+    data: import('./index.js').WorkspaceModelPool;
+}>;
+```
+
+### getWorkspaceReviewPoolHistory
+
+```typescript
+getWorkspaceReviewPoolHistory(workspace: string, slug: string, before?: number, options?: RequestOptions): Promise<{
+    data: import('./index.js').WorkspaceModelPool[];
+    next_before: number | null;
+}>;
+```
+
+### getWorkspaceReviewPoolSelections
+
+```typescript
+getWorkspaceReviewPoolSelections(workspace: string, slug: string, options?: RequestOptions): Promise<{
+    data: import('./index.js').WorkspacePoolSelection[];
+}>;
+```
+
+### listWorkspaceReviewSubscriptions
+
+```typescript
+listWorkspaceReviewSubscriptions(workspace: string, options?: RequestOptions): Promise<{
+    data: import('./index.js').EventSubscription[];
+    limit: 32;
+}>;
+```
+
+### getWorkspaceReviewSubscription
+
+```typescript
+getWorkspaceReviewSubscription(workspace: string, slug: string, options?: RequestOptions): Promise<{
+    data: import('./index.js').EventSubscription;
+    processed_cursor: string;
+    authorization_active: boolean;
+}>;
+```
+
+### getWorkspaceReviewDeliveries
+
+```typescript
+getWorkspaceReviewDeliveries(workspace: string, slug: string, options?: RequestOptions): Promise<{
+    data: import('./index.js').EventDelivery[];
+    limit: 100;
+}>;
+```
+
+### listWorkspaceReviewEvaluations
+
+```typescript
+listWorkspaceReviewEvaluations(workspace: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').EvaluationDefinition>>;
+```
+
+### getWorkspaceReviewEvaluation
+
+```typescript
+getWorkspaceReviewEvaluation(workspace: string, slug: string, revision?: number, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition>;
+```
+
+### listWorkspaceReviewEvaluationRuns
+
+```typescript
+listWorkspaceReviewEvaluationRuns(workspace: string, slug: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').EvaluationRunBrief>>;
+```
+
+### getWorkspaceReviewEvaluationRun
+
+```typescript
+getWorkspaceReviewEvaluationRun(workspace: string, slug: string, run: string, options?: RequestOptions): Promise<import('./index.js').EvaluationReceipt>;
+```
+
+### compareWorkspaceReviewEvaluationRuns
+
+```typescript
+compareWorkspaceReviewEvaluationRuns(workspace: string, slug: string, left: string, right: string, options?: RequestOptions): Promise<import('./index.js').EvaluationComparison>;
+```
+
 ### createOperatorIdentity
 
 ```typescript

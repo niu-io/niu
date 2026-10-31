@@ -1,11 +1,11 @@
-vi.mock('../../../src/app/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
+vi.mock('../../../app/shell/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import CustomerPricingRoute from '../../../src/features/customer-pricing/page';
+import CustomerPricingRoute from '../../../app/features/customer-pricing/page';
 
-vi.mock('../../../src/app/dashboard-context', () => ({useDashboardContext: () => ({token:'test-session',models:[{id:'example/model'}]})}));
+vi.mock('../../../app/shell/dashboard-context', () => ({useDashboardContext: () => ({token:'test-session',models:[{id:'example/model'}]})}));
 const target = {organization_id:'internal-company',organization_name:'Example company',workspace_id:'internal-workspace',workspace_name:'Application'};
 const price = {model_alias:'example/model',revision:'internal-revision',currency:'USD',prompt_rate:'1',completion_rate:'1600000000',cached_prompt_rate:'0',reasoning_completion_rate:'2500000000',request_fee_nanos:'7',minimum_charge_nanos:'9',created_at:'2026-10-11T00:00:00Z'};
 const base='/api/v1/pricing/organizations/internal-company/workspaces/internal-workspace/tariffs';

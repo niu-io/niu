@@ -295,7 +295,7 @@ impl Store {
         Ok(())
     }
 
-    async fn issue_key_with_expiry_in_tx(
+    pub(crate) async fn issue_key_with_expiry_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: TenantScope,
         name: &str,

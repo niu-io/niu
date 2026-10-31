@@ -1,6 +1,6 @@
 import {act,renderHook,waitFor} from '@testing-library/react';
 import {expect,it,vi} from 'vitest';
-import {usePaymentReadiness} from '@/app/payment-readiness';
+import {usePaymentReadiness} from '@/shell/payment-readiness';
 
 it('fails closed for missing, malformed and failed readiness, then recovers after setup',async()=>{
  let body:unknown={data:{ready:false,reason:'payment_setup_required'}};

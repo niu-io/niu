@@ -1,11 +1,11 @@
 import { StrictMode } from 'react';
-import { useGatewayConnection } from '../../src/app/useGatewayConnection';
+import { useGatewayConnection } from '../../app/shell/useGatewayConnection';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { expect, it, vi } from 'vitest';
-import LoginRoute from '../../src/features/login/page';
-import AppLayout from '../../src/app/AppLayout';
+import LoginRoute from '../../app/features/login/page';
+import AppLayout from '../../app/shell/AppLayout';
 
 it('detects a later proxy outage and restores the same page without losing its draft', async () => {
   let online = true;

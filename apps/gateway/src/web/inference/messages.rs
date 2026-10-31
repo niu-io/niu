@@ -39,6 +39,17 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "2023-06-01"
 ///           ]
 ///         }
+///       },
+///       {
+///         "name": "x-niu-evaluation",
+///         "in": "header",
+///         "required": false,
+///         "description": "Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 200,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -842,8 +853,8 @@ async fn execute(
     let mut validated = validate(&body)?;
     let bound = validated.bound;
     let streaming = body.get("stream").and_then(Value::as_bool) == Some(true);
-    let public_model = body["model"].as_str().unwrap().to_owned();
-    if !principal.allows_model(&public_model) {
+    let mut public_model = body["model"].as_str().unwrap().to_owned();
+    if !public_model.starts_with("pool/") && !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
     // Native streaming is an independent capability, including on Anthropic
@@ -858,180 +869,201 @@ async fn execute(
         requested_output_tokens: body.get("max_tokens").and_then(Value::as_u64),
         ..Default::default()
     };
-    let resolved = crate::vendors::resolve_scoped_model(
-        state,
-        principal.scope().organization_id,
-        &public_model,
-        Protocol::Messages,
-        Some(&requirements),
-    )
-    .await?;
-    let model = &resolved.model;
-    if !model.supports_messages || !matches!(model.provider.as_str(), "openrouter" | "anthropic") {
-        return Err(ApiError::unsupported_message(
-            "This route does not declare native Messages support",
-        ));
-    }
-    if validated.tools_requested && !model.supports_messages_tools {
-        return Err(ApiError::unsupported_message(
-            "This route does not declare native Messages tools support",
-        ));
-    }
-    if streaming && validated.tools_requested && !model.supports_messages_streaming_tools {
-        return Err(ApiError::unsupported_message(
-            "This route does not declare streaming Messages tools support",
-        ));
-    }
-    if streaming && !model.supports_messages_streaming {
-        return Err(ApiError::unsupported_message(
-            "This route does not declare streaming Messages support",
-        ));
-    }
-    let snapshot = inspect_request_input(
+    let selection = crate::web::workspace_pools::select_for_request(
         state,
         &principal,
-        &public_model,
-        model,
-        Protocol::Messages,
+        &mut public_model,
         &mut body,
+        Protocol::Messages,
+        &requirements,
     )
     .await?;
-    if snapshot.input_outcome.as_deref() == Some("redacted") {
-        validated = validate(&body)?;
-    }
-    if let Some(price) = &model.pricing
-        && (bound > price.max_output_tokens
-            || validated.serialized_len > price.max_input_tokens as usize)
-    {
-        return Err(ApiError::invalid_request(
-            "Messages request exceeds the priced route's conservative input or output bound",
-        ));
-    }
-    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    let endpoint = format!(
-        "{}/messages",
-        model
-            .endpoint_base()
-            .ok_or_else(ApiError::unavailable)?
-            .trim_end_matches('/')
-    );
-    let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
-        .await
-        .map_err(ApiError::from_endpoint)?;
-    let task_id = request_task_id(headers)?;
-    state.requests.fetch_add(1, Ordering::Relaxed);
-    let dispatch = begin_attempt(
-        state,
-        &principal,
-        AttemptRequest {
-            route_generation: resolved.route_generation,
-            managed_route: resolved.managed_route.as_ref(),
-            personal_route: resolved.personal_route.as_ref(),
-            public_model: &public_model,
-            model,
-            completion_bound: Some(bound),
-            task_id: task_id.as_deref(),
-            snapshot,
-            request_body: &body,
-            protocol: Protocol::Messages,
-        },
-    )
-    .await?;
-    body["model"] = json!(model.upstream_model);
-    let request = client
-        .post(endpoint)
-        .timeout(timeout)
-        .header("anthropic-version", "2023-06-01")
-        .header(
-            "accept",
-            if streaming {
-                "text/event-stream"
-            } else {
-                "application/json"
-            },
-        );
-    let request = if model.provider == "anthropic" {
-        request.header("x-api-key", &resolved.api_key)
-    } else {
-        request.bearer_auth(&resolved.api_key)
-    };
-    let tool_definitions = validated.tool_definitions;
-    let usage_attempt = state.usage.begin();
     let result = async {
-        let response = request
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| ApiError::upstream_transport(&e))?;
-        retain_openrouter_reference(
+        let resolved = crate::vendors::resolve_scoped_model(
             state,
-            dispatch.scope,
-            dispatch.attempt,
-            model,
-            resolved.managed_route.is_some(),
-            response.headers(),
+            principal.scope().organization_id,
+            &public_model,
+            Protocol::Messages,
+            Some(&requirements),
         )
-        .await;
-        if !response.status().is_success() {
-            return Err(provider_rejection(response).await);
-        }
-        if streaming {
-            if response
-                .headers()
-                .get("content-type")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.split(';').next())
-                .is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream"))
-            {
-                return Err(ApiError::upstream_invalid_response());
-            }
-            let mut response = Response::new(crate::streaming::tracked_messages_body(
-                response.bytes_stream(),
-                crate::streaming::StreamAttempt {
-                    store: state.store.clone(),
-                    gateway_writes: state.gateway_writes.clone(),
-                    diagnostic_writes: state.diagnostic_writes.clone(),
-                    scope: dispatch.scope,
-                    id: dispatch.attempt,
-                    priced: dispatch.priced,
-                    usage: usage_attempt,
-                    failures: state.failures.clone(),
-                },
-                public_model.clone(),
-                crate::native_messages_tools::StreamTools::from_definitions(
-                    tool_definitions,
-                    &body,
-                ),
+        .await?;
+        let model = &resolved.model;
+        if !model.supports_messages
+            || !matches!(model.provider.as_str(), "openrouter" | "anthropic")
+        {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare native Messages support",
             ));
-            response
-                .headers_mut()
-                .insert("content-type", "text/event-stream".parse().unwrap());
-            response
-                .headers_mut()
-                .insert("cache-control", "no-store".parse().unwrap());
-            return Ok(ProviderResponse {
-                response,
-                completed: false,
-                usage: None,
-                token_categories: None,
-                provider_model: None,
-                finish_reasons: None,
-            });
         }
-        let value = provider_json(response)
+        if validated.tools_requested && !model.supports_messages_tools {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare native Messages tools support",
+            ));
+        }
+        if streaming && validated.tools_requested && !model.supports_messages_streaming_tools {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare streaming Messages tools support",
+            ));
+        }
+        if streaming && !model.supports_messages_streaming {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare streaming Messages support",
+            ));
+        }
+        let snapshot = inspect_request_input(
+            state,
+            &principal,
+            &public_model,
+            model,
+            Protocol::Messages,
+            &mut body,
+        )
+        .await?;
+        if snapshot.input_outcome.as_deref() == Some("redacted") {
+            validated = validate(&body)?;
+        }
+        if let Some(price) = &model.pricing
+            && (bound > price.max_output_tokens
+                || validated.serialized_len > price.max_input_tokens as usize)
+        {
+            return Err(ApiError::invalid_request(
+                "Messages request exceeds the priced route's conservative input or output bound",
+            ));
+        }
+        let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
+        let endpoint = format!(
+            "{}/messages",
+            model
+                .endpoint_base()
+                .ok_or_else(ApiError::unavailable)?
+                .trim_end_matches('/')
+        );
+        let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
             .await
-            .map_err(|_| ApiError::upstream_invalid_response())?;
-        let response = normalize(value, &public_model, &body, tool_definitions.as_deref())?;
-        if let Some((prompt, completion)) = response.usage {
-            usage_attempt.report(&json!({"prompt_tokens":prompt,"completion_tokens":completion}));
+            .map_err(ApiError::from_endpoint)?;
+        let task_id = request_task_id(headers)?;
+        state.requests.fetch_add(1, Ordering::Relaxed);
+        let dispatch = begin_attempt(
+            state,
+            &principal,
+            AttemptRequest {
+                headers: &headers,
+                route_generation: resolved.route_generation,
+                managed_route: resolved.managed_route.as_ref(),
+                personal_route: resolved.personal_route.as_ref(),
+                public_model: &public_model,
+                model,
+                completion_bound: Some(bound),
+                task_id: task_id.as_deref(),
+                snapshot,
+                request_body: &body,
+                protocol: Protocol::Messages,
+            },
+        )
+        .await?;
+        body["model"] = json!(model.upstream_model);
+        let request = client
+            .post(endpoint)
+            .timeout(timeout)
+            .header("anthropic-version", "2023-06-01")
+            .header(
+                "accept",
+                if streaming {
+                    "text/event-stream"
+                } else {
+                    "application/json"
+                },
+            );
+        let request = if model.provider == "anthropic" {
+            request.header("x-api-key", &resolved.api_key)
+        } else {
+            request.bearer_auth(&resolved.api_key)
+        };
+        let tool_definitions = validated.tool_definitions;
+        let usage_attempt = state.usage.begin();
+        let result = async {
+            let response = request
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| ApiError::upstream_transport(&e))?;
+            retain_openrouter_reference(
+                state,
+                dispatch.scope,
+                dispatch.attempt,
+                model,
+                resolved.managed_route.is_some(),
+                response.headers(),
+            )
+            .await;
+            if !response.status().is_success() {
+                return Err(provider_rejection(response).await);
+            }
+            if streaming {
+                if response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.split(';').next())
+                    .is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream"))
+                {
+                    return Err(ApiError::upstream_invalid_response());
+                }
+                let mut response = Response::new(crate::streaming::tracked_messages_body(
+                    response.bytes_stream(),
+                    crate::streaming::StreamAttempt {
+                        store: state.store.clone(),
+                        gateway_writes: state.gateway_writes.clone(),
+                        diagnostic_writes: state.diagnostic_writes.clone(),
+                        scope: dispatch.scope,
+                        id: dispatch.attempt,
+                        priced: dispatch.priced,
+                        usage: usage_attempt,
+                        failures: state.failures.clone(),
+                    },
+                    public_model.clone(),
+                    crate::native_messages_tools::StreamTools::from_definitions(
+                        tool_definitions,
+                        &body,
+                    ),
+                ));
+                response
+                    .headers_mut()
+                    .insert("content-type", "text/event-stream".parse().unwrap());
+                response
+                    .headers_mut()
+                    .insert("cache-control", "no-store".parse().unwrap());
+                return Ok(ProviderResponse {
+                    response,
+                    completed: false,
+                    usage: None,
+                    token_categories: None,
+                    provider_model: None,
+                    finish_reasons: None,
+                });
+            }
+            let value = provider_json(response)
+                .await
+                .map_err(|_| ApiError::upstream_invalid_response())?;
+            let response = normalize(value, &public_model, &body, tool_definitions.as_deref())?;
+            if let Some((prompt, completion)) = response.usage {
+                usage_attempt
+                    .report(&json!({"prompt_tokens":prompt,"completion_tokens":completion}));
+            }
+            Ok(response)
         }
-        Ok(response)
+        .await;
+        if result.is_err() {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(finalize_response(state, dispatch, result).await)
     }
     .await;
-    if result.is_err() {
-        state.failures.fetch_add(1, Ordering::Relaxed);
+    if let Some(selection) = selection {
+        crate::web::workspace_pools::finish_selection(state, selection, result).await
+    } else {
+        result
     }
-    Ok(finalize_response(state, dispatch, result).await)
 }
 
 struct ValidatedMessagesRequest {

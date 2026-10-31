@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { VideoIntent } from '../src/features/video/intent';
+import { VideoIntent } from '../app/features/video/intent';
 import type { VideoSubmissionIntent } from '@niu-io/sdk/admin';
 
 const scope = { organizationId: 'organization', projectId: 'workspace' };

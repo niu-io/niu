@@ -1,11 +1,10 @@
 ---
-import NiuBrand from '../../../dashboard/src/components/NiuBrand';
+import NiuBrand from '../../../dashboard/app/components/NiuBrand';
 import Search from '@astrojs/starlight/components/Search.astro';
 import ThemeSelect from './ThemeSelect.astro';
 import SessionLink from './SessionLink';
-import { documentationSection } from '../navigation';
+import { publicNavigationActive } from '../navigation';
 import navigation from '../../../../branding/public-navigation.json';
-const section = documentationSection(Astro.url.pathname);
 const links = navigation;
 const navZh: Record<string, string> = {
   'Why Niu?': '为什么选择牛元？',
@@ -19,7 +18,7 @@ const navZh: Record<string, string> = {
 ---
 <div class="docs-header">
   <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span><span class="docs-embedded-name" data-i18n-en="Niu Docs" data-i18n-zh="Niu 牛元文档"><span data-lang="en">Niu Docs</span><span data-lang="zh">Niu 牛元文档</span></span></a>
-  <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}</nav>
+  <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={publicNavigationActive(Astro.url.pathname, label) ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}</nav>
   <div class="public-session" transition:persist="docs-session"><SessionLink client:load /></div>
   <div class="docs-header-tools">
     <!-- Starlight initializes search on DOMContentLoaded. Keep that instance

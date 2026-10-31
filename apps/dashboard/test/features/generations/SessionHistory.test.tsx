@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router';
 import {SidebarProvider} from '@/components/ui/sidebar';
 import SessionHistory from '@/features/generations/SessionHistory';
-import type {DashboardContext} from '@/app/dashboard-context';
+import type {DashboardContext} from '@/shell/dashboard-context';
 const a={id:'11111111-1111-4111-8111-111111111111',organization_id:'22222222-2222-4222-8222-222222222222',name:'A',organization_name:'Company'};
 const b={...a,id:'33333333-3333-4333-8333-333333333333',name:'B'};
 const context={token:'member',workspace:a,workspaces:[a,b]} as DashboardContext;

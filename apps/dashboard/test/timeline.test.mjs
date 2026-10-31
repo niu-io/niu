@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timelineAxis, timelinePosition, observedInterval } from '../src/lib/timeline.ts';
+import { timelineAxis, timelinePosition, observedInterval } from '../app/lib/timeline.ts';
 import record from '../../../contracts/fixtures/parallel-task.v1.json';
 
 describe('execution timeline', () => {

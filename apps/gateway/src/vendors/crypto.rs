@@ -115,6 +115,30 @@ impl CredentialCipher {
         self.open_with_aad(b"niu.payment-configuration.epay.v1", value)
     }
 
+    pub(crate) fn seal_event_subscription(
+        &self,
+        scope: niu_storage::TenantScope,
+        id: Uuid,
+        value: &str,
+    ) -> Result<Vec<u8>, &'static str> {
+        self.seal_with_aad(&Self::event_subscription_aad(scope, id), value)
+    }
+    pub(crate) fn open_event_subscription(
+        &self,
+        scope: niu_storage::TenantScope,
+        id: Uuid,
+        value: &[u8],
+    ) -> Result<String, &'static str> {
+        self.open_with_aad(&Self::event_subscription_aad(scope, id), value)
+    }
+    pub(crate) fn event_subscription_aad(scope: niu_storage::TenantScope, id: Uuid) -> Vec<u8> {
+        let mut aad = b"niu.workspace-event-signing.v1".to_vec();
+        aad.extend_from_slice(scope.organization_id.as_bytes());
+        aad.extend_from_slice(scope.project_id.as_bytes());
+        aad.extend_from_slice(id.as_bytes());
+        aad
+    }
+
     pub fn seal(&self, vendor: Uuid, credential: &str) -> Result<Vec<u8>, &'static str> {
         self.seal_bounded(vendor, credential, 8192)
     }
@@ -410,6 +434,59 @@ impl CredentialCipher {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn event_signing_credentials_are_bound_to_workspace_subscription_and_domain() {
+        let cipher =
+            CredentialCipher::new("event-signing-test-master-key-at-least-32-characters").unwrap();
+        let scope = niu_storage::TenantScope {
+            organization_id: Uuid::new_v4(),
+            project_id: Uuid::new_v4(),
+        };
+        let id = Uuid::new_v4();
+        let encrypted = cipher
+            .seal_event_subscription(scope, id, "fixture-signing-secret")
+            .unwrap();
+        assert_eq!(
+            cipher
+                .open_event_subscription(scope, id, &encrypted)
+                .unwrap(),
+            "fixture-signing-secret"
+        );
+        assert!(
+            cipher
+                .open_event_subscription(
+                    niu_storage::TenantScope {
+                        project_id: Uuid::new_v4(),
+                        ..scope
+                    },
+                    id,
+                    &encrypted
+                )
+                .is_err()
+        );
+        assert!(
+            cipher
+                .open_event_subscription(
+                    niu_storage::TenantScope {
+                        organization_id: Uuid::new_v4(),
+                        ..scope
+                    },
+                    id,
+                    &encrypted
+                )
+                .is_err()
+        );
+        assert!(
+            cipher
+                .open_event_subscription(scope, Uuid::new_v4(), &encrypted)
+                .is_err()
+        );
+        assert!(
+            cipher.open(id, &encrypted).is_err(),
+            "event signing ciphertext must not decode as a Provider credential"
+        );
+    }
 
     #[test]
     fn binary_source_envelope_is_randomized_and_scope_bound() {

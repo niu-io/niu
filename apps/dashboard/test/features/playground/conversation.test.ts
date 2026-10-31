@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { branchMessages } from '../../../src/features/playground/conversation';
+import { branchMessages } from '../../../app/features/playground/conversation';
 
 describe('per-model conversation context', () => {
   it('preserves text and image attachments in the completed branch only', () => {

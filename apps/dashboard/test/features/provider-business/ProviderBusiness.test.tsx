@@ -1,12 +1,12 @@
-vi.mock('../../../src/app/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
+vi.mock('../../../app/shell/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, Link } from "react-router";
-import ProviderBusinessRoute from "../../../src/features/provider-business/page";
-import type { DashboardContext } from "../../../src/app/dashboard-context";
+import ProviderBusinessRoute from "../../../app/features/provider-business/page";
+import type { DashboardContext } from "../../../app/shell/dashboard-context";
 const fixture = vi.hoisted(() => ({ context: {} as DashboardContext }));
-vi.mock("../../../src/app/dashboard-context", () => ({
+vi.mock("../../../app/shell/dashboard-context", () => ({
   useDashboardContext: () => fixture.context,
 }));
 const response = {

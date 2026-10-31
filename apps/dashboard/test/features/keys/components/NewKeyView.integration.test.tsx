@@ -2,10 +2,10 @@ import { expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import NewKeyRoute from '../../../../src/features/keys/new-page';
-import KeysView from '../../../../src/features/keys/components/KeysView';
+import NewKeyRoute from '../../../../app/features/keys/new-page';
+import KeysView from '../../../../app/features/keys/components/KeysView';
 
-vi.mock('../../../../src/app/dashboard-context', () => ({
+vi.mock('../../../../app/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     workspace: { id: 'workspace', name: 'Demo', organization_id: 'org' },
     workspaceLoading: false,

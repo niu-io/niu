@@ -1,5 +1,7 @@
 # Niu documentation
 
+**Authoring direction:** Follow the [agent documentation contract](../../docs/development/agent-documentation.md) and [product principles](../../docs/product/agent-oriented-principles.md). The default human path is orientation plus agent-led onboarding; technical references primarily serve coding agents. Current site structure is not evidence that this refactoring has been completed.
+
 The Astro/Starlight portal keeps tutorials in Docs. API and SDK are separate navigation scopes for generated references. Dashboard Help embeds the same artifact with `embed=help`; its origin-checked iframe bridge keeps dashboard history while the documentation hides its own header brand.
 
 ## Source of truth and regeneration

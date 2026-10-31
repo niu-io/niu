@@ -2,10 +2,10 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { render as renderView, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AdminSession } from '../../../../src/app/dashboard-context';
-import ModelMappingForm from '../../../../src/features/providers/components/ModelMappingForm';
-import ProvidersView from '../../../../src/features/providers/components/ProvidersView';
-import type { ProviderConnection, ProviderModel } from '../../../../src/features/providers/api';
+import type { AdminSession } from '../../../../app/shell/dashboard-context';
+import ModelMappingForm from '../../../../app/features/providers/components/ModelMappingForm';
+import ProvidersView from '../../../../app/features/providers/components/ProvidersView';
+import type { ProviderConnection, ProviderModel } from '../../../../app/features/providers/api';
 
 const render = (ui: Parameters<typeof renderView>[0]) => renderView(ui, { wrapper: MemoryRouter });
 

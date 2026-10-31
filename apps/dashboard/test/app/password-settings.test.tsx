@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import PasswordSettings from '../../src/features/account/PasswordSettings';
+import PasswordSettings from '../../app/features/account/PasswordSettings';
 
 describe('password settings', () => {
   it('blocks empty submission through required fields without calling the password endpoint', async () => {

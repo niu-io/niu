@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import WorkspaceRecovery from '../../src/app/WorkspaceRecovery';
+import WorkspaceRecovery from '../../app/shell/WorkspaceRecovery';
 
 describe('workspace recovery copy', () => {
   it('never displays an internal workspace identifier from a missing link', () => {

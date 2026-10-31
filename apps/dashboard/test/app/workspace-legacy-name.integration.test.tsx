@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { appRoutes } from '../../src/app/routes';
+import { appRoutes } from '../../app/routes';
 
 it('shows the seeded default project as a workspace without changing its existing URL', async () => {
   const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });

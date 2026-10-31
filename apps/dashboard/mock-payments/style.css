@@ -1,5 +1,5 @@
-@import "../src/styles.css";
-@source "../src/components/ui";
+@import "../app/styles.css";
+@source "../app/components/ui";
 @source "./main.tsx";
 .mock-shell{min-height:100dvh;background:var(--background);color:var(--foreground)}
 .mock-header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 32px;border-bottom:1px solid var(--border);flex-wrap:wrap}

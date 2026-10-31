@@ -82,7 +82,8 @@ Content type: `application/json`.
         "spending_limits",
         "rate_limits",
         "usage_window",
-        "allowed_cidrs"
+        "allowed_cidrs",
+        "management_capabilities"
       ],
       "properties": {
         "object": {
@@ -254,6 +255,23 @@ Content type: `application/json`.
             "type": "string"
           },
           "description": "Current source-IP allowlist, or null for no allowlist restriction."
+        },
+        "management_capabilities": {
+          "type": "array",
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "pools:read",
+              "pools:write",
+              "events:read",
+              "events:write",
+              "evaluations:read",
+              "evaluations:write"
+            ]
+          },
+          "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
         }
       }
     }

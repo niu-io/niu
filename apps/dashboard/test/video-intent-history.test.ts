@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { videoIntentHistory } from '../src/features/video/intent-history';
+import { videoIntentHistory } from '../app/features/video/intent-history';
 import type { VideoSubmissionIntent } from '@niu-io/sdk/admin';
 import { NiuAPIError } from '@niu-io/sdk';
 const scope={organizationId:'company',projectId:'workspace'};

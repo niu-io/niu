@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
-import GuardrailDenials from '../../../src/features/guardrails/Denials';
+import GuardrailDenials from '../../../app/features/guardrails/Denials';
 const dispatchEmpty = { data: [], coverage: 'latest_100_dispatch_policy_exceptions' };
 const row = { reason: 'input_blocked', key_name: 'Development key', workspace_policy_name: 'Workspace restrictions', workspace_revision: 3, key_policy_name: null, key_policy_revision: null, recorded_at: '2026-10-03T01:00:00Z' };
 function view() { return <MemoryRouter initialEntries={['/workspaces/demo/guardrails/denials']}><Routes><Route path="/workspaces/demo/guardrails/denials" element={<GuardrailDenials token="reader-token" endpoint="/scoped/guardrails" />} /></Routes></MemoryRouter>; }

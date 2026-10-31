@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import OperatorDirectory from '../../../../src/features/operators/components/OperatorDirectory';
+import OperatorDirectory from '../../../../app/features/operators/components/OperatorDirectory';
 
 describe('OperatorDirectory search', () => {
   it('finds names and combined role/status terms, and recovers from no results without offering creation', async () => {

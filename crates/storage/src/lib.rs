@@ -1,6 +1,21 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
+mod evaluation_runs;
+mod evaluation_summary;
+pub use evaluation_runs::{
+    EvaluationEvaluator, EvaluationResult, EvaluationRunSubmission, EvaluationVerdict,
+};
+mod workspace_evaluations;
+pub use workspace_evaluations::{
+    EvaluationBinding, EvaluationDefinition, EvaluationSample, evaluation_request_fingerprint,
+};
+mod workspace_events;
+pub use workspace_events::{EventDeliveryClaim, EventSubscription, EventSubscriptionRecord};
+mod workspace_model_pools;
+pub use workspace_model_pools::WorkspaceModelPool;
+mod agent_authorizations;
+pub use agent_authorizations::{AgentAuthorizationRequest, AgentAuthorizationView};
 mod customer_unit_grants;
 mod customer_unit_limits;
 mod customer_unit_modes;
@@ -384,6 +399,7 @@ pub struct ManagedRouteSnapshot {
 /// enqueueing so they remain available for response headers after admission.
 #[derive(Clone)]
 pub struct GatewayAdmission {
+    pub evaluation: Option<EvaluationBinding>,
     pub route_generation: Option<i64>,
     pub managed_route: Option<ManagedRouteSnapshot>,
     pub token_bound: Option<i64>,
@@ -423,6 +439,8 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("agent authorization polling interval exceeded")]
+    AgentAuthorizationPollLimited,
     #[error("company balance account is not configured for the spending-limit currency")]
     KeySpendingCurrencyUnavailable,
 
@@ -439,6 +457,10 @@ pub enum StoreError {
     WorkspaceNotEmpty,
     #[error("invalid execution observation")]
     InvalidObservation,
+    #[error("evaluation sample binding does not match its pinned definition")]
+    EvaluationBindingMismatch,
+    #[error("explicit evaluation read grant is required for tagged inference")]
+    EvaluationGrantRequired,
     #[error("database operation failed")]
     Database(#[from] sqlx::Error),
     #[error("workspace slug is already in use")]
@@ -1052,8 +1074,17 @@ impl Store {
         let mut token_bound_attempts = Vec::new();
         let mut token_bounds = Vec::new();
         let mut guardrail_rows = Vec::new();
+        let mut evaluation_rows = Vec::new();
 
         for admission in admissions {
+            if let Some(binding) = admission.evaluation {
+                evaluation_rows.push((
+                    admission.scope,
+                    admission.key_id,
+                    admission.attempt_id,
+                    binding,
+                ));
+            }
             if let Some(generation) = admission.route_generation {
                 route_gen_attempts.push(admission.attempt_id);
                 route_generations.push(generation);
@@ -1232,6 +1263,15 @@ impl Store {
             }
         };
 
+        for (scope, key, attempt, binding) in evaluation_rows {
+            if rows
+                .iter()
+                .any(|(id, status)| *id == attempt && status == "admitted")
+            {
+                Self::insert_evaluation_binding_in_tx(&mut tx, scope, key, attempt, &binding)
+                    .await?;
+            }
+        }
         tx.commit().await?;
 
         if rows.len() != admission_count {

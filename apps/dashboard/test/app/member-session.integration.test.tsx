@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { appRoutes } from '../../src/app/routes';
+import { appRoutes } from '../../app/routes';
 
 describe('production member browser sessions', () => {
   it('signs in, restores without a stored bearer, and retries uncertain sign-out before clearing the session', async () => {

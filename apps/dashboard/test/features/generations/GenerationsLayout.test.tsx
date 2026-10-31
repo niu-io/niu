@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -6,7 +8,7 @@ import { useRef, useState } from 'react';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import GenerationsLayout, { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
-import type { DashboardContext } from '@/app/dashboard-context';
+import type { DashboardContext } from '@/shell/dashboard-context';
 const workspace = { id: 'workspace', organization_id: 'organization', name: 'Workspace' };
 const context = { token: 'member', workspace, workspaces: [workspace] } as DashboardContext;
 const chats = [{ id: 'chat', title: 'Shared chat', prompt: '', createdAt: 100 }];
@@ -69,4 +71,16 @@ it('retains history data and scroll position when the mobile drawer closes and r
   expect(screen.getByLabelText('Saved sessions').scrollTop).toBe(80);
   expect(fetch.mock.calls.length).toBe(reads);
   expect(screen.queryByRole('button', { name: 'Search sessions' })).toBeNull();
+});
+
+it('fills the full page canvas across Chat and Video session views without management gutters', () => {
+  const stylesCss = readFileSync(resolve(import.meta.dirname, '../../../app/styles.css'), 'utf8');
+  const generationsCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/generations/generations.css'), 'utf8');
+  const videoCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/video/video.css'), 'utf8');
+
+  expect(stylesCss).toContain('.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > .generations-layout))');
+  expect(stylesCss).toContain('.app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > .generations-layout)');
+  expect(stylesCss).toContain('.page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout)');
+  expect(generationsCss).toMatch(/\.generations-layout\s*\{[^}]*grid-template-rows:minmax\(0,1fr\);[^}]*width:100%;[^}]*height:100%;/);
+  expect(videoCss).toMatch(/\.video-response > \[data-slot="button"\]:not\(\.video-details-trigger\)[^{]*\{\s*justify-self:start;\s*\}/);
 });

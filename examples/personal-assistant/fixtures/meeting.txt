@@ -1,0 +1,6 @@
+Product review, 31 October
+Maya will send the revised onboarding copy by Tuesday.
+Jon will check the slow upload step before Friday's demo.
+We agreed to ship the small-screen fix first. The analytics redesign is deferred.
+I need to remind the team about the demo and ask whether the upload fix is at risk.
+No calendar dates were agreed beyond these relative deadlines.

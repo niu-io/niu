@@ -2,10 +2,10 @@ import { render, screen, within, waitFor, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { request, ProviderRequestError } from '../../../src/features/providers/api';
-import ProviderList from '../../../src/features/providers/ProviderList';
-vi.mock('../../../src/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'fixture' }) }));
-vi.mock('../../../src/features/providers/api', async importOriginal => ({ ...await importOriginal<typeof import('../../../src/features/providers/api')>(), request: vi.fn(async () => ({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] })) }));
+import { request, ProviderRequestError } from '../../../app/features/providers/api';
+import ProviderList from '../../../app/features/providers/ProviderList';
+vi.mock('../../../app/shell/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'fixture' }) }));
+vi.mock('../../../app/features/providers/api', async importOriginal => ({ ...await importOriginal<typeof import('../../../app/features/providers/api')>(), request: vi.fn(async () => ({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] })) }));
 beforeEach(() => {
   vi.mocked(request).mockReset().mockResolvedValue({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] });
 });

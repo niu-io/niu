@@ -1,5 +1,7 @@
 # Product workflow delivery plan
 
+**Direction update, 2026-10-31:** Apply the [agent-oriented principles](agent-oriented-principles.md) to subsequent refactoring. The delivery order and verification notes below preserve earlier release evidence; they do not override the new product/audience model or constitute the current live backlog. Beads owns execution priorities. Existing safety, data and release gates remain in force.
+
 This plan expands the first-release acceptance matrix with the findings from the October 2026 dashboard review. It is an implementation checklist, not a claim that reviewed capabilities are missing or fixed. Reproduce each finding against the current worktree before changing it. The product-focus and first-release documents remain authoritative.
 
 ## Supplier credential coverage — F03

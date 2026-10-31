@@ -5,6 +5,6 @@ export default defineConfig({
   base: process.env.NIU_MOCK_PAYMENT_UI_BASE || '/',
   root: new URL('.', import.meta.url).pathname,
   plugins: [react(), tailwindcss()],
-  resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
+  resolve: { alias: { '@': new URL('../app', import.meta.url).pathname } },
   build: { outDir: 'dist', emptyOutDir: true },
 });

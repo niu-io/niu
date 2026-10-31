@@ -1,22 +1,24 @@
-# Product focus: a Token Platform for developers and teams
+# Product focus: The Model Platform for Agents
 
-Status: agreed product direction, updated 2026-10-30. Implementation and release qualification remain separate. This document and the [current release matrix](../releases/first-release.md) supersede earlier task-economics product targets.
+Status: agreed product direction, updated 2026-10-31. The [agent-oriented principles](agent-oriented-principles.md) are the normative basis for subsequent product, integration, documentation and marketing refactoring. They supersede the October 30 Token Platform positioning and human-first onboarding assumptions. Implementation and release qualification remain separate; the [release matrix](../releases/first-release.md) still governs readiness.
 
 ## Audience and promise
 
-Niu is a Token Platform for developers and teams using model APIs. The primary audience consumes tokens to build applications, use coding tools, and work with Chat and Video. This direction replaces the operator-first marketing positioning recorded on October 15; existing administration, Provider and commercial data contracts remain separate responsibilities.
+**The Model Platform for Agents**
 
-The product promise is “Make every token count.” Its three supporting values are performance, reliability and economy. Performance means efficient model access supported by measured workload evidence. Reliability means documented routing and bounded recovery, with request state and missing evidence made explicit. Economy means visible model prices, token usage, customer charges and scoped budgets; it does not establish a universal lowest price or guaranteed savings.
+Discover and evaluate models, build model pools, and manage performance and cost—all through your agent.
 
-Marketing should present a coherent model-use workflow: choose an available model, create a workspace key with appropriate access and budget, connect an application, and inspect requests, usage and charges. Saved Chat and supported Video workflows are complementary ways to use models. Operators and Providers enable that experience, but token resale, pricing margins and running an API business are not the landing page's primary promise.
+Coding agents already aim to complete user tasks while improving value within the user's constraints. Niu provides the information and authorized management capabilities needed to pursue that objective. The agent owns task completion, model choices and quality/cost tradeoffs. Niu owns trustworthy resource information, configured policy execution, scoped controls and verifiable results; it does not guarantee optimal price/performance or task success.
 
-Keep customer charges, procurement costs, Provider earnings and unresolved obligations distinct. Customer-facing transparency must not reveal procurement prices or platform margins. High performance and reliability require actual workload measurements and recovery evidence; a language choice or architecture document is not proof. Integration code does not prove merchant activation, receipt of funds or settlement readiness.
+Model invocation is one part of model resource management. The target workflow includes discovering capabilities and customer prices, comparing task samples, configuring model pools and routing, managing access and budgets, retrieving request evidence and subscribing to relevant events. Each capability must have explicit authority, observable results and recovery behavior. This is a product direction, not a claim that all operations are exposed by the current MCP server.
 
-Normal API calls remain the baseline. Multiple Providers for the same model are useful but not required. A focused catalog with verified offers is preferable to unsupported coverage claims. Public core deployments remain independently usable without private source or a license service; hosted and enterprise composition follows the documented repository and plugin boundaries.
+MCP provides shared tools and resources. Native plugins or supported extensions for different coding agents should package connection setup, capability discovery, host-specific integration and review handoffs around the same contracts. They must not embed a universal optimization policy or silently reroute the coding agent's own inference. Native plugin availability and event delivery require their own verification.
 
-Niu should help users identify the requests, models, workspace API keys and periods responsible for consumption and customer charges. Ranked breakdowns should lead to matching request evidence, while unknown usage stays unknown. High volume alone does not prove waste, and a gateway trace alone cannot establish whether application context or agent work was unnecessary.
+People set goals and boundaries, grant authority and review consequential changes. They should need only a short orientation and an agent-led onboarding guide. Remaining documentation primarily serves coding agents, while model trials, saved results, request Logs and performance/cost tracking let people explore directly. See the [documentation contract](../development/agent-documentation.md).
 
-Navigation labels use **Docs**. Marketing's top navigation has one Docs entry; API and SDK references are discoverable within Docs. The brand wordmark remains **Niu**, with approved Maple Mono SemiBold 600 lettering.
+Niu remains independently self-hostable. Preserve customer/Provider/platform authorization and commercial data boundaries. Customer prices and charges never expose procurement costs or platform margins. Missing measurements remain unknown, and published price comparisons require workload-specific evidence. General task orchestration, external tool execution and unrelated agent telemetry remain outside Niu.
+
+The detailed sections below retain existing ownership and implementation constraints; they are not a new task priority order or a declaration of end-to-end agent capability. Refactoring must apply the principles above while preserving data and contracts. Navigation uses **Docs**; the product wordmark remains **Niu**, with approved Maple Mono SemiBold 600 lettering.
 
 ## Product navigation and access
 
@@ -50,11 +52,11 @@ The credit limit defaults to zero. An explicitly approved credit limit permits a
 
 | Responsibility | Niu | External applications and agent orchestration products |
 | --- | --- | --- |
-| Access | Model catalog, compatible inference APIs, credentials, eligibility and documented routing | Configure a client and choose permitted access |
+| Model resources | Discoverable model information, compatible inference APIs, authorized configuration, pools, routing and access controls | Choose models and policies for task requirements within granted authority |
 | Consumption | Request/attempt usage, customer charges, timing, failures, available quota observations and their confidence | Decide what work is worth performing |
 | Execution | Model request transport, bounded request retries and explicit limits | Task planning, subagents, tools, environments and schedules |
-| Evaluation | Request/protocol conformance and evidence-backed consumption diagnostics | Task acceptance, tests, UX/visual reviews and productivity evaluation |
-| Correlation | Optional opaque task/session references in API records | Own task meaning, lifecycle and outcomes |
+| Evaluation | Model comparison facilities, protocol/usage/performance evidence and explicit measurement limits | Judge task results and quality, latency, reliability and cost tradeoffs |
+| Events and correlation | Scoped resource events and delivery contracts as implemented; request references for reconciliation | Own response policies, host lifecycle, task meaning and outcomes |
 
 External clients use the same public interfaces. Community builds require no private product. Preserve existing API and storage contracts unless a separate migration is approved; internal correlation identifiers are not customer-facing labels. Request retries must remain distinguishable from agent task retries.
 

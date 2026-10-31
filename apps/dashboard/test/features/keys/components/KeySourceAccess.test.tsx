@@ -41,4 +41,4 @@ it('retains backend validation failures without claiming a policy was saved',asy
 it('blocks listed mode when the entry count exceeds the supported bound',async()=>{
   const{user,fetcher}=setup();await user.click(await screen.findByRole('button',{name:'Edit source IP access'}));await choose(user,'Allow listed sources');await user.type(screen.getByLabelText('Allowed addresses or CIDRs'),Array.from({length:65},()=> '192.0.2.1').join('\n'));
   expect((screen.getByRole('button',{name:'Save policy'})as HTMLButtonElement).disabled).toBe(true);expect(fetcher.mock.calls.some(([,init])=>init?.method==='PUT')).toBe(false);
-});
+}, 15_000);

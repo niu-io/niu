@@ -54,6 +54,17 @@ use super::common::*;
 ///           "maxLength": 200,
 ///           "pattern": "^[!-~]{1,200}$"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-evaluation",
+///         "in": "header",
+///         "required": false,
+///         "description": "Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 200,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -233,13 +244,13 @@ pub(in crate::web) async fn embeddings(
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
-    let public_model = body
+    let mut public_model = body
         .get("model")
         .and_then(Value::as_str)
         .filter(|model| !model.is_empty())
         .ok_or_else(|| ApiError::invalid_request("A model name is required"))?
         .to_owned();
-    if !principal.allows_model(&public_model) {
+    if !public_model.starts_with("pool/") && !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
     let bounds = validate_embedding_request(&body)?;
@@ -249,6 +260,16 @@ pub(in crate::web) async fn embeddings(
         embedding_base64: bounds.encoding_format == "base64",
         ..Default::default()
     };
+    let selection = crate::web::workspace_pools::select_for_request(
+        &state,
+        &principal,
+        &mut public_model,
+        &mut body,
+        crate::guardrails::input::Protocol::Embeddings,
+        &requirements,
+    )
+    .await?;
+    let result = async {
     let resolved = crate::vendors::resolve_scoped_model(
         &state,
         principal.scope().organization_id,
@@ -314,6 +335,7 @@ pub(in crate::web) async fn embeddings(
         &state,
         &principal,
         AttemptRequest {
+                headers: &headers,
             route_generation: resolved.route_generation,
             managed_route: resolved.managed_route.as_ref(),
             personal_route: resolved.personal_route.as_ref(),
@@ -341,6 +363,12 @@ pub(in crate::web) async fn embeddings(
     )
     .await;
     Ok(finalize_response(&state, dispatch, result).await)
+    }.await;
+    if let Some(selection) = selection {
+        crate::web::workspace_pools::finish_selection(&state, selection, result).await
+    } else {
+        result
+    }
 }
 
 pub(in crate::web) fn validate_embedding_request(

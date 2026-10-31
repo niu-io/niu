@@ -5,7 +5,7 @@ import { expect,it,vi } from 'vitest';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import SessionView from '@/features/video/VideoView';
-import type { DashboardContext } from '@/app/dashboard-context';
+import type { DashboardContext } from '@/shell/dashboard-context';
 import type { VideoModel } from '@niu-io/sdk';
 import { initialControls,videoRequest } from '@/features/video/request';
 import GenerationsLayout from '@/features/generations/GenerationsLayout';

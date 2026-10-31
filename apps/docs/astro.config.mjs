@@ -10,12 +10,12 @@ export default defineConfig({
   site: 'https://niu.io',
   base: '/docs',
   markdown: { processor: satteri({ hastPlugins: [scrollableTables()] }) },
-  vite: { plugins: [tailwindcss()], resolve: { alias: { '@': fileURLToPath(new URL('../dashboard/src', import.meta.url)) } } },
+  vite: { plugins: [tailwindcss()], resolve: { alias: { '@': fileURLToPath(new URL('../dashboard/app', import.meta.url)) } } },
   integrations: [
     react(),
     starlight({
       title: 'Niu',
-      description: 'Build and operate the Niu AI gateway.',
+      description: 'The Model Platform for Agents. Connect your agent, delegate model management and review the evidence.',
       logo: {
         src: '../../branding/assets/niu-mark.png',
         alt: '',
@@ -34,12 +34,20 @@ export default defineConfig({
       sidebar: [
         { label: 'Start here', items: [
           { label: 'Overview', slug: 'index' },
-          { label: 'Quickstart', slug: 'getting-started' },
+          { label: 'Build with Niu', slug: 'guides/personal-assistant' },
+        ] },
+        { label: 'For coding agents', collapsed: true, items: [
+          { label: 'Install and configure', link: '/install.md' },
+          { label: 'Capability map', link: '/agents.md' },
+          { label: 'Model pools', link: '/pools.md' },
+          { label: 'Evaluations', link: '/evaluations.md' },
+          { label: 'Resource events', link: '/events.md' },
+          { label: 'MCP reference', slug: 'guides/mcp' },
+          { label: 'Manual API quickstart', slug: 'getting-started' },
           { label: 'API tutorial', slug: 'guides/api-quickstart' },
           { label: 'SDK tutorial', slug: 'guides/sdk-quickstart' },
-          { label: 'Coding agents', slug: 'guides/mcp' },
         ] },
-        { label: 'Use Niu', items: [
+        { label: 'Product references', collapsed: true, items: [
           { label: 'Models & routing', slug: 'configuration/models' },
           { label: 'Generations', slug: 'reference/generations' },
           { label: 'Video generation', slug: 'reference/video' },
@@ -50,7 +58,7 @@ export default defineConfig({
           { label: 'Usage & billing', slug: 'concepts/performance-and-cost' },
           { label: 'Request lifecycle', slug: 'concepts/request-lifecycle' },
         ] },
-        { label: 'Administration', items: [
+        { label: 'Administration', collapsed: true, items: [
           { label: 'Overview', slug: 'admin' },
           { label: 'Access & roles', slug: 'admin/access' },
           { label: 'Customer setup', slug: 'admin/customers' },
@@ -60,7 +68,7 @@ export default defineConfig({
           { label: 'Branding & theme', slug: 'admin/branding' },
           { label: 'Audit logs', slug: 'reference/platform-audit' },
         ] },
-        { label: 'Operate Niu', items: [
+        { label: 'Operate Niu', collapsed: true, items: [
           { label: 'Deployment', slug: 'deployment/single-container' },
           { label: 'Release qualification', slug: 'releases/first-release' },
           { label: 'Security & access', slug: 'security/overview' },
@@ -68,18 +76,18 @@ export default defineConfig({
           { label: 'Load testing', slug: 'guides/gateway-load-testing' },
           { label: 'Local development', slug: 'guides/local-development' },
         ] },
-        { label: 'API', items: [
+        { label: 'API', collapsed: true, items: [
           { label: 'REST specification', slug: 'api/rest' },
           { label: 'Model discovery', slug: 'api/rest/listmodels' },
           { label: 'Chat completions', slug: 'api/rest/createchatcompletion' },
         ] },
-        { label: 'SDK', items: [
+        { label: 'SDK', collapsed: true, items: [
           { label: 'Interfaces & types', slug: 'api/sdk' },
           { label: 'NiuClient', slug: 'api/sdk/niuclient' },
           { label: 'NiuAdminClient', slug: 'api/sdk/niuadminclient' },
           { label: 'NiuAPIError', slug: 'api/sdk/niuapierror' },
         ] },
-        { label: 'Compare', items: [
+        { label: 'Compare', collapsed: true, items: [
           { label: 'Overview', slug: 'compare' },
           { label: 'Niu vs New API', slug: 'compare/new-api' },
           { label: 'Niu vs OpenRouter', slug: 'compare/openrouter' },

@@ -13,9 +13,15 @@
     }
   },
   "bin": {
-    "niu-agent-connect": "./bin/niu-agent-connect.mjs"
+    "niu-agent-connect": "./bin/niu-agent-connect.mjs",
+    "niu-login": "./bin/niu-login.mjs"
   },
-  "files": ["dist", "bin", "README.md"],
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "src/auth"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",

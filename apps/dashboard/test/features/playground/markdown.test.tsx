@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
-import { mathDelimiters } from '../../../src/features/playground/math-delimiters';
+import { mathDelimiters } from '../../../app/features/playground/math-delimiters';
 
 describe('Chat Markdown', () => {
   it('renders inline and display LaTeX with KaTeX', () => {

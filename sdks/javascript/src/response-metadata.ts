@@ -1,7 +1,9 @@
 import type { RequestOptions, ResponseMetadata } from './index.js';
 
 export function responseMetadata(response: Response): ResponseMetadata {
+  const slug = response.headers.get('x-niu-pool');
   return {
+    ...(slug ? { pool: { slug, revision: response.headers.get('x-niu-pool-revision'), selectedModel: response.headers.get('x-niu-selected-model'), evidence: response.headers.get('x-niu-pool-evidence') } } : {}),
     status: response.status,
     requestId: response.headers.get('x-request-id'),
     attemptId: response.headers.get('x-niu-attempt-id'),

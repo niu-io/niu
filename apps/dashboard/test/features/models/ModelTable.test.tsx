@@ -5,8 +5,8 @@ import { MemoryRouter, Routes, Route, Link } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import ModelTable from '@/features/models/components/ModelTable';
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
-vi.mock('@/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: '', workspace: null }) }));
-vi.mock('@/app/useModelPopularity', () => ({ useModelPopularity: (models: unknown[]) => ({ models }) }));
+vi.mock('@/shell/dashboard-context', () => ({ useDashboardContext: () => ({ token: '', workspace: null }) }));
+vi.mock('@/shell/useModelPopularity', () => ({ useModelPopularity: (models: unknown[]) => ({ models }) }));
 afterEach(cleanup);
 const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true, catalog: {output_modalities:['text']} }));
 it('searches and opens a model without losing the catalog filter on return', async () => {

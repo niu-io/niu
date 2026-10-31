@@ -1546,7 +1546,51 @@ export type RetailPromotionPage = {
   }>;
 };
 
+function reviewSlug(value: string): string {
+  if (typeof value !== 'string' || value.length > 80 || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(value)) throw new TypeError('Use a readable resource slug');
+  return value;
+}
 export class NiuAdminClient {
+  /** Read-only member review; no workspace API key or agent delegation required. */
+  listWorkspaceReviewPools(workspace: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').WorkspaceModelPool>> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools${after === undefined ? '' : `?after=${reviewSlug(after)}`}`, undefined, options);
+  }
+  getWorkspaceReviewPool(workspace: string, slug: string, options?: RequestOptions): Promise<{data: import('./index.js').WorkspaceModelPool}> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools/${reviewSlug(slug)}`, undefined, options);
+  }
+  getWorkspaceReviewPoolHistory(workspace: string, slug: string, before?: number, options?: RequestOptions): Promise<{data: import('./index.js').WorkspaceModelPool[]; next_before: number | null}> {
+    if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) throw new TypeError('Use a positive revision cursor');
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools/${reviewSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
+  }
+  getWorkspaceReviewPoolSelections(workspace: string, slug: string, options?: RequestOptions): Promise<{data: import('./index.js').WorkspacePoolSelection[]}> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools/${reviewSlug(slug)}/selections`, undefined, options);
+  }
+  listWorkspaceReviewSubscriptions(workspace: string, options?: RequestOptions): Promise<{data: import('./index.js').EventSubscription[]; limit: 32}> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/events`, undefined, options);
+  }
+  getWorkspaceReviewSubscription(workspace: string, slug: string, options?: RequestOptions): Promise<{data: import('./index.js').EventSubscription; processed_cursor: string; authorization_active: boolean}> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/events/${reviewSlug(slug)}`, undefined, options);
+  }
+  getWorkspaceReviewDeliveries(workspace: string, slug: string, options?: RequestOptions): Promise<{data: import('./index.js').EventDelivery[]; limit: 100}> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/events/${reviewSlug(slug)}/deliveries`, undefined, options);
+  }
+  listWorkspaceReviewEvaluations(workspace: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').EvaluationDefinition>> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations${after === undefined ? '' : `?after=${reviewSlug(after)}`}`, undefined, options);
+  }
+  getWorkspaceReviewEvaluation(workspace: string, slug: string, revision?: number, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition> {
+    if (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1)) throw new TypeError('Use a positive definition revision');
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}${revision === undefined ? '' : `?revision=${revision}`}`, undefined, options);
+  }
+  listWorkspaceReviewEvaluationRuns(workspace: string, slug: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').EvaluationRunBrief>> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}/runs${after === undefined ? '' : `?after=${reviewSlug(after)}`}`, undefined, options);
+  }
+  getWorkspaceReviewEvaluationRun(workspace: string, slug: string, run: string, options?: RequestOptions): Promise<import('./index.js').EvaluationReceipt> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}/runs/${reviewSlug(run)}`, undefined, options);
+  }
+  compareWorkspaceReviewEvaluationRuns(workspace: string, slug: string, left: string, right: string, options?: RequestOptions): Promise<import('./index.js').EvaluationComparison> {
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}/compare?left=${reviewSlug(left)}&right=${reviewSlug(right)}`, undefined, options);
+  }
+
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
    */

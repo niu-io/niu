@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import RequestContent from '../../../../src/features/executions/components/RequestContent';
-import { requestMessages, responseMessages } from '../../../../src/features/executions/components/request-content';
+import RequestContent from '../../../../app/features/executions/components/RequestContent';
+import { requestMessages, responseMessages } from '../../../../app/features/executions/components/request-content';
 
 describe('retained request content', () => {
   it('shows retained JSON error messages without exposing error metadata or internal identifiers', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connectionIdentity, identifyProvider, modelIdentity, modelDeveloper, modelProviderName, providers } from '../../src/lib/providers';
+import { connectionIdentity, identifyProvider, modelIdentity, modelDeveloper, modelProviderName, providers } from '../../app/lib/providers';
 
 describe('provider identity', () => {
   it('identifies the model author independently of a route alias', () => {

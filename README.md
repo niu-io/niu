@@ -5,7 +5,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-niu.io%2Fdocs-0f172a)](https://niu.io/docs/)
 
-**Niu** (牛元) is an open-source AI model API gateway built in Rust for lower-cost model access, Provider routing, workspace budget controls, and transparent consumption accounting.
+**Niu** (牛元) — **The Model Platform for Agents**.
+
+Niu provides model information, request evidence and authorized management capabilities so coding agents can choose and manage models for their tasks. Agents own task completion and quality/cost tradeoffs; Niu provides the controls and evidence, not a guarantee of optimal value.
+
+Start with [Build with Niu](https://niu.io/docs/guides/personal-assistant/). See the [product principles](docs/product/agent-oriented-principles.md) for the agreed direction and current integration limits; native coding-agent plugins and agent-managed event subscriptions are not claimed as shipped.
+
+For the **0.3.0 source preview**, give your coding agent this instruction:
+
+```text
+Install and configure Niu by following https://niu.io/docs/install.md.
+```
+
+The installation contract checks package and deployment availability first. The preview is not published; use a matching source checkout and development deployment only when explicitly selected. [Native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
 
 This repository is the complete self-hosted monorepo: single-process Rust gateway, workspace and Provider management dashboard, opt-in public model catalog, developer documentation, OpenAPI 3.1 contracts, client SDKs, built-in open-source plugins, and container packaging.
 
@@ -38,7 +50,7 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.30`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.2.30`; it does not install the unpublished 0.3.0 source preview. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.30`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
 ./scripts/install.sh install --version v0.2.30 --dir /opt/niu

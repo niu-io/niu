@@ -2,7 +2,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {render,screen,waitFor,cleanup} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router';
-import CustomerSetup from '../../../src/features/customers/setup';
+import CustomerSetup from '../../../app/features/customers/setup';
 import type {NiuAdminClient} from '@niu-io/sdk/admin';
 const company={id:'10000000-0000-4000-8000-000000000001',name:'Example customer'};
 const owner={id:'30000000-0000-4000-8000-000000000001',name:'Alex',organization_id:company.id,project_id:null,role:'owner',revoked:false};

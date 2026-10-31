@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import KeyGuardrails from '../../../src/features/keys/components/KeyGuardrails';
+import KeyGuardrails from '../../../app/features/keys/components/KeyGuardrails';
 
 const policy = { name: 'Restricted policy', models: { mode: 'allow_list', values: ['example/model'] }, providers: { mode: 'inherit' }, input_rules: [{ preset: 'email_v1', action: 'redact' }] };
 const workspace = '/api/v1/organizations/org/projects/workspace/guardrails';

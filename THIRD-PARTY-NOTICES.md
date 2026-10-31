@@ -24,7 +24,7 @@ The pricing engine is a calculation component. Durable accounting and strict spe
 
 ## shadcn/ui dashboard components
 
-The components in `apps/dashboard/src/components/ui/` were selected from the official shadcn/ui new-york registry on 2026-09-25 using its CLI. They are adapted to the local class utility and niu.io theme. Upstream: https://github.com/shadcn-ui/ui. Copyright (c) 2023 shadcn, MIT; the full license is retained in `apps/dashboard/licenses/shadcn-ui.txt`. Lucide React supplies the dashboard icons through the package dependency.
+The components in `apps/dashboard/app/components/ui/` were selected from the official shadcn/ui new-york registry on 2026-09-25 using its CLI. They are adapted to the local class utility and niu.io theme. Upstream: https://github.com/shadcn-ui/ui. Copyright (c) 2023 shadcn, MIT; the full license is retained in `apps/dashboard/licenses/shadcn-ui.txt`. Lucide React supplies the dashboard icons through the package dependency.
 
 ## Dashboard activity charts
 

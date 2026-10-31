@@ -24,6 +24,7 @@ mod request_body;
 mod request_payloads;
 mod request_source;
 mod request_timings;
+mod resource_events;
 mod state;
 mod streaming;
 mod structured_stream;
@@ -145,6 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             })
         });
+    let resource_events = resource_events::spawn(&state, bg_shutdown_rx.clone());
     let video_recovery = video_recovery::spawn(&state, bg_shutdown_rx.clone())?;
     let payment_account_checks =
         payments::readiness::spawn_account_checks(&state, bg_shutdown_rx.clone());
@@ -196,6 +198,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let _ = bg_shutdown_tx.send(true);
     let mut bg_tasks: Vec<_> = recovery.into_iter().collect();
+    if let Some(resource_events) = resource_events {
+        bg_tasks.push(resource_events);
+    }
     if let Some(video_recovery) = video_recovery {
         bg_tasks.push(video_recovery);
     }

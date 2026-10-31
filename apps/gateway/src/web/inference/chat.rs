@@ -98,6 +98,17 @@ struct CompatibleExecution<'a> {
 ///           "maxLength": 200,
 ///           "pattern": "^[!-~]{1,200}$"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-evaluation",
+///         "in": "header",
+///         "required": false,
+///         "description": "Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 200,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -751,16 +762,16 @@ pub(in crate::web) async fn chat(
 async fn chat_as(
     state: AppState,
     headers: HeaderMap,
-    body: Value,
+    mut body: Value,
     principal: niu_storage::Principal,
 ) -> Result<Response, ApiError> {
-    let public_model = body
+    let mut public_model = body
         .get("model")
         .and_then(Value::as_str)
         .filter(|model| !model.is_empty())
         .ok_or_else(|| ApiError::invalid_request("A model name is required"))?
         .to_owned();
-    if !principal.allows_model(&public_model) {
+    if !public_model.starts_with("pool/") && !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
     if public_model.starts_with("codex/") {
@@ -788,9 +799,19 @@ async fn chat_as(
         Some(Value::Bool(value)) => *value,
         _ => return Err(ApiError::invalid_request("stream must be a boolean")),
     };
-    let requirements = chat_route_requirements(&body, stream)?;
-    super::retry::execute(
-        state,
+    let mut requirements = chat_route_requirements(&body, stream)?;
+    requirements.model.project_id = Some(principal.scope().project_id);
+    let selection = crate::web::workspace_pools::select_for_request(
+        &state,
+        &principal,
+        &mut public_model,
+        &mut body,
+        crate::guardrails::input::Protocol::Chat,
+        &requirements.model,
+    )
+    .await?;
+    let result = super::retry::execute(
+        state.clone(),
         principal,
         headers,
         body,
@@ -798,7 +819,12 @@ async fn chat_as(
         crate::guardrails::input::Protocol::Chat,
         Some(requirements.model),
     )
-    .await
+    .await;
+    if let Some(selection) = selection {
+        crate::web::workspace_pools::finish_selection(&state, selection, result).await
+    } else {
+        result
+    }
 }
 
 pub(super) async fn execute_chat_attempt(
@@ -902,6 +928,7 @@ pub(super) async fn execute_chat_attempt(
         state,
         principal,
         AttemptRequest {
+            headers: &headers,
             route_generation: resolved.route_generation,
             managed_route: resolved.managed_route.as_ref(),
             personal_route: resolved.personal_route.as_ref(),

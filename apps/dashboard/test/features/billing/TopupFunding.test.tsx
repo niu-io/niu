@@ -1,9 +1,9 @@
 const {currencyState}=vi.hoisted(()=>({currencyState:{currency:'CNY',error:'',reload:()=>{}}}));
-vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
+vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
 import { beforeEach, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import TopupFunding from '../../../src/features/billing/TopupFunding';
+import TopupFunding from '../../../app/features/billing/TopupFunding';
 const id = '12345678-1234-4234-8234-123456789abc';
 beforeEach(()=>{currencyState.currency='CNY';});
 const availability = { currency: 'CNY', payment_gateway: 'epay', available: true, payment_methods: ['wxpaynative', 'alipay'], unavailable_reason: null };

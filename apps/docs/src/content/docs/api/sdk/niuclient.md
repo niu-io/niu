@@ -15,6 +15,196 @@ Generated from the checked-in source. Do not edit this reference by hand.
 constructor(options: NiuClientOptions);
 ```
 
+### listEvaluations
+
+```typescript
+listEvaluations(after?: string, options?: RequestOptions): Promise<EvaluationPage<EvaluationDefinition>>;
+```
+
+### getEvaluation
+
+```typescript
+getEvaluation(slug: string, revision?: number, options?: RequestOptions): Promise<EvaluationDefinition>;
+```
+
+### setEvaluation
+
+```typescript
+setEvaluation(configuration: EvaluationDefinition, options?: RequestOptions): Promise<EvaluationDefinition>;
+```
+
+### fingerprintEvaluationRequest
+
+```typescript
+fingerprintEvaluationRequest(protocol: EvaluationDefinition['protocol'], request: Record<string, unknown>, options?: RequestOptions): Promise<{
+    request_sha256: string;
+    fingerprint_version: 1;
+    protocol: string;
+    inference_performed: false;
+}>;
+```
+
+### listEvaluationAttempts
+
+```typescript
+/** Snapshot discovery: restart pagination for new work. Absence does not prove no execution. */
+listEvaluationAttempts(slug: string, revision: number, sample: string, after?: string, options?: RequestOptions): Promise<EvaluationPage<Record<string, unknown>>>;
+```
+
+### listEvaluationRuns
+
+```typescript
+listEvaluationRuns(slug: string, after?: string, options?: RequestOptions): Promise<EvaluationPage<EvaluationRunBrief>>;
+```
+
+### recordEvaluationRun
+
+```typescript
+/** No inference. Same slug/submission replays the original immutable receipt. */
+recordEvaluationRun(slug: string, submission: EvaluationRunSubmission, options?: RequestOptions): Promise<EvaluationReceipt>;
+```
+
+### getEvaluationRun
+
+```typescript
+getEvaluationRun(slug: string, run: string, options?: RequestOptions): Promise<EvaluationReceipt>;
+```
+
+### compareEvaluationRuns
+
+```typescript
+compareEvaluationRuns(slug: string, left: string, right: string, options?: RequestOptions): Promise<EvaluationComparison>;
+```
+
+### listEventSubscriptions
+
+```typescript
+/** Requires events:read; never returns a signing secret. */
+listEventSubscriptions(options?: RequestOptions): Promise<{
+    data: EventSubscription[];
+    limit: 32;
+}>;
+```
+
+### getEventSubscription
+
+```typescript
+getEventSubscription(slug: string, options?: RequestOptions): Promise<{
+    data: EventSubscription;
+    processed_cursor: string;
+    authorization_active: boolean;
+}>;
+```
+
+### setEventSubscription
+
+```typescript
+/** Requires events:write. Creation/rotation returns a secret ONCE: persist privately and never log it. No automatic retry on lost responses. */
+setEventSubscription(configuration: EventSubscription, rotateSecret?: boolean, options?: RequestOptions): Promise<{
+    data: EventSubscription;
+    signing_secret?: string;
+}>;
+```
+
+### listWorkspaceEvents
+
+```typescript
+listWorkspaceEvents(after?: string, options?: RequestOptions): Promise<{
+    data: WorkspaceEvent[];
+    has_more: boolean;
+    next_after: string;
+    retention: 'no_pruning';
+}>;
+```
+
+### getEventSubscriptionHistory
+
+```typescript
+getEventSubscriptionHistory(slug: string, before?: number, options?: RequestOptions): Promise<{
+    data: EventSubscription[];
+    next_before: number | null;
+}>;
+```
+
+### getEventDeliveries
+
+```typescript
+getEventDeliveries(slug: string, options?: RequestOptions): Promise<{
+    data: EventDelivery[];
+    limit: 100;
+}>;
+```
+
+### testEventSubscription
+
+```typescript
+/** Queues a targeted test; this is not receiver acknowledgement. Repetition creates a new event. */
+testEventSubscription(slug: string, revision: number, options?: RequestOptions): Promise<{
+    data: {
+        id: string;
+        sequence: string;
+        type: 'subscription.test';
+        subscription_revision: number;
+        delivery: 'queued';
+    };
+}>;
+```
+
+### listPools
+
+```typescript
+/** Requires delegated pools:read. No inference or live qualification occurs. */
+listPools(after?: string, options?: RequestOptions): Promise<{
+    data: WorkspaceModelPool[];
+    has_more: boolean;
+    next_after: string | null;
+}>;
+```
+
+### getPool
+
+```typescript
+getPool(slug: string, options?: RequestOptions): Promise<{
+    data: WorkspaceModelPool;
+}>;
+```
+
+### previewPool
+
+```typescript
+/** Non-dispatching policy/metadata simulation; never proves live access or full input validity. */
+previewPool(configuration: WorkspaceModelPool, context?: WorkspacePoolPreviewContext, options?: RequestOptions): Promise<{
+    data: WorkspacePoolPreview;
+}>;
+```
+
+### setPool
+
+```typescript
+/** Requires delegated pools:write. Conflicts must be read and reconciled; never automatically replay. */
+setPool(configuration: WorkspaceModelPool, options?: RequestOptions): Promise<{
+    data: WorkspaceModelPool;
+}>;
+```
+
+### getPoolHistory
+
+```typescript
+getPoolHistory(slug: string, before?: number, options?: RequestOptions): Promise<{
+    data: WorkspaceModelPool[];
+    next_before: number | null;
+}>;
+```
+
+### getPoolSelections
+
+```typescript
+/** Latest 100 selections; retrieve generation diagnostics for terminal state and charges. */
+getPoolSelections(slug: string, options?: RequestOptions): Promise<{
+    data: WorkspacePoolSelection[];
+}>;
+```
+
 ### getPublicBranding
 
 ```typescript

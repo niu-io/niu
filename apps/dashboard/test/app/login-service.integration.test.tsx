@@ -2,10 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import LoginRoute from '../../src/features/login/page';
-import InstallationRoute from '../../src/features/login/installation-page';
-import AppLayout from '../../src/app/AppLayout';
-import { BrandingProvider, defaultBranding } from '../../src/app/branding';
+import LoginRoute from '../../app/features/login/page';
+import InstallationRoute from '../../app/features/login/installation-page';
+import AppLayout from '../../app/shell/AppLayout';
+import { BrandingProvider, defaultBranding } from '../../app/shell/branding';
 
 function showLogin(withBranding = false) {
   const context = { token: '', error: '', connect: vi.fn(), connectWithToken: vi.fn(), draftToken: '', setDraftToken: vi.fn() };

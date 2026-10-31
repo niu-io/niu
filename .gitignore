@@ -24,3 +24,6 @@ coverage/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Local pnpm content-addressed package cache
+.pnpm-store/

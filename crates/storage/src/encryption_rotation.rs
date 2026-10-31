@@ -44,6 +44,7 @@ pub enum EncryptionRewrapTarget {
     },
     CodexConnection(Uuid),
     PaymentConfiguration,
+    EventSubscription(Uuid),
     MediaResult {
         attempt: Uuid,
         kind: MediaResultKind,
@@ -88,6 +89,12 @@ impl EncryptionRewrapTarget {
                 "codex_connections",
                 "credential_ciphertext",
                 "account_id=($1->>'id')::uuid",
+                json!({"id":id}),
+            ),
+            Self::EventSubscription(id) => (
+                "workspace_event_subscriptions",
+                "secret_ciphertext",
+                "id=($1->>'id')::uuid",
                 json!({"id":id}),
             ),
             Self::PaymentConfiguration => (

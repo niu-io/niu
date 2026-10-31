@@ -1,12 +1,12 @@
 const currencyState=vi.hoisted(()=>({currency:'USD',ready:true,error:'',reload:()=>{}}));
-vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
+vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
 import { expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import CommercialPositionPage from '../../../src/features/commercial-position/page';
+import CommercialPositionPage from '../../../app/features/commercial-position/page';
 
-vi.mock('../../../src/app/dashboard-context', () => ({
+vi.mock('../../../app/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     token: 'platform-admin-token',
   }),

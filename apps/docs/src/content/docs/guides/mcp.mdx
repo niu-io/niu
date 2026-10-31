@@ -1,9 +1,11 @@
 ---
-title: Coding agents
+title: MCP
 description: Connect a coding agent to Niu with a workspace API key and the local MCP server.
 ---
 
 <div data-lang="en">
+
+Learn to [use Niu with your coding agent](/docs/guides/personal-assistant/): let the agent discover models, compare results and read diagnostics directly while you review decisions. A personal assistant webapp provides the worked example.
 
 A coding agent (such as Claude Code, Cursor, Windsurf, Zed, or Codex) can connect to Niu through `@niu-io/mcp` (`niu-mcp`), a local stdio Model Context Protocol (MCP) server. Using a workspace API key, the agent can inspect key limits and remaining spending allowance, discover models and protocol capabilities, run multi-protocol inference or parallel multi-model comparisons, inspect per-generation token breakdowns and customer charges, and execute end-to-end video and media asset workflows.
 
@@ -117,9 +119,11 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 
 </div>
 
-<div data-lang="zh" data-title-zh="编程智能体">
+<div data-lang="zh" data-title-zh="MCP">
 
-编程智能体（如 Claude Code、Cursor、Windsurf、Zed 或 Codex）可以通过本地标准输入输出（stdio）模型上下文协议（MCP）服务器 `@niu-io/mcp`（`niu-mcp`）连接到 Niu。借助工作空间 API 密钥，智能体可以检查密钥限额与剩余可用额度、发现模型及协议能力、运行多协议推理或并行多模型对比、查看单次生成的 Token 细分与客户账单费用，以及执行端到端的视频与媒体素材工作流。
+学习[通过编程智能体使用 Niu](/docs/guides/personal-assistant/)：让智能体直接发现模型、比较结果和读取诊断，你负责审阅决策。教程以个人助理 WebApp 为案例。
+
+编程智能体（如 Claude Code、Cursor、Windsurf、Zed 或 Codex）可以通过本地 stdio MCP 服务器 `@niu-io/mcp`（`niu-mcp`）连接到 Niu。借助工作空间 API 密钥，智能体可以检查密钥限额与剩余可用额度、发现模型及协议能力、运行多协议推理或并行多模型对比、查看单次生成的 Token 细分与客户账单费用，以及执行端到端的视频与媒体素材工作流。
 
 每次模型调用都是一次标准的 Niu 请求，并严格使用智能体显式指定的模型。服务器绝不会猜测或替换为其他模型，不会登录控制台，也绝不会暴露模型供应商采购成本或平台利润率。
 

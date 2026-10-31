@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { MediaStandardEditor } from '../../../src/features/retail-pricing/media-editor';
-vi.mock('../../../src/app/platform-currency', () => ({ usePlatformCurrency: () => ({ currency: 'USD' }) }));
+import { MediaStandardEditor } from '../../../app/features/retail-pricing/media-editor';
+vi.mock('../../../app/shell/platform-currency', () => ({ usePlatformCurrency: () => ({ currency: 'USD' }) }));
 const media = { channel: 'ark-direct-v1', resolutions: ['720p', '1080p'], reference_video: true, meter: 'video_tokens' };
 function editor() { const onSaved = vi.fn(); render(<MemoryRouter><MediaStandardEditor token="fixture" previous={null} onClose={vi.fn()} onSaved={onSaved}/></MemoryRouter>); return onSaved; }
 describe('Media standard price choices', () => {

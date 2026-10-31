@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   integrations: [react()],
-  vite: { plugins: [tailwindcss()], resolve: { alias: { "@": fileURLToPath(new URL("../dashboard/src", import.meta.url)) } } },
+  vite: { plugins: [tailwindcss()], resolve: { alias: { "@": fileURLToPath(new URL("../dashboard/app", import.meta.url)) } } },
   site: "https://niu.io",
   output: "static",
   build: { assets: "_catalog" },

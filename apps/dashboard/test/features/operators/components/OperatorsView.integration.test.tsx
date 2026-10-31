@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AdminSession } from '../../../../src/app/dashboard-context';
-import OperatorsView from '../../../../src/features/operators/components/OperatorsView';
+import type { AdminSession } from '../../../../app/shell/dashboard-context';
+import OperatorsView from '../../../../app/features/operators/components/OperatorsView';
 
 const organization = { id: 'org-1', name: 'Niu Labs' };
 const project = { id: 'project-1', name: 'Production' };

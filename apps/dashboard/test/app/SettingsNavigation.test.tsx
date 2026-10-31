@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider } from 'react-router';
 import { expect, it, vi } from 'vitest';
-import SettingsPage, { SettingsNavigation } from '../../src/features/account/settings-page';
-import { SidebarProvider } from '../../src/components/ui/sidebar';
-import type { DashboardContext } from '../../src/app/dashboard-context';
+import SettingsPage, { SettingsNavigation } from '../../app/features/account/settings-page';
+import { SidebarProvider } from '../../app/components/ui/sidebar';
+import type { DashboardContext } from '../../app/shell/dashboard-context';
 
 function mount() {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));

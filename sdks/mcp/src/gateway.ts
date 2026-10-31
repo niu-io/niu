@@ -28,10 +28,15 @@ export type GatewayClient = {
   taskId?: string;
   fetch: GatewayFetch;
   sleep?: (ms: number) => Promise<void>;
+  prepareSigningSecret?: (baseURL: string, credential: string, subscription: string) => Promise<(secret: string) => Promise<string>>;
   writeBinaryFile?: (path: string, bytes: Uint8Array) => Promise<string>;
 };
 
 export type GatewayMeta = {
+  pool_slug?: string;
+  pool_revision?: string;
+  selected_model?: string;
+  pool_evidence?: string;
   attempt_id?: string;
   operation_id?: string;
   request_id?: string;
@@ -49,6 +54,7 @@ export type GatewayBinaryResult = {
 };
 
 export type GatewayRequestOptions = {
+  evaluation?: string;
   logPayloads?: boolean;
   taskId?: string;
   idempotencyKey?: string;
@@ -470,6 +476,10 @@ function buildHeaders(
   if (logPayloads !== undefined) {
     headers["x-niu-log-payloads"] = String(logPayloads);
   }
+  if (options.evaluation !== undefined) {
+    if (options.evaluation.length > 200 || !/^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*\/[A-Za-z0-9_.-]+$/.test(options.evaluation)) throw new Error("Use evaluation-slug@revision/sample");
+    headers["x-niu-evaluation"] = options.evaluation;
+  }
   const taskId = options.taskId ?? client.taskId;
   if (taskId !== undefined) {
     if (!TASK_ID_PATTERN.test(taskId)) {
@@ -485,10 +495,18 @@ function buildHeaders(
 
 function extractMeta(headers?: GatewayHeaders): GatewayMeta {
   if (!headers || typeof headers.get !== "function") return {};
+  const poolSlug = headers.get("x-niu-pool");
+  const poolRevision = headers.get("x-niu-pool-revision");
+  const selectedModel = headers.get("x-niu-selected-model");
+  const poolEvidence = headers.get("x-niu-pool-evidence");
   const attemptId = headers.get("x-niu-attempt-id") ?? undefined;
   const operationId = headers.get("x-niu-operation-id") ?? undefined;
   const requestId = headers.get("x-request-id") ?? undefined;
   return {
+    ...(poolSlug ? { pool_slug: poolSlug } : {}),
+    ...(poolRevision ? { pool_revision: poolRevision } : {}),
+    ...(selectedModel ? { selected_model: selectedModel } : {}),
+    ...(poolEvidence ? { pool_evidence: poolEvidence } : {}),
     ...(attemptId ? { attempt_id: attemptId } : {}),
     ...(operationId ? { operation_id: operationId } : {}),
     ...(requestId ? { request_id: requestId } : {}),

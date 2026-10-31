@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
-import AccountMenu from '../../src/app/AccountMenu';
-import type { AdminSession, DashboardContext } from '../../src/app/dashboard-context';
+import AccountMenu from '../../app/shell/AccountMenu';
+import type { AdminSession, DashboardContext } from '../../app/shell/dashboard-context';
 
 vi.mock('@/components/ui/sidebar', () => ({ useSidebar: () => ({ isMobile: true, setOpenMobile: vi.fn() }) }));
 

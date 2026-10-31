@@ -1,0 +1,16 @@
+{
+  "source_manifest_sha256": "72958222c945e1ff770659a63bcc191438b92892b84bad08a71db575a27ce506",
+  "source_files": 1453,
+  "exit_codes": {
+    "tests": 0,
+    "types": 0
+  },
+  "changed_snapshot_inputs": [],
+  "dependency_receipts": {
+    "pnpm-lock.yaml": "b125db35061f29477f39c385e1007fe723fd1b8aaa6dbfaae3d20a55e68b240d",
+    "node_modules/.modules.yaml": "8dc6f955fb99e0db2a00855fb9f0e8e0cb4e2f8a0783ae55a878d4f5339c048c"
+  },
+  "dependencies_unchanged": true,
+  "qualified_snapshot": true,
+  "scope": "dashboard automated tests and type checking; no live/rendered acceptance"
+}

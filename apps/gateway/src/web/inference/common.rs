@@ -462,6 +462,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
 }
 
 pub(super) struct AttemptRequest<'a> {
+    pub headers: &'a HeaderMap,
     pub route_generation: Option<i64>,
     pub managed_route: Option<&'a niu_storage::ManagedRouteSnapshot>,
     pub personal_route: Option<&'a niu_storage::VendorRoute>,
@@ -539,6 +540,7 @@ pub(super) async fn begin_retry_attempt(
     retry: Option<(Uuid, niu_storage::GatewayRetryAdmission)>,
 ) -> Result<DispatchContext, ApiError> {
     let AttemptRequest {
+        headers,
         route_generation,
         managed_route,
         personal_route,
@@ -557,6 +559,7 @@ pub(super) async fn begin_retry_attempt(
             niu_storage::StoreError::ProcurementUnavailable,
         ));
     }
+    let evaluation = request_evaluation_binding(headers, protocol, request_body)?;
     let token_bound = request_token_bound(request_body, &protocol);
     let scope = principal.scope();
     let retained_input = [&snapshot.workspace_policy, &snapshot.key_policy]
@@ -643,6 +646,7 @@ pub(super) async fn begin_retry_attempt(
             .prepare_personal_gateway_attempt_with_retry(
                 principal,
                 niu_storage::GatewayAdmission {
+                    evaluation: evaluation.clone(),
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
@@ -696,6 +700,7 @@ pub(super) async fn begin_retry_attempt(
             .admit_priced_gateway_with_retry(
                 principal,
                 niu_storage::GatewayAdmission {
+                    evaluation: evaluation.clone(),
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
@@ -747,6 +752,7 @@ pub(super) async fn begin_retry_attempt(
             .admit_unpriced(
                 principal,
                 crate::admission::UnpricedAdmissionRequest {
+                    evaluation,
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
@@ -762,6 +768,12 @@ pub(super) async fn begin_retry_attempt(
             )
             .await
             .map_err(|error| match error {
+                crate::admission::AdmissionError::EvaluationBindingMismatch => {
+                    ApiError::from_store(niu_storage::StoreError::EvaluationBindingMismatch)
+                }
+                crate::admission::AdmissionError::EvaluationGrantRequired => {
+                    ApiError::from_store(niu_storage::StoreError::EvaluationGrantRequired)
+                }
                 crate::admission::AdmissionError::TokenRateExceeded => {
                     ApiError::from_store(niu_storage::StoreError::KeyTokenRateExceeded)
                 }
@@ -868,6 +880,63 @@ pub(super) async fn begin_retry_attempt(
             disarmed: false,
         }),
     })
+}
+
+fn request_evaluation_binding(
+    headers: &HeaderMap,
+    protocol: crate::guardrails::input::Protocol,
+    body: &Value,
+) -> Result<Option<niu_storage::EvaluationBinding>, ApiError> {
+    let values = headers
+        .get_all("x-niu-evaluation")
+        .iter()
+        .collect::<Vec<_>>();
+    if values.is_empty() {
+        return Ok(None);
+    }
+    let invalid = || {
+        ApiError::invalid_request(
+            "Use one x-niu-evaluation header: evaluation-slug@revision/sample-reference",
+        )
+    };
+    if values.len() != 1 {
+        return Err(invalid());
+    }
+    let value = values[0].to_str().map_err(|_| invalid())?;
+    let (slug, rest) = value.split_once('@').ok_or_else(invalid)?;
+    let (revision, sample) = rest.split_once('/').ok_or_else(invalid)?;
+    if !niu_storage::is_valid_pool_slug(slug)
+        || sample.is_empty()
+        || sample.len() > 100
+        || !sample
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+        || !revision.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err(invalid());
+    }
+    let revision = revision
+        .parse::<i64>()
+        .ok()
+        .filter(|value| (1..=9_007_199_254_740_991).contains(value))
+        .ok_or_else(invalid)?;
+    let protocol = match protocol {
+        crate::guardrails::input::Protocol::Chat => "chat",
+        crate::guardrails::input::Protocol::Responses => "responses",
+        crate::guardrails::input::Protocol::Messages => "messages",
+        crate::guardrails::input::Protocol::Embeddings => "embeddings",
+        crate::guardrails::input::Protocol::GenerateContent => "generate_content",
+        _ => return Err(invalid()),
+    };
+    let request_sha256 = niu_storage::evaluation_request_fingerprint(protocol, body)
+        .map_err(ApiError::from_store)?;
+    Ok(Some(niu_storage::EvaluationBinding {
+        evaluation_slug: slug.into(),
+        evaluation_revision: revision,
+        sample: sample.into(),
+        protocol: protocol.into(),
+        request_sha256,
+    }))
 }
 
 /// An optional opaque correlation key lets an agent group all of its model

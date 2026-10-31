@@ -319,6 +319,7 @@ async fn admin_call(app: &Router, path: &str, body: Value) -> Value {
 
 mod accounting;
 mod admin;
+mod agent_authorizations;
 mod api_migrations;
 mod codex_connections;
 mod executions;
@@ -333,6 +334,9 @@ mod request_exports;
 mod stability_suite;
 mod video;
 mod video_images;
+mod workspace_evaluations;
+mod workspace_events;
+mod workspace_pools;
 
 mod vendors;
 

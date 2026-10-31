@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { appRoutes } from '../../src/app/routes';
+import { appRoutes } from '../../app/routes';
 
 describe('shared authentication boundary', () => {
   for (const path of ['/workspaces/default', '/suppliers', '/providers', '/suppliers/supplier', '/chat', '/workspaces/default/models', '/admin/suppliers']) {

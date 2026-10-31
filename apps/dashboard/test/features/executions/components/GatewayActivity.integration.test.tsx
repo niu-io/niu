@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
-import GatewayActivity, { taskOutcome } from '../../../../src/features/executions/components/GatewayActivity';
+import GatewayActivity, { taskOutcome } from '../../../../app/features/executions/components/GatewayActivity';
 
 const knownKeys = [{id:'key-1',name:'Build app',allowed_models:['*'],revoked:false,expired:false}];
 

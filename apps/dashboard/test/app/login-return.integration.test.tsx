@@ -1,8 +1,8 @@
 import { render, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import AppLayout from '../../src/app/AppLayout';
-import LoginRoute from '../../src/features/login/page';
+import AppLayout from '../../app/shell/AppLayout';
+import LoginRoute from '../../app/features/login/page';
 
 describe('sign-in destination restoration', () => {
   it.each([

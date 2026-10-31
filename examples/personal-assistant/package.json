@@ -1,0 +1,12 @@
+{
+  "name": "niu-personal-assistant-example",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "dev": "node --env-file-if-exists=.env server.mjs", "build": "vite build", "test": "node --test server.test.mjs" },
+  "dependencies": {
+    "react": "^19.3.0", "react-dom": "^19.3.0", "radix-ui": "^1.6.7",
+    "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": { "vite": "^8.3.1", "@vitejs/plugin-react": "^6.1.1", "@tailwindcss/vite": "^4.3.3", "tailwindcss": "^4.3.3" }
+}

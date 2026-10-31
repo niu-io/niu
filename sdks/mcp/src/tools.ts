@@ -1,3 +1,6 @@
+import { callEvaluationTool, evaluationToolDefinitions } from "./evaluations.js";
+import { callEventTool, eventToolDefinitions } from "./events.js";
+import { callPoolTool, poolToolDefinitions } from "./pools.js";
 import {
   assertModelName,
   assertUuid,
@@ -46,6 +49,15 @@ export async function callTool(
   raw: unknown,
 ): Promise<ToolResult> {
   try {
+    if (evaluationToolDefinitions.some(tool => tool.name === name)) {
+      return text(JSON.stringify(await callEvaluationTool(client, name, raw)));
+    }
+    if (eventToolDefinitions.some(tool => tool.name === name)) {
+      return text(JSON.stringify(await callEventTool(client, name, raw)));
+    }
+    if (poolToolDefinitions.some(tool => tool.name === name)) {
+      return text(JSON.stringify(await callPoolTool(client, name, raw)));
+    }
     switch (name) {
       case "inspect_key": {
         rejectUnknownKeys(raw, [], "inspect_key");
@@ -271,12 +283,16 @@ function attachMeta(value: unknown, meta: GatewayMeta): unknown {
     value === null ||
     typeof value !== "object" ||
     Array.isArray(value) ||
-    (!meta.attempt_id && !meta.operation_id && !meta.request_id)
+    (!meta.attempt_id && !meta.operation_id && !meta.request_id && !meta.pool_slug && !meta.pool_evidence)
   ) {
     return value;
   }
   return {
     ...(value as Record<string, unknown>),
+    ...(meta.pool_slug ? { pool_slug: meta.pool_slug } : {}),
+    ...(meta.pool_revision ? { pool_revision: meta.pool_revision } : {}),
+    ...(meta.selected_model ? { selected_model: meta.selected_model } : {}),
+    ...(meta.pool_evidence ? { pool_evidence: meta.pool_evidence } : {}),
     ...(meta.attempt_id ? { attempt_id: meta.attempt_id } : {}),
     ...(meta.operation_id ? { operation_id: meta.operation_id } : {}),
     ...(meta.request_id ? { request_id: meta.request_id } : {}),
@@ -438,7 +454,7 @@ const CHAT_BODY_KEYS = [
   "parallel_tool_calls",
 ] as const;
 
-const CHAT_OPTION_KEYS = ["log_payloads", "task_id"] as const;
+const CHAT_OPTION_KEYS = ["log_payloads", "evaluation", "task_id"] as const;
 
 function parseChatArgs(
   raw: unknown,
@@ -466,6 +482,7 @@ function parseChatArgs(
   }
   const options: GatewayRequestOptions = {
     logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
+    evaluation: optionalString(input.evaluation, "evaluation"),
     taskId: optionalString(input.task_id, "task_id"),
   };
   return { body, options };
@@ -489,6 +506,7 @@ async function runCompareModels(client: GatewayClient, raw: unknown): Promise<un
       "reasoning",
       "reasoning_effort",
       "log_payloads",
+      "evaluation",
       "task_id",
     ],
     "compare_models",
@@ -514,6 +532,7 @@ async function runCompareModels(client: GatewayClient, raw: unknown): Promise<un
   }
   const options: GatewayRequestOptions = {
     logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
+    evaluation: optionalString(input.evaluation, "evaluation"),
     taskId: optionalString(input.task_id, "task_id"),
   };
 
@@ -599,6 +618,7 @@ function parseResponsesArgs(
       "metadata",
       "user",
       "log_payloads",
+      "evaluation",
       "task_id",
     ],
     "create_response",
@@ -621,7 +641,8 @@ function parseResponsesArgs(
     body,
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
-      taskId: optionalString(input.task_id, "task_id"),
+      evaluation: optionalString(input.evaluation, "evaluation"),
+    taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -673,6 +694,7 @@ function parseMessagesArgs(
       "tools",
       "tool_choice",
       "log_payloads",
+      "evaluation",
       "task_id",
     ],
     "create_message",
@@ -703,7 +725,8 @@ function parseMessagesArgs(
     body,
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
-      taskId: optionalString(input.task_id, "task_id"),
+      evaluation: optionalString(input.evaluation, "evaluation"),
+    taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -715,7 +738,7 @@ function parseGenerateContentArgs(raw: unknown): {
 } {
   const input = parseObjectArgs(
     raw,
-    ["model", "contents", "systemInstruction", "generationConfig", "log_payloads", "task_id"],
+    ["model", "contents", "systemInstruction", "generationConfig", "log_payloads", "evaluation", "task_id"],
     "generate_content",
   );
   const model = assertModelName(input.model, "model");
@@ -741,7 +764,8 @@ function parseGenerateContentArgs(raw: unknown): {
     body,
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
-      taskId: optionalString(input.task_id, "task_id"),
+      evaluation: optionalString(input.evaluation, "evaluation"),
+    taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -751,7 +775,7 @@ function parseEmbeddingsArgs(
 ): { body: Record<string, unknown>; options: GatewayRequestOptions } {
   const input = parseObjectArgs(
     raw,
-    ["model", "input", "encoding_format", "dimensions", "user", "log_payloads", "task_id"],
+    ["model", "input", "encoding_format", "dimensions", "user", "log_payloads", "evaluation", "task_id"],
     "create_embeddings",
   );
   const model = assertModelName(input.model, "model");
@@ -772,7 +796,8 @@ function parseEmbeddingsArgs(
     body,
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
-      taskId: optionalString(input.task_id, "task_id"),
+      evaluation: optionalString(input.evaluation, "evaluation"),
+    taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -1542,10 +1567,13 @@ async function handleMediaImageIngestions(
 }
 
 export const toolDefinitions = [
+  ...evaluationToolDefinitions,
+  ...eventToolDefinitions,
+  ...poolToolDefinitions,
   {
     name: "inspect_key",
     description:
-      "Inspect the current workspace API key: label, allowed_models, expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
+      "Inspect the current workspace API key: label, allowed_models, management_capabilities (explicit resource grants, not installation authority), expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -1665,6 +1693,7 @@ export const toolDefinitions = [
           type: "boolean",
           description: "Set false to send x-niu-log-payloads: false and opt out of 24h request/response payload retention.",
         },
+        evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: {
           type: "string",
           description: "Optional X-Niu-Task-ID correlation tag (1-200 printable ASCII chars) to group related requests in workspace activity.",
@@ -1701,6 +1730,7 @@ export const toolDefinitions = [
         reasoning: { type: "object" },
         reasoning_effort: { type: "string", enum: ["low", "medium", "high"] },
         log_payloads: { type: "boolean" },
+        evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
       },
     },
@@ -1726,6 +1756,7 @@ export const toolDefinitions = [
         },
         user: { type: "string" },
         log_payloads: { type: "boolean" },
+        evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
       },
     },
@@ -1755,6 +1786,7 @@ export const toolDefinitions = [
         tools: { type: "array", items: { type: "object" } },
         tool_choice: { type: "object" },
         log_payloads: { type: "boolean" },
+        evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
       },
     },
@@ -1788,6 +1820,7 @@ export const toolDefinitions = [
           },
         },
         log_payloads: { type: "boolean" },
+        evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
       },
     },
@@ -1812,6 +1845,7 @@ export const toolDefinitions = [
         dimensions: { type: "integer", minimum: 1 },
         user: { type: "string" },
         log_payloads: { type: "boolean" },
+        evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
       },
     },

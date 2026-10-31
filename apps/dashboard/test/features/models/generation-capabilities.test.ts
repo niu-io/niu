@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { generationCapability } from '@/features/models/generation-capabilities';
 import { capabilityValues } from '@/features/models/model-capabilities';
-import type { Model } from '@/app/dashboard-context';
+import type { Model } from '@/shell/dashboard-context';
 it.each([
  [{chat:false,video:true},['text'],false,true],
  [{chat:true,video:false},['video'],true,false],

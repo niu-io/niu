@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import ExternalDetectors, { type DetectorBinding } from "../../../src/features/guardrails/ExternalDetectors";
+import ExternalDetectors, { type DetectorBinding } from "../../../app/features/guardrails/ExternalDetectors";
 const fingerprint = "a".repeat(64);
 const description = { schema_version: 1, detector: "review", configuration_fingerprint: fingerprint, recipient: "Verification service", region: "Local", retention: "No persisted content", policy_activation: true, processing_guarantees: "declared_unverified", content_sent: "request_text_after_local_redaction", external_charge: "declared_unmetered", timeout_ms: 1000, max_text_bytes: 65536 };
 function setup(disabled = false, data = [description], bindings: DetectorBinding[] = []) {

@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { KeyRequestError } from '../../../src/features/keys/api';
-import { confirmedKeyValidationFailure, forgetPendingKeyMutation, readPendingKeyMutation, reconcileKeyMutation, recoveryCacheKey, savePendingKeyMutation, submitKeyMutation, type PendingKeyMutation } from '../../../src/features/keys/mutation-recovery';
+import { KeyRequestError } from '../../../app/features/keys/api';
+import { confirmedKeyValidationFailure, forgetPendingKeyMutation, readPendingKeyMutation, reconcileKeyMutation, recoveryCacheKey, savePendingKeyMutation, submitKeyMutation, type PendingKeyMutation } from '../../../app/features/keys/mutation-recovery';
 
 const requestId='12345678-1234-4234-8234-123456789abc';
 const pending: PendingKeyMutation={version:1,requestId,action:'create',label:'App',body:{name:'App',ttl_seconds:3600}};

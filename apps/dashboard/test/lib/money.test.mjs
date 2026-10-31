@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountFromNanos, amountToNanos, formatFinancialMoney, formatRateMoney, money } from '../../src/lib/money.ts';
+import { amountFromNanos, amountToNanos, formatFinancialMoney, formatRateMoney, money } from '../../app/lib/money.ts';
 
 describe('money formatting', () => {
   it('retains nanounits beyond Number precision', () => {

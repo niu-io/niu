@@ -1,5 +1,10 @@
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
+import { clearSessionCache } from '../app/lib/query-cache';
+import { resetActiveRouteLoads } from '../app/lib/route-data';
+import { resetActiveSessionSnapshot } from '../app/shell/router-context';
+
+configure({ asyncUtilTimeout: 4000 });
 
 beforeAll(() => {
   if (!globalThis.ResizeObserver) {
@@ -24,6 +29,9 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  clearSessionCache();
+  resetActiveRouteLoads();
+  resetActiveSessionSnapshot();
   localStorage.clear();
   sessionStorage.clear();
 });

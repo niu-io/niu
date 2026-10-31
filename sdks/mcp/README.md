@@ -34,6 +34,8 @@ For MCP development, run `pnpm install --frozen-lockfile` from the Niu checkout 
 | `NIU_LOG_PAYLOADS` | `true` or `false` default for `x-niu-log-payloads` (set `false` to opt out of 24h request/response payload retention) |
 | `NIU_TASK_ID` | Default `X-Niu-Task-ID` correlation tag (1–200 printable ASCII characters) to group agent requests in workspace activity |
 
+`NIU_EVENT_SECRET_DIR` optionally selects the private signing-credential directory (default `~/.config/niu/events`). It must be outside the repository, owned by the current user, private to that user and have safe parent directories. The bundled adapter enforces POSIX ownership/modes; Windows requires an ACL-capable host adapter before secret-issuing tools can run.
+
 ## Exposed MCP capabilities
 
 ### 1. Key introspection, model discovery & generation telemetry
@@ -41,6 +43,26 @@ For MCP development, run `pnpm install --frozen-lockfile` from the Niu checkout 
 - `list_models` (`GET /v1/models`): List models accessible to this workspace key and their published `customer_pricing`, with optional `search` and `priced_only` filters.
 - `list_catalog_models` (`GET /catalog/v1/models`): List public catalog models with customer metadata and supported protocol capabilities (`chat_completions`, `streaming`, `embeddings`, `messages`, `messages_streaming`, `generate_content`, `responses`).
 - `get_generation` (`GET /v1/generations/{id}`): Retrieve exact token breakdown (`prompt_tokens`, `completion_tokens`, `cached_input_tokens`, `cache_write_input_tokens`, `reasoning_output_tokens`), latency phases (`dispatch_ms`, `headers_ms`, `first_output_ms`, `total_ms`), `output_guardrail_outcome`, and settled `customer_charge` for an `attempt_id`.
+
+### Workspace model policies (0.3.0 development candidate)
+
+These six tools require a deployment implementing `/v1/pools` and explicitly delegated `pools:read` or `pools:write` capabilities. Discover grants with `inspect_key`; ordinary inference keys do not gain management access. The candidate is not a published deployment guarantee.
+
+- `list_pools`, `get_pool`: retrieve scoped policies and current revisions.
+- `preview_pool`: validate `configuration` and optionally simulate request `context` against shared policy/metadata filters; returns exclusions and selection weights without persistence or inference. It does not validate full input, reserve capacity or establish live qualification.
+- `set_pool`: save `configuration` using revision zero to create or the current expected revision to update; read back and reconcile conflicts without automatic replay.
+- `get_pool_history`: retrieve immutable prior configurations, following `next_before`.
+- `get_pool_selections`: retrieve the latest 100 selections with policy revision and execution references. HTTP status does not establish generation completion or quality; use linked diagnostics for terminal state, usage and customer charges.
+
+Invoke a policy as `pool/<slug>` only when execution is authorized and the caller permits its concrete candidates. The selected model keeps its ordinary inference, guardrail and billing path. Platform supply pools and procurement data remain separate. See the [agent workflow](https://niu.io/docs/pools.md) and generated REST schemas for exact bounds and evidence limits.
+
+### Workspace resource events (0.3.0 development candidate)
+
+`list_workspace_events` reads scoped event evidence without needing a public receiver. `list_event_subscriptions`, `get_event_subscription`, `get_event_subscription_history` and `get_event_deliveries` require events:read. `set_event_subscription` and `test_event_subscription` require events:write and an authorized public HTTPS destination. Ordinary inference keys do not acquire these grants.
+
+Creation and explicit rotation prepare private local storage before the remote mutation, save the one-time signing secret there and return only `signing_secret_file`. Never print or commit it. If a remote mutation succeeds but local persistence fails, inspect the saved revision, repair storage and explicitly rotate; do not replay blindly. Changing destination requires rotation. Disabling prevents future attempts but cannot recall a request already transmitted.
+
+A targeted test returns queued evidence; inspect delivery acknowledgement separately. Production events currently cover saved workspace pool revisions. Notifications do not establish receiver processing, host wake or task success. See the [agent event workflow](https://niu.io/docs/events.md) for signing, deduplication, cursor recovery, current limits and verification evidence.
 
 ### 2. Multi-protocol inference & parallel model consultation
 - `create_chat_completion` (`POST /v1/chat/completions`): OpenAI-compatible Chat Completions with sampling controls, structured `response_format` (`text`, `json_object`, `json_schema`), `reasoning` / `reasoning_effort`, function `tools` / `tool_choice`, `log_payloads`, and `task_id`. Returns `choices`, `usage`, and `attempt_id`.

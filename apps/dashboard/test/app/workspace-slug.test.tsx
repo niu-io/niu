@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { WorkspaceCreateDialog } from '../../src/app/WorkspaceSwitcher';
-import type { DashboardContext } from '../../src/app/dashboard-context';
-import { workspaceSlugFromName, workspacePathSegment, resolveWorkspacePathSegment } from '../../src/app/workspace-route';
+import { WorkspaceCreateDialog } from '../../app/shell/WorkspaceSwitcher';
+import type { DashboardContext } from '../../app/shell/dashboard-context';
+import { workspaceSlugFromName, workspacePathSegment, resolveWorkspacePathSegment } from '../../app/shell/workspace-route';
 
 const { currencyState } = vi.hoisted(() => ({currencyState:{currency:'USD',error:'',reload:()=>{}}}));
-vi.mock('../../src/app/platform-currency', () => ({usePlatformCurrency:()=>currencyState}));
+vi.mock('../../app/shell/platform-currency', () => ({usePlatformCurrency:()=>currencyState}));
 
 describe('workspace slugs', () => {
   it.each([

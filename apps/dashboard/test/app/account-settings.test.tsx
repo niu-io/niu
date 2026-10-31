@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { Button } from '../../src/components/ui/button';
+import { Button } from '../../app/components/ui/button';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, Link } from 'react-router';
-import { SidebarProvider } from '../../src/components/ui/sidebar';
-import AccountMenu from '../../src/app/AccountMenu';
-import SettingsPage, { SettingsDialog, SettingsNavigation, settingsReturnDestination } from '../../src/features/account/settings-page';
-import type { DashboardContext } from '../../src/app/dashboard-context';
+import { SidebarProvider } from '../../app/components/ui/sidebar';
+import AccountMenu from '../../app/shell/AccountMenu';
+import SettingsPage, { SettingsDialog, SettingsNavigation, settingsReturnDestination } from '../../app/features/account/settings-page';
+import type { DashboardContext } from '../../app/shell/dashboard-context';
 let current: DashboardContext;
-vi.mock('../../src/app/dashboard-context',()=>({useDashboardContext:()=>current}));
+vi.mock('../../app/shell/dashboard-context',()=>({useDashboardContext:()=>current}));
 const organization={id:'11111111-1111-4111-8111-111111111111',name:'Example company'};
 function context(projectId:string|null=null):DashboardContext {
  return {token:'fixture',organization,organizations:[organization],workspace:null,workspaces:[],workspaceLoading:false,session:{kind:'operator',operator:{id:'member',role:'owner',project_id:projectId},permissions:{read:true,write:true,manage_operators:true}},signOut:vi.fn(),selectOrganization:vi.fn()} as unknown as DashboardContext;

@@ -27,9 +27,11 @@ export async function start(
   env: Record<string, string | undefined>,
   io: {
     hostedSource: string;
+    resolveEnvironment?: () => Promise<Record<string, string | undefined>>;
     lines: AsyncIterable<string>;
     write(line: string): void;
     fetch: GatewayFetch;
+    prepareSigningSecret?: (baseURL: string, credential: string, subscription: string) => Promise<(secret: string) => Promise<string>>;
     writeBinaryFile?: (path: string, bytes: Uint8Array) => Promise<string>;
   },
 ): Promise<void> {
@@ -43,6 +45,7 @@ export async function start(
     taskId: config.taskId,
     fetch: io.fetch,
     writeBinaryFile: io.writeBinaryFile,
+    prepareSigningSecret: io.prepareSigningSecret,
   };
   const maxConcurrency = 16;
   const inFlight = new Set<Promise<void>>();
@@ -51,7 +54,20 @@ export async function start(
     while (inFlight.size >= maxConcurrency) {
       await Promise.race(inFlight);
     }
-    const task = dispatch(client, line)
+    const task = (async () => {
+      let active = client;
+      if (io.resolveEnvironment) {
+        try {
+          const latest = resolveConfig(await io.resolveEnvironment(), args, readHostedBaseURL(io.hostedSource));
+          active = { ...client, baseURL: latest.baseURL, apiKey: latest.apiKey, keyId: latest.keyId, credentialHeader: latest.credentialHeader, logPayloads: latest.logPayloads, taskId: latest.taskId };
+        } catch {
+          // Keep protocol discovery available before login, but never dispatch
+          // an upstream request with a placeholder or stale credential.
+          active = { ...client, fetch: async () => { throw new Error("Niu login is required. Use niu-connect, then retry this operation."); } };
+        }
+      }
+      return dispatch(active, line);
+    })()
       .then((response) => {
         if (response !== null) io.write(response);
       })

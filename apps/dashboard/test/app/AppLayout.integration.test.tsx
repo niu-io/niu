@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within, configure } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, matchRoutes, RouterProvider } from 'react-router';
-import { appRoutes } from '../../src/app/routes';
+import { matchRoutes, RouterProvider } from 'react-router';
+import { appRoutes, createDashboardMemoryRouter } from '../../app/routes';
 // Route modules are loaded lazily; allow their initial import on busy CI workers.
 configure({asyncUtilTimeout:5000});
 
@@ -18,7 +18,7 @@ function renderAt(path: string, requiresLogin = false) {
     if (String(input) === '/api/v1/session' && !signedIn) return Response.json({ error: { message: 'Unauthorized' } }, { status: 401 });
     return applicationFetch(input, init);
   }));
-  const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
+  const router = createDashboardMemoryRouter([path]);
   render(<RouterProvider router={router} />);
   return router;
 }
@@ -529,7 +529,7 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     await user.click(rail.getByRole('link', { name: 'Workspace' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default'));
-    expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
+    await waitFor(() => expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected'));
     expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Overview' })).toBeTruthy();
   }, 15_000);
 
@@ -649,7 +649,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/second-project/keys'));
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
-    expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy());
     expect([...new Set(calls.filter(path => path.endsWith('/keys')))]).toEqual([
       '/api/v1/workspaces/project-1/keys',
       '/api/v1/workspaces/project-2/keys',

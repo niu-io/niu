@@ -140,6 +140,7 @@ pub(super) async fn infer(
         &state,
         &principal,
         AttemptRequest {
+            headers: &headers,
             route_generation: None,
             managed_route: None,
             personal_route: None,

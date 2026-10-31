@@ -1,7 +1,7 @@
 import { render, waitFor } from '@testing-library/react';
 import { createMemoryRouter, matchRoutes, RouterProvider } from 'react-router';
 import { expect, it } from 'vitest';
-import { appRoutes } from '@/app/routes';
+import { appRoutes } from '@/routes';
 
 it.each([
   ['/admin/financial-reports', '/admin/reports'],

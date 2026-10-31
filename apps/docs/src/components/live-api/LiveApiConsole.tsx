@@ -6,21 +6,21 @@ import {
   type GenerationView,
   type Model,
 } from "../../../../../sdks/javascript/src/index";
-import { Button } from "../../../../dashboard/src/components/ui/button";
-import { Textarea } from "../../../../dashboard/src/components/ui/textarea";
-import { Label } from "../../../../dashboard/src/components/ui/label";
+import { Button } from "../../../../dashboard/app/components/ui/button";
+import { Textarea } from "../../../../dashboard/app/components/ui/textarea";
+import { Label } from "../../../../dashboard/app/components/ui/label";
 import {
   Alert,
   AlertDescription,
-} from "../../../../dashboard/src/components/ui/alert";
+} from "../../../../dashboard/app/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-} from "../../../../dashboard/src/components/ui/dropdown-menu";
-import { useLocale } from "../../../../dashboard/src/app/locale";
+} from "../../../../dashboard/app/components/ui/dropdown-menu";
+import { useLocale } from "../../../../dashboard/app/shell/locale";
 import WorkspaceKeyConnection, {
   type DocsKeySelection,
 } from "./WorkspaceKeyConnection";

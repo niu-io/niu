@@ -1,6 +1,6 @@
 # Repository ownership
 
-Niu owns model API access, Provider integration, request accounting and consumption observability. External orchestration products own tasks, agents, scheduling and acceptance, and integrate through public interfaces. Optional correlation metadata does not make task execution a Niu responsibility. See [product focus](../product/product-focus.md). Private product implementation and research remain outside this public tree.
+Niu owns model information, authorized model-resource management, model API access, Provider integration, request accounting and consumption observability. External orchestration products own tasks, agents, scheduling and acceptance, and integrate through public interfaces. Optional correlation metadata does not make task execution a Niu responsibility. See [product focus](../product/product-focus.md) and the [agent-oriented principles](../product/agent-oriented-principles.md). Coding agents own task-specific model choices and value judgments. Host-native client integrations consume public Niu contracts; they are distinct from server-side plugins and do not widen grants. Private product implementation and research remain outside this public tree.
 
 Repository boundaries and URL boundaries are independent. The hosted product uses one domain, `niu.io`, with no separate application subdomain.
 

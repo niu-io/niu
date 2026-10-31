@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import ModelsRoute from '@/features/models/page';
 const state=vi.hoisted(()=>({context:{token:'test',models:[],modelsLoading:true,modelsError:'',refreshModels:vi.fn(),workspace:{id:'one',name:'Current workspace'},workspaces:[{id:'one',name:'Current workspace'},{id:'two',name:'Production'}],selectWorkspace:vi.fn()}}));
-vi.mock('@/app/dashboard-context',()=>({useDashboardContext:()=>state.context}));
+vi.mock('@/shell/dashboard-context',()=>({useDashboardContext:()=>state.context}));
 it('keeps unread and failed catalogs distinct from an empty catalog and provides retry', async()=>{
  const view=render(<ModelsRoute/>);
  expect(screen.getByText('Loading model catalog…')).toBeTruthy();

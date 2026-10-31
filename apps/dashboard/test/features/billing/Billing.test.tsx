@@ -1,9 +1,9 @@
-vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
+vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import AccountBilling from "../../../src/features/billing/AccountBilling";
+import AccountBilling from "../../../app/features/billing/AccountBilling";
 
 it('separates balance reporting from payment actions in global Settings', async () => {
   vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'USD',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
@@ -43,10 +43,10 @@ it('shows a recoverable Payments error when shared account data cannot load', as
   expect(screen.queryByText('Payment options unavailable')).toBeNull();
   expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith('/billing/balance'))).toHaveLength(2);
 });
-import BillingRoute from "../../../src/features/billing/page";
-import type { DashboardContext } from "../../../src/app/dashboard-context";
+import BillingRoute from "../../../app/features/billing/page";
+import type { DashboardContext } from "../../../app/shell/dashboard-context";
 const fixture = vi.hoisted(() => ({ context: {} as DashboardContext }));
-vi.mock("../../../src/app/dashboard-context", () => ({
+vi.mock("../../../app/shell/dashboard-context", () => ({
   useDashboardContext: () => fixture.context,
 }));
 const data = {

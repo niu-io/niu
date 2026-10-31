@@ -58,6 +58,7 @@ struct PendingAdmission {
 }
 
 pub(crate) struct UnpricedAdmissionRequest<'a> {
+    pub evaluation: Option<niu_storage::EvaluationBinding>,
     pub route_generation: Option<i64>,
     pub managed_route: Option<niu_storage::ManagedRouteSnapshot>,
     pub token_bound: Option<i64>,
@@ -73,6 +74,8 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum AdmissionError {
+    EvaluationBindingMismatch,
+    EvaluationGrantRequired,
     ManagedRouteChanged,
     GuardrailAdmissionConflict,
     RequestRateExceeded,
@@ -120,6 +123,7 @@ impl GatewayWrites {
         let operation_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
         let record = GatewayAdmission {
+            evaluation: request.evaluation,
             route_generation: request.route_generation,
             managed_route: request.managed_route,
             token_bound: request.token_bound,
@@ -135,11 +139,13 @@ impl GatewayWrites {
             task_id: request.task_id.map(str::to_owned),
             revision: request.revision.to_owned(),
         };
+        let batch_candidate =
+            record.evaluation.is_none() && self.inference_in_flight.load(Ordering::Relaxed) > 1;
         let (reply, result) = oneshot::channel();
         self.admissions
             .send(AdmissionCommand::Admit(Box::new(PendingAdmission {
                 record,
-                batch_candidate: self.inference_in_flight.load(Ordering::Relaxed) > 1,
+                batch_candidate,
                 reply,
             })))
             .await
@@ -539,6 +545,16 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
         Ok(statuses) => {
             for (reply, status) in replies.into_iter().zip(statuses) {
                 let _ = reply.send(Ok(status));
+            }
+        }
+        Err(niu_storage::StoreError::EvaluationBindingMismatch) => {
+            for reply in replies {
+                let _ = reply.send(Err(AdmissionError::EvaluationBindingMismatch));
+            }
+        }
+        Err(niu_storage::StoreError::EvaluationGrantRequired) => {
+            for reply in replies {
+                let _ = reply.send(Err(AdmissionError::EvaluationGrantRequired));
             }
         }
         Err(

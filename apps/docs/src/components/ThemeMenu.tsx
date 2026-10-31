@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconDeviceDesktop, IconLanguage, IconMoon, IconSun } from '@tabler/icons-react';
-import { Button } from '../../../dashboard/src/components/ui/button';
+import { Button } from '../../../dashboard/app/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -8,9 +8,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-} from '../../../dashboard/src/components/ui/dropdown-menu';
-import { applyTheme, readTheme, saveTheme, subscribeTheme, type Theme } from '../../../dashboard/src/app/theme';
-import { useLocale, type Locale } from '../../../dashboard/src/app/locale';
+} from '../../../dashboard/app/components/ui/dropdown-menu';
+import { applyTheme, readTheme, saveTheme, subscribeTheme, type Theme } from '../../../dashboard/app/shell/theme';
+import { useLocale, type Locale } from '../../../dashboard/app/shell/locale';
 
 export default function ThemeMenu() {
   const [theme, setTheme] = useState<Theme>('system');

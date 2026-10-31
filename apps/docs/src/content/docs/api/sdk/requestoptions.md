@@ -9,6 +9,8 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type RequestOptions = {
+    /** Opt-in binding: evaluation-slug@revision/sample. Requires evaluations:read. */
+    evaluation?: string;
     signal?: AbortSignal;
     /** Called once when response headers arrive, including streams and HTTP errors. Does not consume the body. */
     onResponse?: (metadata: ResponseMetadata) => void;

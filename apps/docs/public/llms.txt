@@ -1,0 +1,18 @@
+# Niu — The Model Platform for Agents
+
+> Model information, request evidence and authorized management capabilities for coding agents. Agents own task completion and quality/cost decisions.
+
+## Entry
+
+- [Install and authorize](https://niu.io/docs/install.md): Machine installation contract, candidate availability and browser handoff.
+
+- [Agent capability entry](https://niu.io/docs/agents.md): Start here; scopes, current access limits and task-specific reference links.
+- [Build with Niu](https://niu.io/docs/guides/personal-assistant/): Optional human walkthrough and runnable source example.
+- [MCP](https://niu.io/docs/guides/mcp/): Current tools, resources and authentication.
+- [OpenAPI](https://niu.io/docs/openapi/public.json): Machine-readable REST contracts.
+- [SDK](https://niu.io/docs/api/sdk/): Generated TypeScript reference.
+
+- [Workspace model pools](https://niu.io/docs/pools.md): delegated candidate workflow, revisions, execution evidence and recovery limits.
+- [Workspace resource events](https://niu.io/docs/events.md): event cursors, scoped signed subscriptions, private signing credentials and delivery reconciliation.
+
+- [Task evaluations](https://niu.io/docs/evaluations.md): explicit grants, input fingerprints, attributed judgments, comparable sample coverage and customer charges.

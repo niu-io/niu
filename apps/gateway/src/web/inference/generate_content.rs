@@ -37,6 +37,17 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///           "type": "string",
 ///           "example": "fast:generateContent"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-evaluation",
+///         "in": "header",
+///         "required": false,
+///         "description": "Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 200,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -728,130 +739,149 @@ async fn execute(
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(headers).await?;
-    let public_model = action
+    let mut selected_model = action
         .strip_suffix(":generateContent")
         .filter(|v| {
             !v.is_empty() && v.len() <= 200 && !v.contains(':') && !v.chars().any(char::is_control)
         })
-        .ok_or_else(|| {
-            ApiError::unsupported_message("Only buffered generateContent is supported")
-        })?;
+        .ok_or_else(|| ApiError::unsupported_message("Only buffered generateContent is supported"))?
+        .to_owned();
     let bound = validate(&body)?;
-    if !principal.allows_model(public_model) {
+    if !selected_model.starts_with("pool/") && !principal.allows_model(&selected_model) {
         return Err(ApiError::not_found());
     }
     let requirements = crate::config::ModelRequirements {
         project_id: Some(principal.scope().project_id),
         ..Default::default()
     };
-    let resolved = crate::vendors::resolve_scoped_model(
-        state,
-        principal.scope().organization_id,
-        public_model,
-        Protocol::GenerateContent,
-        Some(&requirements),
-    )
-    .await?;
-    let model = &resolved.model;
-    if model.provider != "gemini" || !model.supports_generate_content {
-        return Err(ApiError::unsupported_message(
-            "This route does not declare native GenerateContent support",
-        ));
-    }
-    // A native model ID is one path segment, never an endpoint supplied by a client.
-    if model.upstream_model.is_empty()
-        || !model
-            .upstream_model
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
-    {
-        return Err(ApiError::unsupported_message(
-            "This route has an unsupported native Gemini model ID",
-        ));
-    }
-    let snapshot = inspect_request_input(
+    let selection = crate::web::workspace_pools::select_for_request(
         state,
         &principal,
-        public_model,
-        model,
-        Protocol::GenerateContent,
+        &mut selected_model,
         &mut body,
+        Protocol::GenerateContent,
+        &requirements,
     )
     .await?;
-    if snapshot.input_outcome.as_deref() == Some("redacted") {
-        validate(&body)?;
-    }
-    if let Some(price) = &model.pricing
-        && (bound > price.max_output_tokens
-            || price.max_input_tokens <= 0
-            || crate::inference_schema::json_serialized_len_within(
-                &body,
-                price.max_input_tokens as usize,
-            )
-            .is_err())
-    {
-        return Err(ApiError::invalid_request(
-            "GenerateContent exceeds the priced route's conservative input or output bound",
-        ));
-    }
-    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    let endpoint = format!(
-        "{}/models/{}:generateContent",
-        model
-            .endpoint_base()
-            .ok_or_else(ApiError::unavailable)?
-            .trim_end_matches('/'),
-        model.upstream_model
-    );
-    let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
-        .await
-        .map_err(ApiError::from_endpoint)?;
-    let task_id = request_task_id(headers)?;
-    state.requests.fetch_add(1, Ordering::Relaxed);
-    let dispatch = begin_attempt(
-        state,
-        &principal,
-        AttemptRequest {
-            route_generation: resolved.route_generation,
-            managed_route: resolved.managed_route.as_ref(),
-            personal_route: resolved.personal_route.as_ref(),
+    let public_model = selected_model.as_str();
+    let result = async {
+        let resolved = crate::vendors::resolve_scoped_model(
+            state,
+            principal.scope().organization_id,
+            public_model,
+            Protocol::GenerateContent,
+            Some(&requirements),
+        )
+        .await?;
+        let model = &resolved.model;
+        if model.provider != "gemini" || !model.supports_generate_content {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare native GenerateContent support",
+            ));
+        }
+        // A native model ID is one path segment, never an endpoint supplied by a client.
+        if model.upstream_model.is_empty()
+            || !model
+                .upstream_model
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
+        {
+            return Err(ApiError::unsupported_message(
+                "This route has an unsupported native Gemini model ID",
+            ));
+        }
+        let snapshot = inspect_request_input(
+            state,
+            &principal,
             public_model,
             model,
-            completion_bound: Some(bound),
-            task_id: task_id.as_deref(),
-            snapshot,
-            request_body: &body,
-            protocol: Protocol::GenerateContent,
-        },
-    )
-    .await?;
-    let usage_attempt = state.usage.begin();
-    let result = async {
-        let response = client
-            .post(endpoint)
-            .timeout(timeout)
-            .header("x-goog-api-key", &resolved.api_key)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|error| ApiError::upstream_transport(&error))?;
-        if !response.status().is_success() {
-            return Err(provider_rejection(response).await);
+            Protocol::GenerateContent,
+            &mut body,
+        )
+        .await?;
+        if snapshot.input_outcome.as_deref() == Some("redacted") {
+            validate(&body)?;
         }
-        let value = provider_json(response)
-            .await
-            .map_err(|_| ApiError::upstream_invalid_response())?;
-        let response = normalize(value, public_model)?;
-        if let Some((prompt, completion)) = response.usage {
-            usage_attempt.report(&json!({"prompt_tokens":prompt,"completion_tokens":completion}));
+        if let Some(price) = &model.pricing
+            && (bound > price.max_output_tokens
+                || price.max_input_tokens <= 0
+                || crate::inference_schema::json_serialized_len_within(
+                    &body,
+                    price.max_input_tokens as usize,
+                )
+                .is_err())
+        {
+            return Err(ApiError::invalid_request(
+                "GenerateContent exceeds the priced route's conservative input or output bound",
+            ));
         }
-        Ok(response)
+        let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
+        let endpoint = format!(
+            "{}/models/{}:generateContent",
+            model
+                .endpoint_base()
+                .ok_or_else(ApiError::unavailable)?
+                .trim_end_matches('/'),
+            model.upstream_model
+        );
+        let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
+            .await
+            .map_err(ApiError::from_endpoint)?;
+        let task_id = request_task_id(headers)?;
+        state.requests.fetch_add(1, Ordering::Relaxed);
+        let dispatch = begin_attempt(
+            state,
+            &principal,
+            AttemptRequest {
+                headers: &headers,
+                route_generation: resolved.route_generation,
+                managed_route: resolved.managed_route.as_ref(),
+                personal_route: resolved.personal_route.as_ref(),
+                public_model,
+                model,
+                completion_bound: Some(bound),
+                task_id: task_id.as_deref(),
+                snapshot,
+                request_body: &body,
+                protocol: Protocol::GenerateContent,
+            },
+        )
+        .await?;
+        let usage_attempt = state.usage.begin();
+        let result = async {
+            let response = client
+                .post(endpoint)
+                .timeout(timeout)
+                .header("x-goog-api-key", &resolved.api_key)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|error| ApiError::upstream_transport(&error))?;
+            if !response.status().is_success() {
+                return Err(provider_rejection(response).await);
+            }
+            let value = provider_json(response)
+                .await
+                .map_err(|_| ApiError::upstream_invalid_response())?;
+            let response = normalize(value, public_model)?;
+            if let Some((prompt, completion)) = response.usage {
+                usage_attempt
+                    .report(&json!({"prompt_tokens":prompt,"completion_tokens":completion}));
+            }
+            Ok(response)
+        }
+        .await;
+        if result.is_err() {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(finalize_response(state, dispatch, result).await)
     }
     .await;
-    if result.is_err() {
-        state.failures.fetch_add(1, Ordering::Relaxed);
+    if let Some(selection) = selection {
+        crate::web::workspace_pools::finish_selection(state, selection, result).await
+    } else {
+        result
     }
-    Ok(finalize_response(state, dispatch, result).await)
 }
 
 fn validate(body: &Value) -> Result<i64, ApiError> {

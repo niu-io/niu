@@ -1,7 +1,7 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import {act,renderHook,waitFor} from '@testing-library/react';
 import {useGenerationKeys} from '@/features/generations/useGenerationKeys';
-import type {DashboardContext} from '@/app/dashboard-context';
+import type {DashboardContext} from '@/shell/dashboard-context';
 const workspace=(id:string)=>({id,organization_id:'company',name:id,organization_name:'Company'});
 const context=(ids:string[])=>({token:'member',workspace:workspace(ids[0]),workspaces:ids.map(workspace)}) as DashboardContext;
 afterEach(()=>vi.unstubAllGlobals());

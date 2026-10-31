@@ -527,7 +527,7 @@ impl Store {
         Ok(rows)
     }
 
-    async fn gateway_activity_selection_on(
+    pub(crate) async fn gateway_activity_selection_on(
         connection: &mut sqlx::PgConnection,
         scope: TenantScope,
         after: Option<Uuid>,

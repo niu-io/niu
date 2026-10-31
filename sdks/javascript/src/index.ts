@@ -108,7 +108,10 @@ export type ChatCompletionResponse = {
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens?: number };
 };
 
+export type AgentManagementCapability = 'pools:read' | 'pools:write' | 'events:read' | 'events:write' | 'evaluations:read' | 'evaluations:write';
+
 export type KeyIntrospection = {
+  management_capabilities?: AgentManagementCapability[];
   object: 'api_key';
   label: string;
   allowed_models: string[];
@@ -473,7 +476,213 @@ export type VideoJobHistory = {
 };
 export type VideoJobHistoryQuery = { before?: string; limit?: number };
 
+/** Customer-owned model policy; never contains Provider supply configuration. */
+export type WorkspaceModelPool = {
+  slug: string; name: string; description: string; enabled: boolean;
+  /** Current revision for reads; expected revision for writes. Zero creates. */
+  revision: number;
+  candidates: import('./admin.js').ModelRoutePoolCandidate[];
+  rules?: Array<Omit<import('./admin.js').ModelRoutePoolRule, 'conditions'> & { conditions: Omit<import('./admin.js').ModelRoutePoolRuleConditions, 'protocol'> & { protocol?: 'chat' | 'responses' | 'messages' | null } }>;
+  default_action?: 'candidates' | 'reject';
+};
+export type WorkspacePoolPreviewContext = {
+  protocol: 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
+  streaming?: boolean; vision?: boolean; tools?: boolean; structured_output?: boolean; reasoning?: boolean;
+  embedding_dimensions?: boolean; embedding_base64?: boolean;
+  estimated_input_tokens?: number; requested_output_tokens?: number;
+};
+export type WorkspacePoolPreview = {
+  configuration_valid: boolean; persisted: false; live_model_verification: 'not_performed'; candidate_count: number; rule_count: number;
+  simulation?: {
+    protocol: WorkspacePoolPreviewContext['protocol']; matched_rule: string | null;
+    outcome: 'pool_disabled' | 'default_reject' | 'no_eligible_candidates' | 'candidates';
+    live_dispatch: false;
+    candidates: Array<{ alias: string; priority: number; weight: number; eligible: boolean; exclusion_reason: string | null; selection_weight: { numerator: number; denominator: number } }>;
+  };
+};
+export type WorkspacePoolSelection = {
+  pool_revision: number; selected_model: string; created_at: string;
+  operation_id: string | null; attempt_id: string | null;
+  /** Returned HTTP status, not terminal generation or quality acceptance. */
+  response_status: number | null;
+};
+function workspacePoolSlug(slug: string): string {
+  if (typeof slug !== 'string' || slug.length > 80 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || ['index', 'history', 'preview', 'audit', 'new'].includes(slug)) throw new TypeError('A readable workspace pool slug is required');
+  return slug;
+}
+
+export type EventSubscription = {
+  slug: string; name: string; endpoint: string; event_types: Array<'pool.changed' | 'evaluation.recorded'>; enabled: boolean;
+  /** Expected revision on write; zero creates. */
+  revision: number;
+};
+export type WorkspaceEvent = {
+  id: string; sequence: string; type: 'pool.changed' | 'evaluation.recorded' | 'subscription.test'; schema_version: 1; occurred_at: string;
+  resource: { kind: 'pool' | 'evaluation' | 'subscription'; slug: string; revision: number; run?: string };
+};
+export type EventDelivery = {
+  id: string; subscription_revision: number; sequence: string;
+  state: 'pending' | 'sending' | 'delivered' | 'failed' | 'cancelled'; attempts: number;
+  response_status: number | null; failure_kind: 'transport' | 'destination' | 'signature' | 'http' | 'authority' | 'superseded' | 'exhausted' | null;
+  updated_at: string; lease_expires_at: string | null; lease_expired: boolean; next_attempt_at: string | null;
+};
+function eventSubscriptionSlug(slug: string): string {
+  workspacePoolSlug(slug);
+  if (['log', 'deliveries', 'test'].includes(slug)) throw new TypeError('Use a readable subscription slug');
+  return slug;
+}
+
+export type EvaluationDefinition = {
+  slug: string; name: string; task: string; rubric: string;
+  protocol: 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
+  revision: number; samples: Array<{reference: string; request_sha256: string}>;
+};
+export type EvaluationRunSubmission = {
+  slug: string; name: string; evaluation_revision: number;
+  evaluator: {kind: 'agent' | 'check'; name: string; version: string};
+  results: Array<{sample: string; attempt_id: string; verdict: 'accepted' | 'rejected' | 'unknown'; reason?: string | null}>;
+};
+/** Immutable attributed evidence; unknown fields remain forward compatible. */
+export type EvaluationSummary = {
+  samples: number; verified_inputs: number; unverified_inputs: number;
+  verdicts: Partial<Record<'accepted' | 'rejected' | 'unknown', number>>;
+  attempts: number; unknown_charge_attempts: number;
+  customer_charge_totals: Array<{dimension: string; amount: string}>;
+  cost_per_accepted: {dimension: string; numerator: string; denominator: number} | null;
+  cost_per_accepted_basis: 'all_attempts_in_submitted_operations';
+  duration_basis: 'evaluated_attempt_only';
+};
+export type EvaluationRunBrief = {
+  slug: string; name: string; evaluation_revision: number; created_at: string;
+  evaluator: EvaluationRunSubmission['evaluator']; summary: EvaluationSummary;
+};
+export type EvaluationReceipt = {
+  slug: string; name: string; evaluation: string; evaluation_revision: number;
+  definition: EvaluationDefinition; evaluator: EvaluationRunSubmission['evaluator'];
+  submitter: {kind: 'delegated_agent_key'; label: string; key_id: string};
+  capture: {consistency: 'repeatable_read'; started_at: string; finished_at: string};
+  results: Array<{
+    sample: string; request_sha256: string; input_match: 'verified' | 'unverified';
+    source_binding: Record<string, unknown> | null; evaluated_attempt_id: string; operation_id: string;
+    judgment: {verdict: 'accepted' | 'rejected' | 'unknown'; reason: string | null; source: 'submitter_reported'};
+    duration_ms: number | null;
+    attempts: Array<{
+      attempt_id: string; model: string; provider_model: string | null; execution: string;
+      duration_ms: number | null;
+      customer_charge: {status: string; currency: string | null; amount_nanos: string | null; unit: Record<string, unknown> | null};
+      [key: string]: unknown;
+    }>;
+    pool_selections: Array<{slug: string; revision: number; selected_model: string}>;
+  }>;
+  summary: EvaluationSummary;
+};
+export type EvaluationComparison = {
+  left: string; right: string; same_task_protocol_and_rubric: boolean; same_evaluator: boolean;
+  quality_comparable: boolean; matched_verified_samples: number; shared_operations: number;
+  left_unmatched_samples: number; right_unmatched_samples: number;
+  left_summary: EvaluationSummary; right_summary: EvaluationSummary;
+};
+export type EvaluationPage<T> = {data: T[]; next_after: string | null};
+function evaluationSlug(value: string): string {
+  if (typeof value !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(value) || value.length > 80) throw new TypeError('Use a readable evaluation/run slug');
+  return value;
+}
+function evaluationRevision(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1) throw new TypeError('Use a positive evaluation revision');
+  return value;
+}
 export class NiuClient {
+  listEvaluations(after?: string, options?: RequestOptions): Promise<EvaluationPage<EvaluationDefinition>> {
+    return this.request(`/evaluations${after === undefined ? '' : `?after=${evaluationSlug(after)}`}`, undefined, options);
+  }
+  getEvaluation(slug: string, revision?: number, options?: RequestOptions): Promise<EvaluationDefinition> {
+    return this.request(`/evaluations/${evaluationSlug(slug)}${revision === undefined ? '' : `?revision=${evaluationRevision(revision)}`}`, undefined, options);
+  }
+  async setEvaluation(configuration: EvaluationDefinition, options: RequestOptions = {}): Promise<EvaluationDefinition> {
+    if (!Number.isSafeInteger(configuration.revision) || configuration.revision < 0) throw new TypeError('Use the current expected revision, or zero to create');
+    return await readPayload(await this.send(`/evaluations/${evaluationSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT')) as EvaluationDefinition;
+  }
+  fingerprintEvaluationRequest(protocol: EvaluationDefinition['protocol'], request: Record<string, unknown>, options?: RequestOptions): Promise<{request_sha256: string; fingerprint_version: 1; protocol: string; inference_performed: false}> {
+    return this.request('/evaluations/fingerprint', {protocol, request}, options);
+  }
+  /** Snapshot discovery: restart pagination for new work. Absence does not prove no execution. */
+  listEvaluationAttempts(slug: string, revision: number, sample: string, after?: string, options?: RequestOptions): Promise<EvaluationPage<Record<string, unknown>>> {
+    if (!/^[A-Za-z0-9_.-]{1,100}$/.test(sample)) throw new TypeError('Use the definition sample reference');
+    if (after !== undefined && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(after)) throw new TypeError('Use the returned attempt cursor');
+    const query = new URLSearchParams({revision: String(evaluationRevision(revision)), sample});
+    if (after !== undefined) query.set('after',after);
+    return this.request(`/evaluations/${evaluationSlug(slug)}/attempts?${query}`, undefined, options);
+  }
+  listEvaluationRuns(slug: string, after?: string, options?: RequestOptions): Promise<EvaluationPage<EvaluationRunBrief>> {
+    return this.request(`/evaluations/${evaluationSlug(slug)}/runs${after === undefined ? '' : `?after=${evaluationSlug(after)}`}`, undefined, options);
+  }
+  /** No inference. Same slug/submission replays the original immutable receipt. */
+  recordEvaluationRun(slug: string, submission: EvaluationRunSubmission, options?: RequestOptions): Promise<EvaluationReceipt> {
+    return this.request(`/evaluations/${evaluationSlug(slug)}/runs`, submission, options);
+  }
+  getEvaluationRun(slug: string, run: string, options?: RequestOptions): Promise<EvaluationReceipt> {
+    return this.request(`/evaluations/${evaluationSlug(slug)}/runs/${evaluationSlug(run)}`, undefined, options);
+  }
+  compareEvaluationRuns(slug: string, left: string, right: string, options?: RequestOptions): Promise<EvaluationComparison> {
+    return this.request(`/evaluations/${evaluationSlug(slug)}/compare?left=${evaluationSlug(left)}&right=${evaluationSlug(right)}`, undefined, options);
+  }
+
+  /** Requires events:read; never returns a signing secret. */
+  listEventSubscriptions(options?: RequestOptions): Promise<{ data: EventSubscription[]; limit: 32 }> {
+    return this.request('/events', undefined, options);
+  }
+  getEventSubscription(slug: string, options?: RequestOptions): Promise<{ data: EventSubscription; processed_cursor: string; authorization_active: boolean }> {
+    return this.request(`/events/${eventSubscriptionSlug(slug)}`, undefined, options);
+  }
+  /** Requires events:write. Creation/rotation returns a secret ONCE: persist privately and never log it. No automatic retry on lost responses. */
+  async setEventSubscription(configuration: EventSubscription, rotateSecret = false, options: RequestOptions = {}): Promise<{ data: EventSubscription; signing_secret?: string }> {
+    if (!Number.isSafeInteger(configuration.revision) || configuration.revision < 0) throw new TypeError('Use the current expected revision, or zero to create');
+    const response = await this.send(`/events/${eventSubscriptionSlug(configuration.slug)}`, { configuration, rotate_secret: rotateSecret }, options, 'application/json', 'PUT');
+    return await readPayload(response) as { data: EventSubscription; signing_secret?: string };
+  }
+  listWorkspaceEvents(after = '0', options?: RequestOptions): Promise<{ data: WorkspaceEvent[]; has_more: boolean; next_after: string; retention: 'no_pruning' }> {
+    if (!/^[0-9]+$/.test(after) || after.length > 19 || BigInt(after) > 9223372036854775807n) throw new TypeError('Use the returned decimal event cursor');
+    return this.request(`/events/log?after=${after}`, undefined, options);
+  }
+  getEventSubscriptionHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: EventSubscription[]; next_before: number | null }> {
+    if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) throw new TypeError('Use a positive revision cursor');
+    return this.request(`/events/${eventSubscriptionSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
+  }
+  getEventDeliveries(slug: string, options?: RequestOptions): Promise<{ data: EventDelivery[]; limit: 100 }> {
+    return this.request(`/events/${eventSubscriptionSlug(slug)}/deliveries`, undefined, options);
+  }
+  /** Queues a targeted test; this is not receiver acknowledgement. Repetition creates a new event. */
+  testEventSubscription(slug: string, revision: number, options?: RequestOptions): Promise<{ data: { id: string; sequence: string; type: 'subscription.test'; subscription_revision: number; delivery: 'queued' } }> {
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('Use the current subscription revision');
+    return this.request(`/events/${eventSubscriptionSlug(slug)}/test`, { revision }, options);
+  }
+  /** Requires delegated pools:read. No inference or live qualification occurs. */
+  listPools(after?: string, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; has_more: boolean; next_after: string | null }> {
+    return this.request(`/pools${after === undefined ? '' : `?after=${workspacePoolSlug(after)}`}`, undefined, options);
+  }
+  getPool(slug: string, options?: RequestOptions): Promise<{ data: WorkspaceModelPool }> {
+    return this.request(`/pools/${workspacePoolSlug(slug)}`, undefined, options);
+  }
+  /** Non-dispatching policy/metadata simulation; never proves live access or full input validity. */
+  previewPool(configuration: WorkspaceModelPool, context?: WorkspacePoolPreviewContext, options?: RequestOptions): Promise<{ data: WorkspacePoolPreview }> {
+    workspacePoolSlug(configuration.slug);
+    return this.request('/pools/preview', { configuration, ...(context === undefined ? {} : { context }) }, options);
+  }
+
+  /** Requires delegated pools:write. Conflicts must be read and reconciled; never automatically replay. */
+  async setPool(configuration: WorkspaceModelPool, options: RequestOptions = {}): Promise<{ data: WorkspaceModelPool }> {
+    if (!Number.isSafeInteger(configuration.revision) || configuration.revision < 0) throw new TypeError('A nonnegative expected revision is required');
+    const response = await this.send(`/pools/${workspacePoolSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT');
+    return await readPayload(response) as { data: WorkspaceModelPool };
+  }
+  getPoolHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; next_before: number | null }> {
+    if (before !== undefined && (!Number.isSafeInteger(before) || before <= 0)) throw new TypeError('A positive revision cursor is required');
+    return this.request(`/pools/${workspacePoolSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
+  }
+  /** Latest 100 selections; retrieve generation diagnostics for terminal state and charges. */
+  getPoolSelections(slug: string, options?: RequestOptions): Promise<{ data: WorkspacePoolSelection[] }> {
+    return this.request(`/pools/${workspacePoolSlug(slug)}/selections`, undefined, options);
+  }
   /** Public branding projection; the regular client credential does not expand it. */
   getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
     return this.request('/branding', undefined, options);
@@ -704,6 +913,10 @@ export class NiuClient {
       }
       headers.set('idempotency-key', options.idempotencyKey);
     }
+    if (options.evaluation !== undefined) {
+      if (typeof options.evaluation !== 'string' || options.evaluation.length > 200 || !/^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*\/[A-Za-z0-9_.-]+$/.test(options.evaluation)) throw new TypeError('Use evaluation-slug@revision/sample');
+      headers.set('x-niu-evaluation', options.evaluation);
+    }
     if (options.logPayloads !== undefined) {
       if (typeof options.logPayloads !== 'boolean') throw new TypeError('logPayloads must be a boolean');
       headers.set('x-niu-log-payloads', String(options.logPayloads));
@@ -743,6 +956,8 @@ export type VideoCreateOptions = RequestOptions & {
 };
 
 export type ResponseMetadata = {
+  /** Routing evidence from response headers; does not prove terminal generation or task acceptance. */
+  readonly pool?: { slug: string; revision: string | null; selectedModel: string | null; evidence: string | null };
   readonly status: number;
   readonly requestId: string | null;
   readonly attemptId: string | null;
@@ -750,6 +965,8 @@ export type ResponseMetadata = {
 };
 
 export type RequestOptions = {
+  /** Opt-in binding: evaluation-slug@revision/sample. Requires evaluations:read. */
+  evaluation?: string;
   signal?: AbortSignal;
   /** Called once when response headers arrive, including streams and HTTP errors. Does not consume the body. */
   onResponse?: (metadata: ResponseMetadata) => void;

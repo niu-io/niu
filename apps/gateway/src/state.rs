@@ -265,6 +265,11 @@ impl AppState {
         };
         crate::vendors::validate_saved_credentials(&store, vendor_cipher.as_deref()).await?;
         crate::payments::validate_saved_configuration(&store, vendor_cipher.as_deref()).await?;
+        crate::resource_events::validate_saved_signing_credentials(
+            &store,
+            vendor_cipher.as_deref(),
+        )
+        .await?;
         crate::vendors::validate_retained_content(&store, vendor_cipher.as_deref()).await?;
         let admin_tokens = TokenSet::parse(
             "NIU_ADMIN_TOKENS",
@@ -320,6 +325,10 @@ impl AppState {
             Arc::get_mut(auth)
                 .expect("authentication runtime is not shared during setup")
                 .configure_demo_from_env()?;
+            state
+                .store
+                .grant_member_platform_admin("demo@niu.io")
+                .await?;
         } else if env::var_os("NIU_DEMO_LOGIN_EMAIL").is_some()
             || env::var_os("NIU_DEMO_LOGIN_PASSWORD").is_some()
         {

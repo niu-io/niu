@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { expect, it } from 'vitest';
-import Administration from '../../src/app/Administration';
-import type { AdminSession, DashboardContext } from '../../src/app/dashboard-context';
+import Administration from '../../app/shell/Administration';
+import type { AdminSession, DashboardContext } from '../../app/shell/dashboard-context';
 import { Outlet } from 'react-router';
 
 const administrator: AdminSession = { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } };

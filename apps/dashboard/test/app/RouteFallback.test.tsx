@@ -2,8 +2,8 @@ import { expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import RouteFallback from '@/app/RouteFallback';
-vi.mock('@/app/branding', () => ({ useBranding: () => ({ settings: { display_name: 'Niu' }, logo: '/logo.svg' }) }));
+import RouteFallback from '@/shell/RouteFallback';
+vi.mock('@/shell/branding', () => ({ useBranding: () => ({ settings: { display_name: 'Niu' }, logo: '/logo.svg' }) }));
 function mount(error: unknown) {
   const router = createMemoryRouter([{ path: '/', loader: () => { throw error; }, errorElement: <RouteFallback /> }]);
   render(<RouterProvider router={router} />);

@@ -2,18 +2,18 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import RoutePoolsPage from '../../../src/features/route-pools/page';
-import { request, VendorRequestError } from '../../../src/features/providers/api';
+import RoutePoolsPage from '../../../app/features/route-pools/page';
+import { request, VendorRequestError } from '../../../app/features/providers/api';
 
-vi.mock('../../../src/app/dashboard-context', () => ({
+vi.mock('../../../app/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     token: 'admin-token',
     organizations: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Acme Production' }],
   }),
 }));
 
-vi.mock('../../../src/features/providers/api', async importOriginal => ({
-  ...(await importOriginal<typeof import('../../../src/features/providers/api')>()),
+vi.mock('../../../app/features/providers/api', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../../app/features/providers/api')>()),
   request: vi.fn(),
 }));
 

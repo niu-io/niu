@@ -1,8 +1,8 @@
 import {expect,it,vi} from 'vitest';
 import {render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {PlatformCurrencyProvider,usePlatformCurrency} from '../../src/app/platform-currency';
-import {PlatformCurrencySetting} from '../../src/features/platform-settings/platform-currency';
+import {PlatformCurrencyProvider,usePlatformCurrency} from '../../app/shell/platform-currency';
+import {PlatformCurrencySetting} from '../../app/features/platform-settings/platform-currency';
 function ReadCurrency(){const {currency,error}=usePlatformCurrency();return <p data-testid="currency">{currency||error}</p>;}
 it('loads the durable currency without a USD fallback',async()=>{
  let resolve!:(value:Response)=>void;

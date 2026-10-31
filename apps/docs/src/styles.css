@@ -1,11 +1,11 @@
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
-@source '../../dashboard/src/components/ui/button.tsx';
-@source '../../dashboard/src/components/ui/dropdown-menu.tsx';
-@source '../../dashboard/src/components/ui/tabs.tsx';
-@source '../../dashboard/src/components/ui/badge.tsx';
-@source '../../dashboard/src/components/ui/table.tsx';
+@source '../../dashboard/app/components/ui/button.tsx';
+@source '../../dashboard/app/components/ui/dropdown-menu.tsx';
+@source '../../dashboard/app/components/ui/tabs.tsx';
+@source '../../dashboard/app/components/ui/badge.tsx';
+@source '../../dashboard/app/components/ui/table.tsx';
 @source './components/ThemeMenu.tsx';
 @source './components/DocsHome.tsx';
 @source './components/CopyPageButton.tsx';
@@ -13,7 +13,7 @@
 @source './components/MobileMenuTools.tsx';
 @source './components/MobileMenuToggle.astro';
 @source './components/live-api';
-@source '../../dashboard/src/components/ui';
+@source '../../dashboard/app/components/ui';
 @custom-variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--background);
@@ -1411,3 +1411,10 @@ a[data-slot='button'][data-variant='outline']:hover {
 :root:not([data-locale='zh-CN']) [data-lang='zh'] {
   display: none !important;
 }
+
+.docs-home-setup-prompt { margin: 20px 0 !important; padding: 18px; border-radius: 8px; background: var(--sl-color-gray-6); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.7; }
+.docs-home-setup-note { margin-top: 16px !important; font-size: 14px !important; }
+
+.docs-home-pipeline { justify-content: flex-start; align-self: start; gap: 12px; }
+.docs-home-pipeline .docs-home-actions { margin-top: 0; }
+.docs-home-pipeline .docs-home-setup-note { margin-top: 0 !important; }

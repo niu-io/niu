@@ -1,8 +1,8 @@
-vi.mock('../../../src/app/platform-currency', () => ({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
+vi.mock('../../../app/shell/platform-currency', () => ({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import MediaRatePublisher from '../../../src/features/provider-business/MediaRatePublisher';
+import MediaRatePublisher from '../../../app/features/provider-business/MediaRatePublisher';
 import type { SupplierMediaRateRecord } from '@niu-io/sdk/admin';
 
 const offer = '9c9d4c10-710e-447f-a37b-ae4894a606d4';

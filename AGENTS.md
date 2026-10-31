@@ -8,6 +8,12 @@ This repository contains only Niu's public project. Internal research, enterpris
 
 The implementation reuses individual source modules, not a complete upstream repository or its history. Keep each imported module small, traceable, independently licensed, and explicit about behavior that remains unimplemented.
 
+## Agent-oriented product direction
+
+Follow [product principles](docs/product/agent-oriented-principles.md) and the [documentation contract](docs/development/agent-documentation.md) when changing product, integrations, docs or marketing. Niu is **The Model Platform for Agents**: it supplies trustworthy information and authorized model-management capabilities. Coding agents own task completion and quality/cost decisions; Niu does not promise optimal value or task success. Invocation is only one part of model management.
+
+Design direct agent discovery, operation, verification and recovery. Humans set goals and authority and review important changes; do not make them relay machine-readable information. Keep required human reading to orientation and agent-led onboarding. Other references primarily serve coding agents; model trials and request/performance/cost inspection remain useful human surfaces. Host-native coding-agent plugins complement MCP and share its underlying contracts; distinguish them from server-side Niu plugins and distinguish host hooks from platform events. Label planned capabilities and current authorization limits explicitly.
+
 ## Work tracking and review follow-up
 
 Use **Beads (`bd`) as the primary work tracker**, especially for tasks discovered during code, API and UX reviews. Run `bd prime` at session start and after compaction; use `bd ready`, `bd show <id>` and `bd update <id> --claim` before starting tracked work. Use a distinct public-safe `BEADS_ACTOR` for each concurrent worker. Keep task ownership, priority, dependencies, progress, blockers and acceptance evidence in Beads. See [the workflow](docs/development/beads.md) for setup, synchronization and handoff.

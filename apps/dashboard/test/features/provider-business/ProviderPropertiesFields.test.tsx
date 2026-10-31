@@ -2,7 +2,7 @@ import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import ProviderPropertiesFields from '../../../src/features/provider-business/ProviderPropertiesFields';
+import ProviderPropertiesFields from '../../../app/features/provider-business/ProviderPropertiesFields';
 
 it('loads linked settings and preserves credentials and availability on revision-aware saves', async () => {
   const vendor = { id: 'configuration-fixture', name: 'Stored configuration', adapter: 'openrouter', api_base: 'https://openrouter.ai/api/v1', enabled: false, revision: 3, has_credential: true };

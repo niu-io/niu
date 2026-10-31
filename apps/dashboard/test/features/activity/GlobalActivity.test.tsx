@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import GlobalActivityRoute, {activityTotals} from '@/features/activity/global-page';
-vi.mock('@/app/ConnectGate',()=>({default:({children}: {children: (value: unknown)=>unknown})=>children({token:'authorized-token',models:[]})}));
+vi.mock('@/shell/ConnectGate',()=>({default:({children}: {children: (value: unknown)=>unknown})=>children({token:'authorized-token',models:[]})}));
 vi.mock('@/features/executions/components/GatewayActivity',()=>({default:({initialScope,statisticsOnly}: {initialScope:{projectId:string};statisticsOnly:boolean})=><p>{initialScope.projectId} scoped {statisticsOnly ? 'Overview' : 'Logs'}</p>}));
 const workspaces=[{id:'a',organization_id:'first',name:'Application',organization_name:'First organization'},{id:'b',organization_id:'second',name:'Research',organization_name:'Second organization'}];
 const summary=(amount='9007199254740993',currency='USD')=>({request_count:2,usage_count:1,prompt_tokens:'9007199254740993',completion_tokens:'2',customer_charges:[{currency,amount_nanos:amount}],unresolved_customer_charge_count:1,unpriced_request_count:0});

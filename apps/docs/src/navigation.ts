@@ -5,3 +5,9 @@ export function documentationSection(path: string): 'Docs' | 'API' | 'SDK' | 'Co
   if (/\/api(?:\/|$)/.test(path)) return 'API';
   return 'Docs';
 }
+
+/** One public Docs entry owns its API and SDK references as well. */
+export function publicNavigationActive(path: string, label: string): boolean {
+  if (path.startsWith('/docs/')) return label === (documentationSection(path) === 'Compare' ? 'Compare' : 'Docs');
+  return false;
+}

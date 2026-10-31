@@ -1,6 +1,6 @@
 import { IconLayoutDashboard } from "@tabler/icons-react";
-import { Button } from "../../../dashboard/src/components/ui/button";
-import { useLocale } from "../../../dashboard/src/app/locale";
+import { Button } from "../../../dashboard/app/components/ui/button";
+import { useLocale } from "../../../dashboard/app/shell/locale";
 
 /** Public navigation stays available; the dashboard owns authentication. */
 export default function SessionLink() {

@@ -1,8 +1,8 @@
 import {render,screen} from '@testing-library/react';
 import {describe,it,expect,vi} from 'vitest';
 import {MemoryRouter} from 'react-router';
-import {OrganizationSettings} from '../../src/features/organization/page';
-import type {DashboardContext} from '../../src/app/dashboard-context';
+import {OrganizationSettings} from '../../app/features/organization/page';
+import type {DashboardContext} from '../../app/shell/dashboard-context';
 
 function context(kind:'installation'|'operator', organization='company-a', platformAdmin=false) {
   return {token:'fixture-session',organization:{id:organization,name:'Example company'},workspaces:[],

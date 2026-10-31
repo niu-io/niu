@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
-import { Button } from '../../../dashboard/src/components/ui/button';
-import { useLocale } from '../../../dashboard/src/app/locale';
+import { Button } from '../../../dashboard/app/components/ui/button';
+import { useLocale } from '../../../dashboard/app/shell/locale';
 
 function extractActiveMarkdown(): string {
   const title = document.querySelector<HTMLElement>('h1#_top')?.innerText.trim() || document.title;

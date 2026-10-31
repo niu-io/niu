@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useChatDraft, type ChatDraft } from '../../../src/features/playground/useChatDraft';
+import { useChatDraft, type ChatDraft } from '../../../app/features/playground/useChatDraft';
 
 const empty:ChatDraft={sessionId:null,prompt:'',models:['fast'],attachments:[],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}};
 const args={token:'member',endpoint:'/draft',identity:'first',enabled:true};

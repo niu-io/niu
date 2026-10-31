@@ -1,5 +1,7 @@
 # Niu UX review
 
+**Product direction, 2026-10-31:** Future reviews must use the [agent-oriented principles](../product/agent-oriented-principles.md): direct agent access to information and controls; human goals, authorization, trials and review; task and value judgments owned by the agent. Historical review findings below remain dated evidence, not the target product architecture.
+
 **Task tracking:** Current follow-up ownership, dependencies and execution status live in [Beads](../development/beads.md); search by the stable finding ID. Statuses below are dated review evidence, not a second live backlog.
 
 **Current review:** [Full review continuation and evidence ledger — 2026-10-21](continuation-2026-10-21.md). Read it together with the [task-first blueprint and boundary decisions](review-2026-10-21.md). The continuation reconciles all 27 tracked findings, records corrected observations, adds UX-26/27 and replaces the earlier premature completion claim. Product implementation remains unchanged. The material below is historical and must not be read as current verification of every finding.
@@ -15,6 +17,8 @@ The scoped review and local refinement are complete; see the [completion audit](
 Existing saved personal Chat results can be read and traced to request details with explicit owner-funded attribution. That is valuable working behavior, but it does not prove customer onboarding, paid delivery, financial reconciliation or media lifecycle readiness. Those outcomes remain unverified in this read-only run. No overall usability score or exhaustive-completeness claim is assigned.
 
 ## Review records
+
+- [Agent-managed model review surfaces](agent-review-0.3.md): 0.3.0 task boundaries, inspected reference and verification requirements; not a completion claim.
 
 - [Product blueprint](blueprint.md): sourced intent, actors, ownership, value-delivery dependencies and eight journeys.
 - [Findings](findings.md): twenty-one proposed findings, evidence, impact, repair direction and observable acceptance conditions.

@@ -49,7 +49,7 @@ export default defineConfig(({ command, mode }) => {
     // Keep those immutable assets when the managed development watcher rebuilds.
     build: { emptyOutDir: process.env.NIU_DEV_PRESERVE_ASSETS !== '1' },
     plugins: [react(), tailwindcss()],
-    resolve: { alias: { '@': new URL('./src', import.meta.url).pathname } },
+    resolve: { alias: { '@': new URL('./app', import.meta.url).pathname } },
     server: {
       proxy: gatewayProxy,
     },

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { IconChevronDown, IconKey, IconRefresh, IconUnlink } from "@tabler/icons-react";
-import { Badge } from "../../../../dashboard/src/components/ui/badge";
-import { Button } from "../../../../dashboard/src/components/ui/button";
+import { Badge } from "../../../../dashboard/app/components/ui/badge";
+import { Button } from "../../../../dashboard/app/components/ui/button";
 import {
   Alert,
   AlertDescription,
-} from "../../../../dashboard/src/components/ui/alert";
+} from "../../../../dashboard/app/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -14,8 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-} from "../../../../dashboard/src/components/ui/dropdown-menu";
-import { useLocale } from "../../../../dashboard/src/app/locale";
+} from "../../../../dashboard/app/components/ui/dropdown-menu";
+import { useLocale } from "../../../../dashboard/app/shell/locale";
 import {
   displayName,
   docsLoginHref,

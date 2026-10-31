@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from 'vitest';
-import {listOperators} from '../../../src/features/operators/api';
+import {listOperators} from '../../../app/features/operators/api';
 afterEach(()=>vi.unstubAllGlobals());
 const row=(id:string)=>({id,name:'Same name',role:'owner',organization_id:'company',project_id:null,revoked:false});
 it('reads every scoped page without conflating matching names',async()=>{

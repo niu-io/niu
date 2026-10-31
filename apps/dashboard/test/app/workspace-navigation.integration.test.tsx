@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { appRoutes } from '../../src/app/routes';
+import { appRoutes } from '../../app/routes';
 
 describe('workspace navigation URLs', () => {
   it.each(['/workspaces/research/keys', '/workspaces/research/activity'])('keeps workspace scope from %s before authentication', async (path) => {

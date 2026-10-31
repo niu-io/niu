@@ -1,8 +1,6 @@
 # Niu Agent Connect
 
-Status: local prototype, verified on test fixtures and a local development
-gateway. The connectors are unpublished and are not release-qualified. This
-document records what has been exercised and where evidence is still missing.
+Status: historical local prototype, superseded by the [agent-oriented principles](../product/agent-oriented-principles.md) on 2026-10-31. Earlier fixture/local-gateway verification does not qualify native coding-agent plugins. The connectors described below are unpublished and are not release-qualified.
 
 Niu Agent Connect is the user-facing integration surface for coding agents. It
 uses a shared installer and connector contract, with a small, independently
@@ -12,7 +10,13 @@ both.
 
 ## Current product boundary
 
-The [product focus](../product/product-focus.md) and [release matrix](../releases/first-release.md) supersede the original two-mode release target. The first subscription feature is usage observation and an API-equivalent value report, subject to real Codex connector qualification. Route mode below describes existing prototype design, not a prerequisite or a claim of supported subscription interception. Task/tool/acceptance events in historical contracts do not make Niu responsible for orchestration or task evaluation.
+The [agent-oriented principles](../product/agent-oriented-principles.md), agreed 2026-10-31, supersede the integration direction below. The target is native coding-agent plugins or supported extensions for direct access to Niu model information and management capabilities, sharing API/MCP contracts. Host integrations package setup, discovery and recovery without imposing model-optimization policy. See the [documentation contract](../development/agent-documentation.md).
+
+The existing local MCP server is the current documented integration. Native per-host plugins, expanded management authority and agent-managed event subscriptions need separate implementation and qualification. Niu platform events and agent host hooks are different contracts. Do not infer plugin availability or a working approval/resume flow from this prototype.
+
+The remaining subscription routing, activity collection and connector investigation sections are historical design evidence, not current release requirements. Unrelated external agent telemetry, subscription interception and task orchestration remain outside Niu's product scope. Preserve old contracts and evidence until an explicitly authorized migration; do not reactivate them through plugin installation.
+
+## Historical prototype investigation
 
 ### Codex usage source investigation
 

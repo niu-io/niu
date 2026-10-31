@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 
 DIRECTORIES = (
-    'apps/dashboard/src', 'apps/dashboard/test', 'apps/dashboard/public',
+    'apps/dashboard/app', 'apps/dashboard/test', 'apps/dashboard/public',
     'apps/docs/src', 'branding/assets', 'branding/rounded/sources', 'sdks/javascript/src', 'contracts/fixtures',
 )
 FILES = (

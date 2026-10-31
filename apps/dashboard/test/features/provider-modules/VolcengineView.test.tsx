@@ -10,7 +10,7 @@ const groupId = '44444444-4444-4444-8444-444444444444';
 const assetId = '55555555-5555-4555-8555-555555555555';
 const opId = '66666666-6666-4666-8666-666666666666';
 
-vi.mock('@/app/dashboard-context', () => ({
+vi.mock('@/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     token: 'member-token',
     workspace: {

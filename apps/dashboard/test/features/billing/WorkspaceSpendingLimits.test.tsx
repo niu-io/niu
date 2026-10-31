@@ -1,8 +1,8 @@
-vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
+vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import WorkspaceSpendingLimits from '../../../src/features/billing/WorkspaceSpendingLimits';
+import WorkspaceSpendingLimits from '../../../app/features/billing/WorkspaceSpendingLimits';
 afterEach(() => {cleanup();vi.unstubAllGlobals();});
 const account = {currency:'CNY',committed_nanos:'0',limit_nanos:null,revision:null};
 const props = {token:'member',organization:'company',project:'workspace',canConfigure:true,refresh:0};
