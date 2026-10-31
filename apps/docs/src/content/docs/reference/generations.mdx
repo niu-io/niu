@@ -30,7 +30,7 @@ A saved Video task can retain readable history even when its original key expire
 
 ## Integrate saved sessions
 
-Niu provides an additive dashboard API for durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/api/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
+The remaining sections describe the management API and SDK for applications integrating saved work, including durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/api/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
 
 The JavaScript SDK exposes `admin.generations(scope).sessions`, `.tasks` and `.artifacts`. Existing Chat sessions, comparison branches, Video job APIs, dashboard key-scoped bridges and submission intents remain compatible. Session reads provide a discriminated `chat`/`video` timeline projection. Use `sessions.listChat` / `sessions.retrieveChat` for the read-only Chat bridge (`category=chat`); the default reads and new mutations use `video`. Chat writes continue through the existing guarded save methods. Storage remains compatible, categories remain separate, and Tasks/Artifacts inventory currently covers video rather than all text executions.
 

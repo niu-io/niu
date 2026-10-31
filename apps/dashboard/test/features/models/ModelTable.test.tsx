@@ -16,7 +16,7 @@ it('searches and opens a model without losing the catalog filter on return', asy
   expect(screen.queryByRole('link', { name: 'openai/model-0', exact: true })).toBeNull();
   await user.click(screen.getByRole('link', { name: 'openai/model-24', exact: true }));
   expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Try in Chat' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
+  expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
   expect(screen.getByRole('link', { name: 'Create an API key' }).getAttribute('href')).toBe('/workspaces/default/keys/new');
   await user.click(screen.getByRole('link', { name: 'Models breadcrumb' }));
   expect((screen.getByRole('textbox', { name: 'Filter model routes' }) as HTMLInputElement).value).toBe('model-24');
@@ -218,14 +218,14 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
 it.each([
   [undefined, false, false, '/models'],
   [[], false, false, '/models'],
-  [['text'], true, false, '/chat/completions'],
+  [['text'], true, false, '/models'],
   [['video'], false, true, '/video/models'],
   [['text', 'video'], true, true, '/video/models'],
   [['audio'], false, false, '/models'],
 ])('offers only documented generation handoffs for outputs %s', (outputs, chat, video, endpoint) => {
   const model={id:'example/model', public_catalog:true, catalog:{output_modalities:outputs}};
   render(<MemoryRouter initialEntries={['/models/example/model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]} /></SidebarProvider>} /></Routes></MemoryRouter>);
-  expect(!!screen.queryByRole('link',{name:'Try in Chat'})).toBe(chat);
+  expect(!!screen.queryByRole('link',{name:'Open Generations'})).toBe(chat);
   expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
   expect(document.querySelector('pre')?.textContent).toContain(endpoint);
   if(!chat && !video) expect(document.querySelector('pre')?.textContent).not.toContain('/chat/completions');
@@ -249,7 +249,7 @@ it('keeps platform funding separate from an absent price', () => {
 it('offers the current Video workflow when catalog text metadata is stale',()=>{
  const model={id:'example/stale',public_catalog:true,catalog:{output_modalities:['text']},generation_capabilities:{chat:false,video:true}};
  render(<MemoryRouter initialEntries={['/models/example/stale']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
- expect(screen.queryByRole('link',{name:'Try in Chat'})).toBeNull();
+ expect(screen.queryByRole('link',{name:'Open Generations'})).toBeNull();
  expect(screen.getByRole('link',{name:'Try in Video'}).getAttribute('href')).toContain('new=video');
  expect(document.querySelector('pre')?.textContent).toContain('/video/models');
  expect(screen.queryByText('Text output')).toBeNull();

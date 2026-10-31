@@ -54,16 +54,9 @@ function requestExample(baseUrl: string, model: Model) {
       '  -H "Authorization: Bearer $NIU_API_KEY"',
     ].join(` ${String.fromCharCode(92)}\n`);
   }
-  if (!hasChatOutput(model)) return [
+  return [
     `curl "${baseUrl}/models"`,
     '  -H "Authorization: Bearer $NIU_API_KEY"',
-  ].join(` ${String.fromCharCode(92)}\n`);
-  const body = JSON.stringify({ model: model.id, messages: [{ role: 'user', content: 'Hello' }] });
-  return [
-    `curl "${baseUrl}/chat/completions"`,
-    '  -H "Authorization: Bearer $NIU_API_KEY"',
-    '  -H "Content-Type: application/json"',
-    `  -d '${body.replaceAll("'", "'\\''")}'`,
   ].join(` ${String.fromCharCode(92)}\n`);
 }
 
@@ -101,6 +94,12 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
     if (workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
     return `/generations?${query}`;
+  }
+  function modelAction(model: Model) {
+    if (isVideoModel(model)) return { href: generationHref(model), label: 'Try in Video' };
+    const outputs = model.catalog?.output_modalities;
+    if (outputs?.length && !outputs.includes('text')) return { href: '/help/api/', label: 'View API reference' };
+    return { href: generationHref(model), label: 'Open Generations' };
   }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);
   const copyRevision = useRef(0);
@@ -229,7 +228,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label="Model capabilities">{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
             {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">Own API key · billed by your Provider</p>}
-            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}/M input tokens</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}/M output tokens</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span></> : null}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>Try in Chat</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>Try in Video</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? 'Preview not supported' : 'Capabilities not published'}</span>}</div>
+            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}/M input tokens</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}/M output tokens</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span></> : null}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={modelAction(model).href}>{modelAction(model).label}</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>Try in Video</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? 'Preview not supported' : 'Capabilities not published'}</span>}</div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>Show more models</Button><span>{visible.length} of {filtered.length}</span></div>}
@@ -262,14 +261,14 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>Upstream model</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
       <div className="model-route-cta">
-        {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>Try in Chat</Link></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>Try in Video</Link></Button>}
+        {!isVideoModel(selected) && <Button asChild><Link to={modelAction(selected).href}>{modelAction(selected).label}</Link></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>Try in Video</Link></Button>}
         <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>Create an API key<KeyRound size={15} /></Link></Button>
       </div>
       {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? 'This model is not configured for a supported generation preview.' : 'This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.'}</p>}
-      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? 'Discover supported video parameters' : hasChatOutput(selected) ? 'Make your first request' : 'Inspect available models'}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />Copied</> : 'Copy'}</Button></div>
+      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? 'Discover supported video parameters' : 'Check access with your API key'}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />Copied</> : 'Copy'}</Button></div>
       {copyError && <p role="alert" className="error-text">{copyError}</p>}
       <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
-      <p className="model-route-example-note">Create a workspace API key and set <code>NIU_API_KEY</code> before running this command.{isVideoModel(selected) && <> Find <code>{selected.id}</code> in the authorized response and use its configured parameter schema. Video input varies by model; this read does not generate a video or estimate a charge.</>}</p>
+      <p className="model-route-example-note">Create a workspace API key and set <code>NIU_API_KEY</code> before running this command. Find <code>{selected.id}</code> in the authorized response.{isVideoModel(selected) ? <> Use its configured parameter schema. Video input varies by model; this read does not generate a video or estimate a charge.</> : <> This read does not generate content. Catalog descriptions and text output do not establish Chat support; use the <Link to="/help/api/">API reference</Link> for the protocol enabled on your route.</>}</p>
       <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>View requests for this model</Link>
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>Model unavailable</EmptyTitle><EmptyDescription>This model is no longer in the catalog.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>Browse models</Link></Button></EmptyContent></Empty> : null}
   </div>;
