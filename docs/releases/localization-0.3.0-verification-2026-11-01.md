@@ -106,3 +106,10 @@ The corrected source builds all 980 documentation pages and passes the three
 audience-navigation checks. Deployed desktop/narrow interaction and exact source
 copying require rendered evidence under `niu-h8g` and release case `HELP-01`;
 build success alone does not establish that evidence.
+
+The follow-up also removes the embedded sidebar-width header override so the
+restored navigation uses the existing full-width documentation header. Rendered
+review found the two audience cards still occupied a four-column desktop grid;
+they now use the established two-column treatment already present at intermediate
+widths. Chinese reference-card labels and descriptions are localized while raw
+agent contracts and their technical URLs remain unchanged.

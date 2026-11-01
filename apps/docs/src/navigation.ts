@@ -31,3 +31,8 @@ export const documentationNavigation = [
   { label: 'API', href: '/docs/api/rest/' },
   { label: 'SDK', href: '/docs/api/sdk/' },
 ];
+
+/** Embedded help keeps documentation and search links inside the dashboard. */
+export function documentationHref(href: string, embedded = false): string {
+  return embedded ? href.replace(/^\/docs\//, '/help/') : href;
+}

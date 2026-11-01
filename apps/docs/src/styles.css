@@ -981,7 +981,7 @@ starlight-toc a[aria-current='true'] {
   margin-top: 0.15rem;
 }
 
-/* Role-based 4-card Quick Paths */
+/* Human and agent documentation entry points. */
 .docs-home-paths-section {
   margin-top: 2.75rem;
 }
@@ -1009,7 +1009,7 @@ starlight-toc a[aria-current='true'] {
 
 .docs-home-paths {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.875rem;
   margin-top: 1.125rem;
 }
@@ -1463,24 +1463,6 @@ a[data-slot='button'][data-variant='outline']:hover {
 :root[data-docs-embedded] .docs-embedded-name { font-size: 14px; font-weight: 600; }
 :root[data-docs-embedded] .sidebar-content { padding-top: 12px; }
 .sidebar-content ul ul { border-inline-start: 0; padding-inline-start: 0; margin-inline-start: 0; }
-
-/* Dashboard Help places its toolbar above the document tree, not the article. */
-@media (min-width: 50rem) {
-  :root[data-docs-embedded] { --sl-nav-height: 4.5rem; }
-  :root[data-docs-embedded] .header {
-    width: var(--sl-sidebar-width);
-    padding: 12px 20px;
-    background: var(--sidebar);
-    border: 0;
-  }
-  :root[data-docs-embedded] .docs-header { gap: 8px; }
-  :root[data-docs-embedded] .docs-brand { min-width: 0; }
-  :root[data-docs-embedded] .docs-embedded-name { font-size: 14px; }
-  :root[data-docs-embedded] .docs-header-tools > :not([data-docs-search]) { display: none; }
-  :root[data-docs-embedded] .docs-header-tools site-search button { width: 32px; height: 32px; }
-  :root[data-docs-embedded] .main-frame { padding-top: 0; }
-  :root[data-docs-embedded] .right-sidebar-panel { top: 0; }
-}
 
 /* Starlight draws nested tree guides on list items, not only the list. */
 .sidebar-content ul ul li { margin-inline-start: 0; padding-inline-start: 0; border-inline-start: 0; }

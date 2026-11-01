@@ -20,33 +20,33 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
   const references = [
     {
       href: "/docs/agents.md",
-      name: "Capability map",
-      detail: "Discover authority, operations, evidence and recovery.",
+      name: t("Capability map", "能力索引"),
+      detail: t("Discover authority, operations, evidence and recovery.", "发现授权范围、操作、执行证据和恢复方式。"),
     },
     {
       href: "/docs/pools.md",
-      name: "Model pools",
-      detail: "Preview, publish and inspect workspace model policies.",
+      name: t("Model pools", "模型池"),
+      detail: t("Preview, publish and inspect workspace model policies.", "预览、发布并审阅工作空间模型策略。"),
     },
     {
       href: "/docs/evaluations.md",
-      name: "Evaluations",
-      detail: "Record task judgments and compare verified samples.",
+      name: t("Evaluations", "评估"),
+      detail: t("Record task judgments and compare verified samples.", "记录任务评判并比较已验证的样本。"),
     },
     {
       href: "/docs/events.md",
-      name: "Resource events",
-      detail: "Configure signed notifications and reconcile delivery.",
+      name: t("Resource events", "资源事件"),
+      detail: t("Configure signed notifications and reconcile delivery.", "配置签名通知并核对投递结果。"),
     },
     {
       href: "/docs/api/rest/",
-      name: "REST reference",
-      detail: "Generated request, response and authorization contracts.",
+      name: t("REST reference", "REST 参考"),
+      detail: t("Generated request, response and authorization contracts.", "自动生成的请求、响应和授权契约。"),
     },
     {
       href: "/docs/api/sdk/",
-      name: "SDK reference",
-      detail: "Typed clients and exact interface declarations.",
+      name: t("SDK reference", "SDK 参考"),
+      detail: t("Typed clients and exact interface declarations.", "类型化客户端与准确的接口声明。"),
     },
   ];
   return (
@@ -79,7 +79,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
           <div className="docs-home-pipeline-header">
             <strong>{t("Start with one prompt", "从一句提示词开始")}</strong>
             <a href="/docs/install.md">
-              {t("0.3 preview availability", "0.3 预览版可用性")}
+              {t("Setup instructions", "安装说明")}
             </a>
           </div>
           <pre className="docs-home-setup-prompt">

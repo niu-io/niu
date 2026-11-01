@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {documentationAudience,publicNavigationActive} from '../src/navigation.ts';
+import {documentationAudience,publicNavigationActive,documentationHref} from '../src/navigation.ts';
 test('agent audience contains explicit machine contracts and their index',()=>{
  for(const path of ['/docs/agents/','/docs/install.md','/docs/agents.md','/docs/pools.md','/docs/evaluations.md','/help/events.md']) assert.equal(documentationAudience(path),'agent',path);
 });
@@ -13,4 +13,12 @@ test('audience navigation and generated reference sections have distinct active 
  assert(publicNavigationActive('/docs/configuration/models/','For Human'));
  assert(publicNavigationActive('/docs/api/rest/','API'));
  assert(!publicNavigationActive('/docs/api/rest/','For Human'));
+});
+
+test('embedded documentation links preserve dashboard scope and query state',()=>{
+ assert.equal(documentationHref('/docs/agents/',true),'/help/agents/');
+ assert.equal(documentationHref('/docs/?search=1#start',true),'/help/?search=1#start');
+ assert.equal(documentationHref('/docs/install.md',true),'/help/install.md');
+ assert.equal(documentationHref('/docs/agents/'),'/docs/agents/');
+ assert.equal(documentationHref('https://niu.io/docs/',true),'https://niu.io/docs/');
 });
