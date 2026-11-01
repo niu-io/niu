@@ -6,10 +6,10 @@ export function documentationSection(path: string): 'Docs' | 'API' | 'SDK' | 'Co
   return 'Docs';
 }
 
-/** Human orientation stays short; operational references primarily serve agents. */
+/** Classify explicit machine entry points; task guides remain human documentation. */
 export function documentationAudience(path: string): 'human' | 'agent' {
   const normalized = path.replace(/^\/help(?=\/|$)/, '/docs').replace(/\/+$/, '');
-  return normalized === '/docs' || normalized === '/docs/guides/personal-assistant' ? 'human' : 'agent';
+  return /^\/docs\/(?:agents(?:\/|$)|(?:install|agents|pools|evaluations|events)\.md$)/.test(normalized) ? 'agent' : 'human';
 }
 
 /** One public Docs entry owns its API and SDK references as well. */

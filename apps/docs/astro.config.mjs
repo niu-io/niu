@@ -35,6 +35,10 @@ export default defineConfig({
         { label: 'Start here', items: [
           { label: 'Overview', slug: 'index' },
           { label: 'Build with Niu', slug: 'guides/personal-assistant' },
+          { label: 'Quickstart', slug: 'getting-started' },
+          { label: 'API tutorial', slug: 'guides/api-quickstart' },
+          { label: 'SDK tutorial', slug: 'guides/sdk-quickstart' },
+          { label: 'Coding agents (MCP)', slug: 'guides/mcp' },
         ] },
         { label: 'For coding agents', collapsed: false, items: [
           { label: 'Agent documentation', slug: 'agents' },
@@ -44,10 +48,6 @@ export default defineConfig({
           { label: 'Model pools', link: '/pools.md' },
           { label: 'Evaluations', link: '/evaluations.md' },
           { label: 'Resource events', link: '/events.md' },
-          { label: 'MCP reference', slug: 'guides/mcp' },
-          { label: 'Manual API quickstart', slug: 'getting-started' },
-          { label: 'API tutorial', slug: 'guides/api-quickstart' },
-          { label: 'SDK tutorial', slug: 'guides/sdk-quickstart' },
         ] },
         { label: 'Product references', collapsed: true, items: [
           { label: 'Models & routing', slug: 'configuration/models' },

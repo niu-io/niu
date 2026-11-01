@@ -7,7 +7,7 @@ import { documentationAudience, documentationSection, publicNavigationActive, do
 import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
 const section = documentationSection(Astro.url.pathname);
 const audience = documentationAudience(Astro.url.pathname);
-const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => section !== 'Docs' ? entry.label === section : audience === 'human' ? entry.label === 'Start here' : !['Start here', 'Compare', 'API', 'SDK'].includes(entry.label));
+const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => section !== 'Docs' ? entry.label === section : audience === 'agent' ? entry.label === 'For coding agents' : !['For coding agents', 'API', 'SDK'].includes(entry.label));
 ---
 <div class="docs-mobile-public"><nav aria-label="Public navigation">{documentationNavigation.map(({label,href})=><a href={href} aria-current={publicNavigationActive(Astro.url.pathname,label)?'page':undefined}>{label}</a>)}</nav><MobileMenuTools client:load /></div>
 <SidebarPersister><SidebarSublist sublist={sidebar} /></SidebarPersister>

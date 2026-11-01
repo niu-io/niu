@@ -92,7 +92,9 @@ jobs:
       - name: Build documentation
         run: pnpm --filter @niu-io/docs build
       - name: Check built documentation audience and contract links
-        run: python3 scripts/check-docs-audiences.py
+        run: |
+          python3 scripts/check-docs-audiences.py
+          node --test apps/docs/scripts/test-navigation.mjs
       - name: Check public catalog
         run: pnpm check:catalog
       - name: Build public catalog
