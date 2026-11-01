@@ -152,10 +152,15 @@ jobs:
       - name: Check released migration immutability
         if: ${{ steps.previous.outputs.sha != '' }}
         run: python3 scripts/check-migration-history.py previous-source/crates/storage/migrations crates/storage/migrations
+      - name: Supply build-only license audit tooling to historical context
+        if: ${{ steps.previous.outputs.sha != '' }}
+        run: |
+          install -m 0644 scripts/verify-js-licenses.mjs scripts/js-license-inventory.mjs previous-source/scripts/
       - name: Build previous package for upgrade qualification
         if: ${{ steps.previous.outputs.sha != '' }}
         # Keep released source and migrations intact; use the corrected build
-        # recipe so missing build inputs in an old Dockerfile do not block CI.
+        # recipe and its license tooling. No released business source, manifests
+        # or migration bytes are replaced; this reconstructs a historical package.
         run: docker buildx build --load --file Dockerfile --tag niu-io/niu:previous ./previous-source
       - name: Build single-container product
         run: docker buildx build --load --tag niu-io/niu:ci .
