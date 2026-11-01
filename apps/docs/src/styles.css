@@ -1476,3 +1476,32 @@ a[data-slot='button'][data-variant='outline']:hover {
   :root[data-docs-embedded] .main-frame { padding-top: 0; }
   :root[data-docs-embedded] .right-sidebar-panel { top: 0; }
 }
+
+/* Starlight draws nested tree guides on list items, not only the list. */
+.sidebar-content ul ul li { margin-inline-start: 0; padding-inline-start: 0; border-inline-start: 0; }
+
+/* Quiet document navigation scrollbar; retain a visible, draggable thumb. */
+.sidebar-pane {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--sidebar-foreground) 24%, transparent) transparent;
+  scrollbar-gutter: auto;
+}
+.sidebar-pane:hover,
+.sidebar-pane:focus-within {
+  scrollbar-color: color-mix(in srgb, var(--sidebar-foreground) 42%, transparent) transparent;
+}
+.sidebar-pane::-webkit-scrollbar { width: 6px; }
+.sidebar-pane::-webkit-scrollbar-track { background: transparent; }
+.sidebar-pane::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sidebar-foreground) 24%, transparent);
+  border-radius: 999px;
+}
+.sidebar-pane::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--sidebar-foreground) 42%, transparent);
+}
+@media (forced-colors: active) {
+  .sidebar-pane { scrollbar-color: auto; }
+}
+
+/* Compact public Docs lockup; shared product rail artwork is unaffected. */
+.docs-header .docs-public-name .niu-brand { height: 1.75rem; }
