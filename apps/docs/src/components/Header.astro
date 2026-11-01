@@ -18,7 +18,7 @@ const navZh: Record<string, string> = {
 };
 ---
 <div class="docs-header">
-  <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span><span class="docs-embedded-name" data-i18n-en="Niu Docs" data-i18n-zh="Niu 牛元文档"><span data-lang="en">Niu Docs</span><span data-lang="zh">Niu 牛元文档</span></span></a>
+  <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span><span class="docs-embedded-name" data-i18n-en="Docs" data-i18n-zh="Docs">Docs</span></a>
   <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}</nav>
   <div class="public-session" transition:persist="docs-session"><SessionLink client:load /></div>
   <div class="docs-header-tools">

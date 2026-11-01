@@ -1411,3 +1411,68 @@ a[data-slot='button'][data-variant='outline']:hover {
 :root:not([data-locale='zh-CN']) [data-lang='zh'] {
   display: none !important;
 }
+
+/* Use the dashboard navigation rhythm for the document tree as well. */
+:root {
+  --sl-color-bg-sidebar: var(--sidebar);
+}
+.sidebar-pane { border-inline-end: 0; }
+.sidebar-content { padding: 12px 10px 24px; }
+.sidebar-content .top-level > li + li { margin-top: 16px; }
+.sidebar-content summary { min-height: 40px; padding: 8px 12px; }
+.sidebar-content .large {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.sidebar-content details > ul {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+.sidebar-content li { margin-top: 3px; }
+.sidebar-content a {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--sidebar-foreground);
+}
+.sidebar-content a[aria-current='page'] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+  font-weight: 550;
+}
+.sidebar-content a[aria-current='page']::before { content: none; }
+/* Embedded Help shares the dashboard canvas; its title occupies one compact
+   toolbar rather than a second public-site masthead. Keep search reachable. */
+:root[data-docs-embedded] {
+  --sl-sidebar-width: 16rem;
+  --sl-nav-height: 3.5rem;
+}
+:root[data-docs-embedded] .header { border-bottom: 0; }
+:root[data-docs-embedded] .docs-embedded-name { font-size: 14px; font-weight: 600; }
+:root[data-docs-embedded] .sidebar-content { padding-top: 12px; }
+.sidebar-content ul ul { border-inline-start: 0; padding-inline-start: 0; margin-inline-start: 0; }
+
+/* Dashboard Help places its toolbar above the document tree, not the article. */
+@media (min-width: 50rem) {
+  :root[data-docs-embedded] { --sl-nav-height: 4.5rem; }
+  :root[data-docs-embedded] .header {
+    width: var(--sl-sidebar-width);
+    padding: 12px 20px;
+    background: var(--sidebar);
+    border: 0;
+  }
+  :root[data-docs-embedded] .docs-header { gap: 8px; }
+  :root[data-docs-embedded] .docs-brand { min-width: 0; }
+  :root[data-docs-embedded] .docs-embedded-name { font-size: 14px; }
+  :root[data-docs-embedded] .docs-header-tools > :not([data-docs-search]) { display: none; }
+  :root[data-docs-embedded] .docs-header-tools site-search button { width: 32px; height: 32px; }
+  :root[data-docs-embedded] .main-frame { padding-top: 0; }
+  :root[data-docs-embedded] .right-sidebar-panel { top: 0; }
+}

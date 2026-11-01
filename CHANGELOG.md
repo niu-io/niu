@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.31] - 2026-11-01
+
+### Changed
+- Maintenance and stability updates.
+
 ## [0.2.30] - 2026-10-31
 
 ### Fixed
@@ -545,7 +550,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.28...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.31...HEAD
+[0.2.31]: https://github.com/niu-io/niu/compare/v0.2.30...v0.2.31
 [0.2.28]: https://github.com/niu-io/niu/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/niu-io/niu/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/niu-io/niu/compare/v0.2.25...v0.2.26
