@@ -261,7 +261,7 @@ async fn resource_events_are_atomic_scoped_and_subscriptions_require_current_del
         "new destination requires a new signing credential"
     );
     let changed = store
-        .set_event_subscription(&principal, id, &changed, Some(&vec![43; 48]))
+        .set_event_subscription(&principal, id, &changed, Some(&[43; 48]))
         .await
         .unwrap();
     assert_eq!(

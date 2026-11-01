@@ -685,7 +685,7 @@ pub(super) async fn execute_responses_attempt(
         state,
         principal,
         AttemptRequest {
-            headers: &headers,
+            headers,
             route_generation: resolved.route_generation,
             managed_route: resolved.managed_route.as_ref(),
             personal_route: resolved.personal_route.as_ref(),

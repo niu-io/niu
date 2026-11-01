@@ -116,9 +116,9 @@ async fn send_claim(
     client: &reqwest::Client,
     endpoint: &str,
 ) -> Result<(), niu_storage::StoreError> {
-    if !store.event_delivery_authorized(&claim).await? {
+    if !store.event_delivery_authorized(claim).await? {
         return store
-            .finish_event_delivery(&claim, None, Some("authority"))
+            .finish_event_delivery(claim, None, Some("authority"))
             .await;
     }
     let secret = match cipher.open_event_subscription(
@@ -129,7 +129,7 @@ async fn send_claim(
         Ok(secret) => secret,
         Err(_) => {
             return store
-                .finish_event_delivery(&claim, None, Some("signature"))
+                .finish_event_delivery(claim, None, Some("signature"))
                 .await;
         }
     };
@@ -154,18 +154,16 @@ async fn send_claim(
     .await;
     match status {
         Ok(status) if (200..=299).contains(&status) => {
-            store
-                .finish_event_delivery(&claim, Some(status), None)
-                .await
+            store.finish_event_delivery(claim, Some(status), None).await
         }
         Ok(status) => {
             store
-                .finish_event_delivery(&claim, Some(status), Some("http"))
+                .finish_event_delivery(claim, Some(status), Some("http"))
                 .await
         }
         Err(_) => {
             store
-                .finish_event_delivery(&claim, None, Some("transport"))
+                .finish_event_delivery(claim, None, Some("transport"))
                 .await
         }
     }

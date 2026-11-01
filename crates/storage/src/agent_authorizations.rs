@@ -140,10 +140,8 @@ impl Store {
             .bind(Sha256::digest(device_secret.as_bytes()).to_vec()).fetch_optional(&mut *tx).await?;
         let (id, state, client, organization, project, models, ttl, poll_ready) =
             row.ok_or(StoreError::Unauthorized)?;
-        if state == "pending" || state == "approved" {
-            if !poll_ready {
-                return Err(StoreError::AgentAuthorizationPollLimited);
-            }
+        if (state == "pending" || state == "approved") && !poll_ready {
+            return Err(StoreError::AgentAuthorizationPollLimited);
         }
         if state == "pending" {
             sqlx::query("UPDATE agent_authorizations SET next_poll_at=clock_timestamp()+interval '5 seconds' WHERE id=$1").bind(id).execute(&mut *tx).await?;
