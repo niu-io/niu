@@ -1492,3 +1492,6 @@ a[data-slot='button'][data-variant='outline']:hover {
 
 /* Compact public Docs lockup; shared product rail artwork is unaffected. */
 .docs-header .docs-public-name .niu-brand { height: 1.75rem; }
+
+/* Keep the public header anchored when article length changes scrollbar presence. */
+html { scrollbar-gutter: stable; }

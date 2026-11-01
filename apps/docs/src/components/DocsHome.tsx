@@ -78,7 +78,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
         >
           <div className="docs-home-pipeline-header">
             <strong>{t("Start with one prompt", "从一句提示词开始")}</strong>
-            <a href="/docs/install.md">
+            <a href="/docs/agents/install/">
               {t("Setup instructions", "安装说明")}
             </a>
           </div>

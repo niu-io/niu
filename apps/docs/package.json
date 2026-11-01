@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev --host 0.0.0.0",
-    "build": "node scripts/generate-api-docs.mjs --check && astro build",
-    "check": "astro check",
+    "dev": "node scripts/generate-agent-docs.mjs && astro dev --host 0.0.0.0",
+    "build": "node scripts/generate-agent-docs.mjs && node scripts/generate-api-docs.mjs --check && astro build",
+    "check": "node scripts/generate-agent-docs.mjs --check && astro check",
     "generate:api": "node scripts/generate-api-docs.mjs",
     "check:api": "node scripts/generate-api-docs.mjs --check",
     "test:api": "node --test scripts/test-api-docs.mjs"

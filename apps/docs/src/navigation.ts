@@ -16,8 +16,8 @@ export function documentationAudience(path: string): 'human' | 'agent' {
 export function publicNavigationActive(path: string, label: string): boolean {
   if (path.startsWith('/docs/')) {
     const agentSource = documentationAudience(path) === 'agent';
-    if (label === 'For Human') return documentationSection(path) === 'Docs' && !agentSource;
-    if (label === 'For Agents') return agentSource && documentationSection(path) === 'Docs';
+    if (label === 'Docs') return documentationSection(path) === 'Docs' && !agentSource;
+    if (label === 'AgentDoc') return agentSource && documentationSection(path) === 'Docs';
     if (label === 'API' || label === 'SDK') return documentationSection(path) === label;
     return label === (documentationSection(path) === 'Compare' ? 'Compare' : 'Docs');
   }
@@ -26,8 +26,8 @@ export function publicNavigationActive(path: string, label: string): boolean {
 
 /** Audience-first documentation navigation, separate from the marketing navigation. */
 export const documentationNavigation = [
-  { label: 'For Human', href: '/docs/' },
-  { label: 'For Agents', href: '/docs/agents/' },
+  { label: 'Docs', href: '/docs/' },
+  { label: 'AgentDoc', href: '/docs/agents/' },
   { label: 'API', href: '/docs/api/rest/' },
   { label: 'SDK', href: '/docs/api/sdk/' },
 ];

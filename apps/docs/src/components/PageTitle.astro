@@ -1,7 +1,7 @@
 ---
 import PageTitle from '@astrojs/starlight/components/PageTitle.astro';
 import CopyPageButton from './CopyPageButton';
-import { documentationSection } from '../navigation';
+import { documentationAudience, documentationSection } from '../navigation';
 
 type SidebarEntry = {
   type: 'link' | 'group';
@@ -25,7 +25,7 @@ const activeGroup = sidebar.find(hasCurrentLink)?.label ?? documentationSection(
   <div class="docs-article-header">
     <div class="docs-article-meta not-content">
       <span class="docs-article-eyebrow">{activeGroup}</span>
-      <CopyPageButton client:load />
+      {documentationAudience(Astro.url.pathname) !== 'agent' && <CopyPageButton client:load />}
     </div>
     <PageTitle />
   </div>

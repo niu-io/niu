@@ -1,0 +1,13 @@
+---
+import MarkdownContent from '@astrojs/starlight/components/MarkdownContent.astro';
+import AgentDocModes from './AgentDocModes';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const match = Astro.url.pathname.match(/^\/docs\/agents(?:\/([^/]+))?\/?$/);
+const name = match?.[1];
+const file = name === 'capabilities' ? 'agents' : name;
+const valid = file && ['install', 'agents', 'pools', 'evaluations', 'events'].includes(file);
+const source = match ? await readFile(valid ? resolve('public', `${file}.md`) : resolve('src/content/docs/agents.mdx'), 'utf8') : '';
+const cleanSource = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+---
+{match ? <AgentDocModes client:load source={cleanSource} raw={valid ? `/docs/${file}.md` : undefined}><MarkdownContent><slot /></MarkdownContent></AgentDocModes> : <MarkdownContent><slot /></MarkdownContent>}

@@ -10,12 +10,11 @@ type Theme='system'|'light'|'dark';
 function read():Theme {try{const value=localStorage.getItem('niu-dashboard-theme');return value==='dark'||value==='light'?value:'system';}catch{return 'system';}}
 
 const NAV_ZH: Record<string, string> = {
-  'For Human': '用户文档',
-  'For Agents': '智能体文档',
+  'Docs': 'Docs',
+  'AgentDoc': 'AgentDoc',
   'Why Niu?': '为什么选择牛元？',
   Blog: '博客',
   Models: '模型',
-  Docs: '文档',
   API: 'API',
   SDK: 'SDK',
   Compare: '对比',

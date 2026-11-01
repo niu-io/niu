@@ -30,7 +30,7 @@ export default defineConfig({
         },
       ],
       customCss: ['./src/styles.css'],
-      components: { PageTitle: './src/components/PageTitle.astro', MobileMenuToggle: './src/components/MobileMenuToggle.astro', Header: './src/components/Header.astro', Sidebar: './src/components/Sidebar.astro', ThemeSelect: './src/components/ThemeSelect.astro', ThemeProvider: './src/components/ThemeProvider.astro', PageFrame: './src/components/PageFrame.astro', SiteTitle: './src/components/SiteTitle.astro' },
+      components: { MarkdownContent: './src/components/MarkdownContent.astro', PageTitle: './src/components/PageTitle.astro', MobileMenuToggle: './src/components/MobileMenuToggle.astro', Header: './src/components/Header.astro', Sidebar: './src/components/Sidebar.astro', ThemeSelect: './src/components/ThemeSelect.astro', ThemeProvider: './src/components/ThemeProvider.astro', PageFrame: './src/components/PageFrame.astro', SiteTitle: './src/components/SiteTitle.astro' },
       sidebar: [
         { label: 'Start here', items: [
           { label: 'Overview', slug: 'index' },
@@ -43,11 +43,11 @@ export default defineConfig({
         { label: 'For coding agents', collapsed: false, items: [
           { label: 'Agent documentation', slug: 'agents' },
           // Starlight prefixes its /docs base onto local sidebar links.
-          { label: 'Install and configure', link: '/install.md' },
-          { label: 'Capability map', link: '/agents.md' },
-          { label: 'Model pools', link: '/pools.md' },
-          { label: 'Evaluations', link: '/evaluations.md' },
-          { label: 'Resource events', link: '/events.md' },
+          { label: 'Install and configure', slug: 'agents/install' },
+          { label: 'Capability map', slug: 'agents/capabilities' },
+          { label: 'Model pools', slug: 'agents/pools' },
+          { label: 'Evaluations', slug: 'agents/evaluations' },
+          { label: 'Resource events', slug: 'agents/events' },
         ] },
         { label: 'Product references', collapsed: true, items: [
           { label: 'Models & routing', slug: 'configuration/models' },

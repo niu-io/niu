@@ -9,12 +9,11 @@ import { publicNavigationActive, documentationNavigation, documentationHref } fr
 import { useLocale } from '../../../dashboard/app/shell/locale';
 
 const NAV_ZH: Record<string, string> = {
-  'For Human': '用户文档',
-  'For Agents': '智能体文档',
+  'Docs': 'Docs',
+  'AgentDoc': 'AgentDoc',
   'Why Niu?': '为什么选择牛元？',
   Blog: '博客',
   Models: '模型',
-  Docs: '文档',
   API: 'API',
   SDK: 'SDK',
   Compare: '对比',
