@@ -77,3 +77,18 @@ Task completeness, composition and interaction were reviewed separately. Exact
 source copying and cancellation passed; no clipping was observed in the checked
 views. Actual payment settlement, paid model quality, hosted release behavior and
 unexercised API-error variants remain outside this local evidence.
+
+## Hosted follow-up, 2026-11-01
+
+At core revision `909b582a286763e6c45242e34f1723665b196bf4`, hosted browser
+checks passed at 1280, 960 and 390-pixel widths. Human documentation retains
+tutorials and product references; agent documentation exposes its index and five
+raw Markdown contracts. Chinese audience navigation, mobile navigation opening
+and Escape dismissal, raw contract responses, and visible code-token colors passed.
+Screenshot review found one untranslated sidebar group, `Product references`;
+the follow-up translates it to 产品参考 in both initial and transition rendering.
+
+Hosted account checks passed login, Chinese language selection, funding labels,
+warning-draft cancellation, Escape dismissal and desktop/narrow layout. These
+checks did not submit payment or change financial preferences. They do not
+qualify all hosted product journeys or upstream inference availability.
