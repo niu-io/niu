@@ -21,7 +21,18 @@ For a new release, preserve historical evidence in Beads, update the candidate a
 
 The [v0.2.29 architecture hardening record](releases/architecture-hardening-2026-10-30.md) documents the later patch candidate, current-input checks and deployment evidence. The generated v0.2.26 evidence below remains historical; its GREEN result does not qualify a different candidate.
 
-## Current execution
+## Current 0.3.0 acceptance
+
+The active release gate is `niu-ayj`. The default checker uses this gate and
+requires fresh candidate-bound evidence for all 50 cases. The v0.2.26 results
+below are historical and cannot qualify 0.3.0. To inspect current execution
+without replacing this historical record:
+
+```sh
+python3 scripts/release-checklist.py --parent niu-ayj --output /tmp/niu-0.3.0-acceptance.md --check
+```
+
+## Historical v0.2.26 execution
 
 Last generated: 2026-10-25T20:51:27+00:00.
 

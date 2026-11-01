@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Target: **0.3.0** — agent-oriented UX, documentation and native coding-agent integrations. Release preparation is authorized; publication requires fresh candidate qualification.
+## [0.3.0] - 2026-11-01
+
+Agent-oriented UX, documentation and native coding-agent integrations.
 
 ### Added
 - Native Claude Code and Codex plugin/marketplace builders, plus a separate DeepSeek Harness Cordis bundle, with shared concise skills and standalone MCP runtime.
@@ -22,10 +24,18 @@ Target: **0.3.0** — agent-oriented UX, documentation and native coding-agent i
 - Lead documentation and the independent landing page with one setup prompt. Keep human reading to orientation and agent-led onboarding; expose technical contracts through compact machine-readable references.
 - Keep MCP untranslated alongside API and SDK. Keep coding-agent plugins, server-side plugins, host hooks and platform events distinct.
 
-### Qualification boundary
-- The candidate has local native-host, browser, protocol-fixture and persistence evidence recorded in the dated 0.3.0 verification documents. This does not establish published package availability, hosted release acceptance, real model quality, all host versions or every operating system.
-- Publication remains held. Existing release gates must be executed against the immutable release candidate before a release; local fixture checks do not replace them.
+### Fixed
+- Localize dashboard settings, funding, warnings and management controls, with a full AST localization audit enforced during builds.
+- Restore user and agent documentation navigation, render raw Markdown contracts in Help as copyable source, and preserve syntax highlighting.
+- Check private credential storage before browser authorization, and keep management grants scoped and revocable.
 
+### Verification
+- Dated verification records distinguish local fixtures, hosted journeys, native packages and operating-system coverage. Package publication is established by the release assets; model quality and optimal cost remain decisions for agents and users.
+
+## [0.2.31] - 2026-11-01
+
+### Changed
+- Maintenance and stability updates.
 
 ## [0.2.30] - 2026-10-31
 
@@ -566,7 +576,8 @@ Target: **0.3.0** — agent-oriented UX, documentation and native coding-agent i
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.28...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/niu-io/niu/compare/v0.2.31...v0.3.0
 [0.2.28]: https://github.com/niu-io/niu/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/niu-io/niu/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/niu-io/niu/compare/v0.2.25...v0.2.26

@@ -17,7 +17,7 @@ def read(*args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--parent', default='niu-4do')
+    parser.add_argument('--parent', default='niu-ayj')
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parents[1] / 'docs/release-checklist.md')
     parser.add_argument('--check', action='store_true', help='Exit nonzero unless every required case is GREEN for the candidate')
     args = parser.parse_args()
