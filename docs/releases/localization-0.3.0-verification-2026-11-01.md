@@ -92,3 +92,17 @@ Hosted account checks passed login, Chinese language selection, funding labels,
 warning-draft cancellation, Escape dismissal and desktop/narrow layout. These
 checks did not submit payment or change financial preferences. They do not
 qualify all hosted product journeys or upstream inference availability.
+
+## Embedded navigation regression, 2026-11-01
+
+Hosted Help checks at source `2375805b0c671d8f25c9ecda621db79c9fa632ee`
+found that embedded-document CSS still suppressed the human/agent navigation,
+although the standalone documentation exposed it. This fails navigation
+consistency and discoverability across the same documentation task. The source
+correction retains the existing documentation header and mobile navigation in
+embedded mode; account controls remain owned by the dashboard shell.
+
+The corrected source builds all 980 documentation pages and passes the three
+audience-navigation checks. Deployed desktop/narrow interaction and exact source
+copying require rendered evidence under `niu-h8g` and release case `HELP-01`;
+build success alone does not establish that evidence.

@@ -615,9 +615,7 @@ starlight-toc a[aria-current='true'] {
 }
 :root[data-docs-embedded] .docs-brand img,
 :root[data-docs-embedded] .docs-public-name,
-:root[data-docs-embedded] .docs-header nav,
 :root[data-docs-embedded] .public-session,
-:root[data-docs-embedded] .docs-mobile-public nav,
 :root[data-docs-embedded] .docs-mobile-public .public-session {
   display: none;
 }
