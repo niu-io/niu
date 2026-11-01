@@ -8,7 +8,11 @@ acceptance evidence live in Beads; this document is a durable release contract.
 
 ## Staging and production
 
-Maintain persistent **staging** and **production** environments. Staging has its
+Maintain persistent **staging** and **production** environments. For the hosted
+service, `niu.io` is production and `staging.niu.io` qualifies the next release.
+Reserve `next.niu.io` for previewing the next major product version; it is not an
+automatic promotion target or evidence that a release passed staging. A future
+preview deployment must have independent data and credentials too. Staging has its
 own databases, credentials, encryption/signing keys, origins and test accounts.
 Never point staging at production databases or copy customer data or production
 secrets into it. Use bounded synthetic data and separately authorized upstream
