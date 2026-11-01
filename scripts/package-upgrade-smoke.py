@@ -166,16 +166,16 @@ def assert_receipts_preserved(previous, current, *, exact=False):
 
 
 def first_pending_migration(previous_versions, versions=None):
-    versions = migration_versions() if versions is None else versions
+    use_current_history = versions is None
+    versions = migration_versions() if use_current_history else list(versions)
     previous_versions = set(previous_versions)
-    if any(version < 1 for version in previous_versions):
+    available = set(versions)
+    if use_current_history:
+        available.update(legacy_migration_versions())
+    if any(version < 1 for version in previous_versions) or not previous_versions.issubset(available):
         raise RuntimeError("previous package schema is outside the current migration history")
-    if not previous_versions.issubset(versions):
-        legacy = legacy_migration_versions()
-        if legacy and previous_versions.issubset(legacy):
-            return next((version for version in legacy if version not in previous_versions), None)
-        raise RuntimeError("previous package schema is outside the current migration history")
-    return next((version for version in versions if version not in previous_versions), None)
+    return next((version for version in sorted(available) if version not in previous_versions), None)
+
 
 
 def request(method, path, *, payload=None, admin=False, token=None):

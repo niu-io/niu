@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 export type RequestTimings = {
   dispatch_ms: number | null;
   headers_ms: number | null;
@@ -8,7 +10,8 @@ export type RequestTimings = {
 };
 
 export default function RequestTiming({ timing, outputTokens }: { timing: RequestTimings | null | undefined; outputTokens: string | null }) {
-  if (!timing) return <section aria-label="Request timing"><h3 className="text-sm font-medium">Request timing</h3><p className="mt-2 text-sm text-muted-foreground">Phase timing was not collected for this request.</p></section>;
+  const { t: uiT, format: uiF } = useUILocale();
+  if (!timing) return <section aria-label={uiT("Request timing")}><h3 className="text-sm font-medium">{uiT("Request timing")}</h3><p className="mt-2 text-sm text-muted-foreground">{uiT("Phase timing was not collected for this request.")}</p></section>;
   const total = timing.total_ms;
   const dispatch = timing.dispatch_ms;
   const first = timing.first_output_ms;
@@ -18,12 +21,12 @@ export default function RequestTiming({ timing, outputTokens }: { timing: Reques
     { label: first == null ? 'Response wait' : 'First output wait', start: dispatch ?? 0, end: first ?? headers, tone: 'bg-emerald-500' },
     ...(timing.headers_ms == null ? [] : [{ label: first == null ? 'Response delivery' : 'Output stream', start: first ?? headers, end: total, tone: 'bg-primary' }]),
   ];
-  const format = (ms: number) => ms < 1000 ? `${ms.toLocaleString()} ms` : `${(ms / 1000).toFixed(2)} s`;
+  const format = (ms: number) => ms < 1000 ? `${ms.toLocaleString(readUILocale())} ms` : `${(ms / 1000).toFixed(2)} s`;
   const outputDuration = first == null ? null : total - first;
   const tokens = outputTokens == null ? null : Number(outputTokens);
   const rate = timing.complete && outputDuration != null && outputDuration > 0 && tokens != null && Number.isSafeInteger(tokens) ? tokens / (outputDuration / 1000) : null;
-  return <section aria-label="Request timing" className="space-y-3">
-    <h3 className="text-sm font-medium">Request timing</h3>
+  return <section aria-label={uiT("Request timing")} className="space-y-3">
+    <h3 className="text-sm font-medium">{uiT("Request timing")}</h3>
     <div className="rounded-lg border p-3 space-y-3">
       {rows.map(row => <div key={row.label} className="grid grid-cols-[7rem_minmax(0,1fr)_4.5rem] items-center gap-2 text-xs sm:grid-cols-[8rem_minmax(0,1fr)_4.5rem]">
         <span>{row.label}</span>
@@ -33,10 +36,10 @@ export default function RequestTiming({ timing, outputTokens }: { timing: Reques
         <span className="text-right tabular-nums">{format(row.end - row.start)}</span>
       </div>)}
       <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-        <span>{rate == null ? '' : `${outputTokens} output ${tokens === 1 ? 'token' : 'tokens'} · ${rate.toFixed(1)} tok/s`}</span>
-        <span className="tabular-nums">{timing.complete ? 'Total' : 'Observed'}: {format(total)}</span>
+        <span>{rate == null ? '' : uiF("{0} output {1} · {2} tok/s", [outputTokens, tokens === 1 ? uiT("token") : uiT("tokens"), rate.toFixed(1)])}</span>
+        <span className="tabular-nums">{timing.complete ? uiT("Total") : uiT("Observed")}: {format(total)}</span>
       </div>
     </div>
-    {!timing.complete && <p className="text-xs text-muted-foreground">Response interrupted; the bars cover the observed interval.</p>}
+    {!timing.complete && <p className="text-xs text-muted-foreground">{uiT("Response interrupted; the bars cover the observed interval.")}</p>}
   </section>;
 }

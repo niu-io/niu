@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import '../video/video.css';
 
 /** Saved instructions and associations only. Opening a session never dispatches. */
 export default function VideoSessionView({context,id}:{context:DashboardContext;id:string}) {
+  const { t: uiT } = useUILocale();
   const {token,workspace}=context;
   const route=useLocation();
   const navigate=useNavigate();
@@ -47,19 +49,19 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
   const workspaceSegment=workspace ? workspacePathSegment(workspace, context.workspaces ?? [workspace]) : '';
   const query=new URLSearchParams({workspace:workspaceSegment});
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={trigger} title={session?.title??'Video session'} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>Refresh session</Button>} history={{context,activeVideoSession:session?.id??id}}/>
-    <section className="video-main" aria-label="Saved Video session"><div className="video-content"><div className="video-conversation">
-      {error?<p role="alert" className="video-error">{error}</p>:!session?<ListRowsSkeleton rows={3} label="Loading Video session…"/>:<>
-        {session.archived&&<p className="video-muted"><Badge variant="secondary">Archived</Badge> Restore this session from Archived sessions to return it to history.</p>}
-        {!session.turns.length&&<p className="video-muted">No instructions have been saved in this session.</p>}
+    <GenerationSessionBindings trigger={trigger} title={session?.title??uiT("Video session")} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh session")}</Button>} history={{context,activeVideoSession:session?.id??id}}/>
+    <section className="video-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation">
+      {error?<p role="alert" className="video-error">{error}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
+        {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}
+        {!session.turns.length&&<p className="video-muted">{uiT("No instructions have been saved in this session.")}</p>}
         {session.turns.map(turn=>{
           const next=new URLSearchParams(query);
           if(turn.intent)next.set('intent',turn.intent.reference??turn.intent.id);else if(turn.task_id)next.set('job',turn.task?.reference??turn.task_id);
           return <div key={turn.id} className="video-turn">
-            {turn.instruction?<div className="video-user-message"><p>{turn.instruction.prompt}</p></div>:<p className="video-muted">The saved instruction has expired or was deleted.</p>}
+            {turn.instruction?<div className="video-user-message"><p>{turn.instruction.prompt}</p></div>:<p className="video-muted">{uiT("The saved instruction has expired or was deleted.")}</p>}
             <article className="video-response">
-              {turn.intent?.submission_state==='not_dispatched'?<Badge variant="secondary">Not dispatched</Badge>:turn.task?<Badge variant="secondary">{turn.task.status.replaceAll('_',' ')}</Badge>:null}
-              {turn.intent||turn.task_id?<Button asChild variant="outline"><Link to={`/generations?${next}`}>{turn.intent?'Open saved request':'Open saved video'}</Link></Button>:<p className="video-muted">No request or task is linked to this instruction.</p>}
+              {turn.intent?.submission_state==='not_dispatched'?<Badge variant="secondary">{uiT("Not dispatched")}</Badge>:turn.task?<Badge variant="secondary">{turn.task.status.replaceAll('_',' ')}</Badge>:null}
+              {turn.intent||turn.task_id?<Button asChild variant="outline"><Link to={`/generations?${next}`}>{turn.intent?uiT("Open saved request"):uiT("Open saved video")}</Link></Button>:<p className="video-muted">{uiT("No request or task is linked to this instruction.")}</p>}
             </article>
           </div>;
         })}

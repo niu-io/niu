@@ -1,14 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspaceDisplayName } from '@/shell/workspace-route';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 export default function WorkspaceSettings() {
-  const { isZh, t } = useLocale();
+  const { isZh, t, format: uiF } = useLocale();
   const context = useDashboardContext();
   const workspace = context.workspace;
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -74,7 +74,7 @@ export default function WorkspaceSettings() {
     </section>}
     {!confirming && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Dialog open={confirming} onOpenChange={open => {if (!saving) {setConfirming(open);if (!open) setError('');}}}>
-      <DialogContent onCloseAutoFocus={event => {if (deleteButtonRef.current) {event.preventDefault();deleteButtonRef.current.focus();}}}><DialogHeader><DialogTitle>{isZh ? `删除 ${workspaceDisplayName(workspace.name)}？` : `Delete ${workspaceDisplayName(workspace.name)}?`}</DialogTitle><DialogDescription>{t('Deletion is permanent and only allowed when the workspace has no saved records.', '删除操作不可撤销，且仅在工作空间无任何保存记录时可用。')}</DialogDescription></DialogHeader>
+      <DialogContent onCloseAutoFocus={event => {if (deleteButtonRef.current) {event.preventDefault();deleteButtonRef.current.focus();}}}><DialogHeader><DialogTitle>{isZh ? `删除 ${workspaceDisplayName(workspace.name)}？` : uiF("Delete {0}?", [workspaceDisplayName(workspace.name)])}</DialogTitle><DialogDescription>{t('Deletion is permanent and only allowed when the workspace has no saved records.', '删除操作不可撤销，且仅在工作空间无任何保存记录时可用。')}</DialogDescription></DialogHeader>
         <div className="grid gap-2"><Label htmlFor="workspace-delete-confirmation">{t('Type the workspace name to confirm', '输入工作空间名称以确认删除')}</Label><Input id="workspace-delete-confirmation" value={confirmation} disabled={saving} onChange={event => setConfirmation(event.target.value)}/></div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter><Button variant="ghost" disabled={saving} onClick={() => {setConfirming(false);setError('');}}>{t('Cancel', '取消')}</Button><Button variant="destructive" disabled={saving || confirmation !== workspaceDisplayName(workspace.name)} onClick={() => void remove()}>{saving ? t('Deleting…', '删除中…') : t('Delete workspace', '删除工作空间')}</Button></DialogFooter>

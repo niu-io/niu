@@ -278,6 +278,10 @@ Invalid pagination query.
 
 Invalid session.
 
+### HTTP 403
+
+Active platform administration required; Provider membership alone grants no access.
+
 ### HTTP 404
 
 Provider missing or unauthorized.

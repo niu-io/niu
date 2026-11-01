@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -8,9 +10,10 @@ import { request } from '@/features/providers/api';
 
 type Change = { assignment_revision: number; policy_revision: number | null; policy_name: string | null; actor_name: string; created_at: string };
 type Page = { data: Change[]; next_cursor: number | null };
-const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
+const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
 
 export default function KeyGuardrailHistory({ token, endpoint }: { token: string; endpoint: string }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Change[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
@@ -40,22 +43,22 @@ export default function KeyGuardrailHistory({ token, endpoint }: { token: string
   }
   return <>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button variant="ghost">Assignment history</Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="ghost">{uiT("Assignment history")}</Button></DialogTrigger>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>Guardrail assignment history</DialogTitle><DialogDescription>Recorded changes to this key’s additional policy. Workspace rules continue to apply after removal.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{uiT("Guardrail assignment history")}</DialogTitle><DialogDescription>{uiT("Recorded changes to this key’s additional policy. Workspace rules continue to apply after removal.")}</DialogDescription></DialogHeader>
         {rows.length > 0 && <Table className="min-w-[520px] table-fixed">
-          <TableHeader><TableRow><TableHead>Policy change</TableHead><TableHead>Changed by</TableHead><TableHead>Date</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>{uiT("Policy change")}</TableHead><TableHead>{uiT("Changed by")}</TableHead><TableHead>{uiT("Date")}</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map(row => <TableRow key={row.assignment_revision}>
-            <TableCell className="whitespace-normal break-words">{row.policy_revision === null ? 'Key policy removed' : `${row.policy_name || 'Saved policy'} · Version ${row.policy_revision}`}</TableCell>
-            <TableCell className="whitespace-normal break-words">{row.actor_name || 'Name unavailable'}</TableCell>
+            <TableCell className="whitespace-normal break-words">{row.policy_revision === null ? uiT("Key policy removed") : uiF("{0} · Version {1}", [row.policy_name || uiT("Saved policy"), row.policy_revision])}</TableCell>
+            <TableCell className="whitespace-normal break-words">{row.actor_name || uiT("Name unavailable")}</TableCell>
             <TableCell className="whitespace-normal break-words">{date(row.created_at)}</TableCell>
           </TableRow>)}</TableBody>
         </Table>}
-        {loading && !rows.length && <TableSkeleton columns={3} rows={3} label="Loading assignment history…" />}
-        {loading && rows.length > 0 && <p role="status" className="text-sm text-muted-foreground">Loading assignment history…</p>}
-        {error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>Retry</Button></AlertDescription></Alert> : !loading && !rows.length && <p>No recorded assignment changes. Changes before history tracking are unavailable.</p>}
-        {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>Load older changes</Button>}
-        <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Close</Button></DialogFooter>
+        {loading && !rows.length && <TableSkeleton columns={3} rows={3} label={uiT("Loading assignment history…")} />}
+        {loading && rows.length > 0 && <p role="status" className="text-sm text-muted-foreground">{uiT("Loading assignment history…")}</p>}
+        {error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert> : !loading && !rows.length && <p>{uiT("No recorded assignment changes. Changes before history tracking are unavailable.")}</p>}
+        {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>{uiT("Load older changes")}</Button>}
+        <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>{uiT("Close")}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;

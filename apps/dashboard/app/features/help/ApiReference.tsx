@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceKeyConnection, { type DocsKeySelection } from '../../../../docs/src/components/live-api/WorkspaceKeyConnection';
 import { useNavigate } from 'react-router';
@@ -17,6 +18,7 @@ export default function ApiReference({
   embedded?: boolean;
   token?: string;
 } = {}) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const navigate = useNavigate();
   const context = useDashboardContext() as DashboardContext | undefined;
@@ -75,7 +77,7 @@ export default function ApiReference({
     navigate('/help/' + url.pathname.slice('/docs/'.length) + url.search + url.hash);
   }}>
     {!embedded && <PublicHeader path="/docs/api/rest/" />}
-    <section className="niu-api-connection-bar" aria-label="Connect API reference">
+    <section className="niu-api-connection-bar" aria-label={uiT("Connect API reference")}>
       <WorkspaceKeyConnection
         onChange={setSelection}
         token={sessionToken}
@@ -85,6 +87,6 @@ export default function ApiReference({
         )}
       />
     </section>
-    <div className="niu-api-reference" aria-label="Niu OpenAPI reference"><ApiReferenceReact configuration={configuration} /></div>
+    <div className="niu-api-reference" aria-label={uiT("Niu OpenAPI reference")}><ApiReferenceReact configuration={configuration} /></div>
   </div>;
 }

@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { LoaderFunctionArgs } from 'react-router';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -42,6 +43,7 @@ export default function CustomerAccountsRoute() {
 
 /** Platform financial scope is explicit; customer pages keep their own authorization. */
 function Accounts({ token }: { token: string }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const {currency:platformCurrency}=usePlatformCurrency();
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
   const initialValid = initialPage && Array.isArray(initialPage.data) ? initialPage : undefined;
@@ -72,20 +74,20 @@ function Accounts({ token }: { token: string }) {
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(undefined, false); return () => active.current?.abort(); }, [token]);
-  return <section className="min-w-0 space-y-5" aria-label="Account balances">
-    <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Manage customer balances, credit limits, and noncash grants. Each company shares its balance across workspaces. Credit permits borrowing; it does not add funds or recognize revenue.</p><Button variant="outline" disabled={loading} onClick={() => void load()}><IconRefresh size={16} />Refresh balances</Button></div>
+  return <section className="min-w-0 space-y-5" aria-label={uiT("Account balances")}>
+    <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{uiT("Manage customer balances, credit limits, and noncash grants. Each company shares its balance across workspaces. Credit permits borrowing; it does not add funds or recognize revenue.")}</p><Button variant="outline" disabled={loading} onClick={() => void load()}><IconRefresh size={16} />{uiT("Refresh balances")}</Button></div>
     {notice && <p role="status">{notice}</p>}
-    {loading && !companies.length && <TableSkeleton columns={7} rows={5} label="Loading customer balances…" />}
-    {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry</Button></AlertDescription></Alert>}
-    {!loading && !error && !companies.length && <p>No customer companies are available.</p>}
-    {!!companies.length && <Table aria-label="Customer billing accounts"><TableHeader><TableRow>{['Company', 'Currency', 'Posted balance', 'Approved credit', 'Outstanding liability', 'Available capacity', 'Actions'].map((name, index) => <TableHead key={name} className={index > 1 && index < 6 ? 'text-right whitespace-nowrap' : 'whitespace-nowrap'}>{name}</TableHead>)}</TableRow></TableHeader>
+    {loading && !companies.length && <TableSkeleton columns={7} rows={5} label={uiT("Loading customer balances…")} />}
+    {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
+    {!loading && !error && !companies.length && <p>{uiT("No customer companies are available.")}</p>}
+    {!!companies.length && <Table aria-label={uiT("Customer billing accounts")}><TableHeader><TableRow>{['Company', 'Currency', 'Posted balance', 'Approved credit', 'Outstanding liability', 'Available capacity', 'Actions'].map((name, index) => <TableHead key={name} className={index > 1 && index < 6 ? 'text-right whitespace-nowrap' : 'whitespace-nowrap'}>{name}</TableHead>)}</TableRow></TableHeader>
       <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map(account => <TableRow key={company.organization_id + ':' + account.currency}>
-        <TableCell className="align-top whitespace-normal min-w-44 max-w-64">{company.organization_name || 'Unnamed company'}</TableCell><TableCell>{account.currency}</TableCell>
-        {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? 'Unavailable' : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
-        <TableCell><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={loading || !!error} aria-label={`Account actions for ${company.organization_name || 'Unnamed company'} in ${account.currency}`}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setNotice(''); setEditor({ kind: 'units', company, account }); }}>Manage Branded Credits</DropdownMenuItem><DropdownMenuItem disabled={account.currency !== platformCurrency} onSelect={() => { setNotice(''); setEditor({ kind: 'credit', company, account }); }}>Set credit</DropdownMenuItem><DropdownMenuItem disabled={account.currency !== platformCurrency} onSelect={() => { setNotice(''); setEditor({ kind: 'grant', company, account }); }}>Grant noncash balance</DropdownMenuItem><DropdownMenuItem onSelect={() => setEditor({ kind: 'history', company, account })}>Noncash grants</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell>
-      </TableRow>) : [<TableRow key={company.organization_id}><TableCell className="whitespace-normal min-w-44 max-w-64">{company.organization_name || 'Unnamed company'}</TableCell><TableCell colSpan={5} className="text-muted-foreground">No currency accounts</TableCell><TableCell><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={loading || !!error} onClick={() => { setNotice(''); setEditor({ kind: 'units', company, account: null }); }}>Manage Branded Credits</Button><Button variant="outline" size="sm" disabled={loading || !!error || !platformCurrency} onClick={() => { setNotice(''); setEditor({ kind: 'credit', company, account: null }); }}>Set credit</Button></div></TableCell></TableRow>])}</TableBody>
+        <TableCell className="align-top whitespace-normal min-w-44 max-w-64">{company.organization_name || uiT("Unnamed company")}</TableCell><TableCell>{account.currency}</TableCell>
+        {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? uiT("Unavailable") : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
+        <TableCell><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={loading || !!error} aria-label={uiF("Account actions for {0} in {1}", [company.organization_name || uiT("Unnamed company"), account.currency])}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setNotice(''); setEditor({ kind: 'units', company, account }); }}>{uiT("Manage Branded Credits")}</DropdownMenuItem><DropdownMenuItem disabled={account.currency !== platformCurrency} onSelect={() => { setNotice(''); setEditor({ kind: 'credit', company, account }); }}>{uiT("Set credit")}</DropdownMenuItem><DropdownMenuItem disabled={account.currency !== platformCurrency} onSelect={() => { setNotice(''); setEditor({ kind: 'grant', company, account }); }}>{uiT("Grant noncash balance")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setEditor({ kind: 'history', company, account })}>{uiT("Noncash grants")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell>
+      </TableRow>) : [<TableRow key={company.organization_id}><TableCell className="whitespace-normal min-w-44 max-w-64">{company.organization_name || uiT("Unnamed company")}</TableCell><TableCell colSpan={5} className="text-muted-foreground">{uiT("No currency accounts")}</TableCell><TableCell><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={loading || !!error} onClick={() => { setNotice(''); setEditor({ kind: 'units', company, account: null }); }}>{uiT("Manage Branded Credits")}</Button><Button variant="outline" size="sm" disabled={loading || !!error || !platformCurrency} onClick={() => { setNotice(''); setEditor({ kind: 'credit', company, account: null }); }}>{uiT("Set credit")}</Button></div></TableCell></TableRow>])}</TableBody>
     </Table>}
-    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? 'Loading…' : 'More companies'}</Button>}
+    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More companies")}</Button>}
     {editor?.kind === 'units' && <CompanyBrandedUnitsDialog token={token} organizationId={editor.company.organization_id} organizationName={editor.company.organization_name || 'Unnamed company'} onClose={() => { setEditor(null); void load(); }} onChanged={msg => { setNotice(msg); void load(); }} />}
     {editor?.kind === 'grant' && <GrantEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onIssued={() => { setNotice('Noncash grant issuance confirmed. This is not a cash receipt.'); void load(); }} />}
     {editor?.kind === 'history' && <GrantHistory token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onOpen={prepared => setEditor({ ...editor, kind: 'grant', prepared })} onCorrect={gift=>setEditor({...editor,kind:'correction',gift})} />}
@@ -95,6 +97,7 @@ function Accounts({ token }: { token: string }) {
 }
 /** Compare-and-set approval never posts funds; unknown outcomes require reread. */
 function CreditEditor({ token, editor, onClose, onSaved }: { token: string; editor: Editor; onClose: () => void; onSaved: () => void }) {
+  const { t: uiT } = useUILocale();
   const { company, account } = editor;
   const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const {currency:platformCurrency} = usePlatformCurrency();
@@ -123,13 +126,13 @@ function CreditEditor({ token, editor, onClose, onSaved }: { token: string; edit
   }
   let preview: string | null = null;
   try { preview = money(amountToNanos(amount, true), currency); } catch { /* Invalid input is explained on submit. */ }
-  return <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => { if (openerRef.current?.isConnected) { event.preventDefault(); openerRef.current.focus(); } }}><DialogHeader><DialogTitle>Set approved credit</DialogTitle><DialogDescription>{company.organization_name || 'Unnamed company'} · Allows the balance to become negative up to this limit. It does not change the posted balance.</DialogDescription></DialogHeader>
-    <div className="grid grid-cols-2 gap-4 border-b pb-4"><div><p className="text-sm text-muted-foreground">Current credit</p><p className="font-medium">{account ? money(account.credit_limit_nanos, currency) : 'No currency account'}</p></div><div><p className="text-sm text-muted-foreground">New credit</p><p className="font-medium">{preview ?? 'Enter a valid amount'}</p></div></div>
+  return <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => { if (openerRef.current?.isConnected) { event.preventDefault(); openerRef.current.focus(); } }}><DialogHeader><DialogTitle>{uiT("Set approved credit")}</DialogTitle><DialogDescription>{company.organization_name || uiT("Unnamed company")}{" "}{uiT("· Allows the balance to become negative up to this limit. It does not change the posted balance.")}</DialogDescription></DialogHeader>
+    <div className="grid grid-cols-2 gap-4 border-b pb-4"><div><p className="text-sm text-muted-foreground">{uiT("Current credit")}</p><p className="font-medium">{account ? money(account.credit_limit_nanos, currency) : uiT("No currency account")}</p></div><div><p className="text-sm text-muted-foreground">{uiT("New credit")}</p><p className="font-medium">{preview ?? uiT("Enter a valid amount")}</p></div></div>
     <form className="space-y-4" onSubmit={event => void submit(event)}>
-      <p className="text-sm text-muted-foreground">Currency: {currency || "configure in Admin"}</p>
-      <div className="space-y-2"><Label htmlFor="approved-credit">Approved credit limit</Label><Input id="approved-credit" inputMode="decimal" value={amount} disabled={pending || uncertain} onChange={event => { setAmount(event.target.value); setError(''); }} /><p className="text-sm text-muted-foreground">Zero requires prepayment. Existing request liabilities must still settle.</p></div>
+      <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
+      <div className="space-y-2"><Label htmlFor="approved-credit">{uiT("Approved credit limit")}</Label><Input id="approved-credit" inputMode="decimal" value={amount} disabled={pending || uncertain} onChange={event => { setAmount(event.target.value); setError(''); }} /><p className="text-sm text-muted-foreground">{uiT("Zero requires prepayment. Existing request liabilities must still settle.")}</p></div>
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={pending} onClick={onClose}>Cancel</Button><Button type="submit" disabled={pending || uncertain}>{pending ? 'Saving…' : 'Save credit policy'}</Button></div>
+      <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={pending} onClick={onClose}>{uiT("Cancel")}</Button><Button type="submit" disabled={pending || uncertain}>{pending ? uiT("Saving…") : uiT("Save credit policy")}</Button></div>
     </form>
   </DialogContent></Dialog>;
 }

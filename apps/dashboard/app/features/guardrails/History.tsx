@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import DetectorPreview from './DetectorPreview';
 import type { DetectorBinding } from './ExternalDetectors';
 import { useEffect, useRef, useState } from "react";
@@ -77,6 +79,7 @@ export default function GuardrailHistory({
   canWrite?: boolean;
   onRestored?: () => void;
 }) {
+  const { t: uiT } = useUILocale();
   const [search, setSearch] = useSearchParams();
   const requestedRevision = search.get("revision");
   const fromBlock = search.get("from") === "blocked";
@@ -261,15 +264,15 @@ export default function GuardrailHistory({
 
   return (
     <div className="guardrails-page">
-      <PageHeader title="Policy history" action={
-        <Button ref={refreshButton} variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label="Refresh policy history" title="Refresh policy history" aria-disabled={loading || restoring} onClick={() => {if (!loading && !restoring) setReload(value => value + 1);}}>
-          <IconRefresh aria-hidden="true" /><span>Refresh</span>
+      <PageHeader title={uiT("Policy history")} action={
+        <Button ref={refreshButton} variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh policy history")} title={uiT("Refresh policy history")} aria-disabled={loading || restoring} onClick={() => {if (!loading && !restoring) setReload(value => value + 1);}}>
+          <IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span>
         </Button>
       } />
       
       
       {restored && (
-        <p role="status">Policy restored as a new active version.</p>
+        <p role="status">{uiT("Policy restored as a new active version.")}</p>
       )}
       {error && (
         <Alert variant="destructive">
@@ -281,28 +284,27 @@ export default function GuardrailHistory({
               disabled={loading}
               onClick={() => setReload((value) => value + 1)}
             >
-              Reload
-            </Button>
+              {uiT("Reload")}</Button>
           </AlertDescription>
         </Alert>
       )}
       {loaded && !rows.length && <Empty className="guardrails-empty">
         <EmptyHeader>
           <EmptyMedia variant="icon"><IconHistory aria-hidden="true" /></EmptyMedia>
-          <EmptyTitle>No policy versions yet</EmptyTitle>
-          <EmptyDescription>Saved workspace policies will appear here.</EmptyDescription>
+          <EmptyTitle>{uiT("No policy versions yet")}</EmptyTitle>
+          <EmptyDescription>{uiT("Saved workspace policies will appear here.")}</EmptyDescription>
         </EmptyHeader>
-        {canWrite && <EmptyContent><Button asChild variant="outline"><Link to="../policy" relative="path">Configure policy</Link></Button></EmptyContent>}
+        {canWrite && <EmptyContent><Button asChild variant="outline"><Link to="../policy" relative="path">{uiT("Configure policy")}</Link></Button></EmptyContent>}
       </Empty>}
       {loaded && rows.length > 0 && (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="hidden sm:table-cell">Version</TableHead>
-              <TableHead>Policy</TableHead>
-              <TableHead className="hidden sm:table-cell">Changed by</TableHead>
-              <TableHead className="hidden sm:table-cell">Date</TableHead>
-              <TableHead className="hidden sm:table-cell">Status</TableHead>
+              <TableHead className="hidden sm:table-cell">{uiT("Version")}</TableHead>
+              <TableHead>{uiT("Policy")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{uiT("Changed by")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{uiT("Date")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -319,41 +321,40 @@ export default function GuardrailHistory({
                   </Button>
                   {row.restored_from_revision !== null && (
                     <p className="guardrails-muted">
-                      Restored from version {row.restored_from_revision}
+                      {uiT("Restored from version")}{" "}{row.restored_from_revision}
                     </p>
                   )}
                   <dl className="mt-3 grid gap-2 text-sm sm:hidden">
-                    <div className="flex items-center gap-2"><dt className="text-muted-foreground">Version</dt><dd>{row.revision}</dd>{row.active && <Badge variant="secondary">Active</Badge>}</div>
-                    <div><dt className="text-xs text-muted-foreground">Changed by</dt><dd>{row.actor_name}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Date</dt><dd><time dateTime={row.activated_at}>{new Date(row.activated_at).toLocaleString(undefined, {dateStyle:"medium",timeStyle:"short"})}</time></dd></div>
+                    <div className="flex items-center gap-2"><dt className="text-muted-foreground">{uiT("Version")}</dt><dd>{row.revision}</dd>{row.active && <Badge variant="secondary">{uiT("Active")}</Badge>}</div>
+                    <div><dt className="text-xs text-muted-foreground">{uiT("Changed by")}</dt><dd>{row.actor_name}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">{uiT("Date")}</dt><dd><time dateTime={row.activated_at}>{new Date(row.activated_at).toLocaleString(readUILocale(), {dateStyle:"medium",timeStyle:"short"})}</time></dd></div>
                   </dl>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">{row.actor_name}</TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <time dateTime={row.activated_at}>
-                    {new Date(row.activated_at).toLocaleString(undefined, {
+                    {new Date(row.activated_at).toLocaleString(readUILocale(), {
                       dateStyle: "medium",
                       timeStyle: "short",
                     })}
                   </time>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  {row.active && <Badge variant="secondary">Active</Badge>}
+                  {row.active && <Badge variant="secondary">{uiT("Active")}</Badge>}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
-      {loading && !loaded && <TableSkeleton columns={4} rows={4} label="Loading policy history…" />}
+      {loading && !loaded && <TableSkeleton columns={4} rows={4} label={uiT("Loading policy history…")} />}
       {loaded && cursor !== null && (
         <Button
           variant="outline"
           disabled={loading}
           onClick={() => void older()}
         >
-          Load older versions
-        </Button>
+          {uiT("Load older versions")}</Button>
       )}
       <Dialog
         open={selected !== null}
@@ -374,73 +375,71 @@ export default function GuardrailHistory({
           <DialogHeader>
             <DialogTitle>{version?.policy.name || selected?.policy_name}</DialogTitle>
             <DialogDescription>
-              Version {selected?.revision}
-              {selected?.active ? " · Active when history was loaded" : ""}
+              {uiT("Version")}{" "}{selected?.revision}
+              {selected?.active ? uiT("· Active when history was loaded") : ""}
             </DialogDescription>
           </DialogHeader>
-          {fromBlock && <p className="text-sm text-muted-foreground">This is a saved policy referenced by the blocked request. A workspace administrator can change future policy; this does not change the recorded event.</p>}
-          {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="../denials" relative="path">Return to blocked requests</Link></Button>}
+          {fromBlock && <p className="text-sm text-muted-foreground">{uiT("This is a saved policy referenced by the blocked request. A workspace administrator can change future policy; this does not change the recorded event.")}</p>}
+          {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="../denials" relative="path">{uiT("Return to blocked requests")}</Link></Button>}
           {detailError && (
             <Alert variant="destructive">
               <AlertDescription>{detailError}</AlertDescription>
             </Alert>
           )}
           {!version && !detailError && (
-            <FormSectionSkeleton fields={3} label="Loading policy version…" />
+            <FormSectionSkeleton fields={3} label={uiT("Loading policy version…")} />
           )}
           {version && (
             <div className="guardrails-version-content">
               <section>
-                <h3>Models</h3>
+                <h3>{uiT("Models")}</h3>
                 <p>{accessDescription(version.policy.models)}</p>
               </section>
               <section>
-                <h3>Providers</h3>
+                <h3>{uiT("Providers")}</h3>
                 <p>{accessDescription(version.policy.providers)}</p>
               </section>
               <section>
-                <h3>Input rules</h3>
+                <h3>{uiT("Input rules")}</h3>
                 {version.policy.input_rules?.length ? (
                   <ul>
                     {version.policy.input_rules.map((rule, index) => (
                       <li key={index}>
                         <strong>
-                          {rule.action === "block" ? "Block" : "Redact"}
+                          {rule.action === "block" ? uiT("Block") : uiT("Redact")}
                         </strong>
-                        : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable" : <code>{rule.pattern}</code>}
+                        : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? uiT("Pattern name unavailable") : <code>{rule.pattern}</code>}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p>No input rules</p>
+                  <p>{uiT("No input rules")}</p>
                 )}
               </section>
-              {Boolean(version.policy.input_detectors?.length) && <section><h3>External input checks</h3><DetectorPreview token={token} endpoint={endpoint} bindings={version.policy.input_detectors!} /></section>}
+              {Boolean(version.policy.input_detectors?.length) && <section><h3>{uiT("External input checks")}</h3><DetectorPreview token={token} endpoint={endpoint} bindings={version.policy.input_detectors!} /></section>}
               <section>
-                <h3>Output rules</h3>
+                <h3>{uiT("Output rules")}</h3>
                 {version.policy.output ? (
                   <>
-                    <p>{version.policy.output.mode === "observe_only" ? "Observe only · response unchanged" : version.policy.output.mode === "buffered_full" ? "Buffered full-text inspection" : "Output mode unavailable"}</p>
+                    <p>{version.policy.output.mode === "observe_only" ? uiT("Observe only · response unchanged") : version.policy.output.mode === "buffered_full" ? uiT("Buffered full-text inspection") : uiT("Output mode unavailable")}</p>
                     <ul>
                       {version.policy.output.rules.map((rule, index) => (
                         <li key={index}>
                           <strong>
-                            {version.policy.output?.mode === "observe_only" ? "Observe" : rule.action === "block" ? "Block" : "Redact"}
+                            {version.policy.output?.mode === "observe_only" ? uiT("Observe") : rule.action === "block" ? uiT("Block") : uiT("Redact")}
                           </strong>
-                          : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable" : <code>{rule.pattern}</code>}
+                          : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? uiT("Pattern name unavailable") : <code>{rule.pattern}</code>}
                         </li>
                       ))}
                     </ul>
                   </>
                 ) : (
-                  <p>No output rules</p>
+                  <p>{uiT("No output rules")}</p>
                 )}
               </section>
               {canWrite && !selected?.active && (
                 <p className="guardrails-muted">
-                  Restoring creates a new workspace policy version. Existing key
-                  policies continue to apply.
-                </p>
+                  {uiT("Restoring creates a new workspace policy version. Existing key policies continue to apply.")}</p>
               )}
             </div>
           )}
@@ -450,8 +449,7 @@ export default function GuardrailHistory({
               disabled={restoring}
               onClick={closeVersion}
             >
-              Close
-            </Button>
+              {uiT("Close")}</Button>
             {conflict ? (
               <Button
                 onClick={() => {
@@ -459,8 +457,7 @@ export default function GuardrailHistory({
                   setReload((value) => value + 1);
                 }}
               >
-                Reload history
-              </Button>
+                {uiT("Reload history")}</Button>
             ) : (
               canWrite &&
               !selected?.active && (
@@ -468,7 +465,7 @@ export default function GuardrailHistory({
                   disabled={!version || restoring || !rows.some(row => row.active) || rows.some(row => row.active && row.revision === version.revision)}
                   onClick={() => void restore()}
                 >
-                  {restoring ? "Restoring…" : "Restore this version"}
+                  {restoring ? uiT("Restoring…") : uiT("Restore this version")}
                 </Button>
               )
             )}

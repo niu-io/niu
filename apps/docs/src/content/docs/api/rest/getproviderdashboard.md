@@ -77,11 +77,11 @@ Period must be 7, 30, or 90 days
 
 ### HTTP 403
 
-Installation sessions do not imply Provider membership
+Active platform administration required
 
 ### HTTP 404
 
-No active membership for this provider
+Provider not found
 
 ## Behavior and supported scope
 

@@ -40,21 +40,21 @@ export default function ThemeMenu() {
   }, []);
   return <>
     <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs font-medium" aria-label="Language" title={t('Language: English', '界面语言：简体中文')}>
+      <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs font-medium" aria-label={t("Language", "界面语言")} title={t('Language: English', '界面语言：简体中文')}>
         <IconLanguage size={16} />
         <span data-lang="en">EN</span>
         <span data-lang="zh">中文</span>
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" container={portalContainer} className="w-40">
         <DropdownMenuLabel className="flex items-center gap-1.5 text-xs text-muted-foreground"><IconLanguage size={14} />{t('Language', '界面语言')}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup aria-label="Language" value={locale} onValueChange={value => setLocale(value as Locale)}>
+        <DropdownMenuRadioGroup aria-label={t("Language", "界面语言")} value={locale} onValueChange={value => setLocale(value as Locale)}>
           <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
     <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button ref={trigger} variant="ghost" size="icon" aria-label="Color mode" title={t(`Color mode: ${theme}`, `外观模式：${theme === 'dark' ? '深色' : theme === 'light' ? '浅色' : '跟随系统'}`)}>
+      <DropdownMenuTrigger asChild><Button ref={trigger} variant="ghost" size="icon" aria-label={t("Color mode", "外观模式")} title={t(`Color mode: ${theme}`, `外观模式：${theme === 'dark' ? '深色' : theme === 'light' ? '浅色' : '跟随系统'}`)}>
         {theme === 'dark' ? <IconMoon /> : theme === 'light' ? <IconSun /> : <IconDeviceDesktop />}
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" container={portalContainer} className="w-44">

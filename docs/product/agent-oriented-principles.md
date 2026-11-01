@@ -8,6 +8,8 @@ Agreed direction, 2026-10-31. These principles govern subsequent product, integr
 
 Discover and evaluate models, build model pools, and manage performance and cost—all through your agent.
 
+The core promise is to give agents the information needed to make decisions and the authorized controls to configure Niu around their workload. A scenario-specific model pool is the connection between that decision and actual execution. Better value means meeting the task's acceptance criteria within its quality, latency, reliability and spending constraints; it is not synonymous with choosing the cheapest model.
+
 The motivation for managing model use already belongs to the coding agent: complete the user's task while improving value within the user's constraints. Niu supplies the information and authorized management capabilities the agent needs to pursue that objective. Niu does not guarantee the best model, optimal cost, task success or a particular quality/price ratio.
 
 Model invocation is one operation within model resource management. Discovery, evaluation evidence, access, pool configuration, routing, budgets, diagnostics and event subscriptions belong in the product model alongside inference.
@@ -20,6 +22,16 @@ Model invocation is one operation within model resource management. Discovery, e
 | General task orchestration, tools, subagents, application data and schedules | External agent host or application |
 
 Niu may execute an explicitly selected routing strategy, including a cost-based strategy. That deterministic execution does not make Niu responsible for judging task quality or inventing the user's optimization objective. The agent can change its policy as the task changes, within granted authority.
+
+## Three product pillars
+
+The public narrative is **Agent-friendly · Cost-efficient · High-performance**.
+
+- **Agent-friendly:** agents discover, authorize, configure, verify and recover directly; humans set goals and review consequential changes.
+- **Cost-efficient:** agents obtain decision evidence and configure Niu for their scenario. They build and revise model pools, routing and authorized event subscriptions using task requirements, evaluation results, published customer prices and observed performance. The goal is better cost per acceptable result within the user’s constraints, not a platform guarantee of optimal value.
+- **High-performance:** efficient gateway execution and inspectable latency, reliability and usage evidence support the application. Publish measured boundaries and reproducible results; distinguish gateway overhead from upstream model speed and task quality.
+
+The feedback loop connects information to action: inspect → evaluate → configure a scenario-specific model pool → observe execution → adjust and verify. Information without authorized configuration is insufficient; configuration without trustworthy feedback is insufficient.
 
 ## Information sufficient for decisions
 

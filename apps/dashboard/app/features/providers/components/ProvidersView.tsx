@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import IntegrationSettings from './IntegrationSettings';
 import { useProviderParams } from '@/shell/provider-route';
 import { Link, useSearchParams } from 'react-router';
@@ -27,6 +28,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   session: AdminSession;
   refreshWorkspace: () => Promise<void>;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const [search] = useSearchParams();
   const { providerId: routeProviderId, supplierId: routeSupplierId } = useProviderParams();
   const routeScopedId = routeProviderId ?? routeSupplierId;
@@ -397,10 +399,10 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
   if (!canManage) {
     return <>
-      <PageHeader title="Providers" />
+      <PageHeader title={uiT("Providers")} />
       <section className="panel vendor-access-denied" role="status">
         <span className="vendor-access-mark"><ShieldAlert size={18} /></span>
-        <div><h2>Platform administrator access required</h2><p>Your account does not have permission to manage Providers. Contact a platform administrator if you need access.</p></div>
+        <div><h2>{uiT("Platform administrator access required")}</h2><p>{uiT("Your account does not have permission to manage Providers. Contact a platform administrator if you need access.")}</p></div>
       </section>
     </>;
   }
@@ -408,9 +410,9 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const selectedOwnerName = selectedConnection?.provider?.name ?? selectedConnection?.supplier?.name;
 
   return <>
-    {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>API keys</h2>}<p>Configure API keys and the model routes they serve.</p></div>}
-    <PageHeader title="Providers" action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? 'Add API key' : 'Add provider'} title={providerId ? 'Add API key' : 'Add provider'} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? 'Add API key' : 'Add provider'}</span></Button>}</>} />
-    {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>Retry</Button></div>}
+    {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>{uiT("API keys")}</h2>}<p>{uiT("Configure API keys and the model routes they serve.")}</p></div>}
+    <PageHeader title={uiT("Providers")} action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
+    {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
     <div className="supplier-detail-layout">
       {connections.length > 1 && <ProviderDirectory
         connections={connections}
@@ -421,19 +423,19 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         onRefresh={() => void refreshConnections()}
       />}
       {!loadingConnections && selectedConnection ? <section className="supplier-detail-header" aria-labelledby="vendor-detail-title">
-        <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedConnection)} size="large" /><div><h2 id="vendor-detail-title">{selectedConnection.name}</h2><p>{providerAdapterApiLabels[selectedConnection.adapter]}</p></div><span className={'vendor-status-badge' + (selectedConnection.enabled ? ' is-enabled' : '')}>{selectedConnection.enabled ? 'Enabled' : 'Disabled'}</span></div>
-        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>Model routes{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />Edit API key</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/pools">Model pools</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>Model catalog</Link></Button></div></div>
-        {!selectedConnection.has_credential && <p className="error-text" role="status">No credential stored. Edit this API key to configure access.</p>}
+        <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedConnection)} size="large" /><div><h2 id="vendor-detail-title">{selectedConnection.name}</h2><p>{providerAdapterApiLabels[selectedConnection.adapter]}</p></div><span className={'vendor-status-badge' + (selectedConnection.enabled ? ' is-enabled' : '')}>{selectedConnection.enabled ? uiT("Enabled") : uiT("Disabled")}</span></div>
+        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>{uiT("Model routes")}{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit API key")}</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/pools">{uiT("Model pools")}</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>{uiT("Model catalog")}</Link></Button></div></div>
+        {!selectedConnection.has_credential && <p className="error-text" role="status">{uiT("No credential stored. Edit this API key to configure access.")}</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <IntegrationSettings key={`${token}:${selectedConnection.id}:integration`} token={token} resource="vendors" id={selectedConnection.id} onSaved={() => { catalogController.current?.abort(); catalogGeneration.current += 1; setCatalog([]); setDiscovery(null); setCatalogError(''); setCatalogLoading(false); }} />}
-      </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading"><FormSectionSkeleton fields={3} label="Loading API keys…" /></section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>No API keys</strong><p>Add an API key to configure the models supplied by this Provider.</p><Button type="button" onClick={() => setAddingConnection(true)}>Add API key</Button></div></section>}
+      </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading"><FormSectionSkeleton fields={3} label={uiT("Loading API keys…")} /></section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>{uiT("No API keys")}</strong><p>{uiT("Add an API key to configure the models supplied by this Provider.")}</p><Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button></div></section>}
     </div>
     <Dialog open={managingModels && !!selectedConnection && !addingConnection} onOpenChange={setManagingModels}>
       <DialogContent className="supplier-models-dialog" showCloseButton={false}>
         <DialogHeader className="flex-row items-start justify-between gap-4 text-left">
-          <div><DialogTitle>{selectedOwnerName ?? selectedConnection?.name ?? 'Provider'} routes</DialogTitle><DialogDescription>Model routes served by {selectedConnection?.name ?? 'this API key'}.</DialogDescription></div>
-          <DialogClose asChild><Button variant="ghost" size="icon-sm" aria-label="Close model management"><X /></Button></DialogClose>
+          <div><DialogTitle>{selectedOwnerName ?? selectedConnection?.name ?? 'Provider'}{" "}{uiT("routes")}</DialogTitle><DialogDescription>{uiT("Model routes served by")}{" "}{selectedConnection?.name ?? uiT("this API key")}.</DialogDescription></div>
+          <DialogClose asChild><Button variant="ghost" size="icon-sm" aria-label={uiT("Close model management")}><X /></Button></DialogClose>
         </DialogHeader>
         {selectedConnection && <ModelMappings
       key={selectedConnection.id}
@@ -456,8 +458,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     <Dialog open={addingConnection || editingConnection} onOpenChange={open => { if (!open && !busy) { setAddingConnection(false); setEditingConnection(false); } }}>
       <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{addingConnection ? 'Add Provider API key' : `Edit ${selectedConnection?.name ?? 'API key'}`}</DialogTitle><DialogDescription>{addingConnection ? 'Choose a Provider and configure the API key for its model routes.' : 'Update the provider endpoint or replace its stored credential.'}</DialogDescription></div>
-          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+          <div><DialogTitle>{addingConnection ? uiT("Add Provider API key") : uiF("Edit {0}", [selectedConnection?.name ?? uiT("API key")])}</DialogTitle><DialogDescription>{addingConnection ? uiT("Choose a Provider and configure the API key for its model routes.") : uiT("Update the provider endpoint or replace its stored credential.")}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
       {error && <p className="error-text" role="alert">{error}</p>}
       {(addingConnection || editingConnection && selectedConnection) && <ProviderEditor

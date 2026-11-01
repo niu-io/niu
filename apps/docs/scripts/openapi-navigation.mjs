@@ -18,7 +18,7 @@ const groups = [
     ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|pools)'],
   ]],
   ['Authentication and access', [
-    ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session$)'],
+    ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$))'],
     ['Users and sessions', 'User identities, roles, sessions and authentication events.', '^/api/v1/operators'],
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],
@@ -98,7 +98,7 @@ export function deriveOperationAuthority(path, method, operation) {
     };
   }
   if (
-    /^\/api\/v1\/(?:auth\/|session$)/.test(path) ||
+    /^\/api\/v1\/(?:auth\/|session(?:\/|$))/.test(path) ||
     /\/(?:chats\/draft|video\/(?:draft|intents)|sessions(?:\/|$)|generations(?:\/|$)|codex-connections)/.test(path)
   ) {
     return {

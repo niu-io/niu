@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
-import { useLocale, type Locale } from '@/shell/locale';
+import { useLocale, type Locale } from '@/shell/ui-locale';
 import { useEffect } from 'react';
 import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle, IconLanguage } from '@tabler/icons-react';
 import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
@@ -18,6 +19,7 @@ import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
 
 function SettingsContent({context, section}: {context: DashboardContext; section: string | undefined}) {
+  const { t: uiT } = useUILocale();
   // Legacy Payments bookmarks resolve to the same account funding home.
   if (section === 'payments') section = 'billing';
   const { locale, setLocale, t } = useLocale();
@@ -39,7 +41,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
       <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
       <PasswordSettings key={'password-' + identity} token={context.token} hasPassword={Boolean(profile?.email)} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
     </div> : null}
-    {section === 'about' && <section aria-label="About Niu" className="space-y-8">
+    {section === 'about' && <section aria-label={uiT("About Niu")} className="space-y-8">
       <header className="flex items-center gap-4">
         <div className="min-w-0"><h2 aria-label={t('About Niu', '关于 Niu 牛元')}><NiuBrand locale={locale} /></h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发构建版')}</p></div>
       </header>
@@ -47,21 +49,21 @@ function SettingsContent({context, section}: {context: DashboardContext; section
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('Release date', '发布日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE || t('Not released', '未发布')}</dd></div>
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('License', '开源许可')}</dt><dd>MIT</dd></div>
       </dl>
-      <nav aria-label="Product resources" className="grid gap-1 sm:grid-cols-2">
+      <nav aria-label={uiT("Product resources")} className="grid gap-1 sm:grid-cols-2">
         <Button asChild variant="ghost" className="justify-start"><NavLink to="/help/"><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconChevronRight className="ml-auto text-muted-foreground" aria-hidden="true"/></NavLink></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '版本发布说明')}</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈问题')}</a></Button>
       </nav>
-      <nav aria-label="Legal resources" className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-muted-foreground">
+      <nav aria-label={uiT("Legal resources")} className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-muted-foreground">
         <a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconLicense size={14} aria-hidden="true"/>{t('License', '许可证')}</a>
         <a href="https://github.com/niu-io/niu/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconCopyright size={14} aria-hidden="true"/>{t('Third-party notices', '第三方声明')}</a>
       </nav>
     </section>}
-    {section === 'appearance' && <section aria-label="Appearance preferences" className="space-y-3">
+    {section === 'appearance' && <section aria-label={uiT("Appearance preferences")} className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-4 py-4">
         <div><h2 className="text-sm font-medium">{t('Color mode', '外观模式')}</h2><p className="text-sm text-muted-foreground">{t('System follows your device’s appearance.', '跟随系统将自动匹配您设备的外观模式。')}</p></div>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label="Color mode" disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Color mode")} disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={theme} onValueChange={value => saveTheme(value as Theme)}>
             <DropdownMenuRadioItem value="system"><IconDeviceDesktop/>{t('System', '跟随系统')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light"><IconSun/>{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark"><IconMoon/>{t('Dark', '深色')}</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup></DropdownMenuContent>
@@ -69,7 +71,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4 py-4">
         <div><h2 className="text-sm font-medium">{t('Language', '界面语言')}</h2><p className="text-sm text-muted-foreground">{t('Choose the language used across Niu.', '选择 Niu 牛元界面显示的语言。')}</p></div>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label="Language"><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
             <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
@@ -96,6 +98,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
 
 
 export function SettingsNavigation({ context, section, href }: { context: DashboardContext; section?: string; href?: (section:string)=>string }) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const location = useLocation();
   const personal = context.session?.kind === 'operator';
@@ -108,7 +111,7 @@ export function SettingsNavigation({ context, section, href }: { context: Dashbo
   ];
   return <>
     <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row group-data-[collapsible=icon]:sr-only">{t('Settings', '设置')}</h2></SidebarHeader>
-    <SidebarContent className="px-3 pb-3"><nav aria-label="Settings navigation"><SidebarMenu>
+    <SidebarContent className="px-3 pb-3"><nav aria-label={uiT("Settings navigation")}><SidebarMenu>
       {entries.map(item => {
         const selectedSection = section ?? location.pathname.split('/')[2];
         const selected = (selectedSection === 'payments' ? 'billing' : selectedSection) === item.path;
@@ -132,6 +135,7 @@ export function settingsHref(pathname: string, search: string, hash: string, sec
 }
 
 export function SettingsDialog({context, section, onClose, href}: {context:DashboardContext; section:string|undefined; onClose:()=>void; href?:(section:string)=>string}) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -152,7 +156,7 @@ export function SettingsDialog({context, section, onClose, href}: {context:Dashb
         <Sidebar collapsible={isMobile ? "none" : "icon"} className="settings-dialog-navigation shrink-0 bg-muted/40">
           <SettingsNavigation context={context} section={section} href={href}/>
         </Sidebar>
-        <div ref={contentRef} role="region" aria-label="Settings content" tabIndex={0} className="settings-dialog-content min-w-0 flex-1 overflow-y-auto p-6 pt-12 sm:p-10 sm:pt-12 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2">{!isMobile && <SidebarTrigger aria-label="Toggle Settings navigation" className="absolute top-3 left-[calc(var(--sidebar-width)+12px)] settings-navigation-trigger"/>}<SettingsContent context={context} section={section}/></div>
+        <div ref={contentRef} role="region" aria-label={uiT("Settings content")} tabIndex={0} className="settings-dialog-content min-w-0 flex-1 overflow-y-auto p-6 pt-12 sm:p-10 sm:pt-12 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2">{!isMobile && <SidebarTrigger aria-label={uiT("Toggle Settings navigation")} className="absolute top-3 left-[calc(var(--sidebar-width)+12px)] settings-navigation-trigger"/>}<SettingsContent context={context} section={section}/></div>
       </SidebarProvider>
     </DialogContent>
   </Dialog>;

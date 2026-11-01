@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
@@ -10,6 +11,7 @@ import MediaRateHistory from '@/features/provider-business/MediaRateHistory';
 
 /** Compatibility management, separate from ordinary platform price publication. */
 export default function LegacyMediaContracts({ token, onClose, returnFocus }: { token: string; onClose: () => void; returnFocus?: RefObject<HTMLButtonElement | null> }) {
+  const { t: uiT } = useUILocale();
   const [companies, setCompanies] = useState<RetailCustomer[]>([]);
   const [selected, setSelected] = useState('');
   const [cursor, setCursor] = useState<string | null>(null);
@@ -39,13 +41,13 @@ export default function LegacyMediaContracts({ token, onClose, returnFocus }: { 
   const ambiguous = (row: RetailCustomer) => companies.some(other => other.organization_id !== row.organization_id && other.organization_name === row.organization_name && other.created_at === row.created_at);
   const company = companies.find(row => row.organization_id === selected);
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent onCloseAutoFocus={event => { if (returnFocus?.current?.isConnected) { event.preventDefault(); returnFocus.current.focus(); } }} className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-y-auto">
-    <DialogHeader><DialogTitle>Existing media contracts</DialogTitle><DialogDescription>Manage previously configured customer-specific media rates. New ordinary prices belong in Publish media price. Existing jobs retain their original prices.</DialogDescription></DialogHeader>
-    <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full justify-between" disabled={loading && !companies.length}><span className="truncate">{company?.organization_name ?? 'Choose company'}</span><IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={selected} onValueChange={setSelected}>{companies.map(row => <DropdownMenuRadioItem key={row.organization_id} value={row.organization_id} disabled={ambiguous(row)}><span className="whitespace-normal break-words">{row.organization_name}<span className="block text-xs text-muted-foreground">Created {row.created_at.replace('T', ' ')}{ambiguous(row) ? ' · Rename to distinguish' : ''}</span></span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-    {company && <p className="text-sm text-muted-foreground">Company created {company.created_at.replace('T', ' ')}.</p>}
-    {loading && (companies.length ? <p role="status" className="text-sm text-muted-foreground">Loading companies…</p> : <ListRowsSkeleton rows={3} label="Loading companies…" />)}
-    {error && <div role="alert" className="space-y-2"><p>{error}</p><Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry companies</Button></div>}
-    {cursor && !error && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>More companies</Button>}
-    {!loading && !error && !companies.length && <p>No customer companies are available.</p>}
+    <DialogHeader><DialogTitle>{uiT("Existing media contracts")}</DialogTitle><DialogDescription>{uiT("Manage previously configured customer-specific media rates. New ordinary prices belong in Publish media price. Existing jobs retain their original prices.")}</DialogDescription></DialogHeader>
+    <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full justify-between" disabled={loading && !companies.length}><span className="truncate">{company?.organization_name ?? uiT("Choose company")}</span><IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={selected} onValueChange={setSelected}>{companies.map(row => <DropdownMenuRadioItem key={row.organization_id} value={row.organization_id} disabled={ambiguous(row)}><span className="whitespace-normal break-words">{row.organization_name}<span className="block text-xs text-muted-foreground">{uiT("Created")}{" "}{row.created_at.replace('T', ' ')}{ambiguous(row) ? uiT("· Rename to distinguish") : ''}</span></span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+    {company && <p className="text-sm text-muted-foreground">{uiT("Company created")}{" "}{company.created_at.replace('T', ' ')}.</p>}
+    {loading && (companies.length ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading companies…")}</p> : <ListRowsSkeleton rows={3} label={uiT("Loading companies…")} />)}
+    {error && <div role="alert" className="space-y-2"><p>{error}</p><Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry companies")}</Button></div>}
+    {cursor && !error && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More companies")}</Button>}
+    {!loading && !error && !companies.length && <p>{uiT("No customer companies are available.")}</p>}
     {company && <MediaRateHistory key={company.organization_id} token={token} organization={company.organization_id} allowPublish={false}/>}
   </DialogContent></Dialog>;
 }

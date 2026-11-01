@@ -54,6 +54,10 @@ export default defineConfig(({ command, mode }) => {
       proxy: gatewayProxy,
     },
     test: {
+      pool: 'threads',
+      maxWorkers: 2,
+      testTimeout: 15000,
+      hookTimeout: 15000,
       environment: 'jsdom',
       setupFiles: ['./test/setup.ts'],
       include: ['test/**/*.test.{mjs,ts,tsx}'],

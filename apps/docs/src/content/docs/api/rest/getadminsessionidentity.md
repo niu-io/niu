@@ -71,9 +71,58 @@ Content type: `application/json`.
             "operator"
           ]
         },
+        "roles": {
+          "type": "object",
+          "required": [
+            "available",
+            "active",
+            "switchable"
+          ],
+          "properties": {
+            "available": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "admin"
+                ]
+              },
+              "description": "Only identities currently granted to this session. Provider is not a supported login role."
+            },
+            "active": {
+              "type": "string",
+              "enum": [
+                "user",
+                "admin"
+              ]
+            },
+            "switchable": {
+              "type": "boolean",
+              "description": "Whether this browser sign-in may select another role."
+            }
+          }
+        },
+        "admin_mode": {
+          "type": "object",
+          "required": [
+            "available",
+            "enabled"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean",
+              "description": "Whether this browser sign-in has a current platform administrator grant."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether platform authority is activated for this browser session."
+            }
+          }
+        },
         "provider_memberships": {
           "type": "array",
-          "description": "Explicit active Provider grants only; installation identity returns an empty array.",
+          "description": "Retired compatibility field; always empty. Provider membership is not a login role or an access grant.",
           "items": {
             "type": "object",
             "required": [

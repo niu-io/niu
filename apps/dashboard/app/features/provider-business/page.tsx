@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import MediaRateHistory from './MediaRateHistory';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -70,15 +72,16 @@ type Dashboard = {
     created_at: string;
   }[];
 };
-const count = (value: string) => BigInt(value).toLocaleString();
+const count = (value: string) => BigInt(value).toLocaleString(readUILocale());
 const date = (value: string) =>
-  new Date(value).toLocaleDateString(undefined, {
+  new Date(value).toLocaleDateString(readUILocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 
 export default function ProviderBusinessRoute() {
+  const { t: uiT } = useUILocale();
   const context = useDashboardContext();
   const { provider, supplier } = useProviderParams();
   const activeProvider = provider ?? supplier;
@@ -88,14 +91,12 @@ export default function ProviderBusinessRoute() {
   if (!context.session || !membership)
     return (
       <>
-        <PageHeader title="Providers" />
+        <PageHeader title={uiT("Providers")} />
         <section className="panel provider-access-message">
           <ShieldCheck size={28} />
-          <h2>Provider access required</h2>
+          <h2>{uiT("Provider access required")}</h2>
           <p>
-            This area is for approved providers earning revenue on Niu. Your
-            account needs an active provider membership.
-          </p>
+            {uiT("This area is for approved providers earning revenue on Niu. Your account needs an active provider membership.")}</p>
         </section>
       </>
     );
@@ -125,6 +126,7 @@ function ProviderBusiness({
   memberships: { id: string; name: string; role: "manager" | "viewer" }[];
   refreshAccess: () => Promise<void>;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const [days, setDays] = useState("30");
   const { section = "overview" } = useProviderParams();
   const tab = section === "models" ? "offers" : section === "usage" ? "earnings" : section === "settlements" ? "settlements" : "overview";
@@ -261,18 +263,18 @@ function ProviderBusiness({
   return (
     <>
       <PageHeader
-        title={{ overview: "Overview", offers: "Model offers", earnings: "Consumption & earnings", settlements: "Settlements" }[tab] ?? "Providers"}
+        title={{ overview: "Overview", offers: "Model offers", earnings: "Consumption & earnings", settlements: "Settlements" }[tab] ?? uiT("Providers")}
         eyebrow={memberships.length === 1 ? data?.name : undefined}
         action={
           <div className="provider-header-actions">
-            {showPeriod && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Date range" variant="outline" className="provider-period-picker">Last {days} days<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+            {showPeriod && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={uiT("Date range")} variant="outline" className="provider-period-picker">{uiT("Last")}{" "}{days}{" "}{uiT("days")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={days} onValueChange={setDays}>
-                <DropdownMenuRadioItem value="7">Last 7 days</DropdownMenuRadioItem><DropdownMenuRadioItem value="30">Last 30 days</DropdownMenuRadioItem><DropdownMenuRadioItem value="90">Last 90 days</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="7">{uiT("Last 7 days")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="30">{uiT("Last 30 days")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="90">{uiT("Last 90 days")}</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup></DropdownMenuContent>
             </DropdownMenu>}
             <Button
               variant="outline"
-              aria-label="Refresh provider data"
+              aria-label={uiT("Refresh provider data")}
               disabled={loading}
               onClick={() => setRevision((value) => value + 1)}
             >
@@ -289,8 +291,7 @@ function ProviderBusiness({
             size="sm"
             onClick={() => setRevision((value) => value + 1)}
           >
-            Retry
-          </Button>
+            {uiT("Retry")}</Button>
         </div>
       )}
       {notice && (
@@ -300,7 +301,7 @@ function ProviderBusiness({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Dismiss notice"
+            aria-label={uiT("Dismiss notice")}
             onClick={() => setNotice("")}
           >
             <X size={14} />
@@ -308,50 +309,47 @@ function ProviderBusiness({
         </div>
       )}
       {loading ? (
-        <WorkspaceShellSkeleton label="Loading your provider business…" />
+        <WorkspaceShellSkeleton label={uiT("Loading your provider business…")} />
       ) : (
         data && (
           <>
             {tab === "overview" && (
               <>
                 <div className="provider-section-heading">
-                  <h2>Earnings at a glance</h2>
+                  <h2>{uiT("Earnings at a glance")}</h2>
                   <span className="text-sm text-muted-foreground">{currency}</span>
                 </div>
                 <div className="provider-metrics">
                   <article className="provider-metric provider-metric-primary">
                     <span>
                       <TrendingUp size={17} />
-                      Period earnings
-                    </span>
+                      {uiT("Period earnings")}</span>
                     <strong>{amount(balance?.period_nanos)}</strong>
-                    <small>Accrued in the last {days} days</small>
+                    <small>{uiT("Accrued in the last")}{" "}{days}{" "}{uiT("days")}</small>
                   </article>
                   <article className="provider-metric">
                     <span>
                       <Wallet size={17} />
-                      Unpaid earnings
-                    </span>
+                      {uiT("Unpaid earnings")}</span>
                     <strong>{amount(balance?.unpaid_nanos)}</strong>
-                    <small>All time · awaiting external settlement</small>
+                    <small>{uiT("All time · awaiting external settlement")}</small>
                   </article>
                   <article className="provider-metric">
                     <span>
                       <ArrowDownLeft size={17} />
-                      Payments recorded
-                    </span>
+                      {uiT("Payments recorded")}</span>
                     <strong>{amount(balance?.paid_nanos)}</strong>
-                    <small>All time · confirmed payment records</small>
+                    <small>{uiT("All time · confirmed payment records")}</small>
                   </article>
                 </div>
                 <div className="provider-overview-grid">
                   <section className="panel provider-revenue">
                     <div className="provider-section-heading">
                       <div>
-                        <h2>Earnings over time</h2>
+                        <h2>{uiT("Earnings over time")}</h2>
                         <p>
-                          Daily accrual · UTC ·{" "}
-                          {selectedCurrency || "No currency yet"}
+                          {uiT("Daily accrual · UTC ·")}{" "}
+                          {selectedCurrency || uiT("No currency yet")}
                         </p>
                       </div>
                       <CircleDollarSign size={20} />
@@ -360,7 +358,7 @@ function ProviderBusiness({
                       <div
                         className="provider-chart"
                         role="img"
-                        aria-label={`Daily earnings in ${selectedCurrency}. Exact values are listed below.`}
+                        aria-label={uiF("Daily earnings in {0}. Exact values are listed below.", [selectedCurrency])}
                       >
                         {series.map((item) => (
                           <div className="provider-chart-column" key={item.day}>
@@ -377,16 +375,14 @@ function ProviderBusiness({
                     ) : (
                       <div className="provider-chart-empty">
                         <TrendingUp size={26} />
-                        <strong>No earnings recorded in this period</strong>
+                        <strong>{uiT("No earnings recorded in this period")}</strong>
                         <p>
-                          Completed requests with verified usage accrue at your
-                          agreed offer rates.
-                        </p>
+                          {uiT("Completed requests with verified usage accrue at your agreed offer rates.")}</p>
                       </div>
                     )}
                     {series.length > 0 && (
                       <details className="provider-daily-values">
-                        <summary>View daily amounts</summary>
+                        <summary>{uiT("View daily amounts")}</summary>
                         <dl>
                           {series.map((item) => (
                             <div key={item.day}>
@@ -399,43 +395,40 @@ function ProviderBusiness({
                     )}
                   </section>
                   <section className="panel provider-traffic">
-                    <h2>Supply performance</h2>
-                    <p>Last {days} days · all currencies</p>
+                    <h2>{uiT("Supply performance")}</h2>
+                    <p>{uiT("Last")}{" "}{days}{" "}{uiT("days · all currencies")}</p>
                     <dl>
                       <div>
-                        <dt>Requests admitted</dt>
+                        <dt>{uiT("Requests admitted")}</dt>
                         <dd>{count(data.traffic.requests)}</dd>
                       </div>
                       <div>
-                        <dt>Completed requests</dt>
+                        <dt>{uiT("Completed requests")}</dt>
                         <dd>{count(data.traffic.completed)}</dd>
                       </div>
                       <div>
-                        <dt>Input tokens reported</dt>
+                        <dt>{uiT("Input tokens reported")}</dt>
                         <dd>{count(data.traffic.prompt_tokens)}</dd>
                       </div>
                       <div>
-                        <dt>Output tokens reported</dt>
+                        <dt>{uiT("Output tokens reported")}</dt>
                         <dd>{count(data.traffic.completion_tokens)}</dd>
                       </div>
                       <div>
                         <dt>
                           <Clock3 size={14} />
-                          Awaiting earnings reconciliation
-                        </dt>
+                          {uiT("Awaiting earnings reconciliation")}</dt>
                         <dd>{count(data.traffic.unresolved)}</dd>
                       </div>
                     </dl>
                     <p className="provider-footnote">
-                      Unresolved usage is not counted as zero earnings.
-                    </p>
+                      {uiT("Unresolved usage is not counted as zero earnings.")}</p>
                   </section>
                 </div>
                 <div className="provider-business-note">
                   <ShieldCheck size={18} />
                   <p>
-                    Earnings use verified model consumption and your agreed rates. Payment records reflect completed external settlements; no funds are transferred here.
-                  </p>
+                    {uiT("Earnings use verified model consumption and your agreed rates. Payment records reflect completed external settlements; no funds are transferred here.")}</p>
                 </div>
               </>
             )}
@@ -443,16 +436,15 @@ function ProviderBusiness({
               <section className="panel">
                 <div className="provider-section-heading provider-panel-heading">
                   <div>
-                    <h2>Your model offers</h2>
+                    <h2>{uiT("Your model offers")}</h2>
                     <p>
-                      Agreed payout rates. Text rates are per million tokens; media rates depend on the specification. Rate revisions apply to new requests.
-                    </p>
+                      {uiT("Agreed payout rates. Text rates are per million tokens; media rates depend on the specification. Rate revisions apply to new requests.")}</p>
                   </div>
-                  <span className="shrink-0">{data.offers.length} {data.offers.length === 1 ? 'offer' : 'offers'}{data.offers_has_more ? ' loaded · more available' : ''}</span>
+                  <span className="shrink-0">{data.offers.length} {data.offers.length === 1 ? uiT("offer") : uiT("offers")}{data.offers_has_more ? " " + uiT("loaded · more available") : ''}</span>
                 </div>
                 {data.offers.length === 0 ? (
                   <Empty
-                    title="No model offers yet"
+                    title={uiT("No model offers yet")}
                     detail="A platform administrator can assign your upstream models and publish agreed payout rates."
                   />
                 ) : (
@@ -466,48 +458,48 @@ function ProviderBusiness({
                           <strong>{offer.model_alias}</strong>
                           <span>
                             {!offer.active
-                              ? "Paused"
+                              ? uiT("Paused")
                               : offer.route_ready
-                                ? "Accepting requests"
-                                : "Upstream unavailable"}
+                                ? uiT("Accepting requests")
+                                : uiT("Upstream unavailable")}
                           </span>
                         </div>
-                        {offer.rate_kind === "media" ? <div className="provider-offer-rates"><span>See agreed media rates below.</span></div> : <div className="provider-offer-rates">
+                        {offer.rate_kind === "media" ? <div className="provider-offer-rates"><span>{uiT("See agreed media rates below.")}</span></div> : <div className="provider-offer-rates">
                           <span>
-                            Input{" "}
+                            {uiT("Input")}{" "}
                             <strong>
                               {money(offer.prompt_rate, offer.currency)}
                             </strong>
                           </span>
                           <span>
-                            Cache read{" "}
+                            {uiT("Cache read")}{" "}
                             <strong>{money(offer.cached_prompt_rate ?? offer.prompt_rate, offer.currency)}</strong>
-                            {offer.cached_prompt_rate == null && <small> (Input rate)</small>}
+                            {offer.cached_prompt_rate == null && <small>{" "}{uiT("(Input rate)")}</small>}
                           </span>
                           <span>
-                            Output{" "}
+                            {uiT("Output")}{" "}
                             <strong>
                               {money(offer.completion_rate, offer.currency)}
                             </strong>
                           </span>
                           <span>
-                            Reasoning output{" "}
+                            {uiT("Reasoning output")}{" "}
                             <strong>{money(offer.reasoning_completion_rate ?? offer.completion_rate, offer.currency)}</strong>
-                            {offer.reasoning_completion_rate == null && <small> (Output rate)</small>}
+                            {offer.reasoning_completion_rate == null && <small>{" "}{uiT("(Output rate)")}</small>}
                           </span>
                           <span>
-                            Cache write{" "}
+                            {uiT("Cache write")}{" "}
                             <strong>{money(offer.cache_write_prompt_rate ?? offer.prompt_rate, offer.currency)}</strong>
-                            {offer.cache_write_prompt_rate == null && <small> (Input rate)</small>}
+                            {offer.cache_write_prompt_rate == null && <small>{" "}{uiT("(Input rate)")}</small>}
                           </span>
                           {(offer.context_tiers ?? []).map(tier => (
                             <div className="provider-offer-rates" key={tier.minimum_input_tokens}>
-                              <span>Context tier: at least {tier.minimum_input_tokens} input tokens</span>
-                              <span>Input <strong>{money(tier.prompt_rate, offer.currency)}</strong></span>
-                              <span>Cache read <strong>{money(tier.cached_prompt_rate ?? tier.prompt_rate, offer.currency)}</strong>{tier.cached_prompt_rate == null && <small> (Tier input rate)</small>}</span>
-                              <span>Output <strong>{money(tier.completion_rate, offer.currency)}</strong></span>
-                              <span>Reasoning output <strong>{money(tier.reasoning_completion_rate ?? tier.completion_rate, offer.currency)}</strong>{tier.reasoning_completion_rate == null && <small> (Tier output rate)</small>}</span>
-                              <span>Cache write <strong>{money(tier.cache_write_prompt_rate ?? tier.prompt_rate, offer.currency)}</strong>{tier.cache_write_prompt_rate == null && <small> (Tier input rate)</small>}</span>
+                              <span>{uiT("Context tier: at least")}{" "}{tier.minimum_input_tokens}{" "}{uiT("input tokens")}</span>
+                              <span>{uiT("Input")}{" "}<strong>{money(tier.prompt_rate, offer.currency)}</strong></span>
+                              <span>{uiT("Cache read")}{" "}<strong>{money(tier.cached_prompt_rate ?? tier.prompt_rate, offer.currency)}</strong>{tier.cached_prompt_rate == null && <small>{" "}{uiT("(Tier input rate)")}</small>}</span>
+                              <span>{uiT("Output")}{" "}<strong>{money(tier.completion_rate, offer.currency)}</strong></span>
+                              <span>{uiT("Reasoning output")}{" "}<strong>{money(tier.reasoning_completion_rate ?? tier.completion_rate, offer.currency)}</strong>{tier.reasoning_completion_rate == null && <small>{" "}{uiT("(Tier output rate)")}</small>}</span>
+                              <span>{uiT("Cache write")}{" "}<strong>{money(tier.cache_write_prompt_rate ?? tier.prompt_rate, offer.currency)}</strong>{tier.cache_write_prompt_rate == null && <small>{" "}{uiT("(Tier input rate)")}</small>}</span>
                             </div>
                           ))}
                         </div>}
@@ -519,10 +511,10 @@ function ProviderBusiness({
                             onClick={() => void toggleOffer(offer)}
                           >
                             {busy === offer.id
-                              ? "Saving…"
+                              ? uiT("Saving…")
                               : offer.active
-                                ? "Pause"
-                                : "Resume"}
+                                ? uiT("Pause")
+                                : uiT("Resume")}
                           </Button>
                         )}
                       </article>
@@ -530,32 +522,29 @@ function ProviderBusiness({
                   </div>
                 )}
                 {offerError && <p role="alert">{offerError}</p>}
-                {data.offers_has_more && <Button variant="outline" disabled={loadingOffers} onClick={()=>void moreOffers()}>{loadingOffers ? 'Loading offers…' : offerError ? 'Retry loading offers' : 'Load more offers'}</Button>}
-                {data.offers.some(offer=>offer.rate_kind === 'media') && <section className="mt-6" aria-label="Agreed media rates"><h3 className="mb-3 px-4 font-semibold sm:px-6">Agreed media rates</h3><MediaRateHistory token={token} supplier={provider} canConfigure={false} providerView /></section>}
+                {data.offers_has_more && <Button variant="outline" disabled={loadingOffers} onClick={()=>void moreOffers()}>{loadingOffers ? uiT("Loading offers…") : offerError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button>}
+                {data.offers.some(offer=>offer.rate_kind === 'media') && <section className="mt-6" aria-label={uiT("Agreed media rates")}><h3 className="mb-3 px-4 font-semibold sm:px-6">{uiT("Agreed media rates")}</h3><MediaRateHistory token={token} supplier={provider} canConfigure={false} providerView /></section>}
                 <p className="provider-panel-note">
-                  Price changes require a new agreed rate revision from Provider
-                  management. Pausing prevents new admissions; requests already
-                  dispatched can still complete and earn revenue.
-                </p>
+                  {uiT("Price changes require a new agreed rate revision from Provider management. Pausing prevents new admissions; requests already dispatched can still complete and earn revenue.")}</p>
               </section>
             )}
             {tab === "earnings" && (
               <section className="panel">
                 <div className="provider-panel-heading">
-                  <h2>Model usage</h2>
-                  <span>Last {days} days</span>
+                  <h2>{uiT("Model usage")}</h2>
+                  <span>{uiT("Last")}{" "}{days}{" "}{uiT("days")}</span>
                 </div>
                 {data.consumption.length ? (
                   <div className="table-wrap">
                     <ShadcnTable className="provider-ledger">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Model</TableHead>
-                          <TableHead>Requests</TableHead>
-                          <TableHead>Input / output tokens</TableHead>
-                          <TableHead>Input / output rate per 1M</TableHead>
-                          <TableHead>Earnings</TableHead>
-                          <TableHead>Unpaid</TableHead>
+                          <TableHead>{uiT("Model")}</TableHead>
+                          <TableHead>{uiT("Requests")}</TableHead>
+                          <TableHead>{uiT("Input / output tokens")}</TableHead>
+                          <TableHead>{uiT("Input / output rate per 1M")}</TableHead>
+                          <TableHead>{uiT("Earnings")}</TableHead>
+                          <TableHead>{uiT("Unpaid")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -568,12 +557,12 @@ function ProviderBusiness({
                             <TableCell>
                               {count(entry.prompt_tokens)} /{" "}
                               {count(entry.completion_tokens)}
-                              <div className="text-sm text-muted-foreground">Cached: {entry.cached_prompt_tokens == null ? 'Unknown' : count(entry.cached_prompt_tokens)}</div>
+                              <div className="text-sm text-muted-foreground">{uiT("Cached:")}{" "}{entry.cached_prompt_tokens == null ? uiT("Unknown") : count(entry.cached_prompt_tokens)}</div>
                             </TableCell>
                             <TableCell>
                               {money(entry.prompt_rate, entry.currency)} /{" "}
                               {money(entry.completion_rate, entry.currency)}
-                              <div className="text-sm text-muted-foreground">Cache read: {money(entry.cached_prompt_rate ?? entry.prompt_rate, entry.currency)}{entry.cached_prompt_rate == null ? ' (Input rate)' : ''}</div>
+                              <div className="text-sm text-muted-foreground">{uiT("Cache read:")}{" "}{money(entry.cached_prompt_rate ?? entry.prompt_rate, entry.currency)}{entry.cached_prompt_rate == null ? uiT("(Input rate)") : ''}</div>
                             </TableCell>
                             <TableCell>{money(entry.amount_nanos, entry.currency)}</TableCell>
                             <TableCell>{money(entry.unpaid_nanos, entry.currency)}</TableCell>
@@ -584,7 +573,7 @@ function ProviderBusiness({
                   </div>
                 ) : Array.isArray(data.media_consumption) && data.media_consumption.length === 0 ? (
                   <Empty
-                    title="No model consumption yet"
+                    title={uiT("No model consumption yet")}
                     detail="Verified model consumption and earnings will appear here."
                   />
                 ) : null}
@@ -595,8 +584,8 @@ function ProviderBusiness({
               <section className="panel">
                 <div className="provider-section-heading provider-panel-heading">
                   <div>
-                    <h2>Payment history</h2>
-                    <p>Latest 100 · all time</p>
+                    <h2>{uiT("Payment history")}</h2>
+                    <p>{uiT("Latest 100 · all time")}</p>
                   </div>
                 </div>
                 {data.settlements.length ? (
@@ -604,10 +593,10 @@ function ProviderBusiness({
                     <ShadcnTable className="provider-ledger">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Date recorded</TableHead>
-                          <TableHead>Payment reference</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead>{uiT("Date recorded")}</TableHead>
+                          <TableHead>{uiT("Payment reference")}</TableHead>
+                          <TableHead>{uiT("Amount")}</TableHead>
+                          <TableHead>{uiT("Status")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -619,8 +608,7 @@ function ProviderBusiness({
                             <TableCell>
                               <span className="provider-ledger-state">
                                 <Check size={13} />
-                                Payment recorded
-                              </span>
+                                {uiT("Payment recorded")}</span>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -629,7 +617,7 @@ function ProviderBusiness({
                   </div>
                 ) : (
                   <Empty
-                    title="No settlements recorded"
+                    title={uiT("No settlements recorded")}
                     detail="Your accrued earnings remain unpaid until Provider management records a confirmed external payment."
                   />
                 )}

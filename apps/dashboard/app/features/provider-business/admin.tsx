@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderModels from './ProviderModels';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -73,26 +75,26 @@ function reviewExpiryMilliseconds(value: string) {
 const sha256Pattern = "[0-9a-f]{64}";
 
 export default function ProviderAdministration() {
+  const { t: uiT } = useUILocale();
   const { session, token } = useDashboardContext();
   if (!(session?.kind === "installation" || session?.permissions.platform_admin) && session?.provider_memberships?.length)
     return <Navigate to={`/providers/${providerPathSegment(session.provider_memberships[0])}`} replace />;
   if (!(session?.kind === "installation" || session?.permissions.platform_admin))
     return (
       <>
-        <PageHeader title="Providers" />
+        <PageHeader title={uiT("Providers")} />
         <section className="panel provider-access-message">
           <ShieldCheck />
-          <h2>Provider access required</h2>
+          <h2>{uiT("Provider access required")}</h2>
           <p>
-            Provider membership and agreed rates are controlled by installation
-            administration.
-          </p>
+            {uiT("Provider membership and agreed rates are controlled by installation administration.")}</p>
         </section>
       </>
     );
   return <Administration key={token} token={token} />;
 }
 function Administration({ token }: { token: string }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { session } = useDashboardContext();
   const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
@@ -418,24 +420,24 @@ function Administration({ token }: { token: string }) {
     members: "Members",
     models: "Models",
     settlements: "Settlements",
-  }[section] ?? "Providers";
+  }[section] ?? uiT("Providers");
   const sectionAction =
     section === "members" ? (
-      <Button variant="outline" className="header-icon-action" aria-label="Manage portal access" title="Manage portal access" disabled={!data} onClick={() => open("membership")}>
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage portal access")} title={uiT("Manage portal access")} disabled={!data} onClick={() => open("membership")}>
         <Plus size={16} />
-        <span>Manage portal access</span>
+        <span>{uiT("Manage portal access")}</span>
       </Button>
     ) : section === "models" && pricingTab === "text" ? (
-      <Button variant="outline" className="header-icon-action" aria-label="Set agreed rates" title="Set agreed rates" disabled={!data} onClick={() => open("offer")}>
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}>
         <Plus size={16} />
-        <span>Set agreed rates</span>
+        <span>{uiT("Set agreed rates")}</span>
       </Button>
     ) : section === "models" && pricingTab === "media" ? (
-      <Button variant="outline" className="header-icon-action" aria-label="Set up media offer" title="Set up media offer" disabled={!data} onClick={() => { setMediaOfferModel(""); setMediaPublishing(true); }}><Plus size={16} /><span>Set up media offer</span></Button>
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set up media offer")} title={uiT("Set up media offer")} disabled={!data} onClick={() => { setMediaOfferModel(""); setMediaPublishing(true); }}><Plus size={16} /><span>{uiT("Set up media offer")}</span></Button>
     ) : section === "settlements" ? (
-      <Button variant="outline" className="header-icon-action" aria-label="Record payment" title="Record payment" disabled={!data} onClick={() => open("settlement")}>
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}>
         <Plus size={16} />
-        <span>Record payment</span>
+        <span>{uiT("Record payment")}</span>
       </Button>
     ) : null;
   function nanos(value: string) {
@@ -607,109 +609,108 @@ function Administration({ token }: { token: string }) {
       )}
       {error && !dialog && (
         <p role="alert" className="provider-message">
-          {error} <Button variant="ghost" size="sm" onClick={() => { setError(""); setRevision(value => value + 1); }}>Retry</Button>
+          {error} <Button variant="ghost" size="sm" onClick={() => { setError(""); setRevision(value => value + 1); }}>{uiT("Retry")}</Button>
         </p>
       )}
-      {loading || (selected && !data && !error) ? <WorkspaceShellSkeleton label="Loading providers…" /> : error && !data ? null : businesses.length === 0 ? (
+      {loading || (selected && !data && !error) ? <WorkspaceShellSkeleton label={uiT("Loading providers…")} /> : error && !data ? null : businesses.length === 0 ? (
         <section className="panel provider-access-message">
           <Building2 size={28} aria-hidden="true" />
-          <h2>No providers yet</h2>
+          <h2>{uiT("No providers yet")}</h2>
           <p>
-            Add a provider to manage its models, pricing, and payments.
-          </p>
-          <Button onClick={() => open("create")}><Plus size={16} />Add provider</Button>
+            {uiT("Add a provider to manage its models, pricing, and payments.")}</p>
+          <Button onClick={() => open("create")}><Plus size={16} />{uiT("Add provider")}</Button>
         </section>
       ) : (
         <section className="provider-admin-panel supplier-admin-surface" data-section={section}>
           {section === "overview" && selectedBusiness && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>API connection</h2></div>
-            <p className="px-6 pb-4 text-sm text-muted-foreground">Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.</p>
-            <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>Setup step</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader><TableBody>
-              <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>Configure models</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Platform-wide prices</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Pricing</Link></Button></TableCell></TableRow>
+            <div className="provider-admin-section-heading"><h2>{uiT("API connection")}</h2></div>
+            <p className="px-6 pb-4 text-sm text-muted-foreground">{uiT("Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.")}</p>
+            <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>{uiT("Setup step")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>
+              <TableRow><TableCell>{uiT("1. Connect upstream API key")}</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_api_keys, selectedBusiness.api_keys ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? uiT("Connect API key") : uiT("Manage API keys")}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>{uiT("2. Add model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{uiT("Configure models")}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>{uiT("3. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>
             </TableBody></ShadcnTable>
-            <p className="px-6 pt-4 text-sm text-muted-foreground">Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.</p>
+            <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>
           </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
             <strong>{members.filter(member => member.active && !member.revoked).length}</strong>
-            <span>accounts with portal access</span>
+            <span>{uiT("accounts with portal access")}</span>
           </div>}
-          {section === "members" && (membersLoading ? <div className="px-6 pb-6"><TableSkeleton columns={4} rows={3} label="Loading members…" /></div> : members.length ? <ShadcnTable className="provider-ledger">
-            <TableHeader><TableRow><TableHead>Account</TableHead><TableHead>Role</TableHead><TableHead>Access</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+          {section === "members" && (membersLoading ? <div className="px-6 pb-6"><TableSkeleton columns={4} rows={3} label={uiT("Loading members…")} /></div> : members.length ? <ShadcnTable className="provider-ledger">
+            <TableHeader><TableRow><TableHead>{uiT("Account")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead>{uiT("Access")}</TableHead><TableHead><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
             <TableBody>{members.map(member => <TableRow key={member.operator_id}>
-              <TableCell>{member.name || "Unnamed account"}</TableCell><TableCell>{member.role === "manager" ? "Manager" : "Viewer"}</TableCell><TableCell>{member.revoked ? "Account revoked" : member.active ? "Active" : "Revoked"}</TableCell>
-              <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={`Edit access for ${member.name || "unnamed account"}`} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>Edit access</Button></TableCell>
+              <TableCell>{member.name || uiT("Unnamed account")}</TableCell><TableCell>{member.role === "manager" ? uiT("Manager") : uiT("Viewer")}</TableCell><TableCell>{member.revoked ? uiT("Account revoked") : member.active ? uiT("Active") : uiT("Revoked")}</TableCell>
+              <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={uiF("Edit access for {0}", [member.name || uiT("unnamed account")])} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>{uiT("Edit access")}</Button></TableCell>
             </TableRow>)}</TableBody>
-          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No provider portal access granted</EmptyTitle><EmptyDescription>API keys and model routes work without portal access.</EmptyDescription></EmptyHeader></Empty>)}
+          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
           {section === "overview" && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>Models</Link></Button></div>
+            <div className="provider-admin-section-heading"><h2>{uiT("Model offers")}</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>{uiT("Models")}</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
-              <div><span>{data?.offers_has_more ? "Loaded text offers" : "Text offers"}</span><strong>{textOffers.length}</strong></div>
-              <div><span>{data?.offers_has_more ? "Loaded media offers" : "Media offers"}</span><strong>{mediaOffers.length}</strong></div>
-              <div><span>{data?.offers_has_more ? "Loaded active offers" : "Active offers"}</span><strong>{(data?.offers ?? []).filter(offer => offer.active && offer.route_ready).length}</strong></div>
+              <div><span>{data?.offers_has_more ? uiT("Loaded text offers") : uiT("Text offers")}</span><strong>{textOffers.length}</strong></div>
+              <div><span>{data?.offers_has_more ? uiT("Loaded media offers") : uiT("Media offers")}</span><strong>{mediaOffers.length}</strong></div>
+              <div><span>{data?.offers_has_more ? uiT("Loaded active offers") : uiT("Active offers")}</span><strong>{(data?.offers ?? []).filter(offer => offer.active && offer.route_ready).length}</strong></div>
             </div></div>
           </div>}
           {(section === "overview" || section === "models") && <>
           {(section !== "models" || pricingTab !== "models") && <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
             <div className="provider-admin-section-heading">
-              <h2>Provider qualification</h2>
+              <h2>{uiT("Provider qualification")}</h2>
               <Badge variant={supplierQualified ? "default" : "secondary"}>
-                {supplierQualified ? "Qualified" : "Qualification required"}
+                {supplierQualified ? uiT("Qualified") : uiT("Qualification required")}
               </Badge>
             </div>
             <div className="provider-qualification-content">
-              <p>{section === "models" ? "Provider qualification and an offer review are required before activation." : "Review supply rights, capabilities, and data handling before enabling offers. Model offers and their agreed rates are reviewed separately."}</p>
+              <p>{section === "models" ? uiT("Provider qualification and an offer review are required before activation.") : uiT("Review supply rights, capabilities, and data handling before enabling offers. Model offers and their agreed rates are reviewed separately.")}</p>
               <div className="provider-qualification-actions">
-                <Button variant="outline" onClick={() => open("supplier-qualification")}>Review Provider</Button>
-                {supplierQualified && <Button variant="outline" onClick={() => open("supplier-revocation")}>Revoke review</Button>}
+                <Button variant="outline" onClick={() => open("supplier-qualification")}>{uiT("Review Provider")}</Button>
+                {supplierQualified && <Button variant="outline" onClick={() => open("supplier-revocation")}>{uiT("Revoke review")}</Button>}
               </div>
             </div>
           </div>}
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label="Provider model section"><TabsTrigger value="models">Models</TabsTrigger><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
+            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
             <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={!!session?.permissions?.manage_operators} offers={data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} qualified={supplierQualified} onQualification={() => open("supplier-qualification")} onReviewOffer={id => open("offer-qualification", id)} onOffer={(modelAlias, media) => { if (media) { setMediaOfferModel(modelAlias); setMediaPublishing(true); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
             <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
+            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
-              visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>No matching models</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>Clear search</Button></EmptyContent></Empty> :
+              visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
               <div className="table-wrap">
                 <ShadcnTable className="provider-ledger supplier-text-offers">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Model alias</TableHead>
-                      <TableHead>Input / 1M tokens</TableHead>
-                      <TableHead>Cache read / 1M tokens</TableHead>
-                      <TableHead>Output / 1M tokens</TableHead>
-                      <TableHead>Qualification</TableHead>
-                      <TableHead>Offer status</TableHead>
-                      {section === "models" && <TableHead className="supplier-offer-actions"><span className="sr-only">Actions</span></TableHead>}
+                      <TableHead>{uiT("Model alias")}</TableHead>
+                      <TableHead>{uiT("Input / 1M tokens")}</TableHead>
+                      <TableHead>{uiT("Cache read / 1M tokens")}</TableHead>
+                      <TableHead>{uiT("Output / 1M tokens")}</TableHead>
+                      <TableHead>{uiT("Qualification")}</TableHead>
+                      <TableHead>{uiT("Offer status")}</TableHead>
+                      {section === "models" && <TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {visibleOffers.map((offer) => (
                       <TableRow key={offer.id}>
                         <TableCell>{offer.model_alias}<dl className="mt-3 grid gap-2 text-sm sm:hidden">
-                          <div><dt className="text-xs text-muted-foreground">Input / 1M tokens</dt><dd>{money(offer.prompt_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Cache read / 1M tokens</dt><dd>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : "Input rate"}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Output / 1M tokens</dt><dd>{money(offer.completion_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Qualification</dt><dd>{offer.qualified ? "Qualified" : "Review required"}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Offer status</dt><dd>{offer.active ? offer.route_ready ? "Active" : "Route unavailable" : "Paused"}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd>{money(offer.prompt_rate, offer.currency)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd>{money(offer.completion_rate, offer.currency)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Qualification")}</dt><dd>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Offer status")}</dt><dd>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</dd></div>
                         </dl></TableCell>
                         <TableCell>{money(offer.prompt_rate, offer.currency)}</TableCell>
-                        <TableCell>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : "Input rate"}</TableCell>
+                        <TableCell>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
                         <TableCell>{money(offer.completion_rate, offer.currency)}</TableCell>
-                        <TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? "Qualified" : "Review required"}</Badge></TableCell>
-                        <TableCell>{offer.active ? offer.route_ready ? "Active" : "Route unavailable" : "Paused"}</TableCell>
+                        <TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</Badge></TableCell>
+                        <TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell>
                         {section === "models" && <TableCell className="supplier-offer-actions"><DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={`Actions for ${offer.model_alias}`}><Dots size={18} /></Button></DropdownMenuTrigger>
+                          <DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => open("offer", offer.id)}>Edit rates</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => open("offer", offer.id)}>{uiT("Edit rates")}</DropdownMenuItem>
                           {!offer.qualified
-                            ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>Review offer</DropdownMenuItem>
-                            : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>Revoke review</DropdownMenuItem>}
+                            ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>{uiT("Review offer")}</DropdownMenuItem>
+                            : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>{uiT("Revoke review")}</DropdownMenuItem>}
                           </DropdownMenuContent>
                         </DropdownMenu></TableCell>}
                       </TableRow>
@@ -719,40 +720,40 @@ function Administration({ token }: { token: string }) {
               </div>
             ) : (
               <div className="provider-empty-state">
-                <strong>No agreed model rates</strong>
+                <strong>{uiT("No agreed model rates")}</strong>
               </div>
             )}
             </TabsContent>
             {section === "models" && <TabsContent value="media">
-              {mediaOffers.length > 0 && <div className="table-wrap mb-6"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Qualification</TableHead><TableHead>Offer status</TableHead><TableHead className="supplier-offer-actions"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{mediaOffers.map(offer => <TableRow key={offer.id}><TableCell>{offer.model_alias}</TableCell><TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? "Qualified" : "Review required"}</Badge></TableCell><TableCell>{offer.active ? offer.route_ready ? "Active" : "Route unavailable" : "Paused"}</TableCell><TableCell className="supplier-offer-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={`Actions for ${offer.model_alias}`}><Dots size={18} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setMediaOfferModel(offer.model_alias); setMediaPublishing(true); }}>Update configuration</DropdownMenuItem>{!offer.qualified ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>Review offer</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>Revoke review</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
+              {mediaOffers.length > 0 && <div className="table-wrap mb-6"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Qualification")}</TableHead><TableHead>{uiT("Offer status")}</TableHead><TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{mediaOffers.map(offer => <TableRow key={offer.id}><TableCell>{offer.model_alias}</TableCell><TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</Badge></TableCell><TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell><TableCell className="supplier-offer-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setMediaOfferModel(offer.model_alias); setMediaPublishing(true); }}>{uiT("Update configuration")}</DropdownMenuItem>{!offer.qualified ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>{uiT("Review offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>{uiT("Revoke review")}</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
               <div className="px-6"><MediaRateHistory key={selected} token={token} supplier={selected} /></div>
             </TabsContent>}
             </Tabs>
-            {data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length} offers loaded. Counts and filters cover loaded offers only.</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>Refresh offers</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? 'Loading offers…' : moreOffersError ? 'Retry loading offers' : 'Load more offers'}</Button></div>}
+            {data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}
           {(section === "overview" || section === "settlements") && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>Provider payables</h2></div>
+            <div className="provider-admin-section-heading"><h2>{uiT("Provider payables")}</h2></div>
             <div className="provider-balance-list">
               {data?.balances?.length ? data.balances.map(balance => <div className="provider-balance-row" key={balance.currency}>
-                <div><span>Accrued · {balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
-                <div><span>Unpaid</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
-                <div><span>Paid</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
-              </div>) : <p className="provider-inline-empty">No provider charges recorded yet.</p>}
+                <div><span>{uiT("Accrued ·")}{" "}{balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
+                <div><span>{uiT("Unpaid")}</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
+                <div><span>{uiT("Paid")}</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
+              </div>) : <p className="provider-inline-empty">{uiT("No provider charges recorded yet.")}</p>}
             </div>
           </div>}
           {section === "usage" && <>
-            <div className="provider-admin-section-heading"><h2>Consumption by model</h2><span>Last 90 days</span></div>
-            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Accrued charges</TableHead><TableHead>Unpaid</TableHead></TableRow></TableHeader><TableBody>
-              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString()}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString()} ({BigInt(row.prompt_tokens).toLocaleString()} / {BigInt(row.completion_tokens).toLocaleString()})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No consumption in the last 90 days</EmptyTitle></EmptyHeader></Empty> : null}
+            <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>
+            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Accrued charges")}</TableHead><TableHead>{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
+              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
+            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
             <MediaConsumption records={data?.media_consumption} administrator />
           </>}
           {section === "settlements" && <>
-            <div className="provider-admin-section-heading"><h2>Payment history</h2></div>
-            {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Payment reference</TableHead><TableHead>Amount</TableHead></TableRow></TableHeader><TableBody>
-              {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString()}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No payments recorded</EmptyTitle></EmptyHeader></Empty>}
+            <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
+            {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead>{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
+              {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
+            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
           </>}
         </section>
       )}
@@ -779,8 +780,8 @@ function Administration({ token }: { token: string }) {
             "supplier-revocation": "Revoke Provider qualification",
             "offer-revocation": "Revoke offer qualification",
           }[dialog] ?? ""
-        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? "Manage account access to this provider portal." : dialog === "offer" ? "Provider payments for model usage." : dialog.includes("qualification") || dialog.includes("revocation") ? "Installation-only evidence review" : "Provider management"}</DialogDescription></div>
-          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : dialog.includes("qualification") || dialog.includes("revocation") ? uiT("Installation-only evidence review") : uiT("Provider management")}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
         {error && (
           <p role="alert" className="error-text">
@@ -788,8 +789,8 @@ function Administration({ token }: { token: string }) {
           </p>
         )}
         {dialog === "offer" && <>
-          {offerLoad?.loading && <ListRowsSkeleton rows={2} label="Loading current agreed rates…" />}
-          {(offerLoad?.conflict || !offerLoad?.ready) && !offerLoad?.loading && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void loadOfferDetails(offerId, offerLoad?.conflict ? alias : "", Boolean(offerId) || Boolean(offerLoad?.conflict))}>Reload saved rates</Button><p className="text-sm text-muted-foreground">{offerId || offerLoad?.conflict ? "Reloading replaces your unsaved changes." : "Reloading preserves your unsaved values."}</p></div>}
+          {offerLoad?.loading && <ListRowsSkeleton rows={2} label={uiT("Loading current agreed rates…")} />}
+          {(offerLoad?.conflict || !offerLoad?.ready) && !offerLoad?.loading && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void loadOfferDetails(offerId, offerLoad?.conflict ? alias : "", Boolean(offerId) || Boolean(offerLoad?.conflict))}>{uiT("Reload saved rates")}</Button><p className="text-sm text-muted-foreground">{offerId || offerLoad?.conflict ? uiT("Reloading replaces your unsaved changes.") : uiT("Reloading preserves your unsaved values.")}</p></div>}
         </>}
         {dialog === "create" ? <ProviderEditor token={token} connection={null} disabled={busy} onCreate={createProvider} onSave={async () => {}} /> : dialog === "properties" ? <ProviderPropertiesFields providerId={selected} providerName={selectedBusiness?.name ?? ""} token={token} /> : (<form
           onSubmit={(event) => void submit(event)}
@@ -798,43 +799,41 @@ function Administration({ token }: { token: string }) {
           {dialog === "membership" && (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-member-account">Account</Label>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-account" variant="outline" className="w-full justify-between font-normal" disabled={accountsLoading || !accounts.length}>{accountsLoading ? "Loading accounts…" : accounts.find(account => account.id === operator)?.name || "Choose account"}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                <Label htmlFor="supplier-member-account">{uiT("Account")}</Label>
+                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-account" variant="outline" className="w-full justify-between font-normal" disabled={accountsLoading || !accounts.length}>{accountsLoading ? uiT("Loading accounts…") : accounts.find(account => account.id === operator)?.name || uiT("Choose account")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={operator} onValueChange={setOperator}>
-                    {accounts.map(account => <DropdownMenuRadioItem key={account.id} value={account.id}>{account.name || "Unnamed account"}</DropdownMenuRadioItem>)}
+                    {accounts.map(account => <DropdownMenuRadioItem key={account.id} value={account.id}>{account.name || uiT("Unnamed account")}</DropdownMenuRadioItem>)}
                   </DropdownMenuRadioGroup></DropdownMenuContent>
                 </DropdownMenu>
-                {!accountsLoading && !accounts.length && !error && <p>No active accounts available.</p>}
+                {!accountsLoading && !accounts.length && !error && <p>{uiT("No active accounts available.")}</p>}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-member-role">Provider role</Label>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-role" aria-describedby="supplier-member-role-help" variant="outline" className="w-full justify-between font-normal">{role === "viewer" ? "Viewer" : "Manager"}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                <Label htmlFor="supplier-member-role">{uiT("Provider role")}</Label>
+                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-role" aria-describedby="supplier-member-role-help" variant="outline" className="w-full justify-between font-normal">{role === "viewer" ? uiT("Viewer") : uiT("Manager")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={role} onValueChange={setRole}>
-                    <DropdownMenuRadioItem value="viewer">Viewer</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="manager">Manager</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="viewer">{uiT("Viewer")}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="manager">{uiT("Manager")}</DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup></DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <p id="supplier-member-role-help" className="text-sm text-muted-foreground">{role === "manager" ? "Can view offers, usage, earnings, and payments, and pause or resume existing offers." : "Can view offers, usage, earnings, and payments."} Agreed rates, API credentials, and payment recording remain under platform administration.</p>
+              <p id="supplier-member-role-help" className="text-sm text-muted-foreground">{role === "manager" ? uiT("Can view offers, usage, earnings, and payments, and pause or resume existing offers.") : uiT("Can view offers, usage, earnings, and payments.")}{" "}{uiT("Agreed rates, API credentials, and payment recording remain under platform administration.")}</p>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-member-access">Access</Label>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-access" variant="outline" className="w-full justify-between font-normal">{active === "true" ? "Grant access" : "Revoke access"}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                <Label htmlFor="supplier-member-access">{uiT("Access")}</Label>
+                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-access" variant="outline" className="w-full justify-between font-normal">{active === "true" ? uiT("Grant access") : uiT("Revoke access")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={active} onValueChange={setActive}>
-                    <DropdownMenuRadioItem value="true">Grant access</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="false">Revoke access</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="true">{uiT("Grant access")}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="false">{uiT("Revoke access")}</DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup></DropdownMenuContent>
                 </DropdownMenu>
               </div>
               <p>
-                Only grant access to an approved provider member. Customer
-                workspace roles do not grant this access automatically.
-              </p>
+                {uiT("Only grant access to an approved provider member. Customer workspace roles do not grant this access automatically.")}</p>
             </>
           )}
           {dialog === "offer" && (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-offer-alias">Existing upstream model alias</Label>
+                <Label htmlFor="supplier-offer-alias">{uiT("Existing upstream model alias")}</Label>
                 <Input
                   id="supplier-offer-alias"
                   disabled={busy || offerLoad?.loading}
@@ -845,9 +844,9 @@ function Administration({ token }: { token: string }) {
                   onChange={(event) => setAlias(event.target.value)}
                 />
               </div>
-              <p className="text-sm text-muted-foreground">Prices in {currency || "the platform currency (configure in Admin)"}.</p>
+              <p className="text-sm text-muted-foreground">{uiT("Prices in")}{" "}{currency || uiT("the platform currency (configure in Admin)")}.</p>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-input-rate">Input payout per million tokens</Label>
+                <Label htmlFor="supplier-input-rate">{uiT("Input payout per million tokens")}</Label>
                 <Input
                   id="supplier-input-rate"
                   disabled={busy || offerLoad?.loading}
@@ -858,7 +857,7 @@ function Administration({ token }: { token: string }) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-cached-input-rate">Cache read payout per million tokens</Label>
+                <Label htmlFor="supplier-cached-input-rate">{uiT("Cache read payout per million tokens")}</Label>
                 <Input
                   id="supplier-cached-input-rate"
                   disabled={busy || offerLoad?.loading}
@@ -867,10 +866,10 @@ function Administration({ token }: { token: string }) {
                   value={cachedInputRate}
                   onChange={(event) => setCachedInputRate(event.target.value)}
                 />
-                <p id="supplier-cached-input-help" className="text-sm text-muted-foreground">Leave blank to use the input rate for cached tokens. Zero is a valid rate.</p>
+                <p id="supplier-cached-input-help" className="text-sm text-muted-foreground">{uiT("Leave blank to use the input rate for cached tokens. Zero is a valid rate.")}</p>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-output-rate">Output payout per million tokens</Label>
+                <Label htmlFor="supplier-output-rate">{uiT("Output payout per million tokens")}</Label>
                 <Input
                   id="supplier-output-rate"
                   disabled={busy || offerLoad?.loading}
@@ -881,21 +880,15 @@ function Administration({ token }: { token: string }) {
                 />
               </div>
               <p>
-                New rates apply to future requests. Existing earnings keep
-                their original rates.
-              </p>
+                {uiT("New rates apply to future requests. Existing earnings keep their original rates.")}</p>
             </>
           )}
           {dialog === "settlement" && (
             <>
               <p>
-                This records an external payment that has already completed. It
-                does not initiate a transfer. All entries must be unpaid and use
-                the same currency.
-              </p>
+                {uiT("This records an external payment that has already completed. It does not initiate a transfer. All entries must be unpaid and use the same currency.")}</p>
               <label>
-                External payment reference
-                <Input
+                {uiT("External payment reference")}<Input
                   required
                   maxLength={200}
                   disabled={busy || paymentSubmitted}
@@ -904,7 +897,7 @@ function Administration({ token }: { token: string }) {
                 />
               </label>
               <fieldset className="provider-payment-selection">
-                <legend>Select unpaid earnings</legend>
+                <legend>{uiT("Select unpaid earnings")}</legend>
                 <div className="provider-payment-entries">
                   {paymentEarnings
                     .filter((item) => item.status === "accrued")
@@ -923,7 +916,7 @@ function Administration({ token }: { token: string }) {
                         />
                         <span>
                           {item.model_alias}
-                          <small>{new Date(item.created_at).toLocaleString()}</small>
+                          <small>{new Date(item.created_at).toLocaleString(readUILocale())}</small>
                         </span>
                         <strong>
                           {money(item.amount_nanos, item.currency)}
@@ -932,15 +925,14 @@ function Administration({ token }: { token: string }) {
                     ))}
                   {!paymentEarnings.some(
                     (item) => item.status === "accrued",
-                  ) && !earningLoading && !earningError && <p>No unpaid earnings in the loaded history.</p>}
+                  ) && !earningLoading && !earningError && <p>{uiT("No unpaid earnings in the loaded history.")}</p>}
                 </div>
-                {earningLoading && <ListRowsSkeleton rows={3} label="Loading earnings…" />}
+                {earningLoading && <ListRowsSkeleton rows={3} label={uiT("Loading earnings…")} />}
                 {earningError && <p role="alert">{earningError}</p>}
-                {earningError ? <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => earningCursor ? void loadPaymentEarnings(earningCursor) : setEarningReload(value => value + 1)}>Retry earnings</Button> : earningCursor && <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => void loadPaymentEarnings(earningCursor)}>Older earnings</Button>}
+                {earningError ? <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => earningCursor ? void loadPaymentEarnings(earningCursor) : setEarningReload(value => value + 1)}>{uiT("Retry earnings")}</Button> : earningCursor && <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => void loadPaymentEarnings(earningCursor)}>{uiT("Older earnings")}</Button>}
               </fieldset>
               <p className="provider-payment-total">
-                {attempts.length} requests selected
-                {[
+                {attempts.length}{" "}{uiT("requests selected")}{[
                   ...new Set(
                     paymentEarnings
                       .filter((item) => attempts.includes(item.id))
@@ -967,45 +959,43 @@ function Administration({ token }: { token: string }) {
                 ))}
               </p>
               <p>
-                The recorded amount is the exact sum of the selected earnings.
-                After submission, the reference and selection are locked so retries record the same payment.
-              </p>
+                {uiT("The recorded amount is the exact sum of the selected earnings. After submission, the reference and selection are locked so retries record the same payment.")}</p>
             </>
           )}
           {dialog === "supplier-qualification" && <>
-            <p>Enter fingerprints for the evidence reviewed in the confidential procurement system. Lowercase SHA-256 values are required; do not paste or upload the source documents here.</p>
-            <Label htmlFor="supplier-rights-hash">Supply-rights evidence SHA-256</Label>
-            <Input id="supplier-rights-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={supplyRightsHash} onChange={event => setSupplyRightsHash(event.target.value)} />
-            <Label htmlFor="supplier-capability-hash">Supply-capability evidence SHA-256</Label>
-            <Input id="supplier-capability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={supplyCapabilityHash} onChange={event => setSupplyCapabilityHash(event.target.value)} />
-            <Label htmlFor="supplier-data-handling-hash">Data-handling evidence SHA-256</Label>
-            <Input id="supplier-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={supplierDataHandlingHash} onChange={event => setSupplierDataHandlingHash(event.target.value)} />
-            <Label htmlFor="supplier-qualification-expiry">Review valid until</Label>
+            <p>{uiT("Enter fingerprints for the evidence reviewed in the confidential procurement system. Lowercase SHA-256 values are required; do not paste or upload the source documents here.")}</p>
+            <Label htmlFor="supplier-rights-hash">{uiT("Supply-rights evidence SHA-256")}</Label>
+            <Input id="supplier-rights-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplyRightsHash} onChange={event => setSupplyRightsHash(event.target.value)} />
+            <Label htmlFor="supplier-capability-hash">{uiT("Supply-capability evidence SHA-256")}</Label>
+            <Input id="supplier-capability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplyCapabilityHash} onChange={event => setSupplyCapabilityHash(event.target.value)} />
+            <Label htmlFor="supplier-data-handling-hash">{uiT("Data-handling evidence SHA-256")}</Label>
+            <Input id="supplier-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplierDataHandlingHash} onChange={event => setSupplierDataHandlingHash(event.target.value)} />
+            <Label htmlFor="supplier-qualification-expiry">{uiT("Review valid until")}</Label>
             <Input id="supplier-qualification-expiry" type="datetime-local" required value={validUntil} onChange={event => setValidUntil(event.target.value)} />
-            <p>Qualification status records an administrator’s review. It does not independently verify resale rights or establish a discounted customer price.</p>
+            <p>{uiT("Qualification status records an administrator’s review. It does not independently verify resale rights or establish a discounted customer price.")}</p>
           </>}
           {dialog === "offer-qualification" && <>
-            <p>Review the model and the currently agreed-rate revision. A rate change clears this review and pauses the offer until it is reviewed again.</p>
-            <Label htmlFor="offer-model-identity-hash">Model-identity evidence SHA-256</Label>
-            <Input id="offer-model-identity-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={modelIdentityHash} onChange={event => setModelIdentityHash(event.target.value)} />
-            <Label htmlFor="offer-protocol-matrix-hash">Protocol test-matrix SHA-256</Label>
-            <Input id="offer-protocol-matrix-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={protocolMatrixHash} onChange={event => setProtocolMatrixHash(event.target.value)} />
-            <Label htmlFor="offer-protocol-matrix-version">Protocol matrix version</Label>
+            <p>{uiT("Review the model and the currently agreed-rate revision. A rate change clears this review and pauses the offer until it is reviewed again.")}</p>
+            <Label htmlFor="offer-model-identity-hash">{uiT("Model-identity evidence SHA-256")}</Label>
+            <Input id="offer-model-identity-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={modelIdentityHash} onChange={event => setModelIdentityHash(event.target.value)} />
+            <Label htmlFor="offer-protocol-matrix-hash">{uiT("Protocol test-matrix SHA-256")}</Label>
+            <Input id="offer-protocol-matrix-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={protocolMatrixHash} onChange={event => setProtocolMatrixHash(event.target.value)} />
+            <Label htmlFor="offer-protocol-matrix-version">{uiT("Protocol matrix version")}</Label>
             <Input id="offer-protocol-matrix-version" required maxLength={100} value={protocolMatrixVersion} onChange={event => setProtocolMatrixVersion(event.target.value)} />
-            <Label htmlFor="offer-data-handling-hash">Offer data-handling evidence SHA-256</Label>
-            <Input id="offer-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={offerDataHandlingHash} onChange={event => setOfferDataHandlingHash(event.target.value)} />
-            <Label htmlFor="offer-availability-hash">Availability evidence SHA-256</Label>
-            <Input id="offer-availability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={availabilityHash} onChange={event => setAvailabilityHash(event.target.value)} />
-            <Label htmlFor="offer-agreed-rates-hash">Agreed-rate evidence SHA-256</Label>
-            <Input id="offer-agreed-rates-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={agreedRatesHash} onChange={event => setAgreedRatesHash(event.target.value)} />
-            <Label htmlFor="offer-qualification-expiry">Review valid until</Label>
+            <Label htmlFor="offer-data-handling-hash">{uiT("Offer data-handling evidence SHA-256")}</Label>
+            <Input id="offer-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={offerDataHandlingHash} onChange={event => setOfferDataHandlingHash(event.target.value)} />
+            <Label htmlFor="offer-availability-hash">{uiT("Availability evidence SHA-256")}</Label>
+            <Input id="offer-availability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={availabilityHash} onChange={event => setAvailabilityHash(event.target.value)} />
+            <Label htmlFor="offer-agreed-rates-hash">{uiT("Agreed-rate evidence SHA-256")}</Label>
+            <Input id="offer-agreed-rates-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={agreedRatesHash} onChange={event => setAgreedRatesHash(event.target.value)} />
+            <Label htmlFor="offer-qualification-expiry">{uiT("Review valid until")}</Label>
             <Input id="offer-qualification-expiry" type="datetime-local" required value={validUntil} onChange={event => setValidUntil(event.target.value)} />
-            <p>The current rate revision is attached automatically. Its internal reference is not displayed. A qualified status is not a claim of model equivalence or discount.</p>
+            <p>{uiT("The current rate revision is attached automatically. Its internal reference is not displayed. A qualified status is not a claim of model equivalence or discount.")}</p>
           </>}
           {(dialog === "supplier-revocation" || dialog === "offer-revocation") && <>
-            <p>{dialog === "supplier-revocation" ? "Revoking this Provider review pauses all of its offers." : "Revoking this offer review pauses this offer."} Store the detailed reason in the confidential procurement system; Niu records only its SHA-256 fingerprint.</p>
-            <Label htmlFor="qualification-revocation-reason">Revocation reason SHA-256</Label>
-            <Input id="qualification-revocation-reason" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={revocationReasonHash} onChange={event => setRevocationReasonHash(event.target.value)} />
+            <p>{dialog === "supplier-revocation" ? uiT("Revoking this Provider review pauses all of its offers.") : uiT("Revoking this offer review pauses this offer.")}{" "}{uiT("Store the detailed reason in the confidential procurement system; Niu records only its SHA-256 fingerprint.")}</p>
+            <Label htmlFor="qualification-revocation-reason">{uiT("Revocation reason SHA-256")}</Label>
+            <Input id="qualification-revocation-reason" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={revocationReasonHash} onChange={event => setRevocationReasonHash(event.target.value)} />
           </>}
           <Button
             type="submit"
@@ -1024,14 +1014,14 @@ function Administration({ token }: { token: string }) {
             }
           >
             {busy
-              ? "Saving…"
+              ? uiT("Saving…")
               : dialog === "settlement"
-                ? "Record confirmed payment"
+                ? uiT("Record confirmed payment")
                 : dialog === "supplier-qualification" || dialog === "offer-qualification"
-                  ? "Record review"
+                  ? uiT("Record review")
                   : dialog.includes("revocation")
-                    ? "Revoke and pause offers"
-                    : "Save"}
+                    ? uiT("Revoke and pause offers")
+                    : uiT("Save")}
           </Button>
         </form>)}
       </DialogContent>

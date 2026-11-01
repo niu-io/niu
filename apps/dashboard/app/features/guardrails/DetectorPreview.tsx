@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ type Description = {
 export default function DetectorPreview({ token, endpoint, bindings }: {
   token: string; endpoint: string; bindings: DetectorBinding[];
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const detectorsPath = `${endpoint}/detectors`;
   const validPreview = (data: unknown): data is Description[] =>
     Array.isArray(data) && !data.some(item => !item ||
@@ -49,23 +51,23 @@ export default function DetectorPreview({ token, endpoint, bindings }: {
     return () => controller.abort();
   }, [token, detectorsPath, reload]);
   return <div className="space-y-3">
-    <p>Required checks inspect request text after local redaction. Matches and unavailable services block requests.</p>
-    {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>Retry check details</Button></AlertDescription></Alert>}
-    {!descriptions && !error && <ListRowsSkeleton rows={2} label="Loading saved check details…" />}
+    <p>{uiT("Required checks inspect request text after local redaction. Matches and unavailable services block requests.")}</p>
+    {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>{uiT("Retry check details")}</Button></AlertDescription></Alert>}
+    {!descriptions && !error && <ListRowsSkeleton rows={2} label={uiT("Loading saved check details…")} />}
     {descriptions && bindings.map((binding, index) => {
       const current = descriptions.find(item => item.detector === binding.detector);
       const matches = current?.configuration_fingerprint === binding.configuration_fingerprint;
       return <section key={`${binding.detector}:${index}`} className="space-y-2">
-        <h4 className="font-medium">{matches ? current!.recipient : `Saved external check ${index + 1}`}</h4>
-        {!current ? <p>Details unavailable. The saved recipient and processing conditions cannot be recovered from the current configuration. This check cannot currently be used.</p>
-          : !matches ? <><p>Configuration changed. The saved recipient and processing conditions are unavailable; current details do not describe this saved version.</p><p>Current recipient: {current.recipient}. Review the current check in External input checks before using it.</p></>
-          : <><p>{current.policy_activation ? 'Configuration matches this saved version. Availability is checked again when applied.' : 'Configuration matches this saved version, but this check is not currently enabled for this workspace.'}</p>
+        <h4 className="font-medium">{matches ? current!.recipient : uiF("Saved external check {0}", [index + 1])}</h4>
+        {!current ? <p>{uiT("Details unavailable. The saved recipient and processing conditions cannot be recovered from the current configuration. This check cannot currently be used.")}</p>
+          : !matches ? <><p>{uiT("Configuration changed. The saved recipient and processing conditions are unavailable; current details do not describe this saved version.")}</p><p>{uiT("Current recipient:")}{" "}{current.recipient}{uiT(". Review the current check in External input checks before using it.")}</p></>
+          : <><p>{current.policy_activation ? uiT("Configuration matches this saved version. Availability is checked again when applied.") : uiT("Configuration matches this saved version, but this check is not currently enabled for this workspace.")}</p>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-              <dt>Region</dt><dd className="break-words">{current.region}</dd>
-              <dt>Retention</dt><dd className="break-words">{current.retention}</dd>
-              <dt>Content sent</dt><dd>{current.content_sent === 'request_text_after_local_redaction' ? 'Request text after local redaction' : 'Processing details unavailable'}</dd>
-              <dt>External fees</dt><dd>{current.external_charge === 'declared_unmetered' ? 'Declared unmetered' : 'Unknown'}</dd>
-            </dl><p className="text-sm text-muted-foreground">Processing conditions are declared by the administrator and have not been independently verified.</p></>}
+              <dt>{uiT("Region")}</dt><dd className="break-words">{current.region}</dd>
+              <dt>{uiT("Retention")}</dt><dd className="break-words">{current.retention}</dd>
+              <dt>{uiT("Content sent")}</dt><dd>{current.content_sent === 'request_text_after_local_redaction' ? uiT("Request text after local redaction") : uiT("Processing details unavailable")}</dd>
+              <dt>{uiT("External fees")}</dt><dd>{current.external_charge === 'declared_unmetered' ? uiT("Declared unmetered") : uiT("Unknown")}</dd>
+            </dl><p className="text-sm text-muted-foreground">{uiT("Processing conditions are declared by the administrator and have not been independently verified.")}</p></>}
       </section>;
     })}
   </div>;

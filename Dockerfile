@@ -11,7 +11,7 @@ COPY sdks/agent-connect/package.json sdks/agent-connect/package.json
 COPY sdks/javascript/package.json sdks/javascript/package.json
 COPY sdks/mcp/package.json sdks/mcp/package.json
 RUN pnpm install --frozen-lockfile
-COPY scripts/verify-js-licenses.mjs scripts/verify-js-licenses.mjs
+COPY scripts/verify-js-licenses.mjs scripts/js-license-inventory.mjs scripts/
 RUN node scripts/verify-js-licenses.mjs
 COPY apps/dashboard apps/dashboard
 COPY apps/docs apps/docs

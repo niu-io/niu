@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { IconLogout as LogOut } from "@tabler/icons-react";
@@ -19,11 +20,12 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { applyTheme, readTheme, saveTheme, subscribeTheme, type Theme } from './theme';
-import { useLocale, type Locale } from './locale';
+import { useLocale, type Locale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 
 export default function AccountMenu({ context, workspacePath, supplierArea = false, mobile = false }: { context: DashboardContext; workspacePath: string; supplierArea?: boolean; mobile?: boolean }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const {isMobile: compactNavigation, setOpenMobile} = useSidebar();
   const { locale, setLocale, t } = useLocale();
   const location = useLocation();
@@ -53,7 +55,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
 
   return <>
     <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
-      {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" aria-label="Open navigation menu">{t('Navigation', '导航')}<ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label="Account menu" title={t('Account', '账户')}>
+      {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" aria-label={uiT("Open navigation menu")}>{t('Navigation', '导航')}<ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
         {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
       </DropdownMenuTrigger>}
         <DropdownMenuContent onEscapeKeyDown={event => event.stopPropagation()} className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
@@ -76,7 +78,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {roles && roles.available.length > 1 && <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{roles.saving ? t('Switching role…', '正在切换角色…') : t('Role', '角色')}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup aria-label="Role" value={roles.active} onValueChange={value => {
+            <DropdownMenuRadioGroup aria-label={uiT("Role")} value={roles.active} onValueChange={value => {
               if (value !== 'user' && value !== 'admin' || value === roles.active) return;
               void roles.setRole(value).then(changed => { if (changed) { setAccountMenuOpen(false); if (compactNavigation) setOpenMobile(false); } });
             }}>
@@ -90,7 +92,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {!supplierOnly && token && organizations.length > 0 && <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Organizations', '组织')}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup className="account-organizations" aria-label="Organization" value={organization?.id ?? ''} onValueChange={id => {
+            <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Organization")} value={organization?.id ?? ''} onValueChange={id => {
               const next = organizations.find(item => item.id === id);
               if (next) selectOrganization(next);
             }}>
@@ -107,17 +109,17 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(location.pathname, location.search, location.hash, "appearance")}><Monitor/><span className="flex-1">{t('Appearance', '外观')}</span><span className="text-muted-foreground">{themeLabel} · {localeLabel}</span></Link></DropdownMenuItem>
           </> : <>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger aria-label={`Theme: ${theme[0].toUpperCase()+theme.slice(1)}`}><Monitor/><span className="flex-1">{t('Theme', '主题')}</span><span className="text-muted-foreground">{themeLabel}</span></DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger aria-label={uiF("Theme: {0}", [themeLabel])}><Monitor/><span className="flex-1">{t('Theme', '主题')}</span><span className="text-muted-foreground">{themeLabel}</span></DropdownMenuSubTrigger>
               <DropdownMenuSubContent collisionPadding={12}>
-                <DropdownMenuRadioGroup aria-label="Appearance" value={theme} onValueChange={value => { const next = value as Theme; setTheme(next); saveTheme(next); setAccountMenuOpen(false); }}>
-                  {([{value: 'system', label: t('System', '跟随系统'), icon: Monitor}, {value: 'light', label: t('Light', '浅色'), icon: Sun}, {value: 'dark', label: t('Dark', '深色'), icon: Moon}] as const).map(option => <DropdownMenuRadioItem key={option.value} value={option.value} disabled={!appearance.ready} onSelect={() => setAccountMenuOpen(false)}><option.icon/><span>{option.label}</span></DropdownMenuRadioItem>)}
+                <DropdownMenuRadioGroup aria-label={uiT("Appearance")} value={theme} onValueChange={value => { const next = value as Theme; setTheme(next); saveTheme(next); setAccountMenuOpen(false); }}>
+                  {([{value: 'system', label: t('System', '跟随系统'), icon: Monitor}, {value: 'light', label: t('Light', '浅色'), icon: Sun}, {value: 'dark', label: t('Dark', '深色'), icon: Moon}] as const).map(option => <DropdownMenuRadioItem key={option.value} value={option.value} disabled={!appearance.ready} onSelect={() => setAccountMenuOpen(false)}><option.icon/><span>{uiT(option.label)}</span></DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger aria-label={`Language: ${localeLabel}`}><IconLanguage size={18}/><span className="flex-1">{t('Language', '界面语言')}</span><span className="text-muted-foreground">{localeLabel}</span></DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger aria-label={uiF("Language: {0}", [localeLabel])}><IconLanguage size={18}/><span className="flex-1">{t('Language', '界面语言')}</span><span className="text-muted-foreground">{localeLabel}</span></DropdownMenuSubTrigger>
               <DropdownMenuSubContent collisionPadding={12}>
-                <DropdownMenuRadioGroup aria-label="Language" value={locale} onValueChange={value => { setLocale(value as Locale); setAccountMenuOpen(false); }}>
+                <DropdownMenuRadioGroup aria-label={uiT("Language")} value={locale} onValueChange={value => { setLocale(value as Locale); setAccountMenuOpen(false); }}>
                   <DropdownMenuRadioItem value="en" onSelect={() => setAccountMenuOpen(false)}><span>English</span></DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="zh-CN" onSelect={() => setAccountMenuOpen(false)}><span>简体中文</span></DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>

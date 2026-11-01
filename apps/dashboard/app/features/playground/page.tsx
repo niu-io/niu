@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useRef } from 'react';
 import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
 import { generationCapability } from '@/features/models/generation-capabilities';
@@ -12,6 +13,7 @@ import PlaygroundView from './components/PlaygroundView';
 import VideoSessionView from '../generations/VideoSessionView';
 
 export default function PlaygroundRoute() {
+  const { t: uiT } = useUILocale();
   const context = useDashboardContext();
   const historyTrigger=useRef<HTMLButtonElement|null>(null);
   const [search] = useSearchParams();
@@ -35,7 +37,7 @@ export default function PlaygroundRoute() {
   if(!videoSession && !search.get('session') && requestedModel && !modelsLoading && !modelsError && (!requested || generationCapability(requested,'chat')===false)) {
     const workspaceQuery=workspace ? `workspace=${encodeURIComponent(workspacePathSegment(workspace,context.workspaces??[workspace]))}` : '';
     const videoAvailable=requested && generationCapability(requested,'video')===true;
-    return <><GenerationSessionBindings trigger={historyTrigger} title={videoAvailable?"Video model":"Model unavailable"} history={{context}}/><Empty><EmptyHeader><EmptyTitle>{videoAvailable?'This model uses Video':'This model is unavailable in Chat'}</EmptyTitle><EmptyDescription>{videoAvailable?'Open the Video workflow to use the model you selected.':'The selected model is not currently available for Chat in this workspace. Choose another model to continue.'}</EmptyDescription></EmptyHeader><EmptyContent>{videoAvailable&&<Button asChild><Link to={`/generations?new=video&model=${encodeURIComponent(requestedModel)}${workspaceQuery?`&${workspaceQuery}`:''}`}>Open in Video</Link></Button>}<Button asChild variant="outline"><Link to={`/models${workspaceQuery?`?${workspaceQuery}`:''}`}>Choose a model</Link></Button></EmptyContent></Empty></>;
+    return <><GenerationSessionBindings trigger={historyTrigger} title={videoAvailable?uiT("Video model"):uiT("Model unavailable")} history={{context}}/><Empty><EmptyHeader><EmptyTitle>{videoAvailable?uiT("This model uses Video"):uiT("This model is unavailable in Chat")}</EmptyTitle><EmptyDescription>{videoAvailable?uiT("Open the Video workflow to use the model you selected."):uiT("The selected model is not currently available for Chat in this workspace. Choose another model to continue.")}</EmptyDescription></EmptyHeader><EmptyContent>{videoAvailable&&<Button asChild><Link to={`/generations?new=video&model=${encodeURIComponent(requestedModel)}${workspaceQuery?`&${workspaceQuery}`:''}`}>{uiT("Open in Video")}</Link></Button>}<Button asChild variant="outline"><Link to={`/models${workspaceQuery?`?${workspaceQuery}`:''}`}>{uiT("Choose a model")}</Link></Button></EmptyContent></Empty></>;
   }
 
   return <>

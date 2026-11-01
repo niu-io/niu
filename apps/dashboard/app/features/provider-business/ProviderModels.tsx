@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { IconChevronDown, IconPlus, IconSearch } from '@tabler/icons-react';
@@ -42,6 +43,7 @@ export default function ProviderModels(props: Props) {
   return <ScopedModels key={`${props.token}:${props.providerId}:${props.canManage}`} {...props} />;
 }
 function ScopedModels({ token, providerId, providerSlug, canManage, offers, offersComplete, qualified, onOffer, onQualification, onReviewOffer, onSaved }: Props) {
+  const { t: uiT, format: uiF } = useUILocale();
   const initial = peekScopedModels(token, providerId);
   const [connections, setConnections] = useState<ProviderConnection[]>(() => initial?.connections ?? []);
   const [entries, setEntries] = useState<Entry[]>(() => initial?.entries ?? []);
@@ -124,44 +126,44 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     } finally { if (active.current) { setBusy(false); write.current = null; } }
   }
   return <div className="space-y-4 px-4 py-4 sm:px-6">
-    {!loading && !error && (offers.length > 0 || entries.some(entry => !entry.connection.owner_funded)) && !qualified && <div className="flex flex-wrap items-center gap-2 text-sm"><span>Provider review required for commercial supply.</span><Button variant="outline" size="sm" onClick={onQualification}>Review Provider</Button></div>}
+    {!loading && !error && (offers.length > 0 || entries.some(entry => !entry.connection.owner_funded)) && !qualified && <div className="flex flex-wrap items-center gap-2 text-sm"><span>{uiT("Provider review required for commercial supply.")}</span><Button variant="outline" size="sm" onClick={onQualification}>{uiT("Review Provider")}</Button></div>}
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label="Filter configured models" placeholder="Filter by model or API key…" value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
-      <Button disabled={!canManage || loading || !!error || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null})}><IconPlus size={16} />Add model</Button>
-      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>Refresh</Button>
+      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
+      <Button disabled={!canManage || loading || !!error || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null})}><IconPlus size={16} />{uiT("Add model")}</Button>
+      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Refresh")}</Button>
     </div>
     {notice && <p role="status" className="text-sm">{notice}</p>}
-    {loading ? <TableSkeleton columns={2} rows={4} label="Loading models…" /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry loading models</Button></div> : <>
-      {!connections.length && <p>Connect a Provider API key before adding models. <Link className="underline" to={`/admin/providers/${encodeURIComponent(providerSlug)}/keys`}>Connect API key</Link></p>}
-      {!aliases.length ? <p>{query ? 'No models match this filter.' : 'No models configured yet.'}</p> : <Table className="table-fixed">
-        <TableHeader className="hidden sm:table-header-group"><TableRow><TableHead className="w-[35%]">Model</TableHead><TableHead>Connection and availability</TableHead></TableRow></TableHeader>
+    {loading ? <TableSkeleton columns={2} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
+      {!connections.length && <p>{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline" to={`/admin/providers/${encodeURIComponent(providerSlug)}/keys`}>{uiT("Connect API key")}</Link></p>}
+      {!aliases.length ? <p>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</p> : <Table className="table-fixed">
+        <TableHeader className="hidden sm:table-header-group"><TableRow><TableHead className="w-[35%]">{uiT("Model")}</TableHead><TableHead>{uiT("Connection and availability")}</TableHead></TableRow></TableHeader>
         <TableBody>{aliases.slice(0, limit).map(alias => {
           const routes = entries.filter(entry => entry.model.alias === alias);
           const offer = offers.find(item => item.model_alias === alias);
           const commercial = routes.some(entry => !entry.connection.owner_funded);
           const media = offer?.rate_kind === 'media' || routes.some(entry => !!entry.model.capabilities.video_schema);
-          const supplyStatus = !offer ? offersComplete ? 'No purchase offer' : 'Offer status not loaded' : !qualified ? 'Provider review required' : !offer.qualified ? 'Offer review required' : !offer.active ? 'Offer paused' : !offer.route_ready ? 'No eligible connection' : 'Ready for commercial supply';
+          const supplyStatus = !offer ? offersComplete ? uiT("No purchase offer") : uiT("Offer status not loaded") : !qualified ? uiT("Provider review required") : !offer.qualified ? uiT("Offer review required") : !offer.active ? uiT("Offer paused") : !offer.route_ready ? uiT("No eligible connection") : uiT("Ready for commercial supply");
           return <TableRow key={alias} className="flex flex-col sm:table-row">
             <TableCell className="block align-top whitespace-normal break-words font-medium sm:table-cell">{alias}</TableCell>
             <TableCell className="block space-y-3 whitespace-normal sm:table-cell">
               {routes.map(({connection, model}) => <div key={connection.id} className="space-y-1">
-                <div className="break-words">{model.upstream_model} <span className="text-muted-foreground">via {connection.name || 'Unnamed API key'}</span></div>
-                <p className="text-sm text-muted-foreground">{connection.owner_funded ? 'Personal use · billed by Provider' : 'Commercial connection'} · {!connection.has_credential ? 'API key missing' : !connection.enabled ? 'API key disabled' : !model.enabled ? 'Model disabled' : model.available === true ? 'Connection available' : model.available === false ? 'Connection unavailable' : 'Connection status unknown'}</p>
-                <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model})}>Edit model</Button><Button size="sm" variant="ghost" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model, credential: true})}>Edit API key</Button></div>
+                <div className="break-words">{model.upstream_model} <span className="text-muted-foreground">{uiT("via")}{" "}{connection.name || uiT("Unnamed API key")}</span></div>
+                <p className="text-sm text-muted-foreground">{connection.owner_funded ? uiT("Personal use · billed by Provider") : uiT("Commercial connection")} · {!connection.has_credential ? uiT("API key missing") : !connection.enabled ? uiT("API key disabled") : !model.enabled ? uiT("Model disabled") : model.available === true ? uiT("Connection available") : model.available === false ? uiT("Connection unavailable") : uiT("Connection status unknown")}</p>
+                <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model})}>{uiT("Edit model")}</Button><Button size="sm" variant="ghost" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model, credential: true})}>{uiT("Edit API key")}</Button></div>
               </div>)}
-              {!routes.length && <div><p>No model connection configured.</p><Button size="sm" variant="outline" disabled={!canManage || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null, initialAlias: alias})}>Add model connection</Button></div>}
-              {(commercial || offer) && <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm">{supplyStatus}</p><div><Button size="sm" variant="outline" onClick={() => onOffer(alias, media)}>Manage offer</Button>{offer && !offer.qualified && <Button size="sm" variant="ghost" disabled={!qualified || !canManage} onClick={() => onReviewOffer(offer.id)}>Review offer</Button>}</div></div>}
+              {!routes.length && <div><p>{uiT("No model connection configured.")}</p><Button size="sm" variant="outline" disabled={!canManage || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null, initialAlias: alias})}>{uiT("Add model connection")}</Button></div>}
+              {(commercial || offer) && <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm">{supplyStatus}</p><div><Button size="sm" variant="outline" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>{offer && !offer.qualified && <Button size="sm" variant="ghost" disabled={!qualified || !canManage} onClick={() => onReviewOffer(offer.id)}>{uiT("Review offer")}</Button>}</div></div>}
             </TableCell>
           </TableRow>;
         })}</TableBody>
       </Table>}
-      {aliases.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 20)}>Show more models ({aliases.length - limit} remaining)</Button>}
+      {aliases.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models (")}{aliases.length - limit}{" "}{uiT("remaining)")}</Button>}
     </>}
     <Dialog open={!!editor} onOpenChange={open => { if (!open && !busy) setEditor(null); }}>
       <DialogContent onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }} className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{editor?.credential ? 'Edit Provider API key' : editor?.model ? `Edit ${editor.model.alias}` : 'Add model'}</DialogTitle><DialogDescription>{editor?.credential ? 'Changes to this API key apply to every model using it.' : 'Choose a saved API key and configure the model it connects to.'}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{editor?.credential ? uiT("Edit Provider API key") : editor?.model ? uiF("Edit {0}", [editor.model.alias]) : uiT("Add model")}</DialogTitle><DialogDescription>{editor?.credential ? uiT("Changes to this API key apply to every model using it.") : uiT("Choose a saved API key and configure the model it connects to.")}</DialogDescription></DialogHeader>
         {editor && selectedConnection && (editor.credential ? <ProviderEditor token={token} connection={selectedConnection} disabled={busy} onCreate={async () => {}} onSave={input => save(input, true)} /> : <>
-          <div className="space-y-2"><Label>Provider API key</Label>{editor.model ? <p>{selectedConnection.name}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{selectedConnection.name || 'Unnamed API key'}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={selectedConnection.id} onValueChange={connectionId => setEditor({...editor, connectionId, model: null})}>{connections.map(connection => <DropdownMenuRadioItem key={connection.id} value={connection.id}>{connection.name || 'Unnamed API key'}{!connection.enabled ? ' · Disabled' : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
+          <div className="space-y-2"><Label>{uiT("Provider API key")}</Label>{editor.model ? <p>{selectedConnection.name}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{selectedConnection.name || uiT("Unnamed API key")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={selectedConnection.id} onValueChange={connectionId => setEditor({...editor, connectionId, model: null})}>{connections.map(connection => <DropdownMenuRadioItem key={connection.id} value={connection.id}>{connection.name || uiT("Unnamed API key")}{!connection.enabled ? uiT("· Disabled") : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
           <ModelMappingForm key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`} initialAlias={editor.initialAlias} ownerFunded={selectedConnection.owner_funded} model={editor.model} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} onRetryCatalog={() => void loadCatalog()} disabled={busy} onCancel={() => setEditor(null)} onSave={input => save(input, false)} />
         </>)}
       </DialogContent>

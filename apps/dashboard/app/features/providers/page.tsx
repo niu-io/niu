@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { FormSectionSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
@@ -22,6 +23,7 @@ export function loader(args: LoaderFunctionArgs) {
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function ProvidersRoute() {
+  const { t: uiT } = useUILocale();
   useOptionalRouteLoaderData();
   const { providerId, supplierId, section } = useParams();
   const activeProviderId = providerId ?? supplierId;
@@ -31,8 +33,8 @@ export default function ProvidersRoute() {
   if (!activeProviderId) return <ProviderList />;
   if (context.providerDirectory && !resolveProvider(activeProviderId, context.providerDirectory)) {
     return context.providerDirectoryLoading
-      ? <WorkspaceShellSkeleton label="Loading Provider…" />
-      : <p role="status">Provider unavailable.</p>;
+      ? <WorkspaceShellSkeleton label={uiT("Loading Provider…")} />
+      : <p role="status">{uiT("Provider unavailable.")}</p>;
   }
   if (search.get("properties") === "supplier" || search.get("properties") === "provider") {
     const query = new URLSearchParams(search);
@@ -47,6 +49,6 @@ export default function ProvidersRoute() {
   return <ConnectGate>
     {({ token, session, refreshWorkspace }) => session
       ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" />
-      : <section className="panel vendor-loading"><FormSectionSkeleton fields={2} label="Checking session permissions…" /></section>}
+      : <section className="panel vendor-loading"><FormSectionSkeleton fields={2} label={uiT("Checking session permissions…")} /></section>}
   </ConnectGate>;
 }

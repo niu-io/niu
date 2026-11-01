@@ -49,3 +49,25 @@ test('additional management rights must be named explicitly and use the finite a
   assert.equal(requested.client_name,'DeepSeek Harness');assert.equal(credential.token,token);
   await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Invented host'}),/Choose/);
  });
+
+
+test('login rejects unsafe storage before requesting authorization and preserves existing credentials',async()=>{
+ const {mkdtemp,mkdir,readFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {spawnSync}=await import('node:child_process');
+ const {prepareCredentialStorage,saveCredential}=await import('../src/auth/credentials.mjs');
+ const root=await mkdtemp(join(tmpdir(),'niu-preflight-'));
+ try {
+  const path=join(root,'private','credential.json');
+  await saveCredential(path,{origin:'https://niu.example',token});
+  const before=await readFile(path,'utf8');
+  await prepareCredentialStorage(path);
+  assert.equal(await readFile(path,'utf8'),before);
+  if(process.platform!=='win32') {
+   const publicDirectory=join(root,'public');await mkdir(publicDirectory,{mode:0o755});
+   const result=spawnSync(process.execPath,[new URL('../bin/niu-login.mjs',import.meta.url).pathname,'--origin','http://127.0.0.1:1','--credentials',join(publicDirectory,'credential.json'),'--no-open'],{encoding:'utf8',timeout:5000});
+   assert.equal(result.status,1);assert.match(result.stderr,/directory must be private/);
+   assert.equal(result.stdout,'');assert.doesNotMatch(result.stderr,/fetch failed/);
+  }
+ } finally {await rm(root,{recursive:true,force:true});}
+});

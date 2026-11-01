@@ -1,3 +1,4 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { NiuAPIError, type RequestOptions, type VideoJobHistoryQuery } from '@niu-io/sdk';
 import type { NiuAdminClient, TenantScope, VideoIntentIndexEntry, VideoSubmissionIntent } from '@niu-io/sdk/admin';
 
@@ -49,7 +50,7 @@ export async function videoIntentHistory(client: HistoryClient, scope: TenantSco
       const position = next++;
       const entry = entries[position];
       const expiry=new Date(Number(entry.expires_at_ms));
-      const expiryLabel=Number.isFinite(expiry.getTime()) ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(expiry):'';
+      const expiryLabel=Number.isFinite(expiry.getTime()) ? new Intl.DateTimeFormat(readUILocale(),{dateStyle:'medium'}).format(expiry):'';
       const row: VideoIntentHistoryRow = {
         ...entry, scope, title: entry.content_state === 'expired' ? `Expired video input${expiryLabel ? ` · ${expiryLabel}`:''}` : `Saved video request${expiryLabel ? ` · Expires ${expiryLabel}`:''}`,
       };

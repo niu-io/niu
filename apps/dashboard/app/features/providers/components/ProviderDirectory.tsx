@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Fragment } from 'react';
 import { IconSelector as ChevronsUpDown } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
@@ -14,6 +15,7 @@ export default function ProviderDirectory({ connections, vendors, selectedId, lo
   onSelect: (id: string) => void;
   onRefresh: () => void;
 }) {
+  const { t: uiT } = useUILocale();
   const items = connections ?? vendors ?? [];
   const selected = items.find(connection => connection.id === selectedId);
   const selectedOwner = selected?.provider ?? selected?.supplier;
@@ -25,12 +27,12 @@ export default function ProviderDirectory({ connections, vendors, selectedId, lo
     group.keys.push(connection);
     groups.set(groupId, group);
   }
-  return <section className="supplier-key-picker" aria-label="Provider API keys">
-    <h2 className="sr-only">API keys</h2>
+  return <section className="supplier-key-picker" aria-label={uiT("Provider API keys")}>
+    <h2 className="sr-only">{uiT("API keys")}</h2>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" className="supplier-key-trigger" aria-label="Select Provider API key" disabled={disabled || loading || items.length === 0}>
-          <span>{loading ? 'Loading API keys…' : selected ? `${selectedOwner?.name && selectedOwner.name !== selected.name ? selectedOwner.name + ' / ' : ''}${selected.name}` : 'Select Provider API key'}</span>
+        <Button type="button" variant="outline" className="supplier-key-trigger" aria-label={uiT("Select Provider API key")} disabled={disabled || loading || items.length === 0}>
+          <span>{loading ? uiT("Loading API keys…") : selected ? `${selectedOwner?.name && selectedOwner.name !== selected.name ? selectedOwner.name + ' / ' : ''}${selected.name}` : uiT("Select Provider API key")}</span>
           <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
@@ -46,6 +48,6 @@ export default function ProviderDirectory({ connections, vendors, selectedId, lo
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-    <Button type="button" variant="ghost" size="icon-sm" aria-label="Refresh API keys" disabled={disabled || loading} onClick={onRefresh}><RefreshCw /></Button>
+    <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh API keys")} disabled={disabled || loading} onClick={onRefresh}><RefreshCw /></Button>
   </section>;
 }

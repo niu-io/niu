@@ -124,8 +124,8 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
 
     render(<PublicHeader path="/docs/quickstart/" />);
     expect(screen.getByRole('link', { name: 'Niu home' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Blog' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'For Human' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'For Agents' })).toBeTruthy();
 
     expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('EN');
     await user.click(screen.getByRole('button', { name: 'Language' }));
@@ -134,10 +134,10 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(window.localStorage.getItem('niu-dashboard-locale')).toBe('zh-CN');
     expect(document.documentElement.lang).toBe('zh-CN');
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
-    expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('中文');
+    expect(screen.getByRole('button', { name: '界面语言' }).textContent).toContain('中文');
     expect(screen.getByRole('link', { name: 'Niu 牛元首页' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '博客' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '文档' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '用户文档' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '智能体文档' })).toBeTruthy();
   });
 
   it('switches language from Settings -> Appearance and AccountMenu using shadcn DropdownMenu', async () => {
@@ -226,7 +226,7 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(await screen.findByLabelText('密码')).toBeTruthy();
     expect(await screen.findByRole('button', { name: '使用访问令牌' })).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Language' }));
+    await user.click(screen.getByRole('button', { name: '界面语言' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'English' }));
 
     expect(readLocale()).toBe('en');

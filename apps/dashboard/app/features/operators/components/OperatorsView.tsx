@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +22,7 @@ function roleLabel(role: 'owner' | 'admin' | 'viewer') {
 }
 
 export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization, initialWorkspace }: OperatorsViewProps) {
+  const { t: uiT } = useUILocale();
   const canManage = session.permissions.manage_operators;
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
   const lockedProject = session.kind === 'operator' ? session.operator?.project_id ?? '' : '';
@@ -405,23 +407,23 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   if (!canManage) {
     const isViewer = session.operator?.role === 'viewer';
     return <>
-      <PageHeader title="Users" />
+      <PageHeader title={uiT("Users")} />
       <section className="panel operator-denied" role="status">
         <span className="operator-denied-icon"><ShieldCheck size={19} /></span>
-        <div><h2>Owner access required</h2><p>{isViewer
-          ? 'Your viewer session can inspect workspace data, but only an owner can add users, issue sessions, or revoke access.'
-          : 'Your admin session can update workspace data. User access is managed by an owner for this organization.'}</p></div>
-        <span className="operator-role-chip">{roleLabel(session.operator?.role ?? 'viewer')} session</span>
+        <div><h2>{uiT("Owner access required")}</h2><p>{isViewer
+          ? uiT("Your viewer session can inspect workspace data, but only an owner can add users, issue sessions, or revoke access.")
+          : uiT("Your admin session can update workspace data. User access is managed by an owner for this organization.")}</p></div>
+        <span className="operator-role-chip">{roleLabel(session.operator?.role ?? 'viewer')}{" "}{uiT("session")}</span>
       </section>
     </>;
   }
 
   return <>
-    <PageHeader title="Users" action={<div className="operator-page-actions">
-        <Button type="button" variant="ghost" className="header-icon-action" aria-label="Refresh users" title="Refresh users" disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} /><span>Refresh</span></Button>
-        <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label="Add user" title="Add user" disabled={loading || busy || !organization || !project} onClick={() => setCreateOpen(true)}><Plus size={16} /><span>Add user</span></Button>
+    <PageHeader title={uiT("Users")} action={<div className="operator-page-actions">
+        <Button type="button" variant="ghost" className="header-icon-action" aria-label={uiT("Refresh users")} title={uiT("Refresh users")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} /><span>{uiT("Refresh")}</span></Button>
+        <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Add user")} title={uiT("Add user")} disabled={loading || busy || !organization || !project} onClick={() => setCreateOpen(true)}><Plus size={16} /><span>{uiT("Add user")}</span></Button>
       </div>} />
-    {error && <div className="operator-error" role="alert"><span>{error}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>Try again</Button></div>}
+    {error && <div className="operator-error" role="alert"><span>{error}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
 
     <div className="operator-directory-region">
       <OperatorDirectory
@@ -449,11 +451,11 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     </div>
     <Dialog open={Boolean(selectedOperator)} onOpenChange={open => { if (!open && !busy) { setOpenedRoleContext(''); setRoleRefreshError(''); setSelectedOperatorId(''); setCredential(null); setConfirmTarget(null); } }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { if (detailTriggerRef.current?.isConnected) { event.preventDefault(); detailTriggerRef.current.focus(); } }}>
-        <DialogHeader><DialogTitle>User access</DialogTitle><DialogDescription>Access sessions for {selectedOperator?.name}. Revoke a session to end that connection.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{uiT("User access")}</DialogTitle><DialogDescription>{uiT("Access sessions for")}{" "}{selectedOperator?.name}{uiT(". Revoke a session to end that connection.")}</DialogDescription></DialogHeader>
       {selectedOperator && canChangeRole && openedRoleContext !== roleContext
         ? (roleOpenError
-          ? <div className="space-y-3"><p role="alert">{roleOpenError}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>Reload saved role</Button></div>
-          : <FormSectionSkeleton fields={2} label="Loading the saved role…" />)
+          ? <div className="space-y-3"><p role="alert">{roleOpenError}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>
+          : <FormSectionSkeleton fields={2} label={uiT("Loading the saved role…")} />)
         : selectedOperator && <OperatorDetails
         key={[session.kind, session.operator?.id ?? '', organization, project, selectedOperator.id].join(':')}
         operator={selectedOperator}
@@ -491,18 +493,18 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     </Dialog>
     <Dialog open={Boolean(revokeTarget)} onOpenChange={open => { if (!open && !busy) setRevokeTarget(null); }}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Revoke access for {revokeTarget?.name}?</DialogTitle><DialogDescription>{revokeTarget?.project_id
-          ? 'This user will lose access to this workspace. All of their access sessions will end immediately.'
-          : 'This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.'}</DialogDescription></DialogHeader>
-        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setRevokeTarget(null)}>Cancel</Button><Button variant="destructive" disabled={busy} onClick={() => { if (revokeTarget) onRevokeOperator(revokeTarget); }}>Revoke access</Button></div>
+        <DialogHeader><DialogTitle>{uiT("Revoke access for")}{" "}{revokeTarget?.name}?</DialogTitle><DialogDescription>{revokeTarget?.project_id
+          ? uiT("This user will lose access to this workspace. All of their access sessions will end immediately.")
+          : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.")}</DialogDescription></DialogHeader>
+        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setRevokeTarget(null)}>{uiT("Cancel")}</Button><Button variant="destructive" disabled={busy} onClick={() => { if (revokeTarget) onRevokeOperator(revokeTarget); }}>{uiT("Revoke access")}</Button></div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </DialogContent>
     </Dialog>
     <Dialog open={createOpen} onOpenChange={open => { if (!open && !busy) setCreateOpen(false); }}>
       <DialogContent className="niu-modal operator-dialog" showCloseButton={false} onOpenAutoFocus={event => {if (createNameRef.current && !createNameRef.current.disabled) {event.preventDefault();createNameRef.current.focus();}}} onCloseAutoFocus={event => {if (createButtonRef.current) {event.preventDefault();createButtonRef.current.focus();}}}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>Add a user</DialogTitle><DialogDescription>Choose a role for this person. Save their temporary access token after adding them; no email invitation is sent.</DialogDescription></div>
-          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+          <div><DialogTitle>{uiT("Add a user")}</DialogTitle><DialogDescription>{uiT("Choose a role for this person. Save their temporary access token after adding them; no email invitation is sent.")}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
       <OperatorCreateForm nameInputRef={createNameRef} disabled={busy || loading || !organization} onCreate={onCreateOperator} />
       {error && <p className="error-text operator-dialog-error" role="alert">{error}</p>}

@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
@@ -35,6 +36,7 @@ export default function AuditLogsPage() {
 }
 
 function AuditLogs({ token }: { token: string }) {
+  const { t: uiT } = useUILocale();
   const scope = token || 'public';
   const [category, setCategory] = useState<PlatformAuditCategory | 'all'>('all');
   const initialPage = peekQuery<PlatformAuditPage>(scope, '/api/v1/platform/audit-events?limit=50');
@@ -92,27 +94,27 @@ function AuditLogs({ token }: { token: string }) {
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
-  return <section className="space-y-5" aria-label="Platform audit logs">
-    <p className="text-sm text-muted-foreground">Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.</p>
+  return <section className="space-y-5" aria-label={uiT("Platform audit logs")}>
+    <p className="text-sm text-muted-foreground">{uiT("Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Audit category">{categories[category]}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Audit category")}>{categories[category]}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={category} onValueChange={value => setCategory(value as typeof category)}>
           {Object.entries(categories).map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
-      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />Refresh</Button>
+      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
     </div>
-    {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>Retry</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label="Loading audit logs…" /> : rows.length === 0 ? <p>No audit events in this category.</p> : <Table>
-      <TableHeader><TableRow><TableHead className="w-48">Time (UTC)</TableHead><TableHead>Action</TableHead><TableHead className="hidden md:table-cell">Actor</TableHead><TableHead className="hidden md:table-cell">Target</TableHead></TableRow></TableHeader>
+    {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
+    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : rows.length === 0 ? <p>{uiT("No audit events in this category.")}</p> : <Table>
+      <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
       <TableBody>{rows.map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{event.created_at.replace('T', ' ').replace(/\.\d+Z$/, '')}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + event.before_role[0].toUpperCase() + event.before_role.slice(1) + ' → ' + event.after_role[0].toUpperCase() + event.after_role.slice(1) : ''}</span><small className="mt-1 block text-muted-foreground">{categories[event.category]}{event.revision !== null ? ' · Revision ' + event.revision : ''}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">Actor: </dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">Target: </dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + event.before_role[0].toUpperCase() + event.before_role.slice(1) + ' → ' + event.after_role[0].toUpperCase() + event.after_role.slice(1) : ''}</span><small className="mt-1 block text-muted-foreground">{categories[event.category]}{event.revision !== null ? ' · Revision ' + event.revision : ''}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
       </TableRow>)}</TableBody>
     </Table>}
-    {cursor && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? 'Loading…' : 'Load more'}</Button></div>}
+    {cursor && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : uiT("Load more")}</Button></div>}
   </section>;
 }

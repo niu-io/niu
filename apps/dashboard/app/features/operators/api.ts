@@ -1,3 +1,4 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
 export type NamedResource = { id: string; name: string };
 export type OperatorRole = 'owner' | 'admin' | 'viewer';
 export type Operator = NamedResource & {
@@ -61,7 +62,7 @@ import { primeQuery } from '@/lib/query-cache';
 export { AdminRequestError, cachedGet, peekCachedGet, request };
 
 export function formatExpiry(unixSeconds: number) {
-  return new Date(unixSeconds * 1000).toLocaleString(undefined, {
+  return new Date(unixSeconds * 1000).toLocaleString(readUILocale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
   });

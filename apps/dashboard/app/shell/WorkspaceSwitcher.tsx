@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol } from '@/lib/money';
 import { Link } from 'react-router';
 import { IconList } from '@tabler/icons-react';
@@ -13,7 +14,7 @@ import { usePlatformCurrency } from './platform-currency';
 import { amountToNanos } from '@/lib/money';
 import { Label } from '@/components/ui/label';
 import { useSidebar } from '@/components/ui/sidebar';
-import { useLocale } from './locale';
+import { useLocale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
 import { workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
 
@@ -22,6 +23,7 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
   onCreateWorkspace: () => void;
   creationAvailable?: boolean;
 }) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const {
     token, session, organization, workspaces, workspace, workspaceLoading,
@@ -47,7 +49,7 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
   const triggerTitle = workspace ? workspaceDisplayName(workspace.name) : workspaceLoading ? t('Loading workspaces…', '正在加载工作空间…') : t('Choose a workspace', '选择工作空间');
   return <div className="workspace-switcher">
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label="Switch workspace" title={t('Switch workspace', '切换工作空间')}>
+      <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label={uiT("Switch workspace")} title={t('Switch workspace', '切换工作空间')}>
         <span className="workspace-switcher-copy"><strong>{triggerTitle}</strong></span>
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
@@ -83,6 +85,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { isZh, t } = useLocale();
   const { organization, createWorkspace, session } = context;
   const canSetLimit = session?.kind === 'installation' || session?.operator?.role === 'owner';
@@ -131,12 +134,12 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
       if (target) { event.preventDefault(); target.focus(); }
     }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
-        <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organization.name}。` : ` In ${organization.name}.`) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</DialogDescription></div>
-        <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organization.name}。` : uiF(" In {0}.", [organization.name])) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</DialogDescription></div>
+        <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
       </DialogHeader>
       <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
-        <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder="product-experiments" aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{t(`Used in /workspaces/${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}</p></div>
+        <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{t(`Used in /workspaces/${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}</p></div>
         {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
         {canSetLimit && <section className="grid gap-3" aria-labelledby="workspace-budget-title">
           <div><h3 id="workspace-budget-title" className="text-sm font-medium">{t('Budget', '预算')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></h3><p id="workspace-budget-help" className="mt-2 text-sm text-muted-foreground">{t('Cap customer spending across this workspace. Leave blank for no limit.', '限制此工作空间的客户总消费额度，留空则不设上限。')}</p></div>

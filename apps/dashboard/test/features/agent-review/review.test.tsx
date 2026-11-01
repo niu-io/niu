@@ -19,9 +19,7 @@ const { context } = vi.hoisted(() => ({
 vi.mock("@/shell/dashboard-context", () => ({
   useDashboardContext: () => context,
 }));
-vi.mock("@/shell/locale", () => ({
-  useLocale: () => ({ t: (english: string) => english }),
-}));
+
 afterEach(() => {
   cleanup();
   clearSessionCache();

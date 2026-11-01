@@ -5,10 +5,6 @@ description: Historical synthetic measurements for pinned Niu, New API and LiteL
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/app/components/ui/table';
 
-<div data-lang="en">
-
-This is a historical synthetic dataset recorded on October 16, 2026 for the pinned versions below. It is not a capacity qualification of the current release or a hosted deployment. Authentication, database work and worker profiles differ between gateways, so ratios describe these configurations only. The recorded PostgreSQL configuration uses `synchronous_commit = off`: successful commits can precede WAL flush and recent transactions can be lost after a crash. See [PostgreSQL’s durability settings](https://www.postgresql.org/docs/17/runtime-config-wal.html#GUC-SYNCHRONOUS-COMMIT). No crash-recovery or cloud-cost qualification is established by these results.
-
 This is a historical synthetic dataset recorded on October 16, 2026 for the pinned versions below. It is not a capacity qualification of the current release or a hosted deployment. Authentication, database work and worker profiles differ between gateways, so ratios describe these configurations only. The recorded PostgreSQL configuration uses `synchronous_commit = off`: successful commits can precede WAL flush and recent transactions can be lost after a crash. See [PostgreSQL’s durability settings](https://www.postgresql.org/docs/17/runtime-config-wal.html#GUC-SYNCHRONOUS-COMMIT). No crash-recovery or cloud-cost qualification is established by these results.
 
 This benchmark compares **Niu** (`v0.2.4`, Rust / Axum / Tokio), **New API** (`QuantumNous/new-api` commit `45fbb14`, Go / Gin / GORM), and **LiteLLM Proxy** (`BerriAI/litellm` `v1.104.0`, Python / FastAPI / Uvicorn + `uvloop`) using the open-source [LiteLLM AI Gateway Benchmark (`BerriAI/ai-gateway-bench`)](https://github.com/BerriAI/ai-gateway-bench) methodology.

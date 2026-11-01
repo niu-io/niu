@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { peekCachedGet, request, VendorRequestError, writeMayHaveCommitted } from '@/features/providers/api';
 import { primeQuery } from '@/lib/query-cache';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 import type { MemberProfile } from '@/shell/dashboard-context';
 
 function validProfile(profile:MemberProfile) {
@@ -16,6 +17,7 @@ function validProfile(profile:MemberProfile) {
 }
 
 export default function AccountProfile({token, initialProfile, onSaved}: {token:string; initialProfile?:MemberProfile | null; onSaved:(profile:MemberProfile)=>void}) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const cachedProfile = (() => {
     const cached = peekCachedGet<{ data: MemberProfile }>(token, '/api/v1/auth/profile')?.data;
@@ -100,11 +102,11 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
   }
   const disabled=loading || loadFailed || unconfirmed || saving || processing;
   const retryDisabled=loading || saving || processing;
-  return <form onSubmit={save} className="grid gap-5" aria-label="Profile">
+  return <form onSubmit={save} className="grid gap-5" aria-label={uiT("Profile")}>
     <div className="relative flex flex-wrap items-center gap-4">
-      <Avatar className="size-16"><AvatarImage src={avatar ?? undefined} alt="Profile photo"/><AvatarFallback>{name.trim().slice(0,1).toUpperCase() || '?'}</AvatarFallback></Avatar>
+      <Avatar className="size-16"><AvatarImage src={avatar ?? undefined} alt={uiT("Profile photo")}/><AvatarFallback>{name.trim().slice(0,1).toUpperCase() || '?'}</AvatarFallback></Avatar>
       <div className="grid gap-2"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" aria-describedby="account-photo-help" disabled={disabled} onClick={()=>input.current?.click()}>{processing ? t('Processing…', '处理中…') : t('Change photo', '更换头像')}</Button>{avatar && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setAvatar(null);setSaved(false);}}>{t('Remove photo', '移除头像')}</Button>}</div><p id="account-photo-help" className="text-xs text-muted-foreground">{t('PNG, JPEG, or WebP · Up to 5 MB', '支持 PNG、JPEG 或 WebP · 最大 5 MB')}</p></div>
-      <Input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Upload profile photo" disabled={disabled} onChange={event=>void choosePhoto(event.target.files?.[0])}/>
+      <Input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label={uiT("Upload profile photo")} disabled={disabled} onChange={event=>void choosePhoto(event.target.files?.[0])}/>
     </div>
     <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-name">{t('Display name', '显示名称')}</Label><Input ref={nameInput} id="account-profile-name" autoComplete="name" required maxLength={100} value={name} disabled={disabled} onChange={event=>{setName(event.target.value);setSaved(false);}}/></div>
     {profile?.email && <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-email">{t('Email', '邮箱')}</Label><Input id="account-profile-email" type="email" autoComplete="email" value={profile.email} readOnly/></div>}

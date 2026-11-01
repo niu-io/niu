@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
@@ -13,6 +14,7 @@ export default function ProviderPropertiesFields({ providerId, supplierId, provi
   supplierName?: string;
   token: string;
 }) {
+  const { t: uiT } = useUILocale();
   const activeProviderId = providerId ?? supplierId ?? '';
   const activeProviderName = providerName ?? supplierName ?? '';
   const vendorsPath = `/api/v1/vendors?supplier=${encodeURIComponent(activeProviderId)}`;
@@ -74,17 +76,17 @@ export default function ProviderPropertiesFields({ providerId, supplierId, provi
     } finally { setBusy(false); }
   }
   return <form className="niu-modal-form" onSubmit={event => void save(event)}>
-    <Label htmlFor="supplier-property-name">Provider name<Input id="supplier-property-name" value={activeProviderName} readOnly /></Label>
-    {loading ? <FormSectionSkeleton fields={2} label="Loading Provider settings…" /> : connection && <>
-      <Label htmlFor="supplier-endpoint">API endpoint<Input id="supplier-endpoint" type="url" required value={endpoint} disabled={busy} onChange={event => setEndpoint(event.target.value)} /></Label>
-      <Label htmlFor="supplier-credential">Replace API key (optional)<Input id="supplier-credential" type="password" autoComplete="new-password" placeholder="Leave blank to keep the stored credential" value={key} disabled={busy} onChange={event => setKey(event.target.value)} /></Label>
+    <Label htmlFor="supplier-property-name">{uiT("Provider name")}<Input id="supplier-property-name" value={activeProviderName} readOnly /></Label>
+    {loading ? <FormSectionSkeleton fields={2} label={uiT("Loading Provider settings…")} /> : connection && <>
+      <Label htmlFor="supplier-endpoint">{uiT("API endpoint")}<Input id="supplier-endpoint" type="url" required value={endpoint} disabled={busy} onChange={event => setEndpoint(event.target.value)} /></Label>
+      <Label htmlFor="supplier-credential">{uiT("Replace API key (optional)")}<Input id="supplier-credential" type="password" autoComplete="new-password" placeholder={uiT("Leave blank to keep the stored credential")} value={key} disabled={busy} onChange={event => setKey(event.target.value)} /></Label>
     </>}
     {error && <p role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
     <div className="workspace-create-actions">
-      {error && <Button type="button" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>Reload settings</Button>}
-      {!loading && !connection && <Button asChild variant="outline"><Link to="/admin/providers">Manage Provider APIs</Link></Button>}
-      {connection && <Button disabled={busy || loading || !endpoint.trim()}>{busy ? 'Saving…' : 'Save changes'}</Button>}
+      {error && <Button type="button" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{uiT("Reload settings")}</Button>}
+      {!loading && !connection && <Button asChild variant="outline"><Link to="/admin/providers">{uiT("Manage Provider APIs")}</Link></Button>}
+      {connection && <Button disabled={busy || loading || !endpoint.trim()}>{busy ? uiT("Saving…") : uiT("Save changes")}</Button>}
     </div>
   </form>;
 }

@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { IconChevronDown, IconKey, IconLanguage, IconMail, IconSparkles } from '@tabler/icons-react';
@@ -9,9 +10,10 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import { safeLoginReturn } from '@/shell/login-return';
 import { useBranding } from '@/shell/branding';
 import NiuBrand from '@/components/NiuBrand';
-import { useLocale, type Locale } from '@/shell/locale';
+import { useLocale, type Locale } from '@/shell/ui-locale';
 
 export default function LoginRoute() {
+  const { t: uiT, format: uiF } = useUILocale();
   const { locale, setLocale, t } = useLocale();
   const {settings:branding,logo} = useBranding();
   const context = useDashboardContext();
@@ -120,15 +122,15 @@ export default function LoginRoute() {
 
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
-      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
+      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
         {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span></>}
       </Link>
-      <nav aria-label="Public resources" className="dashboard-login-nav">
+      <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
         <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" aria-label="Language">
+            <Button type="button" variant="ghost" size="sm" aria-label={uiT("Language")}>
               <IconLanguage size={16} aria-hidden="true" />
               <span>{locale === 'zh-CN' ? '简体中文' : 'English'}</span>
               <IconChevronDown size={14} aria-hidden="true" />
@@ -144,7 +146,7 @@ export default function LoginRoute() {
       </nav>
     </header>
     <div className="dashboard-login-stage">
-      <section className="dashboard-login-card" aria-label="Sign in">
+      <section className="dashboard-login-card" aria-label={uiT("Sign in")}>
         <div className="dashboard-login-header">
           <h1>{t('Sign in', '登录')}</h1>
           <p className="dashboard-login-intro">{t('Sign in to manage workspaces, API keys, model routes, and billing.', '登录以管理工作空间、API 密钥、模型路由与计费。')}</p>

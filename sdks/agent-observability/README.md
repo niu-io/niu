@@ -1,5 +1,17 @@
 # Niu Collector companion
 
+## Compatibility boundary
+
+This independent, opt-in Collector targets the legacy personal telemetry ingestion
+contract. Niu 0.3 does not expose that ingestion API or its former connection UI;
+do not follow the legacy setup below against a 0.3 gateway or assume hosted
+availability from an npm publication. A compatible telemetry deployment and its
+explicit authorization are prerequisites. No removed API is restored by installing
+this package. For current Claude Code, Codex and DeepSeek Harness model-management
+plugins, use [Niu agent installation](https://niu.io/docs/install.md).
+
+## Legacy deployment setup
+
 An opt-in Node.js 22+ companion for personal Niu telemetry. It uses a dedicated
 write-only ingestion key, independent of workspace inference credentials.
 

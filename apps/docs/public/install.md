@@ -4,9 +4,15 @@ This is Niu's entry point for coding agents. Install the supported host integrat
 
 ## Release and availability
 
-The 0.3.0 installation experience is a development candidate. Native Claude Code/Codex manifests, a DeepSeek Harness Cordis bundle, the bundled MCP runtime, browser authorization client and scoped management operations exist in the 0.3 source; packages and hosted deployment are not yet released. Do not invent installation commands, device endpoints or successful authentication. Check the deployment's published capabilities before attempting setup. If the required native package or account authorization flow is unavailable, explain that concrete prerequisite and stop the automatic setup; do not substitute a request for credentials in conversation.
+Use the Niu 0.3 release artifacts for the user's selected deployment. Before installation, retrieve the GitHub release metadata for `niu-io/niu` tag `v0.3.0` and confirm that it is published (not a draft), with the required assets present. The installer must check availability at execution time; this document is not evidence that a release or deployment is live.
 
-For an explicitly selected 0.3 source checkout and matching development deployment, the agent may build the candidate using `scripts/build-agent-plugin.py --output <new-directory>`. Read `integrations/coding-agents/README.md`, the generated manifests and both packaged skills first. The builder needs the checkout's dependencies installed and does not publish or install anything. Do not substitute a local checkout, development origin or unsigned artifact for the user's intended hosted deployment without their direction.
+- Claude Code and Codex: `niu-agent-marketplace.tar.gz`, containing the host manifests, `plugins/niu`, shared skills and the bundled runtime.
+- DeepSeek Harness: `niu-deepseek-harness.tar.gz`, containing the native Cordis bundle and the same management contracts.
+- Verify the downloaded bytes against the release's `SHA256SUMS` and check `SOURCE_COMMIT` against the selected release commit. Extract to a new directory outside the application repository. Do not execute an artifact whose integrity or source does not match.
+
+Use the host's supported local marketplace or bundle installer after inspecting its installed version and help. Do not assume that the repository root is the management-plugin marketplace: the opt-in Collector has a separate contract. Check the selected Niu deployment's published capabilities before account authorization. If the required package, supported host mechanism or authorization capability is unavailable, explain that prerequisite and stop automatic setup; never ask for credentials in conversation.
+
+For an explicitly selected source checkout and matching development deployment, the agent may build packages using `scripts/build-agent-marketplace.py` or `scripts/build-deepseek-plugin.py` with `--output <new-directory>`. Read `integrations/coding-agents/README.md`, generated manifests and packaged skills first. Builders need checkout dependencies and neither publish nor install anything. Never substitute a development origin for the user's intended hosted deployment without their direction.
 
 The existing [MCP reference](https://niu.io/docs/guides/mcp/) documents the older workspace-key integration for explicitly requested manual use. It does not establish the account-login handoff required by this installation flow.
 
@@ -25,7 +31,7 @@ Use the [agent capability entry](https://niu.io/docs/agents.md) and operation co
 
 Account authorization does not grant platform administrator privileges, consent to external data processing, or permission to change the coding agent's own inference provider. Keep Niu platform events separate from host lifecycle hooks. Provide a supported revoke/disconnect path and preserve user data during uninstall.
 
-## Candidate package contract
+## Native package contract
 
 A built package contains `plugin.json` and `mcp.json` for Codex, `.claude-plugin/plugin.json` and `.mcp.json` for Claude Code, shared `skills/niu` and `skills/niu-connect`, and a standalone `runtime`. Use the host's currently installed native plugin/marketplace mechanism; inspect its help rather than inventing version-specific commands. Marketplace packaging is available through `scripts/build-agent-marketplace.py` in the source checkout. Preserve unrelated host configuration.
 

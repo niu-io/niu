@@ -51,8 +51,11 @@ def main():
         while all(child.poll() is None for child in children): time.sleep(.2)
     finally:
         stop()
+        # One shared deadline, longer than Gateway's HTTP drain and cleanup,
+        # shorter than the hosted container's 300-second shutdown allowance.
+        deadline = time.monotonic() + 280
         for child in children:
-            try: child.wait(timeout=10)
+            try: child.wait(timeout=max(0, deadline - time.monotonic()))
             except subprocess.TimeoutExpired: child.kill(); child.wait()
     raise SystemExit(next((child.returncode for child in children if child.returncode), 0))
 

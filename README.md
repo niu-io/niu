@@ -50,10 +50,10 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.2.30`; it does not install the unpublished 0.3.0 source preview. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.30`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.2.30`; it does not install the unpublished 0.3.0 source preview. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.2.30 --dir /opt/niu
+./scripts/install.sh install --version v0.3.0 --dir /opt/niu
 ```
 
 Once running on port `2555`:
@@ -104,7 +104,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.2.30 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.3.0 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
@@ -186,3 +186,5 @@ Release versions are synchronized across [`VERSION`](VERSION), [`Cargo.toml`](Ca
 ## License
 
 Niu is released under the [MIT License](LICENSE). Selectively reused third-party modules retain their original copyright, license, pinned commit, and SHA-256 checksums in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and [`vendor/litellm-rust/SOURCE-MANIFEST.json`](vendor/litellm-rust/SOURCE-MANIFEST.json).
+
+Release operators and contributors must follow [Releasing Niu](RELEASING.md), including staging isolation, continuous availability and compatible rollback.

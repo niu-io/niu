@@ -1,5 +1,5 @@
 ---
-title: "List the signed-in operator’s complete active Provider memberships"
+title: "Read the retired Provider portal membership directory"
 description: "GET /api/v1/provider-memberships"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/provider-memberships`
 
-Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.
+Requires platform administration and returns an empty compatibility directory. Provider self-service is not currently supported. Retained Provider membership records grant no role, portal, financial or statistics access.
 
 Operation: `listProviderMemberships`.
 
@@ -44,7 +44,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Complete current membership directory.
+Empty compatibility directory; no Provider login role is available.
 
 Response headers:
 
@@ -112,12 +112,16 @@ Content type: `application/json`.
 
 Missing or unusable session.
 
+### HTTP 403
+
+Active platform administration required; Provider membership alone grants no access.
+
 ### HTTP 503
 
 Storage unavailable.
 
 ## Behavior and supported scope
 
-Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.
+Requires platform administration and returns an empty compatibility directory. Provider self-service is not currently supported. Retained Provider membership records grant no role, portal, financial or statistics access.
 
 **Supported scope:** implemented

@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import {Link,type LoaderFunctionArgs} from 'react-router';
 import {loadCriticalRouteEndpoint,routeShouldRevalidate,useOptionalRouteLoaderData} from '@/lib/route-data';
@@ -29,12 +30,14 @@ export function loader(args:LoaderFunctionArgs){
 }
 export const shouldRevalidate=routeShouldRevalidate;
 export default function CustomersRoute(){
+  const { t: uiT } = useUILocale();
  useOptionalRouteLoaderData();
  const context=useDashboardContext();
- if(context.session?.kind!=='installation')return <Alert><AlertTitle>Installation administrator access required</AlertTitle><AlertDescription><p>Creating a separately funded customer company requires the installation administrator credential. Your current account retains its existing company access.</p><Button asChild variant="outline" className="mt-3"><Link to="/installation">Open installation administration</Link></Button></AlertDescription></Alert>;
+ if(context.session?.kind!=='installation')return <Alert><AlertTitle>{uiT("Installation administrator access required")}</AlertTitle><AlertDescription><p>{uiT("Creating a separately funded customer company requires the installation administrator credential. Your current account retains its existing company access.")}</p><Button asChild variant="outline" className="mt-3"><Link to="/installation">{uiT("Open installation administration")}</Link></Button></AlertDescription></Alert>;
  return <Customers key={context.token} token={context.token} onWorkspaceCreated={context.reloadWorkspaces}/>;
 }
 export function Customers({token,onWorkspaceCreated}:{token:string;onWorkspaceCreated:()=>void}){
+  const { t: uiT, format: uiF } = useUILocale();
  const client=useMemo(()=>new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',location.origin).href}),[token]);
  const scope=token||'public';
  const initialPage=token?peekQuery<CompaniesPage>(scope,COMPANIES_CACHE_KEY):undefined;
@@ -60,19 +63,20 @@ export function Customers({token,onWorkspaceCreated}:{token:string;onWorkspaceCr
   finally{if(!active.signal.aborted)setLoading(false);}
  }
  useEffect(()=>{void load(undefined,false);return()=>controller.current?.abort();},[client]);
- return <section className="min-w-0 space-y-5" aria-label="Customers">
-  <PageHeader title="Customers" action={<><Button variant="outline" disabled={loading} aria-label="Refresh customers" title="Refresh customers" onClick={()=>void load()}><IconRefresh size={16}/><span className="hidden sm:inline">Refresh</span></Button><Button aria-label="New customer" onClick={event=>{returnFocus.current=event.currentTarget;setCreate(true);}}><IconPlus size={16}/><span className="hidden sm:inline">New customer</span></Button></>}/>
-  <p className="text-sm text-muted-foreground">Each customer company has its own funds, users, and workspaces. Workspaces within a company share its funds.</p>
-  {error&&<Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" onClick={()=>void load(failedCursor)} disabled={loading}>Retry</Button></AlertDescription></Alert>}
-  {loading&&!companies.length&&<TableSkeleton columns={2} rows={5} label="Loading customers…"/>}
-  {!loading&&!error&&!companies.length&&<p>No customers yet. Create a company to start setting up independent customer access.</p>}
-  {!!companies.length&&<Table className="table-fixed" aria-label="Customer companies"><TableHeader><TableRow><TableHead>Company</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{companies.map(company=><TableRow key={company.id}><TableCell className="whitespace-normal [overflow-wrap:anywhere]">{company.name}</TableCell><TableCell className="text-right"><Button variant="outline" onClick={event=>{returnFocus.current=event.currentTarget;setSelected(company);}} aria-label={`Set up ${company.name}`}>Set up</Button></TableCell></TableRow>)}</TableBody></Table>}
-  {cursor&&<Button variant="outline" disabled={loading} onClick={()=>void load(cursor)}>{loading?'Loading…':'More customers'}</Button>}
+ return <section className="min-w-0 space-y-5" aria-label={uiT("Customers")}>
+  <PageHeader title={uiT("Customers")} action={<><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={()=>void load()}><IconRefresh size={16}/><span className="hidden sm:inline">{uiT("Refresh")}</span></Button><Button aria-label={uiT("New customer")} onClick={event=>{returnFocus.current=event.currentTarget;setCreate(true);}}><IconPlus size={16}/><span className="hidden sm:inline">{uiT("New customer")}</span></Button></>}/>
+  <p className="text-sm text-muted-foreground">{uiT("Each customer company has its own funds, users, and workspaces. Workspaces within a company share its funds.")}</p>
+  {error&&<Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" onClick={()=>void load(failedCursor)} disabled={loading}>{uiT("Retry")}</Button></AlertDescription></Alert>}
+  {loading&&!companies.length&&<TableSkeleton columns={2} rows={5} label={uiT("Loading customers…")}/>}
+  {!loading&&!error&&!companies.length&&<p>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</p>}
+  {!!companies.length&&<Table className="table-fixed" aria-label={uiT("Customer companies")}><TableHeader><TableRow><TableHead>{uiT("Company")}</TableHead><TableHead className="w-28 text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader><TableBody>{companies.map(company=><TableRow key={company.id}><TableCell className="whitespace-normal [overflow-wrap:anywhere]">{company.name}</TableCell><TableCell className="text-right"><Button variant="outline" onClick={event=>{returnFocus.current=event.currentTarget;setSelected(company);}} aria-label={uiF("Set up {0}", [company.name])}>{uiT("Set up")}</Button></TableCell></TableRow>)}</TableBody></Table>}
+  {cursor&&<Button variant="outline" disabled={loading} onClick={()=>void load(cursor)}>{loading?uiT("Loading…"):uiT("More customers")}</Button>}
   <CreateCompany onRestoreFocus={restoreFocus} open={create} onOpenChange={setCreate} client={client} onCreated={company=>{invalidateQueries(COMPANIES_CACHE_KEY);setCompanies(old=>[company,...old.filter(row=>row.id!==company.id)]);setCreate(false);setSelected(company);}}/>
   {selected&&<CustomerSetup onRestoreFocus={restoreFocus} key={selected.id} company={selected} token={token} client={client} onClose={()=>setSelected(null)} onWorkspaceCreated={onWorkspaceCreated}/>}
  </section>;
 }
 function CreateCompany({open,onOpenChange,client,onCreated,onRestoreFocus}:{onRestoreFocus:()=>void;open:boolean;onOpenChange:(open:boolean)=>void;client:NiuAdminClient;onCreated:(company:CompanyMetadata)=>void}){
+  const { t: uiT } = useUILocale();
  const {currency,ready,error:currencyError}=usePlatformCurrency();const pending=useRef<PendingCreation|null>(readPending('company'));const [name,setName]=useState(pending.current?.name??'');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
  async function submit(event:FormEvent){event.preventDefault();if(busy||!currency||!name.trim())return;
   pending.current??={name:name.trim(),key:crypto.randomUUID()};setBusy(true);setError('');
@@ -80,5 +84,5 @@ function CreateCompany({open,onOpenChange,client,onCreated,onRestoreFocus}:{onRe
   catch(reason){const status=(reason as {status?:number})?.status;if(status===400||status===422){clearPending('company');pending.current=null;setError(reason instanceof Error?reason.message:'Check the company name.');}else setError('Creation could not be confirmed. Retry uses the same request and cannot create a second company. You can also close this dialog and refresh the customer list.');}
   finally{setBusy(false);}
  }
- return <Dialog open={open} onOpenChange={value=>{if(!busy)onOpenChange(value);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();onRestoreFocus();}}><DialogHeader><DialogTitle>New customer</DialogTitle><DialogDescription>Create a separately funded company. You will set up its workspace and owner next.</DialogDescription></DialogHeader><form onSubmit={submit} className="space-y-4"><div className="space-y-2"><Label htmlFor="customer-name">Company name</Label><Input id="customer-name" required maxLength={200} value={name} disabled={busy||!!pending.current} onChange={event=>setName(event.target.value)}/></div><p className="text-sm text-muted-foreground">Uses the platform currency{currency?` (${currency})`:''}. New companies start with no funds or approved credit.</p>{currencyError&&<Alert><AlertDescription>{currencyError} <Link to="/admin/settings" className="underline">Open Settings</Link></AlertDescription></Alert>}{error&&<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>Close</Button><Button disabled={busy||!ready||!currency||!name.trim()}>{busy?'Creating…':pending.current?'Retry creation':'Create company'}</Button></div></form></DialogContent></Dialog>;
+ return <Dialog open={open} onOpenChange={value=>{if(!busy)onOpenChange(value);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();onRestoreFocus();}}><DialogHeader><DialogTitle>{uiT("New customer")}</DialogTitle><DialogDescription>{uiT("Create a separately funded company. You will set up its workspace and owner next.")}</DialogDescription></DialogHeader><form onSubmit={submit} className="space-y-4"><div className="space-y-2"><Label htmlFor="customer-name">{uiT("Company name")}</Label><Input id="customer-name" required maxLength={200} value={name} disabled={busy||!!pending.current} onChange={event=>setName(event.target.value)}/></div><p className="text-sm text-muted-foreground">{uiT("Uses the platform currency")}{currency?` (${currency})`:''}{uiT(". New companies start with no funds or approved credit.")}</p>{currencyError&&<Alert><AlertDescription>{currencyError} <Link to="/admin/settings" className="underline">{uiT("Open Settings")}</Link></AlertDescription></Alert>}{error&&<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>{uiT("Close")}</Button><Button disabled={busy||!ready||!currency||!name.trim()}>{busy?uiT("Creating…"):pending.current?uiT("Retry creation"):uiT("Create company")}</Button></div></form></DialogContent></Dialog>;
 }

@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   IconArrowDown,
@@ -16,7 +18,7 @@ import {
 import { Link, type LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext, type Organization } from '@/shell/dashboard-context';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 import PageHeader from '@/components/PageHeader';
 import { ListRowsSkeleton, MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
@@ -66,7 +68,7 @@ function encodePoolReference(alias: string): string {
 }
 
 function formatDate(value: string, unavailableLabel = 'Date unavailable') {
-  return Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : unavailableLabel;
+  return Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : unavailableLabel;
 }
 
 function formatNanos(nanosStr: string | null | undefined, currency = 'USD'): string {
@@ -122,6 +124,7 @@ export default function RoutePoolsPage() {
 type PoolsIndexPage = { data: ModelRoutePool[]; has_more: boolean; next_after: string | null };
 
 function RoutePoolsView({ token, organizations }: { token: string; organizations: Organization[] }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const scope = token || 'public';
   const initialPage = token ? peekQuery<PoolsIndexPage>(scope, POOLS_INDEX_PATH) : undefined;
@@ -217,7 +220,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             </Button>
             <Button
               disabled={loading}
-              aria-label="Create model pool"
+              aria-label={uiT("Create model pool")}
               onClick={event => {
                 dialogTriggerRef.current = event.currentTarget;
                 setNotice('');
@@ -272,7 +275,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               type="button"
               variant={filter.trim() ? 'secondary' : 'outline'}
               size={filter.trim() ? 'sm' : 'icon'}
-              aria-label={filter.trim() ? `Filter model pools: ${filter.trim()}` : 'Filter model pools'}
+              aria-label={filter.trim() ? uiF("Filter model pools: {0}", [filter.trim()]) : uiT("Filter model pools")}
               title={t('Filter model pools', '筛选模型池')}
             >
               <IconSearch size={16} aria-hidden="true" />
@@ -283,7 +286,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             <Input
               autoFocus
               type="search"
-              aria-label="Filter model pools"
+              aria-label={uiT("Filter model pools")}
               placeholder={t('Filter by pool or candidate alias', '按模型池名称或候选模型筛选')}
               value={filter}
               onChange={event => setFilter(event.target.value)}
@@ -298,7 +301,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" aria-label="Pool scope filter">
+            <Button variant="outline" aria-label={uiT("Pool scope filter")}>
               {scopeLabels[scopeFilter]}
               <IconChevronDown size={16} />
             </Button>
@@ -341,7 +344,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       {loading && pools.length === 0 ? (
         <TableSkeleton columns={5} rows={5} label={t('Loading model pools…', '正在加载模型池…')} />
       ) : visiblePools.length > 0 ? (
-        <Table aria-label="Model pools">
+        <Table aria-label={uiT("Model pools")}>
           <TableHeader className="max-sm:sr-only">
             <TableRow>
               <TableHead>{t('Pool alias & identity', '模型池别名与标识')}</TableHead>
@@ -432,7 +435,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                             <span className="ml-1 shrink-0 text-xs text-muted-foreground">
                               P{candidate.priority} · W{candidate.weight}
                               {share !== undefined ? ` (${share}%)` : ''}
-                              {!candidate.enabled ? ' · off' : ''}
+                              {!candidate.enabled ? uiT("· off") : ''}
                             </span>
                           </Badge>
                         );
@@ -458,7 +461,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         variant="outline"
                         size="sm"
                         disabled={loading}
-                        aria-label="Edit pool"
+                        aria-label={uiT("Edit pool")}
                         onClick={event => {
                           dialogTriggerRef.current = event.currentTarget;
                           setNotice('');
@@ -471,7 +474,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         variant="outline"
                         size="sm"
                         disabled={loading}
-                        aria-label={`Audit ${pool.alias}`}
+                        aria-label={uiF("Audit {0}", [pool.alias])}
                         onClick={event => {
                           dialogTriggerRef.current = event.currentTarget;
                           setAuditPool(pool);
@@ -484,7 +487,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         variant="ghost"
                         size="sm"
                         disabled={loading}
-                        aria-label={`Preview ${pool.alias}`}
+                        aria-label={uiF("Preview {0}", [pool.alias])}
                         onClick={event => {
                           dialogTriggerRef.current = event.currentTarget;
                           setPreviewPool(pool);
@@ -497,7 +500,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         variant="ghost"
                         size="sm"
                         disabled={loading}
-                        aria-label={`History ${pool.alias}`}
+                        aria-label={uiF("History {0}", [pool.alias])}
                         onClick={event => {
                           dialogTriggerRef.current = event.currentTarget;
                           setHistoryPool(pool);
@@ -539,7 +542,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                 </Button>
               ) : (
                 <Button
-                  aria-label="Create model pool"
+                  aria-label={uiT("Create model pool")}
                   onClick={event => {
                     dialogTriggerRef.current = event.currentTarget;
                     setEditing('new');
@@ -634,6 +637,7 @@ function RoutePoolEditorDialog({
   onSaved: (message: string) => void;
   onUncertain: (message: string) => void;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const isNew = initial === null;
   const [alias, setAlias] = useState(initial?.alias ?? '');
@@ -998,7 +1002,7 @@ function RoutePoolEditorDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{isNew ? t('Create model pool', '创建模型池') : `Edit ${initial.alias}`}</DialogTitle>
+          <DialogTitle>{isNew ? t('Create model pool', '创建模型池') : uiF("Edit {0}", [initial.alias])}</DialogTitle>
           <DialogDescription>
             {isNew
               ? t(
@@ -1019,7 +1023,7 @@ function RoutePoolEditorDialog({
                 required
                 maxLength={200}
                 disabled={!isNew || busy}
-                placeholder="e.g. claude-sonnet-4"
+                placeholder={uiT("e.g. claude-sonnet-4")}
                 value={alias}
                 onChange={event => setAlias(event.target.value)}
               />
@@ -1036,7 +1040,7 @@ function RoutePoolEditorDialog({
               {isNew ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" className="w-full justify-between" disabled={busy} aria-label="Ownership scope">
+                    <Button type="button" variant="outline" className="w-full justify-between" disabled={busy} aria-label={uiT("Ownership scope")}>
                       <span className="truncate">{poolScopeLabel(organizationId, organizations, t)}</span>
                       <IconChevronDown size={16} />
                     </Button>
@@ -1092,7 +1096,7 @@ function RoutePoolEditorDialog({
               <Label>{t('Customer billing mode', '客户计费模式')}</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" className="w-full justify-between" disabled={busy} aria-label="Billing mode">
+                  <Button type="button" variant="outline" className="w-full justify-between" disabled={busy} aria-label={uiT("Billing mode")}>
                     <span className="truncate">{billingModeLabels[billingMode]}</span>
                     <IconChevronDown size={16} />
                   </Button>
@@ -1184,7 +1188,7 @@ function RoutePoolEditorDialog({
                   <div key={index} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_6.5rem_6.5rem_auto_auto] sm:items-end">
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <Label htmlFor={`candidate-model-${index}`}>Candidate model #{index + 1}</Label>
+                        <Label htmlFor={`candidate-model-${index}`}>{uiT("Candidate model #")}{index + 1}</Label>
                         {share !== undefined && (
                           <Badge variant="secondary" className="text-[11px] font-normal">
                             {t(`Active tier · ${share}% share`, `主层级 · ${share}% 流量`)}
@@ -1219,7 +1223,7 @@ function RoutePoolEditorDialog({
                                   if (items?.length) items[event.key === 'ArrowDown' ? 0 : items.length - 1].focus();
                                 }
                               }}
-                              aria-label={`Search candidate models ${index + 1}`}
+                              aria-label={uiF("Search candidate models {0}", [index + 1])}
                               placeholder={t('Search models or existing alias', '搜索模型或输入已有别名')}
                               maxLength={200}
                               value={candidateQuery}
@@ -1247,7 +1251,7 @@ function RoutePoolEditorDialog({
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onSelect={() => updateCandidate(index, { alias: candidateQuery.trim() })}>
-                                <span className="min-w-0 truncate">Use existing alias “{candidateQuery.trim()}”</span>
+                                <span className="min-w-0 truncate">{uiT("Use existing alias “")}{candidateQuery.trim()}”</span>
                               </DropdownMenuItem>
                             </>
                           )}
@@ -1309,7 +1313,7 @@ function RoutePoolEditorDialog({
                         variant="ghost"
                         size="icon-sm"
                         disabled={busy || candidates.length <= 1}
-                        aria-label={`Remove candidate ${index + 1}`}
+                        aria-label={uiF("Remove candidate {0}", [index + 1])}
                         onClick={() => removeCandidate(index)}
                       >
                         <IconTrash size={16} />
@@ -1337,7 +1341,7 @@ function RoutePoolEditorDialog({
               <div className="flex flex-wrap items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" size="sm" disabled={busy || rules.length >= 32} aria-label="Add preset rule">
+                    <Button type="button" variant="outline" size="sm" disabled={busy || rules.length >= 32} aria-label={uiT("Add preset rule")}>
                       <IconSparkles size={15} />
                       {t('Add preset rule', '插入预设分流规则')}
                       <IconChevronDown size={15} />
@@ -1377,7 +1381,7 @@ function RoutePoolEditorDialog({
                         <div className="flex flex-1 items-center gap-2">
                           <Badge variant="outline">#{ruleIndex + 1}</Badge>
                           <Input
-                            aria-label={`Rule name ${ruleIndex + 1}`}
+                            aria-label={uiF("Rule name {0}", [ruleIndex + 1])}
                             maxLength={120}
                             disabled={busy}
                             placeholder={t('Rule name', '规则名称')}
@@ -1400,7 +1404,7 @@ function RoutePoolEditorDialog({
                             variant="ghost"
                             size="icon-sm"
                             disabled={busy || ruleIndex === 0}
-                            aria-label={`Move rule ${ruleIndex + 1} up`}
+                            aria-label={uiF("Move rule {0} up", [ruleIndex + 1])}
                             onClick={() => moveRule(ruleIndex, -1)}
                           >
                             <IconArrowUp size={15} />
@@ -1410,7 +1414,7 @@ function RoutePoolEditorDialog({
                             variant="ghost"
                             size="icon-sm"
                             disabled={busy || ruleIndex === rules.length - 1}
-                            aria-label={`Move rule ${ruleIndex + 1} down`}
+                            aria-label={uiF("Move rule {0} down", [ruleIndex + 1])}
                             onClick={() => moveRule(ruleIndex, 1)}
                           >
                             <IconArrowDown size={15} />
@@ -1420,7 +1424,7 @@ function RoutePoolEditorDialog({
                             variant="ghost"
                             size="icon-sm"
                             disabled={busy}
-                            aria-label={`Remove rule ${ruleIndex + 1}`}
+                            aria-label={uiF("Remove rule {0}", [ruleIndex + 1])}
                             onClick={() => removeRule(ruleIndex)}
                           >
                             <IconTrash size={15} />
@@ -1439,7 +1443,7 @@ function RoutePoolEditorDialog({
                                 size="sm"
                                 className="w-full justify-between"
                                 disabled={busy}
-                                aria-label={`Rule ${ruleIndex + 1} protocol`}
+                                aria-label={uiF("Rule {0} protocol", [ruleIndex + 1])}
                               >
                                 <span className="truncate">{protocolLabels[currentProto]}</span>
                                 <IconChevronDown size={14} />
@@ -1517,7 +1521,7 @@ function RoutePoolEditorDialog({
                                 })
                               }
                             />
-                            <span>{label}</span>
+                            <span>{uiT(label)}</span>
                           </Label>
                         ))}
                       </div>
@@ -1548,7 +1552,7 @@ function RoutePoolEditorDialog({
                                   size="sm"
                                   className="w-full justify-between"
                                   disabled={busy}
-                                  aria-label={`Rule ${ruleIndex + 1} candidate ${rcIdx + 1}`}
+                                  aria-label={uiF("Rule {0} candidate {1}", [ruleIndex + 1, rcIdx + 1])}
                                 >
                                   <span className="truncate">{rc.alias || t('Select pool candidate', '选择池内候选模型')}</span>
                                   <IconChevronDown size={14} />
@@ -1575,7 +1579,7 @@ function RoutePoolEditorDialog({
                               min={-1000}
                               max={1000}
                               disabled={busy}
-                              aria-label={`Rule ${ruleIndex + 1} candidate ${rcIdx + 1} priority`}
+                              aria-label={uiF("Rule {0} candidate {1} priority", [ruleIndex + 1, rcIdx + 1])}
                               value={rc.priority}
                               onChange={e => updateRuleCandidate(ruleIndex, rcIdx, { priority: Number(e.target.value) })}
                             />
@@ -1584,7 +1588,7 @@ function RoutePoolEditorDialog({
                               min={1}
                               max={10000}
                               disabled={busy}
-                              aria-label={`Rule ${ruleIndex + 1} candidate ${rcIdx + 1} weight`}
+                              aria-label={uiF("Rule {0} candidate {1} weight", [ruleIndex + 1, rcIdx + 1])}
                               value={rc.weight}
                               onChange={e => updateRuleCandidate(ruleIndex, rcIdx, { weight: Number(e.target.value) })}
                             />
@@ -1612,7 +1616,7 @@ function RoutePoolEditorDialog({
               </Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" disabled={busy} aria-label="Default fallback action">
+                  <Button type="button" variant="outline" size="sm" disabled={busy} aria-label={uiT("Default fallback action")}>
                     <span>{defaultActionLabels[defaultAction]}</span>
                     <IconChevronDown size={14} />
                   </Button>
@@ -1641,7 +1645,7 @@ function RoutePoolEditorDialog({
               {t('Cancel', '取消')}
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? t('Saving…', '正在保存…') : isNew ? 'Create model pool' : 'Save changes'}
+              {busy ? t('Saving…', '正在保存…') : isNew ? uiT("Create model pool") : uiT("Save changes")}
             </Button>
           </DialogFooter>
         </form>
@@ -1661,6 +1665,7 @@ function RoutePoolPreviewDialog({
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const [protocol, setProtocol] = useState<ModelRoutePoolPreviewInput['protocol']>('chat');
   const [streaming, setStreaming] = useState(false);
@@ -1740,7 +1745,7 @@ function RoutePoolPreviewDialog({
               <Label>{t('Protocol', '调用协议')}</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" className="w-full justify-between" aria-label="Preview protocol">
+                  <Button type="button" variant="outline" className="w-full justify-between" aria-label={uiT("Preview protocol")}>
                     <span className="truncate">{protocolLabels[protocol]}</span>
                     <IconChevronDown size={15} />
                   </Button>
@@ -1870,7 +1875,7 @@ function RoutePoolPreviewDialog({
                     {result.ineligible_candidates.map(cand => (
                       <Badge key={cand.alias} variant="outline" className="font-normal text-muted-foreground">
                         <span>{cand.alias}</span>
-                        <span className="ml-1.5 text-xs">({cand.reason})</span>
+                        <span className="ml-1.5 text-xs">({uiT(cand.reason)})</span>
                       </Badge>
                     ))}
                   </div>
@@ -1901,6 +1906,7 @@ function RoutePoolAuditDialog({
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const [days, setDays] = useState<7 | 30 | 90>(30);
   const [loading, setLoading] = useState(true);
@@ -1959,7 +1965,7 @@ function RoutePoolAuditDialog({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" aria-label="Audit period">
+                <Button variant="outline" size="sm" aria-label={uiT("Audit period")}>
                   {dayLabels[days]}
                   <IconChevronDown size={15} />
                 </Button>
@@ -2040,7 +2046,7 @@ function RoutePoolAuditDialog({
                   <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
                     <span className="min-w-0 break-words">{finding.message}</span>
                     <Badge variant={finding.severity === 'healthy' ? 'secondary' : 'outline'}>
-                      {finding.severity}
+                      {uiT(finding.severity)}
                     </Badge>
                   </AlertDescription>
                 </Alert>
@@ -2049,7 +2055,7 @@ function RoutePoolAuditDialog({
 
             <div className="min-w-0 space-y-2 overflow-x-auto">
               <h4 className="text-sm font-medium">{t('Candidate routing & margin breakdown', '候选模型分流占比与毛利明细')}</h4>
-              <Table aria-label="Candidate strategy audit">
+              <Table aria-label={uiT("Candidate strategy audit")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('Candidate', '候选模型')}</TableHead>
@@ -2065,7 +2071,7 @@ function RoutePoolAuditDialog({
                       <TableCell className="whitespace-normal">
                         <div className="font-medium break-words">{cand.alias}</div>
                         <div className="text-xs text-muted-foreground">
-                          P{cand.priority} · W{cand.weight} {!cand.enabled ? '· off' : ''}
+                          P{cand.priority} · W{cand.weight} {!cand.enabled ? uiT("· off") : ''}
                         </div>
                       </TableCell>
                       <TableCell className="whitespace-normal">
@@ -2108,12 +2114,11 @@ function RoutePoolAuditDialog({
                       <TableCell className="whitespace-normal">
                         <div className="text-sm">
                           {cand.avg_duration_ms !== null
-                            ? `${cand.avg_duration_ms} ms avg${cand.p95_duration_ms !== null ? ` · ${cand.p95_duration_ms} ms p95` : ''}`
+                            ? uiF("{0} ms avg{1}", [cand.avg_duration_ms, cand.p95_duration_ms !== null ? uiF(" · {0} ms p95", [cand.p95_duration_ms]) : ''])
                             : '—'}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {cand.completed_attempts} ok / {cand.failed_attempts} err
-                        </div>
+                          {cand.completed_attempts}{" "}{uiT("ok /")}{" "}{cand.failed_attempts}{" "}{uiT("err")}</div>
                       </TableCell>
                       <TableCell className="whitespace-normal">
                         <div className="text-sm font-medium">
@@ -2156,6 +2161,7 @@ function RoutePoolHistoryDialog({
   onClose: () => void;
   onRestore: (revision: ModelRoutePoolRevision) => void;
 }) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const [revisions, setRevisions] = useState<ModelRoutePoolRevision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2276,7 +2282,7 @@ function RoutePoolHistoryDialog({
                   <Badge key={candidate.alias} variant={candidate.enabled ? 'secondary' : 'outline'} className="font-normal">
                     <span>{candidate.alias}</span>
                     <span className="ml-1 text-xs text-muted-foreground">
-                      Priority {candidate.priority} · Weight {candidate.weight} · {candidate.enabled ? 'Enabled' : 'Disabled'}
+                      {uiT("Priority")}{" "}{candidate.priority}{" "}{uiT("· Weight")}{" "}{candidate.weight} · {candidate.enabled ? uiT("Enabled") : uiT("Disabled")}
                     </span>
                   </Badge>
                 ))}

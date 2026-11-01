@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import {
   useCallback,
   useEffect,
@@ -14,7 +15,6 @@ import {
   IconBook as RailDocs,
   IconBookFilled as RailDocsFilled,
   IconChartLine as ChartNoAxesCombined,
-  IconLanguage,
   IconLayoutDashboard as LayoutDashboard,
   IconListDetails,
   IconShieldLock,
@@ -32,14 +32,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
@@ -79,7 +71,7 @@ import {
   type Workspace,
   type WorkspaceProblem,
 } from './dashboard-context';
-import { useLocale, type Locale } from './locale';
+import { useLocale } from './ui-locale';
 import { useMockPayments } from './mock-payments';
 import { navigation } from './navigation';
 import { usePaymentReadiness } from './payment-readiness';
@@ -111,7 +103,8 @@ const EMPTY_WORKSPACES: Workspace[] = [];
 const EMPTY_CHAT_KEYS: SessionChatKey[] = [];
 
 export default function AppLayout() {
-  const { locale, setLocale, isZh, t } = useLocale();
+  const { t: uiT, format: uiF } = useUILocale();
+  const { isZh, t } = useLocale();
   const mockPaymentsEnabled = useMockPayments();
   const { settings: branding, logo } = useBranding();
   const revalidator = useRevalidator();
@@ -1599,8 +1592,8 @@ export default function AppLayout() {
         open={workspaceCreateOpen && paymentReadiness.status === 'ready'}
         onOpenChange={setWorkspaceCreateOpen}
       />
-      <nav className="app-rail" aria-label="Product navigation">
-        <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
+      <nav className="app-rail" aria-label={uiT("Product navigation")}>
+        <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
           <img src={logo} alt="" />
         </a>
         {showWorkspaceAreas && (
@@ -1703,35 +1696,6 @@ export default function AppLayout() {
               {t('Docs', '文档')}
             </TooltipContent>
           </Tooltip>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="rail-item"
-                aria-label={t('Switch language', '切换界面语言')}
-                title={t(
-                  `Language: ${locale === 'zh-CN' ? '简体中文' : 'English'}`,
-                  `界面语言：${locale === 'zh-CN' ? '简体中文' : 'English'}`,
-                )}
-              >
-                <IconLanguage size={22} stroke={1.7} aria-hidden="true" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="end" sideOffset={12} collisionPadding={12} className="w-40">
-              <DropdownMenuLabel className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconLanguage size={14} />
-                {t('Language', '界面语言')}
-              </DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                aria-label="Language"
-                value={locale}
-                onValueChange={value => setLocale(value as Locale)}
-              >
-                <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} />
         </div>
       </nav>
@@ -1787,7 +1751,7 @@ export default function AppLayout() {
                 <h2 className="sidebar-heading-row">{t('Activity', '活动')}</h2>
               </SidebarHeader>
               <SidebarContent className="workspace-sidebar-content">
-                <nav aria-label="Activity navigation">
+                <nav aria-label={uiT("Activity navigation")}>
                   <SidebarMenu className="workspace-nav-menu">
                     {[
                       { to: '/activity', label: t('Overview', '概览'), icon: LayoutDashboard },
@@ -1843,8 +1807,8 @@ export default function AppLayout() {
           </Alert>
         )}
         {phoneNavigation && !hasSidebar && !isGlobalChat && (
-          <nav className="mobile-product-navigation" aria-label="Product navigation">
-            <a href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
+          <nav className="mobile-product-navigation" aria-label={uiT("Product navigation")}>
+            <a href={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
               <img src={logo} alt="" />
             </a>
             <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile />
@@ -1903,7 +1867,7 @@ export default function AppLayout() {
                   className="mb-6 min-w-0"
                 >
                   <div ref={supplierTabsRef} className="max-w-full overflow-x-auto">
-                    <TabsList variant="line" aria-label="Provider sections">
+                    <TabsList variant="line" aria-label={uiT("Provider sections")}>
                       {[
                         ['overview', t('Overview', '概览')],
                         ['keys', t('API keys', 'API 密钥')],
@@ -1931,7 +1895,7 @@ export default function AppLayout() {
                 </Tabs>
               )}
               {setupBlocked && (
-                <section className="space-y-4 py-6" aria-label="Service setup">
+                <section className="space-y-4 py-6" aria-label={uiT("Service setup")}>
                   <h2 className="text-lg font-semibold">
                     {paymentReadiness.status === 'loading'
                       ? t('Checking service setup…', '正在检查服务配置…')

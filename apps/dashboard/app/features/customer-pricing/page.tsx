@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { PricingHealthNotice } from '@/features/retail-pricing/pricing-health';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -25,6 +27,7 @@ export default function CustomerPricingRoute() {
   return <PricingTargets key={token} token={token} />;
 }
 function PricingTargets({ token }: { token: string }) {
+  const { t: uiT } = useUILocale();
   const [search, setSearch] = useSearchParams();
   const selectedId = search.get('target');
   const initialTargets = peekPricingTargets(token);
@@ -52,19 +55,20 @@ function PricingTargets({ token }: { token: string }) {
   useEffect(() => { if (selectedId && !selected && cursor && !loading && !error) void load(cursor); }, [selectedId, selected, cursor, loading, error]);
   return <div className="space-y-6 pt-4">
     <div className="flex flex-wrap items-center gap-3">
-      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full" disabled={loading && !targets.length}><span className="truncate">{selected ? `${selected.organization_name} · ${workspaceDisplayName(selected.workspace_name)}` : 'Choose company and workspace'}</span><IconChevronDown size={16} className="shrink-0"/></Button></DropdownMenuTrigger>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full" disabled={loading && !targets.length}><span className="truncate">{selected ? `${selected.organization_name} · ${workspaceDisplayName(selected.workspace_name)}` : uiT("Choose company and workspace")}</span><IconChevronDown size={16} className="shrink-0"/></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={selectedId ?? ''} onValueChange={value => setSearch(current => { current.set('target', value); return current; })}>
           {targets.map(row => <DropdownMenuRadioItem key={row.workspace_id} value={row.workspace_id}>{row.organization_name} · {workspaceDisplayName(row.workspace_name)}</DropdownMenuRadioItem>)}
-        </DropdownMenuRadioGroup>{cursor && <DropdownMenuItem disabled={loading} onSelect={event => { event.preventDefault(); void load(cursor); }}>{loading ? 'Loading…' : 'More workspaces'}</DropdownMenuItem>}</DropdownMenuContent>
+        </DropdownMenuRadioGroup>{cursor && <DropdownMenuItem disabled={loading} onSelect={event => { event.preventDefault(); void load(cursor); }}>{loading ? uiT("Loading…") : uiT("More workspaces")}</DropdownMenuItem>}</DropdownMenuContent>
       </DropdownMenu>
-      <Button variant="ghost" aria-label="Refresh pricing targets" disabled={loading} onClick={() => void load()}><IconRefresh size={16}/></Button>
+      <Button variant="ghost" aria-label={uiT("Refresh pricing targets")} disabled={loading} onClick={() => void load()}><IconRefresh size={16}/></Button>
     </div>
-    {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry targets</Button></AlertDescription></Alert>}
-    {loading && !targets.length && <ListRowsSkeleton rows={3} label="Loading pricing targets…" />}
-    {selected ? <Prices key={`${token}:${selected.workspace_id}`} token={token} target={selected}/> : !loading && !error && <p className="text-muted-foreground">{selectedId ? 'This pricing target is unavailable. Choose another workspace.' : targets.length ? 'Select a company and workspace to manage customer selling prices.' : 'No pricing targets are available.'}</p>}
+    {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry targets")}</Button></AlertDescription></Alert>}
+    {loading && !targets.length && <ListRowsSkeleton rows={3} label={uiT("Loading pricing targets…")} />}
+    {selected ? <Prices key={`${token}:${selected.workspace_id}`} token={token} target={selected}/> : !loading && !error && <p className="text-muted-foreground">{selectedId ? uiT("This pricing target is unavailable. Choose another workspace.") : targets.length ? uiT("Select a company and workspace to manage customer selling prices.") : uiT("No pricing targets are available.")}</p>}
   </div>;
 }
 function Prices({ token, target }: { token: string; target: PricingTarget }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const initialPrices = peekCustomerPrices(token, target);
   const [modelNames, setModelNames] = useState<string[]>([]);
   const [modelsError, setModelsError] = useState('');
@@ -104,28 +108,29 @@ function Prices({ token, target }: { token: string; target: PricingTarget }) {
     return () => request.abort();
   }, [token, modelReload]);
   return <>
-    <PageHeader title="Pricing" action={<Button disabled={!loaded || loading || !modelsReady || !modelNames.length} onClick={() => { setNotice(''); setEditor({previous:null}); }}>Publish price</Button>}/>
+    <PageHeader title={uiT("Pricing")} action={<Button disabled={!loaded || loading || !modelsReady || !modelNames.length} onClick={() => { setNotice(''); setEditor({previous:null}); }}>{uiT("Publish price")}</Button>}/>
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm">
         <IconSearch size={16} className="shrink-0" aria-hidden="true" />
-        <Input type="search" aria-label="Filter customer models" placeholder="Filter by model name…" value={filter} onChange={event => setFilter(event.target.value)} />
+        <Input type="search" aria-label={uiT("Filter customer models")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} />
       </div>
-      <Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button>
+      <Button variant="outline" disabled={loading} onClick={() => void load()}>{uiT("Refresh prices")}</Button>
     </div>
     {notice && <p role="status">{notice}</p>}
-    {modelsError && <Alert variant="destructive"><AlertDescription>{modelsError}<Button variant="outline" onClick={() => setModelReload(value => value + 1)}>Retry models</Button></AlertDescription></Alert>}
-    {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry prices</Button></AlertDescription></Alert>}
-    {loading && <TableSkeleton columns={7} rows={rows.length ? 2 : 5} label="Loading prices…" />}
-    {loaded && !rows.length ? <p className="text-muted-foreground">No customer prices published for this workspace.</p> : rows.length > 0 && <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Currency</TableHead><TableHead>Input / 1M</TableHead><TableHead>Output / 1M</TableHead><TableHead>Cache read / 1M</TableHead><TableHead>Price checks</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>
-      {rows.filter(row => row.model_alias.toLowerCase().includes(filter.toLowerCase().trim())).map(row => <TableRow key={row.model_alias}><TableCell>{row.model_alias}</TableCell><TableCell>{row.currency}</TableCell><TableCell>{priceFromNanos(row.prompt_rate)}</TableCell><TableCell>{priceFromNanos(row.completion_rate)}</TableCell><TableCell>{row.cached_prompt_rate == null ? 'Input rate' : priceFromNanos(row.cached_prompt_rate)}</TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex gap-2"><Button variant="ghost" onClick={() => setEditor({previous:row})} aria-label={`Edit ${row.model_alias}`}>Edit</Button><Button variant="ghost" onClick={() => setHistory(row)} aria-label={`History for ${row.model_alias}`}>History</Button></div></TableCell></TableRow>)}
+    {modelsError && <Alert variant="destructive"><AlertDescription>{modelsError}<Button variant="outline" onClick={() => setModelReload(value => value + 1)}>{uiT("Retry models")}</Button></AlertDescription></Alert>}
+    {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
+    {loading && <TableSkeleton columns={7} rows={rows.length ? 2 : 5} label={uiT("Loading prices…")} />}
+    {loaded && !rows.length ? <p className="text-muted-foreground">{uiT("No customer prices published for this workspace.")}</p> : rows.length > 0 && <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Currency")}</TableHead><TableHead>{uiT("Input / 1M")}</TableHead><TableHead>{uiT("Output / 1M")}</TableHead><TableHead>{uiT("Cache read / 1M")}</TableHead><TableHead>{uiT("Price checks")}</TableHead><TableHead>{uiT("Actions")}</TableHead></TableRow></TableHeader><TableBody>
+      {rows.filter(row => row.model_alias.toLowerCase().includes(filter.toLowerCase().trim())).map(row => <TableRow key={row.model_alias}><TableCell>{row.model_alias}</TableCell><TableCell>{row.currency}</TableCell><TableCell>{priceFromNanos(row.prompt_rate)}</TableCell><TableCell>{priceFromNanos(row.completion_rate)}</TableCell><TableCell>{row.cached_prompt_rate == null ? uiT("Input rate") : priceFromNanos(row.cached_prompt_rate)}</TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex gap-2"><Button variant="ghost" onClick={() => setEditor({previous:row})} aria-label={uiF("Edit {0}", [row.model_alias])}>{uiT("Edit")}</Button><Button variant="ghost" onClick={() => setHistory(row)} aria-label={uiF("History for {0}", [row.model_alias])}>{uiT("History")}</Button></div></TableCell></TableRow>)}
     </TableBody></Table></div>}
-    {loaded && rows.length > 0 && !rows.some(row => row.model_alias.toLowerCase().includes(filter.toLowerCase().trim())) && <p>No loaded prices match this filter.</p>}
-    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>More prices</Button>}
+    {loaded && rows.length > 0 && !rows.some(row => row.model_alias.toLowerCase().includes(filter.toLowerCase().trim())) && <p>{uiT("No loaded prices match this filter.")}</p>}
+    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
     {editor && <PriceEditor token={token} target={target} previous={editor.previous} modelNames={modelNames} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); setNotice('Customer price published. Future requests use the new price.'); void load(); }}/>} 
     {history && <PriceHistory token={token} target={target} price={history} onClose={() => setHistory(null)}/>}
   </>;
 }
 function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:string;target:PricingTarget;previous:CurrentTariff|null;modelNames:string[];onClose:()=>void;onSaved:()=>void}) {
+  const { t: uiT } = useUILocale();
   const [current,setCurrent]=useState(previous);
   const [model,setModel]=useState(previous?.model_alias ?? '');
   const {currency:platformCurrency}=usePlatformCurrency();
@@ -162,23 +167,24 @@ function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:
     }catch(reason){if(!request.signal.aborted){if(reason instanceof PublicationUnconfirmedError){setConflict(true);setError(reason.message);}else if(reason instanceof VendorRequestError && reason.status===409){setConflict(true);setError('This price changed or could not be published. Your draft is preserved. Load the current price before trying again.');}else setError(reason instanceof Error?reason.message:'Price could not be saved.');}}
     finally{if(!request.signal.aborted)setBusy(false);}
   }
-  return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{previous?'Edit customer price':'Publish customer price'}</DialogTitle><DialogDescription>{target.organization_name} · {workspaceDisplayName(target.workspace_name)}. Changes apply to future admitted requests.</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{previous?uiT("Edit customer price"):uiT("Publish customer price")}</DialogTitle><DialogDescription>{target.organization_name} · {workspaceDisplayName(target.workspace_name)}{uiT(". Changes apply to future admitted requests.")}</DialogDescription></DialogHeader>
     <form className="grid gap-4" onSubmit={save}>
-      <div className="grid gap-2"><Label>Model</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={!!previous||busy||conflict} className="justify-between">{model||'Choose model'}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={model} onValueChange={setModel}>{modelNames.map(name=><DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-      <p className="text-sm text-muted-foreground">Currency: {currency || "configure in Admin"}</p>
+      <div className="grid gap-2"><Label>{uiT("Model")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={!!previous||busy||conflict} className="justify-between">{model||uiT("Choose model")}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={model} onValueChange={setModel}>{modelNames.map(name=><DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
+      <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-2"><Label htmlFor="price-input">Input per million tokens</Label><Input id="price-input" required inputMode="decimal" value={input} disabled={busy} onChange={event=>setInput(event.target.value)}/></div>
-        <div className="grid gap-2"><Label htmlFor="price-output">Output per million tokens</Label><Input id="price-output" required inputMode="decimal" value={output} disabled={busy} onChange={event=>setOutput(event.target.value)}/></div>
+        <div className="grid gap-2"><Label htmlFor="price-input">{uiT("Input per million tokens")}</Label><Input id="price-input" required inputMode="decimal" value={input} disabled={busy} onChange={event=>setInput(event.target.value)}/></div>
+        <div className="grid gap-2"><Label htmlFor="price-output">{uiT("Output per million tokens")}</Label><Input id="price-output" required inputMode="decimal" value={output} disabled={busy} onChange={event=>setOutput(event.target.value)}/></div>
       </div>
-      <div className="grid gap-2"><Label htmlFor="price-cache">Cache read per million tokens</Label><Input id="price-cache" inputMode="decimal" value={cache} disabled={busy} onChange={event=>setCache(event.target.value)} aria-describedby="price-cache-help"/><p id="price-cache-help" className="text-sm text-muted-foreground">Blank uses the input rate. Zero is a valid price.</p></div>
-      <div className="grid gap-2"><Label htmlFor="price-reasoning">Reasoning output per million tokens</Label><Input id="price-reasoning" inputMode="decimal" value={reasoning} disabled={busy} onChange={event=>setReasoning(event.target.value)} aria-describedby="price-reasoning-help"/><p id="price-reasoning-help" className="text-sm text-muted-foreground">Blank uses the output rate. Zero is a valid price. A separate rate requires reported reasoning token usage.</p></div>
-      <div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="price-fee">Fixed fee per completed request</Label><Input id="price-fee" inputMode="decimal" value={fee} disabled={busy} onChange={event=>setFee(event.target.value)}/></div><div className="grid gap-2"><Label htmlFor="price-minimum">Minimum per completed request</Label><Input id="price-minimum" inputMode="decimal" value={minimum} disabled={busy} onChange={event=>setMinimum(event.target.value)}/></div></div>
-      {error&&<Alert variant="destructive"><AlertDescription>{error}{conflict&&<Button type="button" variant="outline" disabled={busy} onClick={()=>void reload()}>Load current price</Button>}</AlertDescription></Alert>}
-      <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancel</Button><Button type="submit" disabled={busy||conflict||!model}>{busy?'Saving…':'Publish price'}</Button></div>
+      <div className="grid gap-2"><Label htmlFor="price-cache">{uiT("Cache read per million tokens")}</Label><Input id="price-cache" inputMode="decimal" value={cache} disabled={busy} onChange={event=>setCache(event.target.value)} aria-describedby="price-cache-help"/><p id="price-cache-help" className="text-sm text-muted-foreground">{uiT("Blank uses the input rate. Zero is a valid price.")}</p></div>
+      <div className="grid gap-2"><Label htmlFor="price-reasoning">{uiT("Reasoning output per million tokens")}</Label><Input id="price-reasoning" inputMode="decimal" value={reasoning} disabled={busy} onChange={event=>setReasoning(event.target.value)} aria-describedby="price-reasoning-help"/><p id="price-reasoning-help" className="text-sm text-muted-foreground">{uiT("Blank uses the output rate. Zero is a valid price. A separate rate requires reported reasoning token usage.")}</p></div>
+      <div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="price-fee">{uiT("Fixed fee per completed request")}</Label><Input id="price-fee" inputMode="decimal" value={fee} disabled={busy} onChange={event=>setFee(event.target.value)}/></div><div className="grid gap-2"><Label htmlFor="price-minimum">{uiT("Minimum per completed request")}</Label><Input id="price-minimum" inputMode="decimal" value={minimum} disabled={busy} onChange={event=>setMinimum(event.target.value)}/></div></div>
+      {error&&<Alert variant="destructive"><AlertDescription>{error}{conflict&&<Button type="button" variant="outline" disabled={busy} onClick={()=>void reload()}>{uiT("Load current price")}</Button>}</AlertDescription></Alert>}
+      <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={busy} onClick={onClose}>{uiT("Cancel")}</Button><Button type="submit" disabled={busy||conflict||!model}>{busy?uiT("Saving…"):uiT("Publish price")}</Button></div>
     </form>
   </DialogContent></Dialog>;
 }
 function PriceHistory({token,target,price,onClose}:{token:string;target:PricingTarget;price:CurrentTariff;onClose:()=>void}) {
+  const { t: uiT } = useUILocale();
   const [rows,setRows]=useState<CustomerTariffHistoryEntry[]>([]);
   const [cursor,setCursor]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
@@ -192,9 +198,9 @@ function PriceHistory({token,target,price,onClose}:{token:string;target:PricingT
     finally{if(!request.signal.aborted)setBusy(false);}
   }
   useEffect(()=>{void load();return()=>controller.current?.abort();},[token,target,price]);
-  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Price history</DialogTitle><DialogDescription>{price.model_alias} · {workspaceDisplayName(target.workspace_name)}</DialogDescription></DialogHeader>
-    {error&&<Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={busy} onClick={()=>void load(failed)}>Retry history</Button></AlertDescription></Alert>}{busy&&<ListRowsSkeleton rows={3} label="Loading price revisions…"/>}
-    {rows.map(row=><section key={row.revision} className="space-y-2 border-b py-3"><div className="flex flex-wrap items-center gap-2"><span>{new Date(row.created_at).toLocaleString()}</span>{row.is_current&&<Badge variant="secondary">Current</Badge>}</div><dl className="grid grid-cols-2 gap-2 text-sm"><dt>Input / 1M</dt><dd>{money(row.prompt_rate,row.currency)}</dd><dt>Output / 1M</dt><dd>{money(row.completion_rate,row.currency)}</dd><dt>Cache read / 1M</dt><dd>{row.cached_prompt_rate==null?'Input rate':money(row.cached_prompt_rate,row.currency)}</dd><dt>Reasoning output / 1M</dt><dd>{row.reasoning_completion_rate==null?'Output rate':money(row.reasoning_completion_rate,row.currency)}</dd><dt>Fixed request fee</dt><dd>{money(row.request_fee_nanos??'0',row.currency)}</dd><dt>Minimum charge</dt><dd>{money(row.minimum_charge_nanos??'0',row.currency)}</dd></dl></section>)}
-    {cursor&&<Button variant="outline" disabled={busy} onClick={()=>void load(cursor)}>Older revisions</Button>}
+  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>{uiT("Price history")}</DialogTitle><DialogDescription>{price.model_alias} · {workspaceDisplayName(target.workspace_name)}</DialogDescription></DialogHeader>
+    {error&&<Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={busy} onClick={()=>void load(failed)}>{uiT("Retry history")}</Button></AlertDescription></Alert>}{busy&&<ListRowsSkeleton rows={3} label={uiT("Loading price revisions…")}/>}
+    {rows.map(row=><section key={row.revision} className="space-y-2 border-b py-3"><div className="flex flex-wrap items-center gap-2"><span>{new Date(row.created_at).toLocaleString(readUILocale())}</span>{row.is_current&&<Badge variant="secondary">{uiT("Current")}</Badge>}</div><dl className="grid grid-cols-2 gap-2 text-sm"><dt>{uiT("Input / 1M")}</dt><dd>{money(row.prompt_rate,row.currency)}</dd><dt>{uiT("Output / 1M")}</dt><dd>{money(row.completion_rate,row.currency)}</dd><dt>{uiT("Cache read / 1M")}</dt><dd>{row.cached_prompt_rate==null?uiT("Input rate"):money(row.cached_prompt_rate,row.currency)}</dd><dt>{uiT("Reasoning output / 1M")}</dt><dd>{row.reasoning_completion_rate==null?uiT("Output rate"):money(row.reasoning_completion_rate,row.currency)}</dd><dt>{uiT("Fixed request fee")}</dt><dd>{money(row.request_fee_nanos??'0',row.currency)}</dd><dt>{uiT("Minimum charge")}</dt><dd>{money(row.minimum_charge_nanos??'0',row.currency)}</dd></dl></section>)}
+    {cursor&&<Button variant="outline" disabled={busy} onClick={()=>void load(cursor)}>{uiT("Older revisions")}</Button>}
   </DialogContent></Dialog>;
 }

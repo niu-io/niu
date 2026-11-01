@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useInRouterContext } from 'react-router';
 import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
@@ -14,6 +15,7 @@ type Page = { data: ProviderMediaOfferModel[]; has_more: boolean; next_after: st
 export default function MediaOfferPublisher({ token, supplier, supplierSlug, initialModel = '', onClose, onSaved }: {
   token: string; supplier: string; supplierSlug?: string; initialModel?: string; onClose: () => void; onSaved: () => void;
 }) {
+  const { t: uiT } = useUILocale();
   const inRouter = useInRouterContext();
   const [models, setModels] = useState<ProviderMediaOfferModel[]>([]);
   const [selected, setSelected] = useState(initialModel);
@@ -71,19 +73,19 @@ export default function MediaOfferPublisher({ token, supplier, supplierSlug, ini
 
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}>
     <DialogContent className="niu-modal vendor-dialog">
-      <DialogHeader className="min-w-0 text-left"><DialogTitle>Set up media offer</DialogTitle><DialogDescription>Select a configured video model. Save its offer, review it, then publish its purchase rates.</DialogDescription></DialogHeader>
+      <DialogHeader className="min-w-0 text-left"><DialogTitle>{uiT("Set up media offer")}</DialogTitle><DialogDescription>{uiT("Select a configured video model. Save its offer, review it, then publish its purchase rates.")}</DialogDescription></DialogHeader>
       <form onSubmit={event => void publish(event)} className="min-w-0 space-y-5">
-        <div className="space-y-2"><Label htmlFor="media-offer-model">Model</Label>
-          <DropdownMenu><DropdownMenuTrigger asChild><Button id="media-offer-model" type="button" variant="outline" className="w-full min-w-0 justify-between text-left" disabled={loading || busy || Boolean(frozen)}><span className="min-w-0 truncate">{chosen ? `${chosen.model_alias} · ${chosen.api_key_name}` : loading ? 'Loading models…' : 'Choose a model'}</span><ChevronDown className="ml-2 size-4 shrink-0" /></Button></DropdownMenuTrigger>
+        <div className="space-y-2"><Label htmlFor="media-offer-model">{uiT("Model")}</Label>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button id="media-offer-model" type="button" variant="outline" className="w-full min-w-0 justify-between text-left" disabled={loading || busy || Boolean(frozen)}><span className="min-w-0 truncate">{chosen ? `${chosen.model_alias} · ${chosen.api_key_name}` : loading ? uiT("Loading models…") : uiT("Choose a model")}</span><ChevronDown className="ml-2 size-4 shrink-0" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selected} onValueChange={setSelected}>{models.map(model => <DropdownMenuRadioItem key={model.model_alias} value={model.model_alias}>{model.model_alias} · {model.api_key_name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
-          {!loading && !models.length && !error && !next && <div className="space-y-2"><p className="text-sm text-muted-foreground">No configured video models. Add a video schema to a model on this Provider’s API key first.</p><Button asChild variant="outline" size="sm">{inRouter ? <Link to={configurationHref}>Configure model routes</Link> : <a href={configurationHref}>Configure model routes</a>}</Button></div>}
-          {next && <Button type="button" variant="ghost" size="sm" disabled={loading || Boolean(frozen)} onClick={() => void more()}>Load more models</Button>}
+          {!loading && !models.length && !error && !next && <div className="space-y-2"><p className="text-sm text-muted-foreground">{uiT("No configured video models. Add a video schema to a model on this Provider’s API key first.")}</p><Button asChild variant="outline" size="sm">{inRouter ? <Link to={configurationHref}>{uiT("Configure model routes")}</Link> : <a href={configurationHref}>{uiT("Configure model routes")}</a>}</Button></div>}
+          {next && <Button type="button" variant="ghost" size="sm" disabled={loading || Boolean(frozen)} onClick={() => void more()}>{uiT("Load more models")}</Button>}
         </div>
-        {chosen && <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm"><dt className="text-muted-foreground">API key</dt><dd className="break-words">{chosen.api_key_name}</dd><dt className="text-muted-foreground">Channel</dt><dd className="break-words">{chosen.channel}</dd></dl>}
-        <p className="text-sm text-muted-foreground">Saving pauses the offer and requires a new review. Existing jobs keep their original route and prices.</p>
-        {error && <div role="alert" className="space-y-2 text-sm"><p>{error}</p>{!frozen && <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => setReload(value => value + 1)}>Reload models</Button>}</div>}
-        <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button><Button type="submit" disabled={busy || loading || (!chosen && !frozen)}>{busy ? 'Saving…' : frozen ? 'Retry save' : 'Save offer'}</Button></div>
+        {chosen && <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm"><dt className="text-muted-foreground">{uiT("API key")}</dt><dd className="break-words">{chosen.api_key_name}</dd><dt className="text-muted-foreground">{uiT("Channel")}</dt><dd className="break-words">{chosen.channel}</dd></dl>}
+        <p className="text-sm text-muted-foreground">{uiT("Saving pauses the offer and requires a new review. Existing jobs keep their original route and prices.")}</p>
+        {error && <div role="alert" className="space-y-2 text-sm"><p>{error}</p>{!frozen && <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => setReload(value => value + 1)}>{uiT("Reload models")}</Button>}</div>}
+        <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={onClose}>{uiT("Cancel")}</Button><Button type="submit" disabled={busy || loading || (!chosen && !frozen)}>{busy ? uiT("Saving…") : frozen ? uiT("Retry save") : uiT("Save offer")}</Button></div>
       </form>
     </DialogContent>
   </Dialog>;

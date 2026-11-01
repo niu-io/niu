@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconMessage as MessageSquareText } from "@tabler/icons-react";
 import { IconTopologyStar as Network } from "@tabler/icons-react";
@@ -9,7 +10,7 @@ import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspacePathSegment } from '@/shell/workspace-route';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 
 export function loader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
@@ -22,6 +23,7 @@ export function loader(args: LoaderFunctionArgs) {
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function OverviewRoute() {
+  const { t: uiT } = useUILocale();
   useOptionalRouteLoaderData();
   const { t } = useLocale();
   const { token, workspace, workspaces, models, session } = useDashboardContext();
@@ -37,7 +39,7 @@ export default function OverviewRoute() {
         ? <Button asChild><Link to="/admin/providers" className="header-icon-action" aria-label={t('Connect provider', '接入供应商')} title={t('Connect provider', '接入供应商')}><Network aria-hidden="true" /><span>{t('Connect provider', '接入供应商')}</span></Link></Button>
         : <Button asChild><Link to="models" className="header-icon-action" aria-label={t('Browse models', '浏览模型')} title={t('Browse models', '浏览模型')}><Network aria-hidden="true" /><span>{t('Browse models', '浏览模型')}</span></Link></Button>}<Button asChild variant="outline"><Link to="keys" className="header-icon-action" aria-label={t('API keys', 'API 密钥')} title={t('API keys', 'API 密钥')}><KeyRound aria-hidden="true" /><span>{t('API keys', 'API 密钥')}</span></Link></Button></div>} />
 
-    <section className="cost-workbench" aria-label="Recent gateway requests">
+    <section className="cost-workbench" aria-label={uiT("Recent gateway requests")}>
       {token ? <GatewayActivity compact key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
         <ConnectPrompt />
       </div>}

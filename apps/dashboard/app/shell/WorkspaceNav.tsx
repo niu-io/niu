@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import {
   SidebarContent,
   SidebarHeader,
@@ -7,7 +8,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import type { DashboardContext, Model } from './dashboard-context';
-import { useLocale } from './locale';
+import { useLocale } from './ui-locale';
 import { navigation } from './navigation';
 import ProductRailLink from './ProductRailLink';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
@@ -27,6 +28,7 @@ export default function WorkspaceNav({
   onCreateWorkspace: () => void;
   creationAvailable: boolean;
 }) {
+  const { t: uiT } = useUILocale();
   const { isZh } = useLocale();
   const videoAvailable = useWorkspaceVideo(context);
   const navItems = navigation.filter(
@@ -46,7 +48,7 @@ export default function WorkspaceNav({
         />
       </SidebarHeader>
       <SidebarContent className="workspace-sidebar-content">
-        <nav aria-label="Main navigation">
+        <nav aria-label={uiT("Main navigation")}>
           <SidebarMenu className="workspace-nav-menu">
             {navItems.map(item => {
               const path = item.to === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${item.to}`;

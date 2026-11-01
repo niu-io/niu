@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, type LoaderFunctionArgs } from "react-router";
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from "@/lib/route-data";
@@ -104,6 +105,7 @@ function readCachedHead(token: string, endpoint: string): { data: Head | null } 
 }
 
 function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
+  const { t: uiT } = useUILocale();
   const { workspace, models } = useDashboardContext();
   const { section } = useParams();
   const endpoint = workspace
@@ -221,37 +223,36 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     {label:'External input checks',route:'detectors',changed:JSON.stringify(draft.input_detectors ?? []) !== JSON.stringify(original.input_detectors ?? [])},
     {label:'Output rules',route:'output',changed:JSON.stringify(draft.output) !== JSON.stringify(original.output)},
   ].filter(item=>item.changed);
-  const pendingNotice = loaded && changed && <Alert className="mb-4" role="region" aria-label="Unsaved policy changes"><AlertDescription>
-    <p>Unsaved workspace policy changes. Saving applies all changed sections:</p>
-    <ul className="my-2 list-disc pl-5">{pendingSections.map(item=><li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">Review {item.label}</Link></li>)}</ul>
-    {draft.name !== original.name && <p>Policy name: {draft.name || 'Name required'}</p>}
-    {invalidSections.length > 0 && <div className="my-2 text-destructive"><p>Resolve these changes before saving:</p><ul className="list-disc pl-5">{invalidSections.map(item => <li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">{item.label}</Link>: {item.error}</li>)}</ul></div>}
-    <Button variant="outline" size="sm" disabled={saving} onClick={()=>{setDraft(original);setError('');setSaved(false);}}>Discard all changes</Button>
+  const pendingNotice = loaded && changed && <Alert className="mb-4" role="region" aria-label={uiT("Unsaved policy changes")}><AlertDescription>
+    <p>{uiT("Unsaved workspace policy changes. Saving applies all changed sections:")}</p>
+    <ul className="my-2 list-disc pl-5">{pendingSections.map(item=><li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">{uiT("Review")}{" "}{item.label}</Link></li>)}</ul>
+    {draft.name !== original.name && <p>{uiT("Policy name:")}{" "}{draft.name || uiT("Name required")}</p>}
+    {invalidSections.length > 0 && <div className="my-2 text-destructive"><p>{uiT("Resolve these changes before saving:")}</p><ul className="list-disc pl-5">{invalidSections.map(item => <li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">{item.label}</Link>: {item.error}</li>)}</ul></div>}
+    <Button variant="outline" size="sm" disabled={saving} onClick={()=>{setDraft(original);setError('');setSaved(false);}}>{uiT("Discard all changes")}</Button>
   </AlertDescription></Alert>;
   if (!workspace) return null;
   if (section === "denials")
     return <>{pendingNotice}<GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} /></>;
   if (section === "history")
     return (
-      <>{pendingNotice}{changed && <p className="mb-4 text-sm text-muted-foreground">Save or discard your draft before restoring another policy version.</p>}<GuardrailHistory token={token} endpoint={endpoint} canWrite={canWrite && !changed} onRestored={()=>{setSaved(false);setReload(value=>value+1);}} /></>
+      <>{pendingNotice}{changed && <p className="mb-4 text-sm text-muted-foreground">{uiT("Save or discard your draft before restoring another policy version.")}</p>}<GuardrailHistory token={token} endpoint={endpoint} canWrite={canWrite && !changed} onRestored={()=>{setSaved(false);setReload(value=>value+1);}} /></>
     );
   if (section && !["access", "policy", "input", "output", "detectors"].includes(section))
-    return <p>This Guardrails section is unavailable.</p>;
-  if (loading && !loaded) return <FormSectionSkeleton fields={4} label="Loading Guardrails…" />;
+    return <p>{uiT("This Guardrails section is unavailable.")}</p>;
+  if (loading && !loaded) return <FormSectionSkeleton fields={4} label={uiT("Loading Guardrails…")} />;
   if (!loaded)
     return (
       <div className="guardrails-page">
-        <PageHeader title="Guardrails" />
+        <PageHeader title={uiT("Guardrails")} />
         <Alert variant="destructive">
           <AlertDescription>
-            {error || "Could not load Guardrails."}{" "}
+            {error || uiT("Could not load Guardrails.")}{" "}
             <Button
               variant="outline"
               size="sm"
               onClick={() => setReload((value) => value + 1)}
             >
-              Reload
-            </Button>
+              {uiT("Reload")}</Button>
           </AlertDescription>
         </Alert>
       </div>
@@ -267,31 +268,29 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     return (
       <div className="guardrails-page">
         <PageHeader
-          title="Workspace policy"
+          title={uiT("Workspace policy")}
           action={
             <Button asChild variant="outline" className="header-icon-action">
-              <Link to="../history" relative="path" aria-label="History" title="History">
-                <IconHistory aria-hidden="true" /><span>History</span>
+              <Link to="../history" relative="path" aria-label={uiT("History")} title={uiT("History")}>
+                <IconHistory aria-hidden="true" /><span>{uiT("History")}</span>
               </Link>
             </Button>
           }
         />
         
         <h2 className="guardrails-history-title">
-          {head?.policy.name ?? "Workspace default"}
+          {head?.policy.name ?? uiT("Workspace default")}
         </h2>
         <p className="guardrails-intro">
-          This policy applies to every workspace API key.
-        </p>
+          {uiT("This policy applies to every workspace API key.")}</p>
         {pendingNotice}
         <div className="guardrails-policy-sections">
           <Link to="../access" relative="path">
             <Card>
               <CardHeader>
-                <CardTitle>Model &amp; Provider Access</CardTitle>
+                <CardTitle>{uiT("Model & Provider Access")}</CardTitle>
                 <CardDescription>
-                  Control which models and API services are available.
-                </CardDescription>
+                  {uiT("Control which models and API services are available.")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Badge variant="secondary">
@@ -300,8 +299,8 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                     (rule) =>
                       rule.mode === "allow_list" || rule.mode === "deny_all",
                   )
-                    ? "Configured"
-                    : "No restrictions"}
+                    ? uiT("Configured")
+                    : uiT("No restrictions")}
                 </Badge>
               </CardContent>
             </Card>
@@ -309,40 +308,39 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
           <Link to="../input" relative="path">
             <Card>
               <CardHeader>
-                <CardTitle>Input rules</CardTitle>
+                <CardTitle>{uiT("Input rules")}</CardTitle>
                 <CardDescription>
-                  Block or redact matching text before sending a request.
-                </CardDescription>
+                  {uiT("Block or redact matching text before sending a request.")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Badge variant="secondary">
                   {head?.policy.input_rules?.length
-                    ? "Configured"
-                    : "Not configured"}
+                    ? uiT("Configured")
+                    : uiT("Not configured")}
                 </Badge>
               </CardContent>
             </Card>
           </Link>
           <Link to="../detectors" relative="path">
-            <Card><CardHeader><CardTitle>External input checks</CardTitle><CardDescription>Review processing conditions and require a configured detector.</CardDescription></CardHeader><CardContent><Badge variant="secondary">{head?.policy.input_detectors?.length ? "Configured" : "Not configured"}</Badge></CardContent></Card>
+            <Card><CardHeader><CardTitle>{uiT("External input checks")}</CardTitle><CardDescription>{uiT("Review processing conditions and require a configured detector.")}</CardDescription></CardHeader><CardContent><Badge variant="secondary">{head?.policy.input_detectors?.length ? uiT("Configured") : uiT("Not configured")}</Badge></CardContent></Card>
           </Link>
           <Link to="../output" relative="path">
             <Card>
               <CardHeader>
-                <CardTitle>Output rules</CardTitle>
+                <CardTitle>{uiT("Output rules")}</CardTitle>
                 <CardDescription>
                   {head?.policy.output?.mode === "observe_only"
-                    ? "Record rule matches without blocking or changing responses."
-                    : "Inspect complete generated text before delivery."}
+                    ? uiT("Record rule matches without blocking or changing responses.")
+                    : uiT("Inspect complete generated text before delivery.")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Badge variant="secondary">
                   {head?.policy.output
                     ? head.policy.output.mode === "observe_only"
-                      ? "Observe only"
-                      : "Enforced"
-                    : "Not configured"}
+                      ? uiT("Observe only")
+                      : uiT("Enforced")
+                    : uiT("Not configured")}
                 </Badge>
               </CardContent>
             </Card>
@@ -351,11 +349,11 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       </div>
     );
   if (section === "detectors") return <div className="guardrails-page">
-    <PageHeader title="External input checks" action={<Button disabled={disabledSave} onClick={() => void save()}>{saving ? "Saving…" : "Save all changes"}</Button>} />
+    <PageHeader title={uiT("External input checks")} action={<Button disabled={disabledSave} onClick={() => void save()}>{saving ? uiT("Saving…") : uiT("Save all changes")}</Button>} />
     
-    {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" size="sm" disabled={saving} onClick={() => setReload(value => value + 1)}>Reload</Button></AlertDescription></Alert>}
+    {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" size="sm" disabled={saving} onClick={() => setReload(value => value + 1)}>{uiT("Reload")}</Button></AlertDescription></Alert>}
     {pendingNotice}
-    {saved && <p role="status">Policy saved.</p>}
+    {saved && <p role="status">{uiT("Policy saved.")}</p>}
     
     <ExternalDetectors key={`${token}:${endpoint}`} token={token} endpoint={endpoint} bindings={draft.input_detectors ?? []} disabled={!canWrite || saving} onChange={bindings => { setSaved(false); setDraft(current => { const next = { ...current }; if (bindings.length) next.input_detectors = bindings; else delete next.input_detectors; return next; }); }} />
   </div>;
@@ -363,10 +361,10 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     return (
       <div className="guardrails-page">
         <PageHeader
-          title={section === "input" ? "Input rules" : "Output rules"}
+          title={section === "input" ? uiT("Input rules") : uiT("Output rules")}
           action={
             <Button disabled={disabledSave} onClick={() => void save()}>
-              {saving ? "Saving…" : "Save all changes"}
+              {saving ? uiT("Saving…") : uiT("Save all changes")}
             </Button>
           }
         />
@@ -381,23 +379,22 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 disabled={saving}
                 onClick={() => setReload((value) => value + 1)}
               >
-                Reload
-              </Button>
+                {uiT("Reload")}</Button>
             </AlertDescription>
           </Alert>
         )}
         {pendingNotice}
-    {saved && <p role="status">Policy saved.</p>}
+    {saved && <p role="status">{uiT("Policy saved.")}</p>}
         {section === "output" && <div className="mb-6 grid justify-items-start gap-2">
-          <Label htmlFor="guardrail-output-mode">Output inspection mode</Label>
+          <Label htmlFor="guardrail-output-mode">{uiT("Output inspection mode")}</Label>
           <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button id="guardrail-output-mode" variant="outline" aria-label="Output inspection mode" disabled={!canWrite || saving}>{draft.output?.mode === "observe_only" ? "Observe only" : "Enforce · buffered output"}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild><Button id="guardrail-output-mode" variant="outline" aria-label={uiT("Output inspection mode")} disabled={!canWrite || saving}>{draft.output?.mode === "observe_only" ? uiT("Observe only") : uiT("Enforce · buffered output")}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draft.output?.mode ?? "buffered_full"} onValueChange={(mode) => {
             setSaved(false);
             setDraft(current => ({ ...current, output: { mode: mode as "buffered_full" | "observe_only", rules: current.output?.rules ?? [] } }));
           }}>
-            <DropdownMenuRadioItem value="buffered_full">Enforce · buffered output</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="observe_only">Observe only</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="buffered_full">{uiT("Enforce · buffered output")}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="observe_only">{uiT("Observe only")}</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup></DropdownMenuContent>
         </DropdownMenu></div>}
         <ContentRules
@@ -452,13 +449,13 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   return (
     <div className="guardrails-page">
       <PageHeader
-        title={section ? "Model & Provider Access" : "Guardrails"}
+        title={section ? uiT("Model & Provider Access") : uiT("Guardrails")}
         action={
           !section ? (
-            <><Button asChild variant="outline" className="header-icon-action"><Link to="denials" aria-label="Blocked requests" title="Blocked requests"><IconShieldOff aria-hidden="true" /><span>Blocked requests</span></Link></Button><Button asChild variant="outline" className="header-icon-action"><Link to="history" aria-label="History" title="History"><IconHistory aria-hidden="true" /><span>History</span></Link></Button></>
+            <><Button asChild variant="outline" className="header-icon-action"><Link to="denials" aria-label={uiT("Blocked requests")} title={uiT("Blocked requests")}><IconShieldOff aria-hidden="true" /><span>{uiT("Blocked requests")}</span></Link></Button><Button asChild variant="outline" className="header-icon-action"><Link to="history" aria-label={uiT("History")} title={uiT("History")}><IconHistory aria-hidden="true" /><span>{uiT("History")}</span></Link></Button></>
           ) : (
             <Button disabled={disabledSave} onClick={() => void save()}>
-              {saving ? "Saving…" : "Save all changes"}
+              {saving ? uiT("Saving…") : uiT("Save all changes")}
             </Button>
           )
         }
@@ -472,35 +469,31 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
               size="sm"
               onClick={() => setReload((value) => value + 1)}
             >
-              Reload
-            </Button>
+              {uiT("Reload")}</Button>
           </AlertDescription>
         </Alert>
       )}
       {pendingNotice}
-    {saved && <p role="status">Policy saved.</p>}
+    {saved && <p role="status">{uiT("Policy saved.")}</p>}
       {invalidRules && (
         <Alert variant="destructive">
           <AlertDescription>
-            Complete your input and output patterns before saving.
-          </AlertDescription>
+            {uiT("Complete your input and output patterns before saving.")}</AlertDescription>
         </Alert>
       )}
       {!section ? (
         <>
           <p className="guardrails-intro">
-            Workspace policies apply to every API key. Key permissions remain
-            enforced.
-          </p>
+            {uiT("Workspace policies apply to every API key. Key permissions remain enforced.")}</p>
           <Table className="guardrails-policy-table">
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="guardrails-policy-metadata">Policies</TableHead>
-                <TableHead className="guardrails-policy-metadata">API keys</TableHead>
+                <TableHead>{uiT("Name")}</TableHead>
+                <TableHead>{uiT("Status")}</TableHead>
+                <TableHead className="guardrails-policy-metadata">{uiT("Policies")}</TableHead>
+                <TableHead className="guardrails-policy-metadata">{uiT("API keys")}</TableHead>
                 <TableHead className="guardrails-policy-metadata">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{uiT("Actions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -508,36 +501,35 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
               <TableRow>
                 <TableCell>
                   <Link to="policy" className="guardrails-policy-link">
-                    {head?.policy.name ?? "Workspace default"}
+                    {head?.policy.name ?? uiT("Workspace default")}
                   </Link>
                   <p className="guardrails-muted">
-                    Default policy for this workspace
-                  </p>
+                    {uiT("Default policy for this workspace")}</p>
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary">
-                    {head ? "Active" : "Not configured"}
+                    {head ? uiT("Active") : uiT("Not configured")}
                   </Badge>
                 </TableCell>
                 <TableCell className="guardrails-policy-metadata">
                   {head ? (
                     <>
-                      <p>Models: {describe(head.policy.models)}</p>
-                      <p>Providers: {describe(head.policy.providers)}</p>
+                      <p>{uiT("Models:")}{" "}{describe(head.policy.models)}</p>
+                      <p>{uiT("Providers:")}{" "}{describe(head.policy.providers)}</p>
                     </>
                   ) : (
-                    "No restrictions"
+                    uiT("No restrictions")
                   )}
                   {Boolean(head?.policy.input_rules?.length) && (
-                    <p>Input rules</p>
+                    <p>{uiT("Input rules")}</p>
                   )}
-                  {Boolean(head?.policy.input_detectors?.length) && <p>Required external input checks</p>}
-                  {head?.policy.output && <p>{head.policy.output.mode === "observe_only" ? "Output observation rules" : "Buffered output rules"}</p>}
+                  {Boolean(head?.policy.input_detectors?.length) && <p>{uiT("Required external input checks")}</p>}
+                  {head?.policy.output && <p>{head.policy.output.mode === "observe_only" ? uiT("Output observation rules") : uiT("Buffered output rules")}</p>}
                 </TableCell>
-                <TableCell className="guardrails-policy-metadata">All</TableCell>
+                <TableCell className="guardrails-policy-metadata">{uiT("All")}</TableCell>
                 <TableCell className="guardrails-policy-metadata">
                   <Button asChild variant="outline" size="sm">
-                    <Link to="policy">{canWrite ? "Configure" : "View"}</Link>
+                    <Link to="policy">{canWrite ? uiT("Configure") : uiT("View")}</Link>
                   </Button>
                 </TableCell>
               </TableRow>
@@ -548,11 +540,9 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         <>
           
           <p className="guardrails-intro">
-            Control which models and API providers can be used by workspace
-            keys.
-          </p>
+            {uiT("Control which models and API providers can be used by workspace keys.")}</p>
           <section className="guardrails-section">
-            <Label htmlFor="guardrail-name">Policy name</Label>
+            <Label htmlFor="guardrail-name">{uiT("Policy name")}</Label>
             <Input
               id="guardrail-name"
               value={draft.name}
@@ -571,13 +561,13 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
             className="guardrails-section"
             aria-labelledby="guardrail-models-title"
           >
-            <h2 id="guardrail-models-title">Models</h2>
+            <h2 id="guardrail-models-title">{uiT("Models")}</h2>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   disabled={!canWrite || saving}
-                  aria-label="Model restriction mode"
+                  aria-label={uiT("Model restriction mode")}
                 >
                   {labels[draft.models.mode]}
                   <ChevronDown />
@@ -608,7 +598,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" disabled={!canWrite || saving}>
-                      Choose models ({draft.models.values?.length ?? 0})
+                      {uiT("Choose models (")}{draft.models.values?.length ?? 0})
                       <ChevronDown />
                     </Button>
                   </DropdownMenuTrigger>
@@ -618,8 +608,8 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                   >
                     <Input
                       ref={modelSearchRef}
-                      aria-label="Search models"
-                      placeholder="Search models…"
+                      aria-label={uiT("Search models")}
+                      placeholder={uiT("Search models…")}
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
                       onKeyDown={(event) => event.stopPropagation()}
@@ -645,8 +635,8 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                     ))}
                     {!filterChoices.length && (
                       <div className="p-2">
-                        <p className="guardrails-muted">No matching models.</p>
-                        {search && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); requestAnimationFrame(() => modelSearchRef.current?.focus()); }}>Clear search</Button>}
+                        <p className="guardrails-muted">{uiT("No matching models.")}</p>
+                        {search && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); requestAnimationFrame(() => modelSearchRef.current?.focus()); }}>{uiT("Clear search")}</Button>}
                       </div>
                     )}
                   </DropdownMenuContent>
@@ -654,7 +644,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 <p className="guardrails-muted">
                   {draft.models.values?.length
                     ? draft.models.values.join(", ")
-                    : "No models selected. All model requests will be blocked."}
+                    : uiT("No models selected. All model requests will be blocked.")}
                 </p>
               </>
             )}
@@ -663,16 +653,15 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
             className="guardrails-section"
             aria-labelledby="guardrail-providers-title"
           >
-            <h2 id="guardrail-providers-title">Providers</h2>
+            <h2 id="guardrail-providers-title">{uiT("Providers")}</h2>
             <p className="guardrails-muted">
-              Limit the API services used for requests.
-            </p>
+              {uiT("Limit the API services used for requests.")}</p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   disabled={!canWrite || saving}
-                  aria-label="Provider restriction mode"
+                  aria-label={uiT("Provider restriction mode")}
                 >
                   {labels[draft.providers.mode]}
                   <ChevronDown />
@@ -703,7 +692,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" disabled={!canWrite || saving}>
-                      Choose providers ({draft.providers.values?.length ?? 0})
+                      {uiT("Choose providers (")}{draft.providers.values?.length ?? 0})
                       <ChevronDown />
                     </Button>
                   </DropdownMenuTrigger>
@@ -729,15 +718,14 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                     ))}
                     {!providerChoices.length && (
                       <p className="guardrails-muted">
-                        No configured providers.
-                      </p>
+                        {uiT("No configured providers.")}</p>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <p className="guardrails-muted">
                   {draft.providers.values?.length
                     ? draft.providers.values.join(", ")
-                    : "No providers selected. All inference requests will be blocked."}
+                    : uiT("No providers selected. All inference requests will be blocked.")}
                 </p>
               </>
             )}

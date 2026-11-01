@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { IconListDetails, IconRefresh, IconShieldOff } from '@tabler/icons-react';
@@ -27,9 +29,10 @@ const policyLabel = (name: string | null, revision: number | null) => revision ?
 const policyEvidence = (name: string | null, revision: number | null) => revision && Number.isSafeInteger(revision) && revision > 0
   ? <Link className="underline underline-offset-4" to={`../history?revision=${revision}&from=blocked`} relative="path">{policyLabel(name, revision)}</Link>
   : 'No saved policy evidence';
-const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
+const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
 
 export default function GuardrailDenials({ token, endpoint }: { token: string; endpoint: string }) {
+  const { t: uiT } = useUILocale();
   const prepPath = `${endpoint}/denials`;
   const dispatchPath = `${endpoint}/dispatch-denials`;
   const readCachedDenials = () => {
@@ -79,21 +82,21 @@ export default function GuardrailDenials({ token, endpoint }: { token: string; e
     return () => controller.abort();
   }, [token, prepPath, dispatchPath, reload]);
   return <div className="guardrails-page">
-    <PageHeader title="Blocked requests" action={<>
-      <Button asChild variant="outline" className="header-icon-action"><Link to="../../executions" relative="path" aria-label="Open Logs" title="Open Logs"><IconListDetails aria-hidden="true" /><span>Open Logs</span></Link></Button>
-      <Button variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label="Refresh" title="Refresh" aria-disabled={loading} onClick={() => {if (!loading) setReload(value => value + 1);}}><IconRefresh aria-hidden="true" /><span>Refresh</span></Button>
+    <PageHeader title={uiT("Blocked requests")} action={<>
+      <Button asChild variant="outline" className="header-icon-action"><Link to="../../executions" relative="path" aria-label={uiT("Open Logs")} title={uiT("Open Logs")}><IconListDetails aria-hidden="true" /><span>{uiT("Open Logs")}</span></Link></Button>
+      <Button variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh")} title={uiT("Refresh")} aria-disabled={loading} onClick={() => {if (!loading) setReload(value => value + 1);}}><IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span></Button>
     </>} />
     
     
-    <p className="guardrails-intro">Latest 100 recorded blocks before model dispatch. Select a saved policy to inspect the rules referenced by a block. A workspace administrator can change policy for future requests. These pre-dispatch events may have no request log. Some admission denials are not recorded. Logs contain output blocks after dispatch.</p>
-    {loading && !rows.length && !error ? <TableSkeleton columns={5} rows={5} label="Loading blocked requests…" /> : error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : !rows.length ? <Empty className="guardrails-empty"><EmptyHeader><EmptyMedia variant="icon"><IconShieldOff aria-hidden="true" /></EmptyMedia><EmptyTitle>No recorded blocks in this workspace.</EmptyTitle></EmptyHeader></Empty> : <Table className="sm:min-w-[680px] table-fixed">
-      <TableHeader><TableRow><TableHead>Reason</TableHead><TableHead className="hidden sm:table-cell">API key</TableHead><TableHead className="hidden sm:table-cell">Time</TableHead><TableHead className="hidden sm:table-cell">Workspace policy</TableHead><TableHead className="hidden sm:table-cell">Key policy</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row, index) => <TableRow key={index}><TableCell className="whitespace-normal break-words">{reasons[row.reason] || 'Request blocked by Guardrails'}<div className="text-muted-foreground text-xs mt-1">{row.stage === 'dispatch' ? 'Before dispatch' : row.stage === 'batch_admission' ? 'During admission' : 'Before admission'}</div><dl className="mt-4 grid gap-3 text-sm sm:hidden">
-        <div><dt className="text-xs text-muted-foreground">API key</dt><dd>{row.key_name || 'Unnamed key'}</dd></div>
-        <div><dt className="text-xs text-muted-foreground">Time</dt><dd>{time(row.recorded_at)}</dd></div>
-        <div><dt className="text-xs text-muted-foreground">Workspace policy</dt><dd>{policyEvidence(row.workspace_policy_name, row.workspace_revision)}</dd></div>
-        <div><dt className="text-xs text-muted-foreground">Key policy</dt><dd>{policyEvidence(row.key_policy_name, row.key_policy_revision)}</dd></div>
-      </dl></TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{row.key_name || 'Unnamed key'}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{time(row.recorded_at)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{policyEvidence(row.workspace_policy_name, row.workspace_revision)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{policyEvidence(row.key_policy_name, row.key_policy_revision)}</TableCell></TableRow>)}</TableBody>
+    <p className="guardrails-intro">{uiT("Latest 100 recorded blocks before model dispatch. Select a saved policy to inspect the rules referenced by a block. A workspace administrator can change policy for future requests. These pre-dispatch events may have no request log. Some admission denials are not recorded. Logs contain output blocks after dispatch.")}</p>
+    {loading && !rows.length && !error ? <TableSkeleton columns={5} rows={5} label={uiT("Loading blocked requests…")} /> : error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : !rows.length ? <Empty className="guardrails-empty"><EmptyHeader><EmptyMedia variant="icon"><IconShieldOff aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No recorded blocks in this workspace.")}</EmptyTitle></EmptyHeader></Empty> : <Table className="sm:min-w-[680px] table-fixed">
+      <TableHeader><TableRow><TableHead>{uiT("Reason")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("API key")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Time")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Workspace policy")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Key policy")}</TableHead></TableRow></TableHeader>
+      <TableBody>{rows.map((row, index) => <TableRow key={index}><TableCell className="whitespace-normal break-words">{reasons[row.reason] || uiT("Request blocked by Guardrails")}<div className="text-muted-foreground text-xs mt-1">{row.stage === 'dispatch' ? uiT("Before dispatch") : row.stage === 'batch_admission' ? uiT("During admission") : uiT("Before admission")}</div><dl className="mt-4 grid gap-3 text-sm sm:hidden">
+        <div><dt className="text-xs text-muted-foreground">{uiT("API key")}</dt><dd>{row.key_name || uiT("Unnamed key")}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">{uiT("Time")}</dt><dd>{time(row.recorded_at)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">{uiT("Workspace policy")}</dt><dd>{uiT(policyEvidence(row.workspace_policy_name, row.workspace_revision))}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">{uiT("Key policy")}</dt><dd>{uiT(policyEvidence(row.key_policy_name, row.key_policy_revision))}</dd></div>
+      </dl></TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{row.key_name || uiT("Unnamed key")}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{time(row.recorded_at)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{uiT(policyEvidence(row.workspace_policy_name, row.workspace_revision))}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{uiT(policyEvidence(row.key_policy_name, row.key_policy_revision))}</TableCell></TableRow>)}</TableBody>
     </Table>}
   </div>;
 }

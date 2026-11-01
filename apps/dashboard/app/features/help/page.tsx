@@ -1,19 +1,24 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 import { useLocale } from '../../shell/locale';
+
+const AgentDocument = lazy(() => import('./AgentDocument'));
 
 const ApiReference = lazy(() => import('./ApiReference'));
 
 export default function HelpPage() {
   const { t } = useLocale();
   const { pathname } = useLocation();
+  if (/\.md$/.test(pathname)) return <Suspense fallback={<p role="status">{t('Loading document…', '正在加载文档…')}</p>}><AgentDocument key={pathname} path={pathname.replace(/^\/help\//, '/docs/')} /></Suspense>;
   return /^\/help\/api(?:\/rest)?\/?$/.test(pathname)
     ? <Suspense fallback={<div className="p-6"><WorkspaceShellSkeleton label={t('Loading API reference…', '正在加载 API 参考…')} /></div>}><ApiReference /></Suspense>
     : <DocumentationPage />;
 }
 
 function DocumentationPage() {
+  const { t: uiT } = useUILocale();
   const { locale } = useLocale();
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,5 +68,5 @@ function DocumentationPage() {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [dashboardBase, docsBase, navigate]);
-  return <iframe ref={frame} className="help-frame" title="Docs" src={initialFramePath.current} />;
+  return <iframe ref={frame} className="help-frame" title={uiT("Docs")} src={initialFramePath.current} />;
 }

@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import type { VideoGenerationsSessionSummary } from '@niu-io/sdk/generations-ses
 
 /** Video section of the existing archive dialog; restores metadata only. */
 export default function VideoArchivedSessions({context,open,disabled=false}:{context:DashboardContext;open:boolean;disabled?:boolean}) {
+  const { t: uiT, format: uiF } = useUILocale();
   const {token,workspace}=context;
   const identity=JSON.stringify([token,workspace?.organization_id,workspace?.id,open]);
   const current=useRef(identity);current.current=identity;
@@ -55,13 +57,13 @@ export default function VideoArchivedSessions({context,open,disabled=false}:{con
     finally{if(current.current===at)setBusy(false);}
   }
   if(!open)return null;
-  return <section aria-label="Archived Video sessions" className="mt-4 min-w-0">
-    <h3 className="mb-3 text-sm font-medium">Video sessions</h3>
-    {error&&<div className="mb-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>Reload Video archive</Button></div>}
+  return <section aria-label={uiT("Archived Video sessions")} className="mt-4 min-w-0">
+    <h3 className="mb-3 text-sm font-medium">{uiT("Video sessions")}</h3>
+    {error&&<div className="mb-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>{uiT("Reload Video archive")}</Button></div>}
     {notice&&<p role="status" className="mb-3 text-sm">{notice}</p>}
-    {!loading&&!error&&!rows.length&&<p className="text-sm text-muted-foreground">No archived Video sessions</p>}
-    {rows.length>0&&<Table className="table-fixed"><TableHeader><TableRow><TableHead>Session</TableHead><TableHead className="w-32 text-right">Action</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.id}><TableCell className="whitespace-normal break-words">{row.title}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={busy||loading||disabled||!context.session?.permissions.write} onClick={()=>void restore(row)} aria-label={`Restore ${row.title}`}>Restore</Button></TableCell></TableRow>)}</TableBody></Table>}
-    {loading&&!rows.length&&<TableSkeleton columns={2} rows={3} label="Loading Video sessions…"/>}
-    {cursor&&<Button variant="ghost" disabled={loading||busy} onClick={()=>void more()}>Load more Video sessions</Button>}
+    {!loading&&!error&&!rows.length&&<p className="text-sm text-muted-foreground">{uiT("No archived Video sessions")}</p>}
+    {rows.length>0&&<Table className="table-fixed"><TableHeader><TableRow><TableHead>{uiT("Session")}</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.id}><TableCell className="whitespace-normal break-words">{row.title}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={busy||loading||disabled||!context.session?.permissions.write} onClick={()=>void restore(row)} aria-label={uiF("Restore {0}", [row.title])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></Table>}
+    {loading&&!rows.length&&<TableSkeleton columns={2} rows={3} label={uiT("Loading Video sessions…")}/>}
+    {cursor&&<Button variant="ghost" disabled={loading||busy} onClick={()=>void more()}>{uiT("Load more Video sessions")}</Button>}
   </section>;
 }

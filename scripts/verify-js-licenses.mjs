@@ -1,21 +1,26 @@
 import { spawnSync } from "node:child_process";
+import { installedLicenseGroups } from "./js-license-inventory.mjs";
 import { appendFileSync, writeFileSync } from "node:fs";
 
 const result = spawnSync("pnpm", ["licenses", "list", "--json"], {
   encoding: "utf8",
   maxBuffer: 16 * 1024 * 1024,
 });
-if (result.status !== 0) {
-  process.stderr.write(result.stderr || "pnpm license inventory failed\n");
-  process.exit(result.status || 1);
-}
-
 let groups;
-try {
-  groups = JSON.parse(result.stdout);
-} catch (error) {
-  console.error("pnpm returned invalid license inventory JSON", error);
-  process.exit(1);
+if (result.status !== 0) {
+  let failure;
+  try { failure = JSON.parse(result.stdout)?.error; } catch { /* Non-JSON failures stay fatal. */ }
+  if (failure?.code !== 'ERR_PNPM_MISSING_PACKAGE_INDEX_FILE') {
+    process.stderr.write(result.stderr || result.stdout || "pnpm license inventory failed\n");
+    process.exit(result.status || 1);
+  }
+  const tree = spawnSync('pnpm', ['list', '--recursive', '--depth', 'Infinity', '--json'], {encoding: 'utf8', maxBuffer: 64 * 1024 * 1024});
+  if (tree.status !== 0) { process.stderr.write(tree.stderr || tree.stdout); process.exit(tree.status || 1); }
+  groups = installedLicenseGroups(JSON.parse(tree.stdout));
+  console.error('pnpm store index unavailable; auditing manifests from the installed dependency graph.');
+} else {
+  try { groups = JSON.parse(result.stdout); }
+  catch (error) { console.error("pnpm returned invalid license inventory JSON", error); process.exit(1); }
 }
 
 const commonLicenses = new Set([

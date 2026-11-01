@@ -1,7 +1,9 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import logo from '../../../../branding/assets/niu-mark.png';
 
 export default function RouterPending() {
-  return <main className="route-loading" role="status" aria-label="Opening Niu Dashboard" aria-live="polite">
+  const { t: uiT } = useUILocale();
+  return <main className="route-loading" role="status" aria-label={uiT("Opening Niu Dashboard")} aria-live="polite">
     <span
       className="route-loading-mark"
       aria-hidden="true"

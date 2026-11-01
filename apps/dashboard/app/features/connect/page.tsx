@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';

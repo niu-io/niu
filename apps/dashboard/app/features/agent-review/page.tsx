@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams, type LoaderFunctionArgs } from "react-router";
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from "@/lib/route-data";
@@ -48,7 +50,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDashboardContext } from "@/shell/dashboard-context";
-import { useLocale } from "@/shell/locale";
+import { useLocale } from "@/shell/ui-locale";
 import { formatFinancialMoney } from "@/lib/money";
 import { fetchQuery, peekQuery } from "@/lib/query-cache";
 
@@ -86,9 +88,9 @@ const ruleDescription = (
         min_output_tokens: "Minimum output tokens",
         max_output_tokens: "Maximum output tokens",
       };
-      return `${labels[key] ?? "Condition"}: ${typeof value === "boolean" ? (value ? "required" : "not requested") : value}`;
+      return `${translateUI(labels[key] ?? "Condition")}: ${typeof value === "boolean" ? translateUI(value ? "required" : "not requested") : value}`;
     })
-    .join(" · ") || "All requests";
+    .join(" · ") || translateUI("All requests");
 const eventLabel = (value: string) =>
   value === "pool.changed"
     ? "Model pool changed"
@@ -111,7 +113,7 @@ const failureLabel: Record<string, string> = {
   superseded: "Configuration changed",
   exhausted: "Retries exhausted",
 };
-const stamp = (value: string) => new Date(value).toLocaleString();
+const stamp = (value: string) => new Date(value).toLocaleString(readUILocale());
 const safeText = (value: string) =>
   value.replace(
     /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
@@ -131,95 +133,89 @@ function charge(dimension: string, amount: string) {
       .replace(/0+$/, "");
     return `${n < 0n && whole === 0n ? "-" : ""}${whole}${fraction ? "." + fraction : ""} ${safeText(unit[1])}`;
   }
-  return "Unavailable";
+  return translateUI("Unavailable");
 }
 function EvaluationMetrics({ summary }: { summary: EvaluationSummary }) {
+  const { t: uiT, format: uiF } = useUILocale();
   return (
     <div className="grid gap-5 border-b py-5 sm:grid-cols-2 lg:grid-cols-4">
       <div>
-        <p className="text-sm text-muted-foreground">Accepted samples</p>
+        <p className="text-sm text-muted-foreground">{uiT("Accepted samples")}</p>
         <p className="mt-1 text-xl font-medium tabular-nums">
           {summary.verdicts.accepted ?? 0} / {summary.samples}
         </p>
         <p className="text-sm text-muted-foreground">
-          {summary.verdicts.rejected ?? 0} rejected ·{" "}
-          {summary.verdicts.unknown ?? 0} unknown
-        </p>
+          {summary.verdicts.rejected ?? 0}{" "}{uiT("rejected ·")}{" "}
+          {summary.verdicts.unknown ?? 0}{" "}{uiT("unknown")}</p>
       </div>
       <div>
-        <p className="text-sm text-muted-foreground">Input evidence</p>
+        <p className="text-sm text-muted-foreground">{uiT("Input evidence")}</p>
         <p className="mt-1 text-xl font-medium">
-          {summary.verified_inputs} verified
-        </p>
+          {summary.verified_inputs}{" "}{uiT("verified")}</p>
         <p className="text-sm text-muted-foreground">
-          {summary.unverified_inputs} unverified
-        </p>
+          {summary.unverified_inputs}{" "}{uiT("unverified")}</p>
       </div>
       <div>
-        <p className="text-sm text-muted-foreground">Known customer charges</p>
+        <p className="text-sm text-muted-foreground">{uiT("Known customer charges")}</p>
         <p className="mt-1 font-medium">
           {summary.customer_charge_totals.length
             ? summary.customer_charge_totals
                 .map((row) => charge(row.dimension, row.amount))
                 .join(" + ")
-            : "Unavailable"}
+            : uiT("Unavailable")}
         </p>
         <p className="text-sm text-muted-foreground">
-          {summary.unknown_charge_attempts} of {summary.attempts} attempts have
-          unknown charges
-        </p>
+          {summary.unknown_charge_attempts}{" "}{uiT("of")}{" "}{summary.attempts}{" "}{uiT("attempts have unknown charges")}</p>
       </div>
       <div>
         <p className="text-sm text-muted-foreground">
-          Cost per accepted sample
-        </p>
+          {uiT("Cost per accepted sample")}</p>
         <p className="mt-1 font-medium">
           {summary.cost_per_accepted
-            ? `${charge(summary.cost_per_accepted.dimension, summary.cost_per_accepted.numerator)} / ${summary.cost_per_accepted.denominator} accepted`
-            : "Insufficient comparable charge evidence"}
+            ? uiF("{0} / {1} accepted", [charge(summary.cost_per_accepted.dimension, summary.cost_per_accepted.numerator), summary.cost_per_accepted.denominator])
+            : uiT("Insufficient comparable charge evidence")}
         </p>
       </div>
     </div>
   );
 }
 function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
+  const { t: uiT } = useUILocale();
   return (
     <div className="min-w-0 space-y-5">
       <div className="grid gap-5 border-b py-5 sm:grid-cols-2">
         <div>
           <h2 className="font-medium">{safeText(pool.name)}</h2>
           <p className="mt-2 text-sm">
-            {safeText(pool.description) || "No description supplied."}
+            {safeText(pool.description) || uiT("No description supplied.")}
           </p>
         </div>
         <div>
           <p className="text-sm">
-            {pool.enabled ? "Enabled" : "Disabled"} · Default:{" "}
+            {pool.enabled ? uiT("Enabled") : uiT("Disabled")}{" "}{uiT("· Default:")}{" "}
             {pool.default_action === "reject"
-              ? "Reject unmatched requests"
-              : "Use candidate models"}
+              ? uiT("Reject unmatched requests")
+              : uiT("Use candidate models")}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Saved configuration does not prove live model access or task
-            quality.
-          </p>
+            {uiT("Saved configuration does not prove live model access or task quality.")}</p>
         </div>
       </div>
-      <h2 className="font-medium">Candidate models</h2>
+      <h2 className="font-medium">{uiT("Candidate models")}</h2>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Model</TableHead>
-            <TableHead>State</TableHead>
-            <TableHead>Priority</TableHead>
-            <TableHead>Weight</TableHead>
+            <TableHead>{uiT("Model")}</TableHead>
+            <TableHead>{uiT("State")}</TableHead>
+            <TableHead>{uiT("Priority")}</TableHead>
+            <TableHead>{uiT("Weight")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {pool.candidates.map((model) => (
             <TableRow key={model.alias}>
               <TableCell>{safeText(model.alias)}</TableCell>
-              <TableCell>{model.enabled ? "Enabled" : "Disabled"}</TableCell>
+              <TableCell>{model.enabled ? uiT("Enabled") : uiT("Disabled")}</TableCell>
               <TableCell>{model.priority}</TableCell>
               <TableCell>{model.weight}</TableCell>
             </TableRow>
@@ -228,12 +224,12 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
       </Table>
       {Boolean(pool.rules?.length) && (
         <>
-          <h2 className="font-medium">Routing rules</h2>
+          <h2 className="font-medium">{uiT("Routing rules")}</h2>
           {pool.rules?.map((rule) => (
             <div key={rule.id} className="border-b py-3">
               <p>
                 {safeText(rule.name ?? "Rule")} ·{" "}
-                {rule.enabled ? "Enabled" : "Disabled"}
+                {rule.enabled ? uiT("Enabled") : uiT("Disabled")}
               </p>
               <p className="text-sm text-muted-foreground">
                 {ruleDescription(rule.conditions)}
@@ -241,10 +237,10 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Model</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Weight</TableHead>
+                    <TableHead>{uiT("Model")}</TableHead>
+                    <TableHead>{uiT("State")}</TableHead>
+                    <TableHead>{uiT("Priority")}</TableHead>
+                    <TableHead>{uiT("Weight")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -252,7 +248,7 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
                     <TableRow key={candidate.alias}>
                       <TableCell>{safeText(candidate.alias)}</TableCell>
                       <TableCell>
-                        {candidate.enabled ? "Enabled" : "Disabled"}
+                        {candidate.enabled ? uiT("Enabled") : uiT("Disabled")}
                       </TableCell>
                       <TableCell>{candidate.priority}</TableCell>
                       <TableCell>{candidate.weight}</TableCell>
@@ -265,9 +261,7 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
         </>
       )}
       <p className="text-sm text-muted-foreground">
-        Higher-priority candidates are considered first; weights balance equally
-        ranked candidates. Rules are considered in saved order.
-      </p>
+        {uiT("Higher-priority candidates are considered first; weights balance equally ranked candidates. Rules are considered in saved order.")}</p>
     </div>
   );
 }
@@ -276,6 +270,7 @@ function EvaluationComparisonTable({
 }: {
   comparison: EvaluationComparison;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const values: Array<[string, (summary: EvaluationSummary) => string]> = [
     [
       "Accepted samples",
@@ -295,7 +290,7 @@ function EvaluationComparisonTable({
       (summary) =>
         summary.customer_charge_totals
           .map((row) => charge(row.dimension, row.amount))
-          .join(" + ") || "Unavailable",
+          .join(" + ") || uiT("Unavailable"),
     ],
     [
       "Unknown-charge attempts",
@@ -305,24 +300,24 @@ function EvaluationComparisonTable({
       "Cost per accepted sample",
       (summary) =>
         summary.cost_per_accepted
-          ? `${charge(summary.cost_per_accepted.dimension, summary.cost_per_accepted.numerator)} / ${summary.cost_per_accepted.denominator} accepted`
-          : "Insufficient charge evidence",
+          ? uiF("{0} / {1} accepted", [charge(summary.cost_per_accepted.dimension, summary.cost_per_accepted.numerator), summary.cost_per_accepted.denominator])
+          : uiT("Insufficient charge evidence"),
     ],
   ];
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-1/3 whitespace-normal">Metric</TableHead>
-          <TableHead className="w-1/3 whitespace-normal">Baseline</TableHead>
-          <TableHead className="w-1/3 whitespace-normal">Current run</TableHead>
+          <TableHead className="w-1/3 whitespace-normal">{uiT("Metric")}</TableHead>
+          <TableHead className="w-1/3 whitespace-normal">{uiT("Baseline")}</TableHead>
+          <TableHead className="w-1/3 whitespace-normal">{uiT("Current run")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {values.map(([label, value]) => (
           <TableRow key={label}>
             <TableCell className="whitespace-normal align-top font-medium">
-              {label}
+              {uiT(label)}
             </TableCell>
             <TableCell className="whitespace-normal align-top">
               {value(comparison.left_summary)}
@@ -369,6 +364,7 @@ export function loader(args: LoaderFunctionArgs) {
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function AgentReviewPage() {
+  const { t: uiT } = useUILocale();
   useOptionalRouteLoaderData();
   const context = useDashboardContext();
   const params = useParams();
@@ -397,8 +393,7 @@ export default function AgentReviewPage() {
           />
         ) : (
           <p role="status">
-            Choose a workspace to review its model management.
-          </p>
+            {uiT("Choose a workspace to review its model management.")}</p>
         )
       }
     </ConnectGate>
@@ -419,6 +414,7 @@ function Review({
   slug?: string;
   run?: string;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const client = useMemo(
     () =>
@@ -794,18 +790,18 @@ function Review({
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {error
-            ? "Return to the list or retry loading this resource."
+            ? uiT("Return to the list or retry loading this resource.")
             : loading
-              ? "Retrieving workspace evidence…"
+              ? uiT("Retrieving workspace evidence…")
               : slug
                 ? run
-                  ? "Immutable evidence captured at submission. Judgments are attributed to the evaluator."
-                  : `Saved workspace configuration${revision ? ` · revision ${revision}` : ""}. Your agent can make changes within its delegated authority.`
+                  ? uiT("Immutable evidence captured at submission. Judgments are attributed to the evaluator.")
+                  : uiF("Saved workspace configuration{0}. Your agent can make changes within its delegated authority.", [revision ? uiF(" · revision {0}", [revision]) : ""])
                 : kind === "pools"
-                  ? "Review the model policies your agent uses, their revisions and execution evidence."
+                  ? uiT("Review the model policies your agent uses, their revisions and execution evidence.")
                   : kind === "evaluations"
-                    ? "Review task acceptance, performance and customer charges against a baseline."
-                    : "Review where workspace notifications go and whether receivers acknowledge them."}
+                    ? uiT("Review task acceptance, performance and customer charges against a baseline.")
+                    : uiT("Review where workspace notifications go and whether receivers acknowledge them.")}
         </p>
       </div>
       {error && (
@@ -817,15 +813,13 @@ function Review({
               size="sm"
               onClick={() => setRefresh((value) => value + 1)}
             >
-              Retry
-            </Button>
+              {uiT("Retry")}</Button>
           </AlertDescription>
         </Alert>
       )}
       {loading ? (
         <p role="status" className="py-8 text-muted-foreground">
-          Loading workspace evidence…
-        </p>
+          {uiT("Loading workspace evidence…")}</p>
       ) : (
         !error && (
           <>
@@ -835,18 +829,18 @@ function Review({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
+                        <TableHead>{uiT("Name")}</TableHead>
                         <TableHead>
-                          {kind === "evaluations" ? "Task" : "State"}
+                          {kind === "evaluations" ? uiT("Task") : uiT("State")}
                         </TableHead>
                         <TableHead>
                           {kind === "pools"
-                            ? "Models"
+                            ? uiT("Models")
                             : kind === "events"
-                              ? "Events"
-                              : "Protocol"}
+                              ? uiT("Events")
+                              : uiT("Protocol")}
                         </TableHead>
-                        <TableHead>Revision</TableHead>
+                        <TableHead>{uiT("Revision")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -867,7 +861,7 @@ function Review({
                               <Badge
                                 variant={row.enabled ? "secondary" : "outline"}
                               >
-                                {row.enabled ? "Enabled" : "Disabled"}
+                                {row.enabled ? uiT("Enabled") : uiT("Disabled")}
                               </Badge>
                             )}
                           </TableCell>
@@ -876,9 +870,9 @@ function Review({
                               ? row.candidates
                                   .filter((model) => model.enabled)
                                   .map((model) => safeText(model.alias))
-                                  .join(", ") || "No enabled candidates"
+                                  .join(", ") || uiT("No enabled candidates")
                               : "event_types" in row
-                                ? row.event_types.map(eventLabel).join(", ")
+                                ? row.event_types.map(value => uiT(eventLabel(value))).join(", ")
                                 : row.protocol}
                           </TableCell>
                           <TableCell>{row.revision}</TableCell>
@@ -889,29 +883,27 @@ function Review({
                   <div className="flex gap-2">
                     {after && (
                       <Button variant="outline" onClick={() => setQuery({})}>
-                        First page
-                      </Button>
+                        {uiT("First page")}</Button>
                     )}
                     {next && (
                       <Button
                         variant="outline"
                         onClick={() => setQuery({ after: next })}
                       >
-                        Next page
-                      </Button>
+                        {uiT("Next page")}</Button>
                     )}
                   </div>
                 </>
               ) : (
                 <div className="space-y-3 py-12 text-center">
-                  <h2 className="font-medium">No {title.toLowerCase()} yet</h2>
+                  <h2 className="font-medium">{uiF("No {0} yet", [title.toLowerCase()])}</h2>
                   <p className="text-sm text-muted-foreground">
-                    Ask your coding agent to{" "}
+                    {uiT("Ask your coding agent to")}{" "}
                     {kind === "pools"
-                      ? "build a model pool for your task"
+                      ? uiT("build a model pool for your task")
                       : kind === "evaluations"
-                        ? "evaluate models against your task criteria and approved budget"
-                        : "configure an authorized notification receiver"}
+                        ? uiT("evaluate models against your task criteria and approved budget")
+                        : uiT("configure an authorized notification receiver")}
                     .
                   </p>
                   <Button
@@ -929,10 +921,10 @@ function Review({
                         );
                     }}
                   >
-                    {copied ? "Copied" : "Copy agent prompt"}
+                    {copied ? uiT("Copied") : uiT("Copy agent prompt")}
                   </Button>
                   <Button variant="link" asChild>
-                    <a href="/docs/install.md">Connect your agent</a>
+                    <a href="/docs/install.md">{uiT("Connect your agent")}</a>
                   </Button>
                 </div>
               ))}
@@ -948,9 +940,9 @@ function Review({
                 }
               >
                 <TabsList variant="line">
-                  <TabsTrigger value="configuration">Configuration</TabsTrigger>
-                  <TabsTrigger value="history">History</TabsTrigger>
-                  <TabsTrigger value="executions">Executions</TabsTrigger>
+                  <TabsTrigger value="configuration">{uiT("Configuration")}</TabsTrigger>
+                  <TabsTrigger value="history">{uiT("History")}</TabsTrigger>
+                  <TabsTrigger value="executions">{uiT("Executions")}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="configuration" className="space-y-5">
                   <PoolPolicyView pool={detail.pool} />{" "}
@@ -965,17 +957,17 @@ function Review({
                       detail.history?.some(
                         (policy) => policy.revision === selectedRevision,
                       )
-                        ? `Viewing saved revision ${selectedRevision} and earlier. Current workspace revision: ${detail.pool.revision}.`
-                        : "The referenced saved revision is unavailable. Review the revisions listed below."}
+                        ? uiF("Viewing saved revision {0} and earlier. Current workspace revision: {1}.", [selectedRevision, detail.pool.revision])
+                        : uiT("The referenced saved revision is unavailable. Review the revisions listed below.")}
                     </p>
                   )}
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Revision</TableHead>
-                        <TableHead>State</TableHead>
-                        <TableHead>Models</TableHead>
-                        <TableHead>Review</TableHead>
+                        <TableHead>{uiT("Revision")}</TableHead>
+                        <TableHead>{uiT("State")}</TableHead>
+                        <TableHead>{uiT("Models")}</TableHead>
+                        <TableHead>{uiT("Review")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -983,7 +975,7 @@ function Review({
                         <TableRow key={policy.revision}>
                           <TableCell>{policy.revision}</TableCell>
                           <TableCell>
-                            {policy.enabled ? "Enabled" : "Disabled"}
+                            {policy.enabled ? uiT("Enabled") : uiT("Disabled")}
                           </TableCell>
                           <TableCell>
                             {policy.candidates
@@ -999,7 +991,7 @@ function Review({
                                 setInspectedRevision(policy);
                               }}
                             >
-                              Review revision {policy.revision}
+                              {uiT("Review revision")}{" "}{policy.revision}
                             </Button>
                           </TableCell>{" "}
                         </TableRow>
@@ -1013,23 +1005,20 @@ function Review({
                         disabled={loadingMore}
                         onClick={() => void loadEarlierHistory()}
                       >
-                        Load earlier revisions
-                      </Button>
+                        {uiT("Load earlier revisions")}</Button>
                     )}
                   </div>
                   <p className="mt-3 text-sm text-muted-foreground">
-                    Immutable revisions. Ask your agent to compare or restore a
-                    revision using the current expected revision.
-                  </p>
+                    {uiT("Immutable revisions. Ask your agent to compare or restore a revision using the current expected revision.")}</p>
                 </TabsContent>
                 <TabsContent value="executions">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Pool revision</TableHead>
-                        <TableHead>Selected model</TableHead>
-                        <TableHead>HTTP response</TableHead>
+                        <TableHead>{uiT("Time")}</TableHead>
+                        <TableHead>{uiT("Pool revision")}</TableHead>
+                        <TableHead>{uiT("Selected model")}</TableHead>
+                        <TableHead>{uiT("HTTP response")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1041,7 +1030,7 @@ function Review({
                             {safeText(selection.selected_model)}
                           </TableCell>
                           <TableCell>
-                            {selection.response_status ?? "Unavailable"}
+                            {selection.response_status ?? uiT("Unavailable")}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1049,20 +1038,16 @@ function Review({
                   </Table>
                   {!detail.selections?.length && (
                     <p className="py-6 text-muted-foreground">
-                      No recorded selections yet.
-                    </p>
+                      {uiT("No recorded selections yet.")}</p>
                   )}
                   <Button variant="link" asChild>
                     <Link
                       to={`/workspaces/${encodeURIComponent(routeWorkspace)}/executions`}
                     >
-                      Inspect request logs
-                    </Link>
+                      {uiT("Inspect request logs")}</Link>
                   </Button>
                   <p className="text-sm text-muted-foreground">
-                    Latest 100 selections. An HTTP response does not establish
-                    terminal generation or task acceptance.
-                  </p>
+                    {uiT("Latest 100 selections. An HTTP response does not establish terminal generation or task acceptance.")}</p>
                 </TabsContent>
               </Tabs>
             )}
@@ -1078,65 +1063,58 @@ function Review({
                 }
               >
                 <TabsList variant="line">
-                  <TabsTrigger value="configuration">Configuration</TabsTrigger>
-                  <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
+                  <TabsTrigger value="configuration">{uiT("Configuration")}</TabsTrigger>
+                  <TabsTrigger value="deliveries">{uiT("Deliveries")}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="configuration">
                   <dl className="grid gap-5 py-5 sm:grid-cols-2">
                     <div>
                       <dt className="text-sm text-muted-foreground">
-                        Destination
-                      </dt>
+                        {uiT("Destination")}</dt>
                       <dd className="mt-1 break-all">
                         {safeText(detail.subscription.data.endpoint)}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground">
-                        Selected events
-                      </dt>
+                        {uiT("Selected events")}</dt>
                       <dd className="mt-1">
                         {detail.subscription.data.event_types
-                          .map(eventLabel)
+                          .map(value => uiT(eventLabel(value)))
                           .join(", ")}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground">
-                        Configuration
-                      </dt>
+                        {uiT("Configuration")}</dt>
                       <dd className="mt-1">
                         {detail.subscription.data.enabled
-                          ? "Enabled"
-                          : "Disabled"}
+                          ? uiT("Enabled")
+                          : uiT("Disabled")}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-sm text-muted-foreground">
-                        Current delivery authority
-                      </dt>
+                        {uiT("Current delivery authority")}</dt>
                       <dd className="mt-1">
                         {detail.subscription.authorization_active
-                          ? "Active"
-                          : "Missing or expired — ask your agent to reconnect and explicitly update this subscription."}
+                          ? uiT("Active")
+                          : uiT("Missing or expired — ask your agent to reconnect and explicitly update this subscription.")}
                       </dd>
                     </div>
                   </dl>
                   <p className="text-sm text-muted-foreground">
-                    Signing credentials stay private. Enabled configuration is
-                    not proof of receiver acknowledgement or an active
-                    coding-agent session.
-                  </p>
+                    {uiT("Signing credentials stay private. Enabled configuration is not proof of receiver acknowledgement or an active coding-agent session.")}</p>
                 </TabsContent>
                 <TabsContent value="deliveries">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Updated</TableHead>
-                        <TableHead>Delivery</TableHead>
-                        <TableHead>Attempts</TableHead>
+                        <TableHead>{uiT("Updated")}</TableHead>
+                        <TableHead>{uiT("Delivery")}</TableHead>
+                        <TableHead>{uiT("Attempts")}</TableHead>
                         <TableHead>HTTP</TableHead>
-                        <TableHead>Next action</TableHead>
+                        <TableHead>{uiT("Next action")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1144,22 +1122,22 @@ function Review({
                         <TableRow key={delivery.id}>
                           <TableCell>{stamp(delivery.updated_at)}</TableCell>
                           <TableCell>
-                            {deliveryLabel[delivery.state]}
+                            {uiT(deliveryLabel[delivery.state])}
                             {delivery.failure_kind
-                              ? ` · ${failureLabel[delivery.failure_kind] ?? "Unavailable"}`
+                              ? ` · ${uiT(failureLabel[delivery.failure_kind] ?? "Unavailable")}`
                               : ""}
                           </TableCell>
                           <TableCell>{delivery.attempts}</TableCell>
                           <TableCell>
-                            {delivery.response_status ?? "Unavailable"}
+                            {delivery.response_status ?? uiT("Unavailable")}
                           </TableCell>
                           <TableCell>
                             {delivery.next_attempt_at
-                              ? `Retry ${stamp(delivery.next_attempt_at)}`
+                              ? uiF("Retry {0}", [stamp(delivery.next_attempt_at)])
                               : delivery.lease_expired
-                                ? "Awaiting lease recovery"
+                                ? uiT("Awaiting lease recovery")
                                 : delivery.state === "failed"
-                                  ? "Ask your agent to reconcile the event log"
+                                  ? uiT("Ask your agent to reconcile the event log")
                                   : "—"}
                           </TableCell>
                         </TableRow>
@@ -1168,16 +1146,10 @@ function Review({
                   </Table>
                   {!detail.deliveries?.length && (
                     <p className="py-6 text-muted-foreground">
-                      No delivery evidence yet. Ask your agent to queue a
-                      targeted subscription test.
-                    </p>
+                      {uiT("No delivery evidence yet. Ask your agent to queue a targeted subscription test.")}</p>
                   )}
                   <p className="mt-3 text-sm text-muted-foreground">
-                    Failed deliveries require your agent to reconcile the event
-                    log and check the receiver. Latest 100 deliveries. A
-                    receiver’s 2xx acknowledges receipt, not processing or task
-                    success.
-                  </p>
+                    {uiT("Failed deliveries require your agent to reconcile the event log and check the receiver. Latest 100 deliveries. A receiver’s 2xx acknowledges receipt, not processing or task success.")}</p>
                 </TabsContent>
               </Tabs>
             )}
@@ -1193,18 +1165,18 @@ function Review({
                 }
               >
                 <TabsList variant="line">
-                  <TabsTrigger value="runs">Runs</TabsTrigger>
-                  <TabsTrigger value="criteria">Criteria</TabsTrigger>
+                  <TabsTrigger value="runs">{uiT("Runs")}</TabsTrigger>
+                  <TabsTrigger value="criteria">{uiT("Criteria")}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="runs">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Run</TableHead>
-                        <TableHead>Evaluator</TableHead>
-                        <TableHead>Accepted</TableHead>
-                        <TableHead>Unknown charges</TableHead>
-                        <TableHead>Captured</TableHead>
+                        <TableHead>{uiT("Run")}</TableHead>
+                        <TableHead>{uiT("Evaluator")}</TableHead>
+                        <TableHead>{uiT("Accepted")}</TableHead>
+                        <TableHead>{uiT("Unknown charges")}</TableHead>
+                        <TableHead>{uiT("Captured")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1227,8 +1199,7 @@ function Review({
                             {receipt.summary.samples}
                           </TableCell>
                           <TableCell>
-                            {receipt.summary.unknown_charge_attempts} attempts
-                          </TableCell>
+                            {receipt.summary.unknown_charge_attempts}{" "}{uiT("attempts")}</TableCell>
                           <TableCell>{stamp(receipt.created_at)}</TableCell>
                         </TableRow>
                       ))}
@@ -1236,43 +1207,37 @@ function Review({
                   </Table>
                   {!detail.runs?.length && (
                     <p className="py-6 text-muted-foreground">
-                      No evaluation runs yet. Ask your agent to run an
-                      evaluation within your approved budget.
-                    </p>
+                      {uiT("No evaluation runs yet. Ask your agent to run an evaluation within your approved budget.")}</p>
                   )}
                   {next && (
                     <Button
                       variant="outline"
                       onClick={() => setQuery({ after: next })}
                     >
-                      Next page
-                    </Button>
+                      {uiT("Next page")}</Button>
                   )}
                   {after && (
                     <Button variant="outline" onClick={() => setQuery({})}>
-                      First page
-                    </Button>
+                      {uiT("First page")}</Button>
                   )}
                 </TabsContent>
                 <TabsContent value="criteria" className="space-y-5 py-5">
                   <div>
-                    <h2 className="font-medium">Task</h2>
+                    <h2 className="font-medium">{uiT("Task")}</h2>
                     <p className="mt-2 whitespace-pre-wrap">
                       {safeText(detail.definition.task)}
                     </p>
                   </div>
                   <div>
-                    <h2 className="font-medium">Acceptance rubric</h2>
+                    <h2 className="font-medium">{uiT("Acceptance rubric")}</h2>
                     <p className="mt-2 whitespace-pre-wrap">
                       {safeText(detail.definition.rubric)}
                     </p>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {detail.definition.protocol} ·{" "}
-                    {detail.definition.samples.length} named samples · revision{" "}
-                    {detail.definition.revision}. Runs retain their pinned
-                    definition.
-                  </p>
+                    {uiT(detail.definition.protocol)} ·{" "}
+                    {detail.definition.samples.length}{" "}{uiT("named samples · revision")}{" "}
+                    {detail.definition.revision}{uiT(". Runs retain their pinned definition.")}</p>
                 </TabsContent>
               </Tabs>
             )}
@@ -1281,8 +1246,8 @@ function Review({
                 <p className="text-sm text-muted-foreground">
                   {safeText(detail.run.evaluator.name)} ·{" "}
                   {safeText(detail.run.evaluator.version)} ·{" "}
-                  {detail.run.evaluator.kind} judgment · captured{" "}
-                  {stamp(detail.run.capture.finished_at)} · definition revision{" "}
+                  {uiT(detail.run.evaluator.kind)}{" "}{uiT("judgment · captured")}{" "}
+                  {stamp(detail.run.capture.finished_at)}{" "}{uiT("· definition revision")}{" "}
                   {detail.run.evaluation_revision}
                 </p>
                 <Tabs
@@ -1296,19 +1261,19 @@ function Review({
                   }
                 >
                   <TabsList variant="line">
-                    <TabsTrigger value="results">Results</TabsTrigger>
-                    <TabsTrigger value="criteria">Criteria</TabsTrigger>
-                    <TabsTrigger value="comparison">Comparison</TabsTrigger>
+                    <TabsTrigger value="results">{uiT("Results")}</TabsTrigger>
+                    <TabsTrigger value="criteria">{uiT("Criteria")}</TabsTrigger>
+                    <TabsTrigger value="comparison">{uiT("Comparison")}</TabsTrigger>
                   </TabsList>
                   <TabsContent value="criteria" className="space-y-5 py-5">
                     <div>
-                      <h2 className="font-medium">Pinned task</h2>
+                      <h2 className="font-medium">{uiT("Pinned task")}</h2>
                       <p className="mt-2 whitespace-pre-wrap">
                         {safeText(detail.run.definition.task)}
                       </p>
                     </div>
                     <div>
-                      <h2 className="font-medium">Pinned acceptance rubric</h2>
+                      <h2 className="font-medium">{uiT("Pinned acceptance rubric")}</h2>
                       <p className="mt-2 whitespace-pre-wrap">
                         {safeText(detail.run.definition.rubric)}
                       </p>
@@ -1316,24 +1281,24 @@ function Review({
                   </TabsContent>
                   <TabsContent value="results" className="space-y-5">
                     <EvaluationMetrics summary={detail.run.summary} />
-                    <h2 className="font-medium">Sample results</h2>
+                    <h2 className="font-medium">{uiT("Sample results")}</h2>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Sample</TableHead>
-                          <TableHead>Input</TableHead>
-                          <TableHead>Judgment</TableHead>
-                          <TableHead>Evaluated model</TableHead>
-                          <TableHead>Duration</TableHead>
-                          <TableHead>Reason</TableHead>
+                          <TableHead>{uiT("Sample")}</TableHead>
+                          <TableHead>{uiT("Input")}</TableHead>
+                          <TableHead>{uiT("Judgment")}</TableHead>
+                          <TableHead>{uiT("Evaluated model")}</TableHead>
+                          <TableHead>{uiT("Duration")}</TableHead>
+                          <TableHead>{uiT("Reason")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {detail.run.results.map((result) => (
                           <TableRow key={result.sample}>
                             <TableCell>{safeText(result.sample)}</TableCell>
-                            <TableCell>{result.input_match}</TableCell>
-                            <TableCell>{result.judgment.verdict}</TableCell>
+                            <TableCell>{uiT(result.input_match)}</TableCell>
+                            <TableCell>{uiT(result.judgment.verdict)}</TableCell>
                             <TableCell>
                               {safeText(
                                 result.attempts.find(
@@ -1359,15 +1324,15 @@ function Review({
                                     className="mt-1 block max-w-64 whitespace-normal break-words text-sm text-muted-foreground hover:underline"
                                     to={`/workspaces/${encodeURIComponent(routeWorkspace)}/pools/${encodeURIComponent(policy.slug)}?tab=history&revision=${policy.revision}`}
                                   >
-                                    Policy {policy.slug} · revision{" "}
+                                    {uiT("Policy")}{" "}{policy.slug}{" "}{uiT("· revision")}{" "}
                                     {policy.revision}
                                   </Link>
                                 ))}
                             </TableCell>
                             <TableCell>
                               {result.duration_ms === null
-                                ? "Unavailable"
-                                : `${result.duration_ms} ms`}
+                                ? uiT("Unavailable")
+                                : uiF("{0} ms", [result.duration_ms])}
                             </TableCell>
                             <TableCell className="whitespace-normal">
                               {safeText(
@@ -1379,14 +1344,11 @@ function Review({
                       </TableBody>
                     </Table>
                     <p className="text-sm text-muted-foreground">
-                      Duration is the evaluated attempt only. Charge totals
-                      include all attempts in submitted operations. Unknown and
-                      owner-funded charges are not zero.
-                    </p>
+                      {uiT("Duration is the evaluated attempt only. Charge totals include all attempts in submitted operations. Unknown and owner-funded charges are not zero.")}</p>
                   </TabsContent>
                   <TabsContent value="comparison">
                     <div className="space-y-3 pt-5">
-                      <h2 className="font-medium">Compare with a baseline</h2>
+                      <h2 className="font-medium">{uiT("Compare with a baseline")}</h2>
                       <div className="flex flex-wrap items-center gap-2">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1430,15 +1392,13 @@ function Review({
                                   void loadMoreRuns();
                                 }}
                               >
-                                Load more runs
-                              </DropdownMenuItem>
+                                {uiT("Load more runs")}</DropdownMenuItem>
                             )}
                             {!detail.runs?.some(
                               (item) => item.slug !== run,
                             ) && (
                               <p className="px-3 py-2 text-sm text-muted-foreground">
-                                No other runs available
-                              </p>
+                                {uiT("No other runs available")}</p>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1447,39 +1407,28 @@ function Review({
                           disabled={!baseline || comparing}
                           onClick={() => void compare()}
                         >
-                          {comparing ? "Comparing…" : "Compare matched samples"}
+                          {comparing ? uiT("Comparing…") : uiT("Compare matched samples")}
                         </Button>
                       </div>
                       {comparison && (
                         <div aria-live="polite" className="space-y-3">
                           <p>
-                            {comparison.matched_verified_samples} verified
-                            matched samples ·{" "}
-                            {comparison.left_unmatched_samples} baseline
-                            unmatched · {comparison.right_unmatched_samples}{" "}
-                            current unmatched
-                          </p>
+                            {comparison.matched_verified_samples}{" "}{uiT("verified matched samples ·")}{" "}
+                            {comparison.left_unmatched_samples}{" "}{uiT("baseline unmatched ·")}{" "}{comparison.right_unmatched_samples}{" "}
+                            {uiT("current unmatched")}</p>
                           {!comparison.quality_comparable && (
                             <Alert>
                               <AlertDescription>
-                                Quality judgments are not directly comparable:
-                                check task, protocol, rubric, evaluator version
-                                and verified sample coverage.
-                              </AlertDescription>
+                                {uiT("Quality judgments are not directly comparable: check task, protocol, rubric, evaluator version and verified sample coverage.")}</AlertDescription>
                             </Alert>
                           )}
                           {comparison.shared_operations > 0 && (
                             <p className="text-sm text-muted-foreground">
-                              {comparison.shared_operations} shared operations.
-                              These are repeated judgments of the same
-                              execution, not independent trials.
-                            </p>
+                              {comparison.shared_operations}{" "}{uiT("shared operations. These are repeated judgments of the same execution, not independent trials.")}</p>
                           )}
                           <EvaluationComparisonTable comparison={comparison} />
                           <p className="text-sm text-muted-foreground">
-                            All submitted operation attempts are included.
-                            Unknown charges stay unknown; no winner is inferred.
-                          </p>
+                            {uiT("All submitted operation attempts are included. Unknown charges stay unknown; no winner is inferred.")}</p>
                         </div>
                       )}
                     </div>
@@ -1505,18 +1454,18 @@ function Review({
         >
           <DialogHeader className="pr-6">
             <DialogTitle className="break-words">
-              Revision {inspectedRevision?.revision} ·{" "}
+              {uiT("Revision")}{" "}{inspectedRevision?.revision} ·{" "}
               {inspectedRevision ? safeText(inspectedRevision.name) : ""}
             </DialogTitle>
             <DialogDescription>
-              Immutable saved configuration. Current workspace revision:{" "}
-              {detail.pool?.revision ?? "unavailable"}.
+              {uiT("Immutable saved configuration. Current workspace revision:")}{" "}
+              {detail.pool?.revision ?? uiT("unavailable")}.
             </DialogDescription>
           </DialogHeader>
           {inspectedRevision && detail.pool && (
             <>
               <p className="text-sm text-muted-foreground">
-                Changed compared with current revision:{" "}
+                {uiT("Changed compared with current revision:")}{" "}
                 {(
                   [
                     "name",
@@ -1543,10 +1492,8 @@ function Review({
                         rules: "Routing rules",
                       })[field],
                   )
-                  .join(", ") || "No policy differences"}
-                . Restoring requires a new revision through your authorized
-                agent.
-              </p>
+                  .join(", ") || uiT("No policy differences")}
+                {uiT(". Restoring requires a new revision through your authorized agent.")}</p>
               <PoolPolicyView pool={inspectedRevision} />
             </>
           )}

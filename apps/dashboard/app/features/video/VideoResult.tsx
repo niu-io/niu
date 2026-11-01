@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import {Link} from 'react-router';
 import {useEffect,useRef,useState} from 'react';
 import {FolderDown,RefreshCw,Check,MoreHorizontal,Download,Film,LoaderCircle,Trash2} from 'lucide-react';
@@ -9,6 +10,7 @@ import {readVideoResultResponse,videoResultError} from './result';
 import {NiuAdminClient,type TenantScope,type GenerationTask} from '@niu-io/sdk/admin';
 
 export default function VideoResult({client,scope,task,keyId,canWrite,libraryHref}:{client:NiuAdminClient;scope:TenantScope;task:string;keyId?:string;canWrite:boolean;libraryHref?:string}) {
+  const { t: uiT } = useUILocale();
   const authority=Boolean(canWrite&&keyId);
   type OutputKind='video'|'last_frame';
   const [saving,setSaving]=useState<{kind:OutputKind;checking:boolean}|null>(null);
@@ -110,12 +112,12 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
     const artifact=artifacts.find(item=>item.kind===kind);
     if(metadataContext.current?.client!==client||metadataContext.current.identity!==contextIdentity||!artifact||(!canLoad(kind)&&!artifact.capture&&!uncertain[kind]))return null;
     const capture=artifact.capture;
-    const label=kind==='video'?'Save to workspace':'Save last frame';
-    if(capture?.availability==='deleted')return <DropdownMenuItem key={kind} disabled>Workspace copy deleted</DropdownMenuItem>;
-    if(capture?.status==='stored')return libraryHref?<DropdownMenuItem key={kind} asChild><Link to={libraryHref}><Check/>View in workspace library</Link></DropdownMenuItem>:<DropdownMenuItem key={kind} disabled><Check/>Saved to workspace</DropdownMenuItem>;
+    const label=kind==='video'?uiT("Save to workspace"):uiT("Save last frame");
+    if(capture?.availability==='deleted')return <DropdownMenuItem key={kind} disabled>{uiT("Workspace copy deleted")}</DropdownMenuItem>;
+    if(capture?.status==='stored')return libraryHref?<DropdownMenuItem key={kind} asChild><Link to={libraryHref}><Check/>{uiT("View in workspace library")}</Link></DropdownMenuItem>:<DropdownMenuItem key={kind} disabled><Check/>{uiT("Saved to workspace")}</DropdownMenuItem>;
     const checkOnly=Boolean(uncertain[kind]||capture?.status==='preparing'||(capture&&saveRequests.current[kind]?.id!==capture.id));
-    return <DropdownMenuItem key={kind} disabled={(!canWrite&&!checkOnly)||busy||Boolean(saving)} onSelect={()=>void save(kind,checkOnly)} aria-label={`${checkOnly?'Check save status':label}${kind==='last_frame'?' for last frame':''}`}>
-      {checkOnly?<RefreshCw/>:<FolderDown/>}{saving?.kind===kind?(saving.checking?'Checking…':'Saving…'):checkOnly?'Check save status':capture?.status==='failed'?'Retry save':label}
+    return <DropdownMenuItem key={kind} disabled={(!canWrite&&!checkOnly)||busy||Boolean(saving)} onSelect={()=>void save(kind,checkOnly)} aria-label={`${checkOnly?uiT("Check save status"):label}${kind==='last_frame'?uiT("for last frame"):''}`}>
+      {checkOnly?<RefreshCw/>:<FolderDown/>}{saving?.kind===kind?(saving.checking?uiT("Checking…"):uiT("Saving…")):checkOnly?uiT("Check save status"):capture?.status==='failed'?uiT("Retry save"):label}
     </DropdownMenuItem>;
   }
   const retained=(kind:'video'|'last_frame')=>artifacts.find(item=>item.kind===kind)?.capture?.availability==='retained';
@@ -127,24 +129,24 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
     void load('video');
   },[busy,availability,artifacts,contextIdentity]);
   return <div className="video-output">
-    {preview ? (preview.kind === 'video' ? <video className="video-preview" controls playsInline preload="metadata" src={preview.url} aria-label="Generated video" onError={()=>setError('This browser could not play the video. You can download the file.')}/> : <img className="video-preview" src={preview.url} alt="Generated last frame"/>) : <div className="video-artifact-placeholder">
-      {busy||!availability&&!error ? <><LoaderCircle className="animate-spin"/><p role="status">Loading video…</p></> : <><Film/><h3>{deleted||availability?.video==='deleted'?'Video removed':availability?.video==='expired'?'Video preview expired':'Video preview unavailable'}</h3><p>The generation completed, but its video is not currently available to view.</p>
-      {authority&&availability&&<Button variant="secondary" disabled={busy} onClick={()=>void load('video',true)}><RefreshCw/>Restore video</Button>}
-      {!authority&&availability&&<p>A retained workspace copy or access to the original task is needed to restore this video.</p>}
-      {!availability&&error&&<Button variant="secondary" onClick={()=>{setError('');setMetadataRevision(value=>value+1);}}>Try again</Button>}</>}
+    {preview ? (preview.kind === 'video' ? <video className="video-preview" controls playsInline preload="metadata" src={preview.url} aria-label={uiT("Generated video")} onError={()=>setError('This browser could not play the video. You can download the file.')}/> : <img className="video-preview" src={preview.url} alt={uiT("Generated last frame")}/>) : <div className="video-artifact-placeholder">
+      {busy||!availability&&!error ? <><LoaderCircle className="animate-spin"/><p role="status">{uiT("Loading video…")}</p></> : <><Film/><h3>{deleted||availability?.video==='deleted'?uiT("Video removed"):availability?.video==='expired'?uiT("Video preview expired"):uiT("Video preview unavailable")}</h3><p>{uiT("The generation completed, but its video is not currently available to view.")}</p>
+      {authority&&availability&&<Button variant="secondary" disabled={busy} onClick={()=>void load('video',true)}><RefreshCw/>{uiT("Restore video")}</Button>}
+      {!authority&&availability&&<p>{uiT("A retained workspace copy or access to the original task is needed to restore this video.")}</p>}
+      {!availability&&error&&<Button variant="secondary" onClick={()=>{setError('');setMetadataRevision(value=>value+1);}}>{uiT("Try again")}</Button>}</>}
     </div>}
     {error&&<p role="alert" className="video-error">{error}</p>}
     {saveError&&<p role="alert" className="video-error">{saveError}</p>}
     <div className="video-artifact-toolbar">
-      {preview&&<Button asChild variant="ghost" size="sm"><a href={preview.url} download={`${preview.kind==='video'?'video':'last-frame'}.${extension}`}><Download/>Download</a></Button>}
-      {canLoad('last_frame')&&<Button variant="ghost" size="sm" disabled={busy} onClick={()=>void load(preview?.kind==='last_frame'?'video':'last_frame')}>{preview?.kind==='last_frame'?'Video':'Last frame'}</Button>}
-      {(authority||canLoad('video')||artifacts.some(artifact=>artifact.capture))&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Video actions" disabled={busy||Boolean(saving)}><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
-        {canLoad('video')&&<DropdownMenuItem onSelect={()=>void load('video')}><RefreshCw/>Reload preview</DropdownMenuItem>}
-        {authority&&<DropdownMenuItem onSelect={()=>void load('video',true)}><RefreshCw/>Restore from original task</DropdownMenuItem>}
+      {preview&&<Button asChild variant="ghost" size="sm"><a href={preview.url} download={`${preview.kind==='video'?'video':'last-frame'}.${extension}`}><Download/>{uiT("Download")}</a></Button>}
+      {canLoad('last_frame')&&<Button variant="ghost" size="sm" disabled={busy} onClick={()=>void load(preview?.kind==='last_frame'?'video':'last_frame')}>{preview?.kind==='last_frame'?'Video':uiT("Last frame")}</Button>}
+      {(authority||canLoad('video')||artifacts.some(artifact=>artifact.capture))&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={uiT("Video actions")} disabled={busy||Boolean(saving)}><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+        {canLoad('video')&&<DropdownMenuItem onSelect={()=>void load('video')}><RefreshCw/>{uiT("Reload preview")}</DropdownMenuItem>}
+        {authority&&<DropdownMenuItem onSelect={()=>void load('video',true)}><RefreshCw/>{uiT("Restore from original task")}</DropdownMenuItem>}
         {saveAction('video')}{saveAction('last_frame')}
-        {authority&&<><DropdownMenuSeparator/><DropdownMenuItem variant="destructive" onSelect={()=>setConfirm(true)}><Trash2/>Delete saved results</DropdownMenuItem></>}
+        {authority&&<><DropdownMenuSeparator/><DropdownMenuItem variant="destructive" onSelect={()=>setConfirm(true)}><Trash2/>{uiT("Delete saved results")}</DropdownMenuItem></>}
       </DropdownMenuContent></DropdownMenu>}
     </div>
-    {authority&&<Dialog open={confirm} onOpenChange={setConfirm}><DialogContent><DialogHeader><DialogTitle>Delete saved results?</DialogTitle><DialogDescription>Removes saved video and last-frame references permanently. Status, billing and retained workspace copies are preserved.</DialogDescription></DialogHeader><DialogFooter><DialogClose asChild><Button variant="outline" disabled={busy}>Cancel</Button></DialogClose><Button variant="destructive" onClick={()=>void remove()} disabled={busy}>{busy?'Deleting…':'Delete results'}</Button></DialogFooter></DialogContent></Dialog>}
+    {authority&&<Dialog open={confirm} onOpenChange={setConfirm}><DialogContent><DialogHeader><DialogTitle>{uiT("Delete saved results?")}</DialogTitle><DialogDescription>{uiT("Removes saved video and last-frame references permanently. Status, billing and retained workspace copies are preserved.")}</DialogDescription></DialogHeader><DialogFooter><DialogClose asChild><Button variant="outline" disabled={busy}>{uiT("Cancel")}</Button></DialogClose><Button variant="destructive" onClick={()=>void remove()} disabled={busy}>{busy?uiT("Deleting…"):uiT("Delete results")}</Button></DialogFooter></DialogContent></Dialog>}
   </div>;
 }

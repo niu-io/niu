@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,7 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
   onRetryCatalog?: () => void;
   onSave: (input: ModelWrite) => Promise<void>;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const personal = ownerFunded || model?.owner_funded === true;
   const [alias, setAlias] = useState(model?.alias ?? initialAlias);
   const [upstreamModel, setUpstreamModel] = useState(model?.upstream_model ?? '');
@@ -97,10 +100,10 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
 
   return <form className="model-mapping-form" onSubmit={event => void submit(event).catch(reason => setSaveError(reason instanceof Error ? reason.message : 'Unable to save this model route.'))}>
     {saveError && <p role="alert" className="error-text">{saveError}</p>}
-    <div className="model-form-heading"><div><h3>{model ? 'Edit model' : 'Add model'}</h3><p>Map the name clients use to the provider’s upstream model ID.</p></div></div>
+    <div className="model-form-heading"><div><h3>{model ? uiT("Edit model") : uiT("Add model")}</h3><p>{uiT("Map the name clients use to the provider’s upstream model ID.")}</p></div></div>
     <div className="model-form-fields">
       <div className="min-w-0 space-y-2">
-        <Label htmlFor="model-upstream">Upstream model</Label>
+        <Label htmlFor="model-upstream">{uiT("Upstream model")}</Label>
         <DropdownMenu open={catalogOpen} onOpenChange={open => {
           setCatalogOpen(open);
           if (open) {
@@ -110,18 +113,18 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
         }}>
           <DropdownMenuTrigger asChild>
             <Button id="model-upstream" type="button" variant="outline" disabled={disabled} className="w-full min-w-0 justify-between font-normal">
-              <span className="truncate">{upstreamModel || 'Choose model or enter an ID'}</span><ChevronDown size={16} className="shrink-0" aria-hidden="true" />
+              <span className="truncate">{upstreamModel || uiT("Choose model or enter an ID")}</span><ChevronDown size={16} className="shrink-0" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent onFocusCapture={event => { if (event.target === event.currentTarget) catalogSearch.current?.focus(); }} align="start" collisionPadding={12} className="w-[max(300px,var(--radix-dropdown-menu-trigger-width))] max-w-[calc(100vw-24px)]">
             <div className="p-1" onKeyDown={event => { if (!['Escape', 'Tab', 'ArrowDown', 'ArrowUp'].includes(event.key)) event.stopPropagation(); }}>
-              <Input ref={catalogSearch} aria-label="Search provider models" autoFocus maxLength={200} value={catalogQuery} onChange={event => setCatalogQuery(event.target.value)} onKeyDown={event => {
+              <Input ref={catalogSearch} aria-label={uiT("Search provider models")} autoFocus maxLength={200} value={catalogQuery} onChange={event => setCatalogQuery(event.target.value)} onKeyDown={event => {
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                   event.preventDefault();
                   const items = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]');
                   if (items?.length) items[event.key === 'ArrowDown' ? 0 : items.length - 1].focus();
                 }
-              }} placeholder={catalogLoading ? 'Loading provider models…' : 'Search models or enter an ID'} />
+              }} placeholder={catalogLoading ? uiT("Loading provider models…") : uiT("Search models or enter an ID")} />
             </div>
             <DropdownMenuRadioGroup className="max-h-64 overflow-y-auto" value={upstreamModel} onValueChange={id => { const item = catalog.find(item => item.id === id); if (item) chooseProviderModel(item); }}>
               {visibleCatalog.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>
@@ -134,38 +137,37 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
                 setUpstreamModel(catalogQuery.trim());
                 setCapabilities(current => ({ ...current, catalog: undefined }));
                 setCatalogOpen(false);
-              }}><span className="min-w-0 truncate">Use model ID “{catalogQuery.trim()}”</span></DropdownMenuItem>
+              }}><span className="min-w-0 truncate">{uiT("Use model ID “")}{catalogQuery.trim()}”</span></DropdownMenuItem>
             </>}
-            {visibleCatalog.length === 0 && <p role="status" className="p-2 text-sm text-muted-foreground">{catalogLoading ? 'Loading provider models…' : catalogError ? 'Catalog unavailable. Enter a model ID above.' : 'No matching models. You can enter a model ID above.'}</p>}
+            {visibleCatalog.length === 0 && <p role="status" className="p-2 text-sm text-muted-foreground">{catalogLoading ? uiT("Loading provider models…") : catalogError ? uiT("Catalog unavailable. Enter a model ID above.") : uiT("No matching models. You can enter a model ID above.")}</p>}
           </DropdownMenuContent>
         </DropdownMenu>
-        {!catalogLoading && !catalogError && catalog.length > 0 && <p className="text-xs text-muted-foreground">{catalog.length} {catalog.length === 1 ? 'model' : 'models'} reported by the upstream catalog</p>}
-        {catalogError && <div className="grid justify-items-start gap-2 text-sm text-muted-foreground" role="status">The Provider catalog could not be loaded: {catalogError} You can still enter an upstream model ID.{onRetryCatalog && <Button type="button" variant="outline" size="sm" disabled={disabled || catalogLoading} onClick={onRetryCatalog}>Retry model catalog</Button>}</div>}
+        {!catalogLoading && !catalogError && catalog.length > 0 && <p className="text-xs text-muted-foreground">{catalog.length} {catalog.length === 1 ? uiT("model") : uiT("models")}{" "}{uiT("reported by the upstream catalog")}</p>}
+        {catalogError && <div className="grid justify-items-start gap-2 text-sm text-muted-foreground" role="status">{uiT("The Provider catalog could not be loaded:")}{" "}{catalogError}{" "}{uiT("You can still enter an upstream model ID.")}{onRetryCatalog && <Button type="button" variant="outline" size="sm" disabled={disabled || catalogLoading} onClick={onRetryCatalog}>{uiT("Retry model catalog")}</Button>}</div>}
       </div>
-      <Label htmlFor="model-alias">Niu model alias
-        <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder="e.g. fast or team/model" required disabled={disabled || Boolean(model)} />
+      <Label htmlFor="model-alias">{uiT("Niu model alias")}<Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder={uiT("e.g. fast or team/model")} required disabled={disabled || Boolean(model)} />
       </Label>
 
     </div>
     {capabilities.catalog && <div className="space-y-1 text-sm text-muted-foreground">
-      <h3 className="font-medium text-foreground">Catalog metadata to save</h3>
+      <h3 className="font-medium text-foreground">{uiT("Catalog metadata to save")}</h3>
       {capabilities.catalog.name && <p>{capabilities.catalog.name}</p>}
-      <p>Context: {capabilities.catalog.context_length?.toLocaleString() ?? 'Not reported'} · Maximum output: {capabilities.catalog.max_completion_tokens?.toLocaleString() ?? 'Not reported'}</p>
-      <p>Inputs: {capabilities.catalog.input_modalities?.join(', ') || 'Not reported'} · Outputs: {capabilities.catalog.output_modalities?.join(', ') || 'Not reported'}</p>
-      {model && JSON.stringify(model.capabilities.catalog) !== JSON.stringify(capabilities.catalog) && <p>This replaces the saved catalog metadata for this route. Existing purchase rates and customer prices are preserved.</p>}
+      <p>{uiT("Context:")}{" "}{capabilities.catalog.context_length?.toLocaleString(readUILocale()) ?? uiT("Not reported")}{" "}{uiT("· Maximum output:")}{" "}{capabilities.catalog.max_completion_tokens?.toLocaleString(readUILocale()) ?? uiT("Not reported")}</p>
+      <p>{uiT("Inputs:")}{" "}{capabilities.catalog.input_modalities?.join(', ') || uiT("Not reported")}{" "}{uiT("· Outputs:")}{" "}{capabilities.catalog.output_modalities?.join(', ') || uiT("Not reported")}</p>
+      {model && JSON.stringify(model.capabilities.catalog) !== JSON.stringify(capabilities.catalog) && <p>{uiT("This replaces the saved catalog metadata for this route. Existing purchase rates and customer prices are preserved.")}</p>}
     </div>}
     <div className="model-route-switches">
-      <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>Enabled for inference</strong><small>Disabled mappings remain in the directory.</small></span></Label>
-      {personal ? <p className="text-sm text-muted-foreground">Private model. Available only to the account that owns this API key.</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>Show in public catalog</strong><small>Publish this alias in the unauthenticated model list.</small></span></Label>}
+      <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>{uiT("Enabled for inference")}</strong><small>{uiT("Disabled mappings remain in the directory.")}</small></span></Label>
+      {personal ? <p className="text-sm text-muted-foreground">{uiT("Private model. Available only to the account that owns this API key.")}</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>{uiT("Show in public catalog")}</strong><small>{uiT("Publish this alias in the unauthenticated model list.")}</small></span></Label>}
     </div>
     <div className="grid gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Video configuration</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? `Configured · ${capabilities.video_schema.channel}` : 'No video schema configured'}</p></div><Button type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? 'Edit video configuration' : 'Configure video'}</Button></div>
-      {capabilities.video_schema && <p className="text-sm text-muted-foreground">Saving changes invalidates affected offer qualification. Rates and live capability reviews remain separate.</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
+      {capabilities.video_schema && <p className="text-sm text-muted-foreground">{uiT("Saving changes invalidates affected offer qualification. Rates and live capability reviews remain separate.")}</p>}
     </div>
     {videoEditing && <VideoSchemaEditor modelAlias={alias.trim()} upstreamModel={upstreamModel.trim()} schema={capabilities.video_schema} onClose={() => setVideoEditing(false)} onApply={schema => { setCapabilities(current => { const next = {...current}; if (schema) next.video_schema = schema; else delete next.video_schema; return next; }); setVideoEditing(false); }} />}
     <fieldset className="model-capabilities" disabled={disabled}>
-      <legend>Optional capabilities</legend>
-      <p>These declarations are off by default. Enable only after checking the selected upstream model and endpoint.</p>
+      <legend>{uiT("Optional capabilities")}</legend>
+      <p>{uiT("These declarations are off by default. Enable only after checking the selected upstream model and endpoint.")}</p>
       <div className="model-capability-grid">
         {capabilityChoices.map(choice => {
           const dependent = choice.key === 'supports_streaming_tool_calls' && !capabilities.supports_tool_calls
@@ -178,10 +180,10 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
       </div>
     </fieldset>
     <div className="model-form-footer">
-      <span>{model ? `Revision ${model.revision} · alias remains stable for existing clients` : 'Pricing remains unset until it is configured separately.'}</span>
+      <span>{model ? uiF("Revision {0} · alias remains stable for existing clients", [model.revision]) : uiT("Pricing remains unset until it is configured separately.")}</span>
       <div>
-        {model && <Button type="button" variant="ghost" disabled={disabled} onClick={onCancel}>Cancel</Button>}
-        <Button type="submit" disabled={disabled || !alias.trim() || !upstreamModel.trim()}>{disabled ? 'Saving…' : model ? 'Save changes' : 'Add model'}</Button>
+        {model && <Button type="button" variant="ghost" disabled={disabled} onClick={onCancel}>{uiT("Cancel")}</Button>}
+        <Button type="submit" disabled={disabled || !alias.trim() || !upstreamModel.trim()}>{disabled ? uiT("Saving…") : model ? uiT("Save changes") : uiT("Add model")}</Button>
       </div>
     </div>
   </form>;

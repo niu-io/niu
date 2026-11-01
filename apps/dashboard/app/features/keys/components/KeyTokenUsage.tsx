@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
 import { IconRefresh } from '@tabler/icons-react';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
@@ -31,6 +33,7 @@ export default function KeyTokenUsage(props: { token: string; endpoint: string }
   return <UsageWindow key={`${props.token}:${props.endpoint}`} {...props} />;
 }
 function UsageWindow({ token, endpoint }: { token: string; endpoint: string }) {
+  const { t: uiT } = useUILocale();
   const usagePath = `${endpoint}/token-usage-window`;
   const initialUsage = readCachedUsage(token, usagePath);
   const [usage, setUsage] = useState<KeyTokenUsageWindow | null>(() => initialUsage);
@@ -67,27 +70,27 @@ function UsageWindow({ token, endpoint }: { token: string; endpoint: string }) {
     return () => controller.abort();
   }, [token, usagePath, reload]);
   const metrics = usage ? [
-    ['Requests', usage.requests.toLocaleString()],
-    ['Total tokens', usage.unknown_usage_requests > 0 ? 'Unknown' : (BigInt(usage.known_prompt_tokens) + BigInt(usage.known_completion_tokens)).toLocaleString()],
-    ['Known input', BigInt(usage.known_prompt_tokens).toLocaleString()],
-    ['Known output', BigInt(usage.known_completion_tokens).toLocaleString()],
+    ['Requests', usage.requests.toLocaleString(readUILocale())],
+    ['Total tokens', usage.unknown_usage_requests > 0 ? 'Unknown' : (BigInt(usage.known_prompt_tokens) + BigInt(usage.known_completion_tokens)).toLocaleString(readUILocale())],
+    ['Known input', BigInt(usage.known_prompt_tokens).toLocaleString(readUILocale())],
+    ['Known output', BigInt(usage.known_completion_tokens).toLocaleString(readUILocale())],
   ] : [];
-  return <section className="pt-4" aria-label="Recent token usage">
+  return <section className="pt-4" aria-label={uiT("Recent token usage")}>
     <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0"><h3 className="text-sm font-medium">Recent token usage</h3>
-        {usage && <p className="mt-1 text-xs text-muted-foreground">60 seconds ending <time dateTime={usage.window_end}>{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(usage.window_end))}</time></p>}
+      <div className="min-w-0"><h3 className="text-sm font-medium">{uiT("Recent token usage")}</h3>
+        {usage && <p className="mt-1 text-xs text-muted-foreground">{uiT("60 seconds ending")}{" "}<time dateTime={usage.window_end}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(usage.window_end))}</time></p>}
       </div>
-      <Button type="button" variant={error ? 'outline' : 'ghost'} size={error ? 'sm' : 'icon'} disabled={loading} aria-label={error ? 'Retry token usage' : 'Refresh 60-second token usage'} onClick={() => {invalidateQueries(k => k === `${token || 'public'}::${usagePath}`);setUsage(null);setLoading(true);setReload(current => current + 1);}}>
-        {error ? 'Retry' : <IconRefresh size={16} aria-hidden="true" />}
+      <Button type="button" variant={error ? 'outline' : 'ghost'} size={error ? 'sm' : 'icon'} disabled={loading} aria-label={error ? uiT("Retry token usage") : uiT("Refresh 60-second token usage")} onClick={() => {invalidateQueries(k => k === `${token || 'public'}::${usagePath}`);setUsage(null);setLoading(true);setReload(current => current + 1);}}>
+        {error ? uiT("Retry") : <IconRefresh size={16} aria-hidden="true" />}
       </Button>
     </div>
-    {loading ? <div className="mt-3"><MetricStripSkeleton count={4} label="Loading token usage…" /></div>
-      : error ? <p role="alert" className="mt-3 text-sm text-destructive">Token usage unavailable. {error}</p>
+    {loading ? <div className="mt-3"><MetricStripSkeleton count={4} label={uiT("Loading token usage…")} /></div>
+      : error ? <p role="alert" className="mt-3 text-sm text-destructive">{uiT("Token usage unavailable.")}{" "}{error}</p>
       : usage && <>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">{metrics.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{value}</dd></div>)}</dl>
-        {usage.unknown_usage_requests > 0 && <p className="mt-3 text-xs text-muted-foreground">{usage.unknown_usage_requests.toLocaleString()} {usage.unknown_usage_requests === 1 ? 'request has' : 'requests have'} no complete reported token usage. Known subtotals exclude these requests.</p>}
-        {usage.requests === 0 && <p className="mt-3 text-xs text-muted-foreground">No requests dispatched in this window.</p>}
-        <p className="mt-3 text-xs text-muted-foreground">Dispatches in this window; TPM also includes unresolved reservations.</p>
+        {usage.unknown_usage_requests > 0 && <p className="mt-3 text-xs text-muted-foreground">{usage.unknown_usage_requests.toLocaleString(readUILocale())} {usage.unknown_usage_requests === 1 ? uiT("request has") : uiT("requests have")}{" "}{uiT("no complete reported token usage. Known subtotals exclude these requests.")}</p>}
+        {usage.requests === 0 && <p className="mt-3 text-xs text-muted-foreground">{uiT("No requests dispatched in this window.")}</p>}
+        <p className="mt-3 text-xs text-muted-foreground">{uiT("Dispatches in this window; TPM also includes unresolved reservations.")}</p>
       </>}
   </section>;
 }

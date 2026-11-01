@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
@@ -38,11 +39,12 @@ import {
 import { request } from '@/features/providers/api';
 import { useCachedQuery } from '@/lib/query-cache';
 import { canManagePlatform, type DashboardContext } from './dashboard-context';
-import { useLocale } from './locale';
+import { useLocale } from './ui-locale';
 import ProductRailLink from './ProductRailLink';
 import { providerPathSegment, resolveProvider, type ProviderIdentity } from './provider-route';
 
 export function ProviderNav({ context }: { context: DashboardContext }) {
+  const { t: uiT } = useUILocale();
   const { isZh, t } = useLocale();
   const {
     provider: providerParam,
@@ -129,7 +131,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
                 <Button
                   variant="ghost"
                   className="workspace-switcher-trigger"
-                  aria-label="Switch provider"
+                  aria-label={uiT("Switch provider")}
                   title={t('Switch provider', '切换供应商')}
                 >
                   <span className="workspace-switcher-copy">
@@ -232,7 +234,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         )}
       </SidebarHeader>
       <SidebarContent className="workspace-sidebar-content">
-        <nav aria-label={provider ? 'Provider navigation' : 'Admin navigation'}>
+        <nav aria-label={provider ? uiT("Provider navigation") : uiT("Admin navigation")}>
           <SidebarMenu className="workspace-nav-menu">
             {entries.map(item => {
               const Icon =

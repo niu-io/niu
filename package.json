@@ -32,6 +32,9 @@
     "test:backend:performance": "cargo test --locked -p niu-gateway performance_suite:: -- --nocapture",
     "version:check": "python3 scripts/release-version.py check",
     "version:set": "python3 scripts/release-version.py set",
-    "version:notes": "python3 scripts/release-version.py notes"
+    "version:notes": "python3 scripts/release-version.py notes",
+    "check:i18n": "pnpm --filter @niu-io/dashboard check:i18n",
+    "check:i18n:new": "pnpm --filter @niu-io/dashboard check:i18n:new",
+    "test:i18n": "pnpm --filter @niu-io/dashboard test:i18n"
   }
 }

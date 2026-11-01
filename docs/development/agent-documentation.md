@@ -35,6 +35,8 @@ Agents already know that completing the task and managing cost matter. Niu docum
 
 Task recipes can show how to retrieve model information, perform an authorized bounded comparison, propose a pool, verify a configuration or diagnose a request. Keep acceptance criteria tied to Niu behavior. The user's task quality and value judgment remain with the user and agent.
 
+A model-selection recipe must connect decision evidence to an authorized configuration workflow. Show how the agent obtains the relevant capabilities, customer prices and evaluation evidence; inspects its grants and existing pool; previews a scenario-specific candidate and routing policy; applies a permitted revision or requests a concrete approval; and reads back the saved configuration. Then show how execution evidence informs a later revision. Identify the actual operations and current limits at each step. A model comparison that ends with a recommendation alone does not demonstrate this management workflow.
+
 Document the continuing feedback path as well as the first successful call: how to retrieve execution measurements, associate quality evaluations, compare with a prior baseline, inspect charge coverage and freshness, and verify an authorized policy change. State sampling and spending limits before describing recurring evaluation. Keep measured facts, evaluator judgments and inferred recommendations distinct in examples and schemas; an HTTP success or a lower token price does not establish task value.
 
 ## Shared source of truth

@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,9 +44,11 @@ function parseLimit(draft: string, maximum: number): number | null | undefined {
   return Number.isSafeInteger(value) && value <= maximum ? value : undefined;
 }
 export default function KeyLimits({ token, endpoint, canWrite, active, refreshNonce = 0, onUpdated, onInspectRequest }: { token: string; endpoint: string; canWrite: boolean; active: boolean; refreshNonce?: number; onUpdated?: () => void; onInspectRequest?: (attempt:string,opener:HTMLElement|null)=>void }) {
-  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} refreshNonce={refreshNonce} onUpdated={onUpdated} onInspectRequest={onInspectRequest} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
+  const { t: uiT } = useUILocale();
+  return <Card><CardHeader><CardTitle>{uiT("Limits")}</CardTitle><CardDescription>{uiT("Throughput limits for this API key.")}</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} refreshNonce={refreshNonce} onUpdated={onUpdated} onInspectRequest={onInspectRequest} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
 }
 function LimitPolicy({ token, endpoint, definition, canWrite, refreshNonce = 0, onUpdated, onInspectRequest }: { token: string; endpoint: string; definition: Definition; canWrite: boolean; refreshNonce?: number; onUpdated?: () => void; onInspectRequest?: (attempt:string,opener:HTMLElement|null)=>void }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const initialPolicy = readCachedPolicy(token, endpoint, definition);
   const [policy, setPolicy] = useState<Policy | null>(() => initialPolicy);
   const [loading, setLoading] = useState(() => !initialPolicy);
@@ -110,22 +114,22 @@ function LimitPolicy({ token, endpoint, definition, canWrite, refreshNonce = 0, 
     } finally { if (!controller.signal.aborted) setSaving(false); }
   }
   return <div className="py-4 first:pt-0 last:pb-0">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><h3 className="text-sm font-medium">{definition.label}</h3><p className="mt-1 text-sm text-muted-foreground">{loading ? 'Loading…' : error ? 'Unavailable' : policy ? valueOf(policy, definition.field) === null ? 'Unlimited' : valueOf(policy, definition.field) === 0 ? '0 · New requests blocked' : valueOf(policy, definition.field)?.toLocaleString() : 'Unavailable'}</p></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><h3 className="text-sm font-medium">{definition.label}</h3><p className="mt-1 text-sm text-muted-foreground">{loading ? uiT("Loading…") : error ? uiT("Unavailable") : policy ? valueOf(policy, definition.field) === null ? uiT("Unlimited") : valueOf(policy, definition.field) === 0 ? uiT("0 · New requests blocked") : valueOf(policy, definition.field)?.toLocaleString(readUILocale()) : uiT("Unavailable")}</p></div>
     <div className="flex flex-wrap items-center gap-1"><KeyPolicyHistory token={token} endpoint={endpoint} label={definition.label} field={definition.field} />
-    {!loading && !error && policy && canWrite && <Button variant="outline" aria-label={`Edit ${definition.label.toLowerCase()}`} onClick={() => {setDraft(valueOf(policy, definition.field) === null ? '' : String(valueOf(policy, definition.field)));if (!conflict) setEditError('');setNotice('');setOpen(true);}}>Edit</Button>}
-    {error && <Button variant="outline" aria-label={`Retry ${definition.label.toLowerCase()}`} onClick={() => setReload(value => value + 1)}>Retry</Button>}</div></div>
+    {!loading && !error && policy && canWrite && <Button variant="outline" aria-label={uiF("Edit {0}", [definition.label.toLowerCase()])} onClick={() => {setDraft(valueOf(policy, definition.field) === null ? '' : String(valueOf(policy, definition.field)));if (!conflict) setEditError('');setNotice('');setOpen(true);}}>{uiT("Edit")}</Button>}
+    {error && <Button variant="outline" aria-label={uiF("Retry {0}", [definition.label.toLowerCase()])} onClick={() => setReload(value => value + 1)}>{uiT("Retry")}</Button>}</div></div>
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
-    {!loading && !error && policy && 'active_requests' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.active_requests.toLocaleString()} unresolved requests at last refresh.</p>}
-    {!loading && !error && policy && 'committed_tokens' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.committed_tokens === null ? 'Committed usage unknown' : `${BigInt(policy.committed_tokens).toLocaleString()} tokens committed`} at last refresh.{policy.unbounded_requests > 0 ? ` ${policy.unbounded_requests} ${policy.unbounded_requests === 1 ? 'request has' : 'requests have'} no usage estimate.` : ''}</p>}
+    {!loading && !error && policy && 'active_requests' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.active_requests.toLocaleString(readUILocale())}{" "}{uiT("unresolved requests at last refresh.")}</p>}
+    {!loading && !error && policy && 'committed_tokens' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.committed_tokens === null ? uiT("Committed usage unknown") : uiF("{0} tokens committed", [BigInt(policy.committed_tokens).toLocaleString(readUILocale())])}{" "}{uiT("at last refresh.")}{policy.unbounded_requests > 0 ? uiF(" {0} {1} no usage estimate.", [policy.unbounded_requests, policy.unbounded_requests === 1 ? uiT("request has") : uiT("requests have")]) : ''}</p>}
     {!loading && !error && policy && (('active_requests' in policy && policy.active_requests > 0) || ('committed_tokens' in policy && (policy.unbounded_requests > 0 || (typeof policy.reserved_tokens === 'string' && /^\d+$/.test(policy.reserved_tokens) && BigInt(policy.reserved_tokens) > 0n)))) && <KeyCapacity onInspectRequest={onInspectRequest} token={token} endpoint={endpoint.slice(0,endpoint.lastIndexOf('/'))} kind={definition.field === 'max_concurrent_requests' ? 'concurrency' : 'tokens'} />}
     {notice && <p role="status" className="mt-2 text-sm text-muted-foreground">{notice}</p>}
     <Dialog open={open} onOpenChange={next => {if (!saving) setOpen(next);}}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{definition.label}</DialogTitle><DialogDescription>{definition.help}</DialogDescription></DialogHeader>
       <form onSubmit={event => {event.preventDefault();void save();}} className="grid gap-4">
-        <div className="grid gap-2"><Label htmlFor={`${definition.path}-value`}>Limit</Label><Input id={`${definition.path}-value`} inputMode="numeric" value={draft} placeholder="Unlimited" disabled={saving || conflict || loading || Boolean(error)} onChange={event => setDraft(event.target.value)} /><p className="text-sm text-muted-foreground">Leave blank for unlimited. Zero blocks new requests. Maximum {definition.maximum.toLocaleString()}.</p></div>
-        {parsed === undefined && <p role="alert" className="text-sm text-destructive">Enter a whole number from 0 to {definition.maximum.toLocaleString()}, or leave blank.</p>}
+        <div className="grid gap-2"><Label htmlFor={`${definition.path}-value`}>{uiT("Limit")}</Label><Input id={`${definition.path}-value`} inputMode="numeric" value={draft} placeholder={uiT("Unlimited")} disabled={saving || conflict || loading || Boolean(error)} onChange={event => setDraft(event.target.value)} /><p className="text-sm text-muted-foreground">{uiT("Leave blank for unlimited. Zero blocks new requests. Maximum")}{" "}{definition.maximum.toLocaleString(readUILocale())}.</p></div>
+        {parsed === undefined && <p role="alert" className="text-sm text-destructive">{uiT("Enter a whole number from 0 to")}{" "}{definition.maximum.toLocaleString(readUILocale())}{uiT(", or leave blank.")}</p>}
         {editError && <p role="alert" className="text-sm text-destructive">{editError}</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>{conflict || error ? <Button type="button" disabled={loading} onClick={() => setReload(value => value + 1)}>{loading ? 'Reloading…' : 'Reload limit'}</Button> : <Button type="submit" disabled={!changed || saving || loading || !canWrite}>{saving ? 'Saving…' : 'Save limit'}</Button>}</DialogFooter>
+        <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>{uiT("Cancel")}</Button>{conflict || error ? <Button type="button" disabled={loading} onClick={() => setReload(value => value + 1)}>{loading ? uiT("Reloading…") : uiT("Reload limit")}</Button> : <Button type="submit" disabled={!changed || saving || loading || !canWrite}>{saving ? uiT("Saving…") : uiT("Save limit")}</Button>}</DialogFooter>
       </form>
     </DialogContent></Dialog>
   </div>;

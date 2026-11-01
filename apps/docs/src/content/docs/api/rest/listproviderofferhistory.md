@@ -321,9 +321,13 @@ Invalid query, limit or path.
 
 Management authentication required.
 
+### HTTP 403
+
+Active platform administration required; Provider membership alone grants no access.
+
 ### HTTP 404
 
-Provider membership denied or offer not found.
+Platform administration required or offer not found.
 
 ### HTTP 409
 

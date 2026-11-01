@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
@@ -10,6 +11,7 @@ import { cachedGet, peekCachedGet, ProviderRequestError, request, integrationLab
 export default function IntegrationSettings({ token, resource, id, onSaved }: {
   token: string; resource: 'providers' | 'vendors'; id: string; onSaved?: () => void;
 }) {
+  const { t: uiT } = useUILocale();
   const controlId = useId();
   const connection = resource === 'vendors';
   const path = `/api/v1/${resource}/${encodeURIComponent(id)}/integration`;
@@ -63,26 +65,26 @@ export default function IntegrationSettings({ token, resource, id, onSaved }: {
     } finally { if (!controller.signal.aborted) { pending.current = null; setBusy(false); } }
   }
   return <section className={connection ? "mt-6 space-y-4" : "space-y-4"} aria-labelledby={`${controlId}-heading`}>
-    <div className="space-y-1"><h3 id={`${controlId}-heading`} className="font-medium">{connection ? 'Connection integration' : 'Default integration'}</h3>
-      <p className="text-sm text-muted-foreground">{connection ? 'Use the Provider default or choose an integration for this API key.' : 'Choose the upstream service used by connections that inherit this Provider default.'} API format, endpoint and credentials are configured separately.</p></div>
-    {loading ? <FormSectionSkeleton fields={2} label="Loading integration…" /> : current && <>
-      <div className="space-y-2"><Label htmlFor={controlId}>Integration</Label>
+    <div className="space-y-1"><h3 id={`${controlId}-heading`} className="font-medium">{connection ? uiT("Connection integration") : uiT("Default integration")}</h3>
+      <p className="text-sm text-muted-foreground">{connection ? uiT("Use the Provider default or choose an integration for this API key.") : uiT("Choose the upstream service used by connections that inherit this Provider default.")}{" "}{uiT("API format, endpoint and credentials are configured separately.")}</p></div>
+    {loading ? <FormSectionSkeleton fields={2} label={uiT("Loading integration…")} /> : current && <>
+      <div className="space-y-2"><Label htmlFor={controlId}>{uiT("Integration")}</Label>
         <DropdownMenu><DropdownMenuTrigger asChild><Button id={controlId} type="button" variant="outline" className="w-full sm:w-72 justify-between font-normal" disabled={busy || needsReload}>
-          {selection ? integrationLabels[selection as ProviderIntegrationType] : connection ? 'Use Provider default' : 'Choose an integration'}<ChevronDown aria-hidden="true" />
+          {selection ? integrationLabels[selection as ProviderIntegrationType] : connection ? uiT("Use Provider default") : uiT("Choose an integration")}<ChevronDown aria-hidden="true" />
         </Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
           <DropdownMenuRadioGroup value={selection} onValueChange={value => { setSelection(value); setSaved(false); }}>
-            {connection && <DropdownMenuRadioItem value="">Use Provider default</DropdownMenuRadioItem>}
+            {connection && <DropdownMenuRadioItem value="">{uiT("Use Provider default")}</DropdownMenuRadioItem>}
             {Object.entries(integrationLabels).map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent></DropdownMenu>
-        <p className="text-sm text-muted-foreground">Saved integration: {integrationLabels[current.effective_type]} · {current.source === 'connection' ? 'Connection override' : current.source === 'provider' ? connection ? 'Inherited from Provider' : 'Provider default' : 'Not configured; manual setup available'}.</p>
+        <p className="text-sm text-muted-foreground">{uiT("Saved integration:")}{" "}{integrationLabels[current.effective_type]} · {current.source === 'connection' ? uiT("Connection override") : current.source === 'provider' ? connection ? uiT("Inherited from Provider") : uiT("Provider default") : uiT("Not configured; manual setup available")}.</p>
       </div>
-      <p className="text-sm text-muted-foreground">{current.effective_type === 'openrouter' ? 'Suggested API base: https://openrouter.ai/api/v1. You can edit the endpoint in the API key configuration.' : current.effective_type === 'newapi' || current.effective_type === 'litellm' ? 'Use your instance’s API base URL, usually ending in /v1. Configure it in the API key settings; no public endpoint is assumed.' : 'Configure the API base URL and model mappings manually in the API key settings.'}</p>
-      <div className="flex flex-wrap items-center gap-3"><Button type="button" disabled={busy || needsReload || !dirty || (!connection && !selection)} onClick={() => void save()}>{busy ? 'Saving…' : 'Save integration'}</Button>
-        {dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setSelection(current.integration_type ?? ''); setSaved(false); }}>Cancel</Button>}
-        {saved && <p role="status" className="text-sm text-muted-foreground">Integration saved.</p>}
+      <p className="text-sm text-muted-foreground">{current.effective_type === 'openrouter' ? uiT("Suggested API base: https://openrouter.ai/api/v1. You can edit the endpoint in the API key configuration.") : current.effective_type === 'newapi' || current.effective_type === 'litellm' ? uiT("Use your instance’s API base URL, usually ending in /v1. Configure it in the API key settings; no public endpoint is assumed.") : uiT("Configure the API base URL and model mappings manually in the API key settings.")}</p>
+      <div className="flex flex-wrap items-center gap-3"><Button type="button" disabled={busy || needsReload || !dirty || (!connection && !selection)} onClick={() => void save()}>{busy ? uiT("Saving…") : uiT("Save integration")}</Button>
+        {dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setSelection(current.integration_type ?? ''); setSaved(false); }}>{uiT("Cancel")}</Button>}
+        {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Integration saved.")}</p>}
       </div>
     </>}
-    {error && <div className="space-y-2"><p role="alert" className="text-destructive">{error}</p><Button type="button" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>Reload saved integration</Button><p className="text-sm text-muted-foreground">Reloading replaces your unsaved integration choice.</p></div>}
+    {error && <div className="space-y-2"><p role="alert" className="text-destructive">{error}</p><Button type="button" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{uiT("Reload saved integration")}</Button><p className="text-sm text-muted-foreground">{uiT("Reloading replaces your unsaved integration choice.")}</p></div>}
   </section>;
 }

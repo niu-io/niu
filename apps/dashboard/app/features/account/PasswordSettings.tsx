@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 
 export default function PasswordSettings({ token, hasPassword = true, onChanged }: {token: string; hasPassword?: boolean; onChanged: () => Promise<void>}) {
   const { t } = useLocale();

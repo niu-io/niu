@@ -1,3 +1,4 @@
+import { readLocale, useLocale } from '@/shell/ui-locale';
 import { amountFromNanos } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState } from 'react';
@@ -53,6 +54,7 @@ function checkedTransactions(result:{data:BalanceTransaction[];next_cursor?:stri
 }
 
 export default function AccountBilling({token, organization, canConfigure = false, section = 'all'}: {token: string; organization: string; canConfigure?: boolean; section?: 'all' | 'billing' | 'payments'}) {
+ const { t, format: uiF } = useLocale();
  const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit}=usePlatformCurrency();
  const accessGeneration = useRef({token,organization,value:0});
  if (accessGeneration.current.token !== token || accessGeneration.current.organization !== organization) {
@@ -191,15 +193,15 @@ export default function AccountBilling({token, organization, canConfigure = fals
   finally {if (!controller.signal.aborted) setLoadingOlder(false);}
  };
  return <div className="billing-balance-content">
- {!accounts && !accountError && (section === 'payments' ? <FormSectionSkeleton fields={2} label="Loading payment options…" /> : <MetricStripSkeleton count={2} label="Loading account balance…" />)}
- {section === 'payments' && accountError && <Alert variant="destructive"><AlertTitle>Payment options unavailable</AlertTitle><AlertDescription>Could not load the account data needed for payment options.<Button variant="outline" disabled={refreshing} onClick={() => setRevision(value => value + 1)}>Retry payment options</Button></AlertDescription></Alert>}
-        {companyAccess && section !== 'payments' && <section aria-label="Account balance" className="billing-account-section">
-          <div className="flex items-center justify-between gap-3"><h2>Available credits</h2><Button variant="ghost" size="icon" aria-label="Refresh account balance" title="Refresh account balance" disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
-          {accountError && <Alert variant="destructive"><AlertTitle>Account balance unavailable</AlertTitle><AlertDescription>{accountError}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry account balance</Button></AlertDescription></Alert>}
+ {!accounts && !accountError && (section === 'payments' ? <FormSectionSkeleton fields={2} label={t("Loading payment options…")} /> : <MetricStripSkeleton count={2} label={t("Loading account balance…")} />)}
+ {section === 'payments' && accountError && <Alert variant="destructive"><AlertTitle>{t("Payment options unavailable")}</AlertTitle><AlertDescription>{t("Could not load the account data needed for payment options.")}<Button variant="outline" disabled={refreshing} onClick={() => setRevision(value => value + 1)}>{t("Retry payment options")}</Button></AlertDescription></Alert>}
+        {companyAccess && section !== 'payments' && <section aria-label={t("Account balance")} className="billing-account-section">
+          <div className="flex items-center justify-between gap-3"><h2>{t("Available credits")}</h2><Button variant="ghost" size="icon" aria-label={t("Refresh account balance")} title={t("Refresh account balance")} disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
+          {accountError && <Alert variant="destructive"><AlertTitle>{t("Account balance unavailable")}</AlertTitle><AlertDescription>{t(accountError)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("Retry account balance")}</Button></AlertDescription></Alert>}
           {(unitSnapshot?.billing_mode === 'credits' || platformBillingMode === 'credits' || (Array.isArray(unitSnapshot?.balances) && unitSnapshot.balances.length > 0)) && (() => {
             const groups = Array.isArray(unitSnapshot?.balances) ? unitSnapshot.balances : [];
             const def = unitSnapshot?.definition ?? platformUnit ?? (groups[0] ? { revision: groups[0].definition_revision, name: groups[0].name, display_precision: groups[0].display_precision, atoms_per_unit: '1000000000' } : null);
-            const unitName = def?.name ?? 'Credits';
+            const unitName = def?.name ?? t("Credits");
             const prec = def?.display_precision ?? 2;
             const sumField = (field: 'available_atoms' | 'held_atoms' | 'charged_atoms' | 'restored_atoms' | 'expired_atoms' | 'issued_atoms') =>
               groups.reduce((acc, g) => acc + BigInt(g[field] || '0'), 0n);
@@ -209,32 +211,32 @@ export default function AccountBilling({token, organization, canConfigure = fals
             const totalRestored = sumField('restored_atoms');
             const totalExpired = sumField('expired_atoms');
             const totalIssued = sumField('issued_atoms');
-            return <div className="billing-account space-y-4" aria-label="Branded Credits balance">
+            return <div className="billing-account space-y-4" aria-label={t("Branded Credits balance")}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? `Available to spend (${unitName})` : `Recorded ${unitName} balance`}</span>
-                <Badge variant="secondary">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? 'Active billing unit' : 'Historical unit'}</Badge>
+                <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Available to spend (${unitName})`, `可用余额（${unitName}）`) : t(`Recorded ${unitName} balance`, `${unitName} 记账余额`)}</span>
+                <Badge variant="secondary">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t("Active billing unit") : t("Historical unit")}</Badge>
               </div>
               <div>
                 <strong className="billing-available">{formatUnitAtoms(totalAvailable, unitName, prec)}</strong>
-                <p className="text-xs text-muted-foreground mt-1">Exact available: {formatExactUnitAtoms(totalAvailable, unitName, prec)} ({totalAvailable.toString()} atoms)</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("Exact available:")} {formatExactUnitAtoms(totalAvailable, unitName, prec)} ({totalAvailable.toString()} {t("atoms)")}</p>
               </div>
               <dl className="billing-account-details">
-                <div><dt>Net issued</dt><dd>{formatUnitAtoms(totalIssued, unitName, prec)}</dd></div>
-                <div><dt>Held for active requests</dt><dd>{formatUnitAtoms(totalHeld, unitName, prec)}</dd></div>
-                <div><dt>Consumed (gross charged)</dt><dd>{formatUnitAtoms(totalCharged, unitName, prec)}</dd></div>
-                {totalRestored > 0n && <div><dt>Restored / refunded</dt><dd>{formatUnitAtoms(totalRestored, unitName, prec)}</dd></div>}
-                {totalExpired > 0n && <div><dt>Expired</dt><dd>{formatUnitAtoms(totalExpired, unitName, prec)}</dd></div>}
+                <div><dt>{t("Net issued")}</dt><dd>{formatUnitAtoms(totalIssued, unitName, prec)}</dd></div>
+                <div><dt>{t("Held for active requests")}</dt><dd>{formatUnitAtoms(totalHeld, unitName, prec)}</dd></div>
+                <div><dt>{t("Consumed (gross charged)")}</dt><dd>{formatUnitAtoms(totalCharged, unitName, prec)}</dd></div>
+                {totalRestored > 0n && <div><dt>{t("Restored / refunded")}</dt><dd>{formatUnitAtoms(totalRestored, unitName, prec)}</dd></div>}
+                {totalExpired > 0n && <div><dt>{t("Expired")}</dt><dd>{formatUnitAtoms(totalExpired, unitName, prec)}</dd></div>}
               </dl>
               {groups.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Lots by definition & provenance</h3>
-                  <Table aria-label="Credits lots by provenance" className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
+                  <h3 className="text-sm font-medium">{t("Lots by definition & provenance")}</h3>
+                  <Table aria-label={t("Credits lots by provenance")} className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Unit &amp; provenance</TableHead>
-                        <TableHead className="text-right">Available</TableHead>
-                        <TableHead className="text-right">Held / Consumed</TableHead>
-                        <TableHead className="text-right">Restored / Expired</TableHead>
+                        <TableHead>{t("Unit & provenance")}</TableHead>
+                        <TableHead className="text-right">{t("Available")}</TableHead>
+                        <TableHead className="text-right">{t("Held / Consumed")}</TableHead>
+                        <TableHead className="text-right">{t("Restored / Expired")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -242,20 +244,20 @@ export default function AccountBilling({token, organization, canConfigure = fals
                         <TableRow key={`${group.definition_revision}:${group.provenance}`}>
                           <TableCell>
                             <div className="font-medium">{group.name} <span className="text-xs text-muted-foreground">(v{group.definition_revision})</span></div>
-                            <Badge variant="outline" className="mt-0.5">{provenanceLabels[group.provenance] ?? group.provenance}</Badge>
+                            <Badge variant="outline" className="mt-0.5">{t(provenanceLabels[group.provenance] ?? group.provenance)}</Badge>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums font-medium" title={`${formatExactUnitAtoms(group.available_atoms, group.name, group.display_precision)} (${group.available_atoms} atoms)`}>
+                          <TableCell className="text-right tabular-nums font-medium" title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(group.available_atoms, group.name, group.display_precision), group.available_atoms])}>
                             {formatUnitAtoms(group.available_atoms, group.name, group.display_precision)}
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                            <div>Held: {formatUnitAtoms(group.held_atoms, group.name, group.display_precision)}</div>
-                            <div title={`${formatExactUnitAtoms(group.charged_atoms, group.name, group.display_precision)} (${group.charged_atoms} atoms)`}>
-                              Consumed: {formatUnitAtoms(group.charged_atoms, group.name, group.display_precision)}
+                            <div>{t("Held:")} {formatUnitAtoms(group.held_atoms, group.name, group.display_precision)}</div>
+                            <div title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(group.charged_atoms, group.name, group.display_precision), group.charged_atoms])}>
+                              {t("Consumed:")} {formatUnitAtoms(group.charged_atoms, group.name, group.display_precision)}
                             </div>
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                            <div>Restored: {formatUnitAtoms(group.restored_atoms, group.name, group.display_precision)}</div>
-                            <div>Expired: {formatUnitAtoms(group.expired_atoms, group.name, group.display_precision)}</div>
+                            <div>{t("Restored:")} {formatUnitAtoms(group.restored_atoms, group.name, group.display_precision)}</div>
+                            <div>{t("Expired:")} {formatUnitAtoms(group.expired_atoms, group.name, group.display_precision)}</div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -264,49 +266,49 @@ export default function AccountBilling({token, organization, canConfigure = fals
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Consumption order: Promotional and Simulated lots with the earliest expiration date are consumed first, followed by non-expiring Promotional and Simulated lots, and Purchased lots last (FIFO by issuance).
+                {t("Consumption order: Promotional and Simulated lots with the earliest expiration date are consumed first, followed by non-expiring Promotional and Simulated lots, and Purchased lots last (FIFO by issuance).")}
               </p>
             </div>;
           })()}
           {accounts?.map(account => <div className="billing-account" key={account.currency}>
-            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? `Preserved monetary balance (${account.currency})` : account.currency === platformCurrency ? 'Available to spend' : 'Recorded balance (original currency)'}</span>
+            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend") : t("Recorded balance (original currency)")}</span>
             <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
             {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
-              {account.balance_nanos !== account.available_nanos && <div><dt>Balance</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
-              {BigInt(account.credit_limit_nanos) > 0n && <div><dt>Approved credit</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
-              {BigInt(account.reserved_nanos) > 0n && <div><dt>Reserved for requests</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
+              {account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
+              {BigInt(account.credit_limit_nanos) > 0n && <div><dt>{t("Approved credit")}</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
+              {BigInt(account.reserved_nanos) > 0n && <div><dt>{t("Reserved for requests")}</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
             </dl>}
             <div className="flex items-center justify-between gap-3 py-3">
-              <div><h3 className="font-medium">Low balance warning</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? 'Disabled' : `Below ${money(account.warning_threshold_nanos,account.currency)} · In app`}</p></div>
-              {canConfigure && account.currency === platformCurrency && <Button variant="ghost" size="sm" aria-label={`Configure ${account.currency} low balance warning`} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>Configure</Button>}
+              <div><h3 className="font-medium">{t("Low balance warning")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)} · 应用内提醒`)}</p></div>
+              {canConfigure && account.currency === platformCurrency && <Button variant="ghost" size="sm" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
             </div>
             {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
-              ? <Alert variant="destructive"><AlertTitle>Insufficient funds</AlertTitle><AlertDescription>{canConfigure ? 'Paid requests are paused until funds are added.' : 'Paid requests are paused. Contact your billing administrator to add funds.'}</AlertDescription></Alert>
-              : account.low_balance && <Alert><AlertTitle>Low balance</AlertTitle><AlertDescription>Your account balance is below the warning threshold. Approved credit is excluded from this warning.</AlertDescription></Alert>)}
+              ? <Alert variant="destructive"><AlertTitle>{t("Insufficient funds")}</AlertTitle><AlertDescription>{canConfigure ? t("Paid requests are paused until funds are added.") : t("Paid requests are paused. Contact your billing administrator to add funds.")}</AlertDescription></Alert>
+              : account.low_balance && <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>)}
           </div>)}
-          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <p className="text-muted-foreground">{canConfigure ? 'No prepaid account configured.' : 'No prepaid account configured. Contact your billing administrator.'}</p>}
+          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <p className="text-muted-foreground">{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</p>}
         </section>}
         {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} unitSnapshot={unitSnapshot} onPaid={() => setRevision(value => value + 1)} />}
-        {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label="Recent balance transactions">
-          <div className="flex items-center justify-between gap-3"><h2>Balance activity</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading…' : 'History'}</Button>}</div>
-          {transactionError && <Alert variant="destructive"><AlertTitle>Transactions unavailable</AlertTitle><AlertDescription>{transactionError}<Button variant="outline" onClick={() => transactionFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>Retry transactions</Button></AlertDescription></Alert>}
+        {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label={t("Recent balance transactions")}>
+          <div className="flex items-center justify-between gap-3"><h2>{t("Balance activity")}</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? t('Loading…', '正在加载…') : t("History")}</Button>}</div>
+          {transactionError && <Alert variant="destructive"><AlertTitle>{t("Transactions unavailable")}</AlertTitle><AlertDescription>{t(transactionError)}<Button variant="outline" onClick={() => transactionFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>{t("Retry transactions")}</Button></AlertDescription></Alert>}
           {transactions?.length ? <>
-            <Table className="billing-transactions"><TableHeader><TableRow><TableHead>Date (UTC)</TableHead><TableHead>Type</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+            <Table className="billing-transactions"><TableHeader><TableRow><TableHead>{t("Date (UTC)")}</TableHead><TableHead>{t("Type")}</TableHead><TableHead className="text-right">{t("Amount")}</TableHead></TableRow></TableHeader>
               <TableBody>{transactions.map(entry => <TableRow key={entry.id}>
-                <TableCell><time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString(undefined, {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})}</time></TableCell>
-                <TableCell>{transactionNames[entry.kind]}</TableCell><TableCell className="text-right">{money(entry.amount_nanos, entry.currency)}</TableCell>
+                <TableCell><time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString(readLocale(), {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})}</time></TableCell>
+                <TableCell>{t(transactionNames[entry.kind])}</TableCell><TableCell className="text-right">{money(entry.amount_nanos, entry.currency)}</TableCell>
               </TableRow>)}</TableBody>
             </Table>
-          </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label="Loading transactions…" /> : <p className="text-muted-foreground">No transactions yet.</p>)}
+          </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <p className="text-muted-foreground">{t("No transactions yet.")}</p>)}
         </section>}
 <Dialog open={editing !== null} onOpenChange={open=>{if (!open && !saving) setEditing(null);}}>
  <DialogContent onCloseAutoFocus={event=>{if(warningOpener.current?.isConnected){event.preventDefault();warningOpener.current.focus();}}}>
-  <DialogHeader><DialogTitle>Low balance warning</DialogTitle><DialogDescription>Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.</DialogDescription></DialogHeader>
+  <DialogHeader><DialogTitle>{t("Low balance warning")}</DialogTitle><DialogDescription>{t("Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.")}</DialogDescription></DialogHeader>
   <form onSubmit={event=>{event.preventDefault();void saveWarning();}} className="grid gap-4">
-  <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">Enabled</Label></div>
-  <div className="grid gap-2"><Label htmlFor="balance-warning-threshold">Threshold ({editing?.currency})</Label><Input id="balance-warning-threshold" inputMode="decimal" value={threshold} disabled={!warningEnabled || saving} onChange={event=>setThreshold(event.target.value)}/></div>
-  {saveError && <Alert variant="destructive"><AlertDescription>{saveError}{conflict && <Button type="button" variant="outline" disabled={saving} onClick={()=>void reloadWarning()}>Reload current settings</Button>}</AlertDescription></Alert>}
-  <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving || conflict || !warningChanged}>{saving ? 'Saving…' : 'Save'}</Button></DialogFooter>
+  <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">{t("Enable warning", "启用提醒")}</Label></div>
+  <div className="grid gap-2"><Label htmlFor="balance-warning-threshold">{t("Threshold (")}{editing?.currency})</Label><Input id="balance-warning-threshold" inputMode="decimal" value={threshold} disabled={!warningEnabled || saving} onChange={event=>setThreshold(event.target.value)}/></div>
+  {saveError && <Alert variant="destructive"><AlertDescription>{t(saveError)}{conflict && <Button type="button" variant="outline" disabled={saving} onClick={()=>void reloadWarning()}>{t("Reload current settings")}</Button>}</AlertDescription></Alert>}
+  <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEditing(null)}>{t("Cancel")}</Button><Button type="submit" disabled={saving || conflict || !warningChanged}>{saving ? t('Saving…', '正在保存…') : t("Save")}</Button></DialogFooter>
   </form>
  </DialogContent>
 </Dialog>

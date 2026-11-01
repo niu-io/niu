@@ -4,10 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "pnpm --dir ../../sdks/javascript build && tsc -b && vite build",
+    "build": "pnpm check:i18n:new && pnpm --dir ../../sdks/javascript build && tsc -b && vite build",
     "check": "pnpm --dir ../../sdks/javascript build && tsc -b --pretty false",
     "lint": "pnpm --dir ../../sdks/javascript build && tsc -b --pretty false && node scripts/check-hygiene.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "check:i18n:new": "node scripts/check-i18n.mjs --new",
+    "test:i18n": "node --test scripts/check-i18n.test.mjs"
   },
   "dependencies": {
     "@niu-io/sdk": "workspace:*",

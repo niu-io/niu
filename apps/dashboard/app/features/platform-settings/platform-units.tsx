@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
@@ -102,6 +104,7 @@ function formatRuleRate(rule: PurchaseRule, unitName: string, precision: number)
 }
 
 export function PlatformUnitsSetting({ token }: { token: string }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const scope = token || 'public';
   const { currency: platformCurrency, reload: reloadPlatformCurrency } = usePlatformCurrency();
   const initialConfig = peekQuery<{ data: UnitConfiguration }>(scope, '/api/v1/platform/units')?.data ?? null;
@@ -285,28 +288,25 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     }
   }
 
-  const defName = config?.definition?.name ?? 'Credits';
+  const defName = config?.definition?.name ?? uiT("Credits");
   const defPrecision = config?.definition?.display_precision ?? 2;
 
   return (
-    <section className="space-y-6 border-t pt-6" aria-label="Branded Credits and billing mode">
+    <section className="space-y-6 border-t pt-6" aria-label={uiT("Branded Credits and billing mode")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Branded Credits &amp; billing mode</h2>
+          <h2 className="text-lg font-semibold">{uiT("Branded Credits & billing mode")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure versioned branded consumption units (1 unit = 1,000,000,000 exact atoms), payment conversion rules,
-            and guarded installation billing-mode transitions.
-          </p>
+            {uiT("Configure versioned branded consumption units (1 unit = 1,000,000,000 exact atoms), payment conversion rules, and guarded installation billing-mode transitions.")}</p>
         </div>
         <div className="flex items-center gap-2">
           {config && (
             <Badge variant={config.billing_mode === 'credits' ? 'default' : 'outline'}>
-              Active mode: {config.billing_mode === 'credits' ? `Branded Credits (${defName})` : 'Settlement Currency'}
+              {uiT("Active mode:")}{" "}{config.billing_mode === 'credits' ? uiF("Branded Credits ({0})", [defName]) : uiT("Settlement Currency")}
             </Badge>
           )}
           <Button variant="outline" size="sm" disabled={loading} onClick={() => void loadAll(targetMode, true)}>
-            Refresh unit settings
-          </Button>
+            {uiT("Refresh unit settings")}</Button>
         </div>
       </div>
 
@@ -320,31 +320,31 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {loading && !config && <FormSectionSkeleton fields={2} label="Loading branded unit configuration…" />}
+      {loading && !config && <FormSectionSkeleton fields={2} label={uiT("Loading branded unit configuration…")} />}
 
       {config && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4 rounded-lg bg-muted/30 p-4">
             <div>
-              <h3 className="text-sm font-semibold">1. Branded unit definition</h3>
+              <h3 className="text-sm font-semibold">{uiT("1. Branded unit definition")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Current revision: {config.definition ? `v${config.definition.revision} (${config.definition.name}, ${config.definition.display_precision} decimals, ${formatExactUnitAtoms(config.definition.atoms_per_unit, config.definition.name)} per unit)` : 'Not published'}
+                {uiT("Current revision:")}{" "}{config.definition ? uiF("v{0} ({1}, {2} decimals, {3} per unit)", [config.definition.revision, config.definition.name, config.definition.display_precision, formatExactUnitAtoms(config.definition.atoms_per_unit, config.definition.name)]) : uiT("Not published")}
               </p>
             </div>
             <form className="space-y-3" onSubmit={event => void handlePublishDefinition(event)}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit-definition-name">Unit display name</Label>
+                  <Label htmlFor="unit-definition-name">{uiT("Unit display name")}</Label>
                   <Input
                     id="unit-definition-name"
                     value={unitName}
                     onChange={event => setUnitName(event.target.value)}
-                    placeholder="Niu Credits or 牛元"
+                    placeholder={uiT("Niu Credits or 牛元")}
                     disabled={savingDef}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit-definition-precision">Display decimal places</Label>
+                  <Label htmlFor="unit-definition-precision">{uiT("Display decimal places")}</Label>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -354,7 +354,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                         disabled={savingDef}
                         className="w-full justify-between"
                       >
-                        <span>{precision} decimal places</span>
+                        <span>{precision}{" "}{uiT("decimal places")}</span>
                         <ChevronDown className="size-4 shrink-0" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -362,8 +362,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                       <DropdownMenuRadioGroup value={precision} onValueChange={setPrecision}>
                         {['0', '1', '2', '3', '4', '6', '9'].map(p => (
                           <DropdownMenuRadioItem key={p} value={p}>
-                            {p} decimal places
-                          </DropdownMenuRadioItem>
+                            {p}{" "}{uiT("decimal places")}</DropdownMenuRadioItem>
                         ))}
                       </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
@@ -371,34 +370,33 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                 </div>
               </div>
               <Button type="submit" size="sm" disabled={savingDef}>
-                {savingDef ? 'Publishing…' : 'Publish unit definition'}
+                {savingDef ? uiT("Publishing…") : uiT("Publish unit definition")}
               </Button>
             </form>
           </div>
 
           <div className="space-y-4 rounded-lg bg-muted/30 p-4">
             <div>
-              <h3 className="text-sm font-semibold">2. Purchase conversion rule</h3>
+              <h3 className="text-sm font-semibold">{uiT("2. Purchase conversion rule")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Defines how top-up payments in settlement currency convert into issued {defName} atoms at checkout.
-              </p>
+                {uiT("Defines how top-up payments in settlement currency convert into issued")}{" "}{defName}{" "}{uiT("atoms at checkout.")}</p>
             </div>
             {config.purchase_rules.length > 0 ? (
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {config.purchase_rules.map(rule => (
                   <li key={rule.revision}>
-                    <span className="font-medium text-foreground">{rule.payment_currency}</span> (rule v{rule.revision}, unit v{rule.definition_revision}):{' '}
+                    <span className="font-medium text-foreground">{rule.payment_currency}</span>{" "}{uiT("(rule v")}{rule.revision}{uiT(", unit v")}{rule.definition_revision}):{' '}
                     {formatRuleRate(rule, defName, defPrecision)}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-muted-foreground">No purchase rule published for the latest unit definition.</p>
+              <p className="text-xs text-muted-foreground">{uiT("No purchase rule published for the latest unit definition.")}</p>
             )}
             <form className="space-y-3" onSubmit={event => void handlePublishRule(event)}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit-rule-currency">Payment currency</Label>
+                  <Label htmlFor="unit-rule-currency">{uiT("Payment currency")}</Label>
                   <Input
                     id="unit-rule-currency"
                     value={ruleCurrency || platformCurrency || 'USD'}
@@ -408,7 +406,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit-rule-rate">{defName} per 1 {ruleCurrency || platformCurrency || 'USD'}</Label>
+                  <Label htmlFor="unit-rule-rate">{defName}{" "}{uiT("per 1")}{" "}{ruleCurrency || platformCurrency || 'USD'}</Label>
                   <Input
                     id="unit-rule-rate"
                     inputMode="decimal"
@@ -419,7 +417,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                 </div>
               </div>
               <Button type="submit" size="sm" disabled={savingRule || !config.definition}>
-                {savingRule ? 'Publishing…' : 'Publish purchase rule'}
+                {savingRule ? uiT("Publishing…") : uiT("Publish purchase rule")}
               </Button>
             </form>
           </div>
@@ -430,17 +428,16 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         <div className="space-y-4 rounded-lg bg-muted/30 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold">3. Guarded billing-mode transition</h3>
+              <h3 className="text-sm font-semibold">{uiT("3. Guarded billing-mode transition")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Switching modes requires zero incompatible obligations across all companies and an unexpired 15-minute
-                compatibility preview bound to configuration revision v{config.revision}.
+                {uiT("Switching modes requires zero incompatible obligations across all companies and an unexpired 15-minute compatibility preview bound to configuration revision v")}{config.revision}.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="justify-between gap-2">
-                    <span>Target: {targetMode === 'credits' ? `Branded Credits (${defName})` : 'Settlement Currency'}</span>
+                    <span>{uiT("Target:")}{" "}{targetMode === 'credits' ? uiF("Branded Credits ({0})", [defName]) : uiT("Settlement Currency")}</span>
                     <ChevronDown className="size-4 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -453,8 +450,8 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                       void loadAll(next);
                     }}
                   >
-                    <DropdownMenuRadioItem value="credits">Branded Credits ({defName})</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="currency">Settlement Currency</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="credits">{uiT("Branded Credits (")}{defName})</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="currency">{uiT("Settlement Currency")}</DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -464,7 +461,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                 disabled={preparingMode || loading}
                 onClick={() => void handleSaveModePreview()}
               >
-                {preparingMode ? 'Saving preview…' : 'Save 15-minute preview'}
+                {preparingMode ? uiT("Saving preview…") : uiT("Save 15-minute preview")}
               </Button>
               <Button
                 size="sm"
@@ -478,8 +475,8 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                 onClick={() => void handlePublishModeSwitch()}
               >
                 {publishingMode
-                  ? 'Switching mode…'
-                  : `Switch to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'}`}
+                  ? uiT("Switching mode…")
+                  : uiF("Switch to {0}", [targetMode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")])}
               </Button>
             </div>
           </div>
@@ -487,15 +484,15 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
           {savedPreview && (
             <div className="rounded border bg-background p-3 text-xs space-y-1">
               <p className="font-medium">
-                Saved preview bound to revision v{savedPreview.expected_revision}:{' '}
-                {savedPreview.source_mode === 'credits' ? 'Branded Credits' : 'Settlement Currency'} →{' '}
-                {savedPreview.target_mode === 'credits' ? 'Branded Credits' : 'Settlement Currency'}
+                {uiT("Saved preview bound to revision v")}{savedPreview.expected_revision}:{' '}
+                {savedPreview.source_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")} →{' '}
+                {savedPreview.target_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")}
               </p>
               <p className="text-muted-foreground">
-                Expires {new Date(savedPreview.expires_at).toLocaleString()} ·{' '}
+                {uiT("Expires")}{" "}{new Date(savedPreview.expires_at).toLocaleString(readUILocale())} ·{' '}
                 {savedPreview.snapshot.blockers_empty
-                  ? 'No compatibility blockers detected at snapshot time.'
-                  : `${savedPreview.snapshot.blockers.length} blocker categories prevented activation.`}
+                  ? uiT("No compatibility blockers detected at snapshot time.")
+                  : uiF("{0} blocker categories prevented activation.", [savedPreview.snapshot.blockers.length])}
               </p>
             </div>
           )}
@@ -504,24 +501,23 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <Badge variant={preview.blockers_empty ? 'default' : 'destructive'}>
-                  {preview.blockers_empty ? 'Compatible (0 blockers)' : `${preview.blockers.length} blocker categories`}
+                  {preview.blockers_empty ? uiT("Compatible (0 blockers)") : uiF("{0} blocker categories", [preview.blockers.length])}
                 </Badge>
                 <span className="text-muted-foreground">
-                  Preserved configuration (retained without conversion): {preview.preserved_configuration.credits_text_tariffs}{' '}
-                  Credits text tariffs · {preview.preserved_configuration.monetary_retail_prices} standard monetary prices ·{' '}
-                  {preview.preserved_configuration.monetary_workspace_limits} monetary workspace limits ·{' '}
-                  {preview.preserved_configuration.monetary_key_limits} monetary key limits
-                </span>
+                  {uiT("Preserved configuration (retained without conversion):")}{" "}{preview.preserved_configuration.credits_text_tariffs}{' '}
+                  {uiT("Credits text tariffs ·")}{" "}{preview.preserved_configuration.monetary_retail_prices}{" "}{uiT("standard monetary prices ·")}{' '}
+                  {preview.preserved_configuration.monetary_workspace_limits}{" "}{uiT("monetary workspace limits ·")}{' '}
+                  {preview.preserved_configuration.monetary_key_limits}{" "}{uiT("monetary key limits")}</span>
               </div>
 
               {preview.blockers.length > 0 && (
-                <Table aria-label="Billing-mode compatibility blockers">
+                <Table aria-label={uiT("Billing-mode compatibility blockers")}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Incompatibility category</TableHead>
-                      <TableHead className="text-right">Records</TableHead>
-                      <TableHead className="text-right">Companies</TableHead>
-                      <TableHead>Affected companies</TableHead>
+                      <TableHead>{uiT("Incompatibility category")}</TableHead>
+                      <TableHead className="text-right">{uiT("Records")}</TableHead>
+                      <TableHead className="text-right">{uiT("Companies")}</TableHead>
+                      <TableHead>{uiT("Affected companies")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -535,7 +531,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                         <TableCell className="whitespace-normal text-xs text-muted-foreground">
                           {blocker.accounts.length
                             ? blocker.accounts.map(a => `${a.name} (${a.record_count})`).join(', ')
-                            : 'Platform-wide configuration requirement'}
+                            : uiT("Platform-wide configuration requirement")}
                         </TableCell>
                       </TableRow>
                     ))}

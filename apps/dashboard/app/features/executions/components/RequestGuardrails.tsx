@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ const label = (inspection: Inspection | null) => inspection ? `${outcomes[inspec
 const policy = (name: string | null, revision: number | null) => revision ? `${name || 'Saved policy'} · Version ${revision}` : 'None recorded';
 
 export default function RequestGuardrails({ token, endpoint, historyPath }: { token: string; endpoint: string; historyPath: string }) {
+  const { t: uiT } = useUILocale();
   const [data, setData] = useState<Decision | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,12 +37,12 @@ export default function RequestGuardrails({ token, endpoint, historyPath }: { to
   }, [token, endpoint, reload]);
   const hasPolicy = Boolean(data?.workspace_revision || data?.key_policy_revision);
   if (!loading && !error && (!data || (!hasPolicy && !data.input_inspection && !data.output_inspection && !data.output_observation))) return null;
-  return <section className="gateway-request-detail" aria-label="Guardrails decision">
-    <h3 className="mb-3 text-sm font-medium">Guardrails</h3>
-    {loading ? <p role="status">Loading Guardrails…</p> : error ? <p role="alert">{error} <Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>Reload decision</Button></p> : data && <>
-      <dl><div><dt>Model &amp; Provider access</dt><dd>Allowed at dispatch</dd></div>{data.workspace_revision && <div><dt>Workspace policy</dt><dd>{policy(data.workspace_policy_name, data.workspace_revision)}</dd></div>}{data.key_policy_revision && <div><dt>Key policy</dt><dd>{policy(data.key_policy_name, data.key_policy_revision)}</dd></div>}{data.input_inspection && <div><dt>Input inspection</dt><dd>{label(data.input_inspection)}</dd></div>}{data.output_inspection && <div><dt>Output inspection</dt><dd>{label(data.output_inspection)}</dd></div>}{data.output_observation && <div><dt>Output observation</dt><dd>{label(data.output_observation)} · Non-enforcing</dd></div>}</dl>
-      {data.output_inspection && ['blocked', 'indeterminate'].includes(data.output_inspection.outcome) && <p className="text-sm text-muted-foreground">The output was withheld. Provider usage and any incurred customer charge remain accounted for.</p>}
-      {hasPolicy && <Button asChild variant="link" className="px-0"><Link to={historyPath}>Inspect saved policy versions</Link></Button>}
+  return <section className="gateway-request-detail" aria-label={uiT("Guardrails decision")}>
+    <h3 className="mb-3 text-sm font-medium">{uiT("Guardrails")}</h3>
+    {loading ? <p role="status">{uiT("Loading Guardrails…")}</p> : error ? <p role="alert">{error} <Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>{uiT("Reload decision")}</Button></p> : data && <>
+      <dl><div><dt>{uiT("Model & Provider access")}</dt><dd>{uiT("Allowed at dispatch")}</dd></div>{data.workspace_revision && <div><dt>{uiT("Workspace policy")}</dt><dd>{policy(data.workspace_policy_name, data.workspace_revision)}</dd></div>}{data.key_policy_revision && <div><dt>{uiT("Key policy")}</dt><dd>{policy(data.key_policy_name, data.key_policy_revision)}</dd></div>}{data.input_inspection && <div><dt>{uiT("Input inspection")}</dt><dd>{label(data.input_inspection)}</dd></div>}{data.output_inspection && <div><dt>{uiT("Output inspection")}</dt><dd>{label(data.output_inspection)}</dd></div>}{data.output_observation && <div><dt>{uiT("Output observation")}</dt><dd>{label(data.output_observation)}{" "}{uiT("· Non-enforcing")}</dd></div>}</dl>
+      {data.output_inspection && ['blocked', 'indeterminate'].includes(data.output_inspection.outcome) && <p className="text-sm text-muted-foreground">{uiT("The output was withheld. Provider usage and any incurred customer charge remain accounted for.")}</p>}
+      {hasPolicy && <Button asChild variant="link" className="px-0"><Link to={historyPath}>{uiT("Inspect saved policy versions")}</Link></Button>}
     </>}
   </section>;
 }

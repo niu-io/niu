@@ -37,6 +37,7 @@ export default defineConfig({
           { label: 'Build with Niu', slug: 'guides/personal-assistant' },
         ] },
         { label: 'For coding agents', collapsed: true, items: [
+          { label: 'Agent documentation', slug: 'agents' },
           { label: 'Install and configure', link: '/install.md' },
           { label: 'Capability map', link: '/agents.md' },
           { label: 'Model pools', link: '/pools.md' },

@@ -3,7 +3,7 @@ import {homedir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 import {authorizeDevice} from '../src/auth/device.mjs';
-import {saveCredential} from '../src/auth/credentials.mjs';
+import {prepareCredentialStorage,saveCredential} from '../src/auth/credentials.mjs';
 
 const args=process.argv.slice(2);
 const options={origin:'https://niu.io',client:'Codex',credentials:join(homedir(),'.config','niu','credential.json'),open:true,capabilities:[]};
@@ -16,6 +16,7 @@ try {
   if(!key || !args[i+1] || args[i+1].startsWith('--')) throw new Error('Usage: niu-login [--origin URL] [--client NAME] [--credentials PATH] [--no-open]');
   options[key]=args[++i];
  }
+ await prepareCredentialStorage(options.credentials);
  const controller=new AbortController();
  process.once('SIGINT',()=>controller.abort());
  const credential=await authorizeDevice({baseURL:options.origin,clientName:options.client,capabilities:options.capabilities,signal:controller.signal,showVerification:async({url,code})=>{

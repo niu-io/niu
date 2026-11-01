@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
@@ -75,6 +76,7 @@ type UnitPlatformConfig = {
 };
 
 export function BrandedUnitTariffsSection({ token, filter }: { token: string; filter: string }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const scope = token || 'public';
   const initialCfg = peekQuery<{ data: UnitPlatformConfig }>(scope, '/api/v1/platform/units')?.data ?? null;
   const initialMedia = peekQuery<{ data: UnitMediaTariffRecord[] }>(scope, '/api/v1/platform/units/media/tariffs')?.data;
@@ -118,33 +120,30 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
     void load();
   }, [token]);
 
-  const unitName = config?.definition?.name ?? 'Niu Credits';
+  const unitName = config?.definition?.name ?? uiT("Niu Credits");
   const precision = config?.definition?.display_precision ?? 2;
   const query = filter.trim().toLowerCase();
   const visibleText = (config?.text_tariffs ?? []).filter(t => t.model_alias.toLowerCase().includes(query));
   const visibleMedia = mediaTariffs.filter(t => t.model_alias.toLowerCase().includes(query));
 
   return (
-    <section className="space-y-4 rounded-lg bg-muted/30 p-4" aria-label="Branded Credits consumption tariffs">
+    <section className="space-y-4 rounded-lg bg-muted/30 p-4" aria-label={uiT("Branded Credits consumption tariffs")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold">Branded Credits consumption tariffs ({unitName})</h2>
+            <h2 className="text-base font-semibold">{uiT("Branded Credits consumption tariffs (")}{unitName})</h2>
             {config && (
               <Badge variant={config.billing_mode === 'credits' ? 'default' : 'outline'}>
-                {config.billing_mode === 'credits' ? 'Active in Credits mode' : 'Pre-configured (Currency mode active)'}
+                {config.billing_mode === 'credits' ? uiT("Active in Credits mode") : uiT("Pre-configured (Currency mode active)")}
               </Badge>
             )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Explicit atom-denominated model consumption tariffs independent of top-up conversion rates and Provider
-            procurement costs.
-          </p>
+            {uiT("Explicit atom-denominated model consumption tariffs independent of top-up conversion rates and Provider procurement costs.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" disabled={loading} onClick={() => void load(true)}>
-            Refresh Credits tariffs
-          </Button>
+            {uiT("Refresh Credits tariffs")}</Button>
           <Button
             size="sm"
             disabled={loading || !config?.definition}
@@ -153,8 +152,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
               setTextEditor('new');
             }}
           >
-            Publish Credits text tariff
-          </Button>
+            {uiT("Publish Credits text tariff")}</Button>
           <Button
             variant="outline"
             size="sm"
@@ -164,8 +162,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
               setMediaEditor('new');
             }}
           >
-            Publish Credits media tariff
-          </Button>
+            {uiT("Publish Credits media tariff")}</Button>
         </div>
       </div>
 
@@ -179,27 +176,25 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {loading && !config && <ListRowsSkeleton rows={2} label="Loading Credits tariffs…" />}
+      {loading && !config && <ListRowsSkeleton rows={2} label={uiT("Loading Credits tariffs…")} />}
       {!loading && !config?.definition && (
         <p className="text-xs text-muted-foreground">
-          Publish a branded unit definition in Admin → Settings before publishing Credits consumption tariffs.
-        </p>
+          {uiT("Publish a branded unit definition in Admin → Settings before publishing Credits consumption tariffs.")}</p>
       )}
 
       {visibleText.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Text model tariffs (per 1M tokens)
-          </h3>
-          <Table aria-label="Branded Credits text tariffs">
+            {uiT("Text model tariffs (per 1M tokens)")}</h3>
+          <Table aria-label={uiT("Branded Credits text tariffs")}>
             <TableHeader>
               <TableRow>
-                <TableHead>Model</TableHead>
-                <TableHead>Input / 1M</TableHead>
-                <TableHead>Output / 1M</TableHead>
-                <TableHead>Cached / Reasoning</TableHead>
-                <TableHead>Request fee &amp; min</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{uiT("Model")}</TableHead>
+                <TableHead>{uiT("Input / 1M")}</TableHead>
+                <TableHead>{uiT("Output / 1M")}</TableHead>
+                <TableHead>{uiT("Cached / Reasoning")}</TableHead>
+                <TableHead>{uiT("Request fee & min")}</TableHead>
+                <TableHead>{uiT("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -208,7 +203,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                   <TableCell className="font-medium">
                     <p>{row.model_alias}</p>
                     <p className="text-xs text-muted-foreground">
-                      Tariff v{row.revision} · Unit v{row.definition_revision}
+                      {uiT("Tariff v")}{row.revision}{" "}{uiT("· Unit v")}{row.definition_revision}
                     </p>
                   </TableCell>
                   <TableCell className="tabular-nums">
@@ -231,34 +226,33 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                   </TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
                     <p>
-                      Cached:{' '}
+                      {uiT("Cached:")}{' '}
                       {row.price.cached_prompt_rate != null
                         ? formatUnitAtoms(row.price.cached_prompt_rate, unitName, precision)
-                        : 'Ordinary'}
+                        : uiT("Ordinary")}
                     </p>
                     <p>
-                      Reasoning:{' '}
+                      {uiT("Reasoning:")}{' '}
                       {row.price.reasoning_completion_rate != null
                         ? formatUnitAtoms(row.price.reasoning_completion_rate, unitName, precision)
-                        : 'Ordinary'}
+                        : uiT("Ordinary")}
                     </p>
                   </TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    <p>Fee: {formatUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
-                    <p>Min: {formatUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
+                    <p>{uiT("Fee:")}{" "}{formatUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
+                    <p>{uiT("Min:")}{" "}{formatUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
                   </TableCell>
                   <TableCell>
                     <Button
                       variant="outline"
                       size="sm"
-                      aria-label={`Edit Credits text tariff for ${row.model_alias}`}
+                      aria-label={uiF("Edit Credits text tariff for {0}", [row.model_alias])}
                       onClick={() => {
                         setNotice('');
                         setTextEditor(row);
                       }}
                     >
-                      Edit
-                    </Button>
+                      {uiT("Edit")}</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -270,15 +264,14 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       {visibleMedia.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Media / video tariffs
-          </h3>
-          <Table aria-label="Branded Credits media tariffs">
+            {uiT("Media / video tariffs")}</h3>
+          <Table aria-label={uiT("Branded Credits media tariffs")}>
             <TableHeader>
               <TableRow>
-                <TableHead>Model &amp; dimensions</TableHead>
-                <TableHead>Rate</TableHead>
-                <TableHead>Minimum &amp; rounding</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{uiT("Model & dimensions")}</TableHead>
+                <TableHead>{uiT("Rate")}</TableHead>
+                <TableHead>{uiT("Minimum & rounding")}</TableHead>
+                <TableHead>{uiT("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -287,13 +280,12 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                   <TableCell className="font-medium">
                     <p>{row.model_alias}</p>
                     <p className="text-xs text-muted-foreground">
-                      {row.channel} · {row.resolution} · {row.reference_video ? 'With reference video' : 'Standard'} ·
-                      Tariff v{row.revision}
+                      {row.channel} · {row.resolution} · {row.reference_video ? uiT("With reference video") : uiT("Standard")}{" "}{uiT("· Tariff v")}{row.revision}
                     </p>
                   </TableCell>
                   <TableCell className="tabular-nums">
                     <p>
-                      {formatUnitAtoms(row.price.amount_atoms, unitName, precision)} per{' '}
+                      {formatUnitAtoms(row.price.amount_atoms, unitName, precision)}{" "}{uiT("per")}{' '}
                       {mediaQuantityInput(row.price.per_quantity)} {row.meter.replace(/_/g, ' ')}
                     </p>
                     {formatExactUnitAtoms(row.price.amount_atoms, unitName, precision) !==
@@ -305,22 +297,21 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                   </TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
                     <p>
-                      Minimum: {mediaQuantityInput(row.price.minimum_quantity)} {row.meter.replace(/_/g, ' ')}
+                      {uiT("Minimum:")}{" "}{mediaQuantityInput(row.price.minimum_quantity)} {row.meter.replace(/_/g, ' ')}
                     </p>
-                    <p>Rounding: {row.price.rounding}</p>
+                    <p>{uiT("Rounding:")}{" "}{uiT(row.price.rounding)}</p>
                   </TableCell>
                   <TableCell>
                     <Button
                       variant="outline"
                       size="sm"
-                      aria-label={`Edit Credits media tariff for ${row.model_alias}`}
+                      aria-label={uiF("Edit Credits media tariff for {0}", [row.model_alias])}
                       onClick={() => {
                         setNotice('');
                         setMediaEditor(row);
                       }}
                     >
-                      Edit
-                    </Button>
+                      {uiT("Edit")}</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -373,7 +364,8 @@ function UnitTextTariffDialog({
   onClose: () => void;
   onSaved: (modelAlias: string) => void;
 }) {
-  const unitName = config.definition?.name ?? 'Niu Credits';
+  const { t: uiT, format: uiF } = useUILocale();
+  const unitName = config.definition?.name ?? uiT("Niu Credits");
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
   const [promptRate, setPromptRate] = useState(
     initial ? unitAmountFromAtoms(initial.price.prompt_rate) : '15',
@@ -447,14 +439,13 @@ function UnitTextTariffDialog({
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? `Revise ${unitName} text tariff` : `Publish ${unitName} text tariff`}</DialogTitle>
+          <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
           <DialogDescription>
-            Rates are specified in {unitName} per 1,000,000 tokens (1 {unitName} = 1,000,000,000 exact atoms).
-          </DialogDescription>
+            {uiT("Rates are specified in")}{" "}{unitName}{" "}{uiT("per 1,000,000 tokens (1")}{" "}{unitName}{" "}{uiT("= 1,000,000,000 exact atoms).")}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="space-y-1.5">
-            <Label htmlFor="unit-tariff-model">Model alias</Label>
+            <Label htmlFor="unit-tariff-model">{uiT("Model alias")}</Label>
             <Input
               id="unit-tariff-model"
               value={modelAlias}
@@ -465,7 +456,7 @@ function UnitTextTariffDialog({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="unit-tariff-prompt">Input rate ({unitName} / 1M tokens)</Label>
+              <Label htmlFor="unit-tariff-prompt">{uiT("Input rate (")}{unitName}{" "}{uiT("/ 1M tokens)")}</Label>
               <Input
                 id="unit-tariff-prompt"
                 inputMode="decimal"
@@ -475,7 +466,7 @@ function UnitTextTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-tariff-completion">Output rate ({unitName} / 1M tokens)</Label>
+              <Label htmlFor="unit-tariff-completion">{uiT("Output rate (")}{unitName}{" "}{uiT("/ 1M tokens)")}</Label>
               <Input
                 id="unit-tariff-completion"
                 inputMode="decimal"
@@ -485,29 +476,29 @@ function UnitTextTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-tariff-cached">Cached input rate (optional)</Label>
+              <Label htmlFor="unit-tariff-cached">{uiT("Cached input rate (optional)")}</Label>
               <Input
                 id="unit-tariff-cached"
                 inputMode="decimal"
                 value={cachedRate}
                 disabled={saving}
-                placeholder="Uses ordinary input rate"
+                placeholder={uiT("Uses ordinary input rate")}
                 onChange={event => setCachedRate(event.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-tariff-reasoning">Reasoning output rate (optional)</Label>
+              <Label htmlFor="unit-tariff-reasoning">{uiT("Reasoning output rate (optional)")}</Label>
               <Input
                 id="unit-tariff-reasoning"
                 inputMode="decimal"
                 value={reasoningRate}
                 disabled={saving}
-                placeholder="Uses ordinary output rate"
+                placeholder={uiT("Uses ordinary output rate")}
                 onChange={event => setReasoningRate(event.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-tariff-fee">Fixed request fee ({unitName})</Label>
+              <Label htmlFor="unit-tariff-fee">{uiT("Fixed request fee (")}{unitName})</Label>
               <Input
                 id="unit-tariff-fee"
                 inputMode="decimal"
@@ -517,7 +508,7 @@ function UnitTextTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-tariff-min">Minimum request charge ({unitName})</Label>
+              <Label htmlFor="unit-tariff-min">{uiT("Minimum request charge (")}{unitName})</Label>
               <Input
                 id="unit-tariff-min"
                 inputMode="decimal"
@@ -534,10 +525,9 @@ function UnitTextTariffDialog({
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
-              Cancel
-            </Button>
+              {uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Publishing…' : `Publish ${unitName} text tariff`}
+              {saving ? uiT("Publishing…") : uiF("Publish {0} text tariff", [unitName])}
             </Button>
           </div>
         </form>
@@ -559,7 +549,8 @@ function UnitMediaTariffDialog({
   onClose: () => void;
   onSaved: (modelAlias: string) => void;
 }) {
-  const unitName = config.definition?.name ?? 'Niu Credits';
+  const { t: uiT, format: uiF } = useUILocale();
+  const unitName = config.definition?.name ?? uiT("Niu Credits");
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? 'seedance-2.0');
   const [channel, setChannel] = useState(initial?.channel ?? 'default');
   const [resolution, setResolution] = useState(initial?.resolution ?? '720p');
@@ -633,16 +624,14 @@ function UnitMediaTariffDialog({
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? `Revise ${unitName} media tariff` : `Publish ${unitName} media tariff`}</DialogTitle>
+          <DialogTitle>{initial ? uiF("Revise {0} media tariff", [unitName]) : uiF("Publish {0} media tariff", [unitName])}</DialogTitle>
           <DialogDescription>
-            Set {unitName} consumption rates for video generation by model, channel, resolution, and reference-video
-            mode.
-          </DialogDescription>
+            {uiT("Set")}{" "}{unitName}{" "}{uiT("consumption rates for video generation by model, channel, resolution, and reference-video mode.")}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-model">Model alias</Label>
+              <Label htmlFor="unit-media-model">{uiT("Model alias")}</Label>
               <Input
                 id="unit-media-model"
                 value={modelAlias}
@@ -651,7 +640,7 @@ function UnitMediaTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-channel">Channel</Label>
+              <Label htmlFor="unit-media-channel">{uiT("Channel")}</Label>
               <Input
                 id="unit-media-channel"
                 value={channel}
@@ -660,7 +649,7 @@ function UnitMediaTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-resolution">Resolution</Label>
+              <Label htmlFor="unit-media-resolution">{uiT("Resolution")}</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -693,14 +682,14 @@ function UnitMediaTariffDialog({
                   disabled={saving || !!initial}
                   onCheckedChange={v => setReferenceVideo(v === true)}
                 />
-                <Label htmlFor="unit-media-ref">With reference video</Label>
+                <Label htmlFor="unit-media-ref">{uiT("With reference video")}</Label>
               </div>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-amount">Rate ({unitName})</Label>
+              <Label htmlFor="unit-media-amount">{uiT("Rate (")}{unitName})</Label>
               <Input
                 id="unit-media-amount"
                 inputMode="decimal"
@@ -710,7 +699,7 @@ function UnitMediaTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-per">Per video tokens</Label>
+              <Label htmlFor="unit-media-per">{uiT("Per video tokens")}</Label>
               <Input
                 id="unit-media-per"
                 value={perQuantity}
@@ -719,7 +708,7 @@ function UnitMediaTariffDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-min">Minimum video tokens</Label>
+              <Label htmlFor="unit-media-min">{uiT("Minimum video tokens")}</Label>
               <Input
                 id="unit-media-min"
                 value={minimumQuantity}
@@ -730,7 +719,7 @@ function UnitMediaTariffDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="unit-media-rounding">Rounding</Label>
+            <Label htmlFor="unit-media-rounding">{uiT("Rounding")}</Label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -740,7 +729,7 @@ function UnitMediaTariffDialog({
                   disabled={saving}
                   className="w-full sm:w-56 justify-between"
                 >
-                  <span>{rounding}</span>
+                  <span>{uiT(rounding)}</span>
                   <ChevronDown className="size-4 shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
@@ -749,9 +738,9 @@ function UnitMediaTariffDialog({
                   value={rounding}
                   onValueChange={v => setRounding(v as 'Down' | 'Up' | 'HalfEven')}
                 >
-                  <DropdownMenuRadioItem value="Up">Up</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="HalfEven">HalfEven</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="Down">Down</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="Up">{uiT("Up")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="HalfEven">{uiT("HalfEven")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="Down">{uiT("Down")}</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -764,10 +753,9 @@ function UnitMediaTariffDialog({
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
-              Cancel
-            </Button>
+              {uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Publishing…' : `Publish ${unitName} media tariff`}
+              {saving ? uiT("Publishing…") : uiF("Publish {0} media tariff", [unitName])}
             </Button>
           </div>
         </form>

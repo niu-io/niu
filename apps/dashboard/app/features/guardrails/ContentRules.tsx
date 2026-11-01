@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from "react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export default function ContentRules({
   token: string;
   endpoint: string;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const [sample, setSample] = useState("");
   const [protocol, setProtocol] = useState<Protocol>("chat");
   const [result, setResult] = useState<Result | null>(null);
@@ -157,32 +159,30 @@ export default function ContentRules({
   }
   const inspectionReason =
     result?.reason === "resource_limit"
-      ? "inspection limit exceeded"
+      ? uiT("inspection limit exceeded")
       : result?.reason === "unsupported_content"
-        ? "unsupported content"
+        ? uiT("unsupported content")
         : result?.reason === "invalid_pattern"
-          ? "invalid pattern"
-          : "inspection incomplete";
+          ? uiT("invalid pattern")
+          : uiT("inspection incomplete");
   return (
     <>
       <h2 className="guardrails-history-title">
-        {stage === "input" ? "Input rules" : "Output rules"}
+        {stage === "input" ? uiT("Input rules") : uiT("Output rules")}
       </h2>
       <Alert>
         <AlertDescription>
           {stage === "input"
-            ? "Rules inspect supported text before sending it upstream. Requests with unsupported tools, images or opaque content are blocked."
+            ? uiT("Rules inspect supported text before sending it upstream. Requests with unsupported tools, images or opaque content are blocked.")
             : outputMode === "observe_only"
-              ? "Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported."
-              : "Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active."}
+              ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
+              : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}
         </AlertDescription>
       </Alert>
       <section className="guardrails-section guardrails-content-section">
-        <h3>Patterns</h3>
+        <h3>{uiT("Patterns")}</h3>
         <p className="guardrails-muted">
-          Versioned syntax patterns. These do not detect every secret or
-          personal detail.
-        </p>
+          {uiT("Versioned syntax patterns. These do not detect every secret or personal detail.")}</p>
         {presets.map((preset) => {
           const matching = rules.filter((rule) => rule.preset === preset.value);
           const action = matching.some((rule) => rule.action === "block")
@@ -206,7 +206,7 @@ export default function ContentRules({
                   }
                 />
                 <Label htmlFor={`${stage}-${preset.value}`}>
-                  {preset.label}
+                  {uiT(preset.label)}
                 </Label>
               </div>
               {matching.length > 0 && (
@@ -215,9 +215,9 @@ export default function ContentRules({
                     <Button
                       variant="outline"
                       disabled={disabled || (stage === "output" && outputMode === "observe_only")}
-                      aria-label={`${preset.label} action`}
+                      aria-label={uiF("{0} action", [preset.label])}
                     >
-                      {stage === "output" && outputMode === "observe_only" ? "Observe" : actions[action]}
+                      {stage === "output" && outputMode === "observe_only" ? uiT("Observe") : actions[action]}
                       <ChevronDown />
                     </Button>
                   </DropdownMenuTrigger>
@@ -252,7 +252,7 @@ export default function ContentRules({
       </section>
       <section className="guardrails-section guardrails-content-section">
         <div className="guardrails-section-heading">
-          <h3>Custom patterns</h3>
+          <h3>{uiT("Custom patterns")}</h3>
           <Button
             ref={addPatternButton}
             variant="outline"
@@ -262,20 +262,16 @@ export default function ContentRules({
               onChange([...rules, { pattern: "", action: "redact" }]);
             }}
           >
-            Add pattern
-          </Button>
+            {uiT("Add pattern")}</Button>
         </div>
         <p className="guardrails-muted">
-          Up to 4096 UTF-8 bytes per pattern. Look-around and backreferences are
-          unsupported.
-        </p>
+          {uiT("Up to 4096 UTF-8 bytes per pattern. Look-around and backreferences are unsupported.")}</p>
         {rules.length >= 32 && (
           <p className="guardrails-muted">
-            The 32-rule limit has been reached.
-          </p>
+            {uiT("The 32-rule limit has been reached.")}</p>
         )}
         {!custom.length && (
-          <p className="guardrails-muted">No custom patterns.</p>
+          <p className="guardrails-muted">{uiT("No custom patterns.")}</p>
         )}
         {custom.map(({ rule, index }, number) => (
           <div key={index} className="guardrails-custom-pattern">
@@ -286,8 +282,8 @@ export default function ContentRules({
                   element.focus();
                 }
               }}
-              aria-label={`Pattern ${number + 1} regex`}
-              placeholder="Enter regex pattern"
+              aria-label={uiF("Pattern {0} regex", [number + 1])}
+              placeholder={uiT("Enter regex pattern")}
               maxLength={4096}
               value={rule.pattern}
               disabled={disabled}
@@ -307,9 +303,9 @@ export default function ContentRules({
                   <Button
                     variant="outline"
                     disabled={disabled || (stage === "output" && outputMode === "observe_only")}
-                    aria-label={`Pattern ${number + 1} action`}
+                    aria-label={uiF("Pattern {0} action", [number + 1])}
                   >
-                    {stage === "output" && outputMode === "observe_only" ? "Observe" : actions[rule.action]}
+                    {stage === "output" && outputMode === "observe_only" ? uiT("Observe") : actions[rule.action]}
                     <ChevronDown />
                   </Button>
                 </DropdownMenuTrigger>
@@ -329,33 +325,30 @@ export default function ContentRules({
               <Button
                 variant="ghost"
                 disabled={disabled}
-                aria-label={`Remove pattern ${number + 1}`}
+                aria-label={uiF("Remove pattern {0}", [number + 1])}
                 onClick={() => {
                   restoreAddPatternFocus.current = true;
                   onChange(rules.filter((_, current) => current !== index));
                 }}
               >
-                Remove
-              </Button>
+                {uiT("Remove")}</Button>
             </div>
           </div>
         ))}
         {invalid && <p role="alert">{invalid}</p>}
       </section>
       <section className="guardrails-section guardrails-content-section">
-        <h3>Test your patterns</h3>
+        <h3>{uiT("Test your patterns")}</h3>
         <p className="guardrails-muted">
-          Tests only the rules shown here. Use synthetic text; nothing is saved
-          or sent to a model.
-        </p>
+          {uiT("Tests only the rules shown here. Use synthetic text; nothing is saved or sent to a model.")}</p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" aria-label="Test protocol">
+            <Button variant="outline" aria-label={uiT("Test protocol")}>
               {protocol === "chat"
                 ? "Chat"
                 : protocol === "responses"
-                  ? "Responses"
-                  : "Embeddings"}
+                  ? uiT("Responses")
+                  : uiT("Embeddings")}
               <ChevronDown />
             </Button>
           </DropdownMenuTrigger>
@@ -366,23 +359,21 @@ export default function ContentRules({
             >
               <DropdownMenuRadioItem value="chat">Chat</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="responses">
-                Responses
-              </DropdownMenuRadioItem>
+                {uiT("Responses")}</DropdownMenuRadioItem>
               {stage === "input" && (
                 <DropdownMenuRadioItem value="embeddings">
-                  Embeddings
-                </DropdownMenuRadioItem>
+                  {uiT("Embeddings")}</DropdownMenuRadioItem>
               )}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Label htmlFor={`${stage}-sample`}>Sample text</Label>
+        <Label htmlFor={`${stage}-sample`}>{uiT("Sample text")}</Label>
         <Textarea
           className="guardrails-sample"
           id={`${stage}-sample`}
           value={sample}
           maxLength={32000}
-          placeholder="Enter synthetic sample text"
+          placeholder={uiT("Enter synthetic sample text")}
           onChange={(event) => setSample(event.target.value)}
         />
         <Button
@@ -392,9 +383,9 @@ export default function ContentRules({
           }
           onClick={() => void test()}
         >
-          {testing ? "Testing…" : "Test patterns"}
+          {testing ? uiT("Testing…") : uiT("Test patterns")}
         </Button>
-        {!rules.length && <p className="guardrails-muted">Select a pattern above to enable testing.</p>}
+        {!rules.length && <p className="guardrails-muted">{uiT("Select a pattern above to enable testing.")}</p>}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -402,13 +393,13 @@ export default function ContentRules({
         )}
         {result && (
           <p role="status">
-            {result.outcome === "matched" ? "Match observed · response unchanged" : result.outcome === "clear" ? "No match observed · response unchanged" : result.outcome === "blocked"
-              ? "Blocked"
+            {result.outcome === "matched" ? uiT("Match observed · response unchanged") : result.outcome === "clear" ? uiT("No match observed · response unchanged") : result.outcome === "blocked"
+              ? uiT("Blocked")
               : result.outcome === "indeterminate"
-                ? `Not fully inspectable (${inspectionReason})`
+                ? uiF("Not fully inspectable ({0})", [inspectionReason])
                 : result.redacted
-                  ? "Allowed after redaction"
-                  : "Allowed without redaction"}
+                  ? uiT("Allowed after redaction")
+                  : uiT("Allowed without redaction")}
           </p>
         )}
       </section>

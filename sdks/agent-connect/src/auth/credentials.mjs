@@ -4,12 +4,24 @@ import {randomUUID} from 'node:crypto';
 
 /** Atomic owner-only persistence. Destination is supplied by the host adapter,
  * never by a remote authorization response. No credential is printed. */
-export async function saveCredential(destination,credential) {
-  if (!/^niu_[0-9a-f]{64}$/.test(credential.token) || new URL(credential.origin).origin!==credential.origin) throw new Error('Invalid Niu credential');
+export async function prepareCredentialStorage(destination) {
   const directory=dirname(destination);
   await mkdir(directory,{recursive:true,mode:0o700});
   const info=await lstat(directory);
   if (!info.isDirectory() || info.isSymbolicLink() || (process.platform!=='win32' && ((info.mode&0o077)!==0 || info.uid!==process.getuid()))) throw new Error('Niu credential directory must be private and owned by the current user');
+  try {
+    const target=await lstat(destination);
+    if (!target.isFile() || target.isSymbolicLink() || (process.platform!=='win32' && ((target.mode&0o077)!==0 || target.uid!==process.getuid()))) throw new Error('Niu credential file must be private and owned by the current user');
+  } catch(error) {if(error.code!=='ENOENT')throw error;}
+  const probe=join(directory,`.credential-check-${randomUUID()}`);
+  const file=await open(probe,'wx',0o600);
+  try {await file.sync();} finally {await file.close();await rm(probe,{force:true});}
+}
+
+export async function saveCredential(destination,credential) {
+  if (!/^niu_[0-9a-f]{64}$/.test(credential.token) || new URL(credential.origin).origin!==credential.origin) throw new Error('Invalid Niu credential');
+  await prepareCredentialStorage(destination);
+  const directory=dirname(destination);
   const temporary=join(directory,`.credential-${randomUUID()}`);
   let file;
   try {

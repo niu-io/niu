@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Target: **0.3.0** — agent-oriented UX, documentation and native coding-agent integrations. Publication remains on hold pending implementation and qualification.
+Target: **0.3.0** — agent-oriented UX, documentation and native coding-agent integrations. Release preparation is authorized; publication requires fresh candidate qualification.
 
 ### Added
 - Native Claude Code and Codex plugin/marketplace builders, plus a separate DeepSeek Harness Cordis bundle, with shared concise skills and standalone MCP runtime.

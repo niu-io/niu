@@ -55,11 +55,11 @@ describe('WorkspaceKeyConnection', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'API test workspace' }).textContent).toContain('Staging Sandbox'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'API test key' }).textContent).toContain('Staging Active Key'));
     expect(screen.getByText('Connected')).toBeTruthy();
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       keyId: '00000000-0000-4000-8000-000000000201',
       keyName: 'Staging Active Key',
       canWrite: true,
-    }));
+    })));
 
     // Disconnect inline without unmounting workspaces
     const user = userEvent.setup();
@@ -82,9 +82,9 @@ describe('WorkspaceKeyConnection', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'API test key' }).textContent).toContain('Production Primary Key'));
     expect(screen.getByText('Connected')).toBeTruthy();
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       keyId: '00000000-0000-4000-8000-000000000301',
       keyName: 'Production Primary Key',
-    }));
+    })));
   });
 });

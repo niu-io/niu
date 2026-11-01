@@ -1,7 +1,7 @@
 import { IconArrowLeft, IconHome, IconChevronDown } from '@tabler/icons-react';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
 import { useBranding } from './branding';
-import { useLocale } from './locale';
+import { useLocale } from './ui-locale';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useEffect } from 'react';

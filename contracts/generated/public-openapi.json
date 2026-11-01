@@ -30846,8 +30846,11 @@
           "401": {
             "description": "Management authentication required."
           },
+          "403": {
+            "description": "Active platform administration required; Provider membership alone grants no access."
+          },
           "404": {
-            "description": "Provider membership denied or offer not found."
+            "description": "Platform administration required or offer not found."
           },
           "409": {
             "description": "Cursor does not belong to this offer."
@@ -35621,7 +35624,7 @@
       "get": {
         "operationId": "getProviderOfferRevision",
         "summary": "Read an immutable Provider procurement quote",
-        "description": "Installation administrators or active members of this Provider may read a quote. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
+        "description": "Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
         "security": [
           {
             "bearerAuth": []
@@ -35682,8 +35685,11 @@
           "401": {
             "description": "Management authentication required."
           },
+          "403": {
+            "description": "Active platform administration required; Provider membership alone grants no access."
+          },
           "404": {
-            "description": "Provider membership denied or quote identity not found."
+            "description": "Platform administration required or quote identity not found."
           },
           "503": {
             "description": "Storage unavailable."
@@ -47185,8 +47191,8 @@
     "/api/v1/provider-memberships": {
       "get": {
         "operationId": "listProviderMemberships",
-        "summary": "List the signed-in operator’s complete active Provider memberships",
-        "description": "Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.",
+        "summary": "Read the retired Provider portal membership directory",
+        "description": "Requires platform administration and returns an empty compatibility directory. Provider self-service is not currently supported. Retained Provider membership records grant no role, portal, financial or statistics access.",
         "security": [
           {
             "bearerAuth": []
@@ -47194,7 +47200,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Complete current membership directory.",
+            "description": "Empty compatibility directory; no Provider login role is available.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -47254,6 +47260,9 @@
           },
           "401": {
             "description": "Missing or unusable session."
+          },
+          "403": {
+            "description": "Active platform administration required; Provider membership alone grants no access."
           },
           "503": {
             "description": "Storage unavailable."
@@ -48045,7 +48054,7 @@
       "put": {
         "operationId": "setProviderMembership",
         "summary": "Grant, change or disable a Provider membership",
-        "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
+        "description": "Requires platform administration. Records legacy viewer or manager membership metadata for a non-revoked operator. These records do not enable Provider login, portal, financial, statistics or platform configuration access. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
         "tags": [
           "Providers"
         ],
@@ -48286,7 +48295,7 @@
       "get": {
         "operationId": "listSupplierMediaRates",
         "summary": "Read this Provider's agreed media purchase schedules",
-        "description": "Installation read access or active membership of this exact Provider only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.",
+        "description": "Active platform administration is required. Provider memberships do not grant access. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.",
         "parameters": [
           {
             "name": "after",
@@ -48375,7 +48384,7 @@
             "description": "Valid management session required"
           },
           "404": {
-            "description": "No active membership for this Provider"
+            "description": "Provider not found"
           },
           "503": {
             "description": "Durable storage unavailable"
@@ -49262,6 +49271,9 @@
           "401": {
             "description": "Invalid session."
           },
+          "403": {
+            "description": "Active platform administration required; Provider membership alone grants no access."
+          },
           "404": {
             "description": "Provider missing or unauthorized."
           },
@@ -49511,7 +49523,7 @@
       ],
       "patch": {
         "operationId": "setProviderOfferAvailability",
-        "summary": "A Provider manager can pause or resume an owned offer",
+        "summary": "A platform administrator can pause or resume an owned offer",
         "description": "Pausing prevents new admissions. Already dispatched requests may complete and accrue earnings. Viewers and unrelated operators cannot mutate offers.",
         "requestBody": {
           "required": true,
@@ -49536,8 +49548,8 @@
           "200": {
             "description": "Availability saved and audited"
           },
-          "404": {
-            "description": "No eligible Provider membership"
+          "403": {
+            "description": "Active platform administration required"
           },
           "409": {
             "description": "Offer unavailable in Provider scope"
@@ -49584,10 +49596,10 @@
             "description": "Period must be 7, 30, or 90 days"
           },
           "403": {
-            "description": "Installation sessions do not imply Provider membership"
+            "description": "Active platform administration required"
           },
           "404": {
-            "description": "No active membership for this provider"
+            "description": "Provider not found"
           }
         },
         "security": [
@@ -56916,9 +56928,58 @@
                             "operator"
                           ]
                         },
+                        "roles": {
+                          "type": "object",
+                          "required": [
+                            "available",
+                            "active",
+                            "switchable"
+                          ],
+                          "properties": {
+                            "available": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "admin"
+                                ]
+                              },
+                              "description": "Only identities currently granted to this session. Provider is not a supported login role."
+                            },
+                            "active": {
+                              "type": "string",
+                              "enum": [
+                                "user",
+                                "admin"
+                              ]
+                            },
+                            "switchable": {
+                              "type": "boolean",
+                              "description": "Whether this browser sign-in may select another role."
+                            }
+                          }
+                        },
+                        "admin_mode": {
+                          "type": "object",
+                          "required": [
+                            "available",
+                            "enabled"
+                          ],
+                          "properties": {
+                            "available": {
+                              "type": "boolean",
+                              "description": "Whether this browser sign-in has a current platform administrator grant."
+                            },
+                            "enabled": {
+                              "type": "boolean",
+                              "description": "Whether platform authority is activated for this browser session."
+                            }
+                          }
+                        },
                         "provider_memberships": {
                           "type": "array",
-                          "description": "Explicit active Provider grants only; installation identity returns an empty array.",
+                          "description": "Retired compatibility field; always empty. Provider membership is not a login role or an access grant.",
                           "items": {
                             "type": "object",
                             "required": [
@@ -57030,6 +57091,273 @@
           ],
           "required_capability": "read",
           "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/session/role": {
+      "put": {
+        "operationId": "setSessionRole",
+        "summary": "Select an assigned role for the current browser sign-in",
+        "description": "Accepts user or admin only. Available roles, the active role and whether switching is supported come from GET /api/v1/session data.roles. New password sign-ins start as user. Selecting admin requires a current explicit platform grant and activates administration for at most six hours, bounded by session expiry. Selection is persisted and audited on the server; it does not change tenant Owner/Admin/Viewer permissions, grant membership, issue credentials or expand workspace scope. Provider self-service is not currently supported. Explicit automation and installation credentials cannot switch role. Read back session identity after an uncertain response. Cookie requests require the trusted same origin.",
+        "security": [
+          {
+            "adminBearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "admin"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current session identity with roles.active",
+            "roles.available and effective permissions.": null
+          },
+          "400": {
+            "description": "Invalid JSON."
+          },
+          "401": {
+            "description": "Invalid",
+            "expired": null,
+            "revoked or non-switchable session.": null
+          },
+          "403": {
+            "description": "The requested role is not currently granted or same-origin checks failed."
+          },
+          "422": {
+            "description": "Unsupported role or invalid fields."
+          },
+          "503": {
+            "description": "Authentication storage unavailable."
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/session/mode": {
+      "put": {
+        "operationId": "setBrowserAdminMode",
+        "summary": "Compatibility operation to enter or leave Admin mode",
+        "description": "Requires an existing password-login session. Entering requires a current explicit platform administrator grant. Browser sign-ins start in User mode. Admin mode is persisted server-side for this session only, expires after at most six hours, and never expands customer workspace scope. Leaving removes platform authority on subsequent requests. The change is audited; it does not grant membership or issue credentials. Installation tokens and explicitly issued automation sessions retain their existing authorization contracts and cannot use this operation. Cookie requests require the trusted same origin. Read GET /api/v1/session to verify or recover an uncertain response; do not replay other management mutations. Responses are not cached.",
+        "security": [
+          {
+            "adminBearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current session identity, admin_mode availability and effective permissions, using the same response shape as GET /api/v1/session."
+          },
+          "400": {
+            "description": "Invalid JSON."
+          },
+          "401": {
+            "description": "Invalid, expired, revoked or unsupported session."
+          },
+          "403": {
+            "description": "Platform administrator eligibility or same-origin authority is missing."
+          },
+          "422": {
+            "description": "Invalid fields or input types."
+          },
+          "503": {
+            "description": "Authentication storage unavailable; read back before retrying."
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/operators/{operator}/administration": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "operator",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getMemberPlatformAdministration",
+        "summary": "Read an explicit platform administrator grant",
+        "description": "Requires an installation credential. Tenant owners and activated platform administrators cannot inspect or manage these grants. Returns current eligibility for a non-revoked member, independently of browser session mode. Contains no credentials. Responses are not cached.",
+        "security": [
+          {
+            "adminBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current explicit eligibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "enabled"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential."
+          },
+          "403": {
+            "description": "Installation credential required."
+          },
+          "404": {
+            "description": "Member missing or revoked."
+          }
+        },
+        "tags": [
+          "Users and sessions"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      },
+      "put": {
+        "operationId": "setMemberPlatformAdministration",
+        "summary": "Explicitly grant or revoke platform administrator eligibility",
+        "description": "Requires an installation credential and the expected current eligibility. Records changed grants in immutable platform_admin_events and clears all retained browser activations for the affected member. Granting does not enter Admin mode, change passwords, issue credentials or expand customer workspace scope. A matching no-op creates no audit event. Read this resource and GET /api/v1/session to verify grant and effective activation separately. A conflict requires readback before reconsidering the change. Responses are not cached.",
+        "security": [
+          {
+            "adminBearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "enabled",
+                  "expected_enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "expected_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Explicit eligibility saved. Response data.enabled is the saved boolean."
+          },
+          "401": {
+            "description": "Missing or invalid credential."
+          },
+          "403": {
+            "description": "Installation credential required."
+          },
+          "409": {
+            "description": "Eligibility changed concurrently or member missing/revoked. Read back before retrying."
+          },
+          "503": {
+            "description": "Storage unavailable. Read back an uncertain result."
+          }
+        },
+        "tags": [
+          "Users and sessions"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
         }
       }
     },

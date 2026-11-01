@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/PageHeader';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 
 export default function NotFoundRoute() {
   const { t } = useLocale();

@@ -63,6 +63,8 @@ jobs:
           cache: pnpm
       - name: Install JavaScript workspace
         run: pnpm install --frozen-lockfile
+      - name: Test installed dependency license inventory
+        run: node --test scripts/tests/js-license-inventory.test.mjs
       - name: Check JavaScript dependency licenses
         env:
           NIU_JS_LICENSE_REPORT: ${{ runner.temp }}/niu-js-license-report.json
@@ -75,6 +77,10 @@ jobs:
           if-no-files-found: ignore
       - name: Check operator documentation commands and paths
         run: python3 -m unittest scripts.tests.test_operator_documentation
+      - name: Test localization audit and reject new untranslated copy
+        run: |
+          pnpm test:i18n
+          pnpm check:i18n:new
       - name: Check dashboard types
         run: pnpm --filter @niu-io/dashboard check
       - name: Build dashboard

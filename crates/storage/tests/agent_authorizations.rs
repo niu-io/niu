@@ -120,10 +120,11 @@ async fn browser_grant_is_scoped_single_use_and_concurrency_safe(pool: PgPool) {
             .await
             .is_err()
     );
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM api_keys WHERE name='Niu for DeepSeek Harness'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM api_keys WHERE name='Niu for DeepSeek Harness'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(count, 1);
 }
 

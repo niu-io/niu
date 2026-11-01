@@ -1,5 +1,5 @@
 ---
-title: "A Provider manager can pause or resume an owned offer"
+title: "A platform administrator can pause or resume an owned offer"
 description: "PATCH /api/v1/providers/{provider}/offers/{offer}"
 ---
 
@@ -87,9 +87,9 @@ Location: **path**. **Required.**
 
 Availability saved and audited
 
-### HTTP 404
+### HTTP 403
 
-No eligible Provider membership
+Active platform administration required
 
 ### HTTP 409
 

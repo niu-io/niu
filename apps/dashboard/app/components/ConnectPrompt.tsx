@@ -1,7 +1,7 @@
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 import { Link, useLocation } from 'react-router';
 
 export default function ConnectPrompt() {

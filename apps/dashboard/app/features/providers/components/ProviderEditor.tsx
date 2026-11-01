@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent } from 'react';
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
@@ -24,6 +25,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
   onCreate: (input: ProviderConnectionCreate) => Promise<void>;
   onSave: (input: ProviderConnectionWrite) => Promise<void>;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const activeConnection = connection ?? vendor ?? null;
   const defaultProviderId = initialProviderId ?? initialSupplierId ?? '';
   const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
@@ -94,16 +96,16 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
     void save().catch(() => { /* Parent onSave mutate handler records and displays the error. */ });
   }
 
-  const title = activeConnection ? activeConnection.name : 'Configure API access';
+  const title = activeConnection ? activeConnection.name : uiT("Configure API access");
   return <section className={'panel vendor-editor' + (activeConnection && activeConnection.enabled ? ' is-enabled' : '')} aria-labelledby="vendor-editor-title">
     <div className="vendor-editor-heading">
       <span className="vendor-editor-mark"><Router size={18} /></span>
       <div className="vendor-editor-title-copy">
-        <p className="eyebrow">{activeConnection ? 'API KEY' : 'NEW API KEY'}</p>
+        <p className="eyebrow">{activeConnection ? uiT("API KEY") : uiT("NEW API KEY")}</p>
         <h2 id="vendor-editor-title">{title}</h2>
-        <p>{activeConnection ? `Revision ${activeConnection.revision} · ${activeConnection.has_credential ? 'Credential stored' : 'No credential stored'}` : 'Save the upstream key, then choose the models it supplies.'}</p>
+        <p>{activeConnection ? uiF("Revision {0} · {1}", [activeConnection.revision, activeConnection.has_credential ? uiT("Credential stored") : uiT("No credential stored")]) : uiT("Save the upstream key, then choose the models it supplies.")}</p>
       </div>
-      {activeConnection && <span className={'vendor-status-badge' + (activeConnection.enabled ? ' is-enabled' : '')}>{activeConnection.enabled ? 'Enabled' : 'Disabled'}</span>}
+      {activeConnection && <span className={'vendor-status-badge' + (activeConnection.enabled ? ' is-enabled' : '')}>{activeConnection.enabled ? uiT("Enabled") : uiT("Disabled")}</span>}
     </div>
 
     <form className="vendor-editor-form" onSubmit={submit}>
@@ -111,59 +113,57 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         {!activeConnection && <div className="space-y-2">
           <Label htmlFor="vendor-provider">Provider</Label>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-provider" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(defaultProviderId) || providerLoading || Boolean(providerError)}>{providerLoading ? 'Loading providers…' : providerId ? selectedProvider?.name ?? 'Provider unavailable' : 'New provider'}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-provider" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(defaultProviderId) || providerLoading || Boolean(providerError)}>{providerLoading ? uiT("Loading providers…") : providerId ? selectedProvider?.name ?? uiT("Provider unavailable") : uiT("New provider")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={providerId} onValueChange={setProviderId}>
-              <DropdownMenuRadioItem value="">New provider</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="">{uiT("New provider")}</DropdownMenuRadioItem>
               {providers.map(provider => <DropdownMenuRadioItem key={provider.id} value={provider.id}>{provider.name}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
-          {providerError && <div role="alert">{providerError}<Button type="button" variant="ghost" size="sm" onClick={() => setProviderRetry(value => value + 1)}>Retry</Button></div>}
+          {providerError && <div role="alert">{providerError}<Button type="button" variant="ghost" size="sm" onClick={() => setProviderRetry(value => value + 1)}>{uiT("Retry")}</Button></div>}
         </div>}
-        <Label htmlFor="vendor-name">{providerId || activeConnection ? 'API key name' : 'Provider name'}
-          <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder="e.g. Primary inference" required disabled={disabled} />
+        <Label htmlFor="vendor-name">{providerId || activeConnection ? uiT("API key name") : uiT("Provider name")}
+          <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder={uiT("e.g. Primary inference")} required disabled={disabled} />
         </Label>
-        <Label htmlFor="vendor-adapter">API format
-          <DropdownMenu>
+        <Label htmlFor="vendor-adapter">{uiT("API format")}<DropdownMenu>
             <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(activeConnection)}>{providerAdapterApiLabels[adapter]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as ProviderAdapter)}>
-              <DropdownMenuRadioItem value="openrouter">OpenRouter API</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="openai">OpenAI-compatible API</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="anthropic">Anthropic Messages API</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="gemini">Google Gemini API</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="ark">Ark-compatible API</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="openrouter">{uiT("OpenRouter API")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="openai">{uiT("OpenAI-compatible API")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="anthropic">{uiT("Anthropic Messages API")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="gemini">{uiT("Google Gemini API")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="ark">{uiT("Ark-compatible API")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
         </Label>
-        <Label htmlFor="vendor-api-base">API base URL
-          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
+        <Label htmlFor="vendor-api-base">{uiT("API base URL")}<Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
         </Label>
-        <Label htmlFor="vendor-api-key">{activeConnection ? 'Replace provider API key (optional)' : 'Provider API key'}
-          <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={activeConnection ? 'Leave blank to keep the current credential' : 'Paste a provider key'} required={!activeConnection} disabled={disabled} />
+        <Label htmlFor="vendor-api-key">{activeConnection ? uiT("Replace provider API key (optional)") : uiT("Provider API key")}
+          <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={activeConnection ? uiT("Leave blank to keep the current credential") : uiT("Paste a provider key")} required={!activeConnection} disabled={disabled} />
         </Label>
       </div>
 
       <div className="vendor-editor-notes">
-        <span><ShieldCheck size={15} />Public HTTPS or localhost HTTP only.</span>
-        <span><KeyRound size={15} />Credentials are stored encrypted and never shown again.</span>
+        <span><ShieldCheck size={15} />{uiT("Public HTTPS or localhost HTTP only.")}</span>
+        <span><KeyRound size={15} />{uiT("Credentials are stored encrypted and never shown again.")}</span>
       </div>
 
       {activeConnection && <label className="vendor-enabled-toggle">
         <Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => { setEnabled(value === true); setConfirmDisable(false); }} />
-        <span><strong>Enabled for inference</strong><small>Disabled keys stay available for audit and can be enabled again.</small></span>
+        <span><strong>{uiT("Enabled for inference")}</strong><small>{uiT("Disabled keys stay available for audit and can be enabled again.")}</small></span>
       </label>}
 
       {confirmDisable && <div className="vendor-confirm-disable" role="alertdialog" aria-labelledby="vendor-disable-title">
-        <div><strong id="vendor-disable-title">Disable this API key?</strong><p>Models mapped to this key will stop receiving new requests.</p></div>
+        <div><strong id="vendor-disable-title">{uiT("Disable this API key?")}</strong><p>{uiT("Models mapped to this key will stop receiving new requests.")}</p></div>
         <div className="vendor-confirm-actions">
-          <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => setConfirmDisable(false)}>Keep enabled</Button>
-          <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => { /* Parent onSave mutate handler records and displays the error. */ })}>{disabled ? 'Saving…' : 'Confirm disable'}</Button>
+          <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => setConfirmDisable(false)}>{uiT("Keep enabled")}</Button>
+          <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => { /* Parent onSave mutate handler records and displays the error. */ })}>{disabled ? uiT("Saving…") : uiT("Confirm disable")}</Button>
         </div>
       </div>}
 
       <div className="vendor-editor-footer">
-        <p>{activeConnection ? 'API format cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
+        <p>{activeConnection ? uiT("API format cannot be changed after creation.") : uiT("Use a public HTTPS URL. Loopback HTTP works for local development.")}</p>
         <Button type="submit" disabled={disabled || ownershipUnavailable || !name.trim() || !apiBase.trim() || (!activeConnection && !apiKey)}>
-          {!activeConnection ? <Plus /> : null}{disabled ? 'Saving…' : !activeConnection ? providerId ? 'Add API key' : 'Create provider' : !activeConnection.enabled && enabled ? 'Enable API key' : activeConnection.enabled && !enabled ? 'Review disable' : 'Save changes'}
+          {!activeConnection ? <Plus /> : null}{disabled ? uiT("Saving…") : !activeConnection ? providerId ? uiT("Add API key") : uiT("Create provider") : !activeConnection.enabled && enabled ? uiT("Enable API key") : activeConnection.enabled && !enabled ? uiT("Review disable") : uiT("Save changes")}
         </Button>
       </div>
     </form>

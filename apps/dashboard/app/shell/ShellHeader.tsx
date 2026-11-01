@@ -1,3 +1,4 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { RefObject } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import {
@@ -25,7 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
 import type { Workspace } from './dashboard-context';
-import { useLocale } from './locale';
+import { useLocale } from './ui-locale';
 import { navigation } from './navigation';
 import ProductRailLink from './ProductRailLink';
 import { workspaceDisplayName } from './workspace-route';
@@ -47,20 +48,21 @@ function WorkspaceSidebarToggle({
   activityArea?: boolean;
   adminArea?: boolean;
 }) {
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
   const expanded = isMobile ? openMobile : state === 'expanded';
   const targetArea = adminArea
-    ? 'admin navigation'
+    ? uiT("admin navigation")
     : activityArea
-      ? 'activity navigation'
+      ? uiT("activity navigation")
       : settingsArea
-        ? 'settings navigation'
+        ? uiT("settings navigation")
         : modelsArea
-          ? 'model filters'
+          ? uiT("model filters")
           : supplierArea
-            ? 'provider navigation'
-            : 'workspace navigation';
+            ? uiT("provider navigation")
+            : uiT("workspace navigation");
   const controlsId = adminArea
     ? 'admin-navigation'
     : activityArea
@@ -83,7 +85,7 @@ function WorkspaceSidebarToggle({
       onClick={toggleSidebar}
       aria-expanded={expanded}
       aria-controls={controlsId}
-      aria-label={`${expanded ? 'Collapse' : 'Expand'} ${targetArea}`}
+      aria-label={`${expanded ? uiT("Collapse") : uiT("Expand")} ${targetArea}`}
       title={expanded ? t('Collapse navigation', '收起导航') : t('Expand navigation', '展开导航')}
     >
       {expanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
@@ -150,6 +152,7 @@ export default function ShellHeader({
   title: string;
   setupBlocked: boolean;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { isZh, t } = useLocale();
   const navigate = useNavigate();
 
@@ -166,12 +169,12 @@ export default function ShellHeader({
         />
       )}
       {phoneNavigation && hasSidebar && (
-        <a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={`${brandingName} home`}>
+        <a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [brandingName])}>
           <img src={logo} alt="" />
         </a>
       )}
       {destination === 'Workspace' && !workspaceDirectoryArea && !supplierArea && !adminArea ? (
-        <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">
+        <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
           <BreadcrumbList className="flex-nowrap gap-1 sm:gap-2.5">
             <BreadcrumbItem className="min-w-0 gap-0">
               <BreadcrumbLink asChild>
@@ -188,7 +191,7 @@ export default function ShellHeader({
                     variant="ghost"
                     size="icon"
                     className="size-6 shrink-0"
-                    aria-label="Switch workspace in header"
+                    aria-label={uiT("Switch workspace in header")}
                     disabled={!workspaces.length}
                   >
                     <ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
@@ -258,7 +261,7 @@ export default function ShellHeader({
                 <BreadcrumbItem className="sm:hidden">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">
+                      <Button variant="ghost" size="icon" className="size-6" aria-label={uiT("Show parent pages")}>
                         …
                       </Button>
                     </DropdownMenuTrigger>
@@ -287,7 +290,7 @@ export default function ShellHeader({
                   <Button
                     variant="ghost"
                     className="h-auto min-w-0 max-w-full gap-1 px-1 py-1"
-                    aria-label="Switch workspace page"
+                    aria-label={uiT("Switch workspace page")}
                   >
                     <h1 className="dashboard-route-title">{title}</h1>
                     <ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
@@ -314,7 +317,7 @@ export default function ShellHeader({
           </BreadcrumbList>
         </Breadcrumb>
       ) : adminSupplierId ? (
-        <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">
+        <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
           <BreadcrumbList>
             <BreadcrumbItem className="hidden sm:inline-flex">
               <BreadcrumbLink asChild>
@@ -341,7 +344,7 @@ export default function ShellHeader({
           </BreadcrumbList>
         </Breadcrumb>
       ) : (
-        <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">
+        <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
           {!(
             adminArea ||
             workspaceDirectoryArea ||

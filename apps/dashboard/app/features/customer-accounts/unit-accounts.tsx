@@ -1,3 +1,5 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -109,6 +111,7 @@ export function CompanyBrandedUnitsDialog({
   onClose: () => void;
   onChanged: (message: string) => void;
 }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const [snapshot, setSnapshot] = useState<CompanyUnitSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -191,7 +194,7 @@ export function CompanyBrandedUnitsDialog({
     };
   }, [token, organizationId, selectedOrderId]);
 
-  const unitName = snapshot?.definition?.name ?? 'Niu Credits';
+  const unitName = snapshot?.definition?.name ?? uiT("Niu Credits");
   const precision = snapshot?.definition?.display_precision ?? 2;
 
   async function handleIssueGrant(event: FormEvent) {
@@ -345,11 +348,9 @@ export function CompanyBrandedUnitsDialog({
         style={{ maxWidth: 'min(58rem, calc(100vw - 2rem))' }}
       >
         <DialogHeader>
-          <DialogTitle>Manage Branded Credits · {organizationName}</DialogTitle>
+          <DialogTitle>{uiT("Manage Branded Credits ·")}{" "}{organizationName}</DialogTitle>
           <DialogDescription>
-            Inspect exact {unitName} lot balances by provenance, issue promotional or simulated grants, restore settled
-            consumption charges, and reverse unoccupied purchase lots at processor minor-unit precision.
-          </DialogDescription>
+            {uiT("Inspect exact")}{" "}{unitName}{" "}{uiT("lot balances by provenance, issue promotional or simulated grants, restore settled consumption charges, and reverse unoccupied purchase lots at processor minor-unit precision.")}</DialogDescription>
         </DialogHeader>
 
         {notice && (
@@ -362,28 +363,28 @@ export function CompanyBrandedUnitsDialog({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {loading && !snapshot && <MetricStripSkeleton count={3} label="Loading company Credits ledger…" />}
+        {loading && !snapshot && <MetricStripSkeleton count={3} label={uiT("Loading company Credits ledger…")} />}
 
         {snapshot && (
           <div className="space-y-6 min-w-0">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">1. Exact {unitName} balances by provenance</h3>
+                <h3 className="text-sm font-semibold">{uiT("1. Exact")}{" "}{unitName}{" "}{uiT("balances by provenance")}</h3>
                 <Badge variant={snapshot.billing_mode === 'credits' ? 'default' : 'outline'}>
-                  Mode: {snapshot.billing_mode === 'credits' ? `Branded Credits (${unitName})` : 'Settlement Currency'}
+                  {uiT("Mode:")}{" "}{snapshot.billing_mode === 'credits' ? uiF("Branded Credits ({0})", [unitName]) : uiT("Settlement Currency")}
                 </Badge>
               </div>
               {snapshot.balances.length > 0 ? (
                 <Table
-                  aria-label="Company Branded Credits balances"
+                  aria-label={uiT("Company Branded Credits balances")}
                   className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal"
                 >
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Unit &amp; provenance</TableHead>
-                      <TableHead className="text-right">Net issued</TableHead>
-                      <TableHead className="text-right">Held / Charged / Restored</TableHead>
-                      <TableHead className="text-right">Available ({unitName})</TableHead>
+                      <TableHead>{uiT("Unit & provenance")}</TableHead>
+                      <TableHead className="text-right">{uiT("Net issued")}</TableHead>
+                      <TableHead className="text-right">{uiT("Held / Charged / Restored")}</TableHead>
+                      <TableHead className="text-right">{uiT("Available (")}{unitName})</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -394,7 +395,7 @@ export function CompanyBrandedUnitsDialog({
                             {b.name} (v{b.definition_revision})
                           </p>
                           <Badge variant="outline" className="mt-0.5 capitalize">
-                            {b.provenance}
+                            {uiT(b.provenance)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-xs">
@@ -409,10 +410,10 @@ export function CompanyBrandedUnitsDialog({
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                          <p>Held: {formatUnitAtoms(b.held_atoms, b.name, b.display_precision)}</p>
-                          <p>Charged: {formatUnitAtoms(b.charged_atoms, b.name, b.display_precision)}</p>
+                          <p>{uiT("Held:")}{" "}{formatUnitAtoms(b.held_atoms, b.name, b.display_precision)}</p>
+                          <p>{uiT("Charged:")}{" "}{formatUnitAtoms(b.charged_atoms, b.name, b.display_precision)}</p>
                           {BigInt(b.restored_atoms || '0') > 0n && (
-                            <p>Restored: {formatUnitAtoms(b.restored_atoms, b.name, b.display_precision)}</p>
+                            <p>{uiT("Restored:")}{" "}{formatUnitAtoms(b.restored_atoms, b.name, b.display_precision)}</p>
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-xs">
@@ -431,21 +432,20 @@ export function CompanyBrandedUnitsDialog({
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-xs text-muted-foreground">No {unitName} lots have been issued for this company yet.</p>
+                <p className="text-xs text-muted-foreground">{uiF("No {0} lots have been issued for this company yet.", [unitName])}</p>
               )}
             </div>
 
             <div className="space-y-3 rounded-lg bg-muted/30 p-4 min-w-0">
               <div>
-                <h3 className="text-sm font-semibold">2. Issue noncash {unitName} grant</h3>
+                <h3 className="text-sm font-semibold">{uiT("2. Issue noncash")}{" "}{unitName}{" "}{uiT("grant")}</h3>
                 <p className="text-xs text-muted-foreground">
-                  Promotional and simulated grants have zero monetary backing and never create a cash funding receipt.
-                </p>
+                  {uiT("Promotional and simulated grants have zero monetary backing and never create a cash funding receipt.")}</p>
               </div>
               <form className="space-y-3" onSubmit={event => void handleIssueGrant(event)}>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="unit-grant-amount">Grant amount ({unitName})</Label>
+                    <Label htmlFor="unit-grant-amount">{uiT("Grant amount (")}{unitName})</Label>
                     <Input
                       id="unit-grant-amount"
                       inputMode="decimal"
@@ -455,7 +455,7 @@ export function CompanyBrandedUnitsDialog({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="unit-grant-provenance">Provenance</Label>
+                    <Label htmlFor="unit-grant-provenance">{uiT("Provenance")}</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -465,7 +465,7 @@ export function CompanyBrandedUnitsDialog({
                           disabled={issuingGrant || snapshot.billing_mode !== 'credits'}
                           className="w-full justify-between capitalize"
                         >
-                          <span>{grantProvenance}</span>
+                          <span>{uiT(grantProvenance)}</span>
                           <ChevronDown className="size-4 shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -474,18 +474,18 @@ export function CompanyBrandedUnitsDialog({
                           value={grantProvenance}
                           onValueChange={v => setGrantProvenance(v as 'promotional' | 'simulated')}
                         >
-                          <DropdownMenuRadioItem value="promotional">Promotional</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="simulated">Simulated</DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="promotional">{uiT("Promotional")}</DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="simulated">{uiT("Simulated")}</DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="unit-grant-expiry">Expiry (days, optional)</Label>
+                    <Label htmlFor="unit-grant-expiry">{uiT("Expiry (days, optional)")}</Label>
                     <Input
                       id="unit-grant-expiry"
                       inputMode="numeric"
-                      placeholder="No expiry"
+                      placeholder={uiT("No expiry")}
                       value={grantExpiryDays}
                       disabled={issuingGrant || snapshot.billing_mode !== 'credits'}
                       onChange={event => setGrantExpiryDays(event.target.value)}
@@ -493,12 +493,12 @@ export function CompanyBrandedUnitsDialog({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit-grant-reason">Reason</Label>
+                  <Label htmlFor="unit-grant-reason">{uiT("Reason")}</Label>
                   <Input
                     id="unit-grant-reason"
                     value={grantReason}
                     disabled={issuingGrant || snapshot.billing_mode !== 'credits'}
-                    placeholder="Customer onboarding promotional Credits grant"
+                    placeholder={uiT("Customer onboarding promotional Credits grant")}
                     onChange={event => setGrantReason(event.target.value)}
                   />
                 </div>
@@ -507,7 +507,7 @@ export function CompanyBrandedUnitsDialog({
                   size="sm"
                   disabled={issuingGrant || snapshot.billing_mode !== 'credits' || !snapshot.definition}
                 >
-                  {issuingGrant ? 'Issuing grant…' : `Issue ${unitName} grant`}
+                  {issuingGrant ? uiT("Issuing grant…") : uiF("Issue {0} grant", [unitName])}
                 </Button>
               </form>
             </div>
@@ -515,15 +515,14 @@ export function CompanyBrandedUnitsDialog({
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="space-y-3 rounded-lg bg-muted/30 p-4">
                 <div>
-                  <h3 className="text-sm font-semibold">3. Restore settled {unitName} charge</h3>
+                  <h3 className="text-sm font-semibold">{uiT("3. Restore settled")}{" "}{unitName}{" "}{uiT("charge")}</h3>
                   <p className="text-xs text-muted-foreground">
-                    Restores the next unrefunded atom prefix of a settled consumption charge back to its original lot.
-                  </p>
+                    {uiT("Restores the next unrefunded atom prefix of a settled consumption charge back to its original lot.")}</p>
                 </div>
                 {(snapshot.recent_charges ?? []).length > 0 ? (
                   <form className="space-y-3" onSubmit={event => void handleRefundCharge(event)}>
                     <div className="space-y-1.5">
-                      <Label htmlFor="unit-refund-charge">Settled charge</Label>
+                      <Label htmlFor="unit-refund-charge">{uiT("Settled charge")}</Label>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -535,8 +534,8 @@ export function CompanyBrandedUnitsDialog({
                           >
                             <span className="truncate">
                               {selectedCharge
-                                ? `${selectedCharge.reference} · ${selectedCharge.model_alias} · ${formatUnitAtoms(selectedCharge.refundable_atoms, selectedCharge.name, selectedCharge.display_precision)} refundable`
-                                : 'Choose settled charge'}
+                                ? uiF("{0} · {1} · {2} refundable", [selectedCharge.reference, selectedCharge.model_alias, formatUnitAtoms(selectedCharge.refundable_atoms, selectedCharge.name, selectedCharge.display_precision)])
+                                : uiT("Choose settled charge")}
                             </span>
                             <ChevronDown className="size-4 shrink-0" />
                           </Button>
@@ -553,15 +552,14 @@ export function CompanyBrandedUnitsDialog({
                             {(snapshot.recent_charges ?? []).map(charge => (
                               <DropdownMenuRadioItem key={charge.attempt_id} value={charge.attempt_id}>
                                 {charge.reference} · {charge.model_alias} ·{' '}
-                                {formatUnitAtoms(charge.refundable_atoms, charge.name, charge.display_precision)} refundable
-                              </DropdownMenuRadioItem>
+                                {formatUnitAtoms(charge.refundable_atoms, charge.name, charge.display_precision)}{" "}{uiT("refundable")}</DropdownMenuRadioItem>
                             ))}
                           </DropdownMenuRadioGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="unit-refund-amount">Restore amount ({unitName})</Label>
+                      <Label htmlFor="unit-refund-amount">{uiT("Restore amount (")}{unitName})</Label>
                       <Input
                         id="unit-refund-amount"
                         inputMode="decimal"
@@ -571,12 +569,12 @@ export function CompanyBrandedUnitsDialog({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="unit-refund-reason">Reason</Label>
+                      <Label htmlFor="unit-refund-reason">{uiT("Reason")}</Label>
                       <Input
                         id="unit-refund-reason"
                         value={refundReason}
                         disabled={refundingCharge || !selectedCharge}
-                        placeholder="Service quality credit restoration"
+                        placeholder={uiT("Service quality credit restoration")}
                         onChange={event => setRefundReason(event.target.value)}
                       />
                     </div>
@@ -590,26 +588,24 @@ export function CompanyBrandedUnitsDialog({
                         BigInt(selectedCharge.refundable_atoms) <= 0n
                       }
                     >
-                      {refundingCharge ? 'Restoring…' : `Restore ${unitName} charge`}
+                      {refundingCharge ? uiT("Restoring…") : uiF("Restore {0} charge", [unitName])}
                     </Button>
                   </form>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No settled {unitName} charges recorded for this company.</p>
+                  <p className="text-xs text-muted-foreground">{uiT("No settled")}{" "}{unitName}{" "}{uiT("charges recorded for this company.")}</p>
                 )}
               </div>
 
               <div className="space-y-3 rounded-lg bg-muted/30 p-4">
                 <div>
-                  <h3 className="text-sm font-semibold">4. Reverse unoccupied {unitName} purchase</h3>
+                  <h3 className="text-sm font-semibold">{uiT("4. Reverse unoccupied")}{" "}{unitName}{" "}{uiT("purchase")}</h3>
                   <p className="text-xs text-muted-foreground">
-                    Reverses unoccupied purchase ranges at exact processor minor-unit precision without discarding
-                    residual atoms.
-                  </p>
+                    {uiT("Reverses unoccupied purchase ranges at exact processor minor-unit precision without discarding residual atoms.")}</p>
                 </div>
                 {(snapshot.purchases ?? []).length > 0 ? (
                   <form className="space-y-3" onSubmit={event => void handleReversePurchase(event)}>
                     <div className="space-y-1.5">
-                      <Label htmlFor="unit-reverse-order">Settled purchase lot</Label>
+                      <Label htmlFor="unit-reverse-order">{uiT("Settled purchase lot")}</Label>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -621,8 +617,8 @@ export function CompanyBrandedUnitsDialog({
                           >
                             <span className="truncate">
                               {selectedPurchase
-                                ? `${new Date(selectedPurchase.created_at).toLocaleDateString()} · ${money(selectedPurchase.payment_nanos, selectedPurchase.payment_currency)} · ${formatUnitAtoms(selectedPurchase.available_atoms, selectedPurchase.name, selectedPurchase.display_precision)} available`
-                                : 'Choose purchase lot'}
+                                ? uiF("{0} · {1} · {2} available", [new Date(selectedPurchase.created_at).toLocaleDateString(readUILocale()), money(selectedPurchase.payment_nanos, selectedPurchase.payment_currency), formatUnitAtoms(selectedPurchase.available_atoms, selectedPurchase.name, selectedPurchase.display_precision)])
+                                : uiT("Choose purchase lot")}
                             </span>
                             <ChevronDown className="size-4 shrink-0" />
                           </Button>
@@ -631,21 +627,20 @@ export function CompanyBrandedUnitsDialog({
                           <DropdownMenuRadioGroup value={selectedOrderId} onValueChange={setSelectedOrderId}>
                             {(snapshot.purchases ?? []).map(p => (
                               <DropdownMenuRadioItem key={p.order_id} value={p.order_id}>
-                                {new Date(p.created_at).toLocaleDateString()} ·{' '}
-                                {money(p.payment_nanos, p.payment_currency)} ({p.provenance}) ·{' '}
-                                {formatUnitAtoms(p.available_atoms, p.name, p.display_precision)} available
-                              </DropdownMenuRadioItem>
+                                {new Date(p.created_at).toLocaleDateString(readUILocale())} ·{' '}
+                                {money(p.payment_nanos, p.payment_currency)} ({uiT(p.provenance)}) ·{' '}
+                                {formatUnitAtoms(p.available_atoms, p.name, p.display_precision)}{" "}{uiT("available")}</DropdownMenuRadioItem>
                             ))}
                           </DropdownMenuRadioGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
-                    {loadingReversal && <p className="text-xs text-muted-foreground">Evaluating processor refund preview…</p>}
+                    {loadingReversal && <p className="text-xs text-muted-foreground">{uiT("Evaluating processor refund preview…")}</p>}
                     {reversalPreview && (
                       <div className="rounded border bg-background p-2.5 text-xs space-y-1">
                         <p>
-                          <span className="text-muted-foreground">Reversible unoccupied:</span>{' '}
+                          <span className="text-muted-foreground">{uiT("Reversible unoccupied:")}</span>{' '}
                           <span className="font-medium">
                             {formatUnitAtoms(
                               reversalPreview.reversible_atoms,
@@ -656,14 +651,14 @@ export function CompanyBrandedUnitsDialog({
                           ({formatExactUnitAtoms(reversalPreview.reversible_atoms, reversalPreview.name)})
                         </p>
                         <p>
-                          <span className="text-muted-foreground">Processor-precision refund:</span>{' '}
+                          <span className="text-muted-foreground">{uiT("Processor-precision refund:")}</span>{' '}
                           <span className="font-medium">
                             {money(reversalPreview.refund_payment_nanos, reversalPreview.payment_currency)}
                           </span>{' '}
-                          ({reversalPreview.provenance})
+                          ({uiT(reversalPreview.provenance)})
                         </p>
                         <p className="text-muted-foreground">
-                          Residual unrepresentable:{' '}
+                          {uiT("Residual unrepresentable:")}{' '}
                           {formatExactUnitAtoms(reversalPreview.residual_credit_atoms, reversalPreview.name)} /{' '}
                           {money(reversalPreview.residual_payment_nanos, reversalPreview.payment_currency)}
                         </p>
@@ -671,12 +666,12 @@ export function CompanyBrandedUnitsDialog({
                     )}
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="unit-reverse-reason">Reason</Label>
+                      <Label htmlFor="unit-reverse-reason">{uiT("Reason")}</Label>
                       <Input
                         id="unit-reverse-reason"
                         value={reversalReason}
                         disabled={reversingPurchase || !reversalPreview}
-                        placeholder="Customer requested refund of unused Credits purchase"
+                        placeholder={uiT("Customer requested refund of unused Credits purchase")}
                         onChange={event => setReversalReason(event.target.value)}
                       />
                     </div>
@@ -690,19 +685,18 @@ export function CompanyBrandedUnitsDialog({
                         BigInt(reversalPreview.reversible_atoms) <= 0n
                       }
                     >
-                      {reversingPurchase ? 'Reversing purchase…' : 'Reverse unoccupied purchase'}
+                      {reversingPurchase ? uiT("Reversing purchase…") : uiT("Reverse unoccupied purchase")}
                     </Button>
                   </form>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No settled {unitName} purchase orders for this company.</p>
+                  <p className="text-xs text-muted-foreground">{uiT("No settled")}{" "}{unitName}{" "}{uiT("purchase orders for this company.")}</p>
                 )}
               </div>
             </div>
 
             <div className="flex justify-end">
               <Button variant="outline" onClick={onClose}>
-                Close
-              </Button>
+                {uiT("Close")}</Button>
             </div>
           </div>
         )}

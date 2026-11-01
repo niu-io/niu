@@ -185,7 +185,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::future::pending::<()>().await;
             }
         }
-        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+        // Hosted supervisors must leave additional time for background and
+        // durable-write cleanup after accepted model responses finish.
+        tokio::time::sleep(std::time::Duration::from_secs(240)).await;
     };
     tokio::select! {
         result = serve => result?,

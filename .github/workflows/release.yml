@@ -50,6 +50,15 @@ jobs:
           cd /tmp/niu-release
           sha256sum compose.yaml install.sh niu.example.toml *.tgz SOURCE_COMMIT > SHA256SUMS
 
+      - name: Build native coding-agent packages
+        run: |
+          python3 scripts/build-agent-marketplace.py --output /tmp/niu-agent-marketplace
+          python3 scripts/build-deepseek-plugin.py --output /tmp/niu-deepseek-harness
+          tar -czf /tmp/niu-release/niu-agent-marketplace.tar.gz -C /tmp/niu-agent-marketplace .
+          tar -czf /tmp/niu-release/niu-deepseek-harness.tar.gz -C /tmp/niu-deepseek-harness .
+          cd /tmp/niu-release
+          sha256sum compose.yaml install.sh niu.example.toml *.tgz *.tar.gz SOURCE_COMMIT > SHA256SUMS
+
       - name: Publish a new GitHub Release with immutable assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

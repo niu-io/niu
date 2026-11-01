@@ -351,13 +351,13 @@ describe('company warning preferences', () => {
   render(<AccountBilling token="test" organization="org" canConfigure/>);
   const user=userEvent.setup();
   await user.click(await screen.findByRole('button',{name:'Configure CNY low balance warning'}));
-  await user.click(screen.getByRole('checkbox',{name:'Enabled'}));
+  await user.click(screen.getByRole('checkbox',{name:'Enable warning'}));
   await user.type(screen.getByLabelText('Threshold (CNY)'),'9007199.254740993{Enter}');
   await waitFor(()=>expect(writes).toEqual([{warning_threshold_nanos:'9007199254740993',expected_revision:'7'}]));
   await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
   await user.click(screen.getByRole('button',{name:'Configure CNY low balance warning'}));
   expect((screen.getByRole('button',{name:'Save'}) as HTMLButtonElement).disabled).toBe(true);
-  await user.click(screen.getByRole('checkbox',{name:'Enabled'}));
+  await user.click(screen.getByRole('checkbox',{name:'Enable warning'}));
   await user.click(screen.getByRole('button',{name:'Save'}));
   await waitFor(()=>expect(writes[1]).toEqual({warning_threshold_nanos:null,expected_revision:'7'}));
  });
@@ -390,7 +390,7 @@ describe('company warning preferences', () => {
   render(<AccountBilling token="test" organization="org" canConfigure/>);
   const user=userEvent.setup();
   await user.click(await screen.findByRole('button',{name:'Configure CNY low balance warning'}));
-  await user.click(screen.getByRole('checkbox',{name:'Enabled'}));
+  await user.click(screen.getByRole('checkbox',{name:'Enable warning'}));
   await user.type(screen.getByLabelText('Threshold (CNY)'),'-1');
   await user.click(screen.getByRole('button',{name:'Save'}));
   await screen.findByText('Enter a threshold of zero or greater.');
@@ -568,4 +568,34 @@ it('ignores a late older page after switching workspace', async () => {
   await act(async () => finish(Response.json({ data: [{ ...data.invoices[0], amount_nanos: '99000000000' }], next_cursor: null })));
   expect(screen.queryByText('$99.00')).toBeNull();
   expect(screen.queryByRole('button', { name: 'View details' })).toBeNull();
+});
+
+it('localizes funding, recovery and warning drafts reactively without changing saved amounts', async () => {
+  const { saveLocale } = await import('@/shell/locale');
+  const { act } = await import('@testing-library/react');
+  saveLocale('zh-CN');
+  let failed = true;
+  vi.stubGlobal('fetch', vi.fn(async (url) => {
+    const path = String(url);
+    if (path.endsWith('/billing/balance')) return failed
+      ? Response.json({error: {message: 'Unavailable'}}, {status: 503})
+      : Response.json({data: [{currency: 'CNY', balance_nanos: '1000000000', available_nanos: '1000000000', reserved_nanos: '0', credit_limit_nanos: '0', warning_threshold_nanos: null, policy_revision: '1', low_balance: false}]});
+    return Response.json({data: [], next_cursor: null});
+  }));
+  render(<AccountBilling token="localization-fixture" organization="org" section="billing" canConfigure />);
+  expect(await screen.findByText('账户余额暂不可用')).toBeTruthy();
+  expect(screen.queryByText('Unavailable')).toBeNull();
+  failed = false;
+  await userEvent.click(screen.getByRole('button', {name: '重试加载余额'}));
+  expect(await screen.findByRole('heading', {name: '可用额度'})).toBeTruthy();
+  expect(screen.getByText('¥1.00')).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', {name: '设置 CNY 余额提醒'}));
+  await userEvent.click(screen.getByRole('checkbox', {name: '启用提醒'}));
+  const threshold = screen.getByLabelText(/提醒金额/);
+  await userEvent.type(threshold, '2');
+  act(() => saveLocale('en'));
+  expect(screen.getByRole('heading', {name: 'Low balance warning'})).toBeTruthy();
+  expect((screen.getByLabelText(/Threshold/) as HTMLInputElement).value).toBe('2');
+  await userEvent.click(screen.getByRole('button', {name: 'Cancel'}));
+  expect(screen.getByText('¥1.00')).toBeTruthy();
 });

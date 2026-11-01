@@ -76,7 +76,12 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   'zh-CN': '简体中文',
 };
 
-export function useLocale() {
+export function formatLocalizedMessage(pattern: string, values: readonly unknown[], locale: Locale, messages: Readonly<Record<string, string>> = {}): string {
+  const message = locale === 'zh-CN' ? messages[pattern] ?? pattern : pattern;
+  return message.replace(/\{(\d+)\}/g, (placeholder, index: string) => Number(index) < values.length ? String(values[Number(index)] ?? '') : placeholder);
+}
+
+export function useLocale(messages: Readonly<Record<string, string>> = {}) {
   // Keep the first client render equal to the public pages' English SSR output.
   // The effect restores the saved/browser locale immediately after hydration.
   const [locale, setLocaleState] = useState<Locale>('en');
@@ -93,10 +98,11 @@ export function useLocale() {
   return {
     locale,
     isZh,
+    format: (pattern: string, values: readonly unknown[]) => formatLocalizedMessage(pattern, values, locale, messages),
     setLocale: (next: Locale) => {
       setLocaleState(next);
       saveLocale(next);
     },
-    t: <T,>(enText: T, zhText: T): T => (isZh ? zhText : enText),
+    t: <T,>(enText: T, zhText?: T): T => (isZh ? (zhText ?? (typeof enText === 'string' ? messages[enText] as T : undefined) ?? enText) : enText),
   };
 }

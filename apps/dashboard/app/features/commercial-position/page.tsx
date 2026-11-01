@@ -1,8 +1,9 @@
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol, formatFinancialMoney, formatRateMoney } from '@/lib/money';
 import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import { useLocale } from '@/shell/locale';
+import { useLocale } from '@/shell/ui-locale';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -362,13 +363,14 @@ function formatMarginPercent(contribution: bigint | null, revenue: bigint | null
 }
 
 function formatDeltaBadge(
+  uiT: (text: string) => string,
   current: bigint | null,
   prior: bigint | null,
   currency: string,
   invertSentiment = false,
 ) {
   if (current === null || prior === null) {
-    return <span className="whitespace-nowrap shrink-0 text-xs text-muted-foreground">{current === null ? 'Change unavailable' : 'No prior baseline'}</span>;
+    return <span className="whitespace-nowrap shrink-0 text-xs text-muted-foreground">{current === null ? uiT('Change unavailable') : uiT('No prior baseline')}</span>;
   }
   const diff = current - prior;
   const absDiff = diff < 0n ? -diff : diff;
@@ -376,7 +378,7 @@ function formatDeltaBadge(
   if (diff === 0n) {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
-        <IconMinus size={13} /> No change
+        <IconMinus size={13} />{" "}{uiT("No change")}
       </span>
     );
   }
@@ -390,7 +392,7 @@ function formatDeltaBadge(
             {isPositive ? '+' : '-'}&lt;{currencySymbol(currency)}0.0001
           </span>
         </TooltipTrigger>
-        <TooltipContent>Exact change: {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
+        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
       </Tooltip>
     );
   }
@@ -398,7 +400,7 @@ function formatDeltaBadge(
     prior >= 50_000n
       ? `${isPositive ? '+' : ''}${(Number((diff * 10000n) / prior) / 100).toFixed(1)}%`
       : isPositive
-        ? 'New'
+        ? uiT('New')
         : '—';
   const absMoney = formatFinancialMoney(absDiff, currency);
   const signedMoney = `${isPositive ? '+' : '-'}${absMoney}`;
@@ -427,6 +429,7 @@ export default function CommercialPositionPage() {
 }
 
 function CommercialStatement({ token }: { token: string }) {
+  const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const { providerDirectory } = useDashboardContext();
   const { settings: branding, logo } = useBranding();
@@ -675,13 +678,13 @@ function CommercialStatement({ token }: { token: string }) {
     rolling: 'Rolling day window',
   };
 
-    if (!currency) return <section className="space-y-3" aria-label="Financial reports">
-    <p>{currencyReady === false ? 'Loading platform currency…' : currencyFailed ? 'Could not load the platform currency.' : 'Set the platform currency before viewing financial reports.'}</p>
-    {currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>Retry</Button> : currencyReady !== false && <Button asChild><Link to="/admin/settings">Open platform settings</Link></Button>}
+    if (!currency) return <section className="space-y-3" aria-label={uiT("Financial reports")}>
+    <p>{currencyReady === false ? uiT("Loading platform currency…") : currencyFailed ? uiT("Could not load the platform currency.") : uiT("Set the platform currency before viewing financial reports.")}</p>
+    {currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>{uiT("Retry")}</Button> : currencyReady !== false && <Button asChild><Link to="/admin/settings">{uiT("Open platform settings")}</Link></Button>}
   </section>;
 
   return (
-    <section className="commercial-statement min-w-0 space-y-6" aria-label="Financial statements">
+    <section className="commercial-statement min-w-0 space-y-6" aria-label={uiT("Financial statements")}>
       {/* Print-only formal branded document header */}
       <header className="commercial-print-only commercial-print-header hidden">
         <div className="commercial-print-header-top">
@@ -691,34 +694,33 @@ function CommercialStatement({ token }: { token: string }) {
               <div className="commercial-print-brand-eyebrow">
                 <span>{branding.display_name}</span>
                 <span className="commercial-print-brand-dot">·</span>
-                <span>PLATFORM FINANCIAL REPORTING</span>
+                <span>{uiT("PLATFORM FINANCIAL REPORTING")}</span>
               </div>
-              <h1 className="commercial-print-title">Financial Statements</h1>
+              <h1 className="commercial-print-title">{uiT("Financial Statements")}</h1>
               <p className="commercial-print-subtitle">
-                Statement of Operations (P&amp;L), Cash Receipts &amp; Wallet Position, and Provider Unit Economics
-              </p>
+                {uiT("Statement of Operations (P&L), Cash Receipts & Wallet Position, and Provider Unit Economics")}</p>
             </div>
           </div>
           <div className="commercial-print-meta-box">
-            <div className="commercial-print-classification">CONFIDENTIAL · PLATFORM ADMIN</div>
+            <div className="commercial-print-classification">{uiT("CONFIDENTIAL · PLATFORM ADMIN")}</div>
             <dl className="commercial-print-meta-grid">
               <div>
-                <dt>Reporting Period</dt>
+                <dt>{uiT("Reporting Period")}</dt>
                 <dd>{interval.label}</dd>
               </div>
               <div>
-                <dt>Comparison Baseline</dt>
+                <dt>{uiT("Comparison Baseline")}</dt>
                 <dd>{interval.comparisonLabel}</dd>
               </div>
               <div>
-                <dt>UTC Window</dt>
+                <dt>{uiT("UTC Window")}</dt>
                 <dd>
                   {formatInstant(position?.from ?? interval.from)} –{' '}
                   {formatInstant(position?.until ?? interval.until)} UTC
                 </dd>
               </div>
               <div>
-                <dt>Reporting Currency</dt>
+                <dt>{uiT("Reporting Currency")}</dt>
                 <dd>
                   {currencySymbol(currency)} {currency}
                 </dd>
@@ -734,7 +736,7 @@ function CommercialStatement({ token }: { token: string }) {
           {/* Period Mode Selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" aria-label="Reporting period mode" className="gap-2 font-normal">
+              <Button variant="outline" aria-label={uiT("Reporting period mode")} className="gap-2 font-normal">
                 <IconCalendarStats size={16} />
                 <span>{modeLabels[interval.mode]}</span>
                 <IconChevronDown size={15} />
@@ -762,10 +764,10 @@ function CommercialStatement({ token }: { token: string }) {
                   }
                 }}
               >
-                <DropdownMenuRadioItem value="mtd">Month to date (Current month)</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="month">Single calendar month</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="range">Multi-month range</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="rolling">Rolling day window (7 / 30 / 90d)</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="mtd">{uiT("Month to date (Current month)")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="month">{uiT("Single calendar month")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="range">{uiT("Multi-month range")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="rolling">{uiT("Rolling day window (7 / 30 / 90d)")}</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -774,7 +776,7 @@ function CommercialStatement({ token }: { token: string }) {
           {interval.mode === 'month' && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" aria-label="Select calendar month" className="gap-2 font-normal">
+                <Button variant="outline" aria-label={uiT("Select calendar month")} className="gap-2 font-normal">
                   <span>{months.find(m => m.key === selectedMonthKey)?.label ?? selectedMonthKey}</span>
                   <IconChevronDown size={15} />
                 </Button>
@@ -798,8 +800,8 @@ function CommercialStatement({ token }: { token: string }) {
             <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" aria-label="Start month" className="gap-2 font-normal">
-                    <span>From: {months.find(m => m.key === selectedStartMonthKey)?.shortLabel ?? selectedStartMonthKey}</span>
+                  <Button variant="outline" aria-label={uiT("Start month")} className="gap-2 font-normal">
+                    <span>{uiT("From:")}{" "}{months.find(m => m.key === selectedStartMonthKey)?.shortLabel ?? selectedStartMonthKey}</span>
                     <IconChevronDown size={15} />
                   </Button>
                 </DropdownMenuTrigger>
@@ -818,8 +820,8 @@ function CommercialStatement({ token }: { token: string }) {
               </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" aria-label="End month" className="gap-2 font-normal">
-                    <span>To: {months.find(m => m.key === selectedEndMonthKey)?.shortLabel ?? selectedEndMonthKey}</span>
+                  <Button variant="outline" aria-label={uiT("End month")} className="gap-2 font-normal">
+                    <span>{uiT("To:")}{" "}{months.find(m => m.key === selectedEndMonthKey)?.shortLabel ?? selectedEndMonthKey}</span>
                     <IconChevronDown size={15} />
                   </Button>
                 </DropdownMenuTrigger>
@@ -842,8 +844,8 @@ function CommercialStatement({ token }: { token: string }) {
           {interval.mode === 'rolling' && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" aria-label="Commercial period" className="gap-2 font-normal">
-                  <span>Last {interval.days ?? 30} days</span>
+                <Button variant="outline" aria-label={uiT("Commercial period")} className="gap-2 font-normal">
+                  <span>{uiT("Last")}{" "}{interval.days ?? 30}{" "}{uiT("days")}</span>
                   <IconChevronDown size={15} />
                 </Button>
               </DropdownMenuTrigger>
@@ -854,8 +856,7 @@ function CommercialStatement({ token }: { token: string }) {
                 >
                   {['7', '30', '90'].map(value => (
                     <DropdownMenuRadioItem key={value} value={value}>
-                      Last {value} days
-                    </DropdownMenuRadioItem>
+                      {uiT("Last")}{" "}{value}{" "}{uiT("days")}</DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
@@ -873,16 +874,16 @@ function CommercialStatement({ token }: { token: string }) {
             onClick={() => setRefresh(value => value + 1)}
           >
             <IconRefresh size={16} />
-            <span>Refresh</span>
+            <span>{uiT("Refresh")}</span>
           </Button>
           <Button
             variant="outline"
             disabled={loading || !position}
             onClick={() => window.print()}
-            aria-label="Export PDF statement"
+            aria-label={uiT("Export PDF statement")}
           >
             <IconFileTypePdf size={16} />
-            <span>Export PDF</span>
+            <span>{uiT("Export PDF")}</span>
           </Button>
         </div>
       </div>
@@ -890,18 +891,18 @@ function CommercialStatement({ token }: { token: string }) {
       {/* Period Interval Subtitle */}
       <div className="commercial-print-hide flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
-          <strong className="font-medium text-foreground">{interval.label}</strong> · UTC window:{' '}
-          {formatInstant(position?.from ?? interval.from)} to{' '}
-          {formatInstant(position?.until ?? interval.until)} · Compared against{' '}
+          <strong className="font-medium text-foreground">{interval.label}</strong>{" "}{uiT("· UTC window:")}{' '}
+          {formatInstant(position?.from ?? interval.from)}{" "}{uiT("to")}{' '}
+          {formatInstant(position?.until ?? interval.until)}{" "}{uiT("· Compared against")}{' '}
           <strong className="font-medium text-foreground">{interval.comparisonLabel}</strong>
         </span>
-        <span>Personal owner-funded calls are excluded from commercial revenue and cost.</span>
+        <span>{uiT("Personal owner-funded calls are excluded from commercial revenue and cost.")}</span>
       </div>
 
       {loading && !position && (
         <div className="space-y-6">
-          <MetricStripSkeleton count={4} label="Loading financial statement…" />
-          <TableSkeleton columns={6} rows={6} label="Financial statement rows" />
+          <MetricStripSkeleton count={4} label={uiT("Loading financial statement…")} />
+          <TableSkeleton columns={6} rows={6} label={uiT("Financial statement rows")} />
         </div>
       )}
       {error && (
@@ -909,8 +910,7 @@ function CommercialStatement({ token }: { token: string }) {
           <AlertDescription className="flex items-center justify-between gap-3">
             <span>{error}</span>
           <Button variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>
-              Retry
-            </Button>
+              {uiT("Retry")}</Button>
           </AlertDescription>
         </Alert>
       )}
@@ -921,18 +921,18 @@ function CommercialStatement({ token }: { token: string }) {
           <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Net recognized revenue</span>
-                <Badge variant="outline">Income</Badge>
+                <span className="text-xs font-medium text-muted-foreground">{uiT("Net recognized revenue")}</span>
+                <Badge variant="outline">{uiT("Income")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {recognizedRevenue === null ? 'Unavailable' : formatFinancialMoney(recognizedRevenue, currency)}
+                {recognizedRevenue === null ? uiT("Unavailable") : formatFinancialMoney(recognizedRevenue, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
-                {formatDeltaBadge(recognizedRevenue, priorRecognizedRevenue, currency)}
-                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                {formatDeltaBadge(uiT, recognizedRevenue, priorRecognizedRevenue, currency)}
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                Gross usage {formatFinancialMoney(nominalConsumption, currency)} · Gifts &amp; refunds{' '}
+                {uiT("Gross usage")}{" "}{formatFinancialMoney(nominalConsumption, currency)}{" "}{uiT("· Gifts & refunds")}{' '}
                 {consumedGifts + customerRefunds >= 50_000n ? '-' : ''}
                 {formatFinancialMoney(consumedGifts + customerRefunds, currency)}
               </p>
@@ -940,64 +940,63 @@ function CommercialStatement({ token }: { token: string }) {
 
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Cost of supply (Provider payable)</span>
-                <Badge variant="outline">COGS</Badge>
+                <span className="text-xs font-medium text-muted-foreground">{uiT("Cost of supply (Provider payable)")}</span>
+                <Badge variant="outline">{uiT("COGS")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {formatFinancialMoney(currentCohort.providerPayable, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
-                {formatDeltaBadge(
+                {formatDeltaBadge(uiT,
                   currentCohort.providerPayable,
                   priorCohort?.providerPayable ?? null,
                   currency,
                   true,
                 )}
-                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                Settled {formatFinancialMoney(currentCohort.settledPayable, currency)} · Unpaid{' '}
+                {uiT("Settled")}{" "}{formatFinancialMoney(currentCohort.settledPayable, currency)}{" "}{uiT("· Unpaid")}{' '}
                 {formatFinancialMoney(currentCohort.unpaidPayable, currency)}
               </p>
             </article>
 
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Platform net contribution</span>
+                <span className="text-xs font-medium text-muted-foreground">{uiT("Platform net contribution")}</span>
                 <Badge variant="secondary">
-                  {formatMarginPercent(netContribution, recognizedRevenue)} margin
-                </Badge>
+                  {formatMarginPercent(netContribution, recognizedRevenue)}{" "}{uiT("margin")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {netContribution === null ? 'Unavailable' : formatFinancialMoney(netContribution, currency)}
+                {netContribution === null ? uiT("Unavailable") : formatFinancialMoney(netContribution, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
-                {formatDeltaBadge(netContribution, priorNetContribution, currency)}
-                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                {formatDeltaBadge(uiT, netContribution, priorNetContribution, currency)}
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                {currentCohort.matchedAttempts.toString()} settled requests ·{' '}
-                {currentCohort.activeModelCount} active{' '}
-                {currentCohort.activeModelCount === 1 ? 'model' : 'models'}
+                {currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
+                {currentCohort.activeModelCount}{" "}{uiT("active")}{' '}
+                {currentCohort.activeModelCount === 1 ? uiT("model") : uiT("models")}
               </p>
             </article>
 
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Verified cash receipts</span>
-                <Badge variant="outline">Cash flow</Badge>
+                <span className="text-xs font-medium text-muted-foreground">{uiT("Verified cash receipts")}</span>
+                <Badge variant="outline">{uiT("Cash flow")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {verifiedCashReceipts === null
-                  ? 'Unavailable'
+                  ? uiT("Unavailable")
                   : formatFinancialMoney(verifiedCashReceipts, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
-                {formatDeltaBadge(verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
-                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                {formatDeltaBadge(uiT, verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                Unused prepaid wallet:{' '}
+                {uiT("Unused prepaid wallet:")}{' '}
                 {prepaidCash === null ? '—' : formatFinancialMoney(prepaidCash, currency)}
               </p>
             </article>
@@ -1009,35 +1008,34 @@ function CommercialStatement({ token }: { token: string }) {
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-semibold">Statement of operations (P&amp;L)</h2>
+                  <h2 className="text-base font-semibold">{uiT("Statement of operations (P&L)")}</h2>
                   <p className="text-xs text-muted-foreground">
-                    Accrual operating revenue, promotional allowances, and supply cost
-                  </p>
+                    {uiT("Accrual operating revenue, promotional allowances, and supply cost")}</p>
                 </div>
                 <span className="text-xs font-medium text-muted-foreground">
-                  Amounts in {currency} ({currencySymbol(currency)})
+                  {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label="Statement of operations" className="table-auto">
+              <Table aria-label={uiT("Statement of operations")} className="table-auto">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[40%]">Line item</TableHead>
-                    <TableHead className="w-[17%] text-right">Current</TableHead>
+                    <TableHead className="w-[40%]">{uiT("Line item")}</TableHead>
+                    <TableHead className="w-[17%] text-right">{uiT("Current")}</TableHead>
                     <TableHead className="w-[17%] text-right hidden sm:table-cell">
                       {interval.comparisonLabel}
                     </TableHead>
-                    <TableHead className="w-[26%] text-right">Change</TableHead>
+                    <TableHead className="w-[26%] text-right">{uiT("Change")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <StatementRow
-                    label="Gross customer usage charges"
+                    label={uiT("Gross customer usage charges")}
                     current={nominalConsumption}
                     prior={priorNominalConsumption}
                     currency={currency}
                   />
                   <StatementRow
-                    label="Less: Customer balance refunds"
+                    label={uiT("Less: Customer balance refunds")}
                     current={customerRefunds}
                     prior={priorCustomerRefunds}
                     currency={currency}
@@ -1046,7 +1044,7 @@ function CommercialStatement({ token }: { token: string }) {
                     invertSentiment
                   />
                   <StatementRow
-                    label="Less: Consumed promotional gift allowance"
+                    label={uiT("Less: Consumed promotional gift allowance")}
                     current={consumedGifts}
                     prior={priorConsumedGifts}
                     currency={currency}
@@ -1054,14 +1052,14 @@ function CommercialStatement({ token }: { token: string }) {
                     negateDisplay
                   />
                   <StatementRow
-                    label="Net recognized customer revenue"
+                    label={uiT("Net recognized customer revenue")}
                     current={recognizedRevenue}
                     prior={priorRecognizedRevenue}
                     currency={currency}
                     strong
                   />
                   <StatementRow
-                    label="Less: Provider payable (Cost of model supply)"
+                    label={uiT("Less: Provider payable (Cost of model supply)")}
                     current={currentCohort.providerPayable}
                     prior={priorCohort?.providerPayable ?? null}
                     currency={currency}
@@ -1070,7 +1068,7 @@ function CommercialStatement({ token }: { token: string }) {
                     invertSentiment
                   />
                   <StatementRow
-                    label="Memo: Recorded upstream API cost subtotal"
+                    label={uiT("Memo: Recorded upstream API cost subtotal")}
                     current={currentCohort.recordedUpstreamCost}
                     prior={priorCohort?.recordedUpstreamCost ?? null}
                     currency={currency}
@@ -1078,14 +1076,14 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
-                    label="Platform net contribution (Gross profit)"
+                    label={uiT("Platform net contribution (Gross profit)")}
                     current={netContribution}
                     prior={priorNetContribution}
                     currency={currency}
                     strong
                   />
                   <TableRow className="bg-muted/30 font-medium">
-                    <TableCell>Effective gross margin (%)</TableCell>
+                    <TableCell>{uiT("Effective gross margin (%)")}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMarginPercent(netContribution, recognizedRevenue)}
                     </TableCell>
@@ -1094,8 +1092,8 @@ function CommercialStatement({ token }: { token: string }) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                       {currentCohort.unresolvedAttempts > 0n
-                        ? `${currentCohort.unresolvedAttempts.toString()} unresolved`
-                        : 'Fully resolved'}
+                        ? uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])
+                        : uiT("Fully resolved")}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -1106,41 +1104,40 @@ function CommercialStatement({ token }: { token: string }) {
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-semibold">Cash receipts, payables &amp; wallet position</h2>
+                  <h2 className="text-base font-semibold">{uiT("Cash receipts, payables & wallet position")}</h2>
                   <p className="text-xs text-muted-foreground">
-                    Verified cash inflows, Provider settlement status, and customer balances
-                  </p>
+                    {uiT("Verified cash inflows, Provider settlement status, and customer balances")}</p>
                 </div>
                 <span className="text-xs font-medium text-muted-foreground">
-                  Amounts in {currency} ({currencySymbol(currency)})
+                  {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label="Customer financial posting summary" className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal [&_tr>*:last-child]:hidden sm:[&_tr>*:last-child]:table-cell">
+              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal [&_tr>*:last-child]:hidden sm:[&_tr>*:last-child]:table-cell">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[40%]">Measure</TableHead>
-                    <TableHead className="w-[17%] text-right">Current</TableHead>
+                    <TableHead className="w-[40%]">{uiT("Measure")}</TableHead>
+                    <TableHead className="w-[17%] text-right">{uiT("Current")}</TableHead>
                     <TableHead className="w-[17%] text-right hidden sm:table-cell">
                       {interval.comparisonLabel}
                     </TableHead>
-                    <TableHead className="w-[26%] text-right">Change / Status</TableHead>
+                    <TableHead className="w-[26%] text-right">{uiT("Change / Status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <StatementRow
-                    label="Wallet cash funding receipts"
+                    label={uiT("Wallet cash funding receipts")}
                     current={summary ? BigInt(summary.balance_funding_receipts_nanos) : null}
                     prior={priorSummary ? BigInt(priorSummary.balance_funding_receipts_nanos) : null}
                     currency={currency}
                   />
                   <StatementRow
-                    label="External invoice payment receipts"
+                    label={uiT("External invoice payment receipts")}
                     current={summary ? BigInt(summary.external_invoice_receipts_nanos) : null}
                     prior={priorSummary ? BigInt(priorSummary.external_invoice_receipts_nanos) : null}
                     currency={currency}
                   />
                   <StatementRow
-                    label="Less: Recorded funding reversals"
+                    label={uiT("Less: Recorded funding reversals")}
                     current={summary ? BigInt(summary.recorded_funding_reversals_nanos) : null}
                     prior={priorSummary ? BigInt(priorSummary.recorded_funding_reversals_nanos) : null}
                     currency={currency}
@@ -1149,7 +1146,7 @@ function CommercialStatement({ token }: { token: string }) {
                     invertSentiment
                   />
                   <StatementRow
-                    label="Total verified cash receipts"
+                    label={uiT("Total verified cash receipts")}
                     current={verifiedCashReceipts}
                     prior={priorVerifiedCashReceipts}
                     currency={currency}
@@ -1162,7 +1159,7 @@ function CommercialStatement({ token }: { token: string }) {
                     currency={currency}
                   />
                   <StatementRow
-                    label="Memo: Noncash promotional gifts issued"
+                    label={uiT("Memo: Noncash promotional gifts issued")}
                     current={summary ? BigInt(summary.issued_gifts_nanos) : null}
                     prior={priorSummary ? BigInt(priorSummary.issued_gifts_nanos) : null}
                     currency={currency}
@@ -1170,7 +1167,7 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
-                    label="Memo: Unused noncash gifts corrected"
+                    label={uiT("Memo: Unused noncash gifts corrected")}
                     current={summary?.corrected_unused_gifts_nanos != null ? BigInt(summary.corrected_unused_gifts_nanos) : null}
                     prior={priorSummary?.corrected_unused_gifts_nanos != null ? BigInt(priorSummary.corrected_unused_gifts_nanos) : null}
                     currency={currency}
@@ -1178,13 +1175,13 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
-                    label="Settled with Providers"
+                    label={uiT("Settled with Providers")}
                     current={currentCohort.settledPayable}
                     prior={priorCohort?.settledPayable ?? null}
                     currency={currency}
                   />
                   <StatementRow
-                    label="Outstanding unpaid Provider payable"
+                    label={uiT("Outstanding unpaid Provider payable")}
                     current={currentCohort.unpaidPayable}
                     prior={priorCohort?.unpaidPayable ?? null}
                     currency={currency}
@@ -1193,33 +1190,27 @@ function CommercialStatement({ token }: { token: string }) {
                   />
                   <TableRow className="border-t-2">
                     <TableCell className="font-medium">
-                      Unused verified prepaid cash (Wallet liability)
-                    </TableCell>
+                      {uiT("Unused verified prepaid cash (Wallet liability)")}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
-                      {prepaidCash === null ? 'Unavailable' : formatFinancialMoney(prepaidCash, currency)}
+                      {prepaidCash === null ? uiT("Unavailable") : formatFinancialMoney(prepaidCash, currency)}
                     </TableCell>
                     <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
-                      Point-in-time
-                    </TableCell>
+                      {uiT("Point-in-time")}</TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      Current balance
-                    </TableCell>
+                      {uiT("Current balance")}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="text-muted-foreground">
-                      Outstanding customer credit consumption
-                    </TableCell>
+                      {uiT("Outstanding customer credit consumption")}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {outstandingCredit === null
-                        ? 'Unavailable'
+                        ? uiT("Unavailable")
                         : formatFinancialMoney(outstandingCredit, currency)}
                     </TableCell>
                     <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
-                      Point-in-time
-                    </TableCell>
+                      {uiT("Point-in-time")}</TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      Receivable
-                    </TableCell>
+                      {uiT("Receivable")}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -1238,11 +1229,9 @@ function CommercialStatement({ token }: { token: string }) {
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">Unit economics by Provider &amp; model</h2>
+                <h2 className="text-base font-semibold">{uiT("Unit economics by Provider & model")}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {activeRows.length} active {activeRows.length === 1 ? 'model' : 'models'} with traffic in
-                  this period · {sortedRows.length} total configured routes
-                </p>
+                  {activeRows.length}{" "}{uiT("active")}{" "}{activeRows.length === 1 ? uiT("model") : uiT("models")}{" "}{uiT("with traffic in this period ·")}{" "}{sortedRows.length}{" "}{uiT("total configured routes")}</p>
               </div>
               <div className="commercial-print-hide flex items-center gap-1.5">
                 <Button
@@ -1250,35 +1239,34 @@ function CommercialStatement({ token }: { token: string }) {
                   variant={modelFilter === 'active' ? 'secondary' : 'ghost'}
                   onClick={() => setModelFilter('active')}
                 >
-                  Active in period ({activeRows.length})
+                  {uiT("Active in period (")}{activeRows.length})
                 </Button>
                 <Button
                   size="sm"
                   variant={modelFilter === 'all' ? 'secondary' : 'ghost'}
                   onClick={() => setModelFilter('all')}
                 >
-                  All configured ({sortedRows.length})
+                  {uiT("All configured (")}{sortedRows.length})
                 </Button>
               </div>
             </div>
 
             {displayedRows.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No commercial model configurations or activity in {currency} for this period.
-              </p>
+                {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</p>
             ) : (
-              <Table className="commercial-position-table" aria-label="Provider commercial positions">
+              <Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Provider / model</TableHead>
-                    <TableHead className="hidden md:table-cell">Agreed offer quote</TableHead>
-                    <TableHead className="text-right">Gross charges</TableHead>
-                    <TableHead className="text-right">Net revenue</TableHead>
-                    <TableHead className="text-right">Customer cash applied</TableHead>
-                    <TableHead className="text-right">Customer unpaid credit</TableHead>
-                    <TableHead className="text-right">Provider payable</TableHead>
-                    <TableHead className="text-right">Recorded upstream cost</TableHead>
-                    <TableHead className="text-right">Net contribution</TableHead>
+                    <TableHead>{uiT("Provider / model")}</TableHead>
+                    <TableHead className="hidden md:table-cell">{uiT("Agreed offer quote")}</TableHead>
+                    <TableHead className="text-right">{uiT("Gross charges")}</TableHead>
+                    <TableHead className="text-right">{uiT("Net revenue")}</TableHead>
+                    <TableHead className="text-right">{uiT("Customer cash applied")}</TableHead>
+                    <TableHead className="text-right">{uiT("Customer unpaid credit")}</TableHead>
+                    <TableHead className="text-right">{uiT("Provider payable")}</TableHead>
+                    <TableHead className="text-right">{uiT("Recorded upstream cost")}</TableHead>
+                    <TableHead className="text-right">{uiT("Net contribution")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1338,15 +1326,14 @@ function CommercialStatement({ token }: { token: string }) {
                             </Link>
                             <span>·</span>
                             <span>
-                              {matched.toString()} matched
-                              {unresolved > 0n ? ` · ${unresolved.toString()} unresolved` : ''}
+                              {matched.toString()}{" "}{uiT("matched")}{unresolved > 0n ? uiF(" · {0} unresolved", [unresolved.toString()]) : ''}
                             </span>
                           </div>
                         </TableCell>
 
                         <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
                           {row.offers.length === 0 ? (
-                            <span className="text-muted-foreground">No quote in {row.currency}</span>
+                            <span className="text-muted-foreground">{uiT("No quote in")}{" "}{row.currency}</span>
                           ) : (
                             row.offers.map(offer => (
                               <div
@@ -1355,17 +1342,9 @@ function CommercialStatement({ token }: { token: string }) {
                               >
                                 <span className="text-muted-foreground">
                                   {offer.rate_kind === 'text'
-                                    ? `In ${
-                                        offer.prompt_rate == null
-                                          ? '—'
-                                          : formatRateMoney(offer.prompt_rate, row.currency)
-                                      } · Out ${
-                                        offer.completion_rate == null
-                                          ? '—'
-                                          : formatRateMoney(offer.completion_rate, row.currency)
-                                      } / 1M`
+                                    ? uiF("In {0} · Out {1} / 1M", [offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency), offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency)])
                                     : offer.media_rates.length === 0
-                                      ? 'Media rate'
+                                      ? uiT("Media rate")
                                       : offer.media_rates
                                           .map(
                                             rate =>
@@ -1384,16 +1363,16 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCharge === null ? (
-                              <span className="text-muted-foreground" aria-label="Unavailable">—</span>
+                              <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                             ) : (
                               formatFinancialMoney(rowCharge, row.currency)
                             )}
                           </div>
                           {(rowGifts > 0n || rowRefunds > 0n) && (
                             <div className="text-xs text-muted-foreground">
-                              {rowGifts > 0n ? `Gift -${formatFinancialMoney(rowGifts, row.currency)}` : ''}
+                              {rowGifts > 0n ? uiF("Gift -{0}", [formatFinancialMoney(rowGifts, row.currency)]) : ''}
                               {rowRefunds > 0n
-                                ? ` Refund -${formatFinancialMoney(rowRefunds, row.currency)}`
+                                ? uiF(" Refund -{0}", [formatFinancialMoney(rowRefunds, row.currency)])
                                 : ''}
                             </div>
                           )}
@@ -1402,8 +1381,8 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowNetRev === null ? (
-                              <span className="text-muted-foreground" aria-label="Unavailable">
-                                {unresolved > 0n ? 'Pending' : revenueUncovered > 0n ? 'Unavailable' : '—'}
+                              <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
+                                {unresolved > 0n ? uiT("Pending") : revenueUncovered > 0n ? uiT("Unavailable") : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowNetRev, row.currency)
@@ -1411,12 +1390,11 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                           {revenueUncovered > 0n && (
                             <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {revenueUncovered.toString()} revenue uncovered
-                            </div>
+                              {revenueUncovered.toString()}{" "}{uiT("revenue uncovered")}</div>
                           )}
                           {rowNetRev !== null && priorNetRev !== null && (
                             <div className="mt-0.5">
-                              {formatDeltaBadge(rowNetRev, priorNetRev, row.currency)}
+                              {formatDeltaBadge(uiT, rowNetRev, priorNetRev, row.currency)}
                             </div>
                           )}
                         </TableCell>
@@ -1424,8 +1402,8 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCashApplied === null ? (
-                              <span className="text-muted-foreground" aria-label="Unavailable">
-                                {unresolved > 0n ? 'Pending' : cashUncovered > 0n ? 'Unavailable' : '—'}
+                              <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
+                                {unresolved > 0n ? uiT("Pending") : cashUncovered > 0n ? uiT("Unavailable") : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowCashApplied, row.currency)
@@ -1433,8 +1411,8 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                           {(cashUncovered > 0n || rowCashApplied !== null) && (
                             <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {cashUncovered.toString()} uncovered cash{' '}
-                              {cashUncovered === 1n ? 'request' : 'requests'}
+                              {cashUncovered.toString()}{" "}{uiT("uncovered cash")}{' '}
+                              {cashUncovered === 1n ? uiT("request") : uiT("requests")}
                             </div>
                           )}
                         </TableCell>
@@ -1442,8 +1420,8 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUnpaidCredit === null ? (
-                              <span className="text-muted-foreground" aria-label="Unavailable">
-                                {unresolved > 0n ? 'Pending' : cashUncovered > 0n ? 'Unavailable' : '—'}
+                              <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
+                                {unresolved > 0n ? uiT("Pending") : cashUncovered > 0n ? uiT("Unavailable") : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowUnpaidCredit, row.currency)
@@ -1451,26 +1429,25 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                           {cashUncovered > 0n && (
                             <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {cashUncovered.toString()} cash uncovered
-                            </div>
+                              {cashUncovered.toString()}{" "}{uiT("cash uncovered")}</div>
                           )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowPayable === null ? (
-                            <span className="text-muted-foreground" aria-label="Unavailable">—</span>
+                            <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           ) : (
                             <div>
                               <div>{formatFinancialMoney(rowPayable, row.currency)}</div>
                               <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                                 <div>
-                                  Settled{' '}
+                                  {uiT("Settled")}{' '}
                                   {row.settled_earning_nanos
                                     ? formatFinancialMoney(row.settled_earning_nanos, row.currency)
                                     : formatFinancialMoney(0n, row.currency)}
                                 </div>
                                 <div>
-                                  Unpaid{' '}
+                                  {uiT("Unpaid")}{' '}
                                   {row.unsettled_earning_nanos
                                     ? formatFinancialMoney(row.unsettled_earning_nanos, row.currency)
                                     : formatFinancialMoney(0n, row.currency)}
@@ -1483,16 +1460,15 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUpstreamCost === null ? (
-                              <span className="text-muted-foreground" aria-label="Unavailable">—</span>
+                              <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                             ) : (
                               formatFinancialMoney(rowUpstreamCost, row.currency)
                             )}
                           </div>
                           {(costRecorded > 0n || matched > 0n) && (
                             <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {costRecorded.toString()} recorded · {costKnown.toString()}/{matched.toString()}{' '}
-                              matched covered
-                            </div>
+                              {costRecorded.toString()}{" "}{uiT("recorded ·")}{" "}{costKnown.toString()}/{matched.toString()}{' '}
+                              {uiT("matched covered")}</div>
                           )}
                         </TableCell>
 
@@ -1507,9 +1483,9 @@ function CommercialStatement({ token }: { token: string }) {
                               </div>
                             </div>
                           ) : unresolved > 0n ? (
-                            <Badge variant="outline">Pending ({unresolved.toString()} unresolved)</Badge>
+                            <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()}{" "}{uiT("unresolved)")}</Badge>
                           ) : (
-                            <span className="text-muted-foreground" aria-label="Unavailable">—</span>
+                            <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -1523,21 +1499,20 @@ function CommercialStatement({ token }: { token: string }) {
           {/* Print-only formal document footer */}
           <footer className="commercial-print-only commercial-print-footer hidden">
             <div className="commercial-print-notes">
-              <strong>Accounting &amp; Attribution Notes:</strong> Accrual operating revenue is recognized net of recorded customer balance refunds and consumed promotional gift allowances. Cost of supply reflects accrued Provider payables for matched dispatch cohorts; personal owner-funded calls are excluded. Financial statement figures display at least 4 decimal places (.0000) while preserving exact nanounit precision; model unit quotes retain full tariff precision.
-            </div>
+              <strong>{uiT("Accounting & Attribution Notes:")}</strong>{" "}{uiT("Accrual operating revenue is recognized net of recorded customer balance refunds and consumed promotional gift allowances. Cost of supply reflects accrued Provider payables for matched dispatch cohorts; personal owner-funded calls are excluded. Financial statement figures display at least 4 decimal places (.0000) while preserving exact nanounit precision; model unit quotes retain full tariff precision.")}</div>
             <div className="commercial-print-footer-bar">
               <div className="commercial-print-footer-brand">
                 <img src={logo} alt="" className="commercial-print-footer-logo" />
                 <strong>{branding.display_name}</strong>
                 <span>·</span>
-                <span>Platform Financial Reporting</span>
+                <span>{uiT("Platform Financial Reporting")}</span>
                 <span>·</span>
-                <span>Financial Statements ({currencySymbol(currency)} {currency})</span>
+                <span>{uiT("Financial Statements (")}{currencySymbol(currency)} {currency})</span>
               </div>
               <div className="commercial-print-footer-meta">
-                <span>Confidential — Internal &amp; Audit Use Only</span>
+                <span>{uiT("Confidential — Internal & Audit Use Only")}</span>
                 <span>·</span>
-                <span>Generated {formatInstant(new Date().toISOString())} UTC</span>
+                <span>{uiT("Generated")}{" "}{formatInstant(new Date().toISOString())} UTC</span>
               </div>
             </div>
           </footer>
@@ -1568,6 +1543,7 @@ function StatementRow({
   negateDisplay?: boolean;
   invertSentiment?: boolean;
 }) {
+  const { t: uiT } = useUILocale();
   const formatVal = (val: bigint | null) => {
     if (val === null) return 'Unavailable';
     if (negateDisplay && val > 0n) return `-${formatFinancialMoney(val, currency)}`;
@@ -1582,7 +1558,7 @@ function StatementRow({
         {current === null ? formatVal(current) : (
           <Tooltip>
             <TooltipTrigger asChild><span tabIndex={0}>{formatVal(current)}</span></TooltipTrigger>
-            <TooltipContent>Exact amount: {formatRateMoney(negateDisplay ? -current : current, currency)}</TooltipContent>
+            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -current : current, currency)}</TooltipContent>
           </Tooltip>
         )}
       </TableCell>
@@ -1590,12 +1566,12 @@ function StatementRow({
         {prior === null ? formatVal(prior) : (
           <Tooltip>
             <TooltipTrigger asChild><span tabIndex={0}>{formatVal(prior)}</span></TooltipTrigger>
-            <TooltipContent>Exact amount: {formatRateMoney(negateDisplay ? -prior : prior, currency)}</TooltipContent>
+            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -prior : prior, currency)}</TooltipContent>
           </Tooltip>
         )}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap">
-        {formatDeltaBadge(current, prior, currency, invertSentiment)}
+        {formatDeltaBadge(uiT, current, prior, currency, invertSentiment)}
       </TableCell>
     </TableRow>
   );

@@ -1,3 +1,4 @@
+import { readLocale as readUILocale } from '@/shell/ui-locale';
 import type {
   KeySpendingAccount,
   KeyRequestRateLimit,
@@ -139,6 +140,6 @@ export function keyStatus(key: ProjectKey) {
 export function keyLastUsed(key: ProjectKey) {
   if (key.last_used_at_ms === undefined) return 'Unavailable';
   if (key.last_used_at_ms === null) return 'No recorded requests';
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.last_used_at_ms));
+  return new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.last_used_at_ms));
 }
 

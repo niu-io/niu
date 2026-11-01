@@ -3,7 +3,7 @@ import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { useLocale } from './locale';
+import { useLocale } from './ui-locale';
 import type { WorkspaceProblem } from './dashboard-context';
 
 export default function WorkspaceRecovery({ problem, onRetry }: {
