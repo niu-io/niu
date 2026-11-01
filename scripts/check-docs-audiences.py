@@ -14,7 +14,11 @@ for page in ['index.html','agents/index.html','guides/personal-assistant/index.h
     assert not any('/docs/docs/' in link for link in parsed.links),f'Duplicated base in {page}'
     assert '/docs/' in parsed.links and '/docs/agents/' in parsed.links,f'Missing audience navigation in {page}'
     if page=='agents/index.html':
-        for name in contracts:assert '/docs/'+name+'.md' in parsed.links,f'Missing agent entry {name}'
+        for name in contracts:
+            slug='capabilities' if name=='agents' else name
+            assert f'/docs/agents/{slug}/' in parsed.links,f'Missing agent reading entry {name}'
+            reading=Links();reading.feed((a.dist/f'agents/{slug}/index.html').read_text())
+            assert f'/docs/{name}.md' in reading.links,f'Missing original source link {name}'
 for name in contracts:
     source=(a.dist/(name+'.md')).read_text()
     assert source.lstrip().startswith('#') and '<!doctype html' not in source.lower(),f'Invalid raw contract {name}'
