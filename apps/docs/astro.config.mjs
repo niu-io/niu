@@ -38,11 +38,12 @@ export default defineConfig({
         ] },
         { label: 'For coding agents', collapsed: false, items: [
           { label: 'Agent documentation', slug: 'agents' },
-          { label: 'Install and configure', link: '/docs/install.md' },
-          { label: 'Capability map', link: '/docs/agents.md' },
-          { label: 'Model pools', link: '/docs/pools.md' },
-          { label: 'Evaluations', link: '/docs/evaluations.md' },
-          { label: 'Resource events', link: '/docs/events.md' },
+          // Starlight prefixes its /docs base onto local sidebar links.
+          { label: 'Install and configure', link: '/install.md' },
+          { label: 'Capability map', link: '/agents.md' },
+          { label: 'Model pools', link: '/pools.md' },
+          { label: 'Evaluations', link: '/evaluations.md' },
+          { label: 'Resource events', link: '/events.md' },
           { label: 'MCP reference', slug: 'guides/mcp' },
           { label: 'Manual API quickstart', slug: 'getting-started' },
           { label: 'API tutorial', slug: 'guides/api-quickstart' },
