@@ -29,6 +29,7 @@ const commonLicenses = new Set([
   "BlueOak-1.0.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "CC-BY-4.0",
   "CC0-1.0",
   "ISC",
   "MIT",
