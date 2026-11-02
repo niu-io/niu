@@ -1,6 +1,8 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
+import WorkspaceAssetsRoute from '@/features/assets/page';
 import VolcengineView from '@/features/provider-modules/volcengine/VolcengineView';
 
 const workspaceId = '11111111-1111-4111-8111-111111111111';
@@ -248,3 +250,240 @@ it('exposes material inspection, rename, and deletion plus group deletion with r
     expected_revision: '2',
   });
 });
+
+it('treats source IP policy rejection during discovery as a key policy state with actionable remedies instead of a discovery failure', async () => {
+  const user = userEvent.setup();
+  const restrictedKeyId = '88888888-8888-4888-8888-888888888888';
+  const revokedUnusedKeyId = '99999999-9999-4999-8999-999999999999';
+  const onContextChange = vi.fn();
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      const requestedKeyId = headers.get('x-niu-key-id');
+
+      if (url.includes(`/workspaces/${workspaceId}/keys`)) {
+        return Response.json({
+          data: [
+            {
+              id: restrictedKeyId,
+              slug: 'production-gateway-key-2',
+              name: 'Production Gateway Key',
+              allowed_models: ['*'],
+              allowed_cidrs: ['10.0.0.0/8', '192.168.1.0/24'],
+              revoked: false,
+              expired: false,
+            },
+            {
+              id: keyId,
+              slug: 'demo-api-key',
+              name: 'Demo API key',
+              allowed_models: ['*'],
+              allowed_cidrs: null,
+              revoked: false,
+              expired: false,
+            },
+            {
+              id: revokedUnusedKeyId,
+              slug: 'revoked-unused-key',
+              name: 'Revoked Unused Key',
+              allowed_models: ['*'],
+              allowed_cidrs: null,
+              revoked: true,
+              expired: false,
+            },
+          ],
+          next_cursor: null,
+        });
+      }
+      if (
+        url.includes('/media/asset-operation-models') ||
+        url.includes('/media-operations') ||
+        url.includes('/media/operations')
+      ) {
+        return Response.json({ data: [], next_cursor: null });
+      }
+      if (url.includes('/media/capabilities')) {
+        if (requestedKeyId === restrictedKeyId) {
+          return Response.json(
+            {
+              error: {
+                type: 'key_ip_not_allowed',
+                message: 'This API key does not allow the request source address',
+              },
+            },
+            { status: 403 },
+          );
+        }
+        return Response.json({
+          complete: true,
+          modules: [
+            {
+              module: 'volcengine',
+              model_alias: 'seedance-2.5',
+              display_name: 'Seedance 2.5',
+              context_label: 'Volcengine Seedance 2.5',
+            },
+          ],
+        });
+      }
+      throw new Error(`Unhandled fetch: ${url}`);
+    }),
+  );
+
+  const view = render(
+    <VolcengineView
+      workspaceName="Media Workspace"
+      selection={{ keyId: 'production-gateway-key-2', model: '' }}
+      onContextChange={onContextChange}
+    />,
+  );
+
+  expect(
+    await screen.findByText('Production Gateway Key is restricted to allowed source IP addresses'),
+  ).toBeTruthy();
+  expect(screen.getByText('Allowed source networks: 10.0.0.0/8, 192.168.1.0/24')).toBeTruthy();
+  expect(screen.queryByText('Some native tool contexts could not be discovered.')).toBeNull();
+  expect(
+    screen.queryByText(/This API key does not allow the request source address/),
+  ).toBeNull();
+
+  const keyTrigger = screen.getByRole('button', { name: 'Native tools API key' });
+  expect(keyTrigger.textContent).toContain('Production Gateway Key · Source IP restricted');
+
+  await user.click(keyTrigger);
+  expect(await screen.findByRole('menuitemradio', { name: 'Demo API key' })).toBeTruthy();
+  expect(
+    screen.getByRole('menuitemradio', { name: 'Production Gateway Key · Source IP restricted' }),
+  ).toBeTruthy();
+  expect(screen.queryByRole('menuitemradio', { name: /Revoked Unused Key/ })).toBeNull();
+  await user.keyboard('{Escape}');
+
+  const configureLink = screen.getByRole('link', { name: 'Configure source IP access' });
+  expect(configureLink.getAttribute('href')).toBe(
+    '/workspaces/media-workspace/keys/production-gateway-key-2',
+  );
+  const manageLink = screen.getByRole('link', { name: 'Manage API keys' });
+  expect(manageLink.getAttribute('href')).toBe('/workspaces/media-workspace/keys');
+
+  await user.click(screen.getByRole('button', { name: 'Use Demo API key' }));
+  expect(onContextChange).toHaveBeenCalledWith({
+    keyId: 'demo-api-key',
+    model: 'seedance-2.5',
+  });
+
+  view.unmount();
+
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    render(
+      <VolcengineView
+        workspaceName="Media Workspace"
+        selection={{ keyId: 'production-gateway-key-2', model: '' }}
+        onContextChange={onContextChange}
+      />,
+    );
+    expect(
+      await screen.findByText('「Production Gateway Key」仅允许指定来源 IP 地址访问'),
+    ).toBeTruthy();
+    expect(screen.getByText('当前允许的来源网段：10.0.0.0/8, 192.168.1.0/24')).toBeTruthy();
+    expect(screen.queryByText('部分原生工具上下文发现失败。')).toBeNull();
+    expect(screen.getByRole('button', { name: '使用 Demo API key' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '配置来源 IP 访问' })).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
+it('keeps Workspace Assets isolated from provider-specific tabs until a registered provider module capability is discovered', async () => {
+  let capabilityModules: Array<Record<string, unknown>> = [];
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes(`/workspaces/${workspaceId}/keys`)) {
+        return Response.json({
+          data: [
+            {
+              id: keyId,
+              slug: 'demo-api-key',
+              name: 'Demo API key',
+              allowed_models: ['*'],
+              allowed_cidrs: null,
+              revoked: false,
+              expired: false,
+            },
+          ],
+          next_cursor: null,
+        });
+      }
+      if (url.includes(`/workspaces/${workspaceId}/assets`)) {
+        return Response.json({ data: [], next_cursor: null });
+      }
+      if (
+        url.includes('/media/asset-operation-models') ||
+        url.includes('/media-operations') ||
+        url.includes('/media/operations')
+      ) {
+        return Response.json({ data: [], next_cursor: null });
+      }
+      if (url.includes('/media/capabilities')) {
+        return Response.json({
+          complete: true,
+          modules: capabilityModules,
+        });
+      }
+      throw new Error(`Unhandled fetch: ${url}`);
+    }),
+  );
+
+  const firstRender = render(
+    <MemoryRouter initialEntries={['/workspaces/media-workspace/assets']}>
+      <WorkspaceAssetsRoute />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('No saved media yet')).toBeTruthy();
+  expect(screen.queryByRole('tab', { name: 'Provider materials' })).toBeNull();
+  expect(screen.queryByRole('tab', { name: 'Real-person verification' })).toBeNull();
+  firstRender.unmount();
+
+  capabilityModules = [
+    {
+      module: 'volcengine',
+      model_alias: 'seedance-2.5',
+      display_name: 'Seedance 2.5',
+      adapter: 'ark',
+      video_channel: 'ark-direct-v1',
+      management_channel: 'fastrouter-actions-v1',
+      context_label: 'Seedance 2.5 · ark · fastrouter-actions-v1',
+      materials: {
+        groups: true,
+        assets: true,
+        kinds: ['image', 'audio', 'video'],
+        reference_requires_active: true,
+        reference_requires_same_context: true,
+        reference_requires_dispatch_authorization: true,
+      },
+      human_verification: true,
+      reference_inputs: [],
+    },
+  ];
+
+  render(
+    <MemoryRouter initialEntries={['/workspaces/media-workspace/assets']}>
+      <WorkspaceAssetsRoute />
+    </MemoryRouter>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByRole('tab', { name: 'Workspace media' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Provider materials' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Real-person verification' })).toBeTruthy();
+  });
+});
+
+

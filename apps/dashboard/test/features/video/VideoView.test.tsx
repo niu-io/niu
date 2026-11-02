@@ -630,3 +630,59 @@ it('keeps pending diagnostics distinct from unavailable billing',async()=>{
  await act(async()=>complete(Response.json({billing:{mode:'customer',charge_nanos:'1000000000',currency:'USD'},timings:{data:[],has_more:false}})));
  await screen.findByText('$1.00');expect(screen.queryByText('Loading billing…')).toBeNull();
 });
+it('hides native material tools when unsupported and shows them only for supported models',async()=>{
+ mockFetch();mount();const user=userEvent.setup();
+ await screen.findByRole('button',{name:'Video model'});
+ await user.click(screen.getByRole('button',{name:'Additional settings'}));
+ expect(screen.queryByText('This model has no native Provider tools.')).toBeNull();
+ expect(screen.queryByRole('button',{name:'Provider tools'})).toBeNull();
+ expect(screen.queryByRole('button',{name:'Reference materials & verification'})).toBeNull();
+
+ const delegate=globalThis.fetch;
+ vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).includes('/v1/media/capabilities')?Response.json({complete:true,modules:[{module:'volcengine',model_alias:model.id,display_name:model.id,context_label:'Volcengine'}]}):delegate(input,init)));
+ window.localStorage.setItem('niu-dashboard-locale','zh-CN');
+ try{
+  mount();
+  await user.click((await screen.findAllByRole('button',{name:'更多设置'}))[0]);
+  expect(await screen.findByLabelText('时长（秒）')).toBeTruthy();
+  expect(screen.getByLabelText('宽高比')).toBeTruthy();
+  expect(screen.getByLabelText('分辨率')).toBeTruthy();
+  expect(await screen.findByRole('button',{name:'参考素材与真人核验'})).toBeTruthy();
+  expect(screen.queryByText('此模型没有原生 Provider 工具。')).toBeNull();
+ }finally{
+  window.localStorage.removeItem('niu-dashboard-locale');
+ }
+});
+
+it('shows source IP policy guidance and key-switching remedies when the selected key blocks the current source IP',async()=>{
+  const restrictedKey='88888888-8888-4888-8888-888888888888';
+  mockFetch();
+  const delegate=globalThis.fetch;
+  vi.stubGlobal('fetch',vi.fn(async(input,init)=>{
+    const path=String(input);
+    const headers=new Headers(init?.headers);
+    const requestedKey=headers.get('x-niu-key-id');
+    if(path.endsWith('/keys')){
+      return Response.json({data:[
+        {id:restrictedKey,slug:'production-gateway-key-2',name:'Production Gateway Key',allowed_models:['*'],allowed_cidrs:['10.0.0.0/8','192.168.1.0/24'],revoked:false,expired:false},
+        {id:key,slug:'demo-api-key',name:'Demo API key',allowed_models:['*'],allowed_cidrs:null,revoked:false,expired:false},
+      ]});
+    }
+    if(path.endsWith('/models') && requestedKey===restrictedKey){
+      return Response.json({error:{type:'key_ip_not_allowed',message:'This API key does not allow the request source address'}},{status:403});
+    }
+    return delegate(input,init);
+  }));
+  mount(true,`/generations?new=video&key=production-gateway-key-2`);
+  const user=userEvent.setup();
+  expect(await screen.findByText('Production Gateway Key is restricted to allowed source IP addresses')).toBeTruthy();
+  expect(screen.getByText(/Allowed source networks: 10\.0\.0\.0\/8, 192\.168\.1\.0\/24/)).toBeTruthy();
+  expect(screen.queryByText('No video model available')).toBeNull();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByRole('button',{name:'Video API key'}).textContent).toContain('Production Gateway Key · Source IP restricted');
+  expect(screen.getByRole('link',{name:'Configure source IP access'}).getAttribute('href')).toBe('/workspaces/review-workspace/keys/production-gateway-key-2');
+  await user.click(screen.getByRole('button',{name:'Use Demo API key'}));
+  expect(await screen.findByRole('button',{name:'Video model'})).toBeTruthy();
+  expect(screen.getByRole('button',{name:'Video API key'}).textContent).toContain('Demo API key');
+});
+

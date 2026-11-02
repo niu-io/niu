@@ -2612,10 +2612,7 @@ pub async fn configure_asset_management(
         .ok_or_else(ApiError::not_found)?;
     let origin = url::Url::parse(&configuration.api_base)
         .map_err(|_| ApiError::invalid_request("A direct Ark account is required"))?;
-    if origin.scheme() != "https"
-        || origin.host_str() != Some("ark.cn-beijing.volcengineapi.com")
-        || origin.port_or_known_default() != Some(443)
-    {
+    if !niu_media::providers::volcengine::is_direct_ark_https_origin(&origin) {
         return Err(ApiError::invalid_request(
             "A direct Ark account is required",
         ));

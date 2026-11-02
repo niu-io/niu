@@ -8,8 +8,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::time::Duration;
 
-const ENDPOINT: &str =
-    "https://ark.cn-beijing.volcengineapi.com/?Action=GetAsset&Version=2024-01-01";
+const ENDPOINT: &str = crate::providers::volcengine::GET_ASSET_ENDPOINT;
 
 /// Private upstream identity, original group/project and expected media type.
 /// Callers must obtain the listing from authorized retained content and recheck

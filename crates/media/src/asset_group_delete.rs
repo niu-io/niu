@@ -10,8 +10,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::time::Duration;
 
-const ENDPOINT: &str =
-    "https://ark.cn-beijing.volcengineapi.com/?Action=DeleteAssetGroup&Version=2024-01-01";
+const ENDPOINT: &str = crate::providers::volcengine::DELETE_ASSET_GROUP_ENDPOINT;
 
 /// Private scope has no Debug implementation. Construction does not authorize
 /// deleting an ordinary group or prove that it is not a real-person group.

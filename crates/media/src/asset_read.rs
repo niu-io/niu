@@ -5,8 +5,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::time::Duration;
 
-const ENDPOINT: &str =
-    "https://ark.cn-beijing.volcengineapi.com/?Action=GetAssetGroup&Version=2024-01-01";
+const ENDPOINT: &str = crate::providers::volcengine::GET_ASSET_GROUP_ENDPOINT;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReadError {

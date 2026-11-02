@@ -127,8 +127,7 @@ impl Store {
         };
         // Credential setup already validates direct Ark configuration; reject a
         // changed account or any non-Ark account rather than broadening entitlement.
-        let direct_ark = base == "https://ark.cn-beijing.volcengineapi.com/api/v3"
-            || base == "https://ark.cn-beijing.volcengineapi.com/api/v3/";
+        let direct_ark = niu_media::providers::volcengine::is_direct_ark_v3_api_base(&base);
         if revision != q.vendor_revision || !direct_ark {
             return Err(StoreError::Conflict);
         }

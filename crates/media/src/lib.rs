@@ -18,6 +18,7 @@ pub mod media_inspection;
 pub mod media_reference_facts;
 pub mod openrouter;
 pub mod output;
+pub mod providers;
 pub mod query;
 pub mod result;
 pub mod submission;

@@ -7,8 +7,7 @@ use crate::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::time::Duration;
-const ENDPOINT: &str =
-    "https://ark.cn-beijing.volcengineapi.com/?Action=UpdateAssetGroup&Version=2024-01-01";
+const ENDPOINT: &str = crate::providers::volcengine::UPDATE_ASSET_GROUP_ENDPOINT;
 /// Only mutable metadata; original identity/project are retained privately.
 /// Caller must establish an authorized saved ordinary group and current rights.
 pub struct OrdinaryGroupUpdate {

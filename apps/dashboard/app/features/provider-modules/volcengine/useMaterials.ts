@@ -1,9 +1,19 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useDashboardContext} from '@/shell/dashboard-context';
 import {keyRequest,workspaceKeyPath,type ProjectKey} from '@/features/keys/api';
+import {NiuAPIError} from '@niu-io/sdk';
 import {type MediaAssetGroup,type MediaAsset,type MediaAssetOperation} from '@niu-io/sdk/media-assets';
 import {NiuAdminClient,type NativeProviderModule} from '@niu-io/sdk/admin';
 import type {MediaVerificationSession} from '@niu-io/sdk/media-verification';
+
+export function isKeyIpRestrictedError(error: unknown): boolean {
+ if (error instanceof NiuAPIError) {
+  if (error.gatewayCode === 'key_ip_not_allowed') return true;
+  const type = (error.responseBody as { error?: { type?: unknown } } | null)?.error?.type;
+  if (type === 'key_ip_not_allowed') return true;
+ }
+ return error instanceof Error && /does not allow the request source address/i.test(error.message);
+}
 
 async function allPages<T>(read:(after?:string)=>Promise<{data:T[];next_cursor:string|null}>){
  const rows:T[]=[];const cursors=new Set<string>();let after:string|undefined;
@@ -19,8 +29,14 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  const [revision,setRevision]=useState(0);
  const requested=nativeContext??selection;
  const discoveryIdentity=JSON.stringify([context.token,workspace?.organization_id,workspace?.id]);
- const [discovery,setDiscovery]=useState<{identity:string;loading:boolean;keys:ProjectKey[];choices:NativeContextChoice[];historyModels:Record<string,string[]>;errors:string[]}>({identity:'',loading:true,keys:[],choices:[],historyModels:{},errors:[]});
- const identity=JSON.stringify([context.token,context.session?.operator?.id??context.session?.kind,workspace?.organization_id,workspace?.id,preferredModel,requested?.keyId,requested?.model]);
+ const [discovery,setDiscovery]=useState<{identity:string;loading:boolean;keys:ProjectKey[];choices:NativeContextChoice[];historyModels:Record<string,string[]>;ipRestrictedKeyIds:string[];errors:string[]}>({identity:'',loading:true,keys:[],choices:[],historyModels:{},ipRestrictedKeyIds:[],errors:[]});
+ const [nativeIpRestricted,setNativeIpRestricted]=useState(false);
+ const discoveryReady=discovery.identity===discoveryIdentity;
+ const matchedKey=discoveryReady&&requested?.keyId
+  ? discovery.keys.find(key=>key.id===requested.keyId||(Boolean(key.slug)&&key.slug===requested.keyId))
+  : undefined;
+ const resolvedKeyId=nativeContext ? nativeContext.keyId : (matchedKey?.id??requested?.keyId??'');
+ const identity=JSON.stringify([context.token,context.session?.operator?.id??context.session?.kind,workspace?.organization_id,workspace?.id,preferredModel,resolvedKeyId,requested?.model]);
  const liveIdentity=useRef(identity);liveIdentity.current=identity;
  const [binding,setBinding]=useState<{identity:string;model:string;keyId:string;module:NativeProviderModule}|null>(null);
  const reloadController=useRef<AbortController|null>(null);
@@ -29,11 +45,11 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  const admin=useMemo(()=>new NiuAdminClient({adminToken:context.token,baseURL:new URL('/api/v1',window.location.origin).href}),[context.token]);
  useEffect(()=>{
   if(nativeContext)return;
-  const controller=new AbortController();setDiscovery({identity:discoveryIdentity,loading:true,keys:[],choices:[],historyModels:{},errors:[]});
-  if(!workspace){setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],historyModels:{},errors:[]});return()=>controller.abort();}
+  const controller=new AbortController();setDiscovery({identity:discoveryIdentity,loading:true,keys:[],choices:[],historyModels:{},ipRestrictedKeyIds:[],errors:[]});
+  if(!workspace){setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],historyModels:{},ipRestrictedKeyIds:[],errors:[]});return()=>controller.abort();}
   void(async()=>{
    const page=await allPages(after=>keyRequest<{data:ProjectKey[];next_cursor:string|null}>(context.token,workspaceKeyPath(workspace.id)+'?limit=100'+(after?'&after='+encodeURIComponent(after):''),'GET',undefined,controller.signal));
-   const keys=page.data,queue=[...keys],choices:NativeContextChoice[]=[],historyModels:Record<string,string[]>={},errors:string[]=[];
+   const keys=page.data,queue=[...keys],choices:NativeContextChoice[]=[],historyModels:Record<string,string[]>={},ipRestrictedKeyIds:string[]=[],errors:string[]=[];
    await Promise.all(Array.from({length:Math.min(4,queue.length)},async()=>{
     while(queue.length&&!controller.signal.aborted){
      const key=queue.shift()!;
@@ -49,17 +65,22 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
       const ambiguous=modules.filter(module=>modules.filter(candidate=>candidate.model_alias===module.model_alias).length!==1);
       if(ambiguous.length)errors.push(`${key.name}: ambiguous model/account contexts cannot be selected by this API.`);
       choices.push(...modules.filter(module=>!ambiguous.includes(module)).map(module=>({keyId:key.id,keyName:key.name,module})));
-     }catch(error){if(!controller.signal.aborted)errors.push(`${key.name}: ${error instanceof Error?error.message:'Discovery failed.'}`);}
+     }catch(error){
+      if(!controller.signal.aborted){
+       if(isKeyIpRestrictedError(error))ipRestrictedKeyIds.push(key.id);
+       else errors.push(`${key.name}: ${error instanceof Error?error.message:'Discovery failed.'}`);
+      }
+     }
     }
    }));
-   if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys,choices,historyModels,errors});
-  })().catch(error=>{if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],historyModels:{},errors:[error instanceof Error?error.message:'Native tool discovery failed.']});});
+   if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys,choices,historyModels,ipRestrictedKeyIds,errors});
+  })().catch(error=>{if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],historyModels:{},ipRestrictedKeyIds:[],errors:[error instanceof Error?error.message:'Native tool discovery failed.']});});
   return()=>controller.abort();
  },[discoveryIdentity,admin,revision,Boolean(nativeContext)]);
  const discoveryPending=!nativeContext&&(discovery.identity!==discoveryIdentity||discovery.loading);
  const client=useMemo(()=>binding?.identity===identity&&workspace ? admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},binding.keyId):null,[binding,identity,admin,workspace?.organization_id,workspace?.id]);
- const historyClient=useMemo(()=>workspace&&requested?.keyId&&requested.model&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(requested.keyId)
-  ? admin.mediaOperationHistory({organizationId:workspace.organization_id,projectId:workspace.id},{keyId:requested.keyId,model:requested.model}):null,[admin,workspace?.organization_id,workspace?.id,requested?.keyId,requested?.model]);
+ const historyClient=useMemo(()=>workspace&&resolvedKeyId&&requested?.model&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(resolvedKeyId)
+  ? admin.mediaOperationHistory({organizationId:workspace.organization_id,projectId:workspace.id},{keyId:resolvedKeyId,model:requested.model}):null,[admin,workspace?.organization_id,workspace?.id,resolvedKeyId,requested?.model]);
  const [operationHistory,setOperationHistory]=useState<{identity:string;rows:MediaAssetOperation[];complete:boolean;loading:boolean;error:string}>({identity:'',rows:[],complete:false,loading:false,error:''});
  const operationController=useRef<AbortController|null>(null);
  const reloadOperations=useCallback(async()=>{
@@ -86,29 +107,29 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  const operationsReady=operationHistory.identity===identity&&operationHistory.complete;
  const operationsError=operationHistory.identity===identity?operationHistory.error:'';
  useEffect(()=>()=>reloadController.current?.abort(),[client,group]);
- useEffect(()=>{const controller=new AbortController();setLoading(true);setBinding(null);setGroups([]);setAssets([]);setSessions([]);setGroup('');setError('');
+ useEffect(()=>{const controller=new AbortController();setLoading(true);setBinding(null);setGroups([]);setAssets([]);setSessions([]);setGroup('');setError('');setNativeIpRestricted(false);
   if(!workspace){setLoading(false);return;}
   void(async()=>{
-   if(!requested?.keyId||!requested.model||discoveryPending)return;
+   if(!resolvedKeyId||!requested?.model||discoveryPending)return;
    if(!nativeContext){
-    const selectedKey=discovery.keys.find(key=>key.id===requested.keyId);
+    const selectedKey=discovery.keys.find(key=>key.id===resolvedKeyId);
     if(!selectedKey)throw new Error('The selected API key is not in this workspace.');
-    if(selectedKey.revoked||selectedKey.expired)return;
-    const choices=discovery.choices.filter(choice=>choice.keyId===requested.keyId&&choice.module.model_alias===requested.model);
-    if(choices.length===0&&discovery.historyModels[requested.keyId]?.includes(requested.model))return;
+    if(selectedKey.revoked||selectedKey.expired||discovery.ipRestrictedKeyIds.includes(selectedKey.id))return;
+    const choices=discovery.choices.filter(choice=>choice.keyId===resolvedKeyId&&choice.module.model_alias===requested.model);
+    if(choices.length===0&&discovery.historyModels[resolvedKeyId]?.includes(requested.model))return;
     if(choices.length!==1)throw new Error(choices.length>1?'This model has ambiguous native contexts; no account was selected.':'The selected model has no discovered native tools. Check discovery errors or choose a supported model.');
    }
-   const api=admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},requested.keyId);
+   const api=admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},resolvedKeyId);
    const capabilities=await api.capabilities(requested.model,{signal:controller.signal});
    if(controller.signal.aborted)return;
    const modules=capabilities.modules.filter(module=>module.module==='volcengine'&&module.model_alias===requested.model);
    if(!capabilities.complete||modules.length!==1)throw new Error(modules.length>1?'This model has ambiguous native contexts; no account was selected.':'This model has no native Provider tools.');
    const page=await allPages(after=>api.groups.list({model:requested.model,limit:100,after},{signal:controller.signal}));
    if(controller.signal.aborted)return;
-   setBinding({identity,keyId:requested.keyId,model:requested.model,module:modules[0]});setGroups(page.data);setGroup(page.data.find(group=>group.status!=='deleted')?.id??'');
+   setBinding({identity,keyId:resolvedKeyId,model:requested.model,module:modules[0]});setGroups(page.data);setGroup(page.data.find(group=>group.status!=='deleted')?.id??'');
 
-  })().catch(e=>{if(!controller.signal.aborted)setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();
- },[identity,admin,revision,discoveryPending,discovery]);
+  })().catch(e=>{if(!controller.signal.aborted){if(isKeyIpRestrictedError(e))setNativeIpRestricted(true);else setError(e.message);}}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();
+ },[identity,admin,revision,discoveryPending,discovery,resolvedKeyId,requested?.model,Boolean(nativeContext)]);
  async function reload(){
   await reloadOperations();
   if(!client||!binding||binding.identity!==identity)return;
@@ -130,5 +151,17 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   if(!workspace||!context.session?.permissions.write)throw new Error('Workspace Write access is required.');
   return admin.cancelPreparedMediaOperation({organizationId:workspace.organization_id,projectId:workspace.id},id,model);
  };
- return {historyModels:discovery.identity===discoveryIdentity?discovery.historyModels:{},historyClient,historyModel:requested?.model,historyKey:discovery.identity===discoveryIdentity?discovery.keys.find(key=>key.id===requested?.keyId):undefined,cancelPreparedOperation,operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
+ const contextKeys=useMemo(()=>{
+  if(!discoveryReady)return [];
+  const hasActive=discovery.keys.some(k=>!k.revoked&&!k.expired);
+  const visible=discovery.keys.filter(key=>!key.revoked&&!key.expired||(discovery.historyModels[key.id]?.length??0)>0||key.id===resolvedKeyId||!hasActive);
+  return [...visible].sort((a,b)=>{
+   const rank=(k:ProjectKey)=>k.revoked||k.expired?2:discovery.ipRestrictedKeyIds.includes(k.id)?1:0;
+   return rank(a)-rank(b);
+  });
+ },[discoveryReady,discovery.keys,discovery.historyModels,discovery.ipRestrictedKeyIds,resolvedKeyId]);
+ const ipRestrictedKeyIds=discoveryReady?discovery.ipRestrictedKeyIds:[];
+ const ipRestrictedKeys=useMemo(()=>discoveryReady?discovery.keys.filter(key=>discovery.ipRestrictedKeyIds.includes(key.id)):[],[discoveryReady,discovery.keys,discovery.ipRestrictedKeyIds]);
+ const selectedKeyIpRestricted=nativeContext?nativeIpRestricted:Boolean(discoveryReady&&resolvedKeyId&&discovery.ipRestrictedKeyIds.includes(resolvedKeyId));
+ return {workspace,workspaces:context.workspaces,resolvedKeyId,ipRestrictedKeyIds,ipRestrictedKeys,selectedKeyIpRestricted,historyModels:discoveryReady?discovery.historyModels:{},historyClient,historyModel:requested?.model,historyKey:discoveryReady?discovery.keys.find(key=>key.id===resolvedKeyId):undefined,cancelPreparedOperation,operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys,contextChoices:discoveryReady?discovery.choices:[],discoveryErrors:discoveryReady?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
 }

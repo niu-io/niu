@@ -6,10 +6,9 @@ use hmac::{Hmac, Mac};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HOST, HeaderMap, HeaderValue};
 use sha2::{Digest, Sha256};
 
-const HOSTNAME: &str = "ark.cn-beijing.volcengineapi.com";
+const HOSTNAME: &str = crate::providers::volcengine::ARK_HOSTNAME;
 const SIGNED_HEADERS: &str = "content-type;host;x-content-sha256;x-date";
-pub const CREATE_GROUP_URL: &str =
-    "https://ark.cn-beijing.volcengineapi.com/?Action=CreateAssetGroup&Version=2024-01-01";
+pub const CREATE_GROUP_URL: &str = crate::providers::volcengine::CREATE_ASSET_GROUP_ENDPOINT;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SigningError;

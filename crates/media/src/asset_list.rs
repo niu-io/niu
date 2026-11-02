@@ -6,8 +6,7 @@ use crate::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{collections::HashSet, time::Duration};
-const ENDPOINT: &str =
-    "https://ark.cn-beijing.volcengineapi.com/?Action=ListAssets&Version=2024-01-01";
+const ENDPOINT: &str = crate::providers::volcengine::LIST_ASSETS_ENDPOINT;
 
 /// Private scope and cursor cannot be serialized or printed. Subsequent pages
 /// can only be obtained from a validated response, retaining the original scope.
