@@ -4,7 +4,7 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import ConnectGate from '@/shell/ConnectGate';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
       ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests?limit=100`

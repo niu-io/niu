@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -106,9 +107,9 @@ function computeWinningTierShares(candidates: ModelRoutePoolCandidate[]): Map<st
   return shares;
 }
 
-const POOLS_INDEX_PATH = '/api/v1/pools/index?limit=50';
+const POOLS_INDEX_PATH = '/api/v1/routing/index?limit=50';
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
     authorized: canManagePlatform(snapshot.session),
     endpoint: POOLS_INDEX_PATH,
@@ -160,7 +161,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
     setFailedCursor(undefined);
     const query = new URLSearchParams({ limit: '50' });
     if (after) query.set('after', after);
-    const path = '/api/v1/pools/index?' + query.toString();
+    const path = '/api/v1/routing/index?' + query.toString();
     try {
       const result = after
         ? await request<PoolsIndexPage>(token, path, 'GET', undefined, controller.signal)
@@ -211,9 +212,9 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   }, [pools, filter, scopeFilter, organizations, t]);
 
   return (
-    <div className="space-y-6">
+    <div className="empty-region space-y-6">
       <PageHeader
-        title={t('Model pools', '模型池')}
+        title={t('Routing', '模型路由')}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
@@ -519,18 +520,18 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
         </Table>
       ) : (
         !error && (
-          <div className="rounded-lg border border-dashed p-8 text-center">
-            <p className="font-medium">
+          <Empty>
+            <EmptyHeader><EmptyTitle>
               {pools.length > 0
                 ? t('No model pools match the current filter.', '没有符合当前筛选条件的模型池。')
                 : t('No model pools configured yet.', '尚未配置任何模型池。')}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            </EmptyTitle>
+            <EmptyDescription>
               {pools.length > 0
                 ? t('Try clearing the search query or switching the scope filter.', '请尝试清空搜索关键词或切换范围筛选。')
                 : t('Start by choosing the Provider model routes this pool should use.', '首先选择该模型池要组合的 Provider 模型路由。')}
-            </p>
-            <div className="mt-4 flex justify-center gap-2">
+            </EmptyDescription></EmptyHeader>
+            <EmptyContent>
               {pools.length > 0 ? (
                 <Button
                   variant="outline"
@@ -553,8 +554,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                   {t('Create model pool', '创建模型池')}
                 </Button>
               )}
-            </div>
-          </div>
+            </EmptyContent>
+          </Empty>
         )
       )}
 
@@ -935,7 +936,7 @@ function RoutePoolEditorDialog({
     setBusy(true);
     setFormError('');
     try {
-      const response = await request<{ data: { revision: number } }>(token, '/api/v1/pools', 'PUT', payload);
+      const response = await request<{ data: { revision: number } }>(token, '/api/v1/routing', 'PUT', payload);
       onSaved(
         t(
           `Saved model pool "${trimmedAlias}" at revision ${response.data.revision}.`,
@@ -1686,7 +1687,7 @@ function RoutePoolPreviewDialog({
     try {
       const response = await request<{ data: ModelRoutePoolPreviewResult }>(
         token,
-        `/api/v1/pools/${encodePoolReference(pool.alias)}/preview`,
+        `/api/v1/routing/${encodePoolReference(pool.alias)}/preview`,
         'POST',
         {
           protocol,
@@ -1920,7 +1921,7 @@ function RoutePoolAuditDialog({
     try {
       const response = await request<{ data: ModelRoutePoolAudit }>(
         token,
-        `/api/v1/pools/${encodePoolReference(pool.alias)}/audit?days=${windowDays}`,
+        `/api/v1/routing/${encodePoolReference(pool.alias)}/audit?days=${windowDays}`,
         'GET',
       );
       setAudit(response.data);
@@ -2181,7 +2182,7 @@ function RoutePoolHistoryDialog({
       if (beforeRevision !== undefined) query.set('before_revision', String(beforeRevision));
       const result = await request<{ data: ModelRoutePoolRevision[] }>(
         token,
-        '/api/v1/pools/history?' + query.toString(),
+        '/api/v1/routing/history?' + query.toString(),
         'GET',
         undefined,
         controller.signal,

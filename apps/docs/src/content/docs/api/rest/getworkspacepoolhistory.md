@@ -1,11 +1,11 @@
 ---
 title: "Read immutable workspace policy revisions"
-description: "GET /v1/pools/{slug}/history"
+description: "GET /v1/routing/{slug}/history"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/pools/{slug}/history`
+`GET /v1/routing/{slug}/history`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Returns at most 100 revisions descending. Use next_before when present. Prior configurations remain immutable.
 
@@ -33,14 +33,14 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 Authentication alternative: `bearerAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}/history" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 Authentication alternative: `niuApiKeyAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}/history" \
   -H "X-Niu-API-Key: $NIU_API_KEY"
 ```
 

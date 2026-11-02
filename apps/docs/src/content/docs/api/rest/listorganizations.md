@@ -84,12 +84,24 @@ Content type: `application/json`.
         "type": "object",
         "required": [
           "id",
+          "slug",
           "name"
         ],
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "name": {
             "type": "string"

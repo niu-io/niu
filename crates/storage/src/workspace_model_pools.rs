@@ -132,6 +132,47 @@ impl Store {
         tx.commit().await?;
         Ok(saved)
     }
+    pub async fn set_workspace_model_pool_for_scope(
+        &self,
+        scope: TenantScope,
+        input: &WorkspaceModelPool,
+    ) -> Result<WorkspaceModelPool, StoreError> {
+        input.validate()?;
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query(
+            "ALTER TABLE workspace_model_pool_history ALTER COLUMN actor_key_id DROP NOT NULL",
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(format!(
+                "workspace-pool:{}:{}:{}",
+                scope.organization_id, scope.project_id, input.slug
+            ))
+            .execute(&mut *tx)
+            .await?;
+        let revision: Option<i64> = sqlx::query_scalar(
+            "SELECT revision FROM workspace_model_pools WHERE organization_id=$1 AND project_id=$2 AND slug=$3 FOR UPDATE",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(&input.slug)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if revision.unwrap_or(0) != input.revision {
+            return Err(StoreError::Conflict);
+        }
+        let mut saved = input.clone();
+        saved.revision += 1;
+        let config = serde_json::to_value(&saved).map_err(|_| StoreError::InvalidVendor)?;
+        sqlx::query("INSERT INTO workspace_model_pools(organization_id,project_id,slug,revision,configuration) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,slug) DO UPDATE SET revision=EXCLUDED.revision,configuration=EXCLUDED.configuration,updated_at=clock_timestamp()")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(&config).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO workspace_model_pool_history(organization_id,project_id,slug,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4,$5,$6)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(config).bind(Option::<Uuid>::None).execute(&mut *tx).await?;
+        Self::emit_pool_event_in_tx(&mut tx, scope, &saved.slug, saved.revision).await?;
+        tx.commit().await?;
+        Ok(saved)
+    }
     pub async fn workspace_model_pool_history(
         &self,
         scope: TenantScope,

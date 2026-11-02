@@ -451,7 +451,7 @@ async fn current_stripe_verification(
 
 // Account funding, authentication and administration remain available for recovery.
 fn customer_feature(path: &str) -> bool {
-    if path == "/v1/currency" {
+    if path == "/v1/currency" || path == "/v1/branding" {
         return false;
     }
     path == "/v1"

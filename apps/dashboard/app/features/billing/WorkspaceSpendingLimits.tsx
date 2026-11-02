@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { amountFromNanos, amountToNanos, formatExactUnitAtoms, formatUnitAtoms, money, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
@@ -213,7 +214,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
                 : uiF("{0} committed of {1}{2}", [formatUnitAtoms(unitLimit.committed_atoms, unitName, prec), formatUnitAtoms(unitLimit.limit_atoms, unitName, prec), unitLimit.remaining_atoms !== null ? uiF(" · {0} remaining", [formatUnitAtoms(unitLimit.remaining_atoms, unitName, prec)]) : ''])}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {uiT("Exact committed:")}{" "}{formatExactUnitAtoms(unitLimit.committed_atoms, unitName, prec)} ({unitLimit.committed_atoms}{" "}{uiT("atoms)")}{unitLimit.limit_atoms !== null && uiF(" · Exact limit: {0} ({1} atoms)", [formatExactUnitAtoms(unitLimit.limit_atoms, unitName, prec), unitLimit.limit_atoms])}
+              {uiT("Exact committed:")}{" "}{formatExactUnitAtoms(unitLimit.committed_atoms, unitName, prec)}{unitLimit.limit_atoms !== null && `${uiT(" · Exact limit:", " · 精确限额：")} ${formatExactUnitAtoms(unitLimit.limit_atoms, unitName, prec)}`}
             </p>
           </div>
           {canConfigure && !editingUnit && (
@@ -249,7 +250,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
             <ul className="mt-2 space-y-1">
               {unitHistory.map(item => (
                 <li key={item.revision}>
-                  {uiT("Revision")}{" "}{item.revision}: {item.limit_atoms === null ? uiT("Unlimited") : uiF("{0} ({1} atoms)", [formatExactUnitAtoms(item.limit_atoms, unitName, prec), item.limit_atoms])} · {item.actor_name} · {new Date(item.recorded_at).toLocaleString(readUILocale(), { timeZone: 'UTC' })} UTC
+                  {uiT("Revision")}{" "}{item.revision}: {item.limit_atoms === null ? uiT("Unlimited") : formatExactUnitAtoms(item.limit_atoms, unitName, prec)} · {item.actor_name} · {new Date(item.recorded_at).toLocaleString(readUILocale(), { timeZone: 'UTC' })} UTC
                 </li>
               ))}
             </ul>
@@ -259,7 +260,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     })()}
     {!platformCurrency && <p className="text-sm text-muted-foreground">{uiT("Spending limits will be available after the platform currency is configured in Admin.")}</p>}
     {loading && !accounts && <ListRowsSkeleton rows={2} label={uiT("Loading spending limits…")} />}
-    {!error && accounts?.length === 0 && !loading && <p className="text-muted-foreground">{uiT("No billing currency is available yet.")}</p>}
+    {!error && accounts?.length === 0 && !loading && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No billing currency is available yet.")}</EmptyDescription></EmptyHeader></Empty>}
     {!error && accounts?.filter(account => account.currency === platformCurrency || account.limit_nanos !== null || BigInt(account.committed_nanos) > 0n).map(account => <div key={account.currency} className="space-y-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="font-medium">{account.currency}</h3><p className="text-sm text-muted-foreground">{account.limit_nanos === null ? uiT("No workspace limit set.") : uiF("{0} committed of {1}", [money(account.committed_nanos, account.currency), money(account.limit_nanos, account.currency)])}</p></div>

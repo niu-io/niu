@@ -11,7 +11,7 @@
     }
   ],
   "paths": {
-    "/api/v1/workspaces/{workspace}/pools": {
+    "/api/v1/workspaces/{workspace}/routing": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "listWorkspaceReviewPools",
@@ -101,7 +101,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspace}/pools/{slug}": {
+    "/api/v1/workspaces/{workspace}/routing/{slug}": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspaceReviewPool",
@@ -177,9 +177,95 @@
           "required_capability": "read",
           "scope": "workspace"
         }
+      },
+      "put": {
+        "x-niu-implementation": "implemented",
+        "operationId": "setWorkspaceReviewPool",
+        "summary": "Review: Create or replace a workspace model policy",
+        "description": "Workspace model pool management under a current member session with Write permission (Owner or Admin); an installation administrator can also update explicitly scoped records. Use revision zero to create, otherwise the current expected revision. Candidate aliases must be visible in the workspace.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "maxLength": 80
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceModelPool"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace-scoped result; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/handler_operations_json_WorkspaceModelPool"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration or cursor"
+          },
+          "401": {
+            "description": "Missing, expired or revoked credential"
+          },
+          "403": {
+            "description": "Required workspace write permission is absent"
+          },
+          "404": {
+            "description": "Scoped workspace not found"
+          },
+          "409": {
+            "description": "Expected revision conflict"
+          }
+        },
+        "tags": [
+          "Agent management review"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "workspace"
+        }
       }
     },
-    "/api/v1/workspaces/{workspace}/pools/{slug}/history": {
+    "/api/v1/workspaces/{workspace}/routing/{slug}/history": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspaceReviewPoolHistory",
@@ -275,7 +361,7 @@
         }
       }
     },
-    "/api/v1/workspaces/{workspace}/pools/{slug}/selections": {
+    "/api/v1/workspaces/{workspace}/routing/{slug}/selections": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspaceReviewPoolSelections",
@@ -23196,6 +23282,150 @@
         }
       }
     },
+    "/api/v1/organizations/by-route/{route_slug}": {
+      "get": {
+        "operationId": "resolveOrganizationRoute",
+        "summary": "Resolve an authorized canonical organization route",
+        "description": "Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "route_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 81
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized organization identity.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_CompanyMetadata"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or inference-only credential."
+          },
+          "403": {
+            "description": "Credential lacks read permission."
+          },
+          "404": {
+            "description": "No authorized organization matches the reference."
+          }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}": {
+      "patch": {
+        "operationId": "renameOrganization",
+        "summary": "Rename an organization",
+        "description": "Requires installation write access or an organization-wide owner membership. Trims the saved name and preserves the immutable organization slug and aliases.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated organization metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_CompanyMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or identifier."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Organization-wide owner or installation write permission required."
+          },
+          "404": {
+            "description": "Organization missing or outside authorized scope."
+          }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
     "/api/v1/workspaces": {
       "get": {
         "operationId": "listWorkspaces",
@@ -23368,8 +23598,8 @@
     "/api/v1/organizations": {
       "post": {
         "operationId": "createOrganization",
-        "summary": "Create a company and its initial zero-funded account",
-        "description": "Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.",
+        "summary": "Create an organization and its initial zero-funded account",
+        "description": "Authorized for installation administrators and authenticated member accounts. Atomically creates the organization, a durable URL-safe slug, and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. When called by a member session, also provisions an organization-wide owner membership for the account and switches the active session organization. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated and preserved without trimming. Optional Idempotency-Key is durable and actor-scoped: repeating the same input returns the original organization identity and current name with 201; different input returns 409. A deleted organization returns 404 without recreation. Without the header each successful call creates an organization. On uncertain outcomes retry the same key and input.",
         "security": [
           {
             "bearerAuth": []
@@ -23393,6 +23623,13 @@
                     "maxLength": 200,
                     "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
                   },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 48,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                    "description": "Optional unique slug; generated from name when omitted. The value default is reserved."
+                  },
                   "currency": {
                     "type": "string",
                     "pattern": "^[A-Z]{3}$",
@@ -23405,13 +23642,14 @@
         },
         "responses": {
           "201": {
-            "description": "Company identity and initial account currency.",
+            "description": "Organization identity, slug, and initial account currency.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
                     "id",
+                    "slug",
                     "name",
                     "currency"
                   ],
@@ -23420,12 +23658,22 @@
                       "type": "string",
                       "format": "uuid"
                     },
+                    "slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
                     "name": {
                       "type": "string"
                     },
                     "currency": {
                       "type": "string",
                       "pattern": "^[A-Z]{3}$"
+                    },
+                    "operator_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Provisioned owner membership identifier when created by a member session."
                     }
                   }
                 }
@@ -23433,19 +23681,19 @@
             }
           },
           "400": {
-            "description": "Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
+            "description": "Invalid name/slug/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
           },
           "401": {
             "description": "Missing, invalid, expired or revoked management credential."
           },
           "403": {
-            "description": "Installation administrator required; company/workspace members cannot create companies."
+            "description": "Credential lacks management access."
           },
           "404": {
-            "description": "The company from the original idempotent creation was deleted."
+            "description": "The organization from the original idempotent creation was deleted."
           },
           "409": {
-            "description": "Idempotency-Key was already used with a different name or currency."
+            "description": "The requested slug is already in use, or Idempotency-Key was already used with different input."
           },
           "422": {
             "description": "Missing required field, unknown field, or invalid JSON field type."
@@ -39022,6 +39270,34 @@
           }
         }
       },
+      "handler_operations_json_CompanyMetadata": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -39170,22 +39446,6 @@
             "maxLength": 48,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
             "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
-          }
-        }
-      },
-      "handler_operations_json_CompanyMetadata": {
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },

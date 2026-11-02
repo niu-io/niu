@@ -327,21 +327,21 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         .unwrap();
     let app = router(state);
     for path in [
-        "/api/v1/pools",
-        "/api/v1/pools/aW5kZXg",
-        "/api/v1/pools/aW5kZXg/history",
+        "/api/v1/routing",
+        "/api/v1/routing/aW5kZXg",
+        "/api/v1/routing/aW5kZXg/history",
     ] {
         assert_eq!(
             call(&app, "GET", path, &customer.token, None).await.0,
             StatusCode::FORBIDDEN
         );
     }
-    let (status, page) = call(&app, "GET", "/api/v1/pools?limit=1", ADMIN, None).await;
+    let (status, page) = call(&app, "GET", "/api/v1/routing?limit=1", ADMIN, None).await;
     assert_eq!(status, StatusCode::OK, "{page}");
     assert_eq!(page["data"].as_array().unwrap().len(), 1);
     assert_eq!(page["has_more"], true);
     assert_eq!(
-        call(&app, "GET", "/api/v1/pools/index?limit=1", ADMIN, None)
+        call(&app, "GET", "/api/v1/routing/index?limit=1", ADMIN, None)
             .await
             .1,
         page
@@ -354,7 +354,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             .append_pair("limit", "1")
             .finish();
         let (status, page) =
-            call(&app, "GET", &format!("/api/v1/pools?{query}"), ADMIN, None).await;
+            call(&app, "GET", &format!("/api/v1/routing?{query}"), ADMIN, None).await;
         assert_eq!(status, StatusCode::OK);
         seen.extend(
             page["data"]
@@ -374,11 +374,11 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         let query = url::form_urlencoded::Serializer::new(String::new())
             .append_pair("alias", alias)
             .finish();
-        let legacy = call(&app, "GET", &format!("/api/v1/pools?{query}"), ADMIN, None).await;
+        let legacy = call(&app, "GET", &format!("/api/v1/routing?{query}"), ADMIN, None).await;
         let member = call(
             &app,
             "GET",
-            &format!("/api/v1/pools/{encoded}"),
+            &format!("/api/v1/routing/{encoded}"),
             ADMIN,
             None,
         )
@@ -390,7 +390,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             call(
                 &app,
                 "GET",
-                &format!("/api/v1/pools/{encoded}/history"),
+                &format!("/api/v1/routing/{encoded}/history"),
                 ADMIN,
                 None
             )
@@ -398,7 +398,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             call(
                 &app,
                 "GET",
-                &format!("/api/v1/pools/history?{query}"),
+                &format!("/api/v1/routing/history?{query}"),
                 ADMIN,
                 None
             )
@@ -410,7 +410,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             call(
                 &app,
                 "GET",
-                &format!("/api/v1/pools/{reference}"),
+                &format!("/api/v1/routing/{reference}"),
                 ADMIN,
                 None
             )
@@ -423,7 +423,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         call(
             &app,
             "GET",
-            "/api/v1/pools?alias=index&limit=1",
+            "/api/v1/routing?alias=index&limit=1",
             ADMIN,
             None
         )
@@ -432,7 +432,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        call(&app, "GET", "/api/v1/pools", "invalid", None).await.0,
+        call(&app, "GET", "/api/v1/routing", "invalid", None).await.0,
         StatusCode::UNAUTHORIZED
     );
     // Verify the reference through an HTTP forwarding hop as well as Axum.
@@ -454,7 +454,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
     for alias in aliases {
         let response = reqwest::Client::new()
             .get(format!(
-                "http://{proxy_address}/api/v1/pools/{}",
+                "http://{proxy_address}/api/v1/routing/{}",
                 URL_SAFE_NO_PAD.encode(alias),
             ))
             .send()
@@ -526,7 +526,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, created) = call(
         &app,
         "PUT",
-        "/api/v1/pools",
+        "/api/v1/routing",
         ADMIN,
         Some(json!({
             "alias": alias,
@@ -561,7 +561,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, fetched) = call(
         &app,
         "GET",
-        &format!("/api/v1/pools/{encoded}"),
+        &format!("/api/v1/routing/{encoded}"),
         ADMIN,
         None,
     )
@@ -576,7 +576,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, preview_vision) = call(
         &app,
         "POST",
-        &format!("/api/v1/pools/{encoded}/preview"),
+        &format!("/api/v1/routing/{encoded}/preview"),
         ADMIN,
         Some(json!({
             "has_vision": true,
@@ -586,7 +586,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{preview_vision}");
     validate_response(
-        "/api/v1/pools/{reference}/preview",
+        "/api/v1/routing/{reference}/preview",
         "post",
         "200",
         &preview_vision,
@@ -600,7 +600,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, preview_default) = call(
         &app,
         "POST",
-        &format!("/api/v1/pools/{encoded}/preview"),
+        &format!("/api/v1/routing/{encoded}/preview"),
         ADMIN,
         Some(json!({
             "has_vision": false,
@@ -622,13 +622,13 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, audit) = call(
         &app,
         "GET",
-        &format!("/api/v1/pools/{encoded}/audit"),
+        &format!("/api/v1/routing/{encoded}/audit"),
         ADMIN,
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{audit}");
-    validate_response("/api/v1/pools/{reference}/audit", "get", "200", &audit);
+    validate_response("/api/v1/routing/{reference}/audit", "get", "200", &audit);
     assert_eq!(audit["data"]["alias"], alias);
     assert_eq!(audit["data"]["billing_mode"], "candidate_tariff");
     assert_eq!(audit["data"]["public_catalog"], true);
@@ -638,7 +638,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, updated) = call(
         &app,
         "PUT",
-        "/api/v1/pools",
+        "/api/v1/routing",
         ADMIN,
         Some(json!({
             "alias": alias,
@@ -663,7 +663,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, audit_updated) = call(
         &app,
         "GET",
-        &format!("/api/v1/pools/{encoded}/audit"),
+        &format!("/api/v1/routing/{encoded}/audit"),
         ADMIN,
         None,
     )
@@ -674,7 +674,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, history) = call(
         &app,
         "GET",
-        &format!("/api/v1/pools/{encoded}/history"),
+        &format!("/api/v1/routing/{encoded}/history"),
         ADMIN,
         None,
     )
@@ -758,7 +758,13 @@ async fn workspace_key_responses_match_schemas_without_disclosing_tokens(pool: P
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires isolated PostgreSQL"]
 async fn workspace_creation_replays_across_api_and_admin_aliases(pool: PgPool) {
-    let state = test_state(None, pool);
+    let mut state = test_state(None, pool);
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
     let org = state
         .store
         .create_organization("Creation aliases")

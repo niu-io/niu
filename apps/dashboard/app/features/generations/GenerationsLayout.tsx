@@ -34,7 +34,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
     mobileContentProps={{ onCloseAutoFocus: event => { const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label={uiT("Generation history")}>
     <SidebarHeader className="sidebar-heading generations-history-heading"><h2 className="sidebar-heading-row">{uiT("Generations")}</h2></SidebarHeader>
     <SidebarContent className="playground-history-list" aria-label={uiT("Saved sessions")}>
-      <div className="playground-history-controls"><Button variant="outline" className="generations-new-generation" disabled={content?.history.disabled} onClick={() => { content?.onNewSession?.(); navigate(`/generations?new=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconPlus size={16} />{uiT("New generation")}</Button></div>
+      <div className="playground-history-controls"><Button variant="outline" className="generations-new-generation" disabled={content?.history.disabled} onClick={() => { content?.onNewSession?.(); navigate('/generations?new=1'); if(isMobile)setOpenMobile(false); }}><IconPlus size={16} />{uiT("New generation")}</Button></div>
       {content?.notice}
       <div ref={attachList} style={{ display: 'contents' }} />
       {content?.extra}
@@ -53,7 +53,7 @@ export function GenerationSessionBindings(content: Content) {
   return null;
 }
 
-export default function GenerationsLayout({ children }: { children: ReactNode }) {
+export default function GenerationsLayout({ children, environmentNotice }: { children: ReactNode; environmentNotice?: ReactNode }) {
   const { t: uiT } = useUILocale();
   const toggle = useRef<HTMLButtonElement>(null);
   const { toggleSidebar, isMobile, openMobile, open } = useSidebar();
@@ -62,6 +62,7 @@ export default function GenerationsLayout({ children }: { children: ReactNode })
   useLayoutEffect(() => { if(content)content.trigger.current = toggle.current; }, [content]);
   return <Host.Provider value={publish}><div className="generations-layout"><GenerationsSidebar content={content} toggle={toggle} /><div className="generations-session">
     <header className="generations-toolbar"><div className="playground-header-navigation"><Button ref={toggle} variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><h1>{content?.title ?? uiT("New generation")}</h1><div className="generations-toolbar-actions">{content?.actions}</div></header>
+    {environmentNotice}
     <div className="generations-session-content">{children}</div>
   </div></div></Host.Provider>;
 }

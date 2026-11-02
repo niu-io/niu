@@ -152,6 +152,11 @@ export default function LoginRoute() {
           <p className="dashboard-login-intro">{t('Sign in to manage workspaces, API keys, model routes, and billing.', '登录以管理工作空间、API 密钥、模型路由与计费。')}</p>
         </div>
         <form className="dashboard-login-form" onSubmit={submit}>
+          {returnTo.startsWith('/connect') && (
+            <p className="dashboard-login-status" role="status">
+              {t('Sign in to review and authorize your coding agent connection.', '请先登录以审核并授权您的 Coding Agent 连接。')}
+            </p>
+          )}
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
             <p className="dashboard-login-status" role="status">{t('Password changed. Sign in again.', '密码已修改，请重新登录。')}</p>
           )}

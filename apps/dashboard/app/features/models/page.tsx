@@ -11,7 +11,15 @@ import PageHeader from '@/components/PageHeader';
 import ConnectGate from '@/shell/ConnectGate';
 import ModelTable from './components/ModelTable';
 
-export function loader(args: LoaderFunctionArgs) {
+import type { RouteHandle } from '@/shell/router-context';
+
+export const handle: RouteHandle = {
+  destination: 'Models',
+  navTo: '/models/',
+  title: { en: 'Models', zh: '模型' },
+};
+
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
       ? `/api/v1/models?organization_id=${encodeURIComponent(workspace.organization_id)}&project_id=${encodeURIComponent(workspace.id)}`

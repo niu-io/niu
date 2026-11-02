@@ -69,6 +69,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/admin/settings",
         "/admin/reports",
         "/admin/balances",
+        "/admin/routing",
         "/admin/pools",
         "/admin/audit",
         "/admin/model-pools",
@@ -83,7 +84,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/admin/audit-logs",
         "/admin/branding",
         "/admin/payments",
-        "/generations",
         "/chat",
     ] {
         let slash_path = format!("{path}/");
@@ -94,6 +94,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     for prefix in [
         "/admin/providers",
         "/admin/suppliers",
+        "/generations",
         "/settings",
         "/providers",
         "/suppliers",
@@ -101,6 +102,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     ] {
         let slash_prefix = format!("{prefix}/");
         app = app
+            .route_service(prefix, ServeFile::new(dashboard_index.clone()))
             .route_service(&slash_prefix, ServeFile::new(dashboard_index.clone()))
             .nest(
                 prefix,
@@ -259,6 +261,11 @@ fn is_known_workspace_subpath(path: &str) -> bool {
             | "vendors"
             | "provider-capabilities"
             | "video"
+            | "assets"
+            | "routing"
+            | "pools"
+            | "evaluations"
+            | "events"
             | "keys"
             | "organization"
             | "settings"

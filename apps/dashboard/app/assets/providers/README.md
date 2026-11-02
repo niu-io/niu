@@ -14,3 +14,7 @@ The small FastRouter and BabelArk PNG marks identify the corresponding integrati
 - `babelark.png`: https://api.babelark.ai/babelark-square.ico (official API origin supplied by the product owner; `/api/status` identifies Babelark).
 
 These files are distinct from the MIT-licensed Lobe Icons assets described above; no license over a third-party trademark is implied.
+
+## Xiaomi model-developer mark
+
+`xiaomi.png`: https://i02.appmifile.com/i18n/scm/favicon.png, linked by https://www.mi.com/global/ as its 192px favicon. Retrieved 2026-11-02, unmodified. The Xiaomi brand mark replaces the dense MiMo wordmark for Xiaomi model-developer identities. Xiaomi retains ownership of its trademark and artwork.

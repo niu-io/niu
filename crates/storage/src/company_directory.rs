@@ -20,7 +20,7 @@ impl Store {
             None
         };
         Ok(sqlx::query_as(
-            "SELECT id,name FROM organizations \
+            "SELECT id,name,slug FROM organizations \
              WHERE ($1::uuid IS NULL OR id=$1) \
              AND ($2::text IS NULL OR (created_at,id)>($2::text::timestamptz,$3::uuid)) \
              ORDER BY created_at,id LIMIT $4",

@@ -490,12 +490,12 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .gateway-activity-filters input[type=date] { width: 100%; min-width: 0; height: 36px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--background); color: var(--foreground); font: inherit; }
 .gateway-filter-error { grid-column: 1 / -1; margin: 0; color: var(--destructive); font-size: 13px; }
 .gateway-activity-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-.activity-model-breakdown { overflow: hidden; }
+.activity-model-breakdown { min-width: 0; max-width: 100%; overflow: hidden; }
 .activity-model-breakdown .panel-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:19px 21px 16px;border-bottom:1px solid var(--border); }
 .activity-model-breakdown .panel-heading h2 { margin:0;font-size:19px;font-weight:620;letter-spacing:-.035em; }
 .activity-model-breakdown .panel-heading p { margin:5px 0 0;color:var(--muted-foreground);font-size:14px;line-height:1.5; }
 .activity-model-breakdown .panel-heading>a,.activity-stat-links>a,.activity-model-empty>a { display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:14px;font-weight:580;text-decoration:none; }
-.activity-model-table-wrap { overflow:auto; }
+.activity-model-table-wrap { min-width: 0; max-width: 100%; overflow:auto; }
 .activity-charge-breakdown table { table-layout:fixed; }
 .activity-charge-breakdown th:first-child { width:40%; }
 .activity-charge-breakdown th:last-child { width:16%; }
@@ -2400,7 +2400,20 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .help-content > .gateway-route-content > div:not([hidden]),
 .page-content > .gateway-route-content:not([hidden]):has(> div:not([hidden]) > .generations-layout),
 .page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout) { display: flex; flex: 1; min-width: 0; min-height: 0; }
-.help-frame { display: block; width: 100%; height: 100%; border: 0; }
+.help-frame { display: block; flex: 1; width: 100%; min-height: 100dvh; height: 100%; border: 0; }
+
+/* Empty states center in the remaining page or pane, below its controls. */
+.app-shell .page-content:not(.help-content) { display: flex; flex-direction: column; }
+.page-content:not(.help-content) > .gateway-route-content:not([hidden]),
+.page-content:not(.help-content) > .gateway-route-content > div:not([hidden]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.empty-region:has([data-slot="empty"]),
+.empty-region:has(> .empty-state) { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 1; }
+.provider-admin-panel:has(> [data-slot="empty"]),
+.vendor-models:has(> [data-slot="empty"], > .vendor-empty),
+.vendor-detail-panel:has(> .vendor-empty) { display: flex; flex: 1; flex-direction: column; }
+.vendor-detail-panel > .vendor-empty, .vendor-models > .vendor-empty { flex: 1; }
+.operator-detail-empty, .directory-empty { flex: 1; justify-content: center; }
 
 /* One spacing contract for workspace, supplier, model and chat navigation. */
 :is(.niu-workspace-sidebar, .niu-workspace-sidebar-mobile) [data-slot="sidebar-footer"] { padding: 12px; }
@@ -2928,13 +2941,16 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 }
 
 /* Global Settings follows the shared Manus dialog surface. */
+.settings-dialog { --sidebar-accent: color-mix(in oklab, var(--muted) 72%, var(--accent)); }
+.dark .settings-dialog, :root[data-theme='dark'] .settings-dialog { --sidebar-accent: oklch(0.295 0.005 255); }
 .settings-dialog-navigation { width: var(--sidebar-width); }
-.settings-dialog [data-slot="sidebar-container"] { position: absolute; height: 100%; border: 0; }
+.settings-dialog-navigation, .settings-dialog [data-slot="sidebar-inner"] { background: transparent; }
+.settings-dialog [data-slot="sidebar-container"] { position: absolute; height: 100%; border-right: 1px solid color-mix(in srgb, var(--border) 75%, transparent); }
 .settings-dialog [data-slot="sidebar"][data-collapsible="icon"] ~ .settings-dialog-content .settings-navigation-trigger { left: calc(var(--sidebar-width-icon) + 12px); }
 .settings-dialog [data-collapsible="icon"] .settings-dialog-navigation { width: var(--sidebar-width-icon); }
 @media (max-width: 767px) {
   .settings-dialog [data-slot="sidebar-wrapper"] { flex-direction: column; }
-  .settings-dialog-navigation { width: 100%; height: auto; flex: none; }
+  .settings-dialog-navigation { width: 100%; height: auto; flex: none; border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent); }
   .settings-dialog-navigation [data-slot="sidebar-menu"] { flex-direction: row; flex-wrap: wrap; }
   .settings-dialog-content { padding-top: 24px; }
 }
@@ -3321,3 +3337,18 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .dashboard-login-nav > a { display:none; }
   .dashboard-login-brand .dashboard-login-product { display:none; }
 }
+
+.gateway-route-content > div > .empty-state { width: 100%; }
+.generations-history [data-slot="empty"] { min-height: 160px; }
+.provider-empty-state { flex: 1; }
+
+.operator-detail:has(> .operator-detail-empty) { display: flex; flex-direction: column; }
+
+/* Compact list and diagnostic placeholders center within their bounded regions. */
+.model-no-results, .workspace-switcher-empty, .operator-activity-empty, .provider-inline-empty, .activity-model-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.model-no-results, .operator-activity-empty { min-height: 96px; }
+.workspace-switcher-empty { min-height: 80px; }
+.provider-inline-empty { min-height: 160px; }
+.activity-model-empty { min-height: 192px; }
+
+.operator-activity-empty { padding-block: 12px; }

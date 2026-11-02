@@ -1,11 +1,11 @@
 ---
 title: "Read the latest 100 workspace pool selections"
-description: "GET /v1/pools/{slug}/selections"
+description: "GET /v1/routing/{slug}/selections"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/pools/{slug}/selections`
+`GET /v1/routing/{slug}/selections`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
 
@@ -33,14 +33,14 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 Authentication alternative: `bearerAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}/selections" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}/selections" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 Authentication alternative: `niuApiKeyAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}/selections" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}/selections" \
   -H "X-Niu-API-Key: $NIU_API_KEY"
 ```
 

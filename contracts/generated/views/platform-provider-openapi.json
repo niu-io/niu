@@ -4579,7 +4579,7 @@
         }
       }
     },
-    "/api/v1/pools/{reference}": {
+    "/api/v1/routing/{reference}": {
       "get": {
         "operationId": "getPool",
         "security": [
@@ -4650,7 +4650,7 @@
         }
       }
     },
-    "/api/v1/pools/{reference}/history": {
+    "/api/v1/routing/{reference}/history": {
       "get": {
         "operationId": "listPoolHistory",
         "security": [
@@ -4749,7 +4749,7 @@
         }
       }
     },
-    "/api/v1/pools/{reference}/preview": {
+    "/api/v1/routing/{reference}/preview": {
       "post": {
         "operationId": "previewPool",
         "security": [
@@ -4889,7 +4889,7 @@
         }
       }
     },
-    "/api/v1/pools/{reference}/audit": {
+    "/api/v1/routing/{reference}/audit": {
       "get": {
         "operationId": "auditPool",
         "security": [
@@ -13394,7 +13394,7 @@
         }
       }
     },
-    "/api/v1/pools": {
+    "/api/v1/routing": {
       "put": {
         "operationId": "setModelRoutePool",
         "security": [
@@ -13594,7 +13594,7 @@
       "get": {
         "operationId": "listPools",
         "summary": "List platform-managed model route pools",
-        "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /pools/{reference}. The /pools/index route retains its existing collection contract.",
+        "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /routing/{reference}. The /routing/index route retains its existing collection contract.",
         "security": [
           {
             "bearerAuth": []
@@ -13707,7 +13707,7 @@
         }
       }
     },
-    "/api/v1/pools/index": {
+    "/api/v1/routing/index": {
       "get": {
         "operationId": "listModelRoutePools",
         "summary": "List platform-managed model route pools",
@@ -13799,7 +13799,7 @@
         }
       }
     },
-    "/api/v1/pools/history": {
+    "/api/v1/routing/history": {
       "get": {
         "operationId": "listModelRoutePoolHistory",
         "security": [
@@ -34414,6 +34414,34 @@
           }
         }
       },
+      "handler_operations_json_CompanyMetadata": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -34562,22 +34590,6 @@
             "maxLength": 48,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
             "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
-          }
-        }
-      },
-      "handler_operations_json_CompanyMetadata": {
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },

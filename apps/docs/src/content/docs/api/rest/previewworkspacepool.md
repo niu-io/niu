@@ -1,11 +1,11 @@
 ---
 title: "Validate a workspace model policy without dispatch"
-description: "POST /v1/pools/preview"
+description: "POST /v1/routing/preview"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/pools/preview`
+`POST /v1/routing/preview`
 
 Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters and priority/weight bands used by selection. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.
 
@@ -33,7 +33,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 Authentication alternative: `bearerAuth`.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/pools/preview" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/routing/preview" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -42,7 +42,7 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/v1/pools/preview" \
 Authentication alternative: `niuApiKeyAuth`.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/pools/preview" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/routing/preview" \
   -H "X-Niu-API-Key: $NIU_API_KEY" \
   -H 'Content-Type: application/json' \
   --data @request.json

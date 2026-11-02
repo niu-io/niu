@@ -738,7 +738,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   );
 }
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
       ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/guardrails`

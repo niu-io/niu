@@ -6,11 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-11-01
+## [0.3.0] - 2026-11-02
 
 Agent-oriented UX, documentation and native coding-agent integrations.
 
 ### Added
+- First-class customer organization creation and settings (`POST /api/v1/organizations`, `PATCH /api/v1/organizations/{organization}`), durable readable organization slugs with alias preservation, multi-organization account switching, and organization-scoped vs. workspace-scoped member access controls.
 - Native Claude Code and Codex plugin/marketplace builders, plus a separate DeepSeek Harness Cordis bundle, with shared concise skills and standalone MCP runtime.
 - Browser account authorization with workspace selection, explicit management grants, bounded polling, private credential storage and per-operation credential reload. Installation does not change the host's inference provider.
 - Delegated workspace model-pool discovery, contextual non-dispatching preview, revision-checked updates, immutable history and execution correlation, separate from platform supply administration.
@@ -21,6 +22,8 @@ Agent-oriented UX, documentation and native coding-agent integrations.
 
 ### Changed
 - Position Niu as The Model Platform for Agents: Niu supplies information, authorized controls and execution evidence; agents and users own task completion and quality/cost decisions.
+- Name the default workspace `Default` (`slug: default`) so `/workspaces/default` is the canonical path while preserving `/workspaces/default-workspace` aliases for existing bookmarks.
+- Migrate the dashboard to React Router v8 Data Mode with typed `RouterContextProvider` session snapshots, authority-isolated SWR route loaders, and 1:1 zero-layout-shift route skeletons.
 - Lead documentation and the independent landing page with one setup prompt. Keep human reading to orientation and agent-led onboarding; expose technical contracts through compact machine-readable references.
 - Keep MCP untranslated alongside API and SDK. Keep coding-agent plugins, server-side plugins, host hooks and platform events distinct.
 

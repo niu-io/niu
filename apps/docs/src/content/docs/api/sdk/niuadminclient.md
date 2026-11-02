@@ -30,6 +30,14 @@ getWorkspaceReviewPool(workspace: string, slug: string, options?: RequestOptions
 }>;
 ```
 
+### setWorkspaceReviewPool
+
+```typescript
+setWorkspaceReviewPool(workspace: string, slug: string, configuration: import('./index.js').WorkspaceModelPool, options?: RequestOptions): Promise<{
+    data: import('./index.js').WorkspaceModelPool;
+}>;
+```
+
 ### getWorkspaceReviewPoolHistory
 
 ```typescript
@@ -667,8 +675,33 @@ listCompanies(options?: RequestOptions): Promise<{
 ### createCompany
 
 ```typescript
-/** Installation-only atomic company/account creation; retain idempotencyKey on uncertain responses. */
+/** Atomic company/account creation; retain idempotencyKey on uncertain responses. */
 createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany>;
+```
+
+### renameCompany
+
+```typescript
+/** Rename an organization while preserving its immutable slug and UUID. */
+renameCompany(organizationId: string, name: string, options?: RequestOptions): Promise<CompanyMetadata>;
+```
+
+### switchSessionOrganization
+
+```typescript
+/** Switch the active organization for the current authenticated member session by UUID or slug. */
+switchSessionOrganization(organization: string, options?: RequestOptions): Promise<{
+    data: unknown;
+}>;
+```
+
+### claimSessionMembership
+
+```typescript
+/** Link an issued member access token to the signed-in account and switch to that organization. */
+claimSessionMembership(token: string, options?: RequestOptions): Promise<{
+    data: unknown;
+}>;
 ```
 
 ### getPlatformCurrency

@@ -1,11 +1,11 @@
 ---
 title: "Create or revise a model candidate pool"
-description: "PUT /api/v1/pools"
+description: "PUT /api/v1/routing"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /api/v1/pools`
+`PUT /api/v1/routing`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Ordered routing rules evaluate first-match AND conditions before falling back to default_action. Highest eligible priority wins, with weighted selection within that tier. Billing mode selects either unified pool pricing (pool_tariff) or pass-through candidate pricing (candidate_tariff). Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/pools" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/routing" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

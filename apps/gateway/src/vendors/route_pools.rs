@@ -56,7 +56,7 @@ pub async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools",
+///   "path": "/api/v1/routing",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setModelRoutePool",
@@ -273,7 +273,7 @@ pub async fn put(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/history",
+///   "path": "/api/v1/routing/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePoolHistory",
@@ -387,7 +387,7 @@ pub struct IndexQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/index",
+///   "path": "/api/v1/routing/index",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePools",
@@ -516,12 +516,12 @@ pub struct CollectionQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools",
+///   "path": "/api/v1/routing",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPools",
 ///     "summary": "List platform-managed model route pools",
-///     "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /pools/{reference}. The /pools/index route retains its existing collection contract.",
+///     "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /routing/{reference}. The /routing/index route retains its existing collection contract.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -793,7 +793,7 @@ fn decode_reference(reference: &str) -> Result<String, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}",
+///   "path": "/api/v1/routing/{reference}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPool",
@@ -877,7 +877,7 @@ pub struct HistoryQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}/history",
+///   "path": "/api/v1/routing/{reference}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPoolHistory",
@@ -1012,7 +1012,7 @@ pub struct PreviewRequest {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}/preview",
+///   "path": "/api/v1/routing/{reference}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewPool",
@@ -1387,7 +1387,7 @@ pub struct AuditQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}/audit",
+///   "path": "/api/v1/routing/{reference}/audit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "auditPool",

@@ -10,9 +10,16 @@ import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspacePathSegment } from '@/shell/workspace-route';
+import type { RouteHandle } from '@/shell/router-context';
 import { useLocale } from '@/shell/ui-locale';
 
-export function loader(args: LoaderFunctionArgs) {
+export const handle: RouteHandle = {
+  destination: 'Workspace',
+  navTo: '.',
+  title: { en: 'Overview', zh: '概览' },
+};
+
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
       ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests?limit=10`
@@ -40,7 +47,7 @@ export default function OverviewRoute() {
         : <Button asChild><Link to="models" className="header-icon-action" aria-label={t('Browse models', '浏览模型')} title={t('Browse models', '浏览模型')}><Network aria-hidden="true" /><span>{t('Browse models', '浏览模型')}</span></Link></Button>}<Button asChild variant="outline"><Link to="keys" className="header-icon-action" aria-label={t('API keys', 'API 密钥')} title={t('API keys', 'API 密钥')}><KeyRound aria-hidden="true" /><span>{t('API keys', 'API 密钥')}</span></Link></Button></div>} />
 
     <section className="cost-workbench" aria-label={uiT("Recent gateway requests")}>
-      {token ? <GatewayActivity compact key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
+      {token ? <GatewayActivity compact showBreakdowns key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
         <ConnectPrompt />
       </div>}
     </section>

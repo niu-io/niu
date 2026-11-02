@@ -1,3 +1,4 @@
+import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
@@ -43,13 +44,27 @@ export default defineConfig(({ command, mode }) => {
       : [[path, proxy]];
   }));
 
+  const isVitest = Boolean(process.env.VITEST) || mode === 'test';
+
   return {
     base: publicBase,
     // Open tabs may still request lazy chunks from the previous local build.
     // Keep those immutable assets when the managed development watcher rebuilds.
     build: { emptyOutDir: process.env.NIU_DEV_PRESERVE_ASSETS !== '1' },
-    plugins: [react(), tailwindcss()],
-    resolve: { alias: { '@': new URL('./app', import.meta.url).pathname } },
+    plugins: [isVitest ? react() : reactRouter(), tailwindcss()],
+    resolve: {
+      alias: [
+        ...(isVitest
+          ? [
+              {
+                find: /(?:@|(?:\.\.\/)+app)\/routes$/,
+                replacement: new URL('./app/router-tree.tsx', import.meta.url).pathname,
+              },
+            ]
+          : []),
+        { find: '@', replacement: new URL('./app', import.meta.url).pathname },
+      ],
+    },
     server: {
       proxy: gatewayProxy,
     },

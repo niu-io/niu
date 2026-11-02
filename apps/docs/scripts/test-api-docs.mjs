@@ -164,13 +164,13 @@ test('workspace aliases preserve payload contracts and require qualified session
  }
 });
 
-test('workspace pool documentation distinguishes delegated read, preview and mutation authority', async () => {
+test('workspace routing documentation distinguishes delegated read, preview and mutation authority', async () => {
   const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
   for (const [path, method, grant] of [
-    ['/v1/pools', 'get', 'pools:read'],
-    ['/v1/pools/preview', 'post', 'pools:read'],
-    ['/v1/pools/{slug}', 'put', 'pools:write'],
-    ['/v1/pools/{slug}/selections', 'get', 'pools:read'],
+    ['/v1/routing', 'get', 'pools:read'],
+    ['/v1/routing/preview', 'post', 'pools:read'],
+    ['/v1/routing/{slug}', 'put', 'pools:write'],
+    ['/v1/routing/{slug}/selections', 'get', 'pools:read'],
   ]) assert.deepEqual(deriveOperationAuthority(path, method, { security: [{ bearerAuth: [] }] }), {
     audience: 'model', principals: ['workspace_api_key'], required_capability: grant, scope: 'workspace',
   });
@@ -194,7 +194,7 @@ test('evaluation docs separate non-dispatching fingerprints from evidence writes
 });
 test('human management review requires member Read rather than delegated inference authority', async () => {
   const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
-  for (const resource of ['pools','events','evaluations']) {
+  for (const resource of ['routing','events','evaluations']) {
     const authority=deriveOperationAuthority(`/api/v1/workspaces/{workspace}/${resource}`,'get',{security:[{bearerAuth:[]}]});
     assert.deepEqual(authority.principals,['operator_session','installation_admin']);
     assert.equal(authority.required_capability,'read');

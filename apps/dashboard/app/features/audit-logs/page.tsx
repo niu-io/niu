@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -96,7 +97,7 @@ function AuditLogs({ token }: { token: string }) {
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
-  return <section className="space-y-5" aria-label={uiT("Platform audit logs")}>
+  return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
     <p className="text-sm text-muted-foreground">{uiT("Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
@@ -108,7 +109,7 @@ function AuditLogs({ token }: { token: string }) {
       <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : rows.length === 0 ? <p>{uiT("No audit events in this category.")}</p> : <Table>
+    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : rows.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
       <TableBody>{rows.map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{event.created_at.replace('T', ' ').replace(/\.\d+Z$/, '')}</time></TableCell>

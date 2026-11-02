@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { readLocale, useLocale } from '@/shell/ui-locale';
 import { amountFromNanos } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -286,7 +287,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
               ? <Alert variant="destructive"><AlertTitle>{t("Insufficient funds")}</AlertTitle><AlertDescription>{canConfigure ? t("Paid requests are paused until funds are added.") : t("Paid requests are paused. Contact your billing administrator to add funds.")}</AlertDescription></Alert>
               : account.low_balance && <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>)}
           </div>)}
-          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <p className="text-muted-foreground">{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</p>}
+          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
         </section>}
         {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} unitSnapshot={unitSnapshot} onPaid={() => setRevision(value => value + 1)} />}
         {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label={t("Recent balance transactions")}>

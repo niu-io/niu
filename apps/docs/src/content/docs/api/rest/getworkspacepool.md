@@ -1,11 +1,11 @@
 ---
 title: "Read a workspace model policy"
-description: "GET /v1/pools/{slug}"
+description: "GET /v1/routing/{slug}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/pools/{slug}`
+`GET /v1/routing/{slug}`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. A pool is invoked as pool/<slug>, subject to the calling key permitting the selected concrete candidate. A saved policy does not establish live qualification.
 
@@ -33,14 +33,14 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 Authentication alternative: `bearerAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 Authentication alternative: `niuApiKeyAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}" \
   -H "X-Niu-API-Key: $NIU_API_KEY"
 ```
 

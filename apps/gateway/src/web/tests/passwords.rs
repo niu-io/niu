@@ -572,7 +572,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     .await;
     assert_eq!(config_status, StatusCode::OK);
     assert_eq!(config_headers["cache-control"], "no-store");
-    assert_eq!(config_body, json!({"password_login":true}));
+    assert_eq!(config_body["password_login"], true);
     let input = json!({"email":"browser@example.test","password":"synthetic browser passphrase"});
     for origin in [None, Some("https://hostile.example")] {
         assert_eq!(
@@ -1332,15 +1332,27 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
         request(
             &app,
             Method::POST,
-            "/api/v1/organizations",
+            "/api/v1/setup/default-workspace",
             Some(token),
             None,
-            json!({"name":"Unauthorized company"})
+            json!({})
         )
         .await
         .0,
         StatusCode::FORBIDDEN
     );
+    let self_created = request(
+        &app,
+        Method::POST,
+        "/api/v1/organizations",
+        Some(token),
+        None,
+        json!({"name":"Independent customer"}),
+    )
+    .await;
+    assert_eq!(self_created.0, StatusCode::CREATED, "{}", self_created.2);
+    assert_eq!(self_created.2["slug"], "independent-customer");
+    assert_ne!(self_created.2["id"], company["id"]);
     let scope = niu_storage::TenantScope {
         organization_id: Uuid::parse_str(company["id"].as_str().unwrap()).unwrap(),
         project_id: Uuid::parse_str(workspace["id"].as_str().unwrap()).unwrap(),
@@ -1443,5 +1455,745 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
     let charges: i64 = sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1 AND project_id=$2 AND kind='charge'")
         .bind(scope.organization_id).bind(scope.project_id).fetch_one(&pool).await.unwrap();
     assert_eq!(charges, 1);
+
+    // Verify self_created organization has independent zero-funded billing and no charges from Org 1
+    let second_org_id = Uuid::parse_str(self_created.2["id"].as_str().unwrap()).unwrap();
+    let second_charges: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM customer_balance_entries WHERE organization_id = $1",
+    )
+    .bind(second_org_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(second_charges, 0);
+
+    // Switch session to self_created organization by slug, create a workspace, and verify authority
+    let switched = request(
+        &app,
+        Method::PUT,
+        "/api/v1/session/organization",
+        Some(token),
+        None,
+        json!({"organization": "independent-customer"}),
+    )
+    .await;
+    assert_eq!(switched.0, StatusCode::OK, "{}", switched.2);
+    assert_eq!(
+        switched.2["data"]["operator"]["organization_id"],
+        self_created.2["id"]
+    );
+    assert_eq!(switched.2["data"]["operator"]["role"], "owner");
+
+    // While switched to Org 2, Org 1 workspace/billing mutations fail with 404
+    assert_eq!(
+        request(
+            &app,
+            Method::GET,
+            &format!(
+                "/api/v1/organizations/{}/billing/balance",
+                scope.organization_id
+            ),
+            Some(token),
+            None,
+            Value::Null,
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        request(
+            &app,
+            Method::GET,
+            &format!(
+                "/api/v1/organizations/{}/projects/{}/requests/export",
+                scope.organization_id, scope.project_id
+            ),
+            Some(token),
+            None,
+            Value::Null,
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+
+    // Rename Org 2 and verify slug remains immutable and resolvable via /organizations/by-route/{slug}
+    let renamed = request(
+        &app,
+        Method::PATCH,
+        &format!("/api/v1/organizations/{second_org_id}"),
+        Some(token),
+        None,
+        json!({"name": "Independent Customer Renamed"}),
+    )
+    .await;
+    assert_eq!(renamed.0, StatusCode::OK, "{}", renamed.2);
+    assert_eq!(renamed.2["name"], "Independent Customer Renamed");
+    assert_eq!(renamed.2["slug"], "independent-customer");
+
+    let by_route = request(
+        &app,
+        Method::GET,
+        "/api/v1/organizations/by-route/independent-customer",
+        Some(token),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(by_route.0, StatusCode::OK, "{}", by_route.2);
+    assert_eq!(by_route.2["id"], self_created.2["id"]);
+
+    // Verify customer billing overview and transactions never expose supplier/procurement fields
+    let org2_balance = request(
+        &app,
+        Method::GET,
+        &format!("/api/v1/organizations/{second_org_id}/billing/balance"),
+        Some(token),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(org2_balance.0, StatusCode::OK, "{}", org2_balance.2);
+    let balance_text = org2_balance.2.to_string();
+    for forbidden_term in [
+        "supplier",
+        "purchase_price",
+        "procurement",
+        "margin",
+        "provider-secret",
+    ] {
+        assert!(!balance_text.contains(forbidden_term));
+    }
+
+    upstream_task.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn multi_organization_membership_claiming_isolation_and_internal_mode_admission(
+    pool: PgPool,
+) {
+    let captured = Captured::default();
+    let upstream = Router::new()
+        .route("/v1/chat/completions", post(provider))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let upstream_task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    Arc::make_mut(&mut state.config).models.clear();
+    let cipher = Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(
+            "multi-org-isolation-fixture-master-key-12345",
+        )
+        .unwrap(),
+    );
+    state.vendor_cipher = Some(cipher.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    let original = state.store.default_workspace().await.unwrap();
+    let store = state.store.clone();
+    let vendor_id = Uuid::new_v4();
+    let vendor = store
+        .create_vendor(niu_storage::VendorInput {
+            id: vendor_id,
+            name: "Multi-org Provider key".into(),
+            adapter: "openai".into(),
+            api_base: format!("http://{address}/v1"),
+            enabled: true,
+            credential_ciphertext: cipher.seal(vendor_id, "provider-secret-token").unwrap(),
+        })
+        .await
+        .unwrap();
+    let supplier = store
+        .create_provider_business("Multi-org Provider")
+        .await
+        .unwrap();
+    store
+        .associate_vendor_supplier(vendor_id, supplier, vendor.revision)
+        .await
+        .unwrap();
+    store
+        .upsert_vendor_model(
+            vendor_id,
+            niu_storage::VendorModelInput {
+                alias: "fast".into(),
+                upstream_model: "provider-secret-model".into(),
+                enabled: true,
+                public_catalog: true,
+                capabilities: json!({}),
+                expected_revision: None,
+                pricing: Some(json!({
+                    "currency":"USD",
+                    "api_prompt_rate":2000000,
+                    "api_completion_rate":4000000,
+                    "cash_prompt_rate":1000000,
+                    "cash_completion_rate":2000000,
+                    "max_input_tokens":64,
+                    "max_output_tokens":10
+                })),
+            },
+        )
+        .await
+        .unwrap();
+    let offer_revision = store
+        .publish_provider_offer(
+            supplier,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000".into(),
+                completion_rate: "2000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let offer: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='fast'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let expiry = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
+        + 3_600_000;
+    store
+        .qualify_provider_business(
+            supplier,
+            &niu_storage::ProviderQualificationInput {
+                supply_rights_sha256: "a".repeat(64),
+                supply_capability_sha256: "b".repeat(64),
+                data_handling_sha256: "c".repeat(64),
+                valid_until_ms: expiry,
+            },
+        )
+        .await
+        .unwrap();
+    store
+        .qualify_provider_offer(
+            supplier,
+            offer,
+            &niu_storage::ProviderOfferQualificationInput {
+                rate_revision: offer_revision,
+                model_identity_sha256: "d".repeat(64),
+                protocol_matrix_sha256: "e".repeat(64),
+                protocol_matrix_version: "chat-fixture-v1".into(),
+                data_handling_sha256: "f".repeat(64),
+                availability_sha256: "1".repeat(64),
+                agreed_rates_sha256: "2".repeat(64),
+                valid_until_ms: expiry,
+            },
+        )
+        .await
+        .unwrap();
+    let supply_mgr = store
+        .create_operator(
+            niu_storage::OperatorScope {
+                organization_id: original.organization_id,
+                project_id: None,
+            },
+            "Supply manager",
+            niu_storage::OperatorRole::Owner,
+            3600,
+            niu_storage::OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    store
+        .set_provider_member(supplier, supply_mgr.operator_id, "manager", true)
+        .await
+        .unwrap();
+    store
+        .set_provider_offer_active(supplier, offer, supply_mgr.operator_id, true)
+        .await
+        .unwrap();
+    store
+        .publish_retail_standard(
+            niu_storage::RetailStandardPublication {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                schedule: niu_storage::RetailSchedule::Text(niu_storage::TextRetailSchedule {
+                    prompt_rate: "1000000".into(),
+                    completion_rate: "2000000".into(),
+                    cached_prompt_rate: None,
+                    cache_write_prompt_rate: None,
+                    reasoning_completion_rate: None,
+                    minimum_charge_nanos: "0".into(),
+                    request_fee_nanos: "0".into(),
+                    context_tiers: vec![],
+                }),
+                expected_version: "0".into(),
+                idempotency_key: Uuid::new_v4(),
+                reason: "Multi-org retail price".into(),
+            },
+            niu_storage::OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+
+    let app = router(state.clone());
+
+    // 1. Provision user Alice with a password login in Org A
+    let org_a_owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: original.organization_id,
+                project_id: None,
+            },
+            "Alice Chen",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    store
+        .set_member_password(
+            org_a_owner.operator_id,
+            "alice@example.test",
+            &niu_storage::passwords::hash_password("alice-passphrase-12345").unwrap(),
+            None,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let alice_login = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({"email":"alice@example.test","password":"alice-passphrase-12345"}),
+    )
+    .await;
+    assert_eq!(alice_login.0, StatusCode::OK);
+    let alice_token = alice_login.2["token"].as_str().unwrap().to_string();
+
+    // 2. Self-service organization creation idempotency over HTTP (concurrent same-key retries + conflict on changed input)
+    let create_req = |key: &str, body: Value| {
+        let app = app.clone();
+        let token = alice_token.clone();
+        let key = key.to_string();
+        async move {
+            let resp = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/organizations")
+                        .header("authorization", format!("Bearer {token}"))
+                        .header("content-type", "application/json")
+                        .header("idempotency-key", key)
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = resp.status();
+            let bytes = to_bytes(resp.into_body(), 16384).await.unwrap();
+            (status, serde_json::from_slice::<Value>(&bytes).unwrap())
+        }
+    };
+    let (r1, r2) = tokio::join!(
+        create_req(
+            "alice-org-b-key",
+            json!({"name": "Alice Studio", "slug": "alice-studio"})
+        ),
+        create_req(
+            "alice-org-b-key",
+            json!({"name": "Alice Studio", "slug": "alice-studio"})
+        ),
+    );
+    assert_eq!(r1.0, StatusCode::CREATED, "{}", r1.1);
+    assert_eq!(r2.0, StatusCode::CREATED, "{}", r2.1);
+    assert_eq!(r1.1["id"], r2.1["id"]);
+    assert_eq!(r1.1["slug"], "alice-studio");
+    let org_b_id = Uuid::parse_str(r1.1["id"].as_str().unwrap()).unwrap();
+
+    // Changed input with same idempotency key returns 409 Conflict
+    let conflict = create_req(
+        "alice-org-b-key",
+        json!({"name": "Different Studio", "slug": "alice-studio"}),
+    )
+    .await;
+    assert_eq!(conflict.0, StatusCode::CONFLICT, "{}", conflict.1);
+
+    // 3. Provision a separate organization Org C owned by Bob; Bob invites "Alice Chen" (matching name, no auto-link)
+    let org_c_id = store.create_organization("Bob Ventures").await.unwrap();
+    let bob_owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: org_c_id,
+                project_id: None,
+            },
+            "Bob Owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    // Bob creates an operator named "Alice Chen" in Org C via HTTP
+    let invited = request(
+        &app,
+        Method::POST,
+        "/api/v1/operators",
+        Some(&bob_owner.token),
+        None,
+        json!({
+            "organization_id": org_c_id,
+            "project_id": null,
+            "name": "Alice Chen",
+            "role": "viewer",
+            "expires_in_seconds": 3600
+        }),
+    )
+    .await;
+    assert_eq!(invited.0, StatusCode::CREATED, "{}", invited.2);
+    let invite_token = invited.2["token"].as_str().unwrap().to_string();
+    let invited_op_id = Uuid::parse_str(invited.2["operator"]["id"].as_str().unwrap()).unwrap();
+
+    // Matching name does NOT grant Alice access to Org C before claiming
+    let alice_orgs_before = request(
+        &app,
+        Method::GET,
+        "/api/v1/organizations",
+        Some(&alice_token),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(alice_orgs_before.0, StatusCode::OK);
+    assert_eq!(alice_orgs_before.2["data"].as_array().unwrap().len(), 2);
+
+    // Alice claims the membership via POST /api/v1/session/memberships
+    let claimed = request(
+        &app,
+        Method::POST,
+        "/api/v1/session/memberships",
+        Some(&alice_token),
+        None,
+        json!({"token": invite_token}),
+    )
+    .await;
+    assert_eq!(claimed.0, StatusCode::OK, "{}", claimed.2);
+    assert_eq!(
+        claimed.2["data"]["operator"]["organization_id"],
+        org_c_id.to_string()
+    );
+    assert_eq!(claimed.2["data"]["operator"]["role"], "viewer");
+    // The one-time invite token is now revoked
+    assert!(store.authenticate_operator(&invite_token).await.is_err());
+
+    // Alice now sees 3 organizations
+    let alice_orgs_after = request(
+        &app,
+        Method::GET,
+        "/api/v1/organizations",
+        Some(&alice_token),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(alice_orgs_after.2["data"].as_array().unwrap().len(), 3);
+
+    // Bob promotes Alice in Org C from viewer -> admin -> owner, tests last-owner protection, then demotes and revokes
+    for (expected, next) in [("viewer", "admin"), ("admin", "owner")] {
+        let role_resp = request(
+            &app,
+            Method::PATCH,
+            &format!("/api/v1/operators/{invited_op_id}"),
+            Some(&bob_owner.token),
+            None,
+            json!({"role": next, "expected_role": expected}),
+        )
+        .await;
+        assert_eq!(role_resp.0, StatusCode::OK, "{}", role_resp.2);
+    }
+    // Demoting Alice back to viewer succeeds because Bob is still an owner, then demoting Bob (now the last owner) fails with 409 Conflict
+    assert_eq!(
+        request(
+            &app,
+            Method::PATCH,
+            &format!("/api/v1/operators/{invited_op_id}"),
+            Some(&bob_owner.token),
+            None,
+            json!({"role": "viewer", "expected_role": "owner"}),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        request(
+            &app,
+            Method::PATCH,
+            &format!("/api/v1/operators/{}", bob_owner.operator_id),
+            Some(ADMIN),
+            None,
+            json!({"role": "viewer", "expected_role": "owner"}),
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+
+    // 4. Workspace-only user in Org B cannot manage shared organization billing or grant organization access
+    let switch_to_b = request(
+        &app,
+        Method::PUT,
+        "/api/v1/session/organization",
+        Some(&alice_token),
+        None,
+        json!({"organization": "alice-studio"}),
+    )
+    .await;
+    assert_eq!(switch_to_b.0, StatusCode::OK);
+    let ws_b = request(
+        &app,
+        Method::POST,
+        "/api/v1/workspaces",
+        Some(&alice_token),
+        None,
+        json!({"organization_id": org_b_id, "name": "Studio Workspace", "slug": "studio-workspace"}),
+    )
+    .await;
+    assert_eq!(ws_b.0, StatusCode::CREATED, "{}", ws_b.2);
+    let ws_b_id = Uuid::parse_str(ws_b.2["id"].as_str().unwrap()).unwrap();
+
+    let ws_only_op = request(
+        &app,
+        Method::POST,
+        "/api/v1/operators",
+        Some(&alice_token),
+        None,
+        json!({
+            "organization_id": org_b_id,
+            "project_id": ws_b_id,
+            "name": "Workspace Scoped Owner",
+            "role": "owner",
+            "expires_in_seconds": 3600
+        }),
+    )
+    .await;
+    assert_eq!(ws_only_op.0, StatusCode::CREATED, "{}", ws_only_op.2);
+    let ws_only_token = ws_only_op.2["token"].as_str().unwrap();
+
+    // Workspace-only owner cannot create organization-wide operators, rename organization, or access organization billing
+    assert!(matches!(
+        request(
+            &app,
+            Method::POST,
+            "/api/v1/operators",
+            Some(ws_only_token),
+            None,
+            json!({
+                "organization_id": org_b_id,
+                "project_id": null,
+                "name": "Escalated Org Owner",
+                "role": "owner",
+                "expires_in_seconds": 3600
+            }),
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN | StatusCode::NOT_FOUND
+    ));
+    assert!(matches!(
+        request(
+            &app,
+            Method::PATCH,
+            &format!("/api/v1/organizations/{org_b_id}"),
+            Some(ws_only_token),
+            None,
+            json!({"name": "Unauthorized Rename"}),
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN | StatusCode::NOT_FOUND
+    ));
+    assert!(matches!(
+        request(
+            &app,
+            Method::GET,
+            &format!("/api/v1/organizations/{org_b_id}/billing/balance"),
+            Some(ws_only_token),
+            None,
+            Value::Null,
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN | StatusCode::NOT_FOUND
+    ));
+
+    // 5. Race test: concurrent organization switch / revocation against workspace mutations and dispatch
+    let revoke_path = format!("/api/v1/operators/{invited_op_id}");
+    let switch_fut = request(
+        &app,
+        Method::PUT,
+        "/api/v1/session/organization",
+        Some(&alice_token),
+        None,
+        json!({"organization": original.organization_id.to_string()}),
+    );
+    let revoke_c_fut = request(
+        &app,
+        Method::DELETE,
+        &revoke_path,
+        Some(&bob_owner.token),
+        None,
+        Value::Null,
+    );
+    let (switch_res, revoke_res) = tokio::join!(switch_fut, revoke_c_fut);
+    assert_eq!(switch_res.0, StatusCode::OK);
+    assert_eq!(revoke_res.0, StatusCode::NO_CONTENT);
+    // Switching to revoked Org C now fails with 404
+    assert_eq!(
+        request(
+            &app,
+            Method::PUT,
+            "/api/v1/session/organization",
+            Some(&alice_token),
+            None,
+            json!({"organization": org_c_id.to_string()}),
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+
+    // 6. Self-funded Internal operating mode vs Resale mode admission for zero-funded Org B
+    let switch_back_b = request(
+        &app,
+        Method::PUT,
+        "/api/v1/session/organization",
+        Some(&alice_token),
+        None,
+        json!({"organization": "alice-studio"}),
+    )
+    .await;
+    assert_eq!(switch_back_b.0, StatusCode::OK);
+    let key_b = request(
+        &app,
+        Method::POST,
+        &format!("/api/v1/workspaces/{ws_b_id}/keys"),
+        Some(&alice_token),
+        None,
+        json!({"name":"Studio Key","allowed_models":["fast"],"ttl_seconds":3600}),
+    )
+    .await;
+    assert_eq!(key_b.0, StatusCode::CREATED, "{}", key_b.2);
+    let secret_b = key_b.2["token"].as_str().unwrap();
+    let prompt =
+        json!({"model":"fast","messages":[{"role":"user","content":"hi"}],"max_tokens":10});
+
+    // In Resale mode, zero-funded Org B is rejected with 402 Payment Required
+    let resale_denied = request(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(secret_b),
+        None,
+        prompt.clone(),
+    )
+    .await;
+    assert_eq!(resale_denied.0, StatusCode::PAYMENT_REQUIRED);
+
+    // In self-funded Internal mode, an owner-funded vendor scoped to Org B is admitted without customer balance debit and isolated from Org A
+    let mut internal_state = state.clone();
+    internal_state.operating_mode = crate::state::OperatingMode::Internal;
+    let internal_app = router(internal_state);
+    let personal_vendor = request(
+        &internal_app,
+        Method::POST,
+        "/api/v1/vendors",
+        Some(ADMIN),
+        None,
+        json!({
+            "name": "Org B Personal Key",
+            "adapter": "openai",
+            "api_base": format!("http://{address}/v1"),
+            "api_key": "org-b-personal-secret",
+            "create_supplier": true,
+            "personal_organization_id": org_b_id
+        }),
+    )
+    .await;
+    assert_eq!(
+        personal_vendor.0,
+        StatusCode::CREATED,
+        "{}",
+        personal_vendor.2
+    );
+    let personal_vendor_id = personal_vendor.2["data"]["id"].as_str().unwrap();
+    let add_model = request(
+        &internal_app,
+        Method::POST,
+        &format!("/api/v1/vendors/{personal_vendor_id}/models"),
+        Some(ADMIN),
+        None,
+        json!({
+            "alias": "internal-fast",
+            "upstream_model": "provider-secret-model",
+            "enabled": true,
+            "public_catalog": false,
+            "capabilities": {},
+            "expected_revision": null
+        }),
+    )
+    .await;
+    assert_eq!(add_model.0, StatusCode::OK, "{}", add_model.2);
+    let internal_key_b = store
+        .issue_key(
+            niu_storage::TenantScope {
+                organization_id: org_b_id,
+                project_id: ws_b_id,
+            },
+            "Studio Internal Key",
+            &["internal-fast".to_owned()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let internal_ok = request(
+        &internal_app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&internal_key_b.token),
+        None,
+        json!({"model":"internal-fast","messages":[{"role":"user","content":"hi"}],"max_tokens":10}),
+    )
+    .await;
+    assert_eq!(internal_ok.0, StatusCode::OK, "{}", internal_ok.2);
+
+    // Org A cannot invoke Org B's owner-funded personal model
+    let org_a_key = store
+        .issue_key(original, "Org A Key", &["internal-fast".to_owned()], 3600)
+        .await
+        .unwrap();
+    let foreign_internal = request(
+        &internal_app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&org_a_key.token),
+        None,
+        json!({"model":"internal-fast","messages":[{"role":"user","content":"hi"}],"max_tokens":10}),
+    )
+    .await;
+    assert_eq!(foreign_internal.0, StatusCode::NOT_FOUND);
+
     upstream_task.abort();
 }

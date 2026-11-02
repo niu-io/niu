@@ -51,3 +51,24 @@ Task completeness: existing orientation, navigation and header actions remain av
 - Standard dashboard build remains blocked by nine existing untranslated-template findings in other feature files. Local visual verification used a direct Vite build and the managed development runtime; the translation gate was not changed.
 - Screenshots were captured outside the public repository. No credentials, private environment configuration or demo request records were added to the public tree.
 - Changes and Beads state are local; no source commit, deployment or remote task publication was performed.
+
+## Follow-up: environment notice and Xiaomi mark
+
+Verified 2026-11-02; Beads `niu-c4u` and `niu-524`. The working tree advanced to `a1b9e0f41` during this follow-up; the scoped notice implementation was included in that concurrent repository update. This worker did not run a source commit or deploy.
+
+The mock-payment notice now sits below the header as an inset, rounded shadcn Alert, aligned to the content gutter. Its warning tint and border are quieter; cost and credential guidance remain intact. A labelled shadcn icon Button dismisses it for the mounted application, including subsequent client-side navigation. A full reload shows the environment notice again. Dismissal returns focus to the content without requesting a scroll. This follows the user's distinction between a truly full-width global banner and a scoped panel, the inspected Manus inset notice, and OpenRouter's dismissible warning affordance. NN/g's hierarchy, contrast and grouping criteria above support the visual separation; the exact geometry and dismissal behavior are Niu decisions.
+
+| State | Observed evidence |
+| --- | --- |
+| 1440px desktop, expanded navigation | Header stays at y=0, height 56px. Panel x=356, y=72, width 1037px, height 68px; 32px side margins match the content. Close button has a 32px target with space reserved beside the text. |
+| 900px intermediate, closed navigation | Panel width approximately 775px and height 88px; text wraps inside its inset, with no document horizontal overflow. |
+| 390px phone | Rounded panel keeps 16px outer gutters; text wraps without covering the close button. Light and dark states visually inspected. Tab from the header refresh action reaches Dismiss payment notice; Enter removes the panel and focuses dashboard-content. |
+| Dismissed / navigation | Panel and its margin disappear. Client navigation from logs to workspace settings retains dismissal. Reload restores the notice. |
+
+Task completeness, visual composition and safe interaction each pass within this local notice scope. The notice is informational environment context, not a payment-setting toggle; no payment configuration or saved business data is changed by dismissal.
+
+Xiaomi model-developer identities now use the unmodified orange Xiaomi brand favicon linked by the official global website, bundled locally as `xiaomi.png`. The former small MiMo wordmark asset was removed. Shared ProviderLogo renders the artwork in color; model and Provider identifiers are unchanged. Provenance is recorded in the Provider asset README. Browser inspection confirmed both MiMo model cards use the local Xiaomi asset, and MiMo Pro/Flash request rows show it at desktop and 390px widths in light/dark themes. The artwork remains recognizable and aligned with sibling developer marks; no new icon layout was introduced.
+
+Validation: dashboard typecheck passed; AppLayout integration tests passed (54); Provider identity and ModelTable tests passed (33). The full translation audit now reports zero findings after the concurrent repository update, superseding the earlier build limitation above.
+
+The standard dashboard production build passed, including the zero-finding translation audit. Final dismissal inspection confirmed scrollTop remains zero, the content starts at y=56, the notice is removed, and focus is on dashboard-content.

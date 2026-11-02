@@ -1,13 +1,19 @@
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useParams, useSearchParams, type LoaderFunctionArgs } from "react-router";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams, type LoaderFunctionArgs } from "react-router";
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from "@/lib/route-data";
 import {
   IconArrowLeft,
   IconChevronDown,
+  IconEdit,
+  IconHistory,
+  IconPlus,
   IconRefresh,
+  IconTrash,
 } from "@tabler/icons-react";
+import { pinyin } from "pinyin-pro";
 import {
   NiuAdminClient,
   type EvaluationComparison,
@@ -25,6 +31,7 @@ import PageHeader from "@/components/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +40,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -45,16 +55,32 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDashboardContext } from "@/shell/dashboard-context";
+import { useDashboardContext, type Model } from "@/shell/dashboard-context";
 import { useLocale } from "@/shell/ui-locale";
 import { formatFinancialMoney } from "@/lib/money";
-import { fetchQuery, peekQuery } from "@/lib/query-cache";
+import { fetchQuery, invalidateForMutation, peekQuery } from "@/lib/query-cache";
 
-type Kind = "pools" | "evaluations" | "events";
+function poolSlugFromName(name: string) {
+  if (!name.trim()) return "";
+  const romanized = pinyin(name, { toneType: "none", nonZh: "consecutive", v: true });
+  return (
+    romanized
+      .normalize("NFKD")
+      .replace(/\p{M}+/gu, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80)
+      .replace(/-+$/g, "") || "pool"
+  );
+}
+
+type Kind = "routing" | "evaluations" | "events";
 type Resource = WorkspaceModelPool | EvaluationDefinition | EventSubscription;
 type Detail = {
   pool?: WorkspaceModelPool;
@@ -331,12 +357,12 @@ function EvaluationComparisonTable({
     </Table>
   );
 }
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace, url, params }) => {
     if (!workspace || params.slug) {
       return { endpoint: null };
     }
-    const kind = (url.pathname.match(/\/(pools|evaluations|events)(?:\/|$)/)?.[1] ?? "pools") as Kind;
+    const kind = (url.pathname.match(/\/(routing|evaluations|events)(?:\/|$)/)?.[1] ?? "routing") as Kind;
     const after = url.searchParams.get("after") ?? undefined;
     const endpoint = `/api/v1/workspaces/${encodeURIComponent(workspace.id)}/${kind}${
       after && kind !== "events" ? `?after=${encodeURIComponent(after)}` : ""
@@ -348,7 +374,7 @@ export function loader(args: LoaderFunctionArgs) {
           adminToken: snapshot.token,
           baseURL: new URL("/api/v1", url.origin).href,
         });
-        if (kind === "pools") {
+        if (kind === "routing") {
           return await client.listWorkspaceReviewPools(workspace.id, after, { signal });
         }
         if (kind === "evaluations") {
@@ -370,8 +396,8 @@ export default function AgentReviewPage() {
   const params = useParams();
   const location = useLocation();
   const kind = (location.pathname.match(
-    /\/(pools|evaluations|events)(?:\/|$)/,
-  )?.[1] ?? "pools") as Kind;
+    /\/(routing|evaluations|events)(?:\/|$)/,
+  )?.[1] ?? "routing") as Kind;
   return (
     <ConnectGate>
       {() =>
@@ -390,6 +416,8 @@ export default function AgentReviewPage() {
             kind={kind}
             slug={params.slug}
             run={params.run}
+            canWrite={context.session?.permissions?.write !== false}
+            models={context.models ?? []}
           />
         ) : (
           <p role="status">
@@ -406,6 +434,8 @@ function Review({
   kind,
   slug,
   run,
+  canWrite,
+  models,
 }: {
   token: string;
   workspace: string;
@@ -413,9 +443,20 @@ function Review({
   kind: Kind;
   slug?: string;
   run?: string;
+  canWrite: boolean;
+  models: Model[];
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
+  const navigate = useNavigate();
+  const availableModels = useMemo(
+    () =>
+      models.filter(
+        (model) =>
+          !model.id.startsWith("pool/") && !model.id.startsWith("codex/"),
+      ),
+    [models],
+  );
   const client = useMemo(
     () =>
       new NiuAdminClient({
@@ -427,7 +468,7 @@ function Review({
   const base = `/workspaces/${encodeURIComponent(routeWorkspace)}/${kind}`;
   const [query, setQuery] = useSearchParams();
   const after = query.get("after") ?? undefined;
-  const revisionQuery = kind === "pools" ? query.get("revision") : null;
+  const revisionQuery = kind === "routing" ? query.get("revision") : null;
   const revisionNumber = Number(revisionQuery);
   const selectedRevision =
     revisionQuery &&
@@ -517,7 +558,7 @@ function Review({
           listCacheKey,
           async (signal) => {
             const reqOpts = { signal };
-            if (kind === "pools") {
+            if (kind === "routing") {
               return await client.listWorkspaceReviewPools(
                 workspace,
                 after,
@@ -566,7 +607,7 @@ function Review({
         detailCacheKey,
         async (signal) => {
           const reqOpts = { signal };
-          if (kind === "pools") {
+          if (kind === "routing") {
             const [pool, history, selections] = await Promise.all([
               client.getWorkspaceReviewPool(workspace, slug, reqOpts),
               client.getWorkspaceReviewPoolHistory(
@@ -665,8 +706,8 @@ function Review({
     refresh,
   ]);
   const title =
-    kind === "pools"
-      ? t("Model pools", "模型池")
+    kind === "routing"
+      ? t("Routing", "模型路由")
       : kind === "evaluations"
         ? t("Evaluations", "评估")
         : t("Event subscriptions", "事件订阅");
@@ -677,7 +718,7 @@ function Review({
     detail.subscription?.data.name;
   const allowedTabs = run
     ? ["results", "criteria", "comparison"]
-    : kind === "pools"
+    : kind === "routing"
       ? ["configuration", "history", "executions"]
       : kind === "events"
         ? ["configuration", "deliveries"]
@@ -760,34 +801,451 @@ function Review({
     detail.pool?.revision ??
     detail.definition?.revision ??
     detail.subscription?.data.revision;
+  const [poolDialogOpen, setPoolDialogOpen] = useState(false);
+  const [editingPool, setEditingPool] = useState<WorkspaceModelPool | null>(null);
+  const [poolName, setPoolName] = useState("");
+  const [poolSlug, setPoolSlug] = useState("");
+  const [poolSlugEdited, setPoolSlugEdited] = useState(false);
+  const [poolDescription, setPoolDescription] = useState("");
+  const [poolEnabled, setPoolEnabled] = useState(true);
+  const [poolDefaultAction, setPoolDefaultAction] = useState<"candidates" | "reject">("candidates");
+  const [poolCandidates, setPoolCandidates] = useState<
+    Array<{ alias: string; priority: string; weight: string; enabled: boolean }>
+  >([{ alias: "", priority: "100", weight: "1", enabled: true }]);
+  const [poolRules, setPoolRules] = useState<
+    NonNullable<WorkspaceModelPool["rules"]>
+  >([]);
+  const [savingPool, setSavingPool] = useState(false);
+  const [poolFormError, setPoolFormError] = useState("");
+  const [restoreRevisionError, setRestoreRevisionError] = useState("");
+
+  function openCreatePoolDialog() {
+    setEditingPool(null);
+    setPoolName("");
+    setPoolSlug("");
+    setPoolSlugEdited(false);
+    setPoolDescription("");
+    setPoolEnabled(true);
+    setPoolDefaultAction("candidates");
+    setPoolCandidates([
+      {
+        alias: availableModels[0]?.id ?? "",
+        priority: "100",
+        weight: "1",
+        enabled: true,
+      },
+    ]);
+    setPoolRules([]);
+    setPoolFormError("");
+    setPoolDialogOpen(true);
+  }
+
+  function openEditPoolDialog(pool: WorkspaceModelPool) {
+    setEditingPool(pool);
+    setPoolName(pool.name);
+    setPoolSlug(pool.slug);
+    setPoolSlugEdited(true);
+    setPoolDescription(pool.description);
+    setPoolEnabled(pool.enabled);
+    setPoolDefaultAction(pool.default_action ?? "candidates");
+    setPoolCandidates(
+      pool.candidates.length
+        ? pool.candidates.map((candidate) => ({
+            alias: candidate.alias,
+            priority: String(candidate.priority),
+            weight: String(candidate.weight),
+            enabled: candidate.enabled,
+          }))
+        : [
+            {
+              alias: availableModels[0]?.id ?? "",
+              priority: "100",
+              weight: "1",
+              enabled: true,
+            },
+          ],
+    );
+    setPoolRules(
+      (pool.rules ?? []).map((rule) => ({
+        ...rule,
+        conditions: { ...rule.conditions },
+        candidates: rule.candidates.map((c) => ({ ...c })),
+      })),
+    );
+    setPoolFormError("");
+    setPoolDialogOpen(true);
+  }
+
+  function addRoutingRule(
+    preset?: "vision" | "tools" | "structured_output" | "reasoning",
+  ) {
+    setPoolRules((current) => {
+      if (current.length >= 32) return current;
+      const nextIndex = current.length + 1;
+      let id = `rule-${nextIndex}`;
+      while (current.some((r) => r.id === id)) {
+        id = `rule-${nextIndex}-${Math.floor(Math.random() * 900 + 100)}`;
+      }
+      const defaultTarget =
+        poolCandidates.find((c) => c.alias.trim())?.alias.trim() ||
+        availableModels[0]?.id ||
+        "";
+      const name =
+        preset === "vision"
+          ? t("Vision & image requests", "视觉与图片输入分流")
+          : preset === "tools"
+            ? t("Tool calling requests", "工具调用分流")
+            : preset === "structured_output"
+              ? t("Structured JSON output", "结构化 JSON 输出分流")
+              : preset === "reasoning"
+                ? t("Deep reasoning requests", "深度推理分流")
+                : t(`Routing rule ${nextIndex}`, `路由规则 ${nextIndex}`);
+      const conditions =
+        preset === "vision"
+          ? { vision: true }
+          : preset === "tools"
+            ? { tools: true }
+            : preset === "structured_output"
+              ? { structured_output: true }
+              : preset === "reasoning"
+                ? { reasoning: true }
+                : { tools: true };
+      return [
+        ...current,
+        {
+          id,
+          name,
+          enabled: true,
+          conditions,
+          candidates: [
+            { alias: defaultTarget, priority: 100, weight: 1, enabled: true },
+          ],
+        },
+      ];
+    });
+  }
+
+  function updateRoutingRule(
+    index: number,
+    patch: Partial<NonNullable<WorkspaceModelPool["rules"]>[number]>,
+  ) {
+    setPoolRules((current) =>
+      current.map((rule, idx) => (idx === index ? { ...rule, ...patch } : rule)),
+    );
+  }
+
+  function removeRoutingRule(index: number) {
+    setPoolRules((current) => current.filter((_, idx) => idx !== index));
+  }
+
+  function updateCandidate(
+    index: number,
+    patch: Partial<{ alias: string; priority: string; weight: string; enabled: boolean }>,
+  ) {
+    setPoolCandidates((current) =>
+      current.map((item, idx) => (idx === index ? { ...item, ...patch } : item)),
+    );
+  }
+
+  function addCandidate() {
+    setPoolCandidates((current) => [
+      ...current,
+      { alias: "", priority: "100", weight: "1", enabled: true },
+    ]);
+  }
+
+  function removeCandidate(index: number) {
+    setPoolCandidates((current) =>
+      current.length <= 1 ? current : current.filter((_, idx) => idx !== index),
+    );
+  }
+
+  async function submitPoolForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (savingPool) return;
+    const trimmedName = poolName.trim();
+    const normalizedSlug = poolSlug.trim();
+    if (!trimmedName) {
+      setPoolFormError(t("Enter a model pool name.", "请输入模型池名称。"));
+      return;
+    }
+    if (
+      !normalizedSlug ||
+      normalizedSlug.length > 80 ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedSlug)
+    ) {
+      setPoolFormError(
+        t(
+          "Use a lowercase letters, numbers, and hyphens slug (up to 80 characters).",
+          "请使用小写字母、数字和连字符组成的标识（最多 80 个字符）。",
+        ),
+      );
+      return;
+    }
+    const parsedCandidates: WorkspaceModelPool["candidates"] = [];
+    const seenAliases = new Set<string>();
+    for (const candidate of poolCandidates) {
+      const alias = candidate.alias.trim();
+      const priority = Number(candidate.priority);
+      const weight = Number(candidate.weight);
+      if (!alias || alias.startsWith("pool/") || alias.startsWith("codex/")) {
+        setPoolFormError(
+          t(
+            "Enter a valid workspace model alias for every candidate.",
+            "请为每个候选模型填写有效的工作区模型标识。",
+          ),
+        );
+        return;
+      }
+      if (seenAliases.has(alias)) {
+        setPoolFormError(
+          t(
+            "Each candidate model in a pool must be unique.",
+            "同一模型池中的候选模型不能重复。",
+          ),
+        );
+        return;
+      }
+      seenAliases.add(alias);
+      if (
+        !Number.isInteger(priority) ||
+        priority < -1000 ||
+        priority > 1000 ||
+        !Number.isInteger(weight) ||
+        weight < 1 ||
+        weight > 10000
+      ) {
+        setPoolFormError(
+          t(
+            "Priority must be between -1000 and 1000; weight must be between 1 and 10000.",
+            "优先级必须在 -1000 到 1000 之间，权重必须在 1 到 10000 之间。",
+          ),
+        );
+        return;
+      }
+      parsedCandidates.push({
+        alias,
+        priority,
+        weight,
+        enabled: candidate.enabled,
+      });
+    }
+    if (poolEnabled && !parsedCandidates.some((candidate) => candidate.enabled)) {
+      setPoolFormError(
+        t(
+          "An enabled custom model requires at least one enabled candidate model.",
+          "启用的自定义路由模型至少需要一个处于启用状态的候选模型。",
+        ),
+      );
+      return;
+    }
+    const parsedRules: NonNullable<WorkspaceModelPool["rules"]> = [];
+    for (const rule of poolRules) {
+      const ruleName = (rule.name ?? "").trim();
+      const targetAlias = (rule.candidates[0]?.alias ?? "").trim();
+      if (!ruleName || !targetAlias) {
+        setPoolFormError(
+          t(
+            "Every routing rule requires a name and a target model.",
+            "每条路由规则都需要填写规则名称和目标模型。",
+          ),
+        );
+        return;
+      }
+      if (!seenAliases.has(targetAlias)) {
+        seenAliases.add(targetAlias);
+        parsedCandidates.push({
+          alias: targetAlias,
+          priority: 100,
+          weight: 1,
+          enabled: true,
+        });
+      }
+      parsedRules.push({
+        id: rule.id,
+        name: ruleName,
+        enabled: rule.enabled,
+        conditions: rule.conditions,
+        candidates: [
+          {
+            alias: targetAlias,
+            priority: rule.candidates[0]?.priority ?? 100,
+            weight: rule.candidates[0]?.weight ?? 1,
+            enabled: true,
+          },
+        ],
+      });
+    }
+    setSavingPool(true);
+    setPoolFormError("");
+    try {
+      const payload: WorkspaceModelPool = {
+        slug: normalizedSlug,
+        name: trimmedName,
+        description: poolDescription.trim(),
+        enabled: poolEnabled,
+        revision: editingPool ? editingPool.revision : 0,
+        default_action: poolDefaultAction,
+        candidates: parsedCandidates,
+        rules: parsedRules,
+      };
+      const saved = await client.setWorkspaceReviewPool(
+        workspace,
+        normalizedSlug,
+        payload,
+      );
+      invalidateForMutation(
+        token,
+        `/api/v1/workspaces/${encodeURIComponent(workspace)}/routing/${encodeURIComponent(normalizedSlug)}`,
+        "PUT",
+      );
+      invalidateForMutation(
+        token,
+        `/api/v1/workspaces/${encodeURIComponent(workspace)}/routing`,
+        "PUT",
+      );
+      setPoolDialogOpen(false);
+      if (slug) {
+        setDetail((previous) => ({
+          ...previous,
+          pool: saved.data,
+          history: [
+            saved.data,
+            ...(previous.history ?? []).filter(
+              (item) => item.revision !== saved.data.revision,
+            ),
+          ],
+        }));
+      } else {
+        setRows((previous) => {
+          const filtered = previous.filter((row) => row.slug !== saved.data.slug);
+          return [...filtered, saved.data].sort((a, b) =>
+            a.slug.localeCompare(b.slug),
+          );
+        });
+      }
+      setRefresh((value) => value + 1);
+    } catch (reason) {
+      const message =
+        reason instanceof Error && reason.message
+          ? reason.message
+          : t(
+              "Could not save the model pool. Check candidate model names and try again.",
+              "无法保存模型池，请检查候选模型名称后重试。",
+            );
+      setPoolFormError(message);
+    } finally {
+      setSavingPool(false);
+    }
+  }
+
+  async function restorePoolRevision(targetRevision: WorkspaceModelPool) {
+    if (!detail.pool || savingPool) return;
+    setSavingPool(true);
+    setRestoreRevisionError("");
+    try {
+      const payload: WorkspaceModelPool = {
+        ...targetRevision,
+        slug: detail.pool.slug,
+        revision: detail.pool.revision,
+      };
+      const saved = await client.setWorkspaceReviewPool(
+        workspace,
+        detail.pool.slug,
+        payload,
+      );
+      invalidateForMutation(
+        token,
+        `/api/v1/workspaces/${encodeURIComponent(workspace)}/routing/${encodeURIComponent(detail.pool.slug)}`,
+        "PUT",
+      );
+      setDetail((previous) => ({
+        ...previous,
+        pool: saved.data,
+        history: [
+          saved.data,
+          ...(previous.history ?? []).filter(
+            (item) => item.revision !== saved.data.revision,
+          ),
+        ],
+      }));
+      setInspectedRevision(null);
+      setRefresh((value) => value + 1);
+    } catch (reason) {
+      setRestoreRevisionError(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : t(
+              "Could not restore this revision. Refresh and try again.",
+              "无法恢复此版本，请刷新页面后重试。",
+            ),
+      );
+    } finally {
+      setSavingPool(false);
+    }
+  }
+
   return (
-    <section className="min-w-0 space-y-5" aria-label={title}>
+    <section className="empty-region min-w-0 space-y-5" aria-label={title}>
       <PageHeader
         title={title}
         action={
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={loading}
-            onClick={() => setRefresh((value) => value + 1)}
-          >
-            <IconRefresh size={16} />
-            {t("Refresh", "刷新")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {kind === "routing" && !slug && canWrite && (
+              <Button size="sm" onClick={openCreatePoolDialog}>
+                <IconPlus size={16} />
+                {t("Create custom model", "创建自定义模型")}
+              </Button>
+            )}
+            {kind === "routing" && slug && detail.pool && canWrite && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openEditPoolDialog(detail.pool!)}
+              >
+                <IconEdit size={16} />
+                {t("Edit routing", "编辑路由配置")}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={loading}
+              onClick={() => setRefresh((value) => value + 1)}
+            >
+              <IconRefresh size={16} />
+              {t("Refresh", "刷新")}
+            </Button>
+          </div>
         }
       />
-      {slug && (
+      {slug ? (
         <Button variant="ghost" size="sm" asChild>
           <Link to={run ? `${base}/${encodeURIComponent(slug)}` : base}>
             <IconArrowLeft size={16} />
             {run ? t("All runs", "所有评估记录") : title}
           </Link>
         </Button>
+      ) : (
+        <Tabs
+          value={kind}
+          onValueChange={(nextKind) =>
+            navigate(base.replace(/\/(routing|evaluations|events)$/, `/${nextKind}`))
+          }
+        >
+          <TabsList variant="line">
+            <TabsTrigger value="routing">{t("Routing", "模型路由")}</TabsTrigger>
+            <TabsTrigger value="evaluations">{t("Evaluations", "评估")}</TabsTrigger>
+            <TabsTrigger value="events">{t("Event subscriptions", "事件订阅")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
       )}
       <div>
-        <h1 className="text-xl font-semibold break-words">
-          {slug ? (name ? safeText(name) : t("Review", "审阅")) : title}
-        </h1>
+        {slug && (
+          <h1 className="text-xl font-semibold break-words">
+            {name ? safeText(name) : t("Review", "审阅")}
+          </h1>
+        )}
         <p className="mt-1 text-sm text-muted-foreground">
           {error
             ? uiT("Return to the list or retry loading this resource.")
@@ -797,8 +1255,11 @@ function Review({
                 ? run
                   ? uiT("Immutable evidence captured at submission. Judgments are attributed to the evaluator.")
                   : uiF("Saved workspace configuration{0}. Your agent can make changes within its delegated authority.", [revision ? uiF(" · revision {0}", [revision]) : ""])
-                : kind === "pools"
-                  ? uiT("Review the model policies your agent uses, their revisions and execution evidence.")
+                : kind === "routing"
+                  ? t(
+                      "Define custom models backed by conditional routing rules and fallback candidates, or review agent revisions and execution evidence.",
+                      "将一系列条件路由与候选回退规则配置为自定义模型，或审阅智能体使用的路由策略、修订记录及执行证据。",
+                    )
                   : kind === "evaluations"
                     ? uiT("Review task acceptance, performance and customer charges against a baseline.")
                     : uiT("Review where workspace notifications go and whether receivers acknowledge them.")}
@@ -834,7 +1295,7 @@ function Review({
                           {kind === "evaluations" ? uiT("Task") : uiT("State")}
                         </TableHead>
                         <TableHead>
-                          {kind === "pools"
+                          {kind === "routing"
                             ? uiT("Models")
                             : kind === "events"
                               ? uiT("Events")
@@ -895,38 +1356,59 @@ function Review({
                   </div>
                 </>
               ) : (
-                <div className="space-y-3 py-12 text-center">
-                  <h2 className="font-medium">{uiF("No {0} yet", [title.toLowerCase()])}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {uiT("Ask your coding agent to")}{" "}
-                    {kind === "pools"
-                      ? uiT("build a model pool for your task")
-                      : kind === "evaluations"
-                        ? uiT("evaluate models against your task criteria and approved budget")
-                        : uiT("configure an authorized notification receiver")}
-                    .
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(
-                          `Use Niu to ${kind === "pools" ? "build a model pool for my task" : kind === "evaluations" ? "define a task-specific model evaluation; agree on acceptance criteria and a bounded paid budget before running it" : "configure workspace event notifications to a receiver I authorize"}. Read https://niu.io/docs/agents.md and inspect my current workspace grants first.`,
-                        )
-                        .then(() => setCopied(true))
-                        .catch(() =>
-                          setError(
-                            "Clipboard unavailable. Read the agent workflow in Docs.",
-                          ),
-                        );
-                    }}
-                  >
-                    {copied ? uiT("Copied") : uiT("Copy agent prompt")}
-                  </Button>
-                  <Button variant="link" asChild>
-                    <a href="/docs/install.md">{uiT("Connect your agent")}</a>
-                  </Button>
-                </div>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle role="heading" aria-level={2}>
+                      {kind === "routing"
+                        ? t("No custom models yet", "暂无自定义路由模型")
+                        : uiF("No {0} yet", [title.toLowerCase()])}
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      {kind === "routing"
+                        ? t(
+                            "Combine conditional routing rules and prioritized candidate models into a callable custom model, or ask your coding agent to configure routing for your task.",
+                            "将一系列条件路由分流规则与候选模型组合为可调用的自定义模型，或让你的 coding agent 为任务配置模型路由。",
+                          )
+                        : `${uiT("Ask your coding agent to")} ${
+                            kind === "evaluations"
+                              ? uiT(
+                                  "evaluate models against your task criteria and approved budget",
+                                )
+                              : uiT(
+                                  "configure an authorized notification receiver",
+                                )
+                          }.`}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent className="flex-row flex-wrap justify-center">
+                    {kind === "routing" && canWrite && (
+                      <Button onClick={openCreatePoolDialog}>
+                        <IconPlus size={16} />
+                        {t("Create custom model", "创建自定义模型")}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(
+                            `Use Niu to ${kind === "routing" ? "configure model routing for my task" : kind === "evaluations" ? "define a task-specific model evaluation; agree on acceptance criteria and a bounded paid budget before running it" : "configure workspace event notifications to a receiver I authorize"}. Read https://niu.io/docs/agents.md and inspect my current workspace grants first.`,
+                          )
+                          .then(() => setCopied(true))
+                          .catch(() =>
+                            setError(
+                              "Clipboard unavailable. Read the agent workflow in Docs.",
+                            ),
+                          );
+                      }}
+                    >
+                      {copied ? uiT("Copied") : uiT("Copy agent prompt")}
+                    </Button>
+                    <Button variant="link" asChild>
+                      <a href="/docs/install.md">{uiT("Connect your agent")}</a>
+                    </Button>
+                  </EmptyContent>
+                </Empty>
               ))}
             {slug && detail.pool && (
               <Tabs
@@ -993,7 +1475,7 @@ function Review({
                             >
                               {uiT("Review revision")}{" "}{policy.revision}
                             </Button>
-                          </TableCell>{" "}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1037,8 +1519,7 @@ function Review({
                     </TableBody>
                   </Table>
                   {!detail.selections?.length && (
-                    <p className="py-6 text-muted-foreground">
-                      {uiT("No recorded selections yet.")}</p>
+                    <Empty className="min-h-60"><EmptyHeader><EmptyDescription>{uiT("No recorded selections yet.")}</EmptyDescription></EmptyHeader></Empty>
                   )}
                   <Button variant="link" asChild>
                     <Link
@@ -1145,8 +1626,7 @@ function Review({
                     </TableBody>
                   </Table>
                   {!detail.deliveries?.length && (
-                    <p className="py-6 text-muted-foreground">
-                      {uiT("No delivery evidence yet. Ask your agent to queue a targeted subscription test.")}</p>
+                    <Empty className="min-h-60"><EmptyHeader><EmptyDescription>{uiT("No delivery evidence yet. Ask your agent to queue a targeted subscription test.")}</EmptyDescription></EmptyHeader></Empty>
                   )}
                   <p className="mt-3 text-sm text-muted-foreground">
                     {uiT("Failed deliveries require your agent to reconcile the event log and check the receiver. Latest 100 deliveries. A receiver’s 2xx acknowledges receipt, not processing or task success.")}</p>
@@ -1206,8 +1686,7 @@ function Review({
                     </TableBody>
                   </Table>
                   {!detail.runs?.length && (
-                    <p className="py-6 text-muted-foreground">
-                      {uiT("No evaluation runs yet. Ask your agent to run an evaluation within your approved budget.")}</p>
+                    <Empty className="min-h-60"><EmptyHeader><EmptyDescription>{uiT("No evaluation runs yet. Ask your agent to run an evaluation within your approved budget.")}</EmptyDescription></EmptyHeader></Empty>
                   )}
                   {next && (
                     <Button
@@ -1322,7 +1801,7 @@ function Review({
                                   <Link
                                     key={`${policy.slug}:${policy.revision}`}
                                     className="mt-1 block max-w-64 whitespace-normal break-words text-sm text-muted-foreground hover:underline"
-                                    to={`/workspaces/${encodeURIComponent(routeWorkspace)}/pools/${encodeURIComponent(policy.slug)}?tab=history&revision=${policy.revision}`}
+                                    to={`/workspaces/${encodeURIComponent(routeWorkspace)}/routing/${encodeURIComponent(policy.slug)}?tab=history&revision=${policy.revision}`}
                                   >
                                     {uiT("Policy")}{" "}{policy.slug}{" "}{uiT("· revision")}{" "}
                                     {policy.revision}
@@ -1442,7 +1921,10 @@ function Review({
       <Dialog
         open={Boolean(inspectedRevision)}
         onOpenChange={(open) => {
-          if (!open) setInspectedRevision(null);
+          if (!open) {
+            setInspectedRevision(null);
+            setRestoreRevisionError("");
+          }
         }}
       >
         <DialogContent
@@ -1494,9 +1976,547 @@ function Review({
                   )
                   .join(", ") || uiT("No policy differences")}
                 {uiT(". Restoring requires a new revision through your authorized agent.")}</p>
+              {restoreRevisionError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{restoreRevisionError}</AlertDescription>
+                </Alert>
+              )}
               <PoolPolicyView pool={inspectedRevision} />
+              {canWrite && inspectedRevision.revision !== detail.pool.revision && (
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    disabled={savingPool}
+                    onClick={() => void restorePoolRevision(inspectedRevision)}
+                  >
+                    <IconHistory size={16} />
+                    {savingPool
+                      ? t("Restoring…", "恢复中…")
+                      : t("Restore this revision", "恢复此版本")}
+                  </Button>
+                </DialogFooter>
+              )}
             </>
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={poolDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !savingPool) {
+            setPoolDialogOpen(false);
+            setPoolFormError("");
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88dvh] min-w-0 overflow-x-hidden overflow-y-auto [&>*]:min-w-0 sm:max-w-2xl">
+          <DialogHeader className="pr-6">
+            <DialogTitle>
+              {editingPool
+                ? t("Edit custom model routing", "编辑自定义模型路由")
+                : t("Create custom model", "创建自定义模型")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Define a custom model backed by conditional routing rules and prioritized fallback candidates.",
+                "通过条件路由分流规则与按优先级/权重排列的候选模型，定义一个可直接调用的自定义模型。",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(event) => void submitPoolForm(event)} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="pool-name">{t("Name", "自定义模型名称")}</Label>
+                <Input
+                  id="pool-name"
+                  required
+                  maxLength={200}
+                  disabled={savingPool}
+                  value={poolName}
+                  onChange={(event) => {
+                    const nextName = event.target.value;
+                    setPoolName(nextName);
+                    if (!editingPool && !poolSlugEdited) {
+                      setPoolSlug(poolSlugFromName(nextName));
+                    }
+                  }}
+                  placeholder={t("Fast coding router", "快速编码路由模型")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pool-slug">{t("Slug", "模型标识 (Slug)")}</Label>
+                <Input
+                  id="pool-slug"
+                  required
+                  maxLength={80}
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  disabled={Boolean(editingPool) || savingPool}
+                  value={poolSlug}
+                  onChange={(event) => {
+                    setPoolSlugEdited(true);
+                    setPoolSlug(
+                      event.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, "-")
+                        .replace(/^-+|-+$/g, ""),
+                    );
+                  }}
+                  placeholder={t("fast-coding-router", "fast-coding-router")}
+                />
+                <p className="break-words text-xs text-muted-foreground">
+                  {t("Invoked as custom model", "作为自定义模型调用：")}{" "}
+                  <code className="font-mono">pool/{poolSlug || "<slug>"}</code>
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pool-description">
+                {t("Description", "描述")}
+              </Label>
+              <Textarea
+                id="pool-description"
+                rows={2}
+                maxLength={4000}
+                disabled={savingPool}
+                value={poolDescription}
+                onChange={(event) => setPoolDescription(event.target.value)}
+                placeholder={t(
+                  "Optional notes on routing criteria or fallback behavior",
+                  "可选：说明路由分流条件或回退策略",
+                )}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t("Default action", "默认路由动作")}</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={savingPool}
+                      aria-label={t("Default action", "默认路由动作")}
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate">
+                        {poolDefaultAction === "candidates"
+                          ? t("Route to candidate models", "路由至候选模型")
+                          : t("Reject when no rule matches", "无规则匹配时拒绝")}
+                      </span>
+                      <IconChevronDown size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                  >
+                    <DropdownMenuRadioGroup
+                      value={poolDefaultAction}
+                      onValueChange={(value) =>
+                        setPoolDefaultAction(value as "candidates" | "reject")
+                      }
+                    >
+                      <DropdownMenuRadioItem value="candidates">
+                        {t("Route to candidate models", "路由至候选模型")}
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="reject">
+                        {t("Reject when no rule matches", "无规则匹配时拒绝")}
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="flex items-center gap-2 pt-2 sm:pt-7">
+                <Checkbox
+                  id="pool-enabled"
+                  disabled={savingPool}
+                  checked={poolEnabled}
+                  onCheckedChange={(checked) => setPoolEnabled(checked === true)}
+                />
+                <Label htmlFor="pool-enabled" className="font-normal">
+                  {t("Enable custom model routing", "启用该自定义路由模型")}
+                </Label>
+              </div>
+            </div>
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <Label>{t("Routing rules", "条件路由规则")}</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t(
+                      "Route specific request types (vision, tools, structured output, reasoning) to dedicated models before falling back.",
+                      "按请求特征（视觉输入、工具调用、结构化输出、深度推理）分流至指定模型，未命中时回退至下方默认候选模型。",
+                    )}
+                  </p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={savingPool || poolRules.length >= 32}
+                    >
+                      <IconPlus size={14} />
+                      {t("Add routing rule", "添加路由规则")}
+                      <IconChevronDown size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => addRoutingRule("vision")}>
+                      {t("Vision & image requests", "视觉与图片输入分流")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => addRoutingRule("tools")}>
+                      {t("Tool calling requests", "工具调用分流")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => addRoutingRule("structured_output")}
+                    >
+                      {t("Structured JSON output", "结构化 JSON 输出分流")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => addRoutingRule("reasoning")}>
+                      {t("Deep reasoning requests", "深度推理分流")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {poolRules.length > 0 && (
+                <div className="space-y-2.5">
+                  {poolRules.map((rule, ruleIndex) => (
+                    <div
+                      key={rule.id}
+                      className="space-y-2.5 rounded-lg bg-muted/40 p-3"
+                    >
+                      <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor={`pool-rule-name-${ruleIndex}`}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {t("Rule name", "规则名称")}
+                          </Label>
+                          <Input
+                            id={`pool-rule-name-${ruleIndex}`}
+                            required
+                            disabled={savingPool}
+                            value={rule.name ?? ""}
+                            onChange={(event) =>
+                              updateRoutingRule(ruleIndex, {
+                                name: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor={`pool-rule-target-${ruleIndex}`}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {t("Route to model", "目标路由模型")}
+                          </Label>
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              id={`pool-rule-target-${ruleIndex}`}
+                              required
+                              disabled={savingPool}
+                              value={rule.candidates[0]?.alias ?? ""}
+                              onChange={(event) =>
+                                updateRoutingRule(ruleIndex, {
+                                  candidates: [
+                                    {
+                                      alias: event.target.value,
+                                      priority: 100,
+                                      weight: 1,
+                                      enabled: true,
+                                    },
+                                  ],
+                                })
+                              }
+                              placeholder={t(
+                                "e.g. gpt-4.1-mini",
+                                "例如 gpt-4.1-mini",
+                              )}
+                            />
+                            {availableModels.length > 0 && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={savingPool}
+                                    className="shrink-0 font-normal"
+                                  >
+                                    {t("Choose", "选择")}
+                                    <IconChevronDown size={14} />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="max-h-64 overflow-y-auto"
+                                >
+                                  <DropdownMenuRadioGroup
+                                    value={rule.candidates[0]?.alias ?? ""}
+                                    onValueChange={(value) =>
+                                      updateRoutingRule(ruleIndex, {
+                                        candidates: [
+                                          {
+                                            alias: value,
+                                            priority: 100,
+                                            weight: 1,
+                                            enabled: true,
+                                          },
+                                        ],
+                                      })
+                                    }
+                                  >
+                                    {availableModels.map((model) => (
+                                      <DropdownMenuRadioItem
+                                        key={model.id}
+                                        value={model.id}
+                                      >
+                                        {model.id}
+                                      </DropdownMenuRadioItem>
+                                    ))}
+                                  </DropdownMenuRadioGroup>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-end justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={savingPool}
+                            onClick={() => removeRoutingRule(ruleIndex)}
+                            aria-label={t("Remove rule", "移除路由规则")}
+                          >
+                            <IconTrash size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4 pt-1 text-xs">
+                        <span className="text-muted-foreground">
+                          {t("Match when request uses:", "匹配条件：")}
+                        </span>
+                        {(
+                          [
+                            ["vision", "Vision / images", "视觉/图片"],
+                            ["tools", "Tools", "工具调用"],
+                            ["structured_output", "Structured output", "结构化输出"],
+                            ["reasoning", "Reasoning", "深度推理"],
+                          ] as const
+                        ).map(([condKey, condEn, condZh]) => (
+                          <label
+                            key={condKey}
+                            className="inline-flex items-center gap-1.5"
+                          >
+                            <Checkbox
+                              checked={rule.conditions[condKey] === true}
+                              onCheckedChange={(checked) => {
+                                const nextConditions = { ...rule.conditions };
+                                if (checked === true) {
+                                  nextConditions[condKey] = true;
+                                } else {
+                                  delete nextConditions[condKey];
+                                }
+                                updateRoutingRule(ruleIndex, {
+                                  conditions: nextConditions,
+                                });
+                              }}
+                            />
+                            <span>{t(condEn, condZh)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <Label>{t("Candidate models", "默认候选模型与回退顺序")}</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t(
+                      "Higher priority (-1000 to 1000) is routed first; weight (1 to 10000) balances equally ranked candidates.",
+                      "优先级（-1000 至 1000）越高越先路由；权重（1 至 10000）用于在同优先级候选模型间分配流量。",
+                    )}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={savingPool || poolCandidates.length >= 64}
+                  onClick={addCandidate}
+                >
+                  <IconPlus size={14} />
+                  {t("Add candidate", "添加候选模型")}
+                </Button>
+              </div>
+              <div className="space-y-2.5">
+                {poolCandidates.map((candidate, index) => (
+                  <div
+                    key={index}
+                    className="grid gap-2.5 rounded-lg bg-muted/40 p-3 sm:grid-cols-[minmax(0,1fr)_6.5rem_6.5rem_auto]"
+                  >
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={`pool-candidate-model-${index}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {t("Model alias", "模型标识")}
+                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          id={`pool-candidate-model-${index}`}
+                          required
+                          disabled={savingPool}
+                          value={candidate.alias}
+                          onChange={(event) =>
+                            updateCandidate(index, { alias: event.target.value })
+                          }
+                          placeholder={t("e.g. gpt-4.1-mini", "例如 gpt-4.1-mini")}
+                        />
+                        {availableModels.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={savingPool}
+                                aria-label={t("Choose model", "选择模型")}
+                                className="shrink-0 font-normal"
+                              >
+                                {t("Choose", "选择")}
+                                <IconChevronDown size={14} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="max-h-64 overflow-y-auto"
+                            >
+                              <DropdownMenuRadioGroup
+                                value={candidate.alias}
+                                onValueChange={(value) =>
+                                  updateCandidate(index, { alias: value })
+                                }
+                              >
+                                {availableModels.map((model) => (
+                                  <DropdownMenuRadioItem
+                                    key={model.id}
+                                    value={model.id}
+                                  >
+                                    {model.id}
+                                  </DropdownMenuRadioItem>
+                                ))}
+                              </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={`pool-candidate-priority-${index}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {t("Priority", "优先级")}
+                      </Label>
+                      <Input
+                        id={`pool-candidate-priority-${index}`}
+                        type="number"
+                        min={-1000}
+                        max={1000}
+                        required
+                        disabled={savingPool}
+                        value={candidate.priority}
+                        onChange={(event) =>
+                          updateCandidate(index, { priority: event.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={`pool-candidate-weight-${index}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {t("Weight", "权重")}
+                      </Label>
+                      <Input
+                        id={`pool-candidate-weight-${index}`}
+                        type="number"
+                        min={1}
+                        max={10000}
+                        required
+                        disabled={savingPool}
+                        value={candidate.weight}
+                        onChange={(event) =>
+                          updateCandidate(index, { weight: event.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-end justify-between gap-2 pb-0.5 sm:justify-end">
+                      <div className="flex items-center gap-1.5 pb-2">
+                        <Checkbox
+                          id={`pool-candidate-enabled-${index}`}
+                          disabled={savingPool}
+                          checked={candidate.enabled}
+                          onCheckedChange={(checked) =>
+                            updateCandidate(index, { enabled: checked === true })
+                          }
+                        />
+                        <Label
+                          htmlFor={`pool-candidate-enabled-${index}`}
+                          className="text-xs font-normal"
+                        >
+                          {t("Enabled", "启用")}
+                        </Label>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={savingPool || poolCandidates.length <= 1}
+                        onClick={() => removeCandidate(index)}
+                        aria-label={t("Remove candidate", "移除候选模型")}
+                      >
+                        <IconTrash size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {poolFormError && (
+              <Alert variant="destructive">
+                <AlertDescription>{poolFormError}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={savingPool}
+                onClick={() => setPoolDialogOpen(false)}
+              >
+                {t("Cancel", "取消")}
+              </Button>
+              <Button type="submit" disabled={savingPool}>
+                {savingPool
+                  ? t("Saving…", "保存中…")
+                  : editingPool
+                    ? t("Save changes", "保存更改")
+                    : t("Create custom model", "创建自定义模型")}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </section>

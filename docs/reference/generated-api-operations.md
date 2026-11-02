@@ -5430,6 +5430,119 @@ HTTP 400: Invalid JSON, unknown fields or invalid input.
 
 HTTP 409: expected_revision does not match the saved profile; reload before retrying.
 
+## Switch the active organization for the current member session
+
+`PUT /api/v1/session/organization`
+
+Requires an authenticated member session. Accepts an organization UUID, durable slug, or retained slug alias already granted to this account identity. Updates the active operator membership bound to the session and returns the refreshed session identity.
+
+Implementation: `implemented`. Operation: `switchSessionOrganization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "organization_id"
+  ],
+  "properties": {
+    "organization": {
+      "type": "string",
+      "description": "Organization UUID or slug."
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization UUID or slug."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Updated session identity scoped to the selected organization.
+
+HTTP 400: Invalid organization reference or JSON body.
+
+HTTP 401: Invalid, expired or revoked member session.
+
+HTTP 403: Installation credentials cannot switch member organization scope.
+
+HTTP 404: No active membership in the requested organization.
+
+## Link an issued operator access token to the current member account
+
+`POST /api/v1/session/memberships`
+
+Requires an authenticated member session and a valid, unrevoked operator session token. Links the target operator membership to the caller's account identity with explicit token proof, switches the current session to that membership, and returns the updated session identity. Rejects tokens already linked to a different account identity with 409.
+
+Implementation: `implemented`. Operation: `claimSessionMembership`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Issued operator access token."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Membership linked and active session switched.
+
+HTTP 400: Invalid or expired invite token.
+
+HTTP 401: Invalid, expired or revoked member session.
+
+HTTP 403: Installation credentials cannot claim member memberships.
+
+HTTP 409: The operator membership is already linked to a different account identity.
+
 ## Read credential safe-failure cooldown
 
 `GET /api/v1/vendors/{vendor}/cooldown`
@@ -7585,6 +7698,136 @@ HTTP 403: Credential lacks read permission.
 
 HTTP 404: No authorized workspace matches the reference.
 
+## Resolve an authorized canonical organization route
+
+`GET /api/v1/organizations/by-route/{route_slug}`
+
+Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.
+
+Implementation: `implemented`. Operation: `resolveOrganizationRoute`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`route_slug` (path, required)
+
+```json
+{
+  "type": "string",
+  "maxLength": 81
+}
+```
+
+### Responses
+
+HTTP 200: Authorized organization identity.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/CompanyMetadata"
+}
+```
+
+HTTP 401: Invalid or inference-only credential.
+
+HTTP 403: Credential lacks read permission.
+
+HTTP 404: No authorized organization matches the reference.
+
+## Rename an organization
+
+`PATCH /api/v1/organizations/{organization}`
+
+Requires installation write access or an organization-wide owner membership. Trims the saved name and preserves the immutable organization slug and aliases.
+
+Implementation: `implemented`. Operation: `renameOrganization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Updated organization metadata.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/CompanyMetadata"
+}
+```
+
+HTTP 400: Invalid name or identifier.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Organization-wide owner or installation write permission required.
+
+HTTP 404: Organization missing or outside authorized scope.
+
 ## List an authorized page of workspaces
 
 `GET /api/v1/workspaces`
@@ -7895,11 +8138,11 @@ HTTP 409: The requested slug is already in use, or Idempotency-Key belongs to di
 
 HTTP 503: Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input.
 
-## Create a company and its initial zero-funded account
+## Create an organization and its initial zero-funded account
 
 `POST /api/v1/organizations`
 
-Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.
+Authorized for installation administrators and authenticated member accounts. Atomically creates the organization, a durable URL-safe slug, and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. When called by a member session, also provisions an organization-wide owner membership for the account and switches the active session organization. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated and preserved without trimming. Optional Idempotency-Key is durable and actor-scoped: repeating the same input returns the original organization identity and current name with 201; different input returns 409. A deleted organization returns 404 without recreation. Without the header each successful call creates an organization. On uncertain outcomes retry the same key and input.
 
 Implementation: `implemented`. Operation: `createOrganization`.
 
@@ -7950,6 +8193,13 @@ Content type: `application/json`.
       "maxLength": 200,
       "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
     },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Optional unique slug; generated from name when omitted. The value default is reserved."
+    },
     "currency": {
       "type": "string",
       "pattern": "^[A-Z]{3}$",
@@ -7961,7 +8211,7 @@ Content type: `application/json`.
 
 ### Responses
 
-HTTP 201: Company identity and initial account currency.
+HTTP 201: Organization identity, slug, and initial account currency.
 
 Content type: `application/json`.
 
@@ -7970,6 +8220,7 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "id",
+    "slug",
     "name",
     "currency"
   ],
@@ -7978,30 +8229,40 @@ Content type: `application/json`.
       "type": "string",
       "format": "uuid"
     },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
     "name": {
       "type": "string"
     },
     "currency": {
       "type": "string",
       "pattern": "^[A-Z]{3}$"
+    },
+    "operator_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Provisioned owner membership identifier when created by a member session."
     }
   }
 }
 ```
 
-HTTP 400: Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
+HTTP 400: Invalid name/slug/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
 
 HTTP 401: Missing, invalid, expired or revoked management credential.
 
-HTTP 403: Installation administrator required; company/workspace members cannot create companies.
+HTTP 403: Credential lacks management access.
 
 HTTP 422: Missing required field, unknown field, or invalid JSON field type.
 
 HTTP 503: Storage unavailable; creation outcome may be uncertain.
 
-HTTP 404: The company from the original idempotent creation was deleted.
+HTTP 404: The organization from the original idempotent creation was deleted.
 
-HTTP 409: Idempotency-Key was already used with a different name or currency.
+HTTP 409: The requested slug is already in use, or Idempotency-Key was already used with different input.
 
 ## Create a workspace in the selected company
 
@@ -28989,7 +29250,7 @@ HTTP 503: Publication is unavailable or its format is unsupported
 
 ## Create or revise a model candidate pool
 
-`PUT /api/v1/pools`
+`PUT /api/v1/routing`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Ordered routing rules evaluate first-match AND conditions before falling back to default_action. Highest eligible priority wins, with weighted selection within that tier. Billing mode selects either unified pool pricing (pool_tariff) or pass-through candidate pricing (candidate_tariff). Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
@@ -29179,7 +29440,7 @@ HTTP 422: Malformed body schema or unknown fields; framework rejection may use p
 
 ## Read immutable model candidate pool revisions
 
-`GET /api/v1/pools/history`
+`GET /api/v1/routing/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -29266,7 +29527,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## List platform-managed model route pools
 
-`GET /api/v1/pools/index`
+`GET /api/v1/routing/index`
 
 Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.
 
@@ -29352,9 +29613,9 @@ HTTP 403: Platform administration required.
 
 ## List platform-managed model route pools
 
-`GET /api/v1/pools`
+`GET /api/v1/routing`
 
-Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /pools/{reference}. The /pools/index route retains its existing collection contract.
+Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /routing/{reference}. The /routing/index route retains its existing collection contract.
 
 Implementation: `implemented`. Operation: `listPools`.
 
@@ -29463,7 +29724,7 @@ HTTP 403: Platform administration required.
 
 ## Read an installation-managed model candidate pool
 
-`GET /api/v1/pools/{reference}`
+`GET /api/v1/routing/{reference}`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400.
 
@@ -29526,7 +29787,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## Read immutable model candidate pool revisions
 
-`GET /api/v1/pools/{reference}/history`
+`GET /api/v1/routing/{reference}/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400.
 
@@ -29618,7 +29879,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## Dry-run routing preview for a model route pool
 
-`POST /api/v1/pools/{reference}/preview`
+`POST /api/v1/routing/{reference}/preview`
 
 Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.
 
@@ -29752,7 +30013,7 @@ HTTP 404: Pool not found
 
 ## Audit routing and billing strategy for a model route pool
 
-`GET /api/v1/pools/{reference}/audit`
+`GET /api/v1/routing/{reference}/audit`
 
 Returns pricing readiness, margin safety, configured weight shares vs. observed traffic shares, completion rate, latency, customer revenue, upstream cost, and strategy findings for a model route pool.
 
@@ -43005,7 +43266,7 @@ HTTP 503: Required encryption or storage unavailable
 
 ## List workspace model policies
 
-`GET /v1/pools`
+`GET /v1/routing`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Returns at most 100 policies ordered by slug. Continue with next_after while has_more is true.
 
@@ -43079,7 +43340,7 @@ HTTP 409: Expected revision conflict
 
 ## Read a workspace model policy
 
-`GET /v1/pools/{slug}`
+`GET /v1/routing/{slug}`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. A pool is invoked as pool/<slug>, subject to the calling key permitting the selected concrete candidate. A saved policy does not establish live qualification.
 
@@ -43141,7 +43402,7 @@ HTTP 409: Expected revision conflict
 
 ## Create or replace a workspace model policy
 
-`PUT /v1/pools/{slug}`
+`PUT /v1/routing/{slug}`
 
 Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. This operation does not invoke a model. Read back the saved revision. Restore a prior configuration using the current expected revision.
 
@@ -43215,7 +43476,7 @@ HTTP 409: Expected revision conflict
 
 ## Read immutable workspace policy revisions
 
-`GET /v1/pools/{slug}/history`
+`GET /v1/routing/{slug}/history`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Returns at most 100 revisions descending. Use next_before when present. Prior configurations remain immutable.
 
@@ -43295,7 +43556,7 @@ HTTP 409: Expected revision conflict
 
 ## Validate a workspace model policy without dispatch
 
-`POST /v1/pools/preview`
+`POST /v1/routing/preview`
 
 Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters and priority/weight bands used by selection. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.
 
@@ -43456,7 +43717,7 @@ HTTP 409: Expected revision conflict
 
 ## Read the latest 100 workspace pool selections
 
-`GET /v1/pools/{slug}/selections`
+`GET /v1/routing/{slug}/selections`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
 
@@ -43554,7 +43815,7 @@ HTTP 409: Expected revision conflict
 
 ## Review: List workspace model policies
 
-`GET /api/v1/workspaces/{workspace}/pools`
+`GET /api/v1/workspaces/{workspace}/routing`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -43634,7 +43895,7 @@ HTTP 409: Expected revision conflict
 
 ## Review: Read a workspace model policy
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -43700,9 +43961,89 @@ HTTP 404: Scoped pool not found
 
 HTTP 409: Expected revision conflict
 
+## Review: Create or replace a workspace model policy
+
+`PUT /api/v1/workspaces/{workspace}/routing/{slug}`
+
+Workspace model pool management under a current member session with Write permission (Owner or Admin); an installation administrator can also update explicitly scoped records. Use revision zero to create, otherwise the current expected revision. Candidate aliases must be visible in the workspace.
+
+Implementation: `implemented`. Operation: `setWorkspaceReviewPool`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`slug` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+  "maxLength": 80
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/WorkspaceModelPool"
+}
+```
+
+### Responses
+
+HTTP 200: Workspace-scoped result; no-store.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/WorkspaceModelPool"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid configuration or cursor
+
+HTTP 401: Missing, expired or revoked credential
+
+HTTP 403: Required workspace write permission is absent
+
+HTTP 404: Scoped workspace not found
+
+HTTP 409: Expected revision conflict
+
 ## Review: Read immutable workspace policy revisions
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}/history`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}/history`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -43788,7 +44129,7 @@ HTTP 409: Expected revision conflict
 
 ## Review: Read the latest 100 workspace pool selections
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}/selections`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}/selections`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -55291,12 +55632,24 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "type": "object",
   "required": [
     "id",
+    "slug",
     "name"
   ],
   "properties": {
     "id": {
       "type": "string",
       "format": "uuid"
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "slug_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "name": {
       "type": "string"

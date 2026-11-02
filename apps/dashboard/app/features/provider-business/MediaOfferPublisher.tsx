@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useInRouterContext } from 'react-router';
@@ -79,7 +80,7 @@ export default function MediaOfferPublisher({ token, supplier, supplierSlug, ini
           <DropdownMenu><DropdownMenuTrigger asChild><Button id="media-offer-model" type="button" variant="outline" className="w-full min-w-0 justify-between text-left" disabled={loading || busy || Boolean(frozen)}><span className="min-w-0 truncate">{chosen ? `${chosen.model_alias} · ${chosen.api_key_name}` : loading ? uiT("Loading models…") : uiT("Choose a model")}</span><ChevronDown className="ml-2 size-4 shrink-0" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selected} onValueChange={setSelected}>{models.map(model => <DropdownMenuRadioItem key={model.model_alias} value={model.model_alias}>{model.model_alias} · {model.api_key_name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
-          {!loading && !models.length && !error && !next && <div className="space-y-2"><p className="text-sm text-muted-foreground">{uiT("No configured video models. Add a video schema to a model on this Provider’s API key first.")}</p><Button asChild variant="outline" size="sm">{inRouter ? <Link to={configurationHref}>{uiT("Configure model routes")}</Link> : <a href={configurationHref}>{uiT("Configure model routes")}</a>}</Button></div>}
+          {!loading && !models.length && !error && !next && <Empty className="min-h-40"><EmptyHeader><EmptyDescription>{uiT("No configured video models. Add a video schema to a model on this Provider’s API key first.")}</EmptyDescription></EmptyHeader><Button asChild variant="outline" size="sm">{inRouter ? <Link to={configurationHref}>{uiT("Configure model routes")}</Link> : <a href={configurationHref}>{uiT("Configure model routes")}</a>}</Button></Empty>}
           {next && <Button type="button" variant="ghost" size="sm" disabled={loading || Boolean(frozen)} onClick={() => void more()}>{uiT("Load more models")}</Button>}
         </div>
         {chosen && <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm"><dt className="text-muted-foreground">{uiT("API key")}</dt><dd className="break-words">{chosen.api_key_name}</dd><dt className="text-muted-foreground">{uiT("Channel")}</dt><dd className="break-words">{chosen.channel}</dd></dl>}

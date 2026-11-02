@@ -200,7 +200,9 @@ pub use context_pricing::{
     ContextPriceTier, ContextTierRates, context_token_reservation, normalize_context_tiers,
     select_context_tier,
 };
+mod account_organization_creation;
 mod company_creation;
+pub use account_organization_creation::CreatedAccountOrganization;
 mod company_directory;
 mod company_write_authorization;
 mod workspace_creation;
@@ -336,10 +338,22 @@ pub struct TenantScope {
     pub project_id: Uuid,
 }
 
-#[derive(sqlx::FromRow, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct NamedResource {
     pub id: Uuid,
     pub name: String,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
+}
+
+/// Minimal authorized organization identity for restoring a canonical route.
+#[derive(Clone, Debug, Eq, PartialEq, sqlx::FromRow, serde::Serialize)]
+pub struct OrganizationRoute {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub slug_aliases: Vec<String>,
 }
 
 /// Minimal authorized workspace identity for restoring a canonical route.
@@ -465,6 +479,8 @@ pub enum StoreError {
     Database(#[from] sqlx::Error),
     #[error("workspace slug is already in use")]
     WorkspaceSlugTaken,
+    #[error("organization slug is already in use")]
+    OrganizationSlugTaken,
     #[error("database migration failed")]
     Migration(#[from] sqlx::migrate::MigrateError),
     #[error("embedded squashed migration baseline is malformed")]
@@ -715,11 +731,11 @@ impl Store {
     }
 
     pub async fn organizations(&self) -> Result<Vec<NamedResource>, StoreError> {
-        Ok(
-            sqlx::query_as("SELECT id,name FROM organizations ORDER BY created_at,id LIMIT 1000")
-                .fetch_all(&self.pool)
-                .await?,
+        Ok(sqlx::query_as(
+            "SELECT id,name,slug FROM organizations ORDER BY created_at,id LIMIT 1000",
         )
+        .fetch_all(&self.pool)
+        .await?)
     }
     pub async fn projects(&self, organization_id: Uuid) -> Result<Vec<NamedResource>, StoreError> {
         Ok(sqlx::query_as("SELECT id,name FROM projects WHERE organization_id=$1 ORDER BY created_at,id LIMIT 1000").bind(organization_id).fetch_all(&self.pool).await?)
@@ -735,6 +751,26 @@ impl Store {
                 .fetch_optional(&self.pool)
                 .await?,
         )
+    }
+
+    /// Resolve an organization by canonical slug, alias, or UUID within an optional scope.
+    pub async fn organization_route(
+        &self,
+        route_slug: &str,
+        organization_id: Option<Uuid>,
+    ) -> Result<Option<OrganizationRoute>, StoreError> {
+        let parsed_id = Uuid::parse_str(route_slug.trim()).ok();
+        Ok(sqlx::query_as(
+            "SELECT o.id,o.name,o.slug,ARRAY(SELECT a.slug FROM organization_slug_aliases a WHERE a.organization_id=o.id) AS slug_aliases \
+             FROM organizations o \
+             WHERE (o.slug=$1 OR EXISTS(SELECT 1 FROM organization_slug_aliases a WHERE a.organization_id=o.id AND a.slug=$1) OR ($2::uuid IS NOT NULL AND o.id=$2)) \
+               AND ($3::uuid IS NULL OR o.id=$3)",
+        )
+        .bind(route_slug.trim())
+        .bind(parsed_id)
+        .bind(organization_id)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     /// Resolve in the database with scope predicates, independent of list limits.
@@ -848,8 +884,10 @@ impl Store {
                     sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,'USD')")
                         .bind(Uuid::new_v4()).bind(organization_id).execute(&mut *tx).await?;
                 }
-                sqlx::query("INSERT INTO projects (id,organization_id,name) VALUES ($1,$2,'Default workspace')")
+                sqlx::query("INSERT INTO projects (id,organization_id,name,route_slug) VALUES ($1,$2,'Default','default')")
                     .bind(project_id).bind(organization_id).execute(&mut *tx).await?;
+                sqlx::query("INSERT INTO workspace_slug_aliases (slug,project_id) VALUES ('default-workspace',$1) ON CONFLICT (slug) DO NOTHING")
+                    .bind(project_id).execute(&mut *tx).await?;
                 sqlx::query(
                     "INSERT INTO default_workspace (organization_id,project_id) VALUES ($1,$2)",
                 )
@@ -869,9 +907,11 @@ impl Store {
 
     pub async fn create_organization(&self, name: &str) -> Result<Uuid, StoreError> {
         let id = Uuid::new_v4();
-        sqlx::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
+        let base_slug = crate::workspace_creation::workspace_slug_from_name(name);
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, niu_available_organization_slug($3))")
             .bind(id)
             .bind(name)
+            .bind(base_slug)
             .execute(&self.pool)
             .await?;
         Ok(id)

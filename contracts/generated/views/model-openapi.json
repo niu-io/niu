@@ -9942,7 +9942,7 @@
         }
       }
     },
-    "/v1/pools": {
+    "/v1/routing": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "listWorkspacePools",
@@ -10013,7 +10013,7 @@
           }
         },
         "tags": [
-          "Workspace model pools"
+          "Workspace model routing"
         ],
         "x-niu-authority": {
           "audience": "model",
@@ -10025,7 +10025,7 @@
         }
       }
     },
-    "/v1/pools/preview": {
+    "/v1/routing/preview": {
       "post": {
         "x-niu-implementation": "implemented",
         "operationId": "previewWorkspacePool",
@@ -10182,7 +10182,7 @@
           }
         },
         "tags": [
-          "Workspace model pools"
+          "Workspace model routing"
         ],
         "x-niu-authority": {
           "audience": "model",
@@ -10194,7 +10194,7 @@
         }
       }
     },
-    "/v1/pools/{slug}": {
+    "/v1/routing/{slug}": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspacePool",
@@ -10253,7 +10253,7 @@
           }
         },
         "tags": [
-          "Workspace model pools"
+          "Workspace model routing"
         ],
         "x-niu-authority": {
           "audience": "model",
@@ -10332,7 +10332,7 @@
           }
         },
         "tags": [
-          "Workspace model pools"
+          "Workspace model routing"
         ],
         "x-niu-authority": {
           "audience": "model",
@@ -10344,7 +10344,7 @@
         }
       }
     },
-    "/v1/pools/{slug}/history": {
+    "/v1/routing/{slug}/history": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspacePoolHistory",
@@ -10421,7 +10421,7 @@
           }
         },
         "tags": [
-          "Workspace model pools"
+          "Workspace model routing"
         ],
         "x-niu-authority": {
           "audience": "model",
@@ -10433,7 +10433,7 @@
         }
       }
     },
-    "/v1/pools/{slug}/selections": {
+    "/v1/routing/{slug}/selections": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspacePoolSelections",
@@ -10528,7 +10528,7 @@
           }
         },
         "tags": [
-          "Workspace model pools"
+          "Workspace model routing"
         ],
         "x-niu-authority": {
           "audience": "model",
@@ -23312,6 +23312,34 @@
           }
         }
       },
+      "handler_operations_json_CompanyMetadata": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -23460,22 +23488,6 @@
             "maxLength": 48,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
             "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
-          }
-        }
-      },
-      "handler_operations_json_CompanyMetadata": {
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },

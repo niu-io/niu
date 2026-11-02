@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
@@ -125,7 +126,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
       } else throw reason;
     } finally { if (active.current) { setBusy(false); write.current = null; } }
   }
-  return <div className="space-y-4 px-4 py-4 sm:px-6">
+  return <div className="empty-region space-y-4 px-4 py-4 sm:px-6">
     {!loading && !error && (offers.length > 0 || entries.some(entry => !entry.connection.owner_funded)) && !qualified && <div className="flex flex-wrap items-center gap-2 text-sm"><span>{uiT("Provider review required for commercial supply.")}</span><Button variant="outline" size="sm" onClick={onQualification}>{uiT("Review Provider")}</Button></div>}
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
@@ -135,7 +136,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     {notice && <p role="status" className="text-sm">{notice}</p>}
     {loading ? <TableSkeleton columns={2} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
       {!connections.length && <p>{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline" to={`/admin/providers/${encodeURIComponent(providerSlug)}/keys`}>{uiT("Connect API key")}</Link></p>}
-      {!aliases.length ? <p>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</p> : <Table className="table-fixed">
+      {!aliases.length ? <Empty className="min-h-60"><EmptyHeader><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table className="table-fixed">
         <TableHeader className="hidden sm:table-header-group"><TableRow><TableHead className="w-[35%]">{uiT("Model")}</TableHead><TableHead>{uiT("Connection and availability")}</TableHead></TableRow></TableHeader>
         <TableBody>{aliases.slice(0, limit).map(alias => {
           const routes = entries.filter(entry => entry.model.alias === alias);

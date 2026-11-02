@@ -96,7 +96,7 @@ With the gateway running, use your admin bearer token to:
 
 Each POST returns `201`. Use the returned IDs in the next path. The key response returns its `token` once; store it securely and use it as the bearer token for `/v1/models` and `/v1/chat/completions`. Every request requires `Content-Type: application/json` when sending a JSON body. Delete the key at the same keys path with `/{key_id}` appended to revoke it (`204`).
 
-New keys can access all model routes available in their workspace. Keys with explicit model restrictions receive a filtered model listing. Revocation and expiry are rechecked at dispatch admission. Organization creation and default-workspace setup require the installation bootstrap token. Scoped operators can manage permitted workspace resources according to their role; operator/session management requires an owner.
+New keys can access all model routes available in their workspace. Keys with explicit model restrictions receive a filtered model listing. Revocation and expiry are rechecked at dispatch admission. Default-workspace setup requires the installation bootstrap token; both the installation bootstrap token and authenticated member sessions can create organizations. Scoped operators can manage permitted workspace resources according to their role; operator/session management requires an owner.
 
 Non-streaming responses include `x-niu-operation-id` and `x-niu-attempt-id` after dispatch, including provider errors. Streaming responses include these IDs on successful establishment. Every HTTP request also accepts or generates an edge correlation header (`x-request-id`) and echoes it on responses, including pre-dispatch authentication (`401`) and readiness (`503`) responses. The OpenAI-compatible streaming adapter persists completion and valid usage at the terminal event. Request `stream_options: {"include_usage": true}` when supported by the provider; the JavaScript SDK does this automatically. Missing/conflicting usage stays unknown, and interrupted streams remain uncertain. SSE events larger than 64 KiB are rejected. `/readyz` verifies database reachability, embedded migration schema currency, active routing registry resolution, and encryption key operability within a bounded timeout; `/healthz` reports process liveness.
 
@@ -216,7 +216,7 @@ docker compose up -d --build niu
 
 每个 POST 请求均返回 `201`。请在下一步的路径中使用上一步返回的 ID。密钥创建响应仅返回一次明文 `token`；请妥善保存，并将其作为调用 `/v1/models` 和 `/v1/chat/completions` 的 Bearer 令牌。发送 JSON 请求体时，每个请求都必须包含 `Content-Type: application/json`。在相同的密钥集合路径后追加 `/{key_id}` 并发送 DELETE 请求即可吊销该密钥（返回 `204`）。
 
-新建密钥可以访问其所属工作空间内所有可用的模型路由。带有明确模型限制的密钥将收到过滤后的模型列表。在调度准入时会重新检查密钥的吊销和过期状态。创建组织和设置默认工作空间需要安装引导令牌。限定作用域的操作员可以根据其角色管理被允许的工作空间资源；操作员与会话管理则需要所有者（owner）权限。
+新建密钥可以访问其所属工作空间内所有可用的模型路由。带有明确模型限制的密钥将收到过滤后的模型列表。在调度准入时会重新检查密钥的吊销和过期状态。设置默认工作空间需要安装引导令牌；安装引导令牌与已认证的成员会话均可创建组织。限定作用域的操作员可以根据其角色管理被允许的工作空间资源；操作员与会话管理则需要所有者（owner）权限。
 
 非流式响应在调度后（包括供应商报错时）会包含 `x-niu-operation-id` 和 `x-niu-attempt-id` 响应头。流式响应在成功建立连接时包含这些 ID。每个 HTTP 请求还会接收或生成边缘关联请求头（`x-request-id`），并在响应中原样回传（包括分发前的 `401` 认证响应与 `503` 就绪检查响应）。兼容 OpenAI 的流式适配器会在结束事件处持久化完成状态和有效用量。当供应商支持时，请请求 `stream_options: {"include_usage": true}`；JavaScript SDK 会自动执行此操作。缺失或冲突的用量将保持未知状态，中断的流则保持不确定状态。超过 64 KiB 的 SSE 事件会被拒绝。`/readyz` 在有界超时内校验数据库连通性、内嵌迁移 Schema 版本一致性、活跃路由注册表解析以及加密密钥可用性；`/healthz` 报告进程存活状态。
 

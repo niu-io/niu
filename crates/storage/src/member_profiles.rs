@@ -13,8 +13,18 @@ pub struct MemberProfile {
 
 impl Store {
     pub async fn member_profile(&self, member: Uuid) -> Result<MemberProfile, StoreError> {
-        sqlx::query_as("SELECT o.name,c.email,p.avatar_data_url,COALESCE(p.revision,0) AS revision FROM admin_operators o LEFT JOIN member_password_credentials c ON c.operator_id=o.id LEFT JOIN member_profiles p ON p.operator_id=o.id WHERE o.id=$1 AND o.revoked_at IS NULL")
-            .bind(member).fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)
+        sqlx::query_as(
+            "SELECT o.name, c.email, p.avatar_data_url, COALESCE(p.revision, 0) AS revision \
+             FROM admin_operators o \
+             LEFT JOIN account_memberships m ON m.operator_id = o.id \
+             LEFT JOIN member_password_credentials c ON c.operator_id = COALESCE(m.identity_id, o.id) \
+             LEFT JOIN member_profiles p ON p.operator_id = COALESCE(m.identity_id, o.id) \
+             WHERE o.id = $1 AND o.revoked_at IS NULL",
+        )
+        .bind(member)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(StoreError::Unauthorized)
     }
 
     /// Caller authorizes the current member, never a caller-supplied target ID.
@@ -44,27 +54,56 @@ impl Store {
         if active.is_none() {
             return Err(StoreError::Unauthorized);
         }
+        let identity_id: Uuid = sqlx::query_scalar(
+            "SELECT COALESCE(
+                (SELECT identity_id FROM account_memberships WHERE operator_id = $1),
+                $1
+             )",
+        )
+        .bind(member)
+        .fetch_one(&mut *tx)
+        .await?;
         sqlx::query("INSERT INTO member_profiles(operator_id) VALUES($1) ON CONFLICT DO NOTHING")
-            .bind(member)
+            .bind(identity_id)
             .execute(&mut *tx)
             .await?;
         let revision: i64 = sqlx::query_scalar(
             "SELECT revision FROM member_profiles WHERE operator_id=$1 FOR UPDATE",
         )
-        .bind(member)
+        .bind(identity_id)
         .fetch_one(&mut *tx)
         .await?;
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("UPDATE admin_operators SET name=$2 WHERE id=$1")
-            .bind(member)
-            .bind(name)
+        sqlx::query(
+            "UPDATE admin_operators \
+             SET name = $2 \
+             WHERE id = $1 \
+                OR (id IN (SELECT operator_id FROM account_memberships WHERE identity_id = $3) \
+                    AND revoked_at IS NULL)",
+        )
+        .bind(member)
+        .bind(name)
+        .bind(identity_id)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE member_profiles SET avatar_data_url=$2,revision=revision+1,updated_at=clock_timestamp() WHERE operator_id=$1")
+            .bind(identity_id)
+            .bind(avatar)
             .execute(&mut *tx)
             .await?;
-        sqlx::query("UPDATE member_profiles SET avatar_data_url=$2,revision=revision+1,updated_at=clock_timestamp() WHERE operator_id=$1").bind(member).bind(avatar).execute(&mut *tx).await?;
-        let profile = sqlx::query_as("SELECT o.name,c.email,p.avatar_data_url,p.revision FROM admin_operators o LEFT JOIN member_password_credentials c ON c.operator_id=o.id JOIN member_profiles p ON p.operator_id=o.id WHERE o.id=$1")
-            .bind(member).fetch_one(&mut *tx).await?;
+        let profile = sqlx::query_as(
+            "SELECT o.name, c.email, p.avatar_data_url, p.revision \
+             FROM admin_operators o \
+             LEFT JOIN member_password_credentials c ON c.operator_id = $2 \
+             JOIN member_profiles p ON p.operator_id = $2 \
+             WHERE o.id = $1",
+        )
+        .bind(member)
+        .bind(identity_id)
+        .fetch_one(&mut *tx)
+        .await?;
         tx.commit().await?;
         Ok(profile)
     }

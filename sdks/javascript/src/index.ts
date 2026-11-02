@@ -658,30 +658,30 @@ export class NiuClient {
   }
   /** Requires delegated pools:read. No inference or live qualification occurs. */
   listPools(after?: string, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; has_more: boolean; next_after: string | null }> {
-    return this.request(`/pools${after === undefined ? '' : `?after=${workspacePoolSlug(after)}`}`, undefined, options);
+    return this.request(`/routing${after === undefined ? '' : `?after=${workspacePoolSlug(after)}`}`, undefined, options);
   }
   getPool(slug: string, options?: RequestOptions): Promise<{ data: WorkspaceModelPool }> {
-    return this.request(`/pools/${workspacePoolSlug(slug)}`, undefined, options);
+    return this.request(`/routing/${workspacePoolSlug(slug)}`, undefined, options);
   }
   /** Non-dispatching policy/metadata simulation; never proves live access or full input validity. */
   previewPool(configuration: WorkspaceModelPool, context?: WorkspacePoolPreviewContext, options?: RequestOptions): Promise<{ data: WorkspacePoolPreview }> {
     workspacePoolSlug(configuration.slug);
-    return this.request('/pools/preview', { configuration, ...(context === undefined ? {} : { context }) }, options);
+    return this.request('/routing/preview', { configuration, ...(context === undefined ? {} : { context }) }, options);
   }
 
   /** Requires delegated pools:write. Conflicts must be read and reconciled; never automatically replay. */
   async setPool(configuration: WorkspaceModelPool, options: RequestOptions = {}): Promise<{ data: WorkspaceModelPool }> {
     if (!Number.isSafeInteger(configuration.revision) || configuration.revision < 0) throw new TypeError('A nonnegative expected revision is required');
-    const response = await this.send(`/pools/${workspacePoolSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT');
+    const response = await this.send(`/routing/${workspacePoolSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT');
     return await readPayload(response) as { data: WorkspaceModelPool };
   }
   getPoolHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; next_before: number | null }> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before <= 0)) throw new TypeError('A positive revision cursor is required');
-    return this.request(`/pools/${workspacePoolSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
+    return this.request(`/routing/${workspacePoolSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
   }
   /** Latest 100 selections; retrieve generation diagnostics for terminal state and charges. */
   getPoolSelections(slug: string, options?: RequestOptions): Promise<{ data: WorkspacePoolSelection[] }> {
-    return this.request(`/pools/${workspacePoolSlug(slug)}/selections`, undefined, options);
+    return this.request(`/routing/${workspacePoolSlug(slug)}/selections`, undefined, options);
   }
   /** Public branding projection; the regular client credential does not expand it. */
   getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {

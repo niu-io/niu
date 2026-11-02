@@ -1,11 +1,11 @@
 ---
 title: "Create or replace a workspace model policy"
-description: "PUT /v1/pools/{slug}"
+description: "PUT /v1/routing/{slug}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /v1/pools/{slug}`
+`PUT /v1/routing/{slug}`
 
 Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. This operation does not invoke a model. Read back the saved revision. Restore a prior configuration using the current expected revision.
 
@@ -33,7 +33,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 Authentication alternative: `bearerAuth`.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/v1/pools/{slug}" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/v1/routing/{slug}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -42,7 +42,7 @@ curl --fail-with-body -X PUT "$NIU_ORIGIN/v1/pools/{slug}" \
 Authentication alternative: `niuApiKeyAuth`.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/v1/pools/{slug}" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/v1/routing/{slug}" \
   -H "X-Niu-API-Key: $NIU_API_KEY" \
   -H 'Content-Type: application/json' \
   --data @request.json

@@ -136,7 +136,7 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
     expect(screen.getByRole('button', { name: '界面语言' }).textContent).toContain('中文');
     expect(screen.getByRole('link', { name: 'Niu 首页' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '文档' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'AgentDoc' })).toBeTruthy();
   });
 

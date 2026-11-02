@@ -2,10 +2,10 @@
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Path, Query, State, rejection::JsonRejection},
     http::HeaderMap,
 };
-use niu_storage::{AdminPermission, TenantScope};
+use niu_storage::{AdminPermission, TenantScope, WorkspaceModelPool};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -62,7 +62,7 @@ fn page(mut rows: Vec<Value>, field: &str) -> Value {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/workspaces/{workspace}/pools",
+///   "path": "/api/v1/workspaces/{workspace}/routing",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -164,7 +164,7 @@ pub async fn pools(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/workspaces/{workspace}/pools/{slug}",
+///   "path": "/api/v1/workspaces/{workspace}/routing/{slug}",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -245,7 +245,125 @@ pub async fn pool(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/workspaces/{workspace}/pools/{slug}/history",
+///   "path": "/api/v1/workspaces/{workspace}/routing/{slug}",
+///   "method": "put",
+///   "operation": {
+///     "x-niu-implementation": "implemented",
+///     "operationId": "setWorkspaceReviewPool",
+///     "summary": "Review: Create or replace a workspace model policy",
+///     "description": "Workspace model pool management under a current member session with Write permission (Owner or Admin); an installation administrator can also update explicitly scoped records. Use revision zero to create, otherwise the current expected revision. Candidate aliases must be visible in the workspace.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "workspace",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "slug",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+///           "maxLength": 80
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/WorkspaceModelPool"
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Workspace-scoped result; no-store.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/WorkspaceModelPool"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid configuration or cursor"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked credential"
+///       },
+///       "403": {
+///         "description": "Required workspace write permission is absent"
+///       },
+///       "404": {
+///         "description": "Scoped workspace not found"
+///       },
+///       "409": {
+///         "description": "Expected revision conflict"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn put_pool(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((workspace, name)): Path<(Uuid, String)>,
+    input: Result<Json<WorkspaceModelPool>, JsonRejection>,
+) -> Result<Json<Value>, ApiError> {
+    let scope = crate::admin::workspace_aliases::authorize_workspace(
+        &state,
+        &headers,
+        workspace,
+        AdminPermission::Write,
+    )
+    .await?
+    .1;
+    slug(&name)?;
+    let Json(input) = input
+        .map_err(|_| ApiError::invalid_request("Provide a workspace model pool configuration"))?;
+    if name != input.slug {
+        return Err(ApiError::invalid_request("Pool slug must match its URL"));
+    }
+    let aliases = input.validate().map_err(ApiError::from_store)?;
+    let models = crate::vendors::scoped_models(&state, scope.organization_id).await?;
+    if models.contains_key(&format!("pool/{}", input.slug))
+        || aliases
+            .iter()
+            .any(|alias| !models.contains_key(alias) || alias.starts_with("codex/"))
+    {
+        return Err(ApiError::invalid_request(
+            "Every pool candidate must be an authorized model; pool names cannot shadow an existing model",
+        ));
+    }
+    let saved = state
+        .store
+        .set_workspace_model_pool_for_scope(scope, &input)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":saved})))
+}
+/// ```openapi
+/// {
+///   "path": "/api/v1/workspaces/{workspace}/routing/{slug}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -358,7 +476,7 @@ pub async fn pool_history(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/workspaces/{workspace}/pools/{slug}/selections",
+///   "path": "/api/v1/workspaces/{workspace}/routing/{slug}/selections",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",

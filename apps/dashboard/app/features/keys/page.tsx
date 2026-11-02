@@ -3,10 +3,17 @@ import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoade
 import ConnectGate from '@/shell/ConnectGate';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useModelPopularity } from '@/shell/useModelPopularity';
+import type { RouteHandle } from '@/shell/router-context';
 import { workspaceKeyPath, type ProjectKey } from './api';
 import KeysView from './components/KeysView';
 
-export function loader(args: LoaderFunctionArgs) {
+export const handle: RouteHandle = {
+  destination: 'Workspace',
+  navTo: 'keys',
+  title: { en: 'API keys', zh: 'API 密钥' },
+};
+
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint<{ data: ProjectKey[] }>(args, ({ workspace }) => ({
     endpoint: workspace ? workspaceKeyPath(workspace.id) : null,
   }));

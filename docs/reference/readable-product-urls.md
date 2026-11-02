@@ -1,30 +1,37 @@
 # Readable product URLs
 
-Workspaces, Providers, and API key detail pages use stable slugs in browser URLs.
-Internal UUIDs remain unchanged in storage, authorization, and existing API
-contracts. A slug is a routing reference, never an authorization grant.
+Organizations, workspaces, Providers, and API key detail pages use stable slugs
+in browser URLs. Internal UUIDs remain unchanged in storage, authorization, and
+existing API contracts. A slug is a routing reference, never an authorization
+grant.
 
-Workspace creation presents Name and Slug separately, following the inspected
-OpenRouter workspace creation flow. The slug updates with the name until the
+Organization and workspace creation present Name and Slug separately, following
+the inspected OpenRouter creation flow. The slug updates with the name until the
 user edits it. Chinese names produce lowercase, toneless pinyin; whitespace,
 punctuation, and other separators collapse into single hyphens. Accents and
 full-width Latin characters normalize to ASCII. Empty normalized names use a
 readable fallback. A chosen slug must contain 1–48 lowercase ASCII letters,
-numbers, or single separating hyphens. `default` is reserved for workspace
-selection. Duplicate chosen workspace slugs return an actionable conflict;
+numbers, or single separating hyphens. `default` is reserved for workspace and
+organization selection; the installation's default workspace is named `Default`
+with canonical `slug: default` (`/workspaces/default`), while preserving
+`default-workspace` in `workspace_slug_aliases` so legacy
+`/workspaces/default-workspace` bookmarks resolve and redirect cleanly. Duplicate chosen slugs return an actionable conflict;
 server-generated slugs use numeric suffixes when needed.
 
-Saved slugs do not change when display names change. Existing workspace URLs
-with UUID suffixes are retained as durable aliases. Provider and key UUID
+Saved slugs do not change when display names change. Existing organization and
+workspace URLs with UUIDs or legacy aliases resolve within the caller's
+authorized scope and canonicalize to the current slug. Provider and key UUID
 bookmarks still resolve, then redirect to the canonical slug without dropping
-the section, query, or fragment. Provider slugs are globally unique. Key slugs
-are unique within their workspace, including retained revoked keys. Rotation
-creates a distinct key slug and preserves the previous key's history.
+the section, query, or fragment. Organization and Provider slugs are globally
+unique. Key slugs are unique within their workspace, including retained revoked
+keys. Rotation creates a distinct key slug and preserves the previous key's
+history.
 
 ## Route audit
 
 | Surface | URL identity |
 | --- | --- |
+| Organization query scopes (`?org=`) and organization switching | Durable organization slug; authorized UUID bookmarks resolve and canonicalize |
 | Workspace pages and workspace query scopes | Durable workspace slug |
 | Provider administration, portal, navigation, and financial report links | Durable Provider slug |
 | API key detail, edit links, Generations key selection, and key-detail-to-Logs links | Durable key slug within the workspace |

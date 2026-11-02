@@ -22,7 +22,7 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     const writes: Array<Record<string, unknown>> = [];
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/pools/index')) {
+      if (path.startsWith('/api/v1/routing/index')) {
         return {
           data: [
             {
@@ -49,11 +49,11 @@ describe('RoutePoolsPage', () => {
       }
       if (path === '/api/v1/vendors') return { data: [{ id: 'test-provider', name: 'Direct Provider' }] };
       if (path === '/api/v1/vendors/test-provider/models') return { data: [{ alias: 'direct-sonnet-v2', upstream_model: 'claude-sonnet-4', pricing: {} }] };
-      if (path === '/api/v1/pools' && method === 'PUT') {
+      if (path === '/api/v1/routing' && method === 'PUT') {
         writes.push(body as Record<string, unknown>);
         return { data: { revision: 5 } };
       }
-      if (path.startsWith('/api/v1/pools/history')) {
+      if (path.startsWith('/api/v1/routing/history')) {
         return {
           data: [
             {
@@ -117,11 +117,11 @@ describe('RoutePoolsPage', () => {
   it('reconciles uncertain pool writes without reposting', async () => {
     const user = userEvent.setup();
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET') => {
-      if (path.startsWith('/api/v1/pools/index')) {
+      if (path.startsWith('/api/v1/routing/index')) {
         return { data: [], has_more: false, next_after: null };
       }
       if (path === '/api/v1/vendors') return { data: [] };
-      if (path === '/api/v1/pools' && method === 'PUT') {
+      if (path === '/api/v1/routing' && method === 'PUT') {
         throw new VendorRequestError('Service unavailable', 503);
       }
       throw new Error(`Unexpected request: ${method} ${path}`);
@@ -150,7 +150,7 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     const writes: Array<Record<string, unknown>> = [];
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/pools/index')) {
+      if (path.startsWith('/api/v1/routing/index')) {
         return {
           data: [
             {
@@ -183,7 +183,7 @@ describe('RoutePoolsPage', () => {
         };
       }
       if (path === '/api/v1/vendors') return { data: [] };
-      if (path === '/api/v1/pools' && method === 'PUT') {
+      if (path === '/api/v1/routing' && method === 'PUT') {
         writes.push(body as Record<string, unknown>);
         return { data: { revision: 3 } };
       }

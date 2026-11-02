@@ -236,6 +236,12 @@ impl ApiError {
                 kind: "workspace_slug_taken",
                 message: "This slug is already in use. Choose a different slug.",
             },
+            niu_storage::StoreError::OrganizationSlugTaken => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "organization_slug_taken",
+                message: "This organization slug is already in use. Choose a different slug.",
+            },
             niu_storage::StoreError::Conflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

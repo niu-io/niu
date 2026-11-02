@@ -51,7 +51,7 @@ async function setWorkspaceKey(user: ReturnType<typeof userEvent.setup>, key = '
 
 function renderPlayground(models = ['fast', 'strong', 'balanced', 'unused', 'spare']) {
   return render(<SidebarProvider><MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
-    <Routes><Route path="/workspaces/:workspace/playground" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /><Route path="/generations" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /></Routes>
+    <Routes><Route path="/workspaces/:workspace/playground" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /><Route path="/generations/:session?" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /></Routes>
   </MemoryRouter></SidebarProvider>);
 }
 
@@ -1173,10 +1173,10 @@ it.each(['legacy-id', 'chat-1001'])('directly opens a Chat bookmark outside rece
     return jsonResponse({data:[]});
   });
   stubChatFetch(direct);
-  function LocationProbe(){const location=useLocation();return <output data-testid="reference-location">{location.search+location.hash}</output>;}
+  function LocationProbe(){const location=useLocation();return <output data-testid="reference-location">{location.pathname+location.search+location.hash}</output>;}
   render(<SidebarProvider><MemoryRouter initialEntries={[`/generations?workspace=workspace-a&session=${reference}&keep=1#result`]}><LocationProbe/><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
   await screen.findByRole('heading',{name:'Older retained conversation',level:1});
-  await waitFor(()=>expect(screen.getByTestId('reference-location').textContent).toBe('?workspace=workspace-a&session=chat-1001&keep=1#result'));
+  await waitFor(()=>expect(screen.getByTestId('reference-location').textContent).toBe('/generations/chat-1001?keep=1#result'));
   expect(direct.mock.calls.some(([url])=>String(url).endsWith(`/chats/${reference}`))).toBe(true);
 });
 
@@ -1198,5 +1198,28 @@ it('uses the server reference in a newly saved Chat history link without reloadi
   const historyButton=screen.getByRole('button',{name:'Toggle generation history'});
   if(historyButton.getAttribute('aria-expanded')!=='true')await userEvent.click(historyButton);
   const link=await screen.findByRole('link',{name:'New readable conversation'});
-  expect(link.getAttribute('href')).toContain('session=chat-2048');
+  expect(link.getAttribute('href')).toBe('/generations/chat-2048');
+});
+
+it('restores the latest or selected conversation without flickering the sidebar highlight when returning to Generations', async () => {
+  const base='/api/v1/organizations/org-a/projects/workspace-a';
+  serverChats.set(`${base}/chats/latest`,{id:'latest',reference:'chat-1002',prompt:'Latest conversation',createdAt:200,results:[{model:'fast',content:'Latest answer',phase:'complete',elapsedMs:10,error:null}]});
+  serverChats.set(`${base}/chats/older`,{id:'older',reference:'chat-1001',prompt:'Earlier conversation',createdAt:100,results:[{model:'fast',content:'Earlier answer',phase:'complete',elapsedMs:10,error:null}]});
+  serverDrafts.set(`${base}/chats/draft`,{revision:1,payload:{sessionId:null,prompt:'',models:['fast'],attachments:[],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}}});
+  stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
+  const user=userEvent.setup();
+  const first=renderPlayground(['fast']);
+  await screen.findByRole('heading',{name:'Latest conversation',level:1});
+  expect(screen.getByRole('link',{name:'Latest conversation'}).getAttribute('data-active')).toBe('true');
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('false');
+  await user.click(screen.getByRole('link',{name:'Earlier conversation'}));
+  expect(screen.getByRole('heading',{name:'Earlier conversation',level:1})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
+  first.unmount();
+  renderPlayground(['fast']);
+  expect(screen.getByRole('heading',{name:'Earlier conversation',level:1})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
+  expect(screen.getByRole('link',{name:'Latest conversation'}).getAttribute('data-active')).toBe('false');
+  await waitFor(()=>expect(serverDrafts.get(`${base}/chats/draft`)?.payload).toMatchObject({sessionId:'older'}));
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
 });

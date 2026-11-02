@@ -184,7 +184,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
     </>}
   </div>;
 }
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, () => ({
     endpoint: '/api/v1/workspaces',
     persist: true,

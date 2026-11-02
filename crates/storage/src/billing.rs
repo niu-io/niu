@@ -98,9 +98,15 @@ SELECT jsonb_build_object(
             return Err(StoreError::InvalidPrice);
         }
         let organization = Uuid::new_v4();
-        sqlx::query("INSERT INTO organizations(id,name) VALUES($1,$2)")
+        let base_slug = crate::workspace_creation::workspace_slug_from_name(name);
+        let slug: String = sqlx::query_scalar("SELECT niu_available_organization_slug($1)")
+            .bind(base_slug)
+            .fetch_one(&mut **tx)
+            .await?;
+        sqlx::query("INSERT INTO organizations(id,name,slug) VALUES($1,$2,$3)")
             .bind(organization)
             .bind(name)
+            .bind(slug)
             .execute(&mut **tx)
             .await?;
         sqlx::query(

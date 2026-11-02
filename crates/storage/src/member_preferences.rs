@@ -22,8 +22,17 @@ impl ColorMode {
 
 impl Store {
     pub async fn member_color_mode(&self, member: Uuid) -> Result<String, StoreError> {
-        let saved: Option<String> = sqlx::query_scalar::<_, Option<String>>("SELECT p.color_mode FROM admin_operators o LEFT JOIN member_preferences p ON p.operator_id=o.id WHERE o.id=$1 AND o.revoked_at IS NULL")
-            .bind(member).fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)?;
+        let saved: Option<String> = sqlx::query_scalar::<_, Option<String>>(
+            "SELECT p.color_mode \
+             FROM admin_operators o \
+             LEFT JOIN account_memberships m ON m.operator_id = o.id \
+             LEFT JOIN member_preferences p ON p.operator_id = COALESCE(m.identity_id, o.id) \
+             WHERE o.id = $1 AND o.revoked_at IS NULL",
+        )
+        .bind(member)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(StoreError::Unauthorized)?;
         match saved {
             Some(mode) => Ok(mode),
             None => Ok(self
@@ -51,8 +60,20 @@ impl Store {
         if active.is_none() {
             return Err(StoreError::Unauthorized);
         }
+        let identity_id: Uuid = sqlx::query_scalar(
+            "SELECT COALESCE(
+                (SELECT identity_id FROM account_memberships WHERE operator_id = $1),
+                $1
+             )",
+        )
+        .bind(member)
+        .fetch_one(&mut *tx)
+        .await?;
         sqlx::query("INSERT INTO member_preferences(operator_id,color_mode) VALUES($1,$2) ON CONFLICT(operator_id) DO UPDATE SET color_mode=EXCLUDED.color_mode,updated_at=clock_timestamp()")
-            .bind(member).bind(mode.as_str()).execute(&mut *tx).await?;
+            .bind(identity_id)
+            .bind(mode.as_str())
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         Ok(())
     }

@@ -13,7 +13,7 @@ Provider credentials remain server-side. Managed Provider credentials are encryp
 
 ## Authorization
 
-Inference API keys have explicit model grants, workspace ownership, expiry and revocation. Administration accepts the configured `NIU_ADMIN_TOKENS` bootstrap secret and persistent operator session tokens. Bootstrap tokens have installation authority. Each operator belongs to one organization and may be limited to one workspace. Within that scope, `owner` manages operators and can read or write management resources, `admin` can read and write those resources, and `viewer` can read them. A workspace owner cannot grant organization-wide access or access to another workspace. A workspace slug in a URL is presentation state; the server enforces the credential's actual scope.
+Inference API keys have explicit model grants, workspace ownership, expiry and revocation. Administration accepts the configured `NIU_ADMIN_TOKENS` bootstrap secret and persistent operator session tokens. Bootstrap tokens have installation authority. Each operator membership belongs to one organization and may be limited to one workspace; an authenticated account can hold memberships across multiple organizations and switch its active organization scope (`PUT /api/v1/session/organization`). Within the active scope, `owner` manages operators and can read or write management resources, `admin` can read and write those resources, and `viewer` can read them. A workspace owner cannot grant organization-wide access or access to another workspace. Organization and workspace slugs in URLs are presentation state; the server enforces the credential's actual scope.
 
 `GET /api/v1/session` returns the authenticated operator's scope and role permissions, or identifies an installation bootstrap credential. The dashboard uses this response to present available actions. Every API call checks authorization again, so hiding or enabling a control does not grant authority. Private API responses are marked `Cache-Control: no-store`.
 
@@ -77,7 +77,7 @@ Niu 将账号登录、工作空间访问、应用 API 密钥与平台管理相�
 
 ## 授权机制
 
-推理 API 密钥具有明确的模型授权、工作空间归属、过期时间和吊销状态。管理接口接受配置的 `NIU_ADMIN_TOKENS` 引导密钥和持久化操作员会话令牌。引导令牌拥有安装实例级权限。每个操作员归属于一个组织，并且可以限制在单个工作空间内。在该作用域内，`owner`（所有者）可管理操作员并读写管理资源，`admin`（管理员）可读写这些资源，而 `viewer`（查看者）仅可读取。工作空间所有者无法授予组织级访问权限或其他工作空间的访问权限。URL 中的工作空间标识（slug）仅为展示状态；服务端会强制校验凭据的实际作用域。
+推理 API 密钥具有明确的模型授权、工作空间归属、过期时间和吊销状态。管理接口接受配置的 `NIU_ADMIN_TOKENS` 引导密钥和持久化操作员会话令牌。引导令牌拥有安装实例级权限。每条操作员成员关系归属于一个组织，并且可以限制在单个工作空间内；已认证的账户可以在多个组织中持有成员身份并切换当前活跃的组织作用域（`PUT /api/v1/session/organization`）。在当前作用域内，`owner`（所有者）可管理操作员并读写管理资源，`admin`（管理员）可读写这些资源，而 `viewer`（查看者）仅可读取。工作空间所有者无法授予组织级访问权限或其他工作空间的访问权限。URL 中的组织与工作空间标识（slug）仅为展示状态；服务端会强制校验凭据的实际作用域。
 
 `GET /api/v1/session` 返回已认证操作员的作用域和角色权限，或者标识安装引导凭据。控制台使用该响应来展示可用操作。每次 API 调用都会重新检查授权，因此隐藏或启用界面控件并不会授予权限。私有 API 响应均标记为 `Cache-Control: no-store`。
 

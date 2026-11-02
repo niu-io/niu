@@ -680,6 +680,18 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(middleware::from_fn(password_response_headers)),
     )
     .dual_route(
+        "/session/organization",
+        axum::routing::put(crate::admin::switch_session_organization)
+            .layer(DefaultBodyLimit::max(1024))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/memberships",
+        axum::routing::post(crate::admin::claim_session_membership)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
         "/session",
         get(crate::admin::current_session).layer(middleware::from_fn(password_response_headers)),
     )
@@ -752,6 +764,14 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
     .dual_route(
         "/setup/default-workspace",
         axum::routing::post(crate::admin::default_workspace),
+    )
+    .dual_route(
+        "/organizations/by-route/{route_slug}",
+        get(crate::admin::organization_route),
+    )
+    .dual_route(
+        "/organizations/{organization}",
+        axum::routing::patch(crate::admin::rename_organization).layer(DefaultBodyLimit::max(1024)),
     )
     .dual_route(
         "/organizations",
@@ -1046,14 +1066,14 @@ fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
         .dual_route("/vendors/{vendor}/request-rate-limit", get(crate::admin::vendor_request_rate::read).put(crate::admin::vendor_request_rate::write))
         .dual_route("/vendors/{vendor}/request-rate-limit/history", get(crate::admin::vendor_request_rate::history))
         .dual_route("/vendors", get(crate::vendors::list).post(crate::vendors::create))
-        .route("/admin/v1/pools", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
-        .route("/api/v1/pools", axum::routing::get(crate::vendors::route_pools::collection).put(crate::vendors::route_pools::put))
-        .dual_route("/pools/index", axum::routing::get(crate::vendors::route_pools::index))
-        .route("/api/v1/pools/{reference}", axum::routing::get(crate::vendors::route_pools::member))
-        .route("/api/v1/pools/{reference}/history", axum::routing::get(crate::vendors::route_pools::member_history))
-        .route("/api/v1/pools/{reference}/preview", axum::routing::post(crate::vendors::route_pools::member_preview))
-        .route("/api/v1/pools/{reference}/audit", axum::routing::get(crate::vendors::route_pools::member_audit))
-        .dual_route("/pools/history", axum::routing::get(crate::vendors::route_pools::history))
+        .route("/admin/v1/routing", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
+        .route("/api/v1/routing", axum::routing::get(crate::vendors::route_pools::collection).put(crate::vendors::route_pools::put))
+        .dual_route("/routing/index", axum::routing::get(crate::vendors::route_pools::index))
+        .route("/api/v1/routing/{reference}", axum::routing::get(crate::vendors::route_pools::member))
+        .route("/api/v1/routing/{reference}/history", axum::routing::get(crate::vendors::route_pools::member_history))
+        .route("/api/v1/routing/{reference}/preview", axum::routing::post(crate::vendors::route_pools::member_preview))
+        .route("/api/v1/routing/{reference}/audit", axum::routing::get(crate::vendors::route_pools::member_audit))
+        .dual_route("/routing/history", axum::routing::get(crate::vendors::route_pools::history))
         .dual_route("/routing-registry", get(crate::vendors::publication::status))
         .dual_route("/vendors/{id}", axum::routing::put(crate::vendors::update))
         .dual_route("/vendors/{id}/supplier", get(crate::vendors::supplier).put(crate::vendors::associate_supplier))
@@ -1145,19 +1165,19 @@ pub(crate) fn router(state: AppState) -> Router {
     let app = app.merge(
         Router::new()
             .route(
-                "/api/v1/workspaces/{workspace}/pools",
+                "/api/v1/workspaces/{workspace}/routing",
                 get(super::workspace_review::pools),
             )
             .route(
-                "/api/v1/workspaces/{workspace}/pools/{slug}",
-                get(super::workspace_review::pool),
+                "/api/v1/workspaces/{workspace}/routing/{slug}",
+                get(super::workspace_review::pool).put(super::workspace_review::put_pool),
             )
             .route(
-                "/api/v1/workspaces/{workspace}/pools/{slug}/history",
+                "/api/v1/workspaces/{workspace}/routing/{slug}/history",
                 get(super::workspace_review::pool_history),
             )
             .route(
-                "/api/v1/workspaces/{workspace}/pools/{slug}/selections",
+                "/api/v1/workspaces/{workspace}/routing/{slug}/selections",
                 get(super::workspace_review::pool_selections),
             )
             .route(
@@ -1235,18 +1255,18 @@ pub(crate) fn router(state: AppState) -> Router {
                 "/v1/events/{slug}/test",
                 post(super::workspace_events::test),
             )
-            .route("/v1/pools", get(super::workspace_pools::list))
-            .route("/v1/pools/preview", post(super::workspace_pools::preview))
+            .route("/v1/routing", get(super::workspace_pools::list))
+            .route("/v1/routing/preview", post(super::workspace_pools::preview))
             .route(
-                "/v1/pools/{slug}",
+                "/v1/routing/{slug}",
                 get(super::workspace_pools::get).put(super::workspace_pools::put),
             )
             .route(
-                "/v1/pools/{slug}/selections",
+                "/v1/routing/{slug}/selections",
                 get(super::workspace_pools::selections),
             )
             .route(
-                "/v1/pools/{slug}/history",
+                "/v1/routing/{slug}/history",
                 get(super::workspace_pools::history),
             )
             .layer(DefaultBodyLimit::max(65536))
@@ -2485,14 +2505,14 @@ mod tests {
             );
             cursor = idx;
         }
-        // Only /admin/v1/pools is intentionally distinct from /api/v1/pools.
+        // Only /admin/v1/routing is intentionally distinct from /api/v1/routing.
         for (path, body) in &expanded {
             if let Some(suffix) = path.strip_prefix("/admin/v1") {
                 let api_twin = format!("/api/v1{suffix}");
                 let api_body = expanded
                     .get(&api_twin)
                     .unwrap_or_else(|| panic!("missing /api/v1 twin for {path}"));
-                if suffix != "/pools" {
+                if suffix != "/routing" {
                     assert_eq!(body, api_body, "route drift between {path} and {api_twin}");
                 }
             }

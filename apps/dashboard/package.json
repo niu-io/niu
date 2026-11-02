@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "pnpm check:i18n:new && pnpm --dir ../../sdks/javascript build && tsc -b && vite build",
-    "check": "pnpm --dir ../../sdks/javascript build && tsc -b --pretty false",
-    "lint": "pnpm --dir ../../sdks/javascript build && tsc -b --pretty false && node scripts/check-hygiene.mjs",
+    "dev": "react-router dev --host 0.0.0.0",
+    "build": "pnpm check:i18n:new && pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b && react-router build",
+    "check": "pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b --pretty false",
+    "lint": "pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b --pretty false && node scripts/check-hygiene.mjs",
     "test": "vitest run",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:i18n:new": "node scripts/check-i18n.mjs --new",
@@ -34,6 +34,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@react-router/dev": "8.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

@@ -1,11 +1,11 @@
 ---
 title: "Review: Read immutable workspace policy revisions"
-description: "GET /api/v1/workspaces/{workspace}/pools/{slug}/history"
+description: "GET /api/v1/workspaces/{workspace}/routing/{slug}/history"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}/history`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}/history`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/pools/{slug}/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/routing/{slug}/history" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

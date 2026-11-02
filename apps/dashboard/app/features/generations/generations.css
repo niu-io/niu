@@ -51,3 +51,7 @@
 .generations-layout { position:relative; }
 .app-shell .generations-layout [data-slot="sidebar-container"].niu-workspace-sidebar { position:absolute; top:0; bottom:0; left:0; height:auto; }
 .app-shell .generations-layout [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-container"].niu-workspace-sidebar { left:0; }
+
+/* Route-owned chrome uses the same notice and inset rhythm as management pages. */
+.generations-session { container-type: inline-size; }
+.generations-session > .mock-payment-warning { margin-bottom: 16px; }

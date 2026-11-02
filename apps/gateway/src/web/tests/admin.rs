@@ -560,7 +560,10 @@ async fn workspace_creation_obeys_operator_write_and_organization_scope(pool: sq
         )
         .await
         .unwrap();
-    let app = router(test_state(None, pool));
+    store.configure_platform_currency("USD").await.unwrap();
+    let mut state = test_state(None, pool);
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let app = router(state);
 
     async fn create(
         app: &Router,
@@ -2157,8 +2160,8 @@ async fn dispatch_denial_reads_are_scoped_and_content_free(pool: PgPool) {
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn customer_onboarding_provisions_shared_zero_credit_balance(pool: sqlx::PgPool) {
-    let state = test_state(None, pool.clone());
-    let app = router(state.clone());
+    let mut state = test_state(None, pool.clone());
+    let mut app = router(state.clone());
     let original_count: i64 = sqlx::query_scalar("SELECT count(*) FROM organizations")
         .fetch_one(&pool)
         .await
@@ -2204,6 +2207,12 @@ async fn customer_onboarding_provisions_shared_zero_credit_balance(pool: sqlx::P
             "USD",
         ),
         (
+            "/admin/v1/organizations",
+            json!({"name":"Domestic prepaid company","currency":"CNY"}),
+            "id",
+            "CNY",
+        ),
+        (
             "/admin/v1/workspaces",
             json!({"name":"New personal workspace"}),
             "organization_id",
@@ -2215,13 +2224,16 @@ async fn customer_onboarding_provisions_shared_zero_credit_balance(pool: sqlx::P
             "organization_id",
             "USD",
         ),
-        (
-            "/admin/v1/organizations",
-            json!({"name":"Domestic prepaid company","currency":"CNY"}),
-            "id",
-            "CNY",
-        ),
     ] {
+        if path == "/admin/v1/workspaces" {
+            state
+                .store
+                .configure_platform_currency("USD")
+                .await
+                .unwrap();
+            crate::payments::readiness::configure_test_gateway(&mut state).await;
+            app = router(state.clone());
+        }
         let response = app
             .clone()
             .oneshot(

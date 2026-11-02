@@ -25,7 +25,7 @@ export default function ActivityCharts({ buckets, models, compact = false, loadi
         <AreaChart accessibilityLayer data={buckets} margin={{left:0,right:12,top:12,bottom:0}}>
           <CartesianGrid vertical={false}/><XAxis dataKey="start_ms" tickFormatter={date} minTickGap={70} tickLine={false} axisLine={false}/><YAxis allowDecimals={false} tickFormatter={count} tickLine={false} axisLine={false} width={40}/>
           <ChartTooltip content={<ChartTooltipContent labelFormatter={(_label, payload) => payload[0]?.payload ? `${date(payload[0].payload.start_ms)} – ${date(payload[0].payload.end_ms)}` : ''}/>}/>
-          <Area type="linear" dataKey="request_count" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={2} isAnimationActive={false}/>
+          <Area type="monotone" strokeLinecap="round" strokeLinejoin="round" dataKey="request_count" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={2} isAnimationActive={false}/>
         </AreaChart>
       </ChartContainer> : <p className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted-foreground">{buckets === undefined ? uiT("Activity history unavailable.") : uiT("No requests in this range.")}</p>}
     </div>

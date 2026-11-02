@@ -156,3 +156,136 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
     </DialogContent>
   </Dialog>;
 }
+
+export function OrganizationCreateDialog({ context, open, onOpenChange }: {
+  context: DashboardContext;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t: uiT } = useUILocale();
+  const { isZh, t } = useLocale();
+  const { createOrganization } = context;
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [initialWorkspace, setInitialWorkspace] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const idempotencyKeyRef = useRef('');
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setName('');
+    setSlug('');
+    setSlugEdited(false);
+    setInitialWorkspace(isZh ? '默认' : 'Default');
+    setCreateError('');
+    idempotencyKeyRef.current = crypto.randomUUID();
+  }, [open, isZh]);
+
+  async function submitCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving || !name.trim() || !createOrganization) return;
+    setSaving(true);
+    setCreateError('');
+    try {
+      if (!idempotencyKeyRef.current) idempotencyKeyRef.current = crypto.randomUUID();
+      await createOrganization(
+        name.trim(),
+        slug.trim() || undefined,
+        initialWorkspace.trim() || undefined,
+        idempotencyKeyRef.current,
+      );
+      onOpenChange(false);
+    } catch (cause) {
+      setCreateError(cause instanceof Error ? cause.message : t('Could not create organization.', '无法创建组织。'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
+    <DialogContent onOpenAutoFocus={() => { openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => {
+      const opener = openerRef.current;
+      const target = opener?.isConnected && opener.getClientRects().length && !opener.closest('[role="dialog"]')
+        ? opener
+        : ['[aria-label="Account menu"]', '[aria-label="Open navigation menu"]', '.sidebar-toggle']
+            .flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))
+            .find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
+      if (target) { event.preventDefault(); target.focus(); }
+    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+      <DialogHeader className="niu-modal-heading flex-row text-left">
+        <div>
+          <DialogTitle>{t('Create organization', '创建组织')}</DialogTitle>
+          <DialogDescription>{t('Create a separate organization with its own members, workspaces, and independent zero-balance billing account.', '创建一个拥有独立成员、工作空间与零余额计费账户的新组织。')}</DialogDescription>
+        </div>
+        <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
+      </DialogHeader>
+      <form onSubmit={submitCreate} className="niu-modal-form">
+        <div className="grid gap-2">
+          <Label htmlFor="organization-name">{t('Organization name', '组织名称')}</Label>
+          <Input
+            id="organization-name"
+            required
+            maxLength={200}
+            autoFocus
+            disabled={saving}
+            value={name}
+            onChange={event => {
+              const nextName = event.target.value;
+              setName(nextName);
+              idempotencyKeyRef.current = crypto.randomUUID();
+              if (!slugEdited) setSlug(workspaceSlugFromName(nextName));
+            }}
+            placeholder={t('e.g. Acme Studio', '例如：星云工作室')}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="organization-slug">{t('Slug', '路径标识 (Slug)')}</Label>
+          <Input
+            id="organization-slug"
+            required
+            maxLength={48}
+            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            disabled={saving}
+            value={slug}
+            onChange={event => {
+              setSlugEdited(true);
+              setSlug(event.target.value);
+              idempotencyKeyRef.current = crypto.randomUUID();
+            }}
+            placeholder={t('acme-studio', 'acme-studio')}
+            aria-describedby="organization-slug-help"
+          />
+          <p id="organization-slug-help" className="break-words text-sm text-muted-foreground">
+            {t(`Used in ?org=${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 ?org=${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="organization-initial-workspace">{t('Initial workspace', '初始工作空间')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></Label>
+          <Input
+            id="organization-initial-workspace"
+            maxLength={200}
+            disabled={saving}
+            value={initialWorkspace}
+            onChange={event => setInitialWorkspace(event.target.value)}
+            placeholder={t('Default', '默认')}
+            aria-describedby="organization-prereq-help"
+          />
+          <p id="organization-prereq-help" className="text-sm text-muted-foreground">
+            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度与充值”中充值或完成支付配置。')}
+          </p>
+        </div>
+        {createError && <p className="error-text" role="alert">{createError}</p>}
+        <div className="workspace-create-actions">
+          <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button>
+          <Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? t('Creating…', '创建中…') : t('Create organization', '创建组织')}</Button>
+        </div>
+      </form>
+    </DialogContent>
+  </Dialog>;
+}

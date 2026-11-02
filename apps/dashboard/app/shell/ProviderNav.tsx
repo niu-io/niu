@@ -109,7 +109,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
       ]
     : [
         { to: '/admin/providers', label: 'Providers', labelZh: '模型供应商', end: false },
-        { to: '/admin/pools', label: 'Model pools', labelZh: '模型池', end: false },
+        { to: '/admin/routing', label: 'Routing', labelZh: '模型路由', end: false },
         { to: '/admin/customers', label: 'Customers', labelZh: '客户管理', end: false },
         { to: '/admin/reports', label: 'Financial reports', labelZh: '财务报表', end: false },
         { to: '/admin/balances', label: 'Account balances', labelZh: '账户余额', end: false },
@@ -249,7 +249,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
                       ? Users
                       : item.label === 'Providers'
                         ? RailSuppliers
-                        : item.label === 'Model pools'
+                        : item.label === 'Routing' || item.label === 'Model pools'
                           ? IconRoute
                           : item.label === 'Account balances'
                             ? IconWallet

@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -53,7 +54,7 @@ function PricingTargets({ token }: { token: string }) {
   useEffect(() => { void load(undefined, false); return () => activeRequest.current?.abort(); }, [token]);
   const selected = targets.find(row => row.workspace_id === selectedId);
   useEffect(() => { if (selectedId && !selected && cursor && !loading && !error) void load(cursor); }, [selectedId, selected, cursor, loading, error]);
-  return <div className="space-y-6 pt-4">
+  return <div className="empty-region space-y-6 pt-4">
     <div className="flex flex-wrap items-center gap-3">
       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full" disabled={loading && !targets.length}><span className="truncate">{selected ? `${selected.organization_name} · ${workspaceDisplayName(selected.workspace_name)}` : uiT("Choose company and workspace")}</span><IconChevronDown size={16} className="shrink-0"/></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={selectedId ?? ''} onValueChange={value => setSearch(current => { current.set('target', value); return current; })}>
@@ -64,7 +65,7 @@ function PricingTargets({ token }: { token: string }) {
     </div>
     {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry targets")}</Button></AlertDescription></Alert>}
     {loading && !targets.length && <ListRowsSkeleton rows={3} label={uiT("Loading pricing targets…")} />}
-    {selected ? <Prices key={`${token}:${selected.workspace_id}`} token={token} target={selected}/> : !loading && !error && <p className="text-muted-foreground">{selectedId ? uiT("This pricing target is unavailable. Choose another workspace.") : targets.length ? uiT("Select a company and workspace to manage customer selling prices.") : uiT("No pricing targets are available.")}</p>}
+    {selected ? <Prices key={`${token}:${selected.workspace_id}`} token={token} target={selected}/> : !loading && !error && <Empty><EmptyHeader><EmptyDescription>{selectedId ? uiT("This pricing target is unavailable. Choose another workspace.") : targets.length ? uiT("Select a company and workspace to manage customer selling prices.") : uiT("No pricing targets are available.")}</EmptyDescription></EmptyHeader></Empty>}
   </div>;
 }
 function Prices({ token, target }: { token: string; target: PricingTarget }) {
@@ -120,7 +121,7 @@ function Prices({ token, target }: { token: string; target: PricingTarget }) {
     {modelsError && <Alert variant="destructive"><AlertDescription>{modelsError}<Button variant="outline" onClick={() => setModelReload(value => value + 1)}>{uiT("Retry models")}</Button></AlertDescription></Alert>}
     {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
     {loading && <TableSkeleton columns={7} rows={rows.length ? 2 : 5} label={uiT("Loading prices…")} />}
-    {loaded && !rows.length ? <p className="text-muted-foreground">{uiT("No customer prices published for this workspace.")}</p> : rows.length > 0 && <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Currency")}</TableHead><TableHead>{uiT("Input / 1M")}</TableHead><TableHead>{uiT("Output / 1M")}</TableHead><TableHead>{uiT("Cache read / 1M")}</TableHead><TableHead>{uiT("Price checks")}</TableHead><TableHead>{uiT("Actions")}</TableHead></TableRow></TableHeader><TableBody>
+    {loaded && !rows.length ? <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No customer prices published for this workspace.")}</EmptyDescription></EmptyHeader></Empty> : rows.length > 0 && <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Currency")}</TableHead><TableHead>{uiT("Input / 1M")}</TableHead><TableHead>{uiT("Output / 1M")}</TableHead><TableHead>{uiT("Cache read / 1M")}</TableHead><TableHead>{uiT("Price checks")}</TableHead><TableHead>{uiT("Actions")}</TableHead></TableRow></TableHeader><TableBody>
       {rows.filter(row => row.model_alias.toLowerCase().includes(filter.toLowerCase().trim())).map(row => <TableRow key={row.model_alias}><TableCell>{row.model_alias}</TableCell><TableCell>{row.currency}</TableCell><TableCell>{priceFromNanos(row.prompt_rate)}</TableCell><TableCell>{priceFromNanos(row.completion_rate)}</TableCell><TableCell>{row.cached_prompt_rate == null ? uiT("Input rate") : priceFromNanos(row.cached_prompt_rate)}</TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex gap-2"><Button variant="ghost" onClick={() => setEditor({previous:row})} aria-label={uiF("Edit {0}", [row.model_alias])}>{uiT("Edit")}</Button><Button variant="ghost" onClick={() => setHistory(row)} aria-label={uiF("History for {0}", [row.model_alias])}>{uiT("History")}</Button></div></TableCell></TableRow>)}
     </TableBody></Table></div>}
     {loaded && rows.length > 0 && !rows.some(row => row.model_alias.toLowerCase().includes(filter.toLowerCase().trim())) && <p>{uiT("No loaded prices match this filter.")}</p>}

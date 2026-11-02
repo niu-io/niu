@@ -166,7 +166,7 @@ fn candidate_rejection(
 
 /// ```openapi
 /// {
-///   "path": "/v1/pools",
+///   "path": "/v1/routing",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -515,7 +515,7 @@ pub async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/pools/{slug}",
+///   "path": "/v1/routing/{slug}",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -593,7 +593,7 @@ pub async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/pools/{slug}",
+///   "path": "/v1/routing/{slug}",
 ///   "method": "put",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -687,7 +687,7 @@ pub async fn put(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/pools/{slug}/history",
+///   "path": "/v1/routing/{slug}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -787,7 +787,7 @@ pub async fn history(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/pools/preview",
+///   "path": "/v1/routing/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",
@@ -1136,7 +1136,7 @@ pub(super) async fn finish_selection(
 
 /// ```openapi
 /// {
-///   "path": "/v1/pools/{slug}/selections",
+///   "path": "/v1/routing/{slug}/selections",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",

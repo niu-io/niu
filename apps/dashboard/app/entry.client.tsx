@@ -1,9 +1,18 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import DashboardRoot from './root';
+import { startTransition, StrictMode } from 'react';
+import { hydrateRoot } from 'react-dom/client';
+import { HydratedRouter } from 'react-router/dom';
+import { applyLocale, readLocale } from './shell/locale';
+import { createRouterContextProvider } from './shell/router-context';
+import { applyTheme, readTheme } from './shell/theme';
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <DashboardRoot />
-  </React.StrictMode>,
-);
+applyTheme(readTheme());
+applyLocale(readLocale());
+
+startTransition(() => {
+  hydrateRoot(
+    document,
+    <StrictMode>
+      <HydratedRouter getContext={createRouterContextProvider} useTransitions />
+    </StrictMode>,
+  );
+});

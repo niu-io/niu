@@ -20,8 +20,10 @@ function displayScope(operator: Operator, organizations: NamedResource[], projec
   return organization + ' · ' + workspaceDisplayName(workspace);
 }
 
-function roleLabel(role: Operator['role']) {
-  return role[0].toUpperCase() + role.slice(1);
+function roleLabel(role: Operator['role'], uiT: (en: string, zh?: string) => string) {
+  if (role === 'owner') return uiT('Owner', '所有者');
+  if (role === 'admin') return uiT('Admin', '管理员');
+  return uiT('Viewer', '查看者');
 }
 
 export default function OperatorDirectory({ operators, organizations, projects, loading, disabled, onSelect, onAdd, onRevoke }: {
@@ -43,7 +45,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
   const actionTriggers = useRef(new Map<string, HTMLButtonElement>());
   const terms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches = operators.filter(operator => {
-    const text = [operator.name, roleLabel(operator.role), displayScope(operator, organizations, projects), operator.revoked ? 'Revoked' : 'Active'].join(' ').toLocaleLowerCase();
+    const text = [operator.name, roleLabel(operator.role, uiT), displayScope(operator, organizations, projects), operator.revoked ? 'Revoked' : 'Active'].join(' ').toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });
   return <section aria-label={uiT("Workspace users")} className="operator-directory space-y-4">
@@ -55,14 +57,14 @@ export default function OperatorDirectory({ operators, organizations, projects, 
         : matches.length === 0
           ? <Empty className="operator-directory-empty" role="status"><EmptyHeader><EmptyMedia variant="icon"><IconSearch aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching users")}</EmptyTitle><EmptyDescription>{uiT("Try another name, role, or status.")}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => { setSearch(''); searchTriggerRef.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty>
           : <Table>
-            <TableHeader><TableRow><TableHead>{uiT("User")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-12"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{uiT("User", "成员")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-12"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
             <TableBody>{matches.map(operator => <TableRow key={operator.id}>
               <TableCell className="whitespace-normal">
                 <Button type="button" variant="link" className="h-auto max-w-full p-0 text-left whitespace-normal break-words" disabled={disabled} onClick={event => onSelect(operator.id, event.currentTarget)}>{operator.name}</Button>
                 {!operator.project_id && <p className="text-xs text-muted-foreground">{uiT("All workspaces")}</p>}
                 <p className="text-xs text-muted-foreground sm:hidden">{operator.revoked ? uiT("Revoked") : uiT("Active")}</p>
               </TableCell>
-              <TableCell>{roleLabel(operator.role)}</TableCell>
+              <TableCell>{roleLabel(operator.role, uiT)}</TableCell>
               <TableCell className="hidden sm:table-cell"><Badge variant={operator.revoked ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={operator.revoked ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{operator.revoked ? uiT("Revoked") : uiT("Active")}</Badge></TableCell>
               <TableCell>
                 <DropdownMenu>

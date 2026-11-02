@@ -4,7 +4,7 @@ const groups = [
   ['Model APIs', [
     ['Workspace resource events', 'Delegated subscriptions, signed notifications, event reconciliation and delivery evidence.', '^/v1/events(?:/|$)'],
     ['Evaluations', 'Attributed task judgments, verified inputs, customer-charge evidence and matched comparisons.', '^/v1/evaluations(?:/|$)'],
-    ['Workspace model pools', 'Customer-owned model policies and execution selections. Explicit delegated capabilities are required; these are separate from platform supply pools.', '^/v1/pools(?:/|$)'],
+    ['Workspace model routing', 'Customer-owned model policies and execution selections. Explicit delegated capabilities are required; these are separate from platform supply routing.', '^/v1/routing(?:/|$)'],
     ['Model discovery', 'Discover models and their published capabilities.', '^/(?:v1/models|catalog/v1/models|api/v1/models)$'],
     ['Chat completions', 'OpenAI-compatible Chat requests, including dashboard-key invocation.', '/chat/completions$'],
     ['Responses', 'Responses API requests.', '^/v1/responses$'],
@@ -15,7 +15,7 @@ const groups = [
   ['Providers and routing', [
     ['Providers', 'Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints.', '^/api/v1/(?:providers|provider-memberships)'],
     ['Provider API connections', 'Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics.', '^/api/v1/vendors(?!/[^/]+/asset-management)'],
-    ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|pools)'],
+    ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|routing)'],
   ]],
   ['Authentication and access', [
     ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$))'],
@@ -23,8 +23,8 @@ const groups = [
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],
   ['Workspaces and content', [
-    ['Agent management review', 'Read-only member review of agent-managed pools, event subscriptions and evaluation evidence.', '^/api/v1/workspaces/[^/]+/(?:pools|events|evaluations)(?:/|$)'],
-    ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/[^/]+/projects(?:/[^/]+)?)?$)'],
+    ['Agent management review', 'Member review and management of workspace model routing, event subscriptions and evaluation evidence.', '^/api/v1/workspaces/[^/]+/(?:routing|events|evaluations)(?:/|$)'],
+    ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/by-route/[^/]+|/[^/]+(?:/projects(?:/[^/]+)?)?)?$)'],
     ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chats(?:/|$)'],
     ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/(?:projects|workspaces)/[^/]+/(?:generations(?:/|$)|sessions(?:/|$)|tasks(?:/|$)|artifacts(?:/|$)|video/(?:draft|intents))'],
     ['Workspace assets', 'Saved workspace assets and their content.', '/(?:projects|workspaces)/[^/]+/assets(?:/|$)'],
@@ -66,7 +66,7 @@ export function deriveOperationAuthority(path, method, operation) {
   if (/^\/v1\/events(?:\/|$)/.test(path)) {
     return { audience: 'model', principals: ['workspace_api_key'], required_capability: ['put','post'].includes(method) ? 'events:write' : 'events:read', scope: 'workspace' };
   }
-  if (/^\/v1\/pools(?:\/|$)/.test(path)) {
+  if (/^\/v1\/routing(?:\/|$)/.test(path)) {
     return { audience: 'model', principals: ['workspace_api_key'], required_capability: method === 'put' ? 'pools:write' : 'pools:read', scope: 'workspace' };
   }
   if (/^\/(?:v1|v1beta)(?:\/|$)/.test(path)) {
@@ -86,7 +86,7 @@ export function deriveOperationAuthority(path, method, operation) {
     };
   }
   if (
-    /^\/api\/v1\/(?:platform\/|vendors|routing-registry|pools|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
+    /^\/api\/v1\/(?:platform\/|vendors|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
     /\/billing\/(?:quotes|units\/(?:grants|refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
     /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
   ) {

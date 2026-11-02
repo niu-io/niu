@@ -1,15 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspaceDisplayName } from '@/shell/workspace-route';
 import { useLocale } from '@/shell/ui-locale';
+import { settingsHref } from '@/features/account/settings-shell';
+import BillingRoute from '@/features/billing/page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 export default function WorkspaceSettings() {
   const { isZh, t, format: uiF } = useLocale();
   const context = useDashboardContext();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const section = searchParams.get('section') === 'billing' ? 'billing' : 'general';
   const workspace = context.workspace;
   const nameInputRef = useRef<HTMLInputElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
@@ -30,6 +37,7 @@ export default function WorkspaceSettings() {
   if (!workspace) return null;
   const canEdit = Boolean(context.session?.permissions.write);
   const canDelete = Boolean(context.session?.permissions.manage_operators && (context.session.kind === 'installation' || context.session.operator?.project_id === null));
+  const canFund = Boolean(context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   async function rename(event: FormEvent) {
     event.preventDefault(); if (!workspace || saving || !name.trim()) return;
     setSaving(true); setError('');
@@ -50,29 +58,56 @@ export default function WorkspaceSettings() {
     } catch (cause) { if (scope === operationScope.current) setError(cause instanceof Error ? cause.message : t('Could not delete workspace.', '无法删除工作空间。')); }
     finally { if (scope === operationScope.current) setSaving(false); }
   }
-  return <div className="w-full min-w-0 space-y-10">
-    <section aria-labelledby="workspace-general-title" className="space-y-5">
-      <h2 id="workspace-general-title" className="text-base font-semibold">{t('General', '常规设置')}</h2>
-      <form onSubmit={rename} className="grid gap-5">
-        <div className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] sm:gap-6">
-          <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
-          <Input ref={nameInputRef} id="workspace-name" required maxLength={200} value={name} disabled={!canEdit || saving} onChange={event => {setName(event.target.value);setSaved(false);}}/>
-        </div>
-        <div className="flex justify-end gap-2">
-          {name !== workspaceDisplayName(workspace.name) && <Button type="button" variant="ghost" disabled={saving} onClick={() => { setName(workspaceDisplayName(workspace.name)); setError(''); setSaved(false); nameInputRef.current?.focus(); }}>{t('Cancel', '取消')}</Button>}
-          <Button disabled={!canEdit || saving || !name.trim() || name.trim() === workspaceDisplayName(workspace.name)}>{saving ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}</Button>
-        </div>
-        {saved && <p role="status" className="text-sm text-muted-foreground">{t('Workspace renamed.', '工作空间已重命名。')}</p>}
-      </form>
-    </section>
-    {canDelete && <section aria-labelledby="workspace-delete-title" className="space-y-3">
-      <h2 id="workspace-delete-title" className="text-base font-semibold">{t('Delete workspace', '删除工作空间')}</h2>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">{workspace.is_default ? t('The default workspace cannot be deleted.', '默认工作空间不可删除。') : t('Only empty workspaces can be deleted. Workspaces with saved records are protected.', '仅空工作空间可以删除，包含历史记录的工作空间受到保护。')}</p>
-        <Button ref={deleteButtonRef} variant="destructive" disabled={workspace.is_default} onClick={() => {setConfirmation('');setError('');setConfirming(true);}}>{t('Delete workspace', '删除工作空间')}</Button>
-      </div>
-    </section>}
-    {!confirming && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+  function selectSection(nextSection: string) {
+    const next = new URLSearchParams(searchParams);
+    if (nextSection === 'general') next.delete('section');
+    else next.set('section', nextSection);
+    setSearchParams(next, { replace: true });
+  }
+  return <div className="w-full min-w-0 space-y-8">
+    <Tabs value={section} onValueChange={selectSection} className="w-full min-w-0 space-y-6">
+      <TabsList variant="line" aria-label={t('Workspace settings sections', '工作空间设置分组')}>
+        <TabsTrigger value="general">{t('General', '常规设置')}</TabsTrigger>
+        <TabsTrigger value="billing">{t('Spending & billing', '额度与账单')}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="general" className="space-y-10">
+        <section aria-labelledby="workspace-general-title" className="space-y-5">
+          <h2 id="workspace-general-title" className="text-base font-semibold">{t('General', '常规设置')}</h2>
+          <form onSubmit={rename} className="grid gap-5">
+            <div className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] sm:gap-6">
+              <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
+              <Input ref={nameInputRef} id="workspace-name" required maxLength={200} value={name} disabled={!canEdit || saving} onChange={event => {setName(event.target.value);setSaved(false);}}/>
+            </div>
+            <div className="flex justify-end gap-2">
+              {name !== workspaceDisplayName(workspace.name) && <Button type="button" variant="ghost" disabled={saving} onClick={() => { setName(workspaceDisplayName(workspace.name)); setError(''); setSaved(false); nameInputRef.current?.focus(); }}>{t('Cancel', '取消')}</Button>}
+              <Button disabled={!canEdit || saving || !name.trim() || name.trim() === workspaceDisplayName(workspace.name)}>{saving ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}</Button>
+            </div>
+            {saved && <p role="status" className="text-sm text-muted-foreground">{t('Workspace renamed.', '工作空间已重命名。')}</p>}
+          </form>
+        </section>
+        <section aria-labelledby="workspace-budget-shortcut-title" className="space-y-3 border-t border-border/60 pt-6">
+          <h2 id="workspace-budget-shortcut-title" className="text-base font-semibold">{t('Spending limits & statements', '工作空间额度上限与账单')}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">{t('Set lifetime spending limits for this workspace or inspect settled usage statements and rates.', '为当前工作空间设置累计消费上限，或查看已结算账单明细与模型费率。')}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => selectSection('billing')}>{t('Spending & statements', '额度上限与账单')}</Button>
+              {canFund && <Button asChild variant="ghost"><Link to={settingsHref(location.pathname, location.search, location.hash, 'billing')}>{t('Manage credits', '管理共享充值额度')}</Link></Button>}
+            </div>
+          </div>
+        </section>
+        {canDelete && <section aria-labelledby="workspace-delete-title" className="space-y-3 border-t border-border/60 pt-6">
+          <h2 id="workspace-delete-title" className="text-base font-semibold">{t('Delete workspace', '删除工作空间')}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">{workspace.is_default ? t('The default workspace cannot be deleted.', '默认工作空间不可删除。') : t('Only empty workspaces can be deleted. Workspaces with saved records are protected.', '仅空工作空间可以删除，包含历史记录的工作空间受到保护。')}</p>
+            <Button ref={deleteButtonRef} variant="destructive" disabled={workspace.is_default} onClick={() => {setConfirmation('');setError('');setConfirming(true);}}>{t('Delete workspace', '删除工作空间')}</Button>
+          </div>
+        </section>}
+        {!confirming && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      </TabsContent>
+      <TabsContent value="billing">
+        <BillingRoute />
+      </TabsContent>
+    </Tabs>
     <Dialog open={confirming} onOpenChange={open => {if (!saving) {setConfirming(open);if (!open) setError('');}}}>
       <DialogContent onCloseAutoFocus={event => {if (deleteButtonRef.current) {event.preventDefault();deleteButtonRef.current.focus();}}}><DialogHeader><DialogTitle>{isZh ? `删除 ${workspaceDisplayName(workspace.name)}？` : uiF("Delete {0}?", [workspaceDisplayName(workspace.name)])}</DialogTitle><DialogDescription>{t('Deletion is permanent and only allowed when the workspace has no saved records.', '删除操作不可撤销，且仅在工作空间无任何保存记录时可用。')}</DialogDescription></DialogHeader>
         <div className="grid gap-2"><Label htmlFor="workspace-delete-confirmation">{t('Type the workspace name to confirm', '输入工作空间名称以确认删除')}</Label><Input id="workspace-delete-confirmation" value={confirmation} disabled={saving} onChange={event => setConfirmation(event.target.value)}/></div>

@@ -124,7 +124,7 @@ const mediaMeter = (value: string, count: { numerator: string; denominator: stri
 };
 const day = (ms: number) => new Date(ms).toLocaleDateString(readUILocale(), { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
       ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/billing`
@@ -290,11 +290,11 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
             <div className="space-y-3 my-3" aria-label={uiT("Workspace Credits spending")}>
               {data.unit_balances!.map(ub => (
                 <div key={ub.definition_revision} className="space-y-1">
-                  <p className="billing-spending" title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision), ub.net_charged_atoms])}>
+                  <p className="billing-spending" title={formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)}>
                     {formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {uiT("Exact net consumed:")}{" "}{formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} ({ub.net_charged_atoms}{" "}{uiT("atoms) ·")}{" "}{ub.charged_requests}{" "}{uiT("settled")}{" "}{ub.charged_requests === 1 ? uiT("request") : uiT("requests")}
+                    {uiT("Exact net consumed:")}{" "}{formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} · {ub.charged_requests}{" "}{uiT("settled")}{" "}{ub.charged_requests === 1 ? uiT("request") : uiT("requests")}
                     {BigInt(ub.restored_atoms || '0') > 0n && uiF(" · Restored: {0}", [formatExactUnitAtoms(ub.restored_atoms, ub.name, ub.display_precision)])}
                     {BigInt(ub.held_atoms || '0') > 0n && uiF(" · Held for active requests: {0}", [formatExactUnitAtoms(ub.held_atoms, ub.name, ub.display_precision)])}
                   </p>
@@ -332,13 +332,13 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                         <TableCell className="font-mono text-xs">{charge.reference}</TableCell>
                         <TableCell>{charge.model_alias}</TableCell>
                         <TableCell>{charge.request_kind === 'video' ? 'Video' : uiT("Inference")}</TableCell>
-                        <TableCell className="text-right tabular-nums" title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision), charge.charged_atoms])}>
+                        <TableCell className="text-right tabular-nums" title={formatExactUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}>
                           {formatUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {BigInt(charge.restored_atoms || '0') > 0n ? formatUnitAtoms(charge.restored_atoms, charge.unit_name, charge.display_precision) : '—'}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums" title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision), charge.net_atoms])}>
+                        <TableCell className="text-right tabular-nums" title={formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision)}>
                           <div className="font-medium">{formatUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision)}</div>
                           {formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision) !== formatUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision) && (
                             <div className="text-xs text-muted-foreground">{formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision)}</div>
@@ -524,7 +524,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
           </section>}
           {mediaError && <Alert variant="destructive"><AlertTitle>{uiT("More media charges unavailable")}</AlertTitle><AlertDescription>{mediaError}<Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Retry media charges")}</Button></AlertDescription></Alert>}
           {mediaNext && !mediaError && <Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Show more media charges")}</Button>}
-          {lines.length === 0 && mediaLines.length === 0 && !mediaNext && <p className="text-sm text-muted-foreground">{uiT("No line items available.")}</p>}
+          {lines.length === 0 && mediaLines.length === 0 && !mediaNext && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No line items available.")}</EmptyDescription></EmptyHeader></Empty>}
         </> : <TableSkeleton columns={5} rows={4} label={uiT("Loading line items…")} />}
 
       </DialogContent>

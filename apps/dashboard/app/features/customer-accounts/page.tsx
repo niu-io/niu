@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { LoaderFunctionArgs } from 'react-router';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -26,7 +27,7 @@ export type Editor = { kind: 'credit' | 'grant' | 'history' | 'correction' | 'un
 
 const CUSTOMER_ACCOUNTS_PATH = '/api/v1/platform/customer-accounts?limit=50';
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
     authorized: canManagePlatform(snapshot.session),
     endpoint: CUSTOMER_ACCOUNTS_PATH,
@@ -74,12 +75,12 @@ function Accounts({ token }: { token: string }) {
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(undefined, false); return () => active.current?.abort(); }, [token]);
-  return <section className="min-w-0 space-y-5" aria-label={uiT("Account balances")}>
+  return <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Account balances")}>
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{uiT("Manage customer balances, credit limits, and noncash grants. Each company shares its balance across workspaces. Credit permits borrowing; it does not add funds or recognize revenue.")}</p><Button variant="outline" disabled={loading} onClick={() => void load()}><IconRefresh size={16} />{uiT("Refresh balances")}</Button></div>
     {notice && <p role="status">{uiT(notice)}</p>}
     {loading && !companies.length && <TableSkeleton columns={7} rows={5} label={uiT("Loading customer balances…")} />}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
-    {!loading && !error && !companies.length && <p>{uiT("No customer companies are available.")}</p>}
+    {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyDescription>{uiT("No customer companies are available.")}</EmptyDescription></EmptyHeader></Empty>}
     {!!companies.length && <Table aria-label={uiT("Customer billing accounts")}><TableHeader><TableRow>{[uiT('Company'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')].map((name, index) => <TableHead key={name} className={index > 1 && index < 6 ? 'text-right whitespace-nowrap' : 'whitespace-nowrap'}>{name}</TableHead>)}</TableRow></TableHeader>
       <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map(account => <TableRow key={company.organization_id + ':' + account.currency}>
         <TableCell className="whitespace-normal min-w-44 max-w-64">{company.organization_name || uiT("Unnamed company")}</TableCell><TableCell>{account.currency}</TableCell>

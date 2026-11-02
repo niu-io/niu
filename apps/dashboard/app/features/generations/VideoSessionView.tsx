@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -38,9 +39,21 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
       .then(value=>{if(!request.signal.aborted){
         if(value.data.id!==id&&value.data.reference!==id)throw new Error('Unexpected Video session');
         setSession(value.data);
-        if(value.data.reference&&id!==value.data.reference){
-          const query=new URLSearchParams(route.search);query.set('video-session',value.data.reference);
-          navigate(`${route.pathname}?${query}${route.hash}`,{replace:true});
+        if(value.data.reference){
+          const query=new URLSearchParams(route.search);
+          const hadVideoSessionParam=query.has('video-session');
+          if(id!==value.data.reference||hadVideoSessionParam){
+            query.delete('video-session');
+            const wsSegment=workspace ? workspacePathSegment(workspace, context.workspaces ?? [workspace]) : '';
+            if(wsSegment && (query.get('workspace')===wsSegment || query.get('workspace')===workspace.id)){
+              query.delete('workspace');
+            }
+            const nextSearch=query.toString();
+            const nextUrl=`/generations/${encodeURIComponent(value.data.reference)}${nextSearch?`?${nextSearch}`:''}${route.hash}`;
+            if(`${route.pathname}${route.search}${route.hash}`!==nextUrl){
+              navigate(nextUrl,{replace:true});
+            }
+          }
         }
       }})
       .catch(()=>{if(!request.signal.aborted)setError('This Video session could not be loaded. Check workspace access and reload.');});
@@ -53,7 +66,7 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
     <section className="video-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation">
       {error?<p role="alert" className="video-error">{error}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
         {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}
-        {!session.turns.length&&<p className="video-muted">{uiT("No instructions have been saved in this session.")}</p>}
+        {!session.turns.length&&<Empty><EmptyHeader><EmptyDescription>{uiT("No instructions have been saved in this session.")}</EmptyDescription></EmptyHeader></Empty>}
         {session.turns.map(turn=>{
           const next=new URLSearchParams(query);
           if(turn.intent)next.set('intent',turn.intent.reference??turn.intent.id);else if(turn.task_id)next.set('job',turn.task?.reference??turn.task_id);

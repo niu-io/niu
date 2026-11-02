@@ -292,11 +292,11 @@ export type MemberPreferences = { color_mode: 'system' | 'light' | 'dark' };
 
 export type WorkspaceInput = { name: string; slug?: string; spending_limit?: { currency: string; limit_nanos: string }; organization_id?: string | null };
 export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
-export type CompanyMetadata = { id: string; name: string };
+export type CompanyMetadata = { id: string; slug?: string; name: string };
 export type CompanyPage = { data: CompanyMetadata[]; next_cursor: string | null };
 export type CompanyPageOptions = { after?: string; limit?: number };
-export type CompanyCreationInput = { name: string; currency?: string };
-export type CreatedCompany = { id: string; name: string; currency: string };
+export type CompanyCreationInput = { name: string; slug?: string; currency?: string };
+export type CreatedCompany = { id: string; slug?: string; name: string; currency: string };
 export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
@@ -1572,17 +1572,21 @@ function reviewSlug(value: string): string {
 export class NiuAdminClient {
   /** Read-only member review; no workspace API key or agent delegation required. */
   listWorkspaceReviewPools(workspace: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').WorkspaceModelPool>> {
-    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools${after === undefined ? '' : `?after=${reviewSlug(after)}`}`, undefined, options);
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/routing${after === undefined ? '' : `?after=${reviewSlug(after)}`}`, undefined, options);
   }
   getWorkspaceReviewPool(workspace: string, slug: string, options?: RequestOptions): Promise<{data: import('./index.js').WorkspaceModelPool}> {
-    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools/${reviewSlug(slug)}`, undefined, options);
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}`, undefined, options);
+  }
+  setWorkspaceReviewPool(workspace: string, slug: string, configuration: import('./index.js').WorkspaceModelPool, options?: RequestOptions): Promise<{data: import('./index.js').WorkspaceModelPool}> {
+    if (!configuration || configuration.slug !== reviewSlug(slug)) throw new TypeError('Pool slug must match its URL');
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}`, configuration, options, 'PUT');
   }
   getWorkspaceReviewPoolHistory(workspace: string, slug: string, before?: number, options?: RequestOptions): Promise<{data: import('./index.js').WorkspaceModelPool[]; next_before: number | null}> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) throw new TypeError('Use a positive revision cursor');
-    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools/${reviewSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
   }
   getWorkspaceReviewPoolSelections(workspace: string, slug: string, options?: RequestOptions): Promise<{data: import('./index.js').WorkspacePoolSelection[]}> {
-    return this.apiRequest(`/workspaces/${uuid(workspace)}/pools/${reviewSlug(slug)}/selections`, undefined, options);
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}/selections`, undefined, options);
   }
   listWorkspaceReviewSubscriptions(workspace: string, options?: RequestOptions): Promise<{data: import('./index.js').EventSubscription[]; limit: 32}> {
     return this.apiRequest(`/workspaces/${uuid(workspace)}/events`, undefined, options);
@@ -1950,9 +1954,24 @@ export class NiuAdminClient {
     return { data };
   }
 
-  /** Installation-only atomic company/account creation; retain idempotencyKey on uncertain responses. */
+  /** Atomic company/account creation; retain idempotencyKey on uncertain responses. */
   createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany> {
     return this.request('/organizations', input, options, 'POST');
+  }
+
+  /** Rename an organization while preserving its immutable slug and UUID. */
+  renameCompany(organizationId: string, name: string, options?: RequestOptions): Promise<CompanyMetadata> {
+    return this.request(`/organizations/${uuid(organizationId)}`, { name }, options, 'PATCH');
+  }
+
+  /** Switch the active organization for the current authenticated member session by UUID or slug. */
+  switchSessionOrganization(organization: string, options?: RequestOptions): Promise<{ data: unknown }> {
+    return this.request('/session/organization', { organization }, options, 'PUT');
+  }
+
+  /** Link an issued member access token to the signed-in account and switch to that organization. */
+  claimSessionMembership(token: string, options?: RequestOptions): Promise<{ data: unknown }> {
+    return this.request('/session/memberships', { token }, options, 'POST');
   }
 
   /** Read the installation-wide currency; null means setup is incomplete. */
@@ -3313,7 +3332,7 @@ export class NiuAdminClient {
 
   /** Platform-administrator candidate pool; customer permissions remain attached to its alias. */
   getModelRoutePool(alias: string, options?: RequestOptions): Promise<{ data: ModelRoutePool }> {
-    return this.apiRequest(`/pools/${poolReference(alias)}`, undefined, options);
+    return this.apiRequest(`/routing/${poolReference(alias)}`, undefined, options);
   }
 
   /** Platform-only live keyset traversal; retain next_after as the next query's after. */
@@ -3327,7 +3346,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid pool page size');
       params.set('limit', String(query.limit));
     }
-    return this.apiRequest(`/pools${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.apiRequest(`/routing${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Iterate the live pool directory, preserving alias cursors and platform authority. */
@@ -3340,7 +3359,7 @@ export class NiuAdminClient {
 
   setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise<{ data: { revision: number } }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Use an exact nonnegative pool revision');
-    return this.apiRequest('/pools', input, options, 'PUT');
+    return this.apiRequest('/routing', input, options, 'PUT');
   }
 
   listModelRoutePoolHistory(alias: string, beforeRevision?: number, options?: RequestOptions): Promise<{ data: ModelRoutePoolRevision[] }> {
@@ -3349,7 +3368,7 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(beforeRevision) || beforeRevision < 1) throw new TypeError('Use a positive pool history revision');
       query.set('before_revision', String(beforeRevision));
     }
-    return this.apiRequest(`/pools/${poolReference(alias)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.apiRequest(`/routing/${poolReference(alias)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Dry-run routing evaluation for a Model Pool without dispatching upstream inference. */
@@ -3357,7 +3376,7 @@ export class NiuAdminClient {
     if (!['chat', 'responses', 'messages', 'embeddings', 'generate_content'].includes(input.protocol)) {
       throw new TypeError('Use a supported preview protocol');
     }
-    return this.apiRequest(`/pools/${poolReference(alias)}/preview`, input, options, 'POST');
+    return this.apiRequest(`/routing/${poolReference(alias)}/preview`, input, options, 'POST');
   }
 
   /** Audit pool pricing readiness, candidate margin health, and observed routing traffic distribution. */
@@ -3369,7 +3388,7 @@ export class NiuAdminClient {
       }
       params.set('days', String(query.days));
     }
-    return this.apiRequest(`/pools/${poolReference(alias)}/audit${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.apiRequest(`/routing/${poolReference(alias)}/audit${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {

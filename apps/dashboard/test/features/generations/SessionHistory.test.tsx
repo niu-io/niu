@@ -169,3 +169,20 @@ it('uses compact SidebarMenuSkeleton rows for a cold history read',()=>{
  expect(view.container.querySelectorAll('[data-slot="sidebar-menu-skeleton"]')).toHaveLength(4);
  expect(view.container.querySelectorAll('[data-sidebar="menu-skeleton-icon"]')).toHaveLength(4);
 });
+it('matches active chat and video entries by readable reference as well as internal id',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  if(path.includes('/sessions?'))return Response.json({data:[{id:'video-session-uuid',reference:'video-1001',workspace_id:a.id,owner:'member',category:'video',title:'Readable video session',revision:'1',archived:false,created_at:new Date(200).toISOString(),updated_at:new Date(200).toISOString()}],has_more:false,next_before:null});
+  return Response.json({data:[],has_more:false,next_cursor:null,next_before:null});
+ }));
+ render(<MemoryRouter><SidebarProvider><SessionHistory
+  context={{...context,workspaces:[a]}}
+  chats={[{id:'chat-uuid',reference:'chat-1001',title:'Readable chat',prompt:'Prompt',createdAt:300}]}
+  videos={[{id:'job-uuid',reference:'run-1001',object:'video.job',model:'Video model',status:'succeeded',created_at_ms:'100'}]}
+  activeChat="chat-1001"
+  activeVideoSession="video-1001"
+  activeVideo="run-1001"
+ /></SidebarProvider></MemoryRouter>);
+ expect((await screen.findByRole('link',{name:'Readable video session'})).getAttribute('data-active')).toBe('true');
+ expect(screen.getByRole('link',{name:'Readable chat'}).getAttribute('data-active')).toBe('true');
+ expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('data-active')).toBe('true');
+});

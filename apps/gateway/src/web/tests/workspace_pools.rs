@@ -103,7 +103,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         send(
             &app,
             "PUT",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &ordinary.token,
             body.clone()
         )
@@ -114,7 +114,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     let (status, preview) = send(
         &app,
         "POST",
-        "/v1/pools/preview",
+        "/v1/routing/preview",
         &delegated.token,
         body.clone(),
     )
@@ -137,7 +137,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         let (status, preview) = send(
             &app,
             "POST",
-            "/v1/pools/preview",
+            "/v1/routing/preview",
             &delegated.token,
             json!({"configuration":body,"context":context}),
         )
@@ -162,7 +162,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     let (_, matched) = send(
         &app,
         "POST",
-        "/v1/pools/preview",
+        "/v1/routing/preview",
         &delegated.token,
         json!({"configuration":conditional,"context":{"protocol":"chat"}}),
     )
@@ -171,7 +171,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     let (_, rejected) = send(
         &app,
         "POST",
-        "/v1/pools/preview",
+        "/v1/routing/preview",
         &delegated.token,
         json!({"configuration":conditional,"context":{"protocol":"embeddings"}}),
     )
@@ -182,7 +182,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     let (_, disabled) = send(
         &app,
         "POST",
-        "/v1/pools/preview",
+        "/v1/routing/preview",
         &delegated.token,
         json!({"configuration":conditional,"context":{"protocol":"chat"}}),
     )
@@ -197,7 +197,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
             send(
                 &app,
                 "POST",
-                "/v1/pools/preview",
+                "/v1/routing/preview",
                 &delegated.token,
                 json!({"configuration":body,"context":context})
             )
@@ -217,7 +217,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     let (status, saved) = send(
         &app,
         "PUT",
-        "/v1/pools/assistant",
+        "/v1/routing/assistant",
         &delegated.token,
         body.clone(),
     )
@@ -230,7 +230,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         send(
             &app,
             "PUT",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &delegated.token,
             body.clone()
         )
@@ -242,7 +242,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         send(
             &app,
             "GET",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &foreign.token,
             Value::Null
         )
@@ -250,13 +250,13 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         .0,
         StatusCode::NOT_FOUND
     );
-    let (status, page) = send(&app, "GET", "/v1/pools", &delegated.token, Value::Null).await;
+    let (status, page) = send(&app, "GET", "/v1/routing", &delegated.token, Value::Null).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(page["data"].as_array().unwrap().len(), 1);
     let (status, history) = send(
         &app,
         "GET",
-        "/v1/pools/assistant/history",
+        "/v1/routing/assistant/history",
         &delegated.token,
         Value::Null,
     )
@@ -269,7 +269,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         send(
             &app,
             "PUT",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &delegated.token,
             invalid
         )
@@ -279,7 +279,7 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     );
     store.revoke_key(scope, delegated.id).await.unwrap();
     assert_eq!(
-        send(&app, "PUT", "/v1/pools/assistant", &delegated.token, body)
+        send(&app, "PUT", "/v1/routing/assistant", &delegated.token, body)
             .await
             .0,
         StatusCode::UNAUTHORIZED
@@ -338,7 +338,7 @@ async fn workspace_pool_protocols_route_and_link_execution_evidence(pool: PgPool
         send(
             &app,
             "PUT",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &delegated.token,
             policy.clone()
         )
@@ -393,7 +393,7 @@ async fn workspace_pool_protocols_route_and_link_execution_evidence(pool: PgPool
         let (status, evidence) = send(
             &app,
             "GET",
-            "/v1/pools/assistant/selections",
+            "/v1/routing/assistant/selections",
             &delegated.token,
             Value::Null,
         )
@@ -420,7 +420,7 @@ async fn workspace_pool_protocols_route_and_link_execution_evidence(pool: PgPool
         send(
             &app,
             "PUT",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &delegated.token,
             disabled
         )
@@ -553,7 +553,7 @@ async fn native_pool_case(pool: PgPool, adapter: &str, path: &str, request: Valu
         send(
             &app,
             "PUT",
-            "/v1/pools/assistant",
+            "/v1/routing/assistant",
             &key.token,
             configuration
         )

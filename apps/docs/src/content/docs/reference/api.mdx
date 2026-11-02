@@ -153,10 +153,7 @@ rather than the internal identifiers needed for API routing.
 
 ## Operator roles and sessions
 
-The `operator` name is an existing administration API contract for a workspace
-member; the dashboard uses **Users**. Accounts sign in with their own credentials
-and receive their assigned role and workspace access. Installation setup
-credentials are separate from member sessions and application API keys.
+The `operator` name is an existing administration API contract for an organization or workspace member; the dashboard uses **Members** in workspace navigation and **Users** in platform administration. Accounts sign in with their own credentials and receive their assigned role and organization/workspace access. Installation setup credentials are separate from member sessions and application API keys.
 The password session API is opt-in through `NIU_AUTH_PUBLIC_ORIGIN`, which must
 be an HTTPS origin without a path, credentials, query or fragment. Deploy it
 behind HTTPS at that origin. Self-registration and
@@ -232,9 +229,9 @@ documents request fields, role restrictions, session responses and failure statu
 
 Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /api/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
 
-Owners can manage members. Admins can read and write management resources but cannot manage members. Viewers have read access only. Every member has an `organization_id` and may have a legacy `project_id` that restricts access to a single workspace. Owners cannot create or manage members outside their own scope. Workspace IDs in dashboard URLs do not grant authority. `GET /api/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials.
+Owners can manage members. Admins can read and write management resources but cannot manage members. Viewers have read access only. Every member record has an `organization_id` and may have a `project_id` that restricts access to a single workspace (`project_id: null` grants organization-wide access across all workspaces in that organization). Owners cannot create or manage members outside their own scope. An authenticated account can belong to multiple organizations, switch its active organization with `PUT /api/v1/session/organization` (accepting an organization ID or `slug`), and claim an issued operator access token into the current account with `POST /api/v1/session/memberships`. Workspace and organization slugs in dashboard URLs do not grant authority. `GET /api/v1/session` returns the caller's current identity, active organization/workspace scope, and role permissions without exposing credentials.
 
-The dashboard's `GET /api/v1/workspaces` lists workspaces visible to the current administrator, with each workspace's parent organization. `POST /api/v1/workspaces` creates one in the requested organization. Organization administrators can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. API keys, requests, budgets, and usage belong to a workspace; `project` names remain only in legacy API and storage contracts.
+`GET /api/v1/organizations` lists organizations visible to the caller, including each organization's durable `slug`. Both installation administrators and authenticated member sessions can create an independently funded organization with `POST /api/v1/organizations` (accepting `name`, optional `slug`, and optional `initial_workspace_name` for member self-service onboarding), and organization-wide owners or installation administrators can rename an organization with `PATCH /api/v1/organizations/{organization}` while preserving its saved `slug` and `slug_aliases`. The dashboard's `GET /api/v1/workspaces` lists workspaces visible to the current administrator, with each workspace's parent organization and durable `slug`. The default workspace is named `Default` (`slug: default`, canonical path `/workspaces/default`), while `/workspaces/default-workspace` is retained as a redirecting alias for existing bookmarks. `POST /api/v1/workspaces` creates a workspace in the requested organization. Organization owners/admins can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. API keys, requests, budgets, and usage belong to a workspace; `project` names remain only in legacy API and storage contracts.
 
 ## Provider capability matrix
 
@@ -1037,7 +1034,7 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 ## 操作员角色与会话
 
-`operator` 是现有管理 API 契约中表示工作空间成员的名称；控制台界面中则使用 **用户（Users）**。账户使用各自的凭据登录，并获得其分配的角色与工作空间访问权限。实例初始设置凭据与成员会话及应用 API 密钥相互独立。密码会话 API 需通过配置 `NIU_AUTH_PUBLIC_ORIGIN` 显式启用，该值必须是不含路径、凭据、查询参数或片段的 HTTPS 源地址（Origin）。请在该源地址的 HTTPS 反向代理后部署服务。自助注册与身份联邦（Identity Federation）目前尚未实现。
+`operator` 是现有管理 API 契约中表示组织或工作空间成员的名称；控制台在工作空间导航中使用 **成员（Members）**，在平台管理中使用 **用户（Users）**。账户使用各自的凭据登录，并获得其分配的角色与组织/工作空间访问权限。实例初始设置凭据与成员会话及应用 API 密钥相互独立。密码会话 API 需通过配置 `NIU_AUTH_PUBLIC_ORIGIN` 显式启用，该值必须是不含路径、凭据、查询参数或片段的 HTTPS 源地址（Origin）。请在该源地址的 HTTPS 反向代理后部署服务。自助注册与身份联邦（Identity Federation）目前尚未实现。
 
 `PUT /api/v1/operators/{operator}/password` 允许实例管理员或具有作用域的所有者（owner）为现有成员配置 `email`、`password` 以及可选的 `expected_revision`。首次设置密码时省略修订版本；重置密码则需要传入上一次返回的修订版本，并会原子化地吊销该成员此前的所有会话。密码长度要求至少 15 个字符且不超过 1,024 个 UTF-8 字节；空格与 Unicode 字符均会被原样保留。响应返回新的修订版本，绝不会返回密码哈希值。
 
@@ -1057,9 +1054,9 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 操作员及会话的创建与吊销还会在同一数据库事务中追加不可变的、仅含元数据的审计事件。事件会记录执行者是实例引导凭据还是带作用域的操作员、执行者操作员 ID（若有）、目标操作员/会话 ID、租户范围以及时间戳。审计事件绝不会存储 Bearer Token、令牌哈希或请求体。带作用域的所有者可以通过 `GET /api/v1/operators/{operator}/events` 分页查看某个操作员的审计事件；分页按时间戳和事件 ID 排序，限制为 1–100 条，并使用 `next_cursor` 实现稳定的向后翻页。
 
-所有者（owner）可以管理成员。管理员（admin）可以读写管理资源，但不能管理成员。只读成员（viewer）仅具有读取权限。每个成员都拥有一个 `organization_id`，并可能带有一个将访问权限限制在单个工作空间内的旧版 `project_id`。所有者无法创建或管理超出自身权限范围的成员。控制台 URL 中的工作空间 ID 不会授予访问权限。`GET /api/v1/session` 返回调用方当前的身份、作用域与角色权限，且不会暴露任何凭据。
+所有者（owner）可以管理成员。管理员（admin）可以读写管理资源，但不能管理成员。只读成员（viewer）仅具有读取权限。每条成员记录都拥有一个 `organization_id`，并可能带有一个将访问权限限制在单个工作空间内的 `project_id`（`project_id: null` 授予该组织下所有工作空间的组织级访问权限）。所有者无法创建或管理超出自身权限范围的成员。已认证的账户可以归属于多个组织，通过 `PUT /api/v1/session/organization`（支持传入组织 ID 或 `slug`）切换当前活跃组织，并通过 `POST /api/v1/session/memberships` 将签发的操作员访问令牌认领至当前账户。控制台 URL 中的工作空间与组织 `slug` 不会授予访问权限。`GET /api/v1/session` 返回调用方当前的身份、活跃组织/工作空间作用域与角色权限，且不会暴露任何凭据。
 
-控制台的 `GET /api/v1/workspaces` 会列出当前管理员可见的工作空间及其所属组织。`POST /api/v1/workspaces` 在指定组织下创建新工作空间。组织管理员只能在所属组织内部创建工作空间；实例管理员则可以选择任意组织。如果实例中尚无任何组织，省略 `organization_id` 会先创建一个名为 `Personal workspace` 的组织。API 密钥、请求记录、预算与用量均归属于工作空间；`project` 这一名称仅保留在旧版 API 与存储契约中。
+`GET /api/v1/organizations` 会列出当前调用方可见的组织及其持久化的可读 `slug`。实例管理员与已认证成员会话均可通过 `POST /api/v1/organizations` 创建独立资金核算的组织（支持 `name`、可选 `slug` 以及用于成员自助开通的可选 `initial_workspace_name`）；组织级所有者或实例管理员可通过 `PATCH /api/v1/organizations/{organization}` 修改组织名称，同时保留已保存的 `slug` 与 `slug_aliases`。控制台的 `GET /api/v1/workspaces` 会列出当前管理员可见的工作空间及其所属组织与持久化 `slug`。默认工作空间名称为 `Default`（`slug: default`，规范路径为 `/workspaces/default`），同时保留 `/workspaces/default-workspace` 作为旧书签的重定向别名。`POST /api/v1/workspaces` 在指定组织下创建新工作空间。组织所有者或管理员只能在所属组织内部创建工作空间；实例管理员则可以选择任意组织。如果实例中尚无任何组织，省略 `organization_id` 会先创建一个名为 `Personal workspace` 的组织。API 密钥、请求记录、预算与用量均归属于工作空间；`project` 这一名称仅保留在旧版 API 与存储契约中。
 
 ## 模型供应商能力矩阵
 

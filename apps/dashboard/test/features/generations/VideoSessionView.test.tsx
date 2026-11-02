@@ -10,12 +10,17 @@ const workspace={id:'22222222-2222-4222-8222-222222222222',organization_id:'3333
 const context={token:'member',workspace,workspaces:[workspace]} as DashboardContext;
 const data={id,reference:'video-1001',workspace_id:workspace.id,owner:'fixture',category:'video',title:'Saved Video',revision:'1',archived:false,turns:[]};
 afterEach(()=>vi.unstubAllGlobals());
-function RouteView(){const location=useLocation();return <><output data-testid="location">{location.search+location.hash}</output><VideoSessionView context={context} id={new URLSearchParams(location.search).get('video-session')!}/></>;}
+function RouteView(){
+  const location=useLocation();
+  const pathSession=/^\/generations\/([^/?#]+)\/?$/.exec(location.pathname)?.[1];
+  const sessionId=(pathSession ? decodeURIComponent(pathSession) : null) ?? new URLSearchParams(location.search).get('video-session')!;
+  return <><output data-testid="location">{location.pathname+location.search+location.hash}</output><VideoSessionView context={context} id={sessionId}/></>;
+}
 it.each([id,'video-1001'])('opens and canonicalizes an authorized Video session %s',async reference=>{
  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data})));
  render(<MemoryRouter initialEntries={[`/generations?workspace=review&video-session=${reference}&keep=1#saved`]}><RouteView/></MemoryRouter>);
  await screen.findByRole('heading',{name:'Saved Video'});
- await waitFor(()=>expect(screen.getByTestId('location').textContent).toBe('?workspace=review&video-session=video-1001&keep=1#saved'));
+ await waitFor(()=>expect(screen.getByTestId('location').textContent).toBe('/generations/video-1001?keep=1#saved'));
  expect(screen.getByText('No instructions have been saved in this session.')).toBeTruthy();
  expect(vi.mocked(fetch).mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
 });

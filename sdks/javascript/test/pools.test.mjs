@@ -10,7 +10,7 @@ test('workspace pool SDK preserves revision, uses scoped routes and never retrie
   } });
   await client.listPools('assistant'); await client.getPool('assistant'); await client.previewPool(config); await client.setPool(config); await client.getPoolHistory('assistant', 2); await client.getPoolSelections('assistant');
   assert.deepEqual(calls.map(c => [new URL(c.url).pathname + new URL(c.url).search, c.method]), [
-    ['/v1/pools?after=assistant', 'GET'], ['/v1/pools/assistant', 'GET'], ['/v1/pools/preview', 'POST'], ['/v1/pools/assistant', 'PUT'], ['/v1/pools/assistant/history?before=2', 'GET'], ['/v1/pools/assistant/selections', 'GET'],
+    ['/v1/routing?after=assistant', 'GET'], ['/v1/routing/assistant', 'GET'], ['/v1/routing/preview', 'POST'], ['/v1/routing/assistant', 'PUT'], ['/v1/routing/assistant/history?before=2', 'GET'], ['/v1/routing/assistant/selections', 'GET'],
   ]);
   assert.deepEqual(JSON.parse(calls[3].body), config);
   let failures = 0;

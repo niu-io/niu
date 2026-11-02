@@ -47,14 +47,14 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1pricing'
   /api/v1/vendors/{id}/import:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1import'
-  /api/v1/workspaces/{workspace}/pools:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools'
-  /api/v1/workspaces/{workspace}/pools/{slug}:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}'
-  /api/v1/workspaces/{workspace}/pools/{slug}/history:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}~1history'
-  /api/v1/workspaces/{workspace}/pools/{slug}/selections:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}~1selections'
+  /api/v1/workspaces/{workspace}/routing:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing'
+  /api/v1/workspaces/{workspace}/routing/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing~1{slug}'
+  /api/v1/workspaces/{workspace}/routing/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing~1{slug}~1history'
+  /api/v1/workspaces/{workspace}/routing/{slug}/selections:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing~1{slug}~1selections'
   /api/v1/workspaces/{workspace}/events:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1events'
   /api/v1/workspaces/{workspace}/events/{slug}:
@@ -127,14 +127,14 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1currency'
   /v1/currency:
     $ref: './generated/handler-operations.json#/paths/~1v1~1currency'
-  /api/v1/pools/{reference}:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}'
-  /api/v1/pools/{reference}/history:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1history'
-  /api/v1/pools/{reference}/preview:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1preview'
-  /api/v1/pools/{reference}/audit:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1audit'
+  /api/v1/routing/{reference}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}'
+  /api/v1/routing/{reference}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}~1history'
+  /api/v1/routing/{reference}/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}~1preview'
+  /api/v1/routing/{reference}/audit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}~1audit'
   /api/v1/workspaces/{workspace}/assets:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1assets'
   /api/v1/workspaces/{workspace}/assets/{asset}:
@@ -449,12 +449,12 @@ paths:
     $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1payments~1integrations'
   /api/v1/platform/payments/stripe/verification:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1payments~1stripe~1verification'
-  /api/v1/pools:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools'
-  /api/v1/pools/index:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools~1index'
-  /api/v1/pools/history:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools~1history'
+  /api/v1/routing:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1routing'
+  /api/v1/routing/index:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1routing~1index'
+  /api/v1/routing/history:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1routing~1history'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:
     $ref: './key-token-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history:
@@ -2367,6 +2367,18 @@ paths:
   /api/v1/workspaces/by-route/{route_slug}:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1by-route~1{route_slug}/get'
+  /api/v1/organizations/by-route/{route_slug}:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1by-route~1{route_slug}/get'
+  /api/v1/organizations/{organization}:
+    patch:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}/patch'
+  /api/v1/session/organization:
+    put:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1organization/put'
+  /api/v1/session/memberships:
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1memberships/post'
   /api/v1/workspaces:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces/get'
@@ -2702,16 +2714,16 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1deliveries'
   /v1/events/{slug}/test:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1test'
-  /v1/pools:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools'
-  /v1/pools/preview:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1preview'
-  /v1/pools/{slug}:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}'
-  /v1/pools/{slug}/history:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}~1history'
-  /v1/pools/{slug}/selections:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}~1selections'
+  /v1/routing:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing'
+  /v1/routing/preview:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1preview'
+  /v1/routing/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1{slug}'
+  /v1/routing/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1{slug}~1history'
+  /v1/routing/{slug}/selections:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1{slug}~1selections'
   /v1/key:
     $ref: './generated/handler-operations.json#/paths/~1v1~1key'
   /v1/generations/{id}:

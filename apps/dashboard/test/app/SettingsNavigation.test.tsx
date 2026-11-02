@@ -20,7 +20,11 @@ function mount() {
 
 it('renders routed Settings in a dialog and switches sections', async () => {
   const router = mount();
-  expect(screen.getByRole('dialog',{name:'Settings'})).toBeTruthy();
+  const dialog = screen.getByRole('dialog',{name:'Settings'});
+  expect(dialog).toBeTruthy();
+  const sidebarContainer = dialog.querySelector('.settings-dialog-navigation');
+  expect(sidebarContainer?.className).not.toContain('bg-muted');
+  expect(sidebarContainer?.className).toContain('group-data-[side=left]:border-r');
   await userEvent.click(screen.getByRole('button', {name:'Toggle Settings navigation'}));
   expect(screen.getByRole('dialog', {name:'Settings'}).querySelector('[data-collapsible="icon"]')).toBeTruthy();
   await userEvent.click(screen.getByRole('button', {name:'Toggle Settings navigation'}));

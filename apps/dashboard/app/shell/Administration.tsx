@@ -4,6 +4,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 import { canManagePlatform, useDashboardContext } from './dashboard-context';
+import type { RouteHandle } from './router-context';
+
+export const handle: RouteHandle = { destination: 'Administration' };
 
 /** Central permission boundary for platform configuration routes. */
 export default function Administration() {

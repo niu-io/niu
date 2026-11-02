@@ -15,13 +15,15 @@ import OperatorDirectory from './OperatorDirectory';
 import OperatorDetails from './OperatorDetails';
 import type { ConfirmTarget, CredentialView } from './operator-types';
 
-type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void>; initialOrganization?: string; initialWorkspace?: string };
+type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void>; initialOrganization?: string; initialWorkspace?: string; embedded?: boolean };
 
-function roleLabel(role: 'owner' | 'admin' | 'viewer') {
-  return role[0].toUpperCase() + role.slice(1);
+function roleLabel(role: 'owner' | 'admin' | 'viewer', uiT: (en: string, zh?: string) => string) {
+  if (role === 'owner') return uiT('Owner', '所有者');
+  if (role === 'admin') return uiT('Admin', '管理员');
+  return uiT('Viewer', '查看者');
 }
 
-export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization, initialWorkspace }: OperatorsViewProps) {
+export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization, initialWorkspace, embedded = false }: OperatorsViewProps) {
   const { t: uiT } = useUILocale();
   const canManage = session.permissions.manage_operators;
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
@@ -336,7 +338,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   }
 
   function onCreateOperator(newOperator: NewOperator) {
-    if (!organization || !project) return;
+    const targetProject = lockedProject || (newOperator.projectId !== undefined ? (newOperator.projectId || '') : project);
+    if (!organization || (lockedProject && !targetProject)) return;
     void perform(async () => {
       const result = await request<{ operator: Operator } & IssuedSession>(
         token,
@@ -344,7 +347,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         'POST',
         {
           organization_id: organization,
-          project_id: project || null,
+          project_id: targetProject || null,
           name: newOperator.name,
           role: newOperator.role,
           expires_in_seconds: newOperator.expiresInSeconds,
@@ -407,22 +410,24 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   if (!canManage) {
     const isViewer = session.operator?.role === 'viewer';
     return <>
-      <PageHeader title={uiT("Users")} />
+      {!embedded && <PageHeader title={uiT("Users")} />}
       <section className="panel operator-denied" role="status">
         <span className="operator-denied-icon"><ShieldCheck size={19} /></span>
         <div><h2>{uiT("Owner access required")}</h2><p>{isViewer
           ? uiT("Your viewer session can inspect workspace data, but only an owner can add users, issue sessions, or revoke access.")
           : uiT("Your admin session can update workspace data. User access is managed by an owner for this organization.")}</p></div>
-        <span className="operator-role-chip">{roleLabel(session.operator?.role ?? 'viewer')}{" "}{uiT("session")}</span>
+        <span className="operator-role-chip">{roleLabel(session.operator?.role ?? 'viewer', uiT)}{" "}{uiT("session")}</span>
       </section>
     </>;
   }
 
+  const actions = <div className="operator-page-actions">
+    <Button type="button" variant="ghost" className="header-icon-action" aria-label={uiT("Refresh users")} title={uiT("Refresh users")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} /><span>{uiT("Refresh")}</span></Button>
+    <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Add user")} title={uiT("Add user")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => setCreateOpen(true)}><Plus size={16} /><span>{uiT("Add user")}</span></Button>
+  </div>;
+
   return <>
-    <PageHeader title={uiT("Users")} action={<div className="operator-page-actions">
-        <Button type="button" variant="ghost" className="header-icon-action" aria-label={uiT("Refresh users")} title={uiT("Refresh users")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} /><span>{uiT("Refresh")}</span></Button>
-        <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Add user")} title={uiT("Add user")} disabled={loading || busy || !organization || !project} onClick={() => setCreateOpen(true)}><Plus size={16} /><span>{uiT("Add user")}</span></Button>
-      </div>} />
+    {embedded ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div> : <PageHeader title={uiT("Users")} action={actions} />}
     {error && <div className="operator-error" role="alert"><span>{error}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
 
     <div className="operator-directory-region">
@@ -506,7 +511,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
           <div><DialogTitle>{uiT("Add a user")}</DialogTitle><DialogDescription>{uiT("Choose a role for this person. Save their temporary access token after adding them; no email invitation is sent.")}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
-      <OperatorCreateForm nameInputRef={createNameRef} disabled={busy || loading || !organization} onCreate={onCreateOperator} />
+      <OperatorCreateForm nameInputRef={createNameRef} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateOperator} />
       {error && <p className="error-text operator-dialog-error" role="alert">{error}</p>}
     </DialogContent>
     </Dialog>

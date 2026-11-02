@@ -2,7 +2,13 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/PageHeader';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import type { RouteHandle } from '@/shell/router-context';
 import { useLocale } from '@/shell/ui-locale';
+
+export const handle: RouteHandle = {
+  destination: 'Workspace',
+  title: { en: 'Page not found', zh: '页面未找到' },
+};
 
 export default function NotFoundRoute() {
   const { t } = useLocale();

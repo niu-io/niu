@@ -13,6 +13,7 @@ vi.mock('@/features/generations/SessionHistory',()=>({default:()=>null}));
 vi.mock('@/features/video/VideoView', () => ({ default: () => <h1>Video session</h1> }));
 vi.mock('@/features/playground/components/PlaygroundView', () => ({ default: ({models,unverifiedModels}:{models:string[];unverifiedModels:string[]}) => <><h1>Chat session</h1><output aria-label="Chat choices">{models.join(',')}</output><output aria-label="Unverified choices">{unverifiedModels.join(',')}</output></> }));
 it.each([
+  ['/generations/chat-1001', 'Chat session'],
   ['/generations?session=chat', 'Chat session'],
   ['/generations?intent=saved-input', 'Video session'],
   ['/generations?job=saved-result', 'Video session'],
@@ -24,7 +25,7 @@ it.each([
 });
 
 it('keeps the parent route sidebar and title region mounted while the session type changes', async () => {
-  const router = createMemoryRouter([{ path: '/generations', Component: GenerationsRouteLayout, children: [{ index: true, Component: PlaygroundRoute }] }], { initialEntries: ['/generations?session=chat'] });
+  const router = createMemoryRouter([{ path: '/generations', Component: GenerationsRouteLayout, children: [{ path: ':session?', Component: PlaygroundRoute }] }], { initialEntries: ['/generations/chat-1001'] });
   const { container } = render(<SidebarProvider><RouterProvider router={router} /></SidebarProvider>);
   await screen.findByRole('heading', { name: 'Chat session' });
   const sidebar = container.querySelector('#generation-history');
@@ -36,7 +37,7 @@ it('keeps the parent route sidebar and title region mounted while the session ty
   expect(container.querySelector('.generations-toolbar')).toBe(toolbar);
   expect(screen.getByRole('button', { name: 'New generation' })).toBe(newButton);
   expect(container.querySelectorAll('#generation-history')).toHaveLength(1);
-  await act(() => router.navigate('/generations?session=chat'));
+  await act(() => router.navigate('/generations/chat-1001'));
   expect(container.querySelector('#generation-history')).toBe(sidebar);
   expect(container.querySelector('.generations-toolbar')).toBe(toolbar);
 });

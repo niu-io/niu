@@ -4,7 +4,7 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { workspacePathSegment } from '@/shell/workspace-route';
-import { IconSearch, IconSearchOff, IconChevronDown, IconDots, IconPhoto, IconVideo, IconMusic } from '@tabler/icons-react';
+import { IconSearch, IconSearchOff, IconChevronDown, IconDots, IconPhoto, IconVideo, IconMusic, IconUpload } from '@tabler/icons-react';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import PageHeader from '@/components/PageHeader';
@@ -45,6 +45,8 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug}:{token:str
   const [assets,setAssets]=useState<WorkspaceAsset[]>(()=>initialPage?.data??[]);
   const [cursor,setCursor]=useState<string|null>(()=>initialPage?.next_cursor??null), [loading,setLoading]=useState(()=>!initialPage), [loadingMore,setLoadingMore]=useState(false), [error,setError]=useState(''), [moreError,setMoreError]=useState(''), [notice,setNotice]=useState(''), [revision,setRevision]=useState(0);
   const [selected,setSelected]=useState<{asset:WorkspaceAsset;action:'preview'|'rename'|'delete'}|null>(null), [name,setName]=useState(''), [busy,setBusy]=useState(false), [actionError,setActionError]=useState('');
+  const [uploading,setUploading]=useState(false);
+  const uploadInput=useRef<HTMLInputElement|null>(null);
   const [preview,setPreview]=useState(''), [previewLoading,setPreviewLoading]=useState(false);
   const menuButtons=useRef(new Map<string,HTMLButtonElement>()), searchButton=useRef<HTMLButtonElement|null>(null);
   const moreRequest=useRef<AbortController|null>(null), mutation=useRef<AbortController|null>(null), opener=useRef<HTMLElement|null>(null), active=useRef(true);
@@ -116,13 +118,34 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug}:{token:str
     }}
     finally{if(active.current){setBusy(false);mutation.current=null;}}
   }
+  async function uploadFiles(files:FileList|null){
+    if(!files?.length||!canWrite||uploading||busy)return;
+    setUploading(true);setError('');setNotice('');
+    try{
+      for(const file of Array.from(files)){
+        if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size<1||file.size>8*1024*1024){
+          throw new Error(uiT('Choose a PNG, JPEG or WebP image up to 8 MiB.', '请选择 8 MiB 以内的 PNG、JPEG 或 WebP 图片。'));
+        }
+        const bytes=new Uint8Array(await file.arrayBuffer());
+        await client.uploadWorkspaceAsset(scope,{name:file.name,contentType:file.type,bytes});
+      }
+      invalidateQueries(key=>key.startsWith(`${token||'public'}::library:${scope.organizationId}:${scope.projectId}:`));
+      if(active.current){setNotice(uiT('File uploaded to workspace.', '文件已上传至工作空间。'));setRevision(value=>value+1);}
+    }catch(cause){
+      if(active.current)setError(cause instanceof Error?cause.message:uiT('The image could not be uploaded.', '图片上传失败。'));
+    }finally{
+      if(active.current){setUploading(false);if(uploadInput.current)uploadInput.current.value='';}
+    }
+  }
   const visible=assets.filter(asset=>asset.name.toLowerCase().includes(query.trim().toLowerCase()));
-  return <section className="space-y-4">
+  return <section className="empty-region space-y-4">
     <p className="text-sm text-muted-foreground">{uiT("Media saved in this workspace, accessible to its members. Saved copies remain available independently of the Provider’s temporary download links, until deleted.")}</p>
     <div className="flex flex-wrap items-center gap-2">
+      <Input ref={uploadInput} type="file" className="hidden" aria-label={uiT("Upload workspace reference image", "上传工作空间参考图")} accept="image/png,image/jpeg,image/webp" multiple onChange={event=>void uploadFiles(event.target.files)} disabled={!canWrite||uploading||busy}/>
       <Popover><PopoverTrigger asChild><Button ref={searchButton} variant={query?'secondary':'outline'} size="icon" aria-label={query?uiF("Search library: {0}", [query]):uiT("Search library")}><IconSearch size={18}/></Button></PopoverTrigger><PopoverContent align="start"><Label htmlFor="library-search">{uiT("Search loaded files")}</Label><Input id="library-search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={uiT("File name…")}/></PopoverContent></Popover>
       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{translateUI(kinds[kind])}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={kind} onValueChange={value=>setKind(value as keyof typeof kinds)}>{Object.entries(kinds).map(([value,label])=><DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
       <Button variant="outline" disabled={loading} onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh")}</Button>
+      {canWrite&&<Button variant="outline" disabled={uploading||busy} onClick={()=>uploadInput.current?.click()}><IconUpload size={16}/>{uploading?uiT("Saving image…"):uiT("Attach image")}</Button>}
       {query&&<Button className="min-w-0 max-w-full" variant="ghost" onClick={()=>setQuery('')}>{uiT("Clear search:")}{" "}<span className="truncate">{query}</span></Button>}
     </div>
     {notice&&<p role="status">{notice}</p>}

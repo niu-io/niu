@@ -53,7 +53,7 @@ impl OperatorRole {
         }
     }
 
-    fn parse(role: &str) -> Result<Self, StoreError> {
+    pub(crate) fn parse(role: &str) -> Result<Self, StoreError> {
         match role {
             "owner" => Ok(Self::Owner),
             "admin" => Ok(Self::Admin),
@@ -246,7 +246,7 @@ impl Store {
         scope: OperatorScope,
     ) -> Result<Vec<NamedResource>, StoreError> {
         Ok(
-            sqlx::query_as("SELECT id,name FROM organizations WHERE id=$1")
+            sqlx::query_as("SELECT id,name,slug FROM organizations WHERE id=$1")
                 .bind(scope.organization_id)
                 .fetch_all(&self.pool)
                 .await?,
@@ -469,6 +469,12 @@ impl Store {
             .bind(scope.project_id)
             .execute(&mut *tx)
             .await?;
+        crate::account_organization_creation::ensure_operator_identity_in_tx(
+            &mut tx,
+            operator_id,
+            scope.organization_id,
+        )
+        .await?;
         let issued = issue_session(&mut tx, operator_id, expires_in_seconds).await?;
         insert_operator_audit_event(&mut tx, actor, "operator_created", operator_id, None, scope)
             .await?;

@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState, useRef, type ReactNode, type RefObject } from 'react';
@@ -135,7 +136,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       if(!controller.signal.aborted && (failedRead||outcomes.some(item=>item.status==='rejected')))setError('Some sessions could not be loaded.');
     })().finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>{controller.abort();pagination.current?.abort();pagination.current=null;generation.current+=1;};
-  },[token,workspaceListScope,revision,JSON.stringify(currentKeys)]);
+  },[token,workspaceListScope,revision]);
   const entries=useMemo(()=>{
     const knownWorkspaces=context.workspaces?.length ? context.workspaces : workspace ? [workspace] : [];
     const workspaceSegment=(id?:string)=>{
@@ -156,11 +157,17 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       const slug=item.workspaceId===workspace?.id ? currentKeys?.find(key=>key.id===item.keyId)?.slug : undefined;
       return slug ? `&key=${encodeURIComponent(slug)}` : '';
     };
+    const crossWorkspaceQuery=(id?:string)=>
+      id && workspace?.id && id!==workspace.id
+        ? `?workspace=${encodeURIComponent(workspaceSegment(id))}`
+        : '';
+    const sessionHref=(referenceOrId:string,wsId?:string)=>
+      `/generations/${encodeURIComponent(referenceOrId)}${crossWorkspaceQuery(wsId)}`;
     return [
-      ...savedSessions.map(session=>({id:session.id,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:`/generations?workspace=${encodeURIComponent(workspaceSegment(session.workspace_id))}&video-session=${encodeURIComponent(session.reference??session.id)}`})),
-      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}&session=${encodeURIComponent(item.reference??item.id)}`})),
-      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}${keyQuery(item)}&job=${encodeURIComponent(item.reference??item.id)}`};}),
-      ...legacyIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
+      ...savedSessions.map(session=>({id:session.id,reference:session.reference,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:session.reference || /^video-[1-9][0-9]{0,18}$/.test(session.id) ? sessionHref(session.reference??session.id,session.workspace_id) : `/generations?workspace=${encodeURIComponent(workspaceSegment(session.workspace_id))}&video-session=${encodeURIComponent(session.id)}`})),
+      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,reference:item.reference,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:sessionHref(item.reference??item.id,item.workspaceId)})),
+      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,reference:item.reference,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}${keyQuery(item)}&job=${encodeURIComponent(item.reference??item.id)}`};}),
+      ...legacyIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,reference:item.reference,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
     ].sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
   },[chats,savedChats,savedVideos,savedIntents,savedSessions,unavailableSessionWorkspaces,videos,workspace,context.workspaces,currentKeys,pending]);
   async function more(){
@@ -239,12 +246,12 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const content = <>
     {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Retry sessions")}</Button></div>}
     <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=><SidebarMenuItem key={`${item.type}:${item.id}`}>
-      <SidebarMenuButton asChild isActive={item.type==='chat' ? activeChat===item.id : item.type==='video-session' ? activeVideoSession===item.id : activeVideo===item.id || Boolean(item.intent&&activeIntent===item.intent.id)} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&item.workspaceId===workspace?.id&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{item.title}</span></Link></SidebarMenuButton>
+      <SidebarMenuButton asChild isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference) || Boolean(item.intent&&(activeIntent===item.intent.id || (item.intent.reference&&activeIntent===item.intent.reference))))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&item.workspaceId===workspace?.id&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{item.title}</span></Link></SidebarMenuButton>
       {item.type==='chat'&&item.workspaceId===workspace?.id&&chatActions&&chatActions(item.id)}
       {item.type==='video'&&item.intent&&item.workspaceId===workspace?.id&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(item.intent!.id,element);else actionButtons.current.delete(item.intent!.id);}} showOnHover disabled={disabled||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{deleteOpener.current=actionButtons.current.get(item.intent!.id)??null;setDeleting(item.intent!);setDeleteError('');}}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
       {item.type==='video-session'&&item.workspaceId===workspace?.id&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{deleteOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>)}</SidebarMenu>
-    {!entries.length&&!loading&&!pending&&!error&&!failed&&<p className="px-3 py-4 text-sm text-muted-foreground">{uiT("No sessions yet")}</p>}
+    {!entries.length&&!loading&&!pending&&!error&&!failed&&<Empty className="p-3 md:p-3"><EmptyHeader><EmptyDescription>{uiT("No sessions yet")}</EmptyDescription></EmptyHeader></Empty>}
     {(loading||pending)&&!entries.length&&<SidebarMenu role="status" aria-busy="true" aria-label={uiT("Loading sessions…")}>
       {Array.from({length:4},(_,index)=><SidebarMenuItem key={index}><SidebarMenuSkeleton showIcon/></SidebarMenuItem>)}
     </SidebarMenu>}

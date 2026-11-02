@@ -10,7 +10,7 @@ type Theme='system'|'light'|'dark';
 function read():Theme {try{const value=localStorage.getItem('niu-dashboard-theme');return value==='dark'||value==='light'?value:'system';}catch{return 'system';}}
 
 const NAV_ZH: Record<string, string> = {
-  'Docs': 'Docs',
+  'Docs': '文档',
   'AgentDoc': 'AgentDoc',
   'Why Niu?': '为什么选择 Niu？',
   Blog: '博客',

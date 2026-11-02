@@ -182,3 +182,169 @@ pub async fn set_member_administration(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"enabled":input.enabled}})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionOrganizationInput {
+    #[serde(alias = "organization_id")]
+    organization: String,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/session/organization",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "switchSessionOrganization",
+///     "summary": "Switch the active organization for the current member session",
+///     "description": "Requires an authenticated member session. Accepts an organization UUID, durable slug, or retained slug alias already granted to this account identity. Updates the active operator membership bound to the session and returns the refreshed session identity.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "organization_id"
+///             ],
+///             "properties": {
+///               "organization": {
+///                 "type": "string",
+///                 "description": "Organization UUID or slug."
+///               },
+///               "organization_id": {
+///                 "type": "string",
+///                 "description": "Organization UUID or slug."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Updated session identity scoped to the selected organization."
+///       },
+///       "400": {
+///         "description": "Invalid organization reference or JSON body."
+///       },
+///       "401": {
+///         "description": "Invalid, expired or revoked member session."
+///       },
+///       "403": {
+///         "description": "Installation credentials cannot switch member organization scope."
+///       },
+///       "404": {
+///         "description": "No active membership in the requested organization."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn switch_session_organization(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<SessionOrganizationInput>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = super::authorize(&state, &headers, AdminPermission::Read).await?;
+    let AdminAuthorization::Operator(principal) = authorization else {
+        return Err(ApiError::forbidden());
+    };
+    match state
+        .store
+        .switch_session_organization(principal, &input.organization)
+        .await
+    {
+        Ok(_) => current_session(State(state), headers).await,
+        Err(niu_storage::StoreError::Unauthorized) => {
+            super::authorize(&state, &headers, AdminPermission::Read).await?;
+            Err(ApiError::not_found())
+        }
+        Err(error) => Err(ApiError::from_store(error)),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMembershipClaimInput {
+    token: String,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/session/memberships",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "claimSessionMembership",
+///     "summary": "Link an issued operator access token to the current member account",
+///     "description": "Requires an authenticated member session and a valid, unrevoked operator session token. Links the target operator membership to the caller's account identity with explicit token proof, switches the current session to that membership, and returns the updated session identity. Rejects tokens already linked to a different account identity with 409.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "token"
+///             ],
+///             "properties": {
+///               "token": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "description": "Issued operator access token."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Membership linked and active session switched."
+///       },
+///       "400": {
+///         "description": "Invalid or expired invite token."
+///       },
+///       "401": {
+///         "description": "Invalid, expired or revoked member session."
+///       },
+///       "403": {
+///         "description": "Installation credentials cannot claim member memberships."
+///       },
+///       "409": {
+///         "description": "The operator membership is already linked to a different account identity."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn claim_session_membership(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<SessionMembershipClaimInput>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = super::authorize(&state, &headers, AdminPermission::Read).await?;
+    let AdminAuthorization::Operator(principal) = authorization else {
+        return Err(ApiError::forbidden());
+    };
+    state
+        .store
+        .claim_organization_membership(principal, &input.token)
+        .await
+        .map_err(ApiError::from_store)?;
+    current_session(State(state), headers).await
+}

@@ -31,11 +31,11 @@ function page(path: string) {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route
-          path="/workspaces/:workspace/pools"
+          path="/workspaces/:workspace/routing"
           element={<AgentReviewPage />}
         />
         <Route
-          path="/workspaces/:workspace/pools/:slug"
+          path="/workspaces/:workspace/routing/:slug"
           element={<AgentReviewPage />}
         />
         <Route
@@ -146,16 +146,16 @@ test("switching workspace clears prior resource rows before the new response arr
           }),
     ),
   );
-  const view = render(page("/workspaces/demo/pools"));
+  const view = render(page("/workspaces/demo/routing"));
   expect(await screen.findByText("First workspace policy")).toBeTruthy();
   context.workspace.id = "33333333-3333-4333-8333-333333333333";
-  view.rerender(page("/workspaces/demo/pools"));
+  view.rerender(page("/workspaces/demo/routing"));
   expect(screen.queryByText("First workspace policy")).toBeNull();
   expect(screen.getByRole("status").textContent).toMatch(/Loading/);
   await waitFor(() => expect(finish).toBeTruthy());
   finish!(Response.json({ data: [], next_after: null }));
   expect(
-    await screen.findByRole("heading", { name: "No model pools yet" }),
+    await screen.findByRole("heading", { name: "No custom models yet" }),
   ).toBeTruthy();
 });
 test("permission failure does not masquerade as empty or saved configuration", async () => {
@@ -165,13 +165,13 @@ test("permission failure does not masquerade as empty or saved configuration", a
       Response.json({ error: { message: "Forbidden" } }, { status: 403 }),
     ),
   );
-  render(page("/workspaces/demo/pools"));
+  render(page("/workspaces/demo/routing"));
   expect(
     await screen.findByText(
       "Your current membership cannot read this workspace.",
     ),
   ).toBeTruthy();
-  expect(screen.queryByText("No model pools yet")).toBeNull();
+  expect(screen.queryByText("No custom models yet")).toBeNull();
   expect(screen.queryByText(/Saved workspace configuration/)).toBeNull();
   expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
 });
@@ -205,7 +205,7 @@ test("historical pool review shows the saved configuration and returns keyboard 
       ),
     ),
   );
-  render(page("/workspaces/demo/pools/assistant?tab=history"));
+  render(page("/workspaces/demo/routing/assistant?tab=history"));
   const opener = await screen.findByRole("button", {
     name: "Review revision 1",
   });
@@ -313,14 +313,14 @@ test("evaluation policy reference opens its captured revision beyond the latest 
     vi.fn(async (url: string) => {
       const path = String(url);
       calls.push(path);
-      if (path.includes("/pools/assistant/history"))
+      if (path.includes("/routing/assistant/history"))
         return Response.json({
           data: path.includes("before=2") ? [captured] : [current],
           next_before: null,
         });
-      if (path.includes("/pools/assistant/selections"))
+      if (path.includes("/routing/assistant/selections"))
         return Response.json({ data: [] });
-      if (path.endsWith("/pools/assistant"))
+      if (path.endsWith("/routing/assistant"))
         return Response.json({ data: current });
       if (path.endsWith("/runs/candidate"))
         return Response.json({
@@ -364,7 +364,7 @@ test("evaluation policy reference opens its captured revision beyond the latest 
     name: "Policy assistant · revision 1",
   });
   expect(link.getAttribute("href")).toBe(
-    "/workspaces/demo/pools/assistant?tab=history&revision=1",
+    "/workspaces/demo/routing/assistant?tab=history&revision=1",
   );
   const user = userEvent.setup();
   await user.click(link);
@@ -384,4 +384,129 @@ test("evaluation policy reference opens its captured revision beyond the latest 
   expect(screen.getByRole("dialog").textContent).not.toContain(
     "Current configuration",
   );
+});
+
+test("workspace member can create a custom routed model directly from the empty state", async () => {
+  let savedPool: Record<string, unknown> | null = null;
+  const requests: Array<{ url: string; method: string; body?: unknown }> = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      requests.push({ url: String(url), method, body });
+      if (method === "PUT" && String(url).endsWith("/routing/fast-coding-pool")) {
+        savedPool = { ...body, revision: 1 };
+        return Response.json({ data: savedPool });
+      }
+      return Response.json({
+        data: savedPool ? [savedPool] : [],
+        next_after: null,
+      });
+    }),
+  );
+  render(page("/workspaces/demo/routing"));
+  expect(
+    await screen.findByRole("heading", { name: "No custom models yet" }),
+  ).toBeTruthy();
+  const createButtons = screen.getAllByRole("button", {
+    name: "Create custom model",
+  });
+  expect(createButtons.length).toBeGreaterThanOrEqual(2);
+  const user = userEvent.setup();
+  await user.click(createButtons[0]!);
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toBeTruthy();
+
+  await user.type(screen.getByLabelText("Name"), "Fast coding pool");
+  expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe(
+    "fast-coding-pool",
+  );
+  await user.type(screen.getByLabelText("Model alias"), "gpt-4.1-mini");
+  await user.click(
+    screen.getAllByRole("button", { name: "Create custom model" }).at(-1)!,
+  );
+
+  expect(await screen.findByRole("link", { name: "Fast coding pool" })).toBeTruthy();
+  const putCall = requests.find((req) => req.method === "PUT");
+  expect(putCall).toBeTruthy();
+  expect(putCall?.url).toContain(
+    "/api/v1/workspaces/11111111-1111-4111-8111-111111111111/routing/fast-coding-pool",
+  );
+  expect(putCall?.body).toMatchObject({
+    slug: "fast-coding-pool",
+    name: "Fast coding pool",
+    revision: 0,
+    enabled: true,
+    default_action: "candidates",
+    candidates: [
+      { alias: "gpt-4.1-mini", priority: 100, weight: 1, enabled: true },
+    ],
+  });
+});
+
+test("workspace member can edit a custom routed model and restore an earlier revision", async () => {
+  let current = {
+    slug: "assistant",
+    name: "Assistant",
+    revision: 2,
+    description: "Current policy",
+    enabled: true,
+    default_action: "candidates",
+    candidates: [{ alias: "fast", enabled: true, priority: 100, weight: 2000 }],
+    rules: [],
+  };
+  const earlier = {
+    ...current,
+    revision: 1,
+    description: "Earlier policy",
+    candidates: [{ alias: "fast", enabled: true, priority: 100, weight: 1000 }],
+  };
+  const putBodies: Array<Record<string, unknown>> = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "PUT" && String(url).endsWith("/routing/assistant")) {
+        const body = JSON.parse(String(init?.body));
+        putBodies.push(body);
+        current = { ...body, revision: current.revision + 1 };
+        return Response.json({ data: current });
+      }
+      if (String(url).includes("/history")) {
+        return Response.json({ data: [current, earlier], next_before: null });
+      }
+      if (String(url).includes("/selections")) {
+        return Response.json({ data: [] });
+      }
+      return Response.json({ data: current });
+    }),
+  );
+  render(page("/workspaces/demo/routing/assistant?tab=history"));
+  const editButton = await screen.findByRole("button", {
+    name: "Edit routing",
+  });
+  const user = userEvent.setup();
+  await user.click(editButton);
+  const nameInput = await screen.findByLabelText("Name");
+  await user.clear(nameInput);
+  await user.type(nameInput, "Assistant v3");
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(putBodies.length).toBe(1));
+  expect(putBodies[0]).toMatchObject({
+    slug: "assistant",
+    name: "Assistant v3",
+    revision: 2,
+  });
+
+  await user.click(await screen.findByRole("button", { name: "Review revision 1" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Restore this revision" }),
+  );
+  await waitFor(() => expect(putBodies.length).toBe(2));
+  expect(putBodies[1]).toMatchObject({
+    slug: "assistant",
+    description: "Earlier policy",
+    revision: 3,
+  });
 });

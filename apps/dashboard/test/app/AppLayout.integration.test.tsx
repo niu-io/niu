@@ -152,14 +152,14 @@ describe('dashboard route layout', () => {
     mockHealth(); const originalFetch=globalThis.fetch;
     let finishRename!: (response:Response)=>void;
     vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/organizations/org/projects/production' && init?.method==='PATCH'
-      ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/api/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default workspace',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
+      ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/api/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
     const router=renderAt('/workspaces/production/settings'); const user=userEvent.setup();
     await user.clear(await screen.findByLabelText('Workspace name'));
     await user.type(screen.getByLabelText('Workspace name'),'Customer support');
     await user.click(screen.getByRole('button',{name:'Save changes',exact:true}));
     await user.click(screen.getByRole('button',{name:'Switch workspace in header',exact:true}));
-    await user.click(await screen.findByRole('menuitemradio',{name:'Default workspace',exact:true}));
-    await waitFor(()=>expect((screen.getByLabelText('Workspace name') as HTMLInputElement).value).toBe('Default workspace'));
+    await user.click(await screen.findByRole('menuitemradio',{name:'Default',exact:true}));
+    await waitFor(()=>expect((screen.getByLabelText('Workspace name') as HTMLInputElement).value).toBe('Default'));
     const destination=router.state.location.pathname;
     await act(async()=>finishRename(Response.json({id:'production',name:'Customer support'})));
     await waitFor(()=>expect(screen.queryByText('Workspace renamed.')).toBeNull());
@@ -171,9 +171,9 @@ describe('dashboard route layout', () => {
     mockHealth();
     const originalFetch=globalThis.fetch;
     vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/api/v1/workspaces'
-      ? Response.json({data:[{id:'default',name:'Default workspace',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})
+      ? Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})
       : originalFetch(input,init)));
-    const router=renderAt('/workspaces/default-workspace/keys/key-fixture?keyId=key-fixture&period=month#gateway-attempt-fixture');
+    const router=renderAt('/workspaces/default/keys/key-fixture?keyId=key-fixture&period=month#gateway-attempt-fixture');
     const user=userEvent.setup();
     const switcher=await screen.findByRole('button',{name:'Switch workspace in header',exact:true});
     await waitFor(()=>expect(switcher.hasAttribute('disabled')).toBe(false));
@@ -276,7 +276,7 @@ describe('dashboard route layout', () => {
     mockHealth(); renderAt('/workspaces/default/usage');
     const rail = await screen.findByRole('navigation', { name: 'Product navigation' });
     expect(within(rail).queryByRole('link', { name: 'Agent Observability' })).toBeNull();
-    expect(within(await screen.findByRole('navigation', {name:'Main navigation'})).getByRole('link', { name: 'Activity', exact: true })).toBeTruthy();
+    expect(within(await screen.findByRole('navigation', {name:'Main navigation'})).getByRole('link', { name: 'Overview', exact: true })).toBeTruthy();
   });
 
   it('applies confirmed workspace changes without a fallible second list request', async () => {
@@ -337,7 +337,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     renderAt('/workspaces/default/billing');
     expect(await screen.findByRole('heading', { name: 'Billing', exact: true })).toBeTruthy();
-    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Billing', exact: true }).getAttribute('href')).toBe('/workspaces/default/billing');
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/workspaces/default/settings');
     expect((await within(screen.getByLabelText('Breadcrumb')).findByRole('link', {name: 'Default', exact: true})).getAttribute('href')).toBe('/workspaces/default');
     expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
   });
@@ -356,14 +356,16 @@ describe('dashboard route layout', () => {
 
   it('switches workspace pages through the breadcrumb without changing workspace', async () => {
     mockHealth();
-    const router = renderAt('/workspaces/production/billing');
-    await screen.findByRole('heading', {name: 'Billing', exact: true});
+    const router = renderAt('/workspaces/production/settings');
+    await screen.findByRole('heading', {name: 'Settings', exact: true});
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
     expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true})).getAttribute('href')).toBe('/workspaces/production');
     await userEvent.click(breadcrumb.getByRole('button', {name: 'Switch workspace page'}));
-    expect(screen.getByRole('menuitemradio', {name: 'Billing', exact: true}).getAttribute('aria-checked')).toBe('true');
-    await userEvent.click(screen.getByRole('menuitemradio', {name: 'Activity', exact: true}));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/usage'));
+    expect(screen.getByRole('menuitemradio', {name: 'Settings', exact: true}).getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('menuitemradio', {name: 'Video setup', exact: true})).toBeNull();
+    expect(screen.queryByRole('menuitemradio', {name: 'Billing', exact: true})).toBeNull();
+    await userEvent.click(screen.getByRole('menuitemradio', {name: 'Logs', exact: true}));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/executions'));
   });
 
   it('preserves the current section when switching workspaces in both directions', async () => {
@@ -456,11 +458,11 @@ describe('dashboard route layout', () => {
 
     expect(screen.queryByText('Requests today')).toBeNull();
 
-    await user.click(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Activity', exact: true }));
+    await user.click(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Logs', exact: true }));
     expect(await screen.findByLabelText('Breadcrumb')).toBeTruthy();
-    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Activity')).toBeTruthy());
-    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Activity' }).getAttribute('aria-current')).toBe('page');
-    expect(router.state.location.pathname).toBe('/workspaces/default/usage');
+    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Logs')).toBeTruthy());
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Logs' }).getAttribute('aria-current')).toBe('page');
+    expect(router.state.location.pathname).toBe('/workspaces/default/executions');
   });
 
   it('closes the expanded workspace navigation when resizing into the compact layout', async () => {
@@ -495,7 +497,7 @@ describe('dashboard route layout', () => {
     const sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }));
     expect(screen.getByRole('banner')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy();
-    expect(sidebar.getByRole('link', { name: 'Activity' })).toBeTruthy();
+    expect(sidebar.getByRole('link', { name: 'Assets' })).toBeTruthy();
     expect(sidebar.queryByRole('link', { name: 'Agent Connect' })).toBeNull();
     expect(sidebar.queryByRole('link', { name: 'Tasks' })).toBeNull();
     expect(sidebar.queryByRole('link', { name: 'Benchmarks' })).toBeNull();
@@ -550,11 +552,11 @@ describe('dashboard route layout', () => {
 
   it('loads a feature route directly and shows a route-specific connection state', async () => {
     mockHealth();
-    renderAt('/workspaces/production/usage');
+    renderAt('/workspaces/production/executions');
 
     expect(await screen.findByLabelText('Breadcrumb')).toBeTruthy();
 
-    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Activity' }).getAttribute('aria-current')).toBe('page');
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Logs' }).getAttribute('aria-current')).toBe('page');
   });
 
 

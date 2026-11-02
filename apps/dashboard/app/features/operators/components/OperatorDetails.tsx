@@ -141,7 +141,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{roleMessage || uiT("The saved role changed. Reload it before saving again.")}</p>}
     </div>}
     {credential?.operatorId === operator.id && <section className="operator-credential" aria-labelledby="operator-credential-title" role="status">
-      <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">{uiT("Save this user’s access token")}</h3><p>{uiT("Shown once · expires")}{" "}{formatExpiry(credential.session.expires_at_unix)}{uiT(". Share it securely with this user. It grants dashboard and management API access, not model API access.")}</p></div></div>
+      <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">{uiT("Save this user’s access token")}</h3><p>{uiT("Shown once · expires")}{" "}{formatExpiry(credential.session.expires_at_unix)}{uiT(". Share it securely with this user. It grants dashboard and management API access, not model API access. Existing Niu users can link this organization in Organization settings → Join an organization.", "。请安全地分享给该用户。它授予控制台与管理 API 权限，而非模型 API 权限。已有 Niu 账户的用户可在“组织设置 → 加入组织”中绑定该组织。")}</p></div></div>
       <Label htmlFor="new-operator-token">{uiT("Access token")}<Input id="new-operator-token" className="mono operator-token-input" readOnly value={credential.token} onFocus={event => event.target.select()} /></Label>
       <Button type="button" variant="outline" onClick={onDismissCredential}>{uiT("Done — hide token")}</Button>
     </section>}

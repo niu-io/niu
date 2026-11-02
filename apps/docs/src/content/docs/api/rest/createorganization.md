@@ -1,5 +1,5 @@
 ---
-title: "Create a company and its initial zero-funded account"
+title: "Create an organization and its initial zero-funded account"
 description: "POST /api/v1/organizations"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/organizations`
 
-Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.
+Authorized for installation administrators and authenticated member accounts. Atomically creates the organization, a durable URL-safe slug, and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. When called by a member session, also provisions an organization-wide owner membership for the account and switches the active session organization. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated and preserved without trimming. Optional Idempotency-Key is durable and actor-scoped: repeating the same input returns the original organization identity and current name with 201; different input returns 409. A deleted organization returns 404 without recreation. Without the header each successful call creates an organization. On uncertain outcomes retry the same key and input.
 
 Operation: `createOrganization`.
 
@@ -71,6 +71,13 @@ Location: **header**. Optional. Exactly one visible-ASCII identity; preserve it 
       "maxLength": 200,
       "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
     },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Optional unique slug; generated from name when omitted. The value default is reserved."
+    },
     "currency": {
       "type": "string",
       "pattern": "^[A-Z]{3}$",
@@ -84,7 +91,7 @@ Location: **header**. Optional. Exactly one visible-ASCII identity; preserve it 
 
 ### HTTP 201
 
-Company identity and initial account currency.
+Organization identity, slug, and initial account currency.
 
 Content type: `application/json`.
 
@@ -93,6 +100,7 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "id",
+    "slug",
     "name",
     "currency"
   ],
@@ -101,12 +109,22 @@ Content type: `application/json`.
       "type": "string",
       "format": "uuid"
     },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
     "name": {
       "type": "string"
     },
     "currency": {
       "type": "string",
       "pattern": "^[A-Z]{3}$"
+    },
+    "operator_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Provisioned owner membership identifier when created by a member session."
     }
   }
 }
@@ -114,7 +132,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
+Invalid name/slug/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
 
 ### HTTP 401
 
@@ -122,15 +140,15 @@ Missing, invalid, expired or revoked management credential.
 
 ### HTTP 403
 
-Installation administrator required; company/workspace members cannot create companies.
+Credential lacks management access.
 
 ### HTTP 404
 
-The company from the original idempotent creation was deleted.
+The organization from the original idempotent creation was deleted.
 
 ### HTTP 409
 
-Idempotency-Key was already used with a different name or currency.
+The requested slug is already in use, or Idempotency-Key was already used with different input.
 
 ### HTTP 422
 
@@ -142,6 +160,6 @@ Storage unavailable; creation outcome may be uncertain.
 
 ## Behavior and supported scope
 
-Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.
+Authorized for installation administrators and authenticated member accounts. Atomically creates the organization, a durable URL-safe slug, and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. When called by a member session, also provisions an organization-wide owner membership for the account and switches the active session organization. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated and preserved without trimming. Optional Idempotency-Key is durable and actor-scoped: repeating the same input returns the original organization identity and current name with 201; different input returns 409. A deleted organization returns 404 without recreation. Without the header each successful call creates an organization. On uncertain outcomes retry the same key and input.
 
 **Supported scope:** implemented

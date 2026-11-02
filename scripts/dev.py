@@ -142,10 +142,10 @@ def source_stamp():
 def dashboard_source_stamp():
     paths = []
     dashboard = CORE / 'apps/dashboard'
-    for base in (dashboard / 'src',):
+    for base in (dashboard / 'app',):
         paths.extend((str(p), p.stat().st_mtime_ns) for p in base.rglob('*')
                      if p.is_file() and p.suffix in ('.ts', '.tsx', '.css', '.html'))
-    for name in ('index.html', 'vite.config.ts', 'package.json'):
+    for name in ('index.html', 'vite.config.ts', 'react-router.config.ts', 'package.json'):
         path = dashboard / name
         if path.exists():
             paths.append((str(path), path.stat().st_mtime_ns))

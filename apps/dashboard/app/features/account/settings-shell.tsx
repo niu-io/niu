@@ -5,6 +5,7 @@ import { Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router'
 import AccountProfile from './AccountProfile';
 import PasswordSettings from './PasswordSettings';
 import AccountBilling from '@/features/billing/AccountBilling';
+import OperatorsView from '@/features/operators/components/OperatorsView';
 import { Sidebar, SidebarProvider, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from '@/components/ui/sidebar';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
 import { useLocale, type Locale } from '@/shell/ui-locale';
 import { useEffect } from 'react';
-import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle, IconLanguage } from '@tabler/icons-react';
+import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle, IconLanguage, IconUsers } from '@tabler/icons-react';
 import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
@@ -31,7 +32,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
   const [theme, setTheme] = useState<Theme>(readTheme);
   useEffect(() => subscribeTheme(() => setTheme(readTheme())), []);
   useEffect(() => setProfileState({identity,value:context.session?.profile ?? null}), [identity,context.session?.profile]);
-  if (!section || !['account', 'appearance', 'billing', 'payments', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
+  if (!section || !['account', 'appearance', 'billing', 'payments', 'members', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
   if (section === 'account' && context.session?.kind !== 'operator') return <Navigate state={location.state} to="/settings/appearance" replace />;
   const personal = context.session?.kind === 'operator';
   const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
@@ -41,6 +42,25 @@ function SettingsContent({context, section}: {context: DashboardContext; section
       <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
       <PasswordSettings key={'password-' + identity} token={context.token} hasPassword={Boolean(profile?.email)} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
     </div> : null}
+    {section === 'members' && <section aria-label={t('Organization members', '组织成员管理')} className="space-y-6">
+      <header className="space-y-2">
+        <h2 className="text-base font-semibold">{t('Members', '成员管理')}</h2>
+        <p className="text-sm text-muted-foreground">{t('Manage organization members, roles, and workspace access.', '管理组织成员、角色与工作空间访问权限。')}</p>
+      </header>
+      {context.session ? (
+        <OperatorsView
+          embedded
+          key={`${context.token}:${context.organization?.id}:${context.workspace?.id}`}
+          initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
+          initialWorkspace={context.workspace?.id}
+          token={context.token}
+          session={context.session}
+          refreshWorkspace={context.refreshWorkspace}
+        />
+      ) : (
+        <MetricStripSkeleton count={2} label={t('Loading organization members…', '正在加载组织成员…')} />
+      )}
+    </section>}
     {section === 'about' && <section aria-label={uiT("About Niu")} className="space-y-8">
       <header className="flex items-center gap-4">
         <div className="min-w-0"><h2 aria-label={t('About Niu', '关于 Niu')}><NiuBrand locale={locale} /></h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发构建版')}</p></div>
@@ -103,10 +123,12 @@ export function SettingsNavigation({ context, section, href }: { context: Dashbo
   const location = useLocation();
   const personal = context.session?.kind === 'operator';
   const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
+  const canManageMembers = Boolean(context.organization && context.session?.permissions?.manage_operators);
   const entries = [
     ...(personal ? [{path:'account',label:t('Account', '账户'),icon:IconUserCircle}] : []),
     {path:'appearance',label:t('Appearance', '外观'),icon:IconPalette},
     ...(canViewBilling ? [{path:'billing',label:t('Credits', '额度与充值'),icon:IconCreditCard}] : []),
+    ...(canManageMembers ? [{path:'members',label:t('Members', '成员管理'),icon:IconUsers}] : []),
     {path:'about',label:t('About', '关于'),icon:IconInfoCircle},
   ];
   return <>
@@ -153,7 +175,7 @@ export function SettingsDialog({context, section, onClose, href}: {context:Dashb
       <DialogTitle ref={headingRef} tabIndex={-1} className="sr-only">{t('Settings', '设置')}</DialogTitle>
       <DialogDescription id="settings-description" className="sr-only">{t('Account preferences and company billing.', '账户偏好与组织计费设置。')}</DialogDescription>
       <SidebarProvider style={{'--sidebar-width': '200px'} as React.CSSProperties} className="!min-h-0 h-full overflow-hidden">
-        <Sidebar collapsible={isMobile ? "none" : "icon"} className="settings-dialog-navigation shrink-0 bg-muted/40">
+        <Sidebar collapsible={isMobile ? "none" : "icon"} className="settings-dialog-navigation shrink-0">
           <SettingsNavigation context={context} section={section} href={href}/>
         </Sidebar>
         <div ref={contentRef} role="region" aria-label={uiT("Settings content")} tabIndex={0} className="settings-dialog-content min-w-0 flex-1 overflow-y-auto p-6 pt-12 sm:p-10 sm:pt-12 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2">{!isMobile && <SidebarTrigger aria-label={uiT("Toggle Settings navigation")} className="absolute top-3 left-[calc(var(--sidebar-width)+12px)] settings-navigation-trigger"/>}<SettingsContent context={context} section={section}/></div>

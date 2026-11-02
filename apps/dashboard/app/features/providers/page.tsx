@@ -12,7 +12,7 @@ import ProvidersView from './components/ProvidersView';
 
 const validSections = new Set(["overview", "keys", "models", "usage", "settlements", "members", "settings"]);
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
     authorized: canManagePlatform(snapshot.session),
     endpoint: '/api/v1/providers',

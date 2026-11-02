@@ -39,6 +39,7 @@ const commonLicenses = new Set([
   "MIT AND ISC",
   "OFL-1.1",
   "Python-2.0",
+  "Unlicense",
 ]);
 
 // These exact build-only packages are not copied into the runtime image, which

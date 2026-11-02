@@ -11,7 +11,7 @@ it('keeps Admin sections independent of the Provider directory', () => {
   const context = {token:'test',session:{kind:'installation',operator:null}} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={['/admin/providers']}><SidebarProvider><ProviderNav context={context}/></SidebarProvider></MemoryRouter>);
   expect(screen.queryByRole('button', {name:'Switch provider'})).toBeNull();
-  for (const [name, href] of [['Providers','/admin/providers'],['Model pools','/admin/pools'],['Financial reports','/admin/reports'],['Account balances','/admin/balances'],['Pricing','/admin/pricing'],['Payment gateways','/admin/payments'],['Branding','/admin/branding']]) {
+  for (const [name, href] of [['Providers','/admin/providers'],['Routing','/admin/routing'],['Financial reports','/admin/reports'],['Account balances','/admin/balances'],['Pricing','/admin/pricing'],['Payment gateways','/admin/payments'],['Branding','/admin/branding']]) {
     expect(screen.getByRole('link', {name}).getAttribute('href')).toBe(href);
   }
 });

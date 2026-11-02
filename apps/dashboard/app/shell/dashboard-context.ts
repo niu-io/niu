@@ -1,5 +1,5 @@
 import { useOutletContext } from 'react-router';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export type CatalogMetadata = { name?: string | null; description?: string | null; context_length?: number | null; max_completion_tokens?: number | null; input_modalities?: string[]; output_modalities?: string[]; supported_parameters?: string[] };
 export type CustomerPricing = {currency:string; unit:'nanounits_per_million_tokens'; prompt_rate:string; cached_prompt_rate?:string|null; completion_rate:string};
@@ -7,7 +7,7 @@ export type CustomerUnitPricing = {definition_revision:string; unit_name:string;
 export type Model = { generation_capabilities?: {chat:boolean|null;video:boolean|null}|null; billing_source?: 'own_api_key' | 'niu_credits' | null; customer_pricing?: CustomerPricing | null; customer_unit_pricing?: CustomerUnitPricing | null; catalog?: CatalogMetadata; id: string; provider?: string; upstream_model?: string; public_catalog: boolean };
 export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';
-export type Organization = { id: string; name: string };
+export type Organization = { id: string; slug?: string; name: string };
 export type MemberProfile = {name:string; email:string | null; avatar_data_url:string | null; revision:number};
 export type Workspace = { id: string; slug?: string; route_slug?: string; slug_aliases?: string[]; is_default?: boolean; created_at_ms?: number; active_key_count?: number; requests_30d?: number; requests_by_day?: Array<{start_ms: number; request_count: number}>; last_request_at_ms?: number | null; name: string; organization_id: string; organization_name: string };
 export type SessionChatKey = {
@@ -51,6 +51,7 @@ export function canManagePlatform(session: AdminSession | null | undefined): boo
 }
 
 export type DashboardContext = {
+  environmentNotice?: ReactNode;
   appearance?: {ready:boolean; saving:boolean; error:string; reload:()=>void};
   token: string;
   sessionChecked: boolean;
@@ -62,7 +63,13 @@ export type DashboardContext = {
   providerDirectoryLoading?: boolean;
   organizations: Organization[];
   organization: Organization | null;
-  selectOrganization: (organization: Organization) => void;
+  selectOrganization: (organization: Organization) => void | Promise<void>;
+  organizationSwitching?: boolean;
+  organizationSwitchError?: string;
+  createOrganization?: (name: string, slug?: string, initialWorkspaceName?: string, idempotencyKey?: string) => Promise<Organization>;
+  renameOrganization?: (target: Organization, name: string) => Promise<Organization>;
+  joinOrganization?: (inviteToken: string) => Promise<AdminSession>;
+  openCreateOrganization?: () => void;
   workspaces: Workspace[];
   workspace: Workspace | null;
   workspaceLoading: boolean;

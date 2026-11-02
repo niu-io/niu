@@ -56,7 +56,7 @@ export async function callPoolTool(client: GatewayClient, name: string, raw: unk
     if (typeof value !== "string" || value.length > 80 || ["index", "history", "preview", "audit", "new"].includes(value) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) throw new Error("A readable pool slug is required");
     return value;
   };
-  let path = "/pools";
+  let path = "/routing";
   let method: "GET" | "POST" | "PUT" = "GET";
   let body: unknown;
   if (name === "set_pool" || name === "preview_pool") {

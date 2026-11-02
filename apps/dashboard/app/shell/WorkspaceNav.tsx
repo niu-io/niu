@@ -6,12 +6,39 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import type { DashboardContext, Model } from './dashboard-context';
 import { useLocale } from './ui-locale';
 import { navigation } from './navigation';
 import ProductRailLink from './ProductRailLink';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+
+function isWorkspaceNavItemActive(itemTo: string, activePath: string): boolean {
+  if (itemTo === '.') return activePath === '.' || activePath === 'usage';
+  if (itemTo === 'assets') {
+    return (
+      activePath === 'assets' ||
+      activePath.startsWith('assets/') ||
+      activePath === 'library' ||
+      activePath === 'video' ||
+      activePath.startsWith('video/')
+    );
+  }
+  if (itemTo === 'routing') {
+    return (
+      activePath === 'routing' ||
+      activePath.startsWith('routing/') ||
+      activePath === 'evaluations' ||
+      activePath.startsWith('evaluations/') ||
+      activePath === 'events' ||
+      activePath.startsWith('events/')
+    );
+  }
+  if (itemTo === 'settings') {
+    return activePath === 'settings' || activePath === 'billing' || activePath === 'costs';
+  }
+  const clean = itemTo.replace(/^\/+|\/+$/g, '');
+  return activePath === itemTo || activePath.startsWith(`${clean}/`);
+}
 
 export default function WorkspaceNav({
   context,
@@ -30,12 +57,8 @@ export default function WorkspaceNav({
 }) {
   const { t: uiT } = useUILocale();
   const { isZh } = useLocale();
-  const videoAvailable = useWorkspaceVideo(context);
   const navItems = navigation.filter(
-    item =>
-      item.destination === 'Workspace' &&
-      (item.to !== 'video' || videoAvailable) &&
-      (item.to !== 'costs' || context.session?.kind === 'installation'),
+    item => item.destination === 'Workspace' && !item.hidden,
   );
 
   return (
@@ -52,11 +75,7 @@ export default function WorkspaceNav({
           <SidebarMenu className="workspace-nav-menu">
             {navItems.map(item => {
               const path = item.to === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${item.to}`;
-              const isActive =
-                item.to === '.'
-                  ? activePath === '.'
-                  : activePath === item.to ||
-                    activePath.startsWith(`${item.to.replace(/^\/+|\/+$/g, '')}/`);
+              const isActive = isWorkspaceNavItemActive(item.to, activePath);
               const displayLabel = isZh ? item.labelZh : item.label;
               return (
                 <SidebarMenuItem key={item.to}>

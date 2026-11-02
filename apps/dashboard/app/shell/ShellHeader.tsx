@@ -298,13 +298,13 @@ export default function ShellHeader({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuRadioGroup
-                    value={activeNavigation?.to ?? ''}
+                    value={activeNavigation?.parentTo ?? activeNavigation?.to ?? ''}
                     onValueChange={value =>
                       navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)
                     }
                   >
                     {scopedNavigation
-                      .filter(item => item.destination === 'Workspace')
+                      .filter(item => item.destination === 'Workspace' && !item.hidden)
                       .map(item => (
                         <DropdownMenuRadioItem key={item.to} value={item.to}>
                           {isZh ? item.labelZh : item.label}

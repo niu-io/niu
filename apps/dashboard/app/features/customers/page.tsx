@@ -1,3 +1,4 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import {Link,type LoaderFunctionArgs} from 'react-router';
@@ -21,7 +22,7 @@ import {readPending,savePending,clearPending,type PendingCreation} from './pendi
 const COMPANIES_CACHE_KEY='/api/v1/companies?limit=50';
 type CompaniesPage={data:CompanyMetadata[];next_cursor:string|null};
 
-export function loader(args:LoaderFunctionArgs){
+export function clientLoader(args:LoaderFunctionArgs){
  return loadCriticalRouteEndpoint(args,({snapshot,url})=>({
   authorized:snapshot.session?.kind==='installation',
   endpoint:COMPANIES_CACHE_KEY,
@@ -63,12 +64,12 @@ export function Customers({token,onWorkspaceCreated}:{token:string;onWorkspaceCr
   finally{if(!active.signal.aborted)setLoading(false);}
  }
  useEffect(()=>{void load(undefined,false);return()=>controller.current?.abort();},[client]);
- return <section className="min-w-0 space-y-5" aria-label={uiT("Customers")}>
+ return <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Customers")}>
   <PageHeader title={uiT("Customers")} action={<><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={()=>void load()}><IconRefresh size={16}/><span className="hidden sm:inline">{uiT("Refresh")}</span></Button><Button aria-label={uiT("New customer")} onClick={event=>{returnFocus.current=event.currentTarget;setCreate(true);}}><IconPlus size={16}/><span className="hidden sm:inline">{uiT("New customer")}</span></Button></>}/>
   <p className="text-sm text-muted-foreground">{uiT("Each customer company has its own funds, users, and workspaces. Workspaces within a company share its funds.")}</p>
   {error&&<Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" onClick={()=>void load(failedCursor)} disabled={loading}>{uiT("Retry")}</Button></AlertDescription></Alert>}
   {loading&&!companies.length&&<TableSkeleton columns={2} rows={5} label={uiT("Loading customers…")}/>}
-  {!loading&&!error&&!companies.length&&<p>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</p>}
+  {!loading&&!error&&!companies.length&&<Empty><EmptyHeader><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader></Empty>}
   {!!companies.length&&<Table className="table-fixed" aria-label={uiT("Customer companies")}><TableHeader><TableRow><TableHead>{uiT("Company")}</TableHead><TableHead className="w-28 text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader><TableBody>{companies.map(company=><TableRow key={company.id}><TableCell className="whitespace-normal [overflow-wrap:anywhere]">{company.name}</TableCell><TableCell className="text-right"><Button variant="outline" onClick={event=>{returnFocus.current=event.currentTarget;setSelected(company);}} aria-label={uiF("Set up {0}", [company.name])}>{uiT("Set up")}</Button></TableCell></TableRow>)}</TableBody></Table>}
   {cursor&&<Button variant="outline" disabled={loading} onClick={()=>void load(cursor)}>{loading?uiT("Loading…"):uiT("More customers")}</Button>}
   <CreateCompany onRestoreFocus={restoreFocus} open={create} onOpenChange={setCreate} client={client} onCreated={company=>{invalidateQueries(COMPANIES_CACHE_KEY);setCompanies(old=>[company,...old.filter(row=>row.id!==company.id)]);setCreate(false);setSelected(company);}}/>

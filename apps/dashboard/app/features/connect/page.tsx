@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
@@ -13,8 +14,9 @@ type Grant = { client_name: string; state: string; capabilities?: string[] };
 export default function ConnectAgent() {
   const context = useDashboardContext();
   const { t, isZh } = useLocale();
-  const [query] = useSearchParams();
-  const code = query.get('code') ?? '';
+  const [query, setQuery] = useSearchParams();
+  const code = (query.get('code') ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  const [manualCode, setManualCode] = useState('');
   const [grant, setGrant] = useState<Grant | null>(null);
   const [workspaceId, setWorkspaceId] = useState('');
   const [consent, setConsent] = useState(false);
@@ -22,9 +24,10 @@ export default function ConnectAgent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
+  const validCode = /^[0-9A-F]{12}$/.test(code);
   const capabilityLabels: Record<string, string> = {
-    'pools:read': t('Read workspace model pools', '读取工作空间模型池'),
-    'pools:write': t('Create and change workspace model pools', '创建和修改工作空间模型池'),
+    'pools:read': t('Read workspace model routing', '读取工作空间模型路由'),
+    'pools:write': t('Create and change workspace model routing', '创建和修改工作空间模型路由'),
     'events:read': t('Read workspace event subscriptions and delivery status', '读取工作空间事件订阅与投递状态'),
     'events:write': t('Create and change workspace event subscriptions', '创建和修改工作空间事件订阅'),
     'evaluations:read': t('Read workspace evaluation evidence', '读取工作空间评估证据'),
@@ -36,14 +39,20 @@ export default function ConnectAgent() {
   useEffect(() => {
     const controller = new AbortController();
     setGrant(null); setError(''); setLoading(true); setConsent(false);
-    if (!/^[0-9A-F]{12}$/.test(code)) { setError(t('Open the verification link supplied by your agent.', '请打开 Agent 提供的验证链接。')); setLoading(false); return; }
+    if (!validCode) { setError(t('Open the verification link supplied by your agent.', '请打开 Agent 提供的验证链接。')); setLoading(false); return; }
     void fetch(`/api/v1/auth/agents/${code}`, { headers: { authorization: `Bearer ${context.token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error(response.status === 401 ? t('Sign in again to review this connection.', '请重新登录以审核连接。') : t('This request is unavailable or expired. Ask your agent to start again.', '请求不可用或已过期，请让 Agent 重新发起。')); return response.json(); })
       .then(result => { if (!controller.signal.aborted) setGrant(result.data); })
       .catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : t('Could not load the request.', '无法加载请求。')); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [code, context.token, retry, isZh]);
+  }, [code, validCode, context.token, retry, isZh]);
+  function submitManualCode(event: FormEvent) {
+    event.preventDefault();
+    const cleaned = manualCode.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+    if (!cleaned) return;
+    setQuery({ code: cleaned }, { replace: true });
+  }
   async function decide(approve: boolean) {
     if (!workspace || pending || !grant || (approve && (!consent || unsupported))) return;
     setPending(true); setError('');
@@ -62,7 +71,32 @@ export default function ConnectAgent() {
       <header className="space-y-3"><h1 id="connect-title" className="text-2xl font-semibold">{t('Connect your agent', '连接你的 Agent')}</h1>
         <p className="text-sm text-muted-foreground">{t('Review the request from your coding agent. Your account password stays in Niu.', '审核 coding agent 的请求。账户密码仅用于登录 Niu。')}</p></header>
       {loading && <FormSectionSkeleton fields={2} label={t('Loading connection request…', '正在加载连接请求…')} />}
-      {error && <div role="alert" className="space-y-3 text-sm"><p>{error}</p><Button variant="outline" disabled={pending} onClick={() => setRetry(value => value + 1)}>{t('Reload request', '重新加载请求')}</Button></div>}
+      {error && (
+        <div role="alert" className="space-y-4 text-sm">
+          <p>{error}</p>
+          {!validCode && (
+            <form onSubmit={submitManualCode} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="agent-verification-code">{t('Verification code', '验证码')}</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id="agent-verification-code"
+                    value={manualCode}
+                    onChange={event => setManualCode(event.target.value)}
+                    placeholder={t('ABCD-1234-EF56', 'ABCD-1234-EF56')}
+                    className="max-w-xs font-mono uppercase"
+                    maxLength={20}
+                  />
+                  <Button type="submit" disabled={!manualCode.trim()}>
+                    {t('Continue', '继续')}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
+          <Button variant="outline" disabled={pending} onClick={() => setRetry(value => value + 1)}>{t('Reload request', '重新加载请求')}</Button>
+        </div>
+      )}
       {terminal && <div role="status" className="space-y-3"><Check aria-hidden="true" /><h2 className="font-semibold">{grant.state === 'denied' ? t('Connection declined', '已拒绝连接') : t('Authorization approved', '已批准授权')}</h2><p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace API keys page.', '返回 Agent，它将验证连接。你可以在工作空间 API 密钥页面撤销签发的密钥。')}</p></div>}
       {grant && !terminal && <>
         <p className="text-sm text-muted-foreground">{t('Check that this code matches the request in your agent:', '请确认此验证码与你的 Agent 中显示的一致：')} <code className="font-mono font-medium text-foreground">{code.match(/.{1,4}/g)?.join('-')}</code></p>

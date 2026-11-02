@@ -41,7 +41,7 @@ const definitions = [
   ['stepfun', 'StepFun', 'stepfun', ['stepfun']],
   ['tencent', 'Tencent', 'tencent', ['tencent']],
   ['upstage', 'Upstage', 'upstage', ['upstage']],
-  ['xiaomi', 'Xiaomi', 'xiaomimimo', ['xiaomi']],
+  ['xiaomi', 'Xiaomi', 'xiaomi', ['xiaomi']],
 ] as const;
 export type ProviderIdentity = { id: string; name: string; logo?: string };
 export const providers: ProviderIdentity[] = definitions.map(([id, name, asset]) => ({ id, name, logo: assets[`../assets/providers/${asset}.svg`] ?? assets[`../assets/providers/${asset}.png`] }));

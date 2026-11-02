@@ -656,6 +656,7 @@ export function invalidateForMutation(token: string, path: string, method: strin
   if (cleanPath.includes('/providers') || cleanPath.includes('/suppliers') || cleanPath.includes('/vendors')) {
     substrings.add('/providers');
     substrings.add('/models');
+    substrings.add('/routing');
     substrings.add('/route-pools');
     substrings.add('/pools');
   }
@@ -686,7 +687,8 @@ export function invalidateForMutation(token: string, path: string, method: strin
     substrings.add('/customer-accounts');
     substrings.add('/payments/readiness');
   }
-  if (cleanPath.includes('/pools') || cleanPath.includes('/route-pools')) {
+  if (cleanPath.includes('/routing') || cleanPath.includes('/pools') || cleanPath.includes('/route-pools')) {
+    substrings.add('/routing');
     substrings.add('/pools');
     substrings.add('/route-pools');
     substrings.add('/models');

@@ -15,6 +15,7 @@ beforeAll(() => {
     }
     Object.defineProperty(globalThis, 'ResizeObserver', { configurable: true, value: TestResizeObserver });
   }
+  Object.defineProperty(window, 'scrollTo', { configurable: true, writable: true, value: () => {} });
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value(this: HTMLDialogElement) { this.setAttribute('open', ''); },

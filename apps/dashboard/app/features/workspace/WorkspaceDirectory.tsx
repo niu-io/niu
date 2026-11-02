@@ -1,9 +1,10 @@
+import { Empty, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Area, AreaChart } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { IconDotsVertical, IconPlus, IconSettings, IconList, IconKey, IconUsers } from '@tabler/icons-react';
+import { IconBuildings, IconDotsVertical, IconPlus, IconSettings, IconList, IconKey, IconUsers } from '@tabler/icons-react';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import { WorkspaceCreateDialog } from '@/shell/WorkspaceSwitcher';
@@ -22,10 +23,28 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
   const canCreate = Boolean(context.session?.permissions.write && (context.session.kind === 'installation' || context.session.operator?.project_id === null));
   const date = (value: number) => new Intl.DateTimeFormat(locale, {month: 'short', day: 'numeric', year: 'numeric'}).format(value);
   return <>
-    <PageHeader title={t('Workspaces', '工作空间')} action={canCreate && <Button className="header-icon-action" aria-label={uiT("Create workspace")} title={t('Create workspace', '创建工作空间')} onClick={() => setCreating(true)}><IconPlus aria-hidden="true"/><span>{t('Create workspace', '创建工作空间')}</span></Button>}/>
+    <PageHeader
+      title={t('Workspaces', '工作空间')}
+      action={(canCreate || context.openCreateOrganization) ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {context.openCreateOrganization ? (
+            <Button variant="outline" onClick={context.openCreateOrganization}>
+              <IconBuildings aria-hidden="true" />
+              <span>{t('Create organization', '创建组织')}</span>
+            </Button>
+          ) : null}
+          {canCreate ? (
+            <Button className="header-icon-action" aria-label={uiT("Create workspace")} title={t('Create workspace', '创建工作空间')} onClick={() => setCreating(true)}>
+              <IconPlus aria-hidden="true"/>
+              <span>{t('Create workspace', '创建工作空间')}</span>
+            </Button>
+          ) : null}
+        </div>
+      ) : undefined}
+    />
     {context.workspaceLoading ? <TableSkeleton columns={5} rows={4} label={t('Loading workspaces…', '正在加载工作空间…')} />
       : context.workspaceError ? <div role="alert" className="grid justify-items-start gap-3"><p>{t('Could not load your workspaces.', '无法加载您的工作空间。')}</p><Button variant="secondary" onClick={context.reloadWorkspaces}>{t('Try again', '重试')}</Button></div>
-      : context.workspaces.length === 0 ? <p className="text-sm text-muted-foreground">{t('No workspaces available.', '暂无可用工作空间。')}</p>
+      : context.workspaces.length === 0 ? <Empty><EmptyHeader><EmptyTitle>{t('No workspaces available.', '暂无可用工作空间。')}</EmptyTitle></EmptyHeader></Empty>
       : <Table aria-label={uiT("Workspaces")}>
         <TableHeader><TableRow><TableHead>{t('Name', '名称')}</TableHead><TableHead className="hidden sm:table-cell">{t('Active API keys', '有效 API 密钥')}</TableHead><TableHead className="hidden sm:table-cell">{t('Requests · 30 days', '近 30 天请求数')}</TableHead><TableHead className="hidden sm:table-cell">{t('Last request', '最近请求')}</TableHead><TableHead className="w-12 text-right"><span className="sr-only">{t('Actions', '操作')}</span></TableHead></TableRow></TableHeader>
         <TableBody>{context.workspaces.map(workspace => {
@@ -34,7 +53,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
           return <TableRow key={workspace.id}>
             <TableCell className="whitespace-normal min-w-48"><Link to={path} className="font-medium hover:underline break-words">{name}</Link>{workspace.is_default && <Badge variant="secondary" className="ml-2">{t('Default', '默认')}</Badge>}
               <p className="mt-1 text-xs text-muted-foreground">{workspace.organization_name}</p>
-              {workspace.requests_by_day?.length ? <ChartContainer config={{request_count:{label:t('Requests', '请求数'),color:'var(--chart-1)'}}} className="mt-2 h-10 w-36" aria-label={uiF("Daily requests for {0} · past 30 calendar days · UTC", [name])}><AreaChart accessibilityLayer data={workspace.requests_by_day}><ChartTooltip content={<ChartTooltipContent labelFormatter={(_label,payload) => payload[0]?.payload ? new Intl.DateTimeFormat(locale,{month:'short',day:'numeric',timeZone:'UTC'}).format(payload[0].payload.start_ms)+' UTC' : ''}/>}/><Area dataKey="request_count" type="linear" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={1.5} isAnimationActive={false}/></AreaChart></ChartContainer> : null}
+              {workspace.requests_by_day?.length ? <ChartContainer config={{request_count:{label:t('Requests', '请求数'),color:'var(--chart-1)'}}} className="mt-2 h-10 w-36" aria-label={uiF("Daily requests for {0} · past 30 calendar days · UTC", [name])}><AreaChart accessibilityLayer data={workspace.requests_by_day}><ChartTooltip content={<ChartTooltipContent labelFormatter={(_label,payload) => payload[0]?.payload ? new Intl.DateTimeFormat(locale,{month:'short',day:'numeric',timeZone:'UTC'}).format(payload[0].payload.start_ms)+' UTC' : ''}/>}/><Area dataKey="request_count" type="monotone" strokeLinecap="round" strokeLinejoin="round" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={1.5} isAnimationActive={false}/></AreaChart></ChartContainer> : null}
               {workspace.created_at_ms != null && <p className="mt-1 text-xs text-muted-foreground">{isZh ? `创建于 ${date(workspace.created_at_ms)}` : uiF("Created {0}", [date(workspace.created_at_ms)])}</p>}
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:hidden">
                 <div><dt className="text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</dt><dd className="mt-1"><Link className="hover:underline" to={`${path}/keys`}>{workspace.active_key_count?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link></dd></div>

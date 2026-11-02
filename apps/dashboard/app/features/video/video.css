@@ -82,3 +82,5 @@
 
 .video-details-trigger { position:absolute; right:0; top:-6px; color:var(--muted-foreground); }
 .video-result-heading { padding-right:40px; }
+
+.video-conversation:has(> [data-slot="empty"]) { display:flex; flex-direction:column; }

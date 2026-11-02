@@ -10,8 +10,14 @@ async fn slugs_are_short_unique_durable_and_scoped(pool: PgPool) {
         .workspaces(Some(default.organization_id), Some(default.project_id))
         .await
         .unwrap();
-    assert_eq!(default_entry[0].name, "Default workspace");
-    assert_eq!(default_entry[0].slug, "default-workspace");
+    assert_eq!(default_entry[0].name, "Default");
+    assert_eq!(default_entry[0].slug, "default");
+    assert!(
+        default_entry[0]
+            .slug_aliases
+            .iter()
+            .any(|alias| alias == "default-workspace")
+    );
     let first = store
         .create_workspace_with_slug(Some(default.organization_id), "产品 实验", None, None, None)
         .await

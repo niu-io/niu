@@ -4029,6 +4029,135 @@
         }
       }
     },
+    "/api/v1/session/organization": {
+      "put": {
+        "operationId": "switchSessionOrganization",
+        "summary": "Switch the active organization for the current member session",
+        "description": "Requires an authenticated member session. Accepts an organization UUID, durable slug, or retained slug alias already granted to this account identity. Updates the active operator membership bound to the session and returns the refreshed session identity.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "organization_id"
+                ],
+                "properties": {
+                  "organization": {
+                    "type": "string",
+                    "description": "Organization UUID or slug."
+                  },
+                  "organization_id": {
+                    "type": "string",
+                    "description": "Organization UUID or slug."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated session identity scoped to the selected organization."
+          },
+          "400": {
+            "description": "Invalid organization reference or JSON body."
+          },
+          "401": {
+            "description": "Invalid, expired or revoked member session."
+          },
+          "403": {
+            "description": "Installation credentials cannot switch member organization scope."
+          },
+          "404": {
+            "description": "No active membership in the requested organization."
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/session/memberships": {
+      "post": {
+        "operationId": "claimSessionMembership",
+        "summary": "Link an issued operator access token to the current member account",
+        "description": "Requires an authenticated member session and a valid, unrevoked operator session token. Links the target operator membership to the caller's account identity with explicit token proof, switches the current session to that membership, and returns the updated session identity. Rejects tokens already linked to a different account identity with 409.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Issued operator access token."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Membership linked and active session switched."
+          },
+          "400": {
+            "description": "Invalid or expired invite token."
+          },
+          "401": {
+            "description": "Invalid, expired or revoked member session."
+          },
+          "403": {
+            "description": "Installation credentials cannot claim member memberships."
+          },
+          "409": {
+            "description": "The operator membership is already linked to a different account identity."
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
     "/api/v1/organizations/{organization}/projects/{project}/generations": {
       "get": {
         "operationId": "generationsSessionList",
@@ -19049,6 +19178,34 @@
           }
         }
       },
+      "handler_operations_json_CompanyMetadata": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -19197,22 +19354,6 @@
             "maxLength": 48,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
             "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
-          }
-        }
-      },
-      "handler_operations_json_CompanyMetadata": {
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },
