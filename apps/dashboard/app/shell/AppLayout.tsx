@@ -758,7 +758,7 @@ export default function AppLayout() {
               {(!setupBlocked || paymentReadiness.retainContent) && (
                 <div hidden={setupBlocked}>
                   {helpArea ? (
-                    <Outlet key={principalKey || 'anonymous'} context={context} />
+                    <Outlet context={context} />
                   ) : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? (
                     <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={reloadWorkspaces} />
                   ) : token && !supplierArea && !settingsArea && (workspaceLoading || !authorityWorkspacesReady) ? (
