@@ -62,7 +62,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
           <p className="docs-home-lead">
             {t(
               "Tell your agent what you want to accomplish. Niu gives it model information, authorized management and execution evidence. You set the goal, approve access and review important decisions.",
-              "告诉 Agent 你想完成什么。牛元提供模型信息、已授权的管理能力和执行证据；你设定目标、审核权限并审阅重要决策。",
+              "告诉 Agent 你想完成什么。Niu（牛元）提供模型信息、已授权的管理能力和执行证据；你设定目标、审核权限并审阅重要决策。",
             )}
           </p>
           <p className="docs-home-sublead">
@@ -111,7 +111,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
           <p className="docs-home-setup-note">
             {t(
               "Paste into Claude Code, Codex or DeepSeek Harness. The agent configures the integration and opens Niu for sign-in and authorization.",
-              "交给 Claude Code、Codex 或 DeepSeek Harness。Agent 配置接入，并打开牛元让你登录和审核权限。",
+              "交给 Claude Code、Codex 或 DeepSeek Harness。Agent 配置接入，并打开 Niu 让你登录和审核权限。",
             )}
           </p>
           {copyError && (
@@ -135,7 +135,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
           <p>
             {t(
               "Niu supplies evidence and controls. Your agent owns task completion and model quality/cost decisions.",
-              "牛元提供证据与控制能力。Agent 负责完成任务，并根据你的要求判断模型质量与成本取舍。",
+              "Niu 提供证据与控制能力。Agent 负责完成任务，并根据你的要求判断模型质量与成本取舍。",
             )}
           </p>
         </div>
@@ -148,7 +148,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
               <IconPlugConnected />
               <span>{t("For people", "面向用户")}</span>
             </div>
-            <h3>{t("Build with Niu", "用牛元开发")}</h3>
+            <h3>{t("Build with Niu", "用 Niu 开发")}</h3>
             <p>
               {t(
                 "Connect your agent, run the source example and review a result at each checkpoint.",

@@ -70,6 +70,7 @@ pub struct IntegrationInput {
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom",
 ///                         null
 ///                       ]
@@ -80,6 +81,7 @@ pub struct IntegrationInput {
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom"
 ///                       ]
 ///                     },
@@ -201,6 +203,7 @@ pub async fn read_provider(
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom",
 ///                         null
 ///                       ]
@@ -211,6 +214,7 @@ pub async fn read_provider(
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom"
 ///                       ]
 ///                     },
@@ -272,6 +276,7 @@ pub async fn read_provider(
 ///                   "openrouter",
 ///                   "newapi",
 ///                   "litellm",
+///                   "fastrouter", "babelark", "qiniu", "deepseek",
 ///                   "custom"
 ///                 ]
 ///               },
@@ -303,8 +308,19 @@ pub async fn save_provider(
         .ok_or_else(ApiError::not_found)?;
     let kind = input.integration_type.as_str();
     if input.expected_revision < 0
-        || kind
-            .is_some_and(|value| !matches!(value, "openrouter" | "newapi" | "litellm" | "custom"))
+        || kind.is_some_and(|value| {
+            !matches!(
+                value,
+                "openrouter"
+                    | "newapi"
+                    | "litellm"
+                    | "custom"
+                    | "fastrouter"
+                    | "babelark"
+                    | "qiniu"
+                    | "deepseek"
+            )
+        })
         || kind.is_none()
     {
         return Err(ApiError::invalid_request(
@@ -383,6 +399,7 @@ pub async fn save_provider(
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom",
 ///                         null
 ///                       ]
@@ -393,6 +410,7 @@ pub async fn save_provider(
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom"
 ///                       ]
 ///                     },
@@ -514,6 +532,7 @@ pub async fn read_vendor(
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom",
 ///                         null
 ///                       ]
@@ -524,6 +543,7 @@ pub async fn read_vendor(
 ///                         "openrouter",
 ///                         "newapi",
 ///                         "litellm",
+///                         "fastrouter", "babelark", "qiniu", "deepseek",
 ///                         "custom"
 ///                       ]
 ///                     },
@@ -588,6 +608,7 @@ pub async fn read_vendor(
 ///                   "openrouter",
 ///                   "newapi",
 ///                   "litellm",
+///                   "fastrouter", "babelark", "qiniu", "deepseek",
 ///                   "custom",
 ///                   null
 ///                 ]
@@ -620,8 +641,19 @@ pub async fn save_vendor(
         .ok_or_else(ApiError::not_found)?;
     let kind = input.integration_type.as_str();
     if input.expected_revision < 0
-        || kind
-            .is_some_and(|value| !matches!(value, "openrouter" | "newapi" | "litellm" | "custom"))
+        || kind.is_some_and(|value| {
+            !matches!(
+                value,
+                "openrouter"
+                    | "newapi"
+                    | "litellm"
+                    | "custom"
+                    | "fastrouter"
+                    | "babelark"
+                    | "qiniu"
+                    | "deepseek"
+            )
+        })
         || kind.is_none() && !input.integration_type.is_null()
     {
         return Err(ApiError::invalid_request(

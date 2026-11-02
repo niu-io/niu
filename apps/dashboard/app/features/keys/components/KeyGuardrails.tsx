@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import DetectorPreview from '@/features/guardrails/DetectorPreview';
 import type { DetectorBinding } from '@/features/guardrails/ExternalDetectors';
@@ -18,11 +19,11 @@ import { request, VendorRequestError } from '@/features/providers/api';
 type Access = { mode: 'inherit' | 'allow_all' | 'allow_list' | 'deny_all'; values?: string[] };
 type Rule = { pattern?: string; preset?: string; action: string };
 type Policy = { name: string; models: Access; providers: Access; input_rules?: Rule[]; input_detectors?: DetectorBinding[]; output?: { mode: string; rules: Rule[] } };
-const ruleText = (rule: Rule, observe = false) => `${observe ? 'Observe' : rule.action === 'block' ? 'Block' : 'Redact'} · ${rule.preset === 'email_v1' ? 'Email addresses' : rule.preset === 'api_key_prefix_v1' ? 'API key prefixes' : rule.preset === 'niu_api_key_v1' ? 'Niu API keys' : rule.pattern || 'Unsupported rule'}`;
+const ruleText = (rule: Rule, observe = false) => `${observe ? translateUI('Observe') : rule.action === 'block' ? translateUI('Block') : translateUI('Redact')} · ${rule.preset === 'email_v1' ? translateUI('Email addresses') : rule.preset === 'api_key_prefix_v1' ? translateUI('API key prefixes') : rule.preset === 'niu_api_key_v1' ? translateUI('Niu API keys') : rule.pattern || translateUI('Unsupported rule')}`;
 type Assignment = { assignment_revision: number; policy_revision: number | null; policy: Policy | null };
 type Version = { revision: number; policy_name: string; active: boolean };
 type Page = { data: Version[]; next_cursor: number | null };
-const accessText = (access: Access) => access.mode === 'allow_list' ? access.values?.join(', ') || 'Block all' : access.mode === 'deny_all' ? 'Block all' : 'No additional restriction';
+const accessText = (access: Access) => access.mode === 'allow_list' ? access.values?.join(', ') || translateUI('Block all') : access.mode === 'deny_all' ? translateUI('Block all') : translateUI('No additional restriction');
 
 export default function KeyGuardrails({ token, endpoint, workspaceEndpoint, root, canWrite, active }: {
   token: string; endpoint: string; workspaceEndpoint: string; root: string; canWrite: boolean; active: boolean;

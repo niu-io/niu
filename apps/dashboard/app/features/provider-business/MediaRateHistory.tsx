@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol } from '@/lib/money';
@@ -36,9 +37,9 @@ export function mediaMeterLabel(meter: string, amount: {numerator:string;denomin
 }
 
 function date(seconds: string | null) {
-  if (seconds === null) return 'No end date';
+  if (seconds === null) return translateUI('No end date');
   const value = new Date(Number(seconds) * 1000);
-  return Number.isNaN(value.getTime()) ? 'Date unavailable' : value.toLocaleString(readUILocale());
+  return Number.isNaN(value.getTime()) ? translateUI('Date unavailable') : value.toLocaleString(readUILocale());
 }
 
 function cutoff(record: ProviderMediaRateRecord) {

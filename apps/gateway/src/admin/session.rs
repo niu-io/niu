@@ -61,6 +61,7 @@ pub async fn current_session(
     };
     Ok(Json(json!({"data": {
         "kind": kind,
+        "operating_mode": state.operating_mode,
         "provider_memberships": [],
         "roles": { "available": available_roles, "active": active_role, "switchable": admin_mode_available },
         "profile": profile,

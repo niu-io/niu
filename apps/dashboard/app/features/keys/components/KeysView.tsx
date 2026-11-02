@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -70,7 +71,7 @@ function keyLimitsSummary(key: ProjectKey): string {
   if (cidrs !== undefined && cidrs !== null) {
     parts.push(cidrs.length ? `${cidrs.length} IP${cidrs.length === 1 ? '' : 's'}` : 'IPs blocked');
   }
-  return parts.length ? parts.join(' · ') : 'Unlimited';
+  return parts.length ? parts.join(' · ') : translateUI('Unlimited');
 }
 
 export default function KeysView({ token, models, canWrite, initialScope, loaderKeys }: {

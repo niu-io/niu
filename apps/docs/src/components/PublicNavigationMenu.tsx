@@ -12,7 +12,7 @@ function read():Theme {try{const value=localStorage.getItem('niu-dashboard-theme
 const NAV_ZH: Record<string, string> = {
   'Docs': 'Docs',
   'AgentDoc': 'AgentDoc',
-  'Why Niu?': '为什么选择牛元？',
+  'Why Niu?': '为什么选择 Niu？',
   Blog: '博客',
   Models: '模型',
   API: 'API',

@@ -26,7 +26,7 @@ it('opens the newly created Provider directly without refreshing the directory',
   expect(router.state.location.pathname).toBe('/admin/providers/new-provider');
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'POST')).toHaveLength(1);
-  expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'GET')).toHaveLength(1);
+  expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'GET')).toHaveLength(2);
   expect(vi.mocked(request).mock.calls.find(([, , method]) => method === 'POST')?.[3]).toEqual({ name: 'New Provider' });
 });
 
@@ -138,6 +138,7 @@ it.each(['transport','server','timeout'])('reconciles uncertain Provider creatio
       if (failure==='transport') throw new TypeError('Connection lost');
       throw new ProviderRequestError('Unavailable',failure==='timeout'?408:503);
     }
+    if(path==='/api/v1/providers/presets') return {data:[]};
     expect(path).toBe('/api/v1/providers');
     return {data:saved?[{id:'created',name:'Saved business',members:0,api_keys:0,models:0}]:[]};
   });
@@ -214,4 +215,19 @@ it('refreshes missing readiness data instead of sending users to edit offers', a
   await userEvent.setup().click(screen.getAllByRole('button', { name: 'Refresh status' })[0]);
   await screen.findByText('Not qualified');
   expect(screen.queryByText('Status unavailable')).toBeNull();
+});
+
+it('does not require commercial qualification for administrator-managed internal models', async () => {
+  const { providerAvailability } = await import('@/features/providers/provider-setup');
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:2,qualification_status:'unqualified'})).toMatchObject({label:'Models configured',section:'keys',usable:false});
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Import models'});
+});
+
+it('uses backend connection instructions rather than a bundled endpoint list', async () => {
+  vi.mocked(request).mockImplementation(async (_token,path) => ({data:path.endsWith('/presets') ? [{id:'deepseek',name:'DeepSeek',protocol:'openai',api_base:'https://api.deepseek.com/v1',website:'https://platform.deepseek.com/api_keys',price_support:'official_catalog_unqualified',price_source:'https://api-docs.deepseek.com/quick_start/pricing/'}] : []}));
+  render(<MemoryRouter><ProviderList/></MemoryRouter>);
+  const user=userEvent.setup();await user.click(await screen.findByRole('button',{name:'Connect DeepSeek'}));
+  await user.click(screen.getByText('Connection settings'));
+  expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.deepseek.com/v1');
+  expect(screen.queryByRole('button',{name:'Connect OpenRouter'})).toBeNull();
 });

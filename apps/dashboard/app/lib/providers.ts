@@ -1,4 +1,4 @@
-const assets = import.meta.glob('../assets/providers/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const assets = import.meta.glob('../assets/providers/*.{svg,png}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const definitions = [
   ['anthropic', 'Anthropic', 'anthropic', ['anthropic', 'claude']],
   ['openai', 'OpenAI', 'openai', ['openai', 'gpt', 'chatgpt', 'o1', 'o3', 'o4']],
@@ -15,6 +15,8 @@ const definitions = [
   ['nvidia', 'NVIDIA', 'nvidia-color', ['nvidia', 'nemotron']],
   ['bytedance', 'ByteDance', 'bytedance-color', ['bytedance', 'bytedance-seed', 'seed', 'seedance', 'seedream', 'doubao']],
   ['openrouter', 'OpenRouter', 'openrouter', ['openrouter']],
+  ['fastrouter', 'FastRouter', 'fastrouter', ['fastrouter']],
+  ['babelark', 'BabelArk', 'babelark', ['babelark']],
   ['qiniu', 'Qiniu', 'qiniu-color', ['qiniu']],
   ['aion-labs', 'Aion Labs', 'aionlabs', ['aion-labs']],
   ['amazon', 'Amazon', 'aws', ['amazon']],
@@ -42,7 +44,7 @@ const definitions = [
   ['xiaomi', 'Xiaomi', 'xiaomimimo', ['xiaomi']],
 ] as const;
 export type ProviderIdentity = { id: string; name: string; logo?: string };
-export const providers: ProviderIdentity[] = definitions.map(([id, name, asset]) => ({ id, name, logo: assets[`../assets/providers/${asset}.svg`] }));
+export const providers: ProviderIdentity[] = definitions.map(([id, name, asset]) => ({ id, name, logo: assets[`../assets/providers/${asset}.svg`] ?? assets[`../assets/providers/${asset}.png`] }));
 export function identifyProvider(value?: string): ProviderIdentity | undefined {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return;
@@ -79,7 +81,7 @@ export function modelProviderName(model: { provider?: string }): string | undefi
 export function connectionIdentity(vendor: { name: string; api_base: string; adapter: string }): ProviderIdentity {
   let host = '';
   try { host = new URL(vendor.api_base).hostname.toLowerCase(); } catch { /* Invalid endpoints keep the neutral mark. */ }
-  const domains: Record<string, string> = { 'openai.com': 'openai', 'anthropic.com': 'anthropic', 'openrouter.ai': 'openrouter', 'deepseek.com': 'deepseek', 'dashscope.aliyuncs.com': 'qwen', 'dashscope-intl.aliyuncs.com': 'qwen', 'googleapis.com': 'google', 'moonshot.cn': 'moonshot', 'moonshot.ai': 'moonshot', 'mistral.ai': 'mistral', 'bigmodel.cn': 'zai', 'z.ai': 'zai', 'minimax.io': 'minimax', 'minimaxi.com': 'minimax', 'x.ai': 'xai', 'qiniu.com': 'qiniu', 'qnaigc.com': 'qiniu' };
+  const domains: Record<string, string> = { 'openai.com': 'openai', 'anthropic.com': 'anthropic', 'openrouter.ai': 'openrouter', 'wecitytech.com': 'fastrouter', 'babelark.ai': 'babelark', 'deepseek.com': 'deepseek', 'dashscope.aliyuncs.com': 'qwen', 'dashscope-intl.aliyuncs.com': 'qwen', 'googleapis.com': 'google', 'moonshot.cn': 'moonshot', 'moonshot.ai': 'moonshot', 'mistral.ai': 'mistral', 'bigmodel.cn': 'zai', 'z.ai': 'zai', 'minimax.io': 'minimax', 'minimaxi.com': 'minimax', 'x.ai': 'xai', 'qiniu.com': 'qiniu', 'qnaigc.com': 'qiniu' };
   const id = Object.entries(domains).find(([domain]) => host === domain || host.endsWith(`.${domain}`))?.[1];
   return providers.find(provider => provider.id === id) ?? { id: 'custom', name: vendor.adapter === 'openrouter' ? 'OpenRouter-compatible' : 'OpenAI-compatible' };
 }

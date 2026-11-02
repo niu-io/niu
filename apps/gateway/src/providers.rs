@@ -1,4 +1,5 @@
 //! Provider-only business APIs. Installation configuration is a separate authority.
+pub(crate) mod adapters;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -2078,6 +2079,14 @@ pub async fn record_settlement(
 ///                         "minimum": 0,
 ///                         "description": "Saved model offers with agreed Provider rates."
 ///                       },
+///                       "internal_api_keys": {
+///                         "type":"integer", "minimum":0,
+///                         "description":"Administrator-managed connections attributed to direct upstream-funded internal use; not end-user BYOK self-service."
+///                       },
+///                       "internal_model_routes": {
+///                         "type":"integer", "minimum":0,
+///                         "description":"Saved internal-use model mappings, including disabled entries; not live verification or sellable inventory."
+///                       },
 ///                       "ready_offers": {
 ///                         "type": "integer",
 ///                         "minimum": 0,
@@ -3551,4 +3560,177 @@ pub async fn offers(
         .map_err(ApiError::from_store)?
         .map(Json)
         .ok_or_else(ApiError::not_found)
+}
+
+/// ```openapi
+/// {"path":"/api/v1/providers/presets","method":"get","operation":{"operationId":"listProviderPresets","summary":"Discover supported Provider service adapters","description":"Platform administration required. Returns connection instructions and observed price-source support, not saved connections, inventory, entitlements or invoice prices. OpenAI-compatible transport never establishes price compatibility. No upstream request is issued.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Prepared Provider descriptors."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn presets(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    Ok(Json(
+        json!({"data":adapters::registry().iter().map(|adapter|adapter.descriptor()).collect::<Vec<_>>()}),
+    ))
+}
+
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing","method":"get","operation":{"operationId":"discoverProviderPricing","summary":"Read Provider-adapter advertised price evidence","description":"Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Unified advertised pricing evidence with completeness limits."},"502":{"description":"Source failure; retry the read without mutating configuration."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn adapter_pricing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let integration = state
+        .store
+        .provider_integration(provider)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let data = adapters::pricing(&state, &integration.effective_type).await?;
+    Ok(Json(json!({"data":data,"integration":integration})))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataQuery {
+    credential: Uuid,
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/metadata","method":"get","operation":{"operationId":"discoverProviderMetadata","summary":"Read normalized metadata through a Provider credential","description":"Platform administration required. credential selects one saved connection owned by this Provider; no key values are returned. Reuses bounded authenticated catalog discovery and explicit inherited service identity. Catalog access does not verify inference or publish models/prices.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"credential","in":"query","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Normalized model metadata, price evidence when present, and discovery scope."},"404":{"description":"Provider/credential binding unavailable."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn adapter_metadata(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Query(query): Query<MetadataQuery>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let owner = state
+        .store
+        .vendor_supplier(query.credential)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    if owner["id"].as_str() != Some(provider.to_string().as_str()) {
+        return Err(ApiError::not_found());
+    }
+    crate::vendors::catalog(State(state), Path(query.credential), headers).await
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing","method":"post","operation":{"operationId":"captureProviderPriceEvidence","summary":"Capture an immutable Provider quote version","description":"Platform administration required. Performs bounded price discovery and appends source evidence only if saved Provider adapter identity/revision still matches. Unknown/partial sources remain explicit. Does not change any customer tariff, route, balance or charge. Never blindly replay after uncertainty; retain the returned revision for historical estimates.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Immutable quote revision, capture time, adapter binding and evidence."},"409":{"description":"Adapter identity changed; no snapshot saved."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn capture_adapter_pricing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let integration = state
+        .store
+        .provider_integration(provider)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let evidence = adapters::pricing(&state, &integration.effective_type).await?;
+    let evidence = serde_json::to_value(evidence).map_err(|_| ApiError::unavailable())?;
+    let saved = state
+        .store
+        .save_provider_price_evidence(
+            provider,
+            &integration.effective_type,
+            integration.revision,
+            evidence,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":saved})))
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing/{revision}","method":"get","operation":{"operationId":"getProviderPriceEvidence","summary":"Read an immutable Provider quote version","description":"Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"revision","in":"path","required":true,"schema":{"type":"integer","format":"int64","minimum":1}}],"responses":{"200":{"description":"Original quote evidence and source identity."},"404":{"description":"Version unavailable under this Provider."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn price_evidence(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, revision)): Path<(Uuid, i64)>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let saved = state
+        .store
+        .provider_price_evidence(provider, revision)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":saved})))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuoteEstimateInput {
+    revision: String,
+    model: String,
+    quantities: Vec<adapters::Quantity>,
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/estimate","method":"post","operation":{"operationId":"estimateProviderQuoteCost","summary":"Estimate supplied billable quantities against an immutable quote","description":"Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["revision","model","quantities"],"properties":{"revision":{"type":"string","pattern":"^[1-9][0-9]*$"},"model":{"type":"string","minLength":1,"maxLength":200},"quantities":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["meter","units"],"properties":{"meter":{"type":"string","minLength":1,"maxLength":80},"units":{"type":"string","pattern":"^[0-9]+$"},"condition":{"type":"string","minLength":1,"maxLength":80}}}}}}}}},"responses":{"200":{"description":"Quote-bound estimate with currency totals and unknown coverage."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn estimate_pricing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Json(input): Json<QuoteEstimateInput>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    if input.model.trim().is_empty() || input.model.len() > 200 {
+        return Err(ApiError::invalid_request("Choose an upstream model ID"));
+    }
+    let revision = input
+        .revision
+        .parse::<i64>()
+        .ok()
+        .filter(|r| *r > 0)
+        .ok_or_else(|| ApiError::invalid_request("Choose a captured quote revision"))?;
+    let saved = state
+        .store
+        .provider_price_evidence(provider, revision)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let result = adapters::estimate(&saved["evidence"], &input.model, &input.quantities)
+        .map_err(ApiError::invalid_request)?;
+    Ok(Json(
+        json!({"data":result,"quote_revision":saved["revision"],"adapter":saved["adapter"]}),
+    ))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PriceHistoryQuery {
+    after: Option<i64>,
+    limit: Option<i64>,
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing/history","method":"get","operation":{"operationId":"listProviderPriceHistory","summary":"Inspect captured quote versions and recover uncertain refreshes","description":"Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"after","in":"query","schema":{"type":"integer","format":"int64","minimum":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}}],"responses":{"200":{"description":"Quote version summaries and optional next_after cursor."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn price_history(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Query(query): Query<PriceHistoryQuery>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let limit = query.limit.unwrap_or(20);
+    let data = state
+        .store
+        .provider_price_history(provider, query.after, limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    let next_after = if data.len() == usize::try_from(limit).unwrap_or_default() {
+        data.last().and_then(|v| v["revision"].as_str())
+    } else {
+        None
+    };
+    Ok(Json(json!({"data":data,"next_after":next_after})))
 }

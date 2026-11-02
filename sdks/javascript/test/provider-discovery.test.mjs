@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {NiuAdminClient} from '../dist/index.js';
+const provider='12345678-1234-4234-8234-123456789abc';
+const credential='22345678-1234-4234-8234-123456789abc';
+test('Provider discovery and historical estimates use scoped management routes without inference',async()=>{
+ const calls=[];const evidence={normalization_version:1,source_digest:'a'.repeat(64),observed_at_ms:1,status:'partial',prices:[],conditions:[{id:'peak',description:'Select the published time window explicitly'}]};
+ const client=new NiuAdminClient({adminToken:'fixture-management-token',fetch:async(url,init)=>{calls.push({url,init});return Response.json({data:evidence});}});
+ const abort=new AbortController();const options={signal:abort.signal};
+ await client.listProviderPresets(options);
+ assert.deepEqual((await client.discoverProviderPricing(provider,options)).data,evidence);
+ await client.discoverProviderMetadata(provider,credential,options);
+ await client.captureProviderPriceEvidence(provider,options);
+ await client.listProviderPriceHistory(provider,{after:'9007199254740993',limit:2},options);
+ await client.getProviderPriceEvidence(provider,'9007199254740993',options);
+ const input={revision:'9007199254740993',model:'deepseek-example',quantities:[{meter:'input_tokens',units:'1000000',condition:'peak'}]};
+ await client.estimateProviderQuoteCost(provider,input,options);
+ assert.deepEqual(calls.map(call=>new URL(call.url).pathname),['/api/v1/providers/presets',`/api/v1/providers/${provider}/pricing`,`/api/v1/providers/${provider}/metadata`,`/api/v1/providers/${provider}/pricing`,`/api/v1/providers/${provider}/pricing/history`,`/api/v1/providers/${provider}/pricing/9007199254740993`,`/api/v1/providers/${provider}/estimate`]);
+ assert.deepEqual(calls.map(call=>call.init.method),['GET','GET','GET','POST','GET','GET','POST']);
+ assert.equal(new URL(calls[2].url).searchParams.get('credential'),credential);
+ assert.equal(new URL(calls[4].url).searchParams.get('after'),'9007199254740993');
+ assert.deepEqual(JSON.parse(calls[6].init.body),input);
+ for(const {init}of calls)assert.equal(init.signal,abort.signal);
+});
+test('Provider route parameters and price history cursors cannot escape their resource',()=>{
+ let calls=0;const client=new NiuAdminClient({adminToken:'fixture',fetch:async()=>{calls++;return Response.json({data:[]});}});
+ assert.throws(()=>client.discoverProviderPricing('../other'),/UUID/);
+ assert.throws(()=>client.discoverProviderMetadata(provider,'../other'),/UUID/);
+ assert.throws(()=>client.getProviderPriceEvidence(provider,'../other'),/revision/);
+ assert.throws(()=>client.listProviderPriceHistory(provider,{after:'-1'}),/cursor/);
+ assert.throws(()=>client.listProviderPriceHistory(provider,{limit:51}),/size/);
+ assert.equal(calls,0);
+});

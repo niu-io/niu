@@ -4,11 +4,12 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router';
 import {SidebarProvider} from '@/components/ui/sidebar';
 import SessionHistory from '@/features/generations/SessionHistory';
+import {clearSessionCache} from '@/lib/query-cache';
 import type {DashboardContext} from '@/shell/dashboard-context';
 const a={id:'11111111-1111-4111-8111-111111111111',organization_id:'22222222-2222-4222-8222-222222222222',name:'A',organization_name:'Company'};
 const b={...a,id:'33333333-3333-4333-8333-333333333333',name:'B'};
 const context={token:'member',workspace:a,workspaces:[a,b]} as DashboardContext;
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.unstubAllGlobals();clearSessionCache();});
 it('merges saved chat and video sessions across accessible workspaces and preserves pagination',async()=>{
  const calls:string[]=[];
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
@@ -146,4 +147,25 @@ it('uses a known key slug for a legacy job without publishing an unknown key ref
  const unknown=screen.getByRole('link',{name:'Video · Unknown key result'});
  expect(new URL(known.getAttribute('href')!,'https://example.test').searchParams.get('key')).toBe('retired-review-key');
  expect(new URL(unknown.getAttribute('href')!,'https://example.test').searchParams.has('key')).toBe(false);
+});
+
+it('shows cached history immediately on remount and retains it if background refresh fails',async()=>{
+ let fail=false;
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  if(fail)return Response.json({error:{message:'Unavailable'}},{status:503});
+  if(path.endsWith('/chats'))return Response.json({data:[{id:'warm-chat',title:'Cached conversation',prompt:'Saved on server',createdAt:100}]});
+  return Response.json({data:[],has_more:false,next_before:null,next_cursor:null});
+ }));
+ const show=()=>render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspaces:[a]}}/></SidebarProvider></MemoryRouter>);
+ const first=show();await screen.findByRole('link',{name:'Cached conversation'});first.unmount();fail=true;
+ const second=show();expect(screen.getByRole('link',{name:'Cached conversation'})).toBeTruthy();
+ expect(screen.queryByRole('status',{name:'Loading sessions…'})).toBeNull();
+ await screen.findByRole('alert');expect(screen.getByRole('link',{name:'Cached conversation'})).toBeTruthy();second.unmount();
+});
+it('uses compact SidebarMenuSkeleton rows for a cold history read',()=>{
+ vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})));
+ const view=render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,token:'cold-history',workspaces:[a]}}/></SidebarProvider></MemoryRouter>);
+ expect(screen.getByRole('status',{name:'Loading sessions…'})).toBeTruthy();
+ expect(view.container.querySelectorAll('[data-slot="sidebar-menu-skeleton"]')).toHaveLength(4);
+ expect(view.container.querySelectorAll('[data-sidebar="menu-skeleton-icon"]')).toHaveLength(4);
 });

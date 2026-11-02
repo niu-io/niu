@@ -1,3 +1,7 @@
+import { cachedKeyGet } from '@/features/keys/api';
+import { peekQuery, primeQuery, invalidateForMutation } from '@/lib/query-cache';
+import { formatLocalizedMessage } from '@/shell/ui-locale';
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -118,46 +122,46 @@ const promptExamples = [
 function customerCharge(result: ComparisonResult) {
   if (result.customerChargeStatus === 'charged' && result.customerChargeNanos != null && result.customerChargeCurrency) return money(result.customerChargeNanos, result.customerChargeCurrency);
   switch (result.customerChargeStatus) {
-    case 'owner_funded': return 'Own API key';
-    case 'pending': return 'Unresolved';
-    case 'unpriced': return 'No rate';
-    case 'not_charged': return 'Not charged';
-    default: return 'Unknown';
+    case 'owner_funded': return translateUI('Own API key');
+    case 'pending': return translateUI('Unresolved');
+    case 'unpriced': return translateUI('No rate');
+    case 'not_charged': return translateUI('Not charged');
+    default: return translateUI('Unknown');
   }
 }
 
 function metricValue(result: ComparisonResult, metric: ComparisonMetric) {
   if (metric === 'requests') return '1';
-  if (metric === 'elapsed') return `${result.elapsedMs.toLocaleString(readUILocale())} ms${result.phase === 'failed' ? ' · failed' : result.phase === 'cancelled' ? ' · cancelled' : result.phase === 'streaming' || result.phase === 'connecting' ? ' · running' : ''}`;
-  if (metric === 'prompt') return result.promptTokens == null ? 'Unknown' : result.promptTokens.toLocaleString(readUILocale());
-  if (metric === 'completion') return result.completionTokens == null ? 'Unknown' : result.completionTokens.toLocaleString(readUILocale());
-  if (metric === 'total') return result.totalTokens == null ? 'Unknown' : result.totalTokens.toLocaleString(readUILocale());
+  if (metric === 'elapsed') return formatLocalizedMessage('{0} ms{1}', [result.elapsedMs.toLocaleString(readUILocale()), result.phase === 'failed' ? ' · '+translateUI('Failed') : result.phase === 'cancelled' ? ' · '+translateUI('Cancelled') : result.phase === 'streaming' || result.phase === 'connecting' ? ' · '+translateUI('Running') : ''], readUILocale());
+  if (metric === 'prompt') return result.promptTokens == null ? translateUI('Unknown') : result.promptTokens.toLocaleString(readUILocale());
+  if (metric === 'completion') return result.completionTokens == null ? translateUI('Unknown') : result.completionTokens.toLocaleString(readUILocale());
+  if (metric === 'total') return result.totalTokens == null ? translateUI('Unknown') : result.totalTokens.toLocaleString(readUILocale());
   return customerCharge(result);
 }
 
 function numericDelta(baseline: number, candidate: number, unit: 'ms' | 'tokens') {
-  if (baseline === candidate) return 'Same';
+  if (baseline === candidate) return translateUI('Same');
   const sign = candidate < baseline ? '−' : '+';
   return `${sign}${Math.abs(candidate - baseline).toLocaleString(readUILocale())} ${unit}`;
 }
 
 function metricDifference(baseline: ComparisonResult, candidate: ComparisonResult, metric: ComparisonMetric) {
-  if (metric === 'requests') return 'Same';
-  if (baseline.phase !== 'complete' || candidate.phase !== 'complete' || baseline.finishReason !== 'stop' || candidate.finishReason !== 'stop') return 'Not comparable';
+  if (metric === 'requests') return translateUI('Same');
+  if (baseline.phase !== 'complete' || candidate.phase !== 'complete' || baseline.finishReason !== 'stop' || candidate.finishReason !== 'stop') return translateUI('Not comparable');
   if (metric === 'elapsed') return numericDelta(baseline.elapsedMs, candidate.elapsedMs, 'ms');
   if (metric === 'prompt' || metric === 'completion' || metric === 'total') {
     const baselineValue = metric === 'prompt' ? baseline.promptTokens : metric === 'completion' ? baseline.completionTokens : baseline.totalTokens;
     const candidateValue = metric === 'prompt' ? candidate.promptTokens : metric === 'completion' ? candidate.completionTokens : candidate.totalTokens;
-    return baselineValue === null || candidateValue === null ? 'Unknown' : numericDelta(baselineValue, candidateValue, 'tokens');
+    return baselineValue === null || candidateValue === null ? translateUI('Unknown') : numericDelta(baselineValue, candidateValue, 'tokens');
   }
 
   const baselineValue = baseline.customerChargeNanos;
   const candidateValue = candidate.customerChargeNanos;
-  if (baseline.customerChargeStatus !== 'charged' || candidate.customerChargeStatus !== 'charged' || baselineValue == null || candidateValue == null || !baseline.customerChargeCurrency || !candidate.customerChargeCurrency) return 'Unknown';
-  if (baseline.customerChargeCurrency !== candidate.customerChargeCurrency) return 'Different currencies';
+  if (baseline.customerChargeStatus !== 'charged' || candidate.customerChargeStatus !== 'charged' || baselineValue == null || candidateValue == null || !baseline.customerChargeCurrency || !candidate.customerChargeCurrency) return translateUI('Unknown');
+  if (baseline.customerChargeCurrency !== candidate.customerChargeCurrency) return translateUI('Different currencies');
   const baselineAmount = BigInt(baselineValue);
   const candidateAmount = BigInt(candidateValue);
-  if (baselineAmount === candidateAmount) return 'Same';
+  if (baselineAmount === candidateAmount) return translateUI('Same');
   const sign = candidateAmount < baselineAmount ? '−' : '+';
   const difference = candidateAmount < baselineAmount ? baselineAmount - candidateAmount : candidateAmount - baselineAmount;
   return `${sign}${money(difference.toString(), baseline.customerChargeCurrency)}`;
@@ -426,7 +430,9 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [results, setResults] = useState<ComparisonResult[] | null>(null);
-  const [history, setHistory] = useState<SavedComparison[]>([]);
+  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
+  const cachedHistory=token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
+  const [history, setHistory] = useState<SavedComparison[]>(cachedHistory??[]);
   const [activeComparisonId, setActiveComparisonId] = useState<string | null>(null);
   const [copiedResponse, setCopiedResponse] = useState('');
   const [renamingChat, setRenamingChat] = useState<SavedComparison | null>(null);
@@ -448,7 +454,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const exportController = useRef<AbortController | null>(null);
   const sessionTitle = (item: SavedComparison) => item.title || item.prompt.split('\n')[0];
 
-  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
   const historyIdentity = `${token}\u0000${historyEndpoint}`;
   const historyScope = useRef(historyIdentity);
   historyScope.current = historyIdentity;
@@ -503,6 +508,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         body: JSON.stringify({ archived }),
       });
       if (!response.ok) throw new Error('Archive update failed');
+      invalidateForMutation(token,historyEndpoint,'PUT');
       if (historyScope.current !== identity) return;
       if (archived) {
         setHistory(items => items.filter(saved => saved.id !== item.id));
@@ -546,14 +552,17 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }});
   useEffect(() => {
     const controller = new AbortController();
-    setHistory([]);
+    const cached=token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
+    setHistory(cached??[]);
     setResults(null);
     setActiveComparisonId(null);
     setHistoryLoading(true);
     setHistoryError('');setSettingsSaving(false);setSettingsSaveError('');
+    const cachedSelection=requestedSession ? cached?.find(item=>item.id===requestedSession||item.reference===requestedSession) : cached?.[0];
+    if(cachedSelection&&!startWithNewChat)openComparison(cachedSelection);
     if (!token || !organization || !workspaceId) return;
-    fetch(historyEndpoint, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
-      .then(response => responseData<SavedComparison[]>(response))
+    cachedKeyGet<{data:SavedComparison[]}>(token,historyEndpoint,{signal:controller.signal,persist:true,force:true})
+      .then(response => response.data)
       .then(async items => {
         if (controller.signal.aborted) return;
         if (requestedSession && !items.some(item => item.id === requestedSession || item.reference === requestedSession)) {
@@ -625,12 +634,16 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     } finally {if (historyScope.current === identity) setSettingsSaving(false);}
   }
 
+  useEffect(()=>{
+    if(token&&organization&&workspaceId&&!historyLoading&&!historyError)primeQuery(token,historyEndpoint,{data:history},{persist:true});
+  },[token,historyEndpoint,history,historyLoading,historyError]);
   async function saveComparison(item: SavedComparison) {
     const response = await fetch(`${historyEndpoint}/${item.id}`, {
       method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify(item),
     });
     if (!response.ok) throw new Error('Could not save this chat. Check your connection and try again.');
+    invalidateForMutation(token,historyEndpoint,'PUT');
     const receipt = await response.json();
     if (typeof receipt.reference === 'string' && /^chat-[1-9][0-9]{0,18}$/.test(receipt.reference)) item.reference = receipt.reference;
   }
@@ -1132,6 +1145,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           try {
             const response = await fetch(`${endpoint}/${item.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
             if (!response.ok) throw new Error('delete failed');
+            invalidateForMutation(token,endpoint,'DELETE');
             if (historyScope.current !== identity) return;
             setHistory(items => items.filter(saved => saved.id !== item.id));
             if (activeComparisonId === item.id) startNewComparison();

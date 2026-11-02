@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import LegacyMediaContracts from './legacy-media';
@@ -24,8 +25,8 @@ import { BrandedUnitTariffsSection } from './unit-tariffs';
 import type { RetailPriceRecord, RetailPriceHistory } from '@niu-io/sdk/admin';
 
 const base = '/api/v1/pricing/standard-prices';
-const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : 'Date unavailable';
-const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : 'Date unavailable';
+const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : translateUI('Date unavailable');
+const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : translateUI('Date unavailable');
 export default function RetailPricingRoute() {
   const { token } = useDashboardContext();
   return <Standards key={token} token={token} />;
@@ -76,7 +77,7 @@ function Standards({ token }: { token: string }) {
     {notice && <p role="status">{notice}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed, true)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
     {loading && !rows.length && <TableSkeleton columns={4} rows={5} label={uiT("Loading standard prices…")} />}
-    {!!rows.length && <Table aria-label={uiT("Platform standard selling prices")}><TableHeader><TableRow>{['Model', 'Standard price', 'Price checks', 'Actions'].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="max-w-64 whitespace-normal"><p className="font-medium break-words">{row.model_alias}</p><p className="mt-1 text-xs text-muted-foreground">{row.currency} · {row.schedule.kind === 'text' ? uiT("Text tokens") : row.schedule.meter}</p><p className="mt-1 text-xs text-muted-foreground">{uiT("Published")}{" "}{date(row.published_at)}</p></TableCell><TableCell className="whitespace-normal"><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex flex-col items-start gap-1"><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>{uiT("Prices & history")}</Button>{<Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: row.schedule.kind, previous: row })}>{uiT("Revise standard")}</Button>}<Button variant="outline" disabled={loading || !!error} onClick={() => setManaged(row)}>{uiT("Promotions")}</Button></div></TableCell></TableRow>)}</TableBody></Table>}
+    {!!rows.length && <Table aria-label={uiT("Platform standard selling prices")}><TableHeader><TableRow>{[uiT('Model'), uiT('Standard price'), uiT('Price checks'), uiT('Actions')].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="max-w-64 whitespace-normal"><p className="font-medium break-words">{row.model_alias}</p><p className="mt-1 text-xs text-muted-foreground">{row.currency} · {row.schedule.kind === 'text' ? uiT("Text tokens") : row.schedule.meter}</p><p className="mt-1 text-xs text-muted-foreground">{uiT("Published")}{" "}{date(row.published_at)}</p></TableCell><TableCell className="whitespace-normal"><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex flex-col items-start gap-1"><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>{uiT("Prices & history")}</Button>{<Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: row.schedule.kind, previous: row })}>{uiT("Revise standard")}</Button>}<Button variant="outline" disabled={loading || !!error} onClick={() => setManaged(row)}>{uiT("Promotions")}</Button></div></TableCell></TableRow>)}</TableBody></Table>}
     {!loading && !error && !visible.length && <p>{rows.length ? uiT("No loaded prices match this filter.") : uiT("No platform standard prices have been published.")}</p>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
     {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} onClose={() => { setEditor(null); reloadFresh(); }} onSaved={() => { setEditor(null); setNotice('Text standard price published. Refresh confirmed configuration before the next change.'); reloadFresh(); }} />}

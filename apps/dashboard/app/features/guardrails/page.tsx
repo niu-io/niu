@@ -1,3 +1,5 @@
+import { translateUI } from '@/shell/ui-locale';
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, type LoaderFunctionArgs } from "react-router";
@@ -72,8 +74,8 @@ const emptyPolicy = (): Policy => ({
 });
 const describe = (rule: Rule) =>
   rule.mode === "allow_list"
-    ? `${rule.values?.length ?? 0} allowed`
-    : labels[rule.mode];
+    ? formatLocalizedMessage('{0} allowed', [rule.values?.length ?? 0], readLocale())
+    : translateUI(labels[rule.mode]);
 
 function validateHead(raw: unknown): Head | null {
   if (raw === null) return null;
@@ -569,7 +571,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                   disabled={!canWrite || saving}
                   aria-label={uiT("Model restriction mode")}
                 >
-                  {labels[draft.models.mode]}
+                  {translateUI(labels[draft.models.mode])}
                   <ChevronDown />
                 </Button>
               </DropdownMenuTrigger>
@@ -663,7 +665,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                   disabled={!canWrite || saving}
                   aria-label={uiT("Provider restriction mode")}
                 >
-                  {labels[draft.providers.mode]}
+                  {translateUI(labels[draft.providers.mode])}
                   <ChevronDown />
                 </Button>
               </DropdownMenuTrigger>

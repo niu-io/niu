@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -12,7 +13,7 @@ import type { KeyRequestRateLimitRevision, KeyConcurrencyLimitRevision, KeyToken
 type Change = KeyRequestRateLimitRevision | KeyConcurrencyLimitRevision | KeyTokenRateLimitRevision | KeyIpPolicyRevision | KeySpendingLimitRevision;
 type Field = 'requests_per_minute' | 'max_concurrent_requests' | 'tokens_per_minute' | 'allowed_cidrs' | 'limit_nanos';
 const pageSize = 20;
-const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
+const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 const valueOf = (row: Change, field: Field) => (row as unknown as Record<Field, number | string | string[] | null>)[field];
 function validate(rows: Change[], field: Field, before?: string, currency?: string) {
   if (!Array.isArray(rows) || rows.length > pageSize) throw new Error('The history response could not be read.');

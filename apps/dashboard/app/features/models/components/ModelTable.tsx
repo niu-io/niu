@@ -165,8 +165,8 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     <div className="empty-icon"><Boxes size={18} /></div>
     <strong>{uiT("No model routes yet")}</strong>
     {Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false))
-      ? <><span>{uiT("Connect a provider and add a model route to the catalog.")}</span><Button asChild><Link to="/admin/providers">{uiT("Connect a provider")}</Link></Button></>
-      : <span>{uiT("Ask a platform administrator to connect a provider and add a model route to the catalog.")}</span>}
+      ? <><span>{uiT("Connect a Provider with your API key to import its models.")}</span><Button asChild><Link to="/admin/providers">{uiT("Connect a provider")}</Link></Button></>
+      : <span>{uiT("Ask a platform administrator to connect a Provider and import its models.")}</span>}
   </div></>;
 
   return <div className="models-catalog">
@@ -224,7 +224,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{model.catalog?.name || model.id}</Link></div>
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
-            {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">{uiT("Own API key · billed by your Provider")}</p>}
+            {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">{uiT("Upstream-funded · no Niu charge")}</p>}
             <div className="models-card-meta">{modelDeveloper(model) && <span>{uiT("by")}{" "}{modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
           </article>)}
         </div>}
@@ -238,7 +238,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
       </Collapsible>}
       <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
-        ? uiT("Uses your own Provider API key. Your Provider bills this usage directly; it does not spend Niu credits. Access still depends on your key and Provider account.")
+        ? uiT("Uses an administrator-managed upstream connection. Its owning account pays the Provider directly; this does not spend Niu credits. Upstream balance and model permissions still apply.")
         : selected.billing_source === 'niu_credits'
           ? isVideoModel(selected) && !hasChatOutput(selected)
             ? uiT("Uses Niu credits. Video cost depends on the request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.")

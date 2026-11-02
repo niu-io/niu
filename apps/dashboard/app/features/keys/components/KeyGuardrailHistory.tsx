@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -10,7 +11,7 @@ import { request } from '@/features/providers/api';
 
 type Change = { assignment_revision: number; policy_revision: number | null; policy_name: string | null; actor_name: string; created_at: string };
 type Page = { data: Change[]; next_cursor: number | null };
-const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
+const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 
 export default function KeyGuardrailHistory({ token, endpoint }: { token: string; endpoint: string }) {
   const { t: uiT, format: uiF } = useUILocale();

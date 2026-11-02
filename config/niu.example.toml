@@ -8,13 +8,17 @@ request_body_timeout_seconds = 30
 # Requires the root HTTPS origin, port 443; no path, credentials or query.
 # image_source_origin = "https://niu.example"
 
-[models.fast]
-provider = "openrouter"
-upstream_model = "openai/gpt-4.1-mini"
+# Default Internal use starts with no models. Connect a Provider in Admin to import them.
+[models]
+
+# Advanced static-route compatibility requires NIU_OPERATING_MODE=resale.
+# [models.fast]
+# provider = "openrouter"
+# upstream_model = "openai/gpt-4.1-mini"
 # Defaults to https://openrouter.ai/api/v1 when omitted.
-api_key_env = "OPENROUTER_API_KEY"
+# api_key_env = "OPENROUTER_API_KEY"
 # Publish this alias in the unauthenticated catalog at /models/.
-public_catalog = true
+# public_catalog = true
 # Optional protocol features are disabled by default. Enable them only after
 # verifying the configured endpoint and model support each declared behavior.
 # supports_tool_calls = true

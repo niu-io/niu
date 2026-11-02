@@ -17,5 +17,7 @@ export type ProviderCredentialCreateInput = {
     enabled?: boolean;
     create_supplier?: boolean;
     supplier_id?: string;
+    /** Explicit account paying upstream directly; saved atomically with this credential. */
+    personal_organization_id?: string;
 };
 ```

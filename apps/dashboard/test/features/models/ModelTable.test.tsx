@@ -235,9 +235,9 @@ it.each([
 it('distinguishes direct Provider billing from missing platform prices without claiming availability', () => {
   const model = {...models[0], billing_source: 'own_api_key' as const};
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByText(/Your Provider bills this usage directly/)).toBeTruthy();
+  expect(screen.getByText(/Its owning account pays the Provider directly/)).toBeTruthy();
   expect(screen.queryByText('Not published')).toBeNull();
-  expect(screen.getByText(/Access still depends on your key/)).toBeTruthy();
+  expect(screen.getByText(/Upstream balance and model permissions still apply/)).toBeTruthy();
 });
 it('keeps platform funding separate from an absent price', () => {
   const model = {...models[0], billing_source: 'niu_credits' as const};

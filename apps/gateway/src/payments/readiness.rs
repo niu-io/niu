@@ -232,13 +232,15 @@ async fn organization_has_funding(
     Ok(false)
 }
 
-/// Company funding is an alternative to merchant setup, never a cross-tenant
+/// Owner-funded models or company funding are alternatives to merchant setup, never a cross-tenant
 /// installation bypass. Callers must resolve and authorize the company first.
 pub(crate) async fn inspect_organization(
     state: &AppState,
     organization: Option<uuid::Uuid>,
 ) -> Result<Readiness, ApiError> {
-    if organization_has_funding(state, organization).await? {
+    if state.operating_mode == crate::state::OperatingMode::Internal
+        || organization_has_funding(state, organization).await?
+    {
         return Ok(Readiness {
             ready: true,
             reason: None,
@@ -253,7 +255,7 @@ pub(crate) struct ReadinessQuery {
 }
 
 /// ```openapi
-/// {"path":"/api/v1/payments/readiness","method":"get","operation":{"operationId":"getPaymentReadiness","summary":"Read payment or scoped funding readiness","x-niu-implementation":"implemented","security":[{},{"bearerAuth":[]}],"description":"Anonymous reads describe installation payment configuration only. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.","responses":{"200":{"description":"Current prerequisite state","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["ready","reason"],"properties":{"ready":{"type":"boolean"},"reason":{"type":["string","null"],"enum":["currency_required","payment_setup_required",null]}}}}}}}},"500":{"description":"Readiness could not be established; clients must not assume readiness."},"401":{"description":"Requested authenticated scope has no valid session"},"403":{"description":"Company outside authorized scope"}},"parameters":[{"name":"organization","in":"query","required":false,"schema":{"type":"string","format":"uuid"},"description":"Authenticated company scope; installation credentials may select a company, members may only select their own."}]}}
+/// {"path":"/api/v1/payments/readiness","method":"get","operation":{"operationId":"getPaymentReadiness","summary":"Read deployment service and payment readiness","x-niu-implementation":"implemented","security":[{},{"bearerAuth":[]}],"description":"Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.","responses":{"200":{"description":"Current prerequisite state","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["ready","reason"],"properties":{"ready":{"type":"boolean"},"reason":{"type":["string","null"],"enum":["currency_required","payment_setup_required",null]}}}}}}}},"500":{"description":"Readiness could not be established; clients must not assume readiness."},"401":{"description":"Requested authenticated scope has no valid session"},"403":{"description":"Company outside authorized scope"}},"parameters":[{"name":"organization","in":"query","required":false,"schema":{"type":"string","format":"uuid"},"description":"Authenticated company scope; installation credentials may select a company, members may only select their own."}]}}
 /// ```
 pub(crate) async fn read(
     State(state): State<AppState>,
@@ -542,7 +544,10 @@ pub(crate) async fn gate(
             Ok(value) => value,
             Err(error) => return error.into_response(),
         };
-        match organization_has_funding(&state, organization).await {
+        match inspect_organization(&state, organization)
+            .await
+            .map(|readiness| readiness.ready)
+        {
             Ok(true) => {}
             Ok(false) => {
                 let reason = base_readiness

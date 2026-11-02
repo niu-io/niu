@@ -1,4 +1,4 @@
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import {useState} from 'react';
 import {ChevronDown} from 'lucide-react';
 import {FormSectionSkeleton} from '@/components/PageSkeletons';
@@ -11,9 +11,13 @@ import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuRadioGr
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from '@/components/ui/dialog';
 import {request} from '@/features/providers/api';
 
-const names = new Intl.DisplayNames(['en'], {type:'currency'});
+const currencyNames = new Map<string,Intl.DisplayNames>();
 const currencies = Intl.supportedValuesOf('currency').filter(code=>!['XXX','XTS'].includes(code));
-const description = (code:string)=>`${names.of(code) ?? code} (${code}) · ${currencySymbol(code)}`;
+const description = (code:string)=>{
+ const locale=readLocale();let names=currencyNames.get(locale);
+ if(!names){names=new Intl.DisplayNames([locale],{type:'currency'});currencyNames.set(locale,names);}
+ return `${names.of(code) ?? code} (${code}) · ${currencySymbol(code)}`;
+};
 
 export function PlatformCurrencySetting({token}:{token:string}) {
   const { t: uiT } = useUILocale();

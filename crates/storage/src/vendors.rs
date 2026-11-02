@@ -474,6 +474,18 @@ impl Store {
         create_supplier: bool,
         existing_supplier: Option<Uuid>,
     ) -> Result<VendorView, StoreError> {
+        self.create_vendor_with_personal_owner(input, create_supplier, existing_supplier, None)
+            .await
+    }
+
+    /// Save credential ownership in the same transaction as credential creation.
+    pub async fn create_vendor_with_personal_owner(
+        &self,
+        input: VendorInput,
+        create_supplier: bool,
+        existing_supplier: Option<Uuid>,
+        personal_owner: Option<Uuid>,
+    ) -> Result<VendorView, StoreError> {
         validate_vendor(&input)?;
         if create_supplier && existing_supplier.is_some() {
             return Err(StoreError::InvalidVendor);
@@ -544,8 +556,79 @@ impl Store {
             )
             .await?;
         }
+        if let Some(owner) = personal_owner {
+            sqlx::query(
+                "INSERT INTO personal_vendor_ownership(vendor_id,organization_id) VALUES($1,$2)",
+            )
+            .bind(vendor.id)
+            .bind(owner)
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_vendor_write_error)?;
+            insert_audit(
+                &mut transaction,
+                vendor.id,
+                None,
+                "personal_owner_assigned",
+                vendor.revision,
+            )
+            .await?;
+        }
         self.commit_route_write(transaction).await?;
         Ok(vendor)
+    }
+
+    /// Explicit administrator-managed internal-use import. Existing routes, disabled choices and prices are preserved.
+    pub async fn import_personal_vendor_models(
+        &self,
+        vendor: Uuid,
+        expected_revision: i64,
+        entries: Vec<VendorModelInput>,
+    ) -> Result<usize, StoreError> {
+        for entry in &entries {
+            validate_model(entry)?;
+        }
+        let mut tx = self.begin_route_write().await?;
+        let current: Option<i64> =
+            sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
+                .bind(vendor)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if current != Some(expected_revision) {
+            return Err(StoreError::Conflict);
+        }
+        let personal: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1)",
+        )
+        .bind(vendor)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !personal
+            || entries
+                .iter()
+                .any(|e| e.pricing.is_some() || e.public_catalog || e.expected_revision.is_some())
+        {
+            return Err(StoreError::InvalidVendor);
+        }
+        let mut inserted = 0;
+        for entry in entries {
+            let result = sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) SELECT $1,$2,$3,false,$4,$5,NULL WHERE NOT EXISTS(SELECT 1 FROM vendor_models WHERE vendor_id=$2 AND upstream_model=$3)")
+                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(entry.enabled).bind(entry.capabilities)
+                .execute(&mut *tx).await.map_err(map_vendor_write_error)?;
+            if result.rows_affected() > 0 {
+                insert_audit(
+                    &mut tx,
+                    vendor,
+                    Some(&entry.alias),
+                    "vendor_model_created",
+                    1,
+                )
+                .await?;
+                inserted += 1;
+            }
+        }
+        self.commit_route_write(tx).await?;
+        Ok(inserted)
     }
 
     pub async fn update_vendor(

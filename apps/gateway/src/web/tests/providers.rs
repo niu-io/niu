@@ -1805,3 +1805,183 @@ async fn supplier_profile_is_durable_validated_and_revision_guarded(pool: PgPool
             .unwrap();
     assert_eq!(events, 5); // creation, membership, and three successful profile updates
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_service_registry_and_native_identity_preserve_unknown_prices(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let app = router(state);
+    let (status, presets) = call(&app, Method::GET, "/api/v1/providers/presets", ADMIN, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let ids: Vec<_> = presets["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["openrouter", "fastrouter", "babelark", "qiniu", "deepseek"]
+    );
+    let (status, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Qiniu source test"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let id = created["data"]["id"].as_str().unwrap();
+    let integration = format!("/api/v1/providers/{id}/integration");
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &integration,
+            ADMIN,
+            Some(json!({"integration_type":"qiniu","expected_revision":0}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    // Identity discovery is deterministic and does not depend on a live external price source.
+    let (status, result) = call(&app, Method::GET, &integration, ADMIN, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(result["data"]["effective_type"], "qiniu");
+    assert_eq!(presets["data"][3]["price_support"], "official_page_json");
+    assert_eq!(presets["data"][4]["price_support"], "official_markdown");
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_quote_versions_remain_scoped_immutable_and_do_not_become_charges(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let app = router(state);
+    let (_, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Quote evidence"})),
+    )
+    .await;
+    let provider: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+    let path = format!("/api/v1/providers/{provider}");
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &format!("{path}/integration"),
+            ADMIN,
+            Some(json!({"integration_type":"qiniu","expected_revision":0}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    // Seed source evidence; live public retrieval is verified separately and cannot make this SQL regression network-dependent.
+    let captured = json!({"data":store.save_provider_price_evidence(provider,"qiniu",1,json!({"status":"unavailable","prices":[],"reason":"fixture_source_unavailable"})).await.unwrap()});
+    let first = captured["data"]["revision"].as_str().unwrap();
+    let read = call(
+        &app,
+        Method::GET,
+        &format!("{path}/pricing/{first}"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(read.1["data"], captured["data"]);
+    let (status,unknown)=call(&app,Method::POST,&format!("{path}/estimate"),ADMIN,Some(json!({"revision":first,"model":"unknown","quantities":[{"meter":"input_tokens","units":"1000"}]}))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(unknown["data"]["status"], "unavailable");
+    assert_eq!(unknown["data"]["totals"], json!([]));
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &format!("{path}/integration"),
+            ADMIN,
+            Some(json!({"integration_type":"openrouter","expected_revision":1}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert!(matches!(
+        store
+            .save_provider_price_evidence(provider, "qiniu", 1, json!({"status":"unavailable"}))
+            .await,
+        Err(niu_storage::StoreError::Conflict)
+    ));
+    let fixture = json!({"status":"available","source":"https://openrouter.ai/api/v1/models","basis":"advertised","observed_at_ms":1,"prices":[{"model":"maker/model","rates":[{"meter":"input_tokens","amount":"0.0000003","currency":"USD","per_units":1,"unit":"token"},{"meter":"output_tokens","amount":"0.0000012","currency":"USD","per_units":1,"unit":"token"}],"unsupported_dimensions":[]}],"native_ratios":[],"reason":null});
+    let second = store
+        .save_provider_price_evidence(provider, "openrouter", 2, fixture)
+        .await
+        .unwrap();
+    let (status,estimate)=call(&app,Method::POST,&format!("{path}/estimate"),ADMIN,Some(json!({"revision":second["revision"],"model":"maker/model","quantities":[{"meter":"input_tokens","units":"1000"},{"meter":"output_tokens","units":"800"}]}))).await;
+    assert_eq!(status, StatusCode::OK, "{estimate}");
+    assert_eq!(estimate["data"]["totals"][0]["amount"], "0.00126");
+    assert_eq!(estimate["data"]["is_actual_provider_charge"], false);
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!("{path}/pricing/{first}"),
+            ADMIN,
+            None
+        )
+        .await
+        .1,
+        captured
+    );
+    let history = call(
+        &app,
+        Method::GET,
+        &format!("{path}/pricing/history?limit=1"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(history.1["data"][0]["revision"], second["revision"]);
+    assert_eq!(history.1["next_after"], second["revision"]);
+    assert!(
+        sqlx::query("UPDATE provider_price_evidence SET adapter='qiniu' WHERE provider_id=$1")
+            .bind(provider)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    let (_, other) = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Other quote account"})),
+    )
+    .await;
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!(
+                "/api/v1/providers/{}/pricing/{first}",
+                other["data"]["id"].as_str().unwrap()
+            ),
+            ADMIN,
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM operations")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        0
+    );
+}

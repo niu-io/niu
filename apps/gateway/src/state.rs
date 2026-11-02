@@ -13,8 +13,25 @@ use subtle::ConstantTimeEq;
 
 use crate::{config::AppConfig, error::ApiError};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatingMode {
+    Internal,
+    Resale,
+}
+impl OperatingMode {
+    fn parse(value: Option<&str>) -> Result<Self, &'static str> {
+        match value.map(str::trim) {
+            None | Some("") | Some("internal") => Ok(Self::Internal),
+            Some("resale") => Ok(Self::Resale),
+            _ => Err("NIU_OPERATING_MODE must be internal or resale"),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
+    pub(crate) operating_mode: OperatingMode,
     pub(crate) route_registry:
         Arc<tokio::sync::RwLock<Option<Arc<crate::vendors::publication::Published>>>>,
     pub(crate) route_registry_reload: Arc<tokio::sync::Mutex<()>>,
@@ -202,6 +219,12 @@ fn resolve_demo_account_password(raw: Option<&str>) -> Result<String, Box<dyn st
 
 impl AppState {
     pub async fn load_from_env() -> Result<Self, Box<dyn std::error::Error>> {
+        let mode_value = match env::var("NIU_OPERATING_MODE") {
+            Ok(value) => Some(value),
+            Err(env::VarError::NotPresent) => None,
+            Err(_) => return Err("NIU_OPERATING_MODE must be valid text".into()),
+        };
+        let operating_mode = OperatingMode::parse(mode_value.as_deref())?;
         let config = AppConfig::load()?;
         let enterprise = crate::enterprise::EnterpriseRuntime::from_env().await?;
         let database_url =
@@ -252,6 +275,16 @@ impl AppState {
         crate::vendors::validate_saved_codex_credentials(&store, vendor_cipher.as_deref()).await?;
         let seeds =
             crate::vendors::collect_seeds_from_env(&store, vendor_cipher.as_deref()).await?;
+        if operating_mode == OperatingMode::Internal {
+            let shared = store
+                .vendors_with_supplier(None)
+                .await?
+                .iter()
+                .any(|v| v["enabled"] == true && v["owner_funded"] != true);
+            if !config.models.is_empty() || !seeds.is_empty() || shared {
+                return Err("Internal use cannot activate existing shared/commercial or static routes. Keep NIU_OPERATING_MODE=resale for this installation; do not change historical ownership or billing.".into());
+            }
+        }
         let expected_generation = match env::var("NIU_ROUTING_EXPECTED_GENERATION") {
             Ok(value) => Some(
                 value
@@ -277,6 +310,7 @@ impl AppState {
         )?;
         let mut state =
             Self::new(config, store, admin_tokens, provider_keys).with_enterprise(enterprise);
+        state.operating_mode = operating_mode;
         state.vendor_cipher = vendor_cipher;
         state.payments = crate::payments::Runtime::from_env().await?.map(Arc::new);
         state.epay_payments = crate::payments::EPayRuntime::from_env()?.map(Arc::new);
@@ -374,6 +408,9 @@ impl AppState {
             })
             .collect();
         Self {
+            // Internal constructor preserves existing programmatic fixtures; runtime always
+            // sets the explicit deployment policy parsed above (default Internal).
+            operating_mode: OperatingMode::Resale,
             route_registry: Arc::new(tokio::sync::RwLock::new(None)),
             route_registry_reload: Arc::new(tokio::sync::Mutex::new(())),
             trusted_proxies: Arc::new(Vec::new()),
@@ -976,5 +1013,23 @@ mod tests {
                 project_id,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod operating_mode_tests {
+    use super::OperatingMode;
+    #[test]
+    fn only_explicit_resale_enables_resale() {
+        assert_eq!(OperatingMode::parse(None).unwrap(), OperatingMode::Internal);
+        assert_eq!(
+            OperatingMode::parse(Some("internal")).unwrap(),
+            OperatingMode::Internal
+        );
+        assert_eq!(
+            OperatingMode::parse(Some("resale")).unwrap(),
+            OperatingMode::Resale
+        );
+        assert!(OperatingMode::parse(Some("true")).is_err());
     }
 }

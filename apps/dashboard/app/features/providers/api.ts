@@ -1,6 +1,6 @@
 import type { VideoSchema } from './video-schema';
 import type { CatalogMetadata } from '@/shell/dashboard-context';
-export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
+export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom' | 'fastrouter' | 'babelark' | 'qiniu' | 'deepseek';
 export type ProviderIntegration = {
   integration_type: ProviderIntegrationType | null;
   effective_type: ProviderIntegrationType;
@@ -8,7 +8,7 @@ export type ProviderIntegration = {
   revision: number;
 };
 export const integrationLabels: Record<ProviderIntegrationType, string> = {
-  openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom',
+  openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom', fastrouter: 'FastRouter', babelark: 'BabelArk', qiniu: 'Qiniu', deepseek: 'DeepSeek',
 };
 export type ProviderAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
 export type VendorAdapter = ProviderAdapter;

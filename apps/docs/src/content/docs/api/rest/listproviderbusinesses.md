@@ -98,6 +98,16 @@ Content type: `application/json`.
             "minimum": 0,
             "description": "Saved model offers with agreed Provider rates."
           },
+          "internal_api_keys": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Administrator-managed connections attributed to direct upstream-funded internal use; not end-user BYOK self-service."
+          },
+          "internal_model_routes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Saved internal-use model mappings, including disabled entries; not live verification or sellable inventory."
+          },
           "ready_offers": {
             "type": "integer",
             "minimum": 0,

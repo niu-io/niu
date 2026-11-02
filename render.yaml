@@ -14,6 +14,8 @@ services:
     autoDeployTrigger: "off"
     healthCheckPath: /readyz
     envVars:
+      - key: NIU_OPERATING_MODE
+        value: internal
       - key: NIU_DATABASE_URL
         fromDatabase:
           name: niu-public-postgres
@@ -23,9 +25,6 @@ services:
         generateValue: true
       - key: NIU_VENDOR_ENCRYPTION_KEY
         generateValue: true
-      # The value is entered into Render during Blueprint creation, not Git.
-      - key: OPENROUTER_API_KEY
-        sync: false
 
 databases:
   - name: niu-public-postgres

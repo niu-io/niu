@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import DetectorPreview from './DetectorPreview';
@@ -60,7 +61,7 @@ type Version = {
 };
 const accessDescription = (access: Access) =>
   access.mode === "allow_list"
-    ? access.values?.join(", ") || "Block all (empty allowlist)"
+    ? access.values?.join(", ") || translateUI("Block all (empty allowlist)")
     : {
         inherit: "No additional restriction",
         allow_all: "Allow all",

@@ -1547,3 +1547,5 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&self.pool).await?)
     }
 }
+
+mod provider_prices;

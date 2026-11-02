@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceDisplayName } from '@/shell/workspace-route';
@@ -40,11 +41,11 @@ function expiryState(session: OperatorSession) {
 
 function activityLabel(action: string) {
   switch (action) {
-    case 'role_changed': return 'Role changed';
-    case 'operator_created': return 'User added';
-    case 'session_created': return 'Access token created';
-    case 'session_revoked': return 'Session revoked';
-    case 'operator_revoked': return 'User access revoked';
+    case 'role_changed': return translateUI('Role changed');
+    case 'operator_created': return translateUI('User added');
+    case 'session_created': return translateUI('Access token created');
+    case 'session_revoked': return translateUI('Session revoked');
+    case 'operator_revoked': return translateUI('User access revoked');
     default: return action.replaceAll('_', ' ');
   }
 }

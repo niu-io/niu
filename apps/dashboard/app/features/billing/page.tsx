@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Link, useLocation, type LoaderFunctionArgs } from 'react-router';
@@ -23,7 +24,7 @@ import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
 type Tariff = CustomerTariff;
 // An absent category rate is neither a zero price nor an inherited tier rate.
-const categoryRate = (rate: string | null | undefined, currency: string) => rate === undefined ? 'Unknown' : rate === null ? 'Not configured' : money(rate, currency);
+const categoryRate = (rate: string | null | undefined, currency: string) => rate === undefined ? translateUI('Unknown') : rate === null ? translateUI('Not configured') : money(rate, currency);
 type Invoice = { id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; status: string };
 type InvoicePage = { data: Invoice[]; next_cursor: string | null };
 function checkedInvoices(page: InvoicePage) {

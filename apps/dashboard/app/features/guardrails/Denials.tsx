@@ -1,3 +1,5 @@
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -25,11 +27,11 @@ const reasons: Record<string, string> = {
   access_denied: 'Model or Provider not allowed', input_binding_missing: 'Required inspection was missing',
   policy_changed: 'Policy changed before dispatch',
 };
-const policyLabel = (name: string | null, revision: number | null) => revision ? `${name || 'Saved policy'} · Version ${revision}` : 'None';
+const policyLabel = (name: string | null, revision: number | null) => revision ? formatLocalizedMessage('{0} · Version {1}', [name || translateUI('Saved policy'), revision], readLocale()) : translateUI('None');
 const policyEvidence = (name: string | null, revision: number | null) => revision && Number.isSafeInteger(revision) && revision > 0
   ? <Link className="underline underline-offset-4" to={`../history?revision=${revision}&from=blocked`} relative="path">{policyLabel(name, revision)}</Link>
   : 'No saved policy evidence';
-const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
+const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 
 export default function GuardrailDenials({ token, endpoint }: { token: string; endpoint: string }) {
   const { t: uiT } = useUILocale();
@@ -91,7 +93,7 @@ export default function GuardrailDenials({ token, endpoint }: { token: string; e
     <p className="guardrails-intro">{uiT("Latest 100 recorded blocks before model dispatch. Select a saved policy to inspect the rules referenced by a block. A workspace administrator can change policy for future requests. These pre-dispatch events may have no request log. Some admission denials are not recorded. Logs contain output blocks after dispatch.")}</p>
     {loading && !rows.length && !error ? <TableSkeleton columns={5} rows={5} label={uiT("Loading blocked requests…")} /> : error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : !rows.length ? <Empty className="guardrails-empty"><EmptyHeader><EmptyMedia variant="icon"><IconShieldOff aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No recorded blocks in this workspace.")}</EmptyTitle></EmptyHeader></Empty> : <Table className="sm:min-w-[680px] table-fixed">
       <TableHeader><TableRow><TableHead>{uiT("Reason")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("API key")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Time")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Workspace policy")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Key policy")}</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row, index) => <TableRow key={index}><TableCell className="whitespace-normal break-words">{reasons[row.reason] || uiT("Request blocked by Guardrails")}<div className="text-muted-foreground text-xs mt-1">{row.stage === 'dispatch' ? uiT("Before dispatch") : row.stage === 'batch_admission' ? uiT("During admission") : uiT("Before admission")}</div><dl className="mt-4 grid gap-3 text-sm sm:hidden">
+      <TableBody>{rows.map((row, index) => <TableRow key={index}><TableCell className="whitespace-normal break-words">{translateUI(reasons[row.reason]) || uiT("Request blocked by Guardrails")}<div className="text-muted-foreground text-xs mt-1">{row.stage === 'dispatch' ? uiT("Before dispatch") : row.stage === 'batch_admission' ? uiT("During admission") : uiT("Before admission")}</div><dl className="mt-4 grid gap-3 text-sm sm:hidden">
         <div><dt className="text-xs text-muted-foreground">{uiT("API key")}</dt><dd>{row.key_name || uiT("Unnamed key")}</dd></div>
         <div><dt className="text-xs text-muted-foreground">{uiT("Time")}</dt><dd>{time(row.recorded_at)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">{uiT("Workspace policy")}</dt><dd>{uiT(policyEvidence(row.workspace_policy_name, row.workspace_revision))}</dd></div>

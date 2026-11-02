@@ -2,7 +2,7 @@
 
 This kit implements the approved bright warm palette, Maple Mono SemiBold (600) Latin
 lettering and Open Huninn rounded Chinese lettering. The product name is **Niu**;
-the bilingual wordmark is **Niu 牛元**.
+the default wordmark is **Niu** in every locale. Chinese introductory copy may annotate the first mention as **Niu（牛元）** on landing and documentation home pages. Bilingual assets below are retained as legacy artwork.
 
 ## Choose an asset
 

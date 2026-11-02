@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -1083,7 +1084,7 @@ function RoutePoolEditorDialog({
                 id="route-pool-display-name"
                 maxLength={200}
                 disabled={busy}
-                placeholder={t('e.g. Niu Smart Router Pro', '例如：牛元智能路由模型')}
+                placeholder={t('e.g. Niu Smart Router Pro', '例如：Niu 智能路由模型')}
                 value={displayName}
                 onChange={event => setDisplayName(event.target.value)}
               />
@@ -1445,7 +1446,7 @@ function RoutePoolEditorDialog({
                                 disabled={busy}
                                 aria-label={uiF("Rule {0} protocol", [ruleIndex + 1])}
                               >
-                                <span className="truncate">{protocolLabels[currentProto]}</span>
+                                <span className="truncate">{translateUI(protocolLabels[currentProto])}</span>
                                 <IconChevronDown size={14} />
                               </Button>
                             </DropdownMenuTrigger>
@@ -1746,7 +1747,7 @@ function RoutePoolPreviewDialog({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="outline" className="w-full justify-between" aria-label={uiT("Preview protocol")}>
-                    <span className="truncate">{protocolLabels[protocol]}</span>
+                    <span className="truncate">{translateUI(protocolLabels[protocol])}</span>
                     <IconChevronDown size={15} />
                   </Button>
                 </DropdownMenuTrigger>

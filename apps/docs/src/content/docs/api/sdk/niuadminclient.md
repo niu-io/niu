@@ -308,10 +308,92 @@ getProviderProfile(providerId: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
-### getProviderIntegration
+### listProviderPresets
 
 ```typescript
 /** Platform-only Provider integration default, independent of inference formats. */
+/** Supported service implementations, separate from wire formats and saved connections. */
+listProviderPresets(options?: RequestOptions): Promise<{
+    data: ProviderServiceDescriptor[];
+}>;
+```
+
+### discoverProviderPricing
+
+```typescript
+/** Advertised evidence only. Partial ratios are not a monetary quote or customer tariff. */
+discoverProviderPricing(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderPriceEvidence;
+    integration: ProviderIntegration;
+}>;
+```
+
+### discoverProviderMetadata
+
+```typescript
+discoverProviderMetadata(providerId: string, credentialId: string, options?: RequestOptions): Promise<{
+    data: ProviderCatalogModel[];
+    discovery: ProviderDiscovery;
+    pricing?: ProviderPriceEvidence | null;
+}>;
+```
+
+### captureProviderPriceEvidence
+
+```typescript
+/** Explicit source refresh; persist the returned revision. No automatic write retry. */
+captureProviderPriceEvidence(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderPriceVersion;
+}>;
+```
+
+### listProviderPriceHistory
+
+```typescript
+listProviderPriceHistory(providerId: string, query?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: Array<{
+        revision: string;
+        adapter: string;
+        status: string;
+        source: string;
+        captured_at_ms: number;
+    }>;
+    next_after: string | null;
+}>;
+```
+
+### getProviderPriceEvidence
+
+```typescript
+getProviderPriceEvidence(providerId: string, revision: string, options?: RequestOptions): Promise<{
+    data: ProviderPriceVersion;
+}>;
+```
+
+### estimateProviderQuoteCost
+
+```typescript
+estimateProviderQuoteCost(providerId: string, input: {
+    revision: string;
+    model: string;
+    quantities: Array<{
+        meter: string;
+        units: string;
+        condition?: string;
+    }>;
+}, options?: RequestOptions): Promise<{
+    data: ProviderCostEstimate;
+    quote_revision: string;
+    adapter: string;
+}>;
+```
+
+### getProviderIntegration
+
+```typescript
 getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{
     data: ProviderIntegration;
 }>;
@@ -2368,6 +2450,19 @@ listSupplierCredentials(query?: {
 /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
 createProviderCredential(input: ProviderCredentialCreateInput, options?: RequestOptions): Promise<{
     data: Omit<ProviderCredential, 'supplier'>;
+}>;
+```
+
+### importPersonalProviderModels
+
+```typescript
+/** Explicit bounded discovery and idempotent private model import; no inference or billing setup. */
+importPersonalProviderModels(id: string, options?: RequestOptions): Promise<{
+    data: {
+        imported: number;
+        discovered: number;
+    };
+    discovery: Record<string, unknown>;
 }>;
 ```
 

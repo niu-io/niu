@@ -1,3 +1,4 @@
+import { readLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { TableSkeleton } from '@/components/PageSkeletons';
@@ -14,7 +15,7 @@ import type { CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant } f
 import type { Editor } from './page';
 
 const base=(organization:string,currency:string)=>`/api/v1/organizations/${encodeURIComponent(organization)}/billing/accounts/${currency}/grants`;
-const date=(value:string)=>new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC',hourCycle:'h23'}).format(new Date(value));
+const date=(value:string)=>new Intl.DateTimeFormat(readLocale(),{dateStyle:'medium',timeStyle:'short',timeZone:'UTC',hourCycle:'h23'}).format(new Date(value));
 const amount=(row:IssuedCustomerBalanceGrant)=>`${amountFromNanos(row.amount_nanos)} ${row.currency}`;
 
 /** All original grants, including those issued before preparation existed. */

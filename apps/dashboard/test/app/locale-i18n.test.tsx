@@ -118,14 +118,14 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     languageGetter.mockRestore();
   });
 
-  it('persists locale changes, updates documentElement.lang, and localizes PublicHeader with Niu 牛元 brand', async () => {
+  it('persists locale changes, updates documentElement.lang, and localizes PublicHeader with Niu brand', async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({}), { status: 401 }));
 
     render(<PublicHeader path="/docs/quickstart/" />);
     expect(screen.getByRole('link', { name: 'Niu home' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'For Human' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'For Agents' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'AgentDoc' })).toBeTruthy();
 
     expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('EN');
     await user.click(screen.getByRole('button', { name: 'Language' }));
@@ -135,9 +135,9 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(document.documentElement.lang).toBe('zh-CN');
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
     expect(screen.getByRole('button', { name: '界面语言' }).textContent).toContain('中文');
-    expect(screen.getByRole('link', { name: 'Niu 牛元首页' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '用户文档' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '智能体文档' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Niu 首页' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'AgentDoc' })).toBeTruthy();
   });
 
   it('switches language from Settings -> Appearance and AccountMenu using shadcn DropdownMenu', async () => {

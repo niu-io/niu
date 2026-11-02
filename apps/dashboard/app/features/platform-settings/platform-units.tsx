@@ -1,3 +1,5 @@
+import { translateUI } from '@/shell/ui-locale';
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent } from 'react';
@@ -97,7 +99,7 @@ const BLOCKER_LABELS: Record<string, string> = {
 function formatRuleRate(rule: PurchaseRule, unitName: string, precision: number): string {
   try {
     const atomsForOneCurrency = (BigInt(rule.numerator) * 1000000000n) / BigInt(rule.denominator);
-    return `${formatUnitAtoms(atomsForOneCurrency.toString(), unitName, precision)} per 1 ${rule.payment_currency} (exact ratio ${rule.numerator}:${rule.denominator})`;
+    return formatLocalizedMessage('{0} per 1 {1} (exact ratio {2}:{3})', [formatUnitAtoms(atomsForOneCurrency.toString(), unitName, precision), rule.payment_currency, rule.numerator, rule.denominator], readLocale());
   } catch {
     return `${rule.numerator}:${rule.denominator} (${rule.payment_currency})`;
   }
@@ -524,7 +526,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                     {preview.blockers.map(blocker => (
                       <TableRow key={blocker.category}>
                         <TableCell className="font-medium">
-                          {BLOCKER_LABELS[blocker.category] ?? blocker.category}
+                          {translateUI(BLOCKER_LABELS[blocker.category]) ?? blocker.category}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{blocker.record_count}</TableCell>
                         <TableCell className="text-right tabular-nums">{blocker.organization_count}</TableCell>

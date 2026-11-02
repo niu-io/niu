@@ -87,6 +87,7 @@ pub struct CreateVendor {
     #[serde(default)]
     create_supplier: bool,
     supplier_id: Option<Uuid>,
+    personal_organization_id: Option<Uuid>,
 }
 fn enabled() -> bool {
     true
@@ -353,6 +354,10 @@ pub struct VendorFilter {
 ///           "format": "uuid",
 ///           "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
 ///         },
+///         "personal_organization_id": {
+///           "type": "string", "format": "uuid",
+///           "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+///         },
 ///         "create_supplier": {
 ///           "type": "boolean",
 ///           "default": false,
@@ -489,7 +494,28 @@ pub async fn create(
     headers: HeaderMap,
     Json(input): Json<CreateVendor>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    installation(&state, &headers).await?;
+    let authorization = state.authorize_platform_headers(&headers).await?;
+    let personal_owner = if state.operating_mode == crate::state::OperatingMode::Internal {
+        Some(match input.personal_organization_id {
+            Some(owner) => owner,
+            None => match authorization {
+                crate::state::AdminAuthorization::Operator(operator) => {
+                    operator.scope.organization_id
+                }
+                crate::state::AdminAuthorization::Installation => {
+                    state
+                        .store
+                        .default_workspace()
+                        .await
+                        .map_err(ApiError::from_store)?
+                        .organization_id
+                }
+            },
+        })
+    } else {
+        input.personal_organization_id
+    };
+
     if input.create_supplier && input.supplier_id.is_some() {
         return Err(ApiError::invalid_request(
             "Choose a new or existing Provider, not both",
@@ -515,7 +541,7 @@ pub async fn create(
         .map_err(ApiError::invalid_request)?;
     let vendor = state
         .store
-        .create_vendor_for_supplier(
+        .create_vendor_with_personal_owner(
             niu_storage::VendorInput {
                 id,
                 name: input.name,
@@ -526,11 +552,12 @@ pub async fn create(
             },
             input.create_supplier,
             input.supplier_id,
+            personal_owner,
         )
         .await
         .map_err(ApiError::from_store)?;
     let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
-    vendor["owner_funded"] = json!(false);
+    vendor["owner_funded"] = json!(personal_owner.is_some());
     Ok((StatusCode::CREATED, Json(json!({"data":vendor}))))
 }
 
@@ -614,6 +641,20 @@ pub async fn update(
     Json(input): Json<UpdateVendor>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
+    if input.enabled
+        && state.operating_mode == crate::state::OperatingMode::Internal
+        && state
+            .store
+            .personal_vendor_organization(id)
+            .await
+            .map_err(ApiError::from_store)?
+            .is_none()
+    {
+        return Err(ApiError::invalid_request(
+            "Internal use cannot enable shared commercial credentials",
+        ));
+    }
+
     let current = state
         .store
         .vendor(id)
@@ -1750,6 +1791,15 @@ async fn read_catalog(
     let models = catalog_models(&catalog, catalog_adapter).ok_or_else(|| {
         ApiError::upstream_message("The provider returned an invalid model catalog.")
     })?;
+    let pricing = crate::providers::adapters::find(&integration.effective_type).map(|adapter| {
+        if integration.effective_type == "openrouter" {
+            let mut pricing = adapter.pricing(&catalog);
+            pricing.observed_at_ms = crate::providers::adapters::now_ms();
+            pricing
+        } else {
+            adapter.pricing(&serde_json::Value::Null)
+        }
+    });
     let data = models
         .iter()
         .filter_map(|model| {
@@ -1767,7 +1817,7 @@ async fn read_catalog(
                 "id": id,
                 "name": name,
                 "context_length": model.get("context_length").and_then(Value::as_u64),
-                "catalog": crate::catalog_metadata::CatalogMetadata::from_provider(model),
+                "catalog": crate::providers::adapters::metadata(&integration.effective_type, model),
             }))
         })
         .collect::<Vec<_>>();
@@ -1775,6 +1825,7 @@ async fn read_catalog(
         vendor.revision,
         json!({
             "data": data,
+            "pricing": pricing,
             "discovery": {
                 "integration": integration,
                 "inventory_scope": if credential_filtered { "credential_filtered" } else { "instance_reported" },
@@ -2636,5 +2687,78 @@ pub async fn revoke_asset_management(
         .map_err(ApiError::from_store)?;
     Ok(Json(
         json!({"data":{"revision":input.expected_revision,"configured":false,"dispatch_available":false,"erased_revisions":erased}}),
+    ))
+}
+
+/// Explicit discovery and atomic import for an already saved owner-funded key.
+/// ```openapi
+/// {"path":"/api/v1/vendors/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import owner-funded Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Not a personal connection or unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn import_models(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    if state
+        .store
+        .personal_vendor_organization(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .is_none()
+    {
+        return Err(ApiError::invalid_request(
+            "Only owner-funded connections support automatic model import",
+        ));
+    }
+    let vendor = state
+        .store
+        .vendor(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let (revision, result) = read_catalog(&state, id, &headers).await?;
+    let prefix = vendor
+        .name
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>();
+    let prefix = prefix.trim_matches('-');
+    let data = result["data"]
+        .as_array()
+        .ok_or_else(ApiError::unavailable)?;
+    let mut entries = Vec::new();
+    for model in data {
+        let upstream = model["id"].as_str().ok_or_else(ApiError::unavailable)?;
+        let alias = format!("{prefix}/{upstream}");
+        let capabilities = json!({"catalog":model["catalog"],"supports_tool_calls":false,"supports_streaming_tool_calls":false,"supports_structured_output":false,"supports_embeddings":false,"supports_embedding_dimensions":false,"supports_embedding_base64":false,"supports_responses":false});
+        validate_model(
+            &alias,
+            make_model(
+                &vendor.adapter,
+                &vendor.api_base,
+                upstream,
+                capabilities.clone(),
+                None,
+            )?,
+        )?;
+        entries.push(niu_storage::VendorModelInput {
+            alias,
+            upstream_model: upstream.to_owned(),
+            public_catalog: false,
+            enabled: true,
+            capabilities,
+            pricing: None,
+            expected_revision: None,
+        });
+    }
+    let imported = state
+        .store
+        .import_personal_vendor_models(id, revision, entries)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"imported":imported,"discovered":data.len()},"discovery":result["discovery"]}),
     ))
 }

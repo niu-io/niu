@@ -44,7 +44,7 @@ describe('customer model workflow', () => {
   it('keeps the empty model catalog customer-facing', () => {
     fixture.context = { token: 'test-session', models: [], workspace: null, session: null } as unknown as DashboardContext;
     const { container } = render(<MemoryRouter><SidebarProvider><ModelsRoute /></SidebarProvider></MemoryRouter>);
-    expect(screen.getByText('Ask a platform administrator to connect a provider and add a model route to the catalog.')).toBeTruthy();
+    expect(screen.getByText('Ask a platform administrator to connect a Provider and import its models.')).toBeTruthy();
     expect(container.querySelector('a[href="/providers"], a[href="/admin/providers"], a[href="/suppliers"], a[href="/admin/suppliers"]')).toBeNull();
   });
 });

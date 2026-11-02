@@ -1,4 +1,4 @@
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol, formatFinancialMoney, formatRateMoney } from '@/lib/money';
 import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
@@ -69,7 +69,7 @@ type ResolvedInterval = {
 
 
 
-function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
+function buildRecentMonths(count = 12, now = new Date(), locale = 'en', uiF = (pattern: string, values: readonly unknown[]) => pattern.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)]))): MonthOption[] {
   const curYear = now.getUTCFullYear();
   const curMonth = now.getUTCMonth();
   const options: MonthOption[] = [];
@@ -78,12 +78,12 @@ function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth();
     const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-    const full = new Intl.DateTimeFormat('en-US', {
+    const full = new Intl.DateTimeFormat(locale, {
       timeZone: 'UTC',
       month: 'long',
       year: 'numeric',
     }).format(d);
-    const short = new Intl.DateTimeFormat('en-US', {
+    const short = new Intl.DateTimeFormat(locale, {
       timeZone: 'UTC',
       month: 'short',
       year: 'numeric',
@@ -92,7 +92,7 @@ function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
       key,
       year: y,
       monthIndex: m,
-      label: offset === 0 ? `${full} (MTD)` : full,
+      label: offset === 0 ? uiF('{0} (MTD)', [full]) : full,
       shortLabel: short,
       isCurrent: offset === 0,
     });
@@ -113,6 +113,8 @@ function resolveInterval(
   search: URLSearchParams,
   months: MonthOption[],
   now = new Date(),
+  locale = 'en',
+  uiF = (pattern: string, values: readonly unknown[]) => pattern.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)])),
 ): ResolvedInterval {
   const explicitMode = search.get('mode') as PeriodMode | null;
   const explicitDays = search.get('days');
@@ -134,8 +136,8 @@ function resolveInterval(
     const priorFromMs = priorUntilMs - d * 86_400_000;
     return {
       mode: 'rolling',
-      label: `Last ${d} days`,
-      comparisonLabel: `Prior ${d} days`,
+      label: uiF('Last {0} days', [d]),
+      comparisonLabel: uiF('Prior {0} days', [d]),
       days: d,
       from: new Date(fromMs).toISOString(),
       until: new Date(untilMs).toISOString(),
@@ -158,20 +160,20 @@ function resolveInterval(
           prevStart.getTime() + (now.getTime() - start.getTime()),
         ))
       : start;
-    const monthLabel = new Intl.DateTimeFormat('en-US', {
+    const monthLabel = new Intl.DateTimeFormat(locale, {
       timeZone: 'UTC',
       month: 'long',
       year: 'numeric',
     }).format(start);
-    const prevLabel = new Intl.DateTimeFormat('en-US', {
+    const prevLabel = new Intl.DateTimeFormat(locale, {
       timeZone: 'UTC',
       month: 'short',
       year: 'numeric',
     }).format(prevStart);
     return {
       mode: 'month',
-      label: isCurrentMonth ? `${monthLabel} (Month to date)` : monthLabel,
-      comparisonLabel: isCurrentMonth ? `${prevLabel} (same MTD span)` : prevLabel,
+      label: isCurrentMonth ? uiF('{0} (Month to date)', [monthLabel]) : monthLabel,
+      comparisonLabel: isCurrentMonth ? uiF('{0} (same MTD span)', [prevLabel]) : prevLabel,
       from: start.toISOString(),
       until: end.toISOString(),
       priorFrom: prevStart.toISOString(),
@@ -204,11 +206,11 @@ function resolveInterval(
           priorStartDate.getTime() + Math.max(60_000, now.getTime() - startDate.getTime()),
         ))
       : startDate;
-    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+    const fmt = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', month: 'short', year: 'numeric' });
     return {
       mode: 'range',
-      label: `${fmt.format(startDate)} – ${fmt.format(new Date(Date.UTC(Math.floor(maxIdx / 12), maxIdx % 12, 1)))} (${spanMonths} mo)`,
-      comparisonLabel: `Prior ${spanMonths} mo (${fmt.format(priorStartDate)} – ${fmt.format(new Date(startDate.getTime() - 86_400_000))})`,
+      label: uiF('{0} – {1} ({2} mo)', [fmt.format(startDate), fmt.format(new Date(Date.UTC(Math.floor(maxIdx / 12), maxIdx % 12, 1))), spanMonths]),
+      comparisonLabel: uiF('Prior {0} mo ({1} – {2})', [spanMonths, fmt.format(priorStartDate), fmt.format(new Date(startDate.getTime() - 86_400_000))]),
       from: startDate.toISOString(),
       until: endDate.toISOString(),
       priorFrom: priorStartDate.toISOString(),
@@ -222,20 +224,20 @@ function resolveInterval(
   const prevStart = new Date(Date.UTC(curYear, curMonth - 1, 1));
   const prevMonthEnd = start;
   const prevUntil = new Date(Math.min(prevMonthEnd.getTime(), prevStart.getTime() + elapsedMs));
-  const curLabel = new Intl.DateTimeFormat('en-US', {
+  const curLabel = new Intl.DateTimeFormat(locale, {
     timeZone: 'UTC',
     month: 'long',
     year: 'numeric',
   }).format(start);
-  const prevLabel = new Intl.DateTimeFormat('en-US', {
+  const prevLabel = new Intl.DateTimeFormat(locale, {
     timeZone: 'UTC',
     month: 'short',
     year: 'numeric',
   }).format(prevStart);
   return {
     mode: 'mtd',
-    label: `${curLabel} · Month to date`,
-    comparisonLabel: `${prevLabel} MTD`,
+    label: uiF('{0} · Month to date', [curLabel]),
+    comparisonLabel: uiF('{0} MTD', [prevLabel]),
     from: start.toISOString(),
     until: now.toISOString(),
     priorFrom: prevStart.toISOString(),
@@ -429,14 +431,14 @@ export default function CommercialPositionPage() {
 }
 
 function CommercialStatement({ token }: { token: string }) {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT, format: uiF, locale } = useUILocale();
   const { t } = useLocale();
   const { providerDirectory } = useDashboardContext();
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const [refresh, setRefresh] = useState(0);
   const asOf = useMemo(() => new Date(), [search, refresh]);
-  const months = useMemo(() => buildRecentMonths(12, asOf), [asOf]);
+  const months = useMemo(() => buildRecentMonths(12, asOf, locale, uiF), [asOf, locale]);
   const normalizedSearch = useMemo(() => {
     const next = new URLSearchParams(search);
     if (next.get('mode') === 'range') {
@@ -453,7 +455,7 @@ function CommercialStatement({ token }: { token: string }) {
     if (search.toString() !== normalizedSearch.toString()) setSearch(normalizedSearch, { replace: true });
   }, [search, normalizedSearch, setSearch]);
   const {currency,ready:currencyReady,failed:currencyFailed,reload:reloadCurrency} = usePlatformCurrency();
-  const interval = useMemo(() => resolveInterval(normalizedSearch, months, asOf), [normalizedSearch, months, asOf]);
+  const interval = useMemo(() => resolveInterval(normalizedSearch, months, asOf, locale, uiF), [normalizedSearch, months, asOf, locale]);
 
   const scope = token || 'public';
   const currentBundleKey = currency
@@ -672,10 +674,10 @@ function CommercialStatement({ token }: { token: string }) {
   const selectedEndMonthKey = normalizedSearch.get('end_month') ?? months[0].key;
 
   const modeLabels: Record<PeriodMode, string> = {
-    mtd: 'Month to date (Current month)',
-    month: 'Single calendar month',
-    range: 'Multi-month range',
-    rolling: 'Rolling day window',
+    mtd: uiT('Month to date (Current month)'),
+    month: uiT('Single calendar month'),
+    range: uiT('Multi-month range'),
+    rolling: uiT('Rolling day window'),
   };
 
     if (!currency) return <section className="space-y-3" aria-label={uiT("Financial reports")}>
@@ -1545,7 +1547,7 @@ function StatementRow({
 }) {
   const { t: uiT } = useUILocale();
   const formatVal = (val: bigint | null) => {
-    if (val === null) return 'Unavailable';
+    if (val === null) return uiT('Unavailable');
     if (negateDisplay && val > 0n) return `-${formatFinancialMoney(val, currency)}`;
     return formatFinancialMoney(val, currency);
   };
@@ -1585,7 +1587,7 @@ function formatUnits(units: string, places: number) {
 }
 
 function formatInstant(value: string) {
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(readLocale(), {
     timeZone: 'UTC',
     dateStyle: 'medium',
     timeStyle: 'short',

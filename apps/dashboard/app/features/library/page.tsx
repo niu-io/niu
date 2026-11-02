@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -120,7 +121,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug}:{token:str
     <p className="text-sm text-muted-foreground">{uiT("Media saved in this workspace, accessible to its members. Saved copies remain available independently of the Provider’s temporary download links, until deleted.")}</p>
     <div className="flex flex-wrap items-center gap-2">
       <Popover><PopoverTrigger asChild><Button ref={searchButton} variant={query?'secondary':'outline'} size="icon" aria-label={query?uiF("Search library: {0}", [query]):uiT("Search library")}><IconSearch size={18}/></Button></PopoverTrigger><PopoverContent align="start"><Label htmlFor="library-search">{uiT("Search loaded files")}</Label><Input id="library-search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={uiT("File name…")}/></PopoverContent></Popover>
-      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{kinds[kind]}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={kind} onValueChange={value=>setKind(value as keyof typeof kinds)}>{Object.entries(kinds).map(([value,label])=><DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{translateUI(kinds[kind])}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={kind} onValueChange={value=>setKind(value as keyof typeof kinds)}>{Object.entries(kinds).map(([value,label])=><DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
       <Button variant="outline" disabled={loading} onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh")}</Button>
       {query&&<Button className="min-w-0 max-w-full" variant="ghost" onClick={()=>setQuery('')}>{uiT("Clear search:")}{" "}<span className="truncate">{query}</span></Button>}
     </div>

@@ -56,16 +56,18 @@ Install a published, pinned release with [`scripts/install.sh`](scripts/install.
 ./scripts/install.sh install --version v0.3.0 --dir /opt/niu
 ```
 
+For the 0.3.0 source preview, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
+
 Once running on port `2555`:
 
 - **Default Entry (`/`)**: Redirects to `/workspaces/default/` (or `/installation` before first-time setup and `/login` when unauthenticated, with direct links to `/models/` and `/docs/`).
-- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKENS` secret to configure the platform currency (`USD` or `CNY`), upstream Providers (such as OpenRouter, OpenAI, Anthropic, or Bedrock), published model routes, and either a payment gateway or a company funding arrangement (`/admin/balances`).
+- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKENS` secret to connect upstream Providers and import models. Resale deployments additionally configure customer pricing, platform currency and payment/funding arrangements.
 - **Public Model Catalog (`/models/`)**: Browse routes enabled for `public_catalog`.
 - **Developer Documentation (`/docs/` & `/help/`)**: Read setup, routing, and API guides.
 
-### 2. Enable Self-Hosted Funding & Call the Inference API
+### 2. Optional Resale Funding & Inference
 
-Customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
+In `NIU_OPERATING_MODE=resale`, customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
 
 ```sh
 # 0. Choose one installation token from the generated NIU_ADMIN_TOKENS value
@@ -114,7 +116,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ### 4. Deploy to Render
 
-The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Provide your upstream Provider API key during setup; Render generates `NIU_ADMIN_TOKENS` and `NIU_VENDOR_ENCRYPTION_KEY`.
+The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Connect upstream Providers after administrator sign-in; Render generates `NIU_ADMIN_TOKENS` and `NIU_VENDOR_ENCRYPTION_KEY`.
 
 ---
 

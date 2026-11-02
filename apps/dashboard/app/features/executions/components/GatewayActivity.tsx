@@ -231,7 +231,7 @@ function requestLatency(request: GatewayRequest) {
   const duration = request.timing
     ? (request.timing.complete ? request.timing.total_ms : null)
     : request.duration_ms;
-  return duration == null ? 'Unknown' : `${duration.toLocaleString(readUILocale())} ${translateUI('ms')}`;
+  return duration == null ? translateUI('Unknown') : `${duration.toLocaleString(readUILocale())} ${translateUI('ms')}`;
 }
 
 function requestDurationLabel(request: GatewayRequest) {
@@ -259,7 +259,7 @@ function requestCharge(request: GatewayRequest) {
 
 function timestamp(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Time unavailable' : new Intl.DateTimeFormat(readLocale(), { dateStyle: 'medium', timeStyle: 'medium' }).format(date);
+  return Number.isNaN(date.getTime()) ? translateUI('Time unavailable') : new Intl.DateTimeFormat(readLocale(), { dateStyle: 'medium', timeStyle: 'medium' }).format(date);
 }
 
 function localDayStart(value: string) {

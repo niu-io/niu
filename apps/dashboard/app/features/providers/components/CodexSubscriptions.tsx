@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
@@ -119,7 +120,7 @@ export default function CodexSubscriptions({ token, workspaces = [] }: { token: 
         <TableHeader><TableRow><TableHead>{uiT("Account")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Models")}</TableHead><TableHead className="text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader>
         <TableBody>{accounts.map(account => <TableRow key={account.id}>
           <TableCell><div className="flex items-center gap-3"><ProviderLogo provider={modelIdentity({ id: 'openai' })} /><span className="max-w-64 break-words">{account.name}</span></div></TableCell>
-          <TableCell><Badge variant="secondary">{account.busy ? uiT("Reserved") : healthLabels[account.health] ?? uiT("Unavailable")}</Badge></TableCell>
+          <TableCell><Badge variant="secondary">{account.busy ? uiT("Reserved") : translateUI(healthLabels[account.health]) ?? uiT("Unavailable")}</Badge></TableCell>
           <TableCell>{account.models.length}</TableCell>
           <TableCell className="text-right"><div className="flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" disabled={busy || account.busy} onClick={() => connect(account)}>{uiT("Sign in")}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void toggle(account)}>{account.health === 'disabled' ? uiT("Resume") : uiT("Pause")}</Button></div></TableCell>
         </TableRow>)}</TableBody>

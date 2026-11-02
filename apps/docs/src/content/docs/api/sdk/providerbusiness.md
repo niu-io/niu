@@ -19,6 +19,8 @@ export type ProviderBusiness = {
     /** Enabled saved configurations and mappings; not upstream verification. */
     enabled_api_keys?: number;
     enabled_model_routes?: number;
+    internal_api_keys?: number;
+    internal_model_routes?: number;
     qualification_status: 'qualified' | 'unqualified';
 };
 ```

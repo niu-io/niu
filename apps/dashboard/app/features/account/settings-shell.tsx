@@ -34,7 +34,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
   if (!section || !['account', 'appearance', 'billing', 'payments', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
   if (section === 'account' && context.session?.kind !== 'operator') return <Navigate state={location.state} to="/settings/appearance" replace />;
   const personal = context.session?.kind === 'operator';
-  const canViewBilling = context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role));
+  const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   const themeLabel = theme === 'light' ? t('Light', '浅色') : theme === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
   return <div className={`settings-page w-full min-w-0 space-y-8${section === 'payments' ? ' settings-payments-page' : ''}`}>
     {personal ? <div hidden={section !== 'account'}>
@@ -43,7 +43,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
     </div> : null}
     {section === 'about' && <section aria-label={uiT("About Niu")} className="space-y-8">
       <header className="flex items-center gap-4">
-        <div className="min-w-0"><h2 aria-label={t('About Niu', '关于 Niu 牛元')}><NiuBrand locale={locale} /></h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发构建版')}</p></div>
+        <div className="min-w-0"><h2 aria-label={t('About Niu', '关于 Niu')}><NiuBrand locale={locale} /></h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发构建版')}</p></div>
       </header>
       <dl className="space-y-3 text-sm">
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('Release date', '发布日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE || t('Not released', '未发布')}</dd></div>
@@ -70,7 +70,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
         </DropdownMenu>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4 py-4">
-        <div><h2 className="text-sm font-medium">{t('Language', '界面语言')}</h2><p className="text-sm text-muted-foreground">{t('Choose the language used across Niu.', '选择 Niu 牛元界面显示的语言。')}</p></div>
+        <div><h2 className="text-sm font-medium">{t('Language', '界面语言')}</h2><p className="text-sm text-muted-foreground">{t('Choose the language used across Niu.', '选择 Niu 界面显示的语言。')}</p></div>
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
             <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
@@ -102,7 +102,7 @@ export function SettingsNavigation({ context, section, href }: { context: Dashbo
   const { t } = useLocale();
   const location = useLocation();
   const personal = context.session?.kind === 'operator';
-  const canViewBilling = context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role));
+  const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   const entries = [
     ...(personal ? [{path:'account',label:t('Account', '账户'),icon:IconUserCircle}] : []),
     {path:'appearance',label:t('Appearance', '外观'),icon:IconPalette},

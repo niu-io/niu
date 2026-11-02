@@ -119,6 +119,9 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         { to: '/admin/audit', label: 'Audit logs', labelZh: '审计日志', end: false },
         { to: '/admin/settings', label: 'Settings', labelZh: '实例设置', end: false },
       ];
+  const visibleEntries = context.session?.operating_mode === 'internal'
+    ? entries.filter(item => !['/admin/reports','/admin/balances','/admin/pricing','/admin/payments'].includes(item.to) && !item.to.endsWith('/settlements'))
+    : entries;
 
   return (
     <>
@@ -236,7 +239,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
       <SidebarContent className="workspace-sidebar-content">
         <nav aria-label={provider ? uiT("Provider navigation") : uiT("Admin navigation")}>
           <SidebarMenu className="workspace-nav-menu">
-            {entries.map(item => {
+            {visibleEntries.map(item => {
               const Icon =
                 item.label === 'Settings'
                   ? Settings2

@@ -64,6 +64,12 @@ For a model pool, the agent determines the candidate set and policy from task re
 
 An approval handoff should name the proposed change, its scope and consequences, and link to the relevant Niu review surface. The agent must be able to check the resulting state and resume. Approval should not require the human to carry raw JSON, model lists, logs or secrets back to the agent. Current manual handoffs remain documented until a structured replacement exists.
 
+## Direct upstream payment is the default connection path
+
+Default Provider onboarding is Internal use: choose a supported service, supply its API key, select models and configure the workload pool. The account maintains its upstream access and pays that Provider directly. Niu must not require resale pricing, payment collection or commercial qualification for owner-funded use. The distinction from Resale is downstream charging, not who supplies the upstream API key. End-user BYOK is a separate future capability; administrator-managed Provider keys do not implement or advertise it. Common Provider presets should supply the supported adapter and endpoint without creating fictional inventory or saved businesses before a connection is requested.
+
+Expose usage, performance and clearly attributed Provider cost evidence so agents can make decisions. Advertised-price estimates, Provider-reported expenses and Niu customer charges are distinct; unknown cost is not zero. Keep the account's own upstream expense evidence separate from confidential platform procurement. Commercial resale remains optional with its existing authorization and accounting boundaries. See [Provider onboarding and direct upstream payment](provider-onboarding.md) for the decision and current implementation limits.
+
 ## Events support continued management
 
 Agents should be able to subscribe to relevant Niu changes, rather than relying on a human to notice and report them. Candidate event domains include budgets, model availability, price/capability revisions and configured performance conditions. Each supported event needs a defined producer, observation boundary and delivery contract; this list is direction, not a declaration that those events exist today.

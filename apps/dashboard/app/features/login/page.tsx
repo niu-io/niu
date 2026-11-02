@@ -123,7 +123,7 @@ export default function LoginRoute() {
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
       <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
-        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span></>}
+        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
         <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
@@ -275,7 +275,7 @@ export default function LoginRoute() {
                   <IconSparkles size={15} aria-hidden="true" />
                   <span>{t('Try the demo', '体验演示环境')}</span>
                 </Button>
-                <p className="dashboard-login-demo-caption">{t('Explore Niu in a shared demo workspace.', '在共享演示工作空间中探索 Niu 牛元。')}</p>
+                <p className="dashboard-login-demo-caption">{t('Explore Niu in a shared demo workspace.', '在共享演示工作空间中探索 Niu。')}</p>
               </div>
             )}
           </div>

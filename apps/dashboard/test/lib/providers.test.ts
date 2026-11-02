@@ -15,8 +15,8 @@ describe('provider identity', () => {
     expect(connectionIdentity({ ...vendor, api_base: 'invalid' }).name).toBe('OpenAI-compatible');
   });
   it('bundles a local logo for every registered provider', () => {
-    expect(providers.length).toBe(40);
-    for (const provider of providers) expect(provider.logo).toMatch(/(?:\.svg|^data:image\/svg\+xml)/);
+    expect(providers.map(provider => provider.name)).toEqual(expect.arrayContaining(['OpenRouter', 'FastRouter', 'BabelArk', 'Qiniu', 'DeepSeek']));
+    for (const provider of providers) expect(provider.logo).toMatch(/(?:\.(?:svg|png)|^data:image\/svg\+xml)/);
   });
 });
 

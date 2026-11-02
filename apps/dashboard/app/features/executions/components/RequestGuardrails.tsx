@@ -1,3 +1,5 @@
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -13,8 +15,8 @@ type Decision = {
 };
 const outcomes: Record<string, string> = { allowed: 'Allowed', redacted: 'Redacted', blocked: 'Blocked', indeterminate: 'Inspection incomplete', clear: 'No match observed', matched: 'Match observed' };
 const reasons: Record<string, string> = { pattern_match: 'Response unchanged', pattern_denial: 'Matched a blocking rule', unsupported_content: 'Unsupported content', resource_limit: 'Inspection limit exceeded', inspection_unavailable: 'Inspection unavailable' };
-const label = (inspection: Inspection | null) => inspection ? `${outcomes[inspection.outcome] || 'Outcome unavailable'}${inspection.reason && reasons[inspection.reason] ? ` · ${reasons[inspection.reason]}` : ''}` : 'No inspection result recorded';
-const policy = (name: string | null, revision: number | null) => revision ? `${name || 'Saved policy'} · Version ${revision}` : 'None recorded';
+const label = (inspection: Inspection | null) => inspection ? `${translateUI(outcomes[inspection.outcome]) || translateUI('Outcome unavailable')}${inspection.reason && translateUI(reasons[inspection.reason]) ? ` · ${translateUI(reasons[inspection.reason])}` : ''}` : translateUI('No inspection result recorded');
+const policy = (name: string | null, revision: number | null) => revision ? formatLocalizedMessage('{0} · Version {1}', [name || translateUI('Saved policy'), revision], readLocale()) : translateUI('None recorded');
 
 export default function RequestGuardrails({ token, endpoint, historyPath }: { token: string; endpoint: string; historyPath: string }) {
   const { t: uiT } = useUILocale();

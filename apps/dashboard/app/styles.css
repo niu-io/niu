@@ -1353,7 +1353,7 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 
 /* Workspace shell: global rail, contextual navigation, quiet content canvas. */
 :root { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.app-shell { --rail: 68px; --context: 256px; --dashboard-header-height: 64px; background: var(--background); }
+.app-shell { --rail: 68px; --context: 256px; --dashboard-header-height: 56px; background: var(--background); }
 
 .rail-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: var(--primary-foreground); font-size: 14px; font-weight: 600; }
 .sidebar { left: var(--rail); width: var(--context); padding: 12px 14px 18px; background: var(--sidebar); border: 0; border-right: 1px solid var(--sidebar-border); z-index: 15; overflow-y: auto; }
@@ -1396,7 +1396,7 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .scope-notice { padding: 12px; font-size: 14px; color: var(--muted-foreground); line-height: 1.6; }
 .main-panel { display: flex; width: calc(100% - var(--rail)); height: 100vh; height: 100dvh; min-height: 100vh; min-width: 0; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; margin-left: var(--rail); background: var(--background); }
 .sidebar-open .main-panel { width: calc(100% - var(--rail) - var(--context)); margin-left: calc(var(--rail) + var(--context)); }
-.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 0; background: var(--background); }
+.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 0; background: var(--sidebar); }
 .dashboard-page-header h1 { margin: 0; color: var(--foreground); font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
 .sidebar-toggle-placeholder { display: block; flex: 0 0 36px; width: 36px; height: 36px; }
 .topbar { height: 78px; border: 0; padding: 0 30px; background: color-mix(in srgb, var(--card) 95%, transparent); }
@@ -1407,8 +1407,8 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .dashboard-route-title a { color: inherit; text-decoration: none; }
 .dashboard-route-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .status-pill { border: 0; background: transparent; padding: 0; font-size: 14px; }
-.page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding: 28px clamp(24px, 2.4vw, 44px) 72px; }
-.page-heading { align-items: center; margin-bottom: 30px; }
+.page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding: 24px clamp(24px, 2.4vw, 44px) 72px; }
+.page-heading { align-items: center; margin-bottom: 24px; }
 .page-heading h1 { font-size: clamp(28px, 3vw, 38px); letter-spacing: -.035em; font-weight: 600; line-height: 1.2; }
 .page-heading.page-actions { justify-content: flex-end; }
 .key-page-heading .page-subtitle { margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
@@ -1512,7 +1512,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
   .dashboard-login-nav [data-slot="button"] { padding-inline: 8px; }
   .dashboard-login-stage { padding: 16px 16px 48px; }
   .dashboard-login-card { padding: 0; }
-  .page-content { padding: 20px 16px 40px; }
+  .page-content { padding: 16px 16px 40px; }
   .overview-gateway, .overview-trace, .overview-workflow { padding: 18px; }
   .connect-panel { flex-direction: column; padding: 18px; }
   .overview-gateway-count { border: 0; }
@@ -2091,7 +2091,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 }
 
 /* The product rail and the shadcn workspace sidebar share one responsive shell. */
-.app-shell { --rail: 68px; --context: 256px; --dashboard-header-height: 64px; height: 100dvh; min-height: 100dvh; overflow: hidden; }
+.app-shell { --rail: 68px; --context: 256px; --dashboard-header-height: 56px; height: 100dvh; min-height: 100dvh; overflow: hidden; }
 .app-rail { position: fixed; }
 .app-rail-spacer { width: var(--rail); min-width: var(--rail); flex: 0 0 var(--rail); }
 .app-shell [data-slot="sidebar-gap"] { width: var(--context); flex: 0 0 var(--context); }
@@ -2105,6 +2105,8 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .app-shell .main-panel > .dashboard-page-header {
   padding-inline: clamp(16px, 3cqw, 32px);
 }
+/* The canvas owns the first content inset; legacy panels must not add another one. */
+.gateway-route-content > div:not([hidden]) > .panel:first-child { margin-top: 0; }
 
 .app-shell [data-slot="sheet-overlay"] { inset: 0 0 0 var(--rail); }
 .app-shell [data-slot="sheet-content"].niu-workspace-sidebar-mobile { border-color: var(--sidebar-border); box-shadow: 18px 0 42px color-mix(in srgb, #000 24%, transparent); }
@@ -2367,7 +2369,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .provider-zone-heading > span { font-size: 11px; color: var(--muted-foreground); letter-spacing: .04em; }
 .provider-zone-heading > strong { font-size: 14px; overflow-wrap: anywhere; }
 /* Mobile sidebar is portalled outside the shell; retain the same layout tokens. */
-.niu-workspace-sidebar-mobile { left: var(--rail); --rail: 68px; --context: 256px; --dashboard-header-height: 64px; }
+.niu-workspace-sidebar-mobile { left: var(--rail); --rail: 68px; --context: 256px; --dashboard-header-height: 56px; }
 /* The rail stays above contextual drawers during their entire animation. */
 body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 51; }
 @media (max-width: 959px) { .niu-workspace-sidebar-mobile { --rail: 60px; } }
@@ -3286,7 +3288,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 
 /* Developer payment mode must not imply that inference is free. */
-.mock-payment-warning { border-color: color-mix(in srgb, var(--warning) 60%, var(--border)); background: color-mix(in srgb, var(--warning) 14%, var(--background)); color: var(--foreground); }
+.mock-payment-warning { width: auto; margin: 16px clamp(16px, 3cqw, 32px) 0; border-color: color-mix(in srgb, var(--warning) 24%, var(--border)); background: color-mix(in srgb, var(--warning) 7%, var(--background)); color: var(--foreground); }
 .mock-payment-warning [data-slot="alert-description"] { color: var(--foreground); }
 
 /* Lifecycle badges: a status dot distinguishes active keys and users from revoked or expired ones. */

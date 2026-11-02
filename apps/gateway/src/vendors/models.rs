@@ -349,6 +349,10 @@ async fn resolve_pool(
         model.catalog.description = Some(description.clone());
     }
     let personal = pool.organization_id.is_some();
+    if !personal && state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
+
     if personal {
         model.pricing = None;
     }
@@ -654,6 +658,9 @@ pub(crate) async fn resolve_model(
     state: &AppState,
     alias: &str,
 ) -> Result<ResolvedModel, ApiError> {
+    if state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
     if let Some(published) = super::publication::snapshot(state).await? {
         return resolve_published(state, &published, None, alias, None, None, &[]).await;
     }
@@ -840,6 +847,10 @@ async fn resolve_published(
         ));
     }
     let personal = metadata.personal_organization_id.is_some();
+    if !personal && state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
+
     if !personal && !live.supplier_available {
         return Err(ApiError::unavailable());
     }

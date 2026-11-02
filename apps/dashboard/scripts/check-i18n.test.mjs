@@ -50,3 +50,30 @@ test('typed audit follows imported finite labels but preserves customer strings 
   assert.equal(findings.length,1);assert.equal(findings[0].text,'Enabled | Disabled');
  } finally {rmSync(root,{recursive:true,force:true});}
 });
+
+test('follows widened literal arrays rendered by map callbacks', () => {
+ assert.equal(scan(`<tr>{['Company','Currency'].map(name => <th>{name}</th>)}</tr>`).length,2);
+ assert.equal(scan(`function Page(){const headers=['Company','Currency'];return <tr>{headers.map(name => <th>{name}</th>)}</tr>}`).length,2);
+ assert.equal(scan(`<tr>{[uiT('Save')].map(name => <th>{name}</th>)}</tr>`).length,0);
+ assert.equal(scan(`<tr>{customers.map(customer => <td>{customer.name}</td>)}</tr>`).length,0);
+});
+
+test('traces local display helper return values without auditing customer arguments', () => {
+ assert.equal(scan(`function caption(value){if(value===null)return 'Unavailable';return value;} function Page(){return <p>{caption(customer.name)}</p>}`).length,1);
+ assert.equal(scan(`function Page(){const caption=value=>value===null?'Unavailable':value;return <p>{caption(customer.name)}</p>}`).length,1);
+ assert.equal(scan(`function caption(value){return uiT('Save')} function Page(){return <p>{caption(customer.name)}</p>}`).length,0);
+});
+
+test('traces widened local object labels rendered through indexed access', () => {
+ assert.equal(scan(`function Page(){const labels={mtd:'Month to date',rolling:'Rolling day window'};return <p>{labels[mode]}</p>}`).length,2);
+ assert.equal(scan(`function Page(){const labels={mtd:uiT('Save')};return <p>{labels[mode]}</p>}`).length,0);
+});
+
+test('requires translations for indexed display dictionaries even when their lookup is translated', () => {
+ assert.equal(scan(`function Page(){const labels={save:'Save',other:'Missing'};return <p>{uiT(labels[key])}</p>}`).filter(x=>x.kind==='missing-translation').length,1);
+});
+
+test('rejects fixed English date and currency-name presentation locales', () => {
+ assert.equal(scan(`const dates=new Intl.DateTimeFormat('en-US');const names=new Intl.DisplayNames(['en'],{type:'currency'});`).filter(x=>x.kind==='unlocalized-formatter').length,2);
+ assert.equal(scan(`const dates=new Intl.DateTimeFormat(locale);const names=new Intl.DisplayNames([locale],{type:'currency'});`).length,0);
+});

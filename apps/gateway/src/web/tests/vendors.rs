@@ -8224,3 +8224,194 @@ async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool:
         json!({"chat":false,"video":false})
     );
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPool) {
+    let fixture = CatalogFixture::default();
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[{"id":"maker/first","name":"First model"},{"id":"maker/second"}]}),
+        None,
+    ));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}/v1", listener.local_addr().unwrap());
+    let upstream = Router::new()
+        .route("/v1/models", axum::routing::get(fixture_model_catalog))
+        .route("/v1/chat/completions", post(|| async { Json(json!({"id":"fixture-response","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"READY"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}})) }))
+        .with_state(fixture.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, upstream).await.unwrap();
+    });
+    let mut state = test_state(Some(base.clone()), pool.clone());
+    Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap()
+        .pricing = Some(crate::config::RoutePricing {
+        currency: "USD".into(),
+        api_prompt_rate: 2_000_000,
+        api_completion_rate: 4_000_000,
+        cash_prompt_rate: 1_000_000,
+        cash_completion_rate: 2_000_000,
+        max_input_tokens: 32768,
+        max_output_tokens: 10,
+    });
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    state.operating_mode = crate::state::OperatingMode::Internal;
+    let mut resale_state = state.clone();
+    resale_state.operating_mode = crate::state::OperatingMode::Resale;
+    let resale_app = router(resale_state);
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let app = router(state);
+    let input = json!({"name":"DeepSeek official","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true,"personal_organization_id":scope.organization_id});
+    let (status, created) = call(&app, Method::POST, "/api/v1/vendors", ADMIN, input.clone()).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["data"]["owner_funded"], true);
+    assert!(!created.to_string().contains("fixture-only-upstream-key"));
+    let id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(
+        store.personal_vendor_organization(id).await.unwrap(),
+        Some(scope.organization_id)
+    );
+    let path = format!("/api/v1/vendors/{id}/import");
+    for expected in [2, 0] {
+        let (status, result) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{result}");
+        assert_eq!(result["data"]["imported"], expected);
+        assert_eq!(result["discovery"]["inference_verified"], false);
+    }
+    let saved = store.vendor_models(id).await.unwrap();
+    assert_eq!(saved.len(), 2);
+    assert!(
+        saved
+            .iter()
+            .all(|m| !m.public_catalog && m.pricing.is_none() && m.enabled)
+    );
+    let (status, listed) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={}&project_id={}",
+            scope.organization_id, scope.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        listed["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == "deepseek-official/maker/first")
+    );
+    let (_, public) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert!(!public.to_string().contains("deepseek-official/maker/first"));
+    assert!(store.platform_currency().await.unwrap().is_none());
+    let (status, readiness) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/payments/readiness?organization={}",
+            scope.organization_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(readiness["data"]["ready"], true);
+    let key = store
+        .issue_key(
+            scope,
+            "Internal use test",
+            &[
+                "deepseek-official/maker/first".to_owned(),
+                "fast".to_owned(),
+            ],
+            3600,
+        )
+        .await
+        .unwrap();
+    let (status, completion) = call(&app, Method::POST, "/v1/chat/completions", &key.token, json!({"model":"deepseek-official/maker/first","messages":[{"role":"user","content":"hello"}],"max_tokens":8})).await;
+    assert_eq!(status, StatusCode::OK, "{completion}");
+    assert_eq!(completion["choices"][0]["message"]["content"], "READY");
+    // A personal route does not make paid shared inference free for this account.
+    store.configure_platform_currency("USD").await.unwrap();
+    store.create_budget(scope, "USD", 1).await.unwrap();
+    store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "3000000".into(),
+                completion_rate: "5000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let (status, denied) = call(
+        &resale_app,
+        Method::POST,
+        "/v1/chat/completions",
+        &key.token,
+        json!({"model":"fast","messages":[{"role":"user","content":"hello"}],"max_tokens":8}),
+    )
+    .await;
+    assert!(
+        matches!(
+            status,
+            StatusCode::PAYMENT_REQUIRED | StatusCode::SERVICE_UNAVAILABLE
+        ),
+        "{denied}"
+    );
+    let (status, _) = call(&app, Method::POST, &format!("/api/v1/vendors/{id}/models"), ADMIN, json!({"alias":"deepseek-official/maker/second","upstream_model":"maker/second","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":1})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        call(&app, Method::POST, &path, ADMIN, json!({})).await.1["data"]["imported"],
+        0
+    );
+    assert!(
+        !store
+            .vendor_models(id)
+            .await
+            .unwrap()
+            .iter()
+            .find(|m| m.upstream_model == "maker/second")
+            .unwrap()
+            .enabled
+    );
+    *fixture.response.lock().unwrap() =
+        Some((StatusCode::UNAUTHORIZED, json!({"error":"rejected"}), None));
+    assert_eq!(
+        call(&app, Method::POST, &path, ADMIN, json!({})).await.0,
+        StatusCode::BAD_GATEWAY
+    );
+    assert_eq!(store.vendor_models(id).await.unwrap().len(), 2);
+    assert!(store.vendor(id).await.unwrap().is_some());
+    let mut invalid = input;
+    invalid["name"] = json!("Must roll back");
+    invalid["personal_organization_id"] = json!(Uuid::new_v4());
+    assert_eq!(
+        call(&app, Method::POST, "/api/v1/vendors", ADMIN, invalid)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert!(
+        !store
+            .vendors_with_supplier(None)
+            .await
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "Must roll back")
+    );
+    server.abort();
+}

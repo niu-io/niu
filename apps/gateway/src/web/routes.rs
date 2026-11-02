@@ -579,6 +579,27 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
             .delete(crate::providers::delete)
             .layer(DefaultBodyLimit::max(16384)),
     )
+    .dual_route("/providers/presets", get(crate::providers::presets))
+    .dual_route(
+        "/providers/{provider}/metadata",
+        get(crate::providers::adapter_metadata),
+    )
+    .dual_route(
+        "/providers/{provider}/pricing",
+        get(crate::providers::adapter_pricing).post(crate::providers::capture_adapter_pricing),
+    )
+    .dual_route(
+        "/providers/{provider}/pricing/history",
+        get(crate::providers::price_history),
+    )
+    .dual_route(
+        "/providers/{provider}/pricing/{revision}",
+        get(crate::providers::price_evidence),
+    )
+    .dual_route(
+        "/providers/{provider}/estimate",
+        post(crate::providers::estimate_pricing).layer(DefaultBodyLimit::max(16384)),
+    )
     .dual_route(
         "/providers",
         get(crate::providers::list).post(crate::providers::create),
@@ -1055,6 +1076,7 @@ fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
         .dual_route("/vendors/{id}/asset-management/groups", axum::routing::post(crate::vendors::asset_groups::create).layer(DefaultBodyLimit::max(16 * 1024)))
         .dual_route("/vendors/{id}/personal-owner", axum::routing::put(crate::vendors::assign_personal_owner))
         .dual_route("/vendors/{id}/models", get(crate::vendors::list_models).post(crate::vendors::upsert_model))
+        .dual_route("/vendors/{id}/import", post(crate::vendors::import_models))
         .dual_route("/vendors/{id}/catalog", get(crate::vendors::catalog).post(crate::vendors::refresh_catalog))
         .dual_route("/vendors/{id}/check", axum::routing::post(crate::vendors::check_model))
         .dual_route("/organizations/{organization}/projects/{project}/accounts", get(crate::admin::accounts).post(crate::admin::create_account))

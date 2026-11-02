@@ -1,5 +1,5 @@
 export type { GenerationsVideoIntentReference } from './generations-sessions.js';
-export type { ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } from './admin.js';
+export type { ProviderServiceDescriptor, ProviderPriceEvidence, ProviderPriceVersion, ProviderCostEstimate, ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } from './admin.js';
 export type { CustomerUnitDefinition, CustomerUnitPurchaseRule, CustomerUnitConfiguration, CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput } from './admin.js';
 export type { CustomerUnitQuote, CustomerUnitQuoteInput } from './admin.js';
 export type { CustomerUnitGrant, CustomerUnitGrantInput } from './admin.js';

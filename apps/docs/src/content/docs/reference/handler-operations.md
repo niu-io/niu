@@ -22963,11 +22963,11 @@ HTTP 502: Encryption unavailable or stored configuration cannot be opened
 
 HTTP 422: Malformed JSON shape, missing fields or unknown fields
 
-## Read payment or scoped funding readiness
+## Read deployment service and payment readiness
 
 `GET /api/v1/payments/readiness`
 
-Anonymous reads describe installation payment configuration only. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.
+Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.
 
 Implementation: `implemented`. Operation: `getPaymentReadiness`.
 
@@ -24424,6 +24424,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24434,6 +24438,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24520,6 +24528,10 @@ Content type: `application/json`.
         "openrouter",
         "newapi",
         "litellm",
+        "fastrouter",
+        "babelark",
+        "qiniu",
+        "deepseek",
         "custom"
       ]
     },
@@ -24564,6 +24576,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24574,6 +24590,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24671,6 +24691,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24681,6 +24705,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24770,6 +24798,10 @@ Content type: `application/json`.
         "openrouter",
         "newapi",
         "litellm",
+        "fastrouter",
+        "babelark",
+        "qiniu",
+        "deepseek",
         "custom",
         null
       ]
@@ -24815,6 +24847,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24825,6 +24861,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -26426,6 +26466,16 @@ Content type: `application/json`.
             "minimum": 0,
             "description": "Saved model offers with agreed Provider rates."
           },
+          "internal_api_keys": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Administrator-managed connections attributed to direct upstream-funded internal use; not end-user BYOK self-service."
+          },
+          "internal_model_routes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Saved internal-use model mappings, including disabled entries; not live verification or sellable inventory."
+          },
           "ready_offers": {
             "type": "integer",
             "minimum": 0,
@@ -27447,6 +27497,346 @@ HTTP 404: Provider missing or unauthorized.
 HTTP 409: Missing or foreign continuation alias.
 
 HTTP 503: Storage unavailable.
+
+## Discover supported Provider service adapters
+
+`GET /api/v1/providers/presets`
+
+Platform administration required. Returns connection instructions and observed price-source support, not saved connections, inventory, entitlements or invoice prices. OpenAI-compatible transport never establishes price compatibility. No upstream request is issued.
+
+Implementation: `implemented`. Operation: `listProviderPresets`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Prepared Provider descriptors.
+
+## Read Provider-adapter advertised price evidence
+
+`GET /api/v1/providers/{provider}/pricing`
+
+Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.
+
+Implementation: `implemented`. Operation: `discoverProviderPricing`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Unified advertised pricing evidence with completeness limits.
+
+HTTP 502: Source failure; retry the read without mutating configuration.
+
+## Read normalized metadata through a Provider credential
+
+`GET /api/v1/providers/{provider}/metadata`
+
+Platform administration required. credential selects one saved connection owned by this Provider; no key values are returned. Reuses bounded authenticated catalog discovery and explicit inherited service identity. Catalog access does not verify inference or publish models/prices.
+
+Implementation: `implemented`. Operation: `discoverProviderMetadata`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`credential` (query, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Normalized model metadata, price evidence when present, and discovery scope.
+
+HTTP 404: Provider/credential binding unavailable.
+
+## Capture an immutable Provider quote version
+
+`POST /api/v1/providers/{provider}/pricing`
+
+Platform administration required. Performs bounded price discovery and appends source evidence only if saved Provider adapter identity/revision still matches. Unknown/partial sources remain explicit. Does not change any customer tariff, route, balance or charge. Never blindly replay after uncertainty; retain the returned revision for historical estimates.
+
+Implementation: `implemented`. Operation: `captureProviderPriceEvidence`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Immutable quote revision, capture time, adapter binding and evidence.
+
+HTTP 409: Adapter identity changed; no snapshot saved.
+
+## Read an immutable Provider quote version
+
+`GET /api/v1/providers/{provider}/pricing/{revision}`
+
+Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.
+
+Implementation: `implemented`. Operation: `getProviderPriceEvidence`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`revision` (path, required)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+### Responses
+
+HTTP 200: Original quote evidence and source identity.
+
+HTTP 404: Version unavailable under this Provider.
+
+## Estimate supplied billable quantities against an immutable quote
+
+`POST /api/v1/providers/{provider}/estimate`
+
+Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.
+
+Implementation: `implemented`. Operation: `estimateProviderQuoteCost`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "model",
+    "quantities"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "quantities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "meter",
+          "units"
+        ],
+        "properties": {
+          "meter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "units": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "condition": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Quote-bound estimate with currency totals and unknown coverage.
+
+## Inspect captured quote versions and recover uncertain refreshes
+
+`GET /api/v1/providers/{provider}/pricing/history`
+
+Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.
+
+Implementation: `implemented`. Operation: `listProviderPriceHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 50,
+  "default": 20
+}
+```
+
+### Responses
+
+HTTP 200: Quote version summaries and optional next_after cursor.
 
 ## Inspect operational usage of Provider-owned configurations
 
@@ -28494,6 +28884,47 @@ HTTP 401: Invalid or missing administrative credential.
 HTTP 403: Installation administration required.
 
 HTTP 503: Storage unavailable.
+
+## Discover and import owner-funded Provider models
+
+`POST /api/v1/vendors/{id}/import`
+
+Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
+
+Implementation: `implemented`. Operation: `importPersonalProviderModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Import counts and discovery evidence.
+
+HTTP 400: Not a personal connection or unsupported catalog identifiers.
+
+HTTP 409: Connection changed or an alias conflicts; no models imported.
+
+HTTP 502: Upstream catalog read failed; saved connection is retained.
 
 ## Read the active routing generation
 
@@ -60639,6 +61070,11 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "string",
       "format": "uuid",
       "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+    },
+    "personal_organization_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
     },
     "create_supplier": {
       "type": "boolean",

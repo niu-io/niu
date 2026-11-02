@@ -205,7 +205,23 @@ export type CustomerUnitSpendingLimitRevision = {
   actor_kind: 'installation' | 'member';
   actor_name: string;
 };
-export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
+export type ProviderServiceDescriptor = {
+  id: 'openrouter' | 'fastrouter' | 'babelark' | 'qiniu' | 'deepseek'; name: string; protocol: 'openrouter' | 'openai'; api_base: string; website: string;
+  price_support: 'model_catalog' | 'native_ratios' | 'requires_qualification' | 'official_catalog_unqualified' | 'official_markdown' | 'official_page_json';
+  price_source: string;
+};
+export type ProviderPriceEvidence = {
+  normalization_version: number; source_digest: string | null; conditions: Array<{id:string;description:string}>;
+  observed_at_ms: number | null;
+  status: 'available' | 'partial' | 'unavailable'; source: string;
+  basis: 'advertised' | 'native_ratios_not_money'; reason: string | null;
+  prices: Array<{model: string; source_rules: unknown | null; rates: Array<{meter: string; amount: string; currency: string; per_units: number; unit: string; condition: string | null}>; unsupported_dimensions: string[]}>;
+  group_multipliers: Record<string,string>;
+  native_ratios: Array<{model: string; eligible_groups: string[]; input_ratio: string | null; output_ratio: string | null; cached_input_ratio: string | null; request_price: string | null; quota_type: number | null}>;
+};
+export type ProviderPriceVersion = { revision: string; adapter: string; integration_revision: number; evidence: ProviderPriceEvidence; captured_at_ms: number };
+export type ProviderCostEstimate = { basis:'advertised_quote_estimate'; status:'available'|'partial'|'unavailable'; totals:Array<{currency:string;amount:string}>; unknown_meters:string[]; unsupported_price_dimensions:string[]; complete_for_supplied_meters:boolean; is_actual_provider_charge:false };
+export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom' | 'fastrouter' | 'babelark' | 'qiniu' | 'deepseek';
 /** Configuration identity only; does not establish upstream capability or pricing. */
 export type ProviderIntegration = {
   integration_type: ProviderIntegrationType | null;
@@ -290,6 +306,7 @@ export type ProviderBusiness = {
   id: string; name: string; api_keys: number; models: number; members: number;
   /** Enabled saved configurations and mappings; not upstream verification. */
   enabled_api_keys?: number; enabled_model_routes?: number;
+  internal_api_keys?: number; internal_model_routes?: number;
   qualification_status: 'qualified' | 'unqualified';
 };
 export type SupplierBusiness = ProviderBusiness;
@@ -322,6 +339,8 @@ export type SupplierCredential = ProviderCredential;
 export type ProviderCredentialCreateInput = {
   name: string; adapter: 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark'; api_base: string; api_key: string;
   enabled?: boolean; create_supplier?: boolean; supplier_id?: string;
+  /** Explicit account paying upstream directly; saved atomically with this credential. */
+  personal_organization_id?: string;
 };
 export type SupplierCredentialCreateInput = ProviderCredentialCreateInput;
 export type ProviderCredentialUpdateInput = {
@@ -1694,6 +1713,34 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(providerId)}`, undefined, options);
   }
   /** Platform-only Provider integration default, independent of inference formats. */
+  /** Supported service implementations, separate from wire formats and saved connections. */
+  listProviderPresets(options?: RequestOptions): Promise<{data: ProviderServiceDescriptor[]}> {
+    return this.request('/providers/presets', undefined, options);
+  }
+  /** Advertised evidence only. Partial ratios are not a monetary quote or customer tariff. */
+  discoverProviderPricing(providerId: string, options?: RequestOptions): Promise<{data: ProviderPriceEvidence; integration: ProviderIntegration}> {
+    return this.request(`/providers/${uuid(providerId)}/pricing`, undefined, options);
+  }
+  discoverProviderMetadata(providerId: string, credentialId: string, options?: RequestOptions): Promise<{data: ProviderCatalogModel[]; discovery: ProviderDiscovery; pricing?: ProviderPriceEvidence | null}> {
+    return this.request(`/providers/${uuid(providerId)}/metadata?credential=${uuid(credentialId)}`, undefined, options);
+  }
+  /** Explicit source refresh; persist the returned revision. No automatic write retry. */
+  captureProviderPriceEvidence(providerId: string, options?: RequestOptions): Promise<{data:ProviderPriceVersion}> {
+    return this.request(`/providers/${uuid(providerId)}/pricing`, {}, options);
+  }
+  listProviderPriceHistory(providerId: string, query: {after?:string;limit?:number} = {}, options?:RequestOptions): Promise<{data:Array<{revision:string;adapter:string;status:string;source:string;captured_at_ms:number}>;next_after:string|null}> {
+    const params=new URLSearchParams();
+    if(query.after!==undefined){if(!/^[1-9][0-9]*$/.test(query.after))throw new TypeError('Invalid price cursor');params.set('after',query.after);}
+    if(query.limit!==undefined){if(!Number.isInteger(query.limit)||query.limit<1||query.limit>50)throw new TypeError('Invalid price page size');params.set('limit',String(query.limit));}
+    return this.request(`/providers/${uuid(providerId)}/pricing/history${params.size ? '?'+params.toString() : ''}`,undefined,options);
+  }
+  getProviderPriceEvidence(providerId: string, revision: string, options?: RequestOptions): Promise<{data:ProviderPriceVersion}> {
+    if(!/^[1-9][0-9]*$/.test(revision))throw new TypeError('Invalid price revision');
+    return this.request(`/providers/${uuid(providerId)}/pricing/${revision}`, undefined, options);
+  }
+  estimateProviderQuoteCost(providerId: string, input: {revision:string;model:string;quantities:Array<{meter:string;units:string;condition?:string}>}, options?: RequestOptions): Promise<{data:ProviderCostEstimate;quote_revision:string;adapter:string}> {
+    return this.request(`/providers/${uuid(providerId)}/estimate`, input, options);
+  }
   getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
     return this.request(`/providers/${uuid(providerId)}/integration`, undefined, options);
   }
@@ -3072,7 +3119,11 @@ export class NiuAdminClient {
   /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
   createProviderCredential(input: ProviderCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
     if (input.create_supplier && input.supplier_id !== undefined) throw new Error('Choose a new or existing Provider');
-    return this.request('/vendors', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }) }, options);
+    return this.request('/vendors', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }), ...(input.personal_organization_id === undefined ? {} : { personal_organization_id: uuid(input.personal_organization_id) }) }, options);
+  }
+  /** Explicit bounded discovery and idempotent private model import; no inference or billing setup. */
+  importPersonalProviderModels(id: string, options?: RequestOptions): Promise<{ data: { imported: number; discovered: number }; discovery: Record<string, unknown> }> {
+    return this.request(`/vendors/${uuid(id)}/import`, {}, options);
   }
   createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
     return this.createProviderCredential(input, options);

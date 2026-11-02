@@ -194,3 +194,14 @@ it('guides initial setup without requesting a report in an empty currency',()=>{
  expect(screen.getByRole('link',{name:'Open platform settings'}).getAttribute('href')).toBe('/admin/settings');
  expect(fetcher).not.toHaveBeenCalled();} finally {currencyState.currency='USD';}
 });
+
+it('localizes generated report periods and missing amounts in Chinese', async()=>{
+ const {saveLocale}=await import('@/shell/locale');saveLocale('zh-CN');
+ currencyState.currency='USD';currencyState.ready=true;
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>Response.json(String(input).includes('/commercial-position') ? samplePosition : sampleSummary)));
+ try {
+  const view=render(<MemoryRouter initialEntries={['/admin/reports?mode=rolling&days=7']}><CommercialPositionPage/></MemoryRouter>);
+  expect(await screen.findAllByText('最近 7 天')).not.toHaveLength(0);
+  expect(screen.queryByText('Last 7 days')).toBeNull();expect(screen.queryByText('Prior 7 days')).toBeNull();view.unmount();
+ } finally {saveLocale('en');vi.unstubAllGlobals();}
+});

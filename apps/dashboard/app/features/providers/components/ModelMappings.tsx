@@ -1,3 +1,5 @@
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -94,18 +96,18 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
   }
 
   function checkLabel(result: ProviderModelCheck, model: VendorModel) {
-    if (result.status === 'connected' && result.model === 'listed') return model.capabilities.video_schema ? 'Reachable · model listed. Video generation is not verified by this check.' : 'Reachable · model listed. Try Chat to verify access.';
-    if (result.status === 'connected' && result.model === 'not_listed') return 'Reachable · model not listed. Check the upstream ID.';
-    if (result.status === 'credentials_rejected') return 'Key rejected. Check the saved provider key.';
-    if (result.status === 'private_endpoint_blocked') return 'Private endpoint blocked.';
-    if (result.status === 'endpoint_unavailable') return 'Could not reach provider endpoint.';
-    if (result.status === 'invalid_endpoint') return 'Provider endpoint URL is invalid.';
-    if (result.status === 'redirect_blocked') return 'Provider redirected; Niu did not follow it.';
-    if (result.status === 'provider_rate_limited') return 'Provider rate limited the check.';
-    if (result.status === 'model_catalog_unavailable') return 'Provider has no compatible model list.';
-    if (result.status === 'model_catalog_too_large') return 'Provider model list exceeded the 2 MiB check limit.';
-    if (result.status === 'invalid_model_catalog') return 'Provider returned an unreadable model list.';
-    return `Provider returned an error${result.http_status ? ` (${result.http_status})` : ''}.`;
+    if (result.status === 'connected' && result.model === 'listed') return model.capabilities.video_schema ? translateUI('Reachable · model listed. Video generation is not verified by this check.') : translateUI('Reachable · model listed. Try Chat to verify access.');
+    if (result.status === 'connected' && result.model === 'not_listed') return translateUI('Reachable · model not listed. Check the upstream ID.');
+    if (result.status === 'credentials_rejected') return translateUI('Key rejected. Check the saved provider key.');
+    if (result.status === 'private_endpoint_blocked') return translateUI('Private endpoint blocked.');
+    if (result.status === 'endpoint_unavailable') return translateUI('Could not reach provider endpoint.');
+    if (result.status === 'invalid_endpoint') return translateUI('Provider endpoint URL is invalid.');
+    if (result.status === 'redirect_blocked') return translateUI('Provider redirected; Niu did not follow it.');
+    if (result.status === 'provider_rate_limited') return translateUI('Provider rate limited the check.');
+    if (result.status === 'model_catalog_unavailable') return translateUI('Provider has no compatible model list.');
+    if (result.status === 'model_catalog_too_large') return translateUI('Provider model list exceeded the 2 MiB check limit.');
+    if (result.status === 'invalid_model_catalog') return translateUI('Provider returned an unreadable model list.');
+    return formatLocalizedMessage('Provider returned an error{0}.', [result.http_status ? ` (${result.http_status})` : ''], readLocale());
   }
 
   return <section className="vendor-models" aria-label={uiT("Model routes")}>

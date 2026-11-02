@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { validateSavedVideoReferences } from './request';
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
@@ -456,7 +457,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
           {!selected && !intentId ? <Empty className="video-welcome"><EmptyHeader><EmptyTitle>{uiT("Create a video")}</EmptyTitle><EmptyDescription>{uiT("Describe the scene you want to bring to life.")}</EmptyDescription></EmptyHeader></Empty> : <div className="video-turn">
             {submittedPrompt && <div className="video-user-message"><p>{submittedPrompt}</p></div>}
             <article className="video-response" aria-label={uiT("Video result")}>
-              <div className="video-result-heading"><span className="video-response-model">{job?.model ?? intentDocument?.model ?? 'Video'}</span>{job && <Badge variant="secondary">{statusLabel[job.status]}</Badge>}</div>
+              <div className="video-result-heading"><span className="video-response-model">{job?.model ?? intentDocument?.model ?? 'Video'}</span>{job && <Badge variant="secondary">{translateUI(statusLabel[job.status])}</Badge>}</div>
             {detailError && <p role="alert" className="video-error">{detailError}</p>}
             {selected && !job && detailError && <Button variant="outline" onClick={reloadSaved} disabled={Boolean(busy)}>{uiT("Reload status")}</Button>}
             {historicalReadOnly&&<p role="status" className="video-muted">{uiT("Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Provider checks are disabled.")}</p>}

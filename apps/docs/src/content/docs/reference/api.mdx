@@ -967,7 +967,7 @@ the supported browser workflow.
 
 ## 查看请求活动
 
-[请求日志](/docs/concepts/execution-observation/) 描述了 Niu 牛元处理请求时记录的用量与耗时信息。可选的客户端关联元数据不会将这些记录转化为外部智能体的执行追踪链路。Niu 牛元不负责任务编排、外部工具日志或结果评估。
+[请求日志](/docs/concepts/execution-observation/) 描述了 Niu 处理请求时记录的用量与耗时信息。可选的客户端关联元数据不会将这些记录转化为外部智能体的执行追踪链路。Niu 不负责任务编排、外部工具日志或结果评估。
 
 ## 查找对应参考
 
@@ -1005,7 +1005,7 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 ### 个人调用与采购限额
 
-经授权的个人上游路由由其凭据所有者出资，不会预占或扣减 Niu 牛元客户资金或平台采购预算。因此，已保存的工作空间采购预算本身不会阻止经授权的个人对话（Chat）或视频调用。当前的密钥/模型权限、安全护栏（Guardrails）与请求速率控制仍然生效。共享计费路由仍保留采购准入检查；这一区分不会授予访问其他企业个人凭据的权限。个人操作与客户计费操作在其各次尝试（attempt）绑定期间保持不可变的资金来源；候选路由选择无法在两者之间切换。对话路由池在遇到符合条件的 OpenRouter 立即认证拒绝（HTTP 401）后，支持一次受限的后继尝试；状态不确定的执行绝不会重试。个人文本请求会在单独的派发权限检查之前，原子化地准备其操作（operation）、路由与准入绑定。准备失败不会留下部分绑定的请求，但这并不会启用派发状态不确定后的自动重试。
+经授权的个人上游路由由其凭据所有者出资，不会预占或扣减 Niu 客户资金或平台采购预算。因此，已保存的工作空间采购预算本身不会阻止经授权的个人对话（Chat）或视频调用。当前的密钥/模型权限、安全护栏（Guardrails）与请求速率控制仍然生效。共享计费路由仍保留采购准入检查；这一区分不会授予访问其他企业个人凭据的权限。个人操作与客户计费操作在其各次尝试（attempt）绑定期间保持不可变的资金来源；候选路由选择无法在两者之间切换。对话路由池在遇到符合条件的 OpenRouter 立即认证拒绝（HTTP 401）后，支持一次受限的后继尝试；状态不确定的执行绝不会重试。个人文本请求会在单独的派发权限检查之前，原子化地准备其操作（operation）、路由与准入绑定。准备失败不会留下部分绑定的请求，但这并不会启用派发状态不确定后的自动重试。
 
 共享视频路由保留原有的采购预算限制；个人视频路由不会预占或扣减该预算。个人视频调用仍会强制执行密钥 RPM 与并发控制。当渠道缺少受支持的 Token 准入上限时，配置了有限 Token 速率预算的密钥会以 `422 key_token_bound_required` 拒绝视频请求。
 
@@ -1063,30 +1063,30 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 ## 模型供应商能力矩阵
 
-各项能力均按路由单独声明。`config/niu.toml` 中的标志位声明了经操作员验证的行为，并不意味着 Niu 牛元已对每个模型供应商的所有模型或端点完成了全面准入验证。对于下方契约中标记为不可用的功能组合，请求会在创建执行尝试（attempt）之前即被拒绝。
+各项能力均按路由单独声明。`config/niu.toml` 中的标志位声明了经操作员验证的行为，并不意味着 Niu 已对每个模型供应商的所有模型或端点完成了全面准入验证。对于下方契约中标记为不可用的功能组合，请求会在创建执行尝试（attempt）之前即被拒绝。
 
 | 操作类型 | OpenAI 兼容路由（`provider = "openai"` 或 `"openrouter"`） | 原生 Anthropic 路由 | 原生 Bedrock 路由 |
 | --- | --- | --- | --- |
 | 对话补全（非流式） | 支持；工具调用与结构化输出子集需要配置独立的路由标志位 | 基础非流式适配器路径 | 基础非流式适配器路径 |
 | 对话补全（流式） | 支持；流式工具调用增量需要 `supports_streaming_tool_calls` | 未实现 | 未实现 |
-| 函数工具（Function tools） | 开启 `supports_tool_calls` 时支持非流式工具调用透传；Niu 牛元不执行工具 | 未实现 | 未实现 |
+| 函数工具（Function tools） | 开启 `supports_tool_calls` 时支持非流式工具调用透传；Niu 不执行工具 | 未实现 | 未实现 |
 | 结构化 JSON 输出 | 开启 `supports_structured_output` 时支持缓冲与流式 `json_object` / `json_schema`；流式增量在终态校验前仍为临时数据 | 未实现 | 未实现 |
 | 文本嵌入（Embeddings） | 仅在开启 `supports_embeddings` 时支持；自定义维度与 base64 输出需要配置各自的标志位 | 未实现 | 未实现 |
 | Responses API | 开启 `supports_responses` 时支持缓冲与流式文本子集 | 未实现 | 未实现 |
 
-原生 Anthropic 与 Bedrock 条目描述的是当前的非流式对话适配器路径，而非模型供应商一致性认证。工具调用与结构化输出能力被有意限制在 OpenAI 兼容路由上。计费功能适用于有界文本对话、Responses 和文本嵌入；文本嵌入仅预占输入容量，并按模型供应商上报的提示词（prompt）用量进行结算。计费对话支持文档中说明的纯文本函数工具多轮会话；Niu 牛元不执行工具，也不对托管工具服务进行计费。有关具体的路由标志位与计费限制，请参阅 [模型路由](/docs/configuration/models/)。
+原生 Anthropic 与 Bedrock 条目描述的是当前的非流式对话适配器路径，而非模型供应商一致性认证。工具调用与结构化输出能力被有意限制在 OpenAI 兼容路由上。计费功能适用于有界文本对话、Responses 和文本嵌入；文本嵌入仅预占输入容量，并按模型供应商上报的提示词（prompt）用量进行结算。计费对话支持文档中说明的纯文本函数工具多轮会话；Niu 不执行工具，也不对托管工具服务进行计费。有关具体的路由标志位与计费限制，请参阅 [模型路由](/docs/configuration/models/)。
 
 非流式模型供应商 JSON 响应在解码前限制为 16 MiB。超出此大小的响应将作为上游错误失败，并在请求活动记录中保持未完成状态。流式对话对每个 Server-Sent Event (SSE) 最多检查 65,536 字节；除非观察到了有效的终态事件，否则中断或取消的流将保持状态不确定（uncertain）。
 
 ## 对话函数工具与结构化输出
 
-对话接口在准入或向模型供应商派发之前会校验常用的生成参数：`temperature` 范围为 0 到 2，`top_p` 范围为 0 到 1，存在惩罚（`presence_penalty`）与频率惩罚（`frequency_penalty`）范围为 -2 到 2。非空的 `max_tokens`、`max_completion_tokens` 和 `n` 必须为正有符号 64 位整数；非空的 `seed` 必须为有符号 64 位整数。输出 Token 上限参数只能提供一个非空值。`stream` 必须为布尔值；非空的 `stream_options` 必须为对象，且其中的 `include_usage`（若提供）必须为布尔值。无效的参数值会直接返回清晰的 `400` 错误，且不会创建操作或尝试记录。省略的可选值与可空值保持原有语义；Niu 牛元不会注入默认采样参数，也不会截断显式传入的值。已配置的原生适配器或计费路由可能会施加更严格的受支持范围限制。
+对话接口在准入或向模型供应商派发之前会校验常用的生成参数：`temperature` 范围为 0 到 2，`top_p` 范围为 0 到 1，存在惩罚（`presence_penalty`）与频率惩罚（`frequency_penalty`）范围为 -2 到 2。非空的 `max_tokens`、`max_completion_tokens` 和 `n` 必须为正有符号 64 位整数；非空的 `seed` 必须为有符号 64 位整数。输出 Token 上限参数只能提供一个非空值。`stream` 必须为布尔值；非空的 `stream_options` 必须为对象，且其中的 `include_usage`（若提供）必须为布尔值。无效的参数值会直接返回清晰的 `400` 错误，且不会创建操作或尝试记录。省略的可选值与可空值保持原有语义；Niu 不会注入默认采样参数，也不会截断显式传入的值。已配置的原生适配器或计费路由可能会施加更严格的受支持范围限制。
 
-仅当已配置的 OpenAI 兼容路由显式启用了相应能力时，`POST /v1/chat/completions` 才接受 OpenAI 兼容的函数工具定义、`tool_choice` 以及值为 `json_object` 或 `json_schema` 的 `response_format`。流式工具调用增量需要单独启用 `supports_streaming_tool_calls` 标志位。针对已禁用能力的请求会在记录操作或尝试之前返回 `501`。`unsupported_operation_error` 错误消息会指明是工具调用、流式工具还是结构化 JSON 不受支持，并给出受支持的替代方案。同时组合使用工具调用与结构化 JSON 仍不受支持；Niu 牛元不会静默移除请求中的这些特性。格式错误的工具定义、选择项和 Schema 会收到 `400` 错误。
+仅当已配置的 OpenAI 兼容路由显式启用了相应能力时，`POST /v1/chat/completions` 才接受 OpenAI 兼容的函数工具定义、`tool_choice` 以及值为 `json_object` 或 `json_schema` 的 `response_format`。流式工具调用增量需要单独启用 `supports_streaming_tool_calls` 标志位。针对已禁用能力的请求会在记录操作或尝试之前返回 `501`。`unsupported_operation_error` 错误消息会指明是工具调用、流式工具还是结构化 JSON 不受支持，并给出受支持的替代方案。同时组合使用工具调用与结构化 JSON 仍不受支持；Niu 不会静默移除请求中的这些特性。格式错误的工具定义、选择项和 Schema 会收到 `400` 错误。
 
-Niu 牛元会将工具定义和结构化输出 Schema 转发给模型供应商，但自身不会执行工具。非流式工具调用响应必须引用已声明的函数并包含 JSON 对象格式的参数。结构化输出响应必须符合自包含的 JSON Schema；`json_object` 响应必须是 JSON 对象。Schema 编译不支持拉取外部 HTTP 或文件引用，并受限于 [文档说明的复杂度限制](/docs/configuration/models/)。模型供应商的实际支持情况必须由实例管理员独立验证。这些特性在原生 Anthropic 或 Bedrock 路由上未启用。按 Token 计费的路由支持纯文本函数工具对话。结构化 JSON 流会先传递临时增量（provisional deltas），并在释放 `[DONE]` 之前校验组装后的完整内容；无效的终态内容会发出 `upstream_invalid_response` SSE 错误（不发送 `[DONE]`）并记录失败，同时上报的终态用量仍作为核算证据保留。校验过程在最多 128 个候选项（choices）上保留最多 1 MiB 的内容/拒绝字节。非空的显式模型拒绝（refusal）仍被视为有效拒绝响应。完整的 Responses 兼容性、更广泛的协议一致性以及特定模型供应商的准入认证仍属于后续发布工作。有关终态错误语义、核算与准入限制，请参阅 [结构化流式输出契约与当前输入验证](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md)。
+Niu 会将工具定义和结构化输出 Schema 转发给模型供应商，但自身不会执行工具。非流式工具调用响应必须引用已声明的函数并包含 JSON 对象格式的参数。结构化输出响应必须符合自包含的 JSON Schema；`json_object` 响应必须是 JSON 对象。Schema 编译不支持拉取外部 HTTP 或文件引用，并受限于 [文档说明的复杂度限制](/docs/configuration/models/)。模型供应商的实际支持情况必须由实例管理员独立验证。这些特性在原生 Anthropic 或 Bedrock 路由上未启用。按 Token 计费的路由支持纯文本函数工具对话。结构化 JSON 流会先传递临时增量（provisional deltas），并在释放 `[DONE]` 之前校验组装后的完整内容；无效的终态内容会发出 `upstream_invalid_response` SSE 错误（不发送 `[DONE]`）并记录失败，同时上报的终态用量仍作为核算证据保留。校验过程在最多 128 个候选项（choices）上保留最多 1 MiB 的内容/拒绝字节。非空的显式模型拒绝（refusal）仍被视为有效拒绝响应。完整的 Responses 兼容性、更广泛的协议一致性以及特定模型供应商的准入认证仍属于后续发布工作。有关终态错误语义、核算与准入限制，请参阅 [结构化流式输出契约与当前输入验证](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md)。
 
-如果终态模型响应未通过输出校验，Niu 牛元会返回 `502` 且不投递被拒绝的内容。有效、完整且一致的上报输入/输出 Token 数量仍会记录上游执行完成，并产生锁定的客户费用；因此，投递失败的请求仍可能产生扣费。缺失、无效、不一致或溢出的用量保持未知状态，不会使用估算值替代。HTTP 投递状态与上游执行证据描述的是两个不同的事实。
+如果终态模型响应未通过输出校验，Niu 会返回 `502` 且不投递被拒绝的内容。有效、完整且一致的上报输入/输出 Token 数量仍会记录上游执行完成，并产生锁定的客户费用；因此，投递失败的请求仍可能产生扣费。缺失、无效、不一致或溢出的用量保持未知状态，不会使用估算值替代。HTTP 投递状态与上游执行证据描述的是两个不同的事实。
 
 ## 文本请求体大小限制
 
@@ -1094,7 +1094,7 @@ Niu 牛元会将工具定义和结构化输出 Schema 转发给模型供应商�
 
 ## Responses API 文本子集
 
-`POST /v1/responses` 接受非空字符串 `input`，以及可选的字符串 `instructions`、`max_output_tokens`、`temperature`、`top_p`、字符串值的 `metadata` 和 `user`。模型路由必须设置 `supports_responses = true`；Niu 牛元会将模型名称重写为配置的上游模型名称，并将返回的模型名称映射回公开别名。受支持的输出子集包括缓冲或流式响应中的文本消息、推理项（reasoning items）和拒绝内容（refusal content）。用量会将 Responses 的 `input_tokens`/`output_tokens` 映射到持久化的 prompt/completion 字段中。
+`POST /v1/responses` 接受非空字符串 `input`，以及可选的字符串 `instructions`、`max_output_tokens`、`temperature`、`top_p`、字符串值的 `metadata` 和 `user`。模型路由必须设置 `supports_responses = true`；Niu 会将模型名称重写为配置的上游模型名称，并将返回的模型名称映射回公开别名。受支持的输出子集包括缓冲或流式响应中的文本消息、推理项（reasoning items）和拒绝内容（refusal content）。用量会将 Responses 的 `input_tokens`/`output_tokens` 映射到持久化的 prompt/completion 字段中。
 
 输入数组、图像、音频、工具调用和会话状态不在此子集支持范围内。不受支持的字段或格式错误的结构返回 `400`；未启用的路由能力会在创建尝试之前返回 `501`。流式响应的完成需要终态事件和用量证据；初始的 HTTP 200 并不代表生成完成。启用路由计费时，`input` 加 `instructions` 必须符合配置的保守 UTF-8 字节上限，且会在派发前预占 `max_output_tokens`。当前限制详见 [模型路由](/docs/configuration/models/)。此适配器子集并不意味着通过了特定模型供应商的一致性认证。
 
@@ -1106,7 +1106,7 @@ Niu 牛元会将工具定义和结构化输出 Schema 转发给模型供应商�
 
 ## 自动网关活动与任务关联
 
-每一个获准进入受支持 Niu 牛元推理路由的模型请求都会被自动记录，包含其操作 ID（operation）与尝试 ID（attempt）、公开模型别名、执行状态、阶段耗时、用量可信度、模型供应商上报的 Token 计数以及任何已知的已结算客户费用。请求与响应内容默认单独保留 24 小时，除非通过 `x-niu-log-payloads: false` 显式禁用；详见 [日志中的请求内容](#日志中的请求内容)。缺失的用量或费用保持未知状态。这是请求活动数据的默认来源，用户无需手动导出或导入网关日志。
+每一个获准进入受支持 Niu 推理路由的模型请求都会被自动记录，包含其操作 ID（operation）与尝试 ID（attempt）、公开模型别名、执行状态、阶段耗时、用量可信度、模型供应商上报的 Token 计数以及任何已知的已结算客户费用。请求与响应内容默认单独保留 24 小时，除非通过 `x-niu-log-payloads: false` 显式禁用；详见 [日志中的请求内容](#日志中的请求内容)。缺失的用量或费用保持未知状态。这是请求活动数据的默认来源，用户无需手动导出或导入网关日志。
 
 `GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}` 可独立于列表分页和筛选条件返回单个请求的元数据。它要求具备该工作空间的读取权限，且当请求不在该工作空间范围内时返回 404。响应使用与请求列表相同的客户安全字段，排除模型供应商采购成本。载荷内容通过独立接口获取。
 
@@ -1126,7 +1126,7 @@ Niu 牛元会将工具定义和结构化输出 Schema 转发给模型供应商�
 
 新准入的请求在工作空间请求信息流中包含一个可空的 `timing` 对象：`dispatch_ms`、`headers_ms`、`first_output_ms`、`total_ms`、`complete` 和 `http_status`。各时间偏移量使用自请求处理开始的单调网关时钟，独立于载荷捕获。首次输出时间（`first_output_ms`）从流式对话（Chat）产生第一个有意义的事件开始测量，包括文本、推理思考（reasoning）、拒绝（refusal）或工具调用输出；仅含角色（role-only）的事件、保活心跳（keepalives）和用量记录不计入首次输出。非流式请求的 `first_output_ms` 保持未知。
 
-日志界面在同一时间轴比例尺上绘制准备阶段、首次输出等待和输出流持续时间。准备阶段包括参数校验与准入检查。等待阶段包括网络传输与上游处理时间；在没有上游追踪跨度（spans）的情况下，Niu 牛元无法将这两者拆分。输出持续时间包含内容投递和终态处理，因此每秒 Token 数（tokens per second）描述的是观测到的输出流速率，而非纯粹的模型计算速度。中断的响应保留未完成的时间区间（包括派发后但在收到响应头之前取消的情况，此时 `headers_ms` 和 `http_status` 保持为 `null`）。进程崩溃或准入确认期间的取消可能会导致阶段耗时不可用。历史旧请求不会进行数据回填。
+日志界面在同一时间轴比例尺上绘制准备阶段、首次输出等待和输出流持续时间。准备阶段包括参数校验与准入检查。等待阶段包括网络传输与上游处理时间；在没有上游追踪跨度（spans）的情况下，Niu 无法将这两者拆分。输出持续时间包含内容投递和终态处理，因此每秒 Token 数（tokens per second）描述的是观测到的输出流速率，而非纯粹的模型计算速度。中断的响应保留未完成的时间区间（包括派发后但在收到响应头之前取消的情况，此时 `headers_ms` 和 `http_status` 保持为 `null`）。进程崩溃或准入确认期间的取消可能会导致阶段耗时不可用。历史旧请求不会进行数据回填。
 
 ### 日志中的请求内容
 
@@ -1136,13 +1136,13 @@ Niu 牛元会将工具定义和结构化输出 Schema 转发给模型供应商�
 
 经授权的工作空间只读成员可以通过 `GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads` 获取保留的内容。响应中的 `data` 包含 `request`、`response`、`content_type`、`complete`、`truncated` 和 `expires_at`；若未捕获内容或内容已过期，则返回 `null`。使用同一路径发起 `DELETE` 请求删除内容需要工作空间写入权限。删除内容不会删除财务核算记录。持久化的无内容删除标记（tombstone）可防止延迟到达的捕获或重试重新创建已被显式删除的载荷。在捕获完成前执行删除同样会阻止该次尝试的内容被落盘存储。
 
-应用程序或智能体适配器可以在属于同一任务的每一次推理调用上发送相同的可选请求头 `X-Niu-Task-ID`。对话补全、Responses 和文本嵌入接受 1–200 个可打印 ASCII 字符。Niu 牛元将该值作为不透明的操作元数据存储，绝不会将其转发给模型供应商。未携带此请求头的活动仍会被正常保留，并作为独立的模型请求展示。该请求头仅用于对模型调用进行分组：本地工具执行、校验和任务验收需要独立的适配器事件，无法从网关流量中自动推断。
+应用程序或智能体适配器可以在属于同一任务的每一次推理调用上发送相同的可选请求头 `X-Niu-Task-ID`。对话补全、Responses 和文本嵌入接受 1–200 个可打印 ASCII 字符。Niu 将该值作为不透明的操作元数据存储，绝不会将其转发给模型供应商。未携带此请求头的活动仍会被正常保留，并作为独立的模型请求展示。该请求头仅用于对模型调用进行分组：本地工具执行、校验和任务验收需要独立的适配器事件，无法从网关流量中自动推断。
 
-任务关联仅涵盖由 Niu 牛元处理的模型请求。外部模型调用、智能体工具事件、任务验收以及订阅用量均不在 Niu 牛元的采集范围内。Niu 牛元不提供执行过程或智能体用量的导入 API。
+任务关联仅涵盖由 Niu 处理的模型请求。外部模型调用、智能体工具事件、任务验收以及订阅用量均不在 Niu 的采集范围内。Niu 不提供执行过程或智能体用量的导入 API。
 
 ## API 路由架构
 
-Niu 牛元将 HTTP 端点组织为两个公开路由前缀：
+Niu 将 HTTP 端点组织为两个公开路由前缀：
 
 - **开发者与推理数据面（`/v1/*` 与 `/v1beta/*`）**：模型发现（`GET /v1/models`）、API 密钥自检（`GET /v1/key`）、生成记录查询（`GET /v1/generations/{id}`）、文本推理（`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`、`POST /v1beta/models/{model_action}`、`POST /v1/embeddings`）以及媒体/视频生成（`GET /v1/media/capabilities`、`POST /v1/video/jobs`、`GET /v1/video/jobs`、`GET /v1/video/jobs/{id}`、`POST /v1/video/jobs/{id}/cancel`、`DELETE /v1/video/jobs/{id}`、`GET /v1/video/jobs/{id}/results/{kind}`、`POST /v1/video/jobs/{id}/results/{kind}/refresh`）。支持使用工作空间 API 密钥（`Authorization: Bearer <niu_api_key>`）或搭配 `X-Niu-Key-Id: <key_uuid>` 的已认证控制台会话进行鉴权。
 - **控制、工作空间、模型供应商与商业管理面（`/api/v1/*`）**：身份认证、用户会话、组织、工作空间、统一的工作空间 API 密钥管理（`GET /api/v1/workspaces/{workspace}/keys`、`POST /api/v1/workspaces/{workspace}/keys`、`GET /api/v1/workspaces/{workspace}/keys/{key}`、`PATCH /api/v1/workspaces/{workspace}/keys/{key}`、`DELETE /api/v1/workspaces/{workspace}/keys/{key}`、`POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`）、请求诊断、客户计费、模型供应商目录与报价（Offers）、上游 API 连接、模型路由、定价以及平台设置。鉴权要求因具体操作而异（工作空间成员会话、模型供应商成员身份或平台管理权限）。旧版 `/api/v1/*` 路径在运行时仍保持支持以确保向后兼容。
@@ -1190,7 +1190,7 @@ Niu 牛元将 HTTP 端点组织为两个公开路由前缀：
 - `PUT /api/v1/vendors/{id}` 使用 `expected_revision` 更新元数据、启用状态或凭据密钥。
 - `GET /api/v1/vendors/{id}/models` 按别名顺序排列出该上游连接下的所有模型映射（包括已禁用的映射）。该兼容性端点返回单个不分页的 `data` 数组，不会在 1,000 行处静默截断。大型列表仍会消耗与其大小成正比的响应内存。
 - `POST /api/v1/vendors/{id}/models` 在不传修订版本时创建新映射，或使用当前的 `expected_revision` 更新现有映射。
-- `POST /api/v1/vendors/{id}/check` 配合 `{ "alias": "team/fast" }` 执行非推理的 `GET /models` 连通性检查。该检查限制在 5 秒和 2 MiB 以内，拦截重定向与私有网络目标地址，且仅返回状态码以及确切的上游模型 ID 是否出现在供应商目录中。模型供应商的原始响应内容与凭据绝不会被返回。出现在目录列表中并不证明具备推理访问权限或配额；请使用控制台对话（Chat）通过 Niu 牛元测试真实请求。
+- `POST /api/v1/vendors/{id}/check` 配合 `{ "alias": "team/fast" }` 执行非推理的 `GET /models` 连通性检查。该检查限制在 5 秒和 2 MiB 以内，拦截重定向与私有网络目标地址，且仅返回状态码以及确切的上游模型 ID 是否出现在供应商目录中。模型供应商的原始响应内容与凭据绝不会被返回。出现在目录列表中并不证明具备推理访问权限或配额；请使用控制台对话（Chat）通过 Niu 测试真实请求。
 
 单个模型供应商可以拥有多个独立配置的凭据，且每个凭据可以绑定多个模型别名。即使多个别名共享同一个上游凭据，工作空间密钥授权仍按每个请求的别名独立生效。有关已验证的更新、禁用、重启与计费行为，请参阅 [当前多密钥与多模型验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#multiple-mappings-on-one-credential--current-input-verification)。
 
@@ -1280,11 +1280,11 @@ SDK 提供了 `listSupplierOfferHistory` 方法。在集成前请先阅读 [分�
 
 ## 请求诊断中的视频模型归因
 
-现有的 `provider_model` 字段现在会保留经校验的视频状态查询所显式返回的模型名称。缺失的模型供应商模型字段保持未知状态；Niu 牛元不会用配置的映射名称去替代。已完成的存量任务可以通过一次上报了该字段的授权刷新操作获得此模型归因，而无需重新发起生成。仅读取日志（Logs）不会向上游发起查询。详见 [模型归因与保留边界](https://github.com/niu-io/niu/blob/main/docs/reference/video-model-attribution.md)。
+现有的 `provider_model` 字段现在会保留经校验的视频状态查询所显式返回的模型名称。缺失的模型供应商模型字段保持未知状态；Niu 不会用配置的映射名称去替代。已完成的存量任务可以通过一次上报了该字段的授权刷新操作获得此模型归因，而无需重新发起生成。仅读取日志（Logs）不会向上游发起查询。详见 [模型归因与保留边界](https://github.com/niu-io/niu/blob/main/docs/reference/video-model-attribution.md)。
 
 ### 日志中的视频创建请求内容
 
-新的视频提交会通过现有的带作用域载荷读取/删除 API 保留经检查的 Niu 牛元请求体与 Niu 牛元创建响应体，保留时间最长为 24 小时。发送 `x-niu-log-payloads: false` 可选择退出保留。已保存意图（saved-intent）的提交会捕获经检查的视频请求内容，而非仅含修订版本的提交信封。幂等重放绝不会重新创建捕获记录。这些载荷是 Niu 牛元 API 的请求与响应体，而非原始上游传输报文或生成的媒体文件；完整捕获到 202 响应并不代表视频生成已完成。
+新的视频提交会通过现有的带作用域载荷读取/删除 API 保留经检查的 Niu 请求体与 Niu 创建响应体，保留时间最长为 24 小时。发送 `x-niu-log-payloads: false` 可选择退出保留。已保存意图（saved-intent）的提交会捕获经检查的视频请求内容，而非仅含修订版本的提交信封。幂等重放绝不会重新创建捕获记录。这些载荷是 Niu API 的请求与响应体，而非原始上游传输报文或生成的媒体文件；完整捕获到 202 响应并不代表视频生成已完成。
 
 有关大小上限、鉴权与保留语义，请参阅 [视频请求载荷](https://github.com/niu-io/niu/blob/main/docs/reference/video-request-payloads.md)。
 
@@ -1336,7 +1336,7 @@ HTTP 401 响应并不能普遍证明模型供应商没有执行任何计算工�
 
 ## 原生 Gemini 文本接口
 
-`POST /v1beta/models/{alias}:generateContent` 可用于已显式启用的静态或受管 `gemini` 路由。请对模型别名（包括其中的斜杠 `/`）进行 URL 编码，并使用 Niu 牛元工作空间密钥进行身份认证。请求需提供文本类型的 `contents` 以及有界的 `generationConfig.maxOutputTokens`。原生工具调用、媒体输入、缓存资源、思考配置（thinking configuration）以及流式传输均不受支持，并在派发前即被拒绝。现有的预付费定价、权限控制与密钥限额仍然生效。
+`POST /v1beta/models/{alias}:generateContent` 可用于已显式启用的静态或受管 `gemini` 路由。请对模型别名（包括其中的斜杠 `/`）进行 URL 编码，并使用 Niu 工作空间密钥进行身份认证。请求需提供文本类型的 `contents` 以及有界的 `generationConfig.maxOutputTokens`。原生工具调用、媒体输入、缓存资源、思考配置（thinking configuration）以及流式传输均不受支持，并在派发前即被拒绝。现有的预付费定价、权限控制与密钥限额仍然生效。
 
 SDK 使用以 `/v1` 结尾的基础 URL 暴露了 `client.generateContent(alias, body)` 方法。[自动生成的契约文档](/docs/reference/handler-operations/#generate-native-buffered-gemini-text) 列出了确切受支持的字段。实际的异常路径、输入脱敏、保留的上游拒绝以及服务重启均已通过验证；成功的 Google 生成调用、输出处理与已结算计费仍有待验证。模型供应商凭据支持 `adapter: "gemini"`；模型映射需要配置 `capabilities.supports_generate_content: true`。模型发现与连通性检查使用原生 Google 认证方式及有界目录读取。详见 [实现与验证边界](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#gemini-generatecontent-text)。
 
@@ -1364,6 +1364,6 @@ SDK 使用以 `/v1` 结尾的基础 URL 暴露了 `client.generateContent(alias,
 
 返回 HTTP `409` 及 `guardrail_admission_conflict` 表示在当前工作空间/密钥策略下，先前检查通过的策略已不再允许派发该请求。被拒绝的尝试并未发送到上游。付费准入仍会保留一条未发送的尝试记录及其安全的拒绝审计信息，同时释放客户资金预占，且不会产生客户扣费。新请求必须在当前最新策略下重新接受检查。
 
-Messages 接口保留其原生错误信封结构；请读取 `x-niu-error-code` 响应头以获取 Niu 牛元的错误分类。通用冲突与未知的数据库故障保留其各自独立的含义。详见 [策略竞态行为与验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/guardrail-preparation-errors.md)。“生成（Generations）”控制台集成了已保存视频意图的恢复功能，包括在密钥过期后恢复原始输入、保留的预览以及诊断信息。参考素材的成功提交与完整的共享输出生命周期仍是独立的验证要求。受支持的浏览器工作流详见 [生成对话与视频（Generations）](/docs/reference/generations/)。
+Messages 接口保留其原生错误信封结构；请读取 `x-niu-error-code` 响应头以获取 Niu 的错误分类。通用冲突与未知的数据库故障保留其各自独立的含义。详见 [策略竞态行为与验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/guardrail-preparation-errors.md)。“生成（Generations）”控制台集成了已保存视频意图的恢复功能，包括在密钥过期后恢复原始输入、保留的预览以及诊断信息。参考素材的成功提交与完整的共享输出生命周期仍是独立的验证要求。受支持的浏览器工作流详见 [生成对话与视频（Generations）](/docs/reference/generations/)。
 
 </div>

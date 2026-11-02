@@ -25,6 +25,7 @@ export type WorkspaceProblem =
   | { kind: 'response' };
 export type AccountRole = 'user' | 'admin';
 export type AdminSession = {
+  operating_mode?: 'internal' | 'resale';
   roles?: {available: AccountRole[]; active: AccountRole; switchable: boolean};
   admin_mode?: {available: boolean; enabled: boolean};
   profile?: MemberProfile | null;

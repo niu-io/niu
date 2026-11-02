@@ -26833,7 +26833,7 @@
     "/api/v1/payments/readiness": {
       "get": {
         "operationId": "getPaymentReadiness",
-        "summary": "Read payment or scoped funding readiness",
+        "summary": "Read deployment service and payment readiness",
         "x-niu-implementation": "implemented",
         "security": [
           {},
@@ -26841,7 +26841,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Anonymous reads describe installation payment configuration only. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.",
+        "description": "Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.",
         "responses": {
           "200": {
             "description": "Current prerequisite state",
@@ -38319,6 +38319,11 @@
             "type": "string",
             "format": "uuid",
             "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+          },
+          "personal_organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
           },
           "create_supplier": {
             "type": "boolean",

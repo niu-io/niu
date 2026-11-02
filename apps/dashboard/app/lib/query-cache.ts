@@ -637,6 +637,9 @@ export function invalidateForMutation(token: string, path: string, method: strin
   const cleanPath = path.split('?')[0];
   const substrings = new Set<string>();
 
+  if (cleanPath.includes('/chats') || cleanPath.includes('/sessions') || cleanPath.includes('/tasks') || cleanPath.includes('/intents')) {
+    substrings.add('/generation-history');
+  }
   if (cleanPath.includes('/branding')) {
     substrings.add('branding');
   }

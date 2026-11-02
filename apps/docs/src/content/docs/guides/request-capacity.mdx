@@ -35,7 +35,7 @@ Usage reconciliation and financial settlement are separate. A saved usage receip
 
 ## 了解占用容量的原因
 
-- **Completion unconfirmed（完成状态未确认）**： Niu 牛元尚未收到该已派发请求完成的确认。该请求可能仍在运行，或其响应已在传输中丢失。关闭浏览器连接并不能证明模型供应商已停止执行。
+- **Completion unconfirmed（完成状态未确认）**： Niu 尚未收到该已派发请求完成的确认。该请求可能仍在运行，或其响应已在传输中丢失。关闭浏览器连接并不能证明模型供应商已停止执行。
 - **Completed · usage unavailable（已完成 · 用量不可用）**： 请求已执行完成，但未记录到完整的 Token 用量。在该已完成请求离开 60 秒滚动时间窗口之前，Token 核算会保留预估值（若无预估值则保持未知状态）。
 - **Reserved tokens: Unknown（预留 Token：未知）**： 没有可用的预估值。有限的 Token 限额不能将其视为零消耗。
 
@@ -45,7 +45,7 @@ Usage reconciliation and financial settlement are separate. A saved usage receip
 
 如果视频结果仍在运行，请在提交新任务前先检查其已保存的状态。对于结果不确定的请求，请向平台管理员提供所属工作空间、模型、密钥名称和派发时间，以便管理员排查匹配的记录与模型供应商证据。切勿通过再次发送推理请求来测试前一次请求是否完成，也不要用调高限额来代替排查未知结果。
 
-对于实例管理员，Niu 牛元支持[读取已捕获的用量对账证据](/docs/api/rest/getrequestusagereconciliation/)以及[补全符合条件的 OpenRouter 请求用量](/docs/api/rest/reconcilerequestusage/)。该流程使用已保存的响应引用与原始符合条件的凭据。它不接受凭空捏造的用量，不会根据已耗时推断完成状态，也不会重新提交推理请求。只有经确认的终态证据才能更新执行记录。不支持、已取消或非终态的结果将保持未决状态；自动生成的 API 参考文档详细说明了具体的适用条件。
+对于实例管理员，Niu 支持[读取已捕获的用量对账证据](/docs/api/rest/getrequestusagereconciliation/)以及[补全符合条件的 OpenRouter 请求用量](/docs/api/rest/reconcilerequestusage/)。该流程使用已保存的响应引用与原始符合条件的凭据。它不接受凭空捏造的用量，不会根据已耗时推断完成状态，也不会重新提交推理请求。只有经确认的终态证据才能更新执行记录。不支持、已取消或非终态的结果将保持未决状态；自动生成的 API 参考文档详细说明了具体的适用条件。
 
 用量对账与财务结算相互独立。已保存的用量回执本身并不证明客户费用已入账。请在恢复后保留原始请求并检查其已记录的状态。
 

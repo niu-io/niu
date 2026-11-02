@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import {
   useCallback,
@@ -10,7 +11,7 @@ import {
   type FormEvent,
 } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useParams, useRevalidator } from 'react-router';
-import { Cpu as RailModels, FolderKey as RailWorkspace, TriangleAlert } from 'lucide-react';
+import { Cpu as RailModels, FolderKey as RailWorkspace, TriangleAlert, X } from 'lucide-react';
 import {
   IconBook as RailDocs,
   IconBookFilled as RailDocsFilled,
@@ -106,6 +107,7 @@ export default function AppLayout() {
   const { t: uiT, format: uiF } = useUILocale();
   const { isZh, t } = useLocale();
   const mockPaymentsEnabled = useMockPayments();
+  const [paymentNoticeDismissed, setPaymentNoticeDismissed] = useState(false);
   const { settings: branding, logo } = useBranding();
   const revalidator = useRevalidator();
   const revalidatorRef = useRef(revalidator);
@@ -1351,13 +1353,13 @@ export default function AppLayout() {
         denials: '拦截记录',
       }
     : {
-        policy: 'Policy',
-        input: 'Input rules',
-        output: 'Output rules',
-        access: 'Model access',
-        detectors: 'External checks',
-        history: 'History',
-        denials: 'Blocked requests',
+        policy: translateUI('Policy'),
+        input: translateUI('Input rules'),
+        output: translateUI('Output rules'),
+        access: translateUI('Model access'),
+        detectors: translateUI('External checks'),
+        history: translateUI('History'),
+        denials: translateUI('Blocked requests'),
       };
   const isGuardrailEditor = ['guardrails/input', 'guardrails/output', 'guardrails/access', 'guardrails/detectors'].includes(
     activePath,
@@ -1439,7 +1441,7 @@ export default function AppLayout() {
     !settingsArea &&
     (activityArea || supplierManagement || destination === 'Workspace');
   const setupBlocked = Boolean(
-    token && !supplierArea && !settingsArea && !helpArea && paymentReadiness.status !== 'ready',
+    token && session?.operating_mode !== 'internal' && destination !== 'Models' && !supplierArea && !settingsArea && !helpArea && paymentReadiness.status !== 'ready',
   );
   const modelFiltersAvailable =
     destination === 'Models' &&
@@ -1792,20 +1794,6 @@ export default function AppLayout() {
         </Sidebar>
       )}
       <SidebarInset className="main-panel">
-        {mockPaymentsEnabled && (
-          <Alert className="mock-payment-warning shrink-0 rounded-none" role="status">
-            <TriangleAlert aria-hidden="true" />
-            <AlertTitle className="line-clamp-none">
-              {t('Mock payments enabled · Real model costs', '模拟支付已开启 · 实际产生模型费用')}
-            </AlertTitle>
-            <AlertDescription>
-              {t(
-                'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
-                '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
         {phoneNavigation && !hasSidebar && !isGlobalChat && (
           <nav className="mobile-product-navigation" aria-label={uiT("Product navigation")}>
             <a href={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
@@ -1846,6 +1834,32 @@ export default function AppLayout() {
             setupBlocked={setupBlocked}
           />
         )}
+        {mockPaymentsEnabled && !paymentNoticeDismissed && (
+          <Alert className="mock-payment-warning shrink-0 pr-12" role="status">
+            <TriangleAlert aria-hidden="true" />
+            <AlertTitle className="line-clamp-none">
+              {t('Mock payments enabled · Real model costs', '模拟支付已开启 · 实际产生模型费用')}
+            </AlertTitle>
+            <AlertDescription>
+              {t(
+                'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
+                '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
+              )}
+            </AlertDescription>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute right-2 top-2"
+              aria-label={t('Dismiss payment notice', '关闭模拟支付提示')}
+              onClick={() => {
+                setPaymentNoticeDismissed(true);
+                document.getElementById('dashboard-content')?.focus();
+              }}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </Alert>
+        )}
         <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
           {!helpArea && gatewayStatus === 'checking' && (
             <WorkspaceShellSkeleton label={t('Connecting to your workspace…', '正在连接工作空间…')} />
@@ -1875,7 +1889,7 @@ export default function AppLayout() {
                         ['usage', t('Usage', '调用量')],
                         ['settlements', t('Settlements', '结算账单')],
                         ['settings', t('Settings', '设置')],
-                      ].map(([value, label]) => {
+                      ].filter(([value]) => session?.operating_mode !== 'internal' || !['settlements'].includes(value)).map(([value, label]) => {
                         const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${
                           value === 'overview' ? '' : '/' + value
                         }`;

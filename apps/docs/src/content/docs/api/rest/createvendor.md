@@ -93,6 +93,11 @@ No path, query, or header parameters are declared.
       "format": "uuid",
       "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
     },
+    "personal_organization_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+    },
     "create_supplier": {
       "type": "boolean",
       "default": false,

@@ -3,16 +3,16 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState, useRef, type ReactNode, type RefObject } from 'react';
 import { Link } from 'react-router';
 import { IconMessageChatbot, IconVideo, IconDots, IconTrash, IconPencil, IconArchive } from '@tabler/icons-react';
-import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
+import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuAction, SidebarMenuSkeleton, useSidebar } from '@/components/ui/sidebar';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ListRowsSkeleton } from '@/components/PageSkeletons';
+import { peekQuery, primeQuery } from '@/lib/query-cache';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { workspacePathSegment } from '@/shell/workspace-route';
-import { keyRequest } from '@/features/keys/api';
+import { cachedKeyGet } from '@/features/keys/api';
 import type { VideoJobHistory } from '@niu-io/sdk';
 import { NiuAdminClient, type GenerationTask, type TenantScope } from '@niu-io/sdk/admin';
 import { videoIntentHistory, type VideoIntentHistoryRow } from '@/features/video/intent-history';
@@ -22,6 +22,7 @@ type Chat = {id:string;reference?:string;title?:string;prompt:string;createdAt:n
 type Video = VideoJobHistory['data'][number] & {reference?:string;keyId?:string;workspaceId?:string;sessionId?:string|null};
 type VideoCursor = {scope:TenantScope;before:string};
 type SavedVideoSession = VideoGenerationsSessionSummary & {scope:TenantScope};
+type HistorySnapshot = {chats:Array<Chat & {workspaceId:string}>; videos:Video[]; intents:VideoIntentHistoryRow[]; sessions:SavedVideoSession[]; unavailable:string[]; sessionCursors:VideoCursor[]; intentCursors:Array<{scope:VideoIntentHistoryRow['scope'];before:string}>; cursors:VideoCursor[]};
 function savedVideo(task:GenerationTask,workspaceId:string):Video {
   return {id:task.id,reference:task.reference,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),workspaceId,sessionId:task.session_id};
 }
@@ -41,17 +42,19 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const workspaceListScope=availableWorkspaces.map(item=>`${item.organization_id}:${item.id}`).join(',');
   const scopeIdentity=JSON.stringify([token,workspaceListScope,currentKeys,videoKeyId]);
   if(identity.current!==scopeIdentity){identity.current=scopeIdentity;generation.current+=1;}
-  const [savedChats,setSavedChats]=useState<Array<Chat & {workspaceId:string}>>([]);
-  const [savedVideos,setSavedVideos]=useState<Video[]>([]);
-  const [savedIntents,setSavedIntents]=useState<VideoIntentHistoryRow[]>([]);
-  const [savedSessions,setSavedSessions]=useState<SavedVideoSession[]>([]);
-  const [unavailableSessionWorkspaces,setUnavailableSessionWorkspaces]=useState<Set<string>>(new Set());
-  const [sessionCursors,setSessionCursors]=useState<VideoCursor[]>([]);
+  const historyKey='/api/v1/generation-history?workspaces='+encodeURIComponent(workspaceListScope);
+  const cached=token ? peekQuery<HistorySnapshot>(token,historyKey,{persist:true}) : undefined;
+  const [savedChats,setSavedChats]=useState<Array<Chat & {workspaceId:string}>>(cached?.chats??[]);
+  const [savedVideos,setSavedVideos]=useState<Video[]>(cached?.videos??[]);
+  const [savedIntents,setSavedIntents]=useState<VideoIntentHistoryRow[]>(cached?.intents??[]);
+  const [savedSessions,setSavedSessions]=useState<SavedVideoSession[]>(cached?.sessions??[]);
+  const [unavailableSessionWorkspaces,setUnavailableSessionWorkspaces]=useState<Set<string>>(new Set(cached?.unavailable));
+  const [sessionCursors,setSessionCursors]=useState<VideoCursor[]>(cached?.sessionCursors??[]);
   const [editingSession,setEditingSession]=useState<SavedVideoSession|null>(null);
   const [sessionTitle,setSessionTitle]=useState('');
   const [sessionBusy,setSessionBusy]=useState(false);
   const [sessionError,setSessionError]=useState('');
-  const [intentCursors,setIntentCursors]=useState<Array<{scope:VideoIntentHistoryRow['scope'];before:string}>>([]);
+  const [intentCursors,setIntentCursors]=useState<Array<{scope:VideoIntentHistoryRow['scope'];before:string}>>(cached?.intentCursors??[]);
   const [deleting,setDeleting]=useState<VideoIntentHistoryRow|null>(null);
   const [deleteBusy,setDeleteBusy]=useState(false);
   const [deleteError,setDeleteError]=useState('');
@@ -63,18 +66,19 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const [revision,setRevision]=useState(0);
   useEffect(()=>{const refresh=()=>setRevision(value=>value+1);window.addEventListener('niu:video-intent-saved',refresh);window.addEventListener('niu:video-session-changed',refresh);return()=>{window.removeEventListener('niu:video-intent-saved',refresh);window.removeEventListener('niu:video-session-changed',refresh);};},[]);
   useEffect(()=>{setEditingSession(null);setSessionError('');setSessionBusy(false);},[token,workspace?.id]);
-  const [cursors,setCursors]=useState<VideoCursor[]>([]);
-  const loadedScope=useRef('');
+  const [cursors,setCursors]=useState<VideoCursor[]>(cached?.cursors??[]);
+  const loadedScope=useRef(JSON.stringify([token,workspaceListScope]));
   useEffect(()=>{
     const controller=new AbortController();
     const nextScope=JSON.stringify([token,workspaceListScope]);
-    if(loadedScope.current!==nextScope){loadedScope.current=nextScope;setSavedChats([]);setSavedVideos([]);setSavedIntents([]);setSavedSessions([]);}
+    const previous=token ? peekQuery<HistorySnapshot>(token,historyKey,{persist:true}) : undefined;
+    if(loadedScope.current!==nextScope){loadedScope.current=nextScope;setSavedChats(previous?.chats??[]);setSavedVideos(previous?.videos??[]);setSavedIntents(previous?.intents??[]);setSavedSessions(previous?.sessions??[]);}
     setSessionCursors([]);setIntentCursors([]);setCursors([]);setError('');setLoading(false);setDeleting(null);setDeleteError('');
     if(!workspaceListScope || !token)return;
     setLoading(true);
     let failedRead=false;
     const read=async<T,>(path:string):Promise<T|null>=>{
-      try{return await keyRequest<T>(token,path,'GET',undefined,controller.signal);}
+      try{return await cachedKeyGet<T>(token,path,{signal:controller.signal,persist:true});}
       catch {failedRead=true;return null;}
     };
     void (async()=>{
@@ -93,30 +97,41 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
           const item=queue.shift()!;
           const currentScope=`/api/v1/organizations/${item.organization_id}/projects/${item.id}`;
           const tenant={organizationId:item.organization_id,projectId:item.id};
+          await Promise.all([ (async()=>{
           try{
             const page=await client!.generations(tenant).sessions.list({limit:25},{signal:controller.signal});
             sessionRows.push(...page.data.map(session=>({...session,scope:tenant})));
             if(page.has_more&&page.next_before)nextSessions.push({scope:tenant,before:page.next_before});
           }catch{if(!controller.signal.aborted){failedRead=true;sessionFailures.add(item.id);}}
+          })(), (async()=>{
           try{
             const page=await videoIntentHistory(client!,tenant,{limit:25},{signal:controller.signal});
             intentRows.push(...page.data);
             if(page.incomplete)failedRead=true;
             if(page.has_more&&page.next_before)nextIntents.push({scope:tenant,before:page.next_before});
           }catch{if(!controller.signal.aborted)failedRead=true;}
+          })(), (async()=>{
           {
             const page=await read<{data:Chat[]}>(`${currentScope}/chats`);
             if(page)chatRows.push(...page.data.map(chat=>({...chat,workspaceId:item.id})));
           }
+          })(), (async()=>{
           try {
             const page=await client!.generations(tenant).tasks.list({kind:'video',limit:25},{signal:controller.signal});
             videoRows.push(...page.data.map(task=>savedVideo(task,item.id)));
             if(page.has_more&&page.next_cursor)next.push({scope:tenant,before:page.next_cursor});
           }catch{if(!controller.signal.aborted)failedRead=true;}
+          })() ]);
         }
       });
       const outcomes=await Promise.allSettled(pending);
-      if(!controller.signal.aborted){setUnavailableSessionWorkspaces(sessionFailures);setSavedSessions(sessionRows);setSessionCursors(nextSessions);setSavedChats(chatRows);setSavedVideos(videoRows);setSavedIntents(intentRows);setIntentCursors(nextIntents);setCursors(next);}
+      if(!controller.signal.aborted){
+        const incomplete=failedRead||outcomes.some(item=>item.status==='rejected');
+        const retain=<T,>(fresh:T[],old:T[]|undefined)=>incomplete&&!fresh.length ? old??fresh : fresh;
+        const snapshot:HistorySnapshot={chats:retain(chatRows,previous?.chats),videos:retain(videoRows,previous?.videos),intents:retain(intentRows,previous?.intents),sessions:retain(sessionRows,previous?.sessions),unavailable:[...sessionFailures],sessionCursors:nextSessions,intentCursors:nextIntents,cursors:next};
+        setUnavailableSessionWorkspaces(sessionFailures);setSavedSessions(snapshot.sessions);setSessionCursors(nextSessions);setSavedChats(snapshot.chats);setSavedVideos(snapshot.videos);setSavedIntents(snapshot.intents);setIntentCursors(nextIntents);setCursors(next);
+        if(!incomplete)primeQuery(token,historyKey,snapshot,{persist:true});
+      }
       if(!controller.signal.aborted && (failedRead||outcomes.some(item=>item.status==='rejected')))setError('Some sessions could not be loaded.');
     })().finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>{controller.abort();pagination.current?.abort();pagination.current=null;generation.current+=1;};
@@ -230,7 +245,9 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       {item.type==='video-session'&&item.workspaceId===workspace?.id&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{deleteOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>)}</SidebarMenu>
     {!entries.length&&!loading&&!pending&&!error&&!failed&&<p className="px-3 py-4 text-sm text-muted-foreground">{uiT("No sessions yet")}</p>}
-    {(loading||pending)&&!entries.length&&<ListRowsSkeleton rows={4} label={uiT("Loading sessions…")} className="px-3" />}
+    {(loading||pending)&&!entries.length&&<SidebarMenu role="status" aria-busy="true" aria-label={uiT("Loading sessions…")}>
+      {Array.from({length:4},(_,index)=><SidebarMenuItem key={index}><SidebarMenuSkeleton showIcon/></SidebarMenuItem>)}
+    </SidebarMenu>}
     {(cursors.length>0||intentCursors.length>0||sessionCursors.length>0)&&<Button variant="ghost" disabled={loading||disabled} onClick={()=>void more()}>{uiT("Load more sessions")}</Button>}
   </>;
   const dialogs=<>

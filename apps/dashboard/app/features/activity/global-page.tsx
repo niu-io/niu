@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -63,12 +64,12 @@ async function readRequestPage(url: string, token: string, signal: AbortSignal):
   return checkedRequestPage(await read<Page>(url, token, signal));
 }
 const root = (workspace: Workspace) => `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests`;
-const name = (workspace: Workspace) => workspaceDisplayName(workspace.name) || 'Workspace';
+const name = (workspace: Workspace) => workspaceDisplayName(workspace.name) || translateUI('Workspace');
 const scopeSegment = (workspace: Workspace, list: Workspace[]) => !workspace.slug && !workspace.route_slug && workspace.id.length <= 1 ? workspace.id : workspacePathSegment(workspace, list);
 const scopeHref = (workspace: Workspace, list: Workspace[], page: string) => `/workspaces/${scopeSegment(workspace, list)}/${page}`;
 function chargeLabel(request: Request) {
   if (request.customer_charge_status === 'charged' && request.customer_charge_currency && request.customer_charge_nanos !== null) return money(request.customer_charge_nanos, request.customer_charge_currency);
-  return ({owner_funded: 'Own API key', pending: 'Unresolved', unpriced: 'No rate', not_charged: 'Not charged'} as Record<string,string>)[request.customer_charge_status] ?? 'Unknown';
+  return ({owner_funded: 'Own API key', pending: 'Unresolved', unpriced: 'No rate', not_charged: 'Not charged'} as Record<string,string>)[request.customer_charge_status] ?? translateUI('Unknown');
 }
 
 function GlobalActivity({token, models}: {token: string; models: string[]}) {

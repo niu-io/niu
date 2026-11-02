@@ -1,3 +1,5 @@
+import { readLocale } from '@/shell/ui-locale';
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -31,7 +33,7 @@ function checkedIntent(value: Intent, expected?: CustomerBalanceGrantInput, curr
 }
 function createdAt(value: string) {
   const date = new Date(value);
-  return Number.isFinite(date.valueOf()) ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC', hourCycle: 'h23' }).format(date) : 'Date unavailable';
+  return Number.isFinite(date.valueOf()) ? new Intl.DateTimeFormat(readLocale(), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC', hourCycle: 'h23' }).format(date) : translateUI('Date unavailable');
 }
 
 /** Preparation survives this form; issuance always reuses its original immutable key. */
@@ -151,7 +153,7 @@ export function GrantHistory({ token, editor, onClose, onOpen, onCorrect }: { to
     {loading && !rows.length && <TableSkeleton columns={6} rows={3} label={uiT("Loading grant history…")} />}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry history")}</Button></AlertDescription></Alert>}
     {!loading && !error && !rows.length && <p>{uiT("No saved noncash grant intents in this currency.")}</p>}
-    {!!rows.length && <Table aria-label={uiT("Saved noncash grant intents")}><TableHeader><TableRow>{['Prepared (UTC)', 'Reason', 'Gift amount', 'Application policy', 'State', 'Actions'].map(label => <TableHead key={label} className="whitespace-nowrap">{label}</TableHead>)}</TableRow></TableHeader><TableBody>{rows.map(row => <TableRow key={row.id}><TableCell className="whitespace-nowrap">{createdAt(row.created_at)}</TableCell><TableCell className="min-w-44 max-w-64 whitespace-normal break-words">{row.reason}</TableCell><TableCell className="whitespace-nowrap tabular-nums">{money(row.amount_nanos, row.currency)}</TableCell><TableCell className="whitespace-nowrap">{uiT(policyLabel(row.application_policy))}</TableCell><TableCell><Badge variant="outline">{row.status === 'issued' ? uiT("Issued") : uiT("Prepared")}</Badge></TableCell><TableCell><Button variant="outline" disabled={loading || !!error} onClick={() => onOpen(row)}>{row.status === 'issued' ? uiT("View grant") : uiT("Resume grant")}</Button></TableCell></TableRow>)}</TableBody></Table>}
+    {!!rows.length && <Table aria-label={uiT("Saved noncash grant intents")}><TableHeader><TableRow>{[uiT('Prepared (UTC)'), uiT('Reason'), uiT('Gift amount'), uiT('Application policy'), uiT('State'), uiT('Actions')].map(label => <TableHead key={label} className="whitespace-nowrap">{label}</TableHead>)}</TableRow></TableHeader><TableBody>{rows.map(row => <TableRow key={row.id}><TableCell className="whitespace-nowrap">{createdAt(row.created_at)}</TableCell><TableCell className="min-w-44 max-w-64 whitespace-normal break-words">{row.reason}</TableCell><TableCell className="whitespace-nowrap tabular-nums">{money(row.amount_nanos, row.currency)}</TableCell><TableCell className="whitespace-nowrap">{uiT(policyLabel(row.application_policy))}</TableCell><TableCell><Badge variant="outline">{row.status === 'issued' ? uiT("Issued") : uiT("Prepared")}</Badge></TableCell><TableCell><Button variant="outline" disabled={loading || !!error} onClick={() => onOpen(row)}>{row.status === 'issued' ? uiT("View grant") : uiT("Resume grant")}</Button></TableCell></TableRow>)}</TableBody></Table>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More grants")}</Button>}
     </TabsContent></Tabs>
     <div className="flex justify-end"><Button variant="outline" onClick={onClose}>{uiT("Close")}</Button></div>
