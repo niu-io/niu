@@ -38083,8 +38083,14 @@
           "model": {
             "type": "string"
           },
+          "store": {
+            "type": "boolean",
+            "const": false,
+            "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+          },
           "messages": {
             "type": "array",
+            "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
             "items": {
               "type": "object"
             }

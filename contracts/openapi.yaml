@@ -1014,7 +1014,7 @@ paths:
       description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
       responses:
         '200':
-          description: Public model aliases and declared capabilities. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
+          description: Public model aliases and declared capabilities, including configured tool_calls and streaming_tool_calls. These flags do not guarantee upstream availability or authorization. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
   /v1/chat/completions:
     $ref: './generated/handler-operations.json#/paths/~1v1~1chat~1completions'
   /v1/embeddings:

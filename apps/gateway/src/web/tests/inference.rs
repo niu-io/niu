@@ -1480,6 +1480,67 @@ async fn model_routes_require_a_valid_client_token() {
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
+async fn model_discovery_reports_configured_tool_capabilities(pool: PgPool) {
+    let mut state = test_state(None, pool);
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    let config = Arc::make_mut(&mut state.config);
+    let mut unsupported = config.models["fast"].clone();
+    unsupported.supports_tool_calls = false;
+    unsupported.supports_streaming_tool_calls = false;
+    config.models.insert("unsupported".into(), unsupported);
+    let supported = config.models.get_mut("fast").unwrap();
+    supported.supports_tool_calls = true;
+    supported.supports_streaming_tool_calls = true;
+    let workspace = state.store.default_workspace().await.unwrap();
+    let scope = niu_storage::TenantScope {
+        organization_id: workspace.organization_id,
+        project_id: workspace.project_id,
+    };
+    let key = state
+        .store
+        .issue_key(
+            scope,
+            "Discovery",
+            &["fast".into(), "unsupported".into()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let response = router(state)
+        .oneshot(
+            Request::get("/v1/models")
+                .header("authorization", format!("Bearer {}", key.token))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let models = body["data"].as_array().unwrap();
+    let supported = models.iter().find(|model| model["id"] == "fast").unwrap();
+    let unsupported = models
+        .iter()
+        .find(|model| model["id"] == "unsupported")
+        .unwrap();
+    assert_eq!(
+        supported["capabilities"],
+        json!({"tool_calls":true,"streaming_tool_calls":true})
+    );
+    assert_eq!(
+        unsupported["capabilities"],
+        json!({"tool_calls":false,"streaming_tool_calls":false})
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
 async fn chat_uses_server_routing_and_credentials_not_client_control_fields(pool: sqlx::PgPool) {
     let captured = Captured::default();
     let upstream = Router::new()
@@ -2249,9 +2310,15 @@ async fn payload_capture_defaults_on_with_explicit_opt_out_scoped_durable_and_cu
     let address = listener.local_addr().unwrap();
     let upstream = Router::new()
         .route("/v1/chat/completions", post(openrouter_provider))
-        .with_state(captured);
+        .with_state(captured.clone());
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
-    let state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     let scope = {
         let workspace = state.store.default_workspace().await.unwrap();
         niu_storage::TenantScope {
@@ -2260,6 +2327,7 @@ async fn payload_capture_defaults_on_with_explicit_opt_out_scoped_durable_and_cu
         }
     };
     let other_org = state.store.create_organization("Other").await.unwrap();
+    personal_test_route(&mut state, scope.organization_id).await;
     let other = state
         .store
         .create_project(other_org, "Other workspace")
@@ -2289,6 +2357,21 @@ async fn payload_capture_defaults_on_with_explicit_opt_out_scoped_durable_and_cu
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert!(!response.headers().contains_key("x-niu-attempt-id"));
     }
+    for value in [json!(true), json!(null), json!("false")] {
+        let response = app.clone().oneshot(Request::post("/v1/chat/completions")
+            .header("authorization", format!("Bearer {}", key.token))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(json!({"model":"fast","messages":[{"role":"user","content":"must not execute"}],"store":value}).to_string())).unwrap()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(!response.headers().contains_key("x-niu-attempt-id"));
+    }
+    let unsupported = app.clone().oneshot(Request::post("/v1/chat/completions")
+        .header("authorization", format!("Bearer {}", key.token))
+        .header("content-type", "application/json")
+        .body(axum::body::Body::from(json!({"model":"fast","messages":[{"role":"user","content":"hi"}],"store":false,"tools":[{"type":"function","function":{"name":"read","parameters":{"type":"object"}}}]}).to_string())).unwrap()).await.unwrap();
+    assert_eq!(unsupported.status(), StatusCode::NOT_IMPLEMENTED);
+    assert!(!unsupported.headers().contains_key("x-niu-attempt-id"));
+    assert!(captured.0.lock().unwrap().is_empty());
     assert!(
         state
             .store
@@ -2297,22 +2380,42 @@ async fn payload_capture_defaults_on_with_explicit_opt_out_scoped_durable_and_cu
             .unwrap()
             .is_empty()
     );
-    for (header, streaming) in [
-        (Some("false"), false),
-        (Some("false"), true),
-        (None, false),
-        (None, true),
-        (Some("true"), false),
+    for (header, streaming, no_store) in [
+        (Some("false"), false, false),
+        (Some("false"), true, false),
+        (None, false, false),
+        (None, true, false),
+        (Some("true"), false, false),
+        (None, false, true),
+        (Some("true"), true, true),
     ] {
-        let enabled = header != Some("false");
+        let enabled = header != Some("false") && !no_store;
         let mut request = Request::post("/v1/chat/completions")
             .header("authorization", format!("Bearer {}", key.token))
             .header("content-type", "application/json");
         if let Some(value) = header {
             request = request.header("x-niu-log-payloads", value);
         }
-        let response=app.clone().oneshot(request.body(axum::body::Body::from(json!({"model":"fast","messages":[{"role":"user","content":"Diagnostic prompt"}],"stream":streaming}).to_string())).unwrap()).await.unwrap();
+        let mut body = json!({"model":"fast","messages":[{"role":"user","content":"Diagnostic prompt"}],"stream":streaming});
+        if no_store {
+            body["store"] = json!(false);
+        }
+        let response = app
+            .clone()
+            .oneshot(
+                request
+                    .body(axum::body::Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+        if no_store {
+            assert_eq!(
+                captured.0.lock().unwrap().last().unwrap().body["store"],
+                false
+            );
+        }
         let attempt =
             Uuid::parse_str(response.headers()["x-niu-attempt-id"].to_str().unwrap()).unwrap();
         response.into_body().collect().await.unwrap();

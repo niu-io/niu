@@ -77,7 +77,7 @@ struct CompatibleExecution<'a> {
 ///         "name": "x-niu-log-payloads",
 ///         "in": "header",
 ///         "required": false,
-///         "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
+///         "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content unless store is false. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
 ///         "schema": {
 ///           "type": "string",
 ///           "enum": [
@@ -379,8 +379,14 @@ struct CompatibleExecution<'a> {
 ///         "model": {
 ///           "type": "string"
 ///         },
+///         "store": {
+///           "type": "boolean",
+///           "const": false,
+///           "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+///         },
 ///         "messages": {
 ///           "type": "array",
+///           "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
 ///           "items": {
 ///             "type": "object"
 ///           }
@@ -765,6 +771,14 @@ async fn chat_as(
     mut body: Value,
     principal: niu_storage::Principal,
 ) -> Result<Response, ApiError> {
+    if body
+        .get("store")
+        .is_some_and(|value| value != &Value::Bool(false))
+    {
+        return Err(ApiError::invalid_request(
+            "store must be false; stored Chat completions are not supported",
+        ));
+    }
     let mut public_model = body
         .get("model")
         .and_then(Value::as_str)

@@ -13,6 +13,7 @@ pub(super) fn validate_priced_request(
     // text completion. Niu does not execute tools or enable hosted tool charges.
     const ALLOWED: &[&str] = &[
         "model",
+        "store",
         "messages",
         "stream",
         "stream_options",
@@ -145,7 +146,7 @@ pub(super) fn text_message(message: &Value) -> bool {
     let role = message.get("role").and_then(Value::as_str);
     let fields: &[&str] = match role {
         Some("system" | "developer" | "user") => &["role", "content"],
-        Some("assistant") => &["role", "content", "tool_calls"],
+        Some("assistant") => &["role", "content", "tool_calls", "reasoning_content"],
         Some("tool") => &["role", "content", "tool_call_id"],
         _ => return false,
     };
@@ -153,6 +154,12 @@ pub(super) fn text_message(message: &Value) -> bool {
         return false;
     }
     if role == Some("tool") && !nonempty_string(message.get("tool_call_id")) {
+        return false;
+    }
+    if message
+        .get("reasoning_content")
+        .is_some_and(|value| !value.is_string())
+    {
         return false;
     }
     let has_calls = match message.get("tool_calls") {
@@ -218,4 +225,46 @@ fn function_call(call: &Value) -> bool {
             .and_then(Value::as_str)
             .and_then(|arguments| serde_json::from_str::<Value>(arguments).ok())
             .is_some_and(|arguments| arguments.is_object())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_no_store_dsh_shape_on_priced_route() {
+        let price = crate::config::RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 1,
+            api_completion_rate: 1,
+            cash_prompt_rate: 1,
+            cash_completion_rate: 1,
+            max_input_tokens: 4096,
+            max_output_tokens: 128,
+        };
+        let mut body = json!({
+            "model": "test",
+            "messages": [{"role": "user", "content": "Reply OK."}],
+            "store": false,
+            "stream": true,
+            "stream_options": {"include_usage": true},
+            "max_completion_tokens": 64
+        });
+        validate_priced_request(&mut body, &price).unwrap();
+        assert_eq!(body["store"], false);
+    }
+
+    #[test]
+    fn accepts_bounded_deepseek_reasoning_in_tool_history() {
+        let assistant = json!({"role":"assistant","content":null,
+            "reasoning_content":"I should read the file.",
+            "tool_calls":[{"id":"call_1","type":"function","function":{"name":"read","arguments":"{}"}}]});
+        assert!(text_message(&assistant));
+        let mut invalid = assistant.clone();
+        invalid["reasoning_content"] = json!({"unbounded":"object"});
+        assert!(!text_message(&invalid));
+        let mut user = json!({"role":"user","content":"hi"});
+        user["reasoning_content"] = json!("not an assistant");
+        assert!(!text_message(&user));
+    }
 }

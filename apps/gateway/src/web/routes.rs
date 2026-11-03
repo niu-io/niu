@@ -1440,7 +1440,7 @@ async fn enterprise_ready(
 ///   "operation": {
 ///     "operationId": "listModels",
 ///     "summary": "List key-accessible model aliases and workspace customer prices",
-///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
+///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. Tool capability flags reflect the configured route, not a guarantee of admission or live upstream availability. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1504,6 +1504,15 @@ async fn enterprise_ready(
 ///                           "object",
 ///                           "null"
 ///                         ]
+///                       },
+///                       "capabilities": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": ["tool_calls", "streaming_tool_calls"],
+///                         "properties": {
+///                           "tool_calls": {"type": "boolean"},
+///                           "streaming_tool_calls": {"type": "boolean"}
+///                         }
 ///                       }
 ///                     }
 ///                   }
@@ -1706,9 +1715,9 @@ async fn public_models(
         unit_prices.remove(&route.model.alias);
     }
     let data: Vec<_> = models
-        .keys()
-        .filter(|model| principal.allows_model(model))
-        .map(|model| {
+        .iter()
+        .filter(|(name, _)| principal.allows_model(name))
+        .map(|(model, route)| {
             let customer_pricing = if billing_mode == "credits" {
                 None
             } else {
@@ -1733,12 +1742,23 @@ async fn public_models(
                 "id": model,
                 "object": "model",
                 "owned_by": "niu",
+                "capabilities": chat_tool_capabilities(route),
                 "customer_pricing": customer_pricing,
                 "customer_unit_pricing": customer_unit_pricing
             })
         })
         .collect();
     Ok(Json(json!({"object": "list", "data": data})))
+}
+
+fn chat_tool_capabilities(model: &crate::config::ModelConfig) -> Value {
+    let tools = model.protocol().is_openai_compatible()
+        && model.protocol().supports_chat_completions()
+        && model.supports_tool_calls;
+    json!({
+        "tool_calls": tools,
+        "streaming_tool_calls": tools && model.protocol().supports_streaming() && model.supports_streaming_tool_calls
+    })
 }
 
 /// ```openapi
@@ -2186,6 +2206,8 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 "capabilities": {
                     "chat_completions": video_configuration.is_none() && model.protocol().supports_chat_completions(),
                     "streaming": model.protocol().supports_streaming(),
+                    "tool_calls": chat_tool_capabilities(model)["tool_calls"],
+                    "streaming_tool_calls": chat_tool_capabilities(model)["streaming_tool_calls"],
                     "embeddings": model.supports_embeddings,
                     "messages": model.supports_messages,
                     "messages_streaming": model.supports_messages_streaming,
