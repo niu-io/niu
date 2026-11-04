@@ -220,7 +220,7 @@ export default function PublicModelCatalog() {
         <span className="catalog-empty-icon"><IconLayoutGrid size={20} aria-hidden="true" /></span>
         <p className="catalog-empty-title">{t('No models published yet', '暂无公开模型')}</p>
         <p>{t('This catalog has no public models. Your workspace may still have private models; sign in to check. If your workspace is also empty, ask an administrator to connect a Provider.', '此目录暂无公开模型。你的工作空间可能仍有私有模型，登录后即可查看；如果工作空间也为空，请联系管理员连接 Provider。')}</p>
-        <Button asChild variant="outline"><a href="/models?workspace=default">{t('View workspace models', '查看工作空间模型')}</a></Button>
+        <Button asChild variant="outline"><a href="/workspaces/default/models">{t('View workspace models', '查看工作空间模型')}</a></Button>
         <a href="/docs/getting-started/">{t('Getting started', '开始使用')}</a>
       </div>}
       {state === 'ready' && models.length > 0 && matches.length === 0 && <div className="catalog-empty">
