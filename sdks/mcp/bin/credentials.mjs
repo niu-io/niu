@@ -13,7 +13,9 @@ export async function credentialEnvironment(env) {
     const saved=JSON.parse(await file.readFile('utf8'));
     const origin=new URL(saved.origin);
     if(saved.version!==1 || !/^niu_[0-9a-f]{64}$/.test(saved.token) || origin.origin!==saved.origin || (origin.protocol!=='https:' && !(origin.protocol==='http:' && ['localhost','127.0.0.1','[::1]'].includes(origin.hostname))))throw new Error('invalid credential');
-    const base=`${origin.origin}/v1`;
+    const mount=saved.base_path ?? '';
+    if(typeof mount!=='string' || (mount!=='' && !/^\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(mount)))throw new Error('invalid deployment path');
+    const base=`${origin.origin}${mount}/v1`;
     if(env.NIU_BASE_URL && env.NIU_BASE_URL.replace(/\/$/,'')!==base)throw new Error('origin mismatch');
     return {...env,NIU_API_KEY:saved.token,NIU_BASE_URL:base,NIU_LOG_PAYLOADS:env.NIU_LOG_PAYLOADS || 'false'};
   }catch{

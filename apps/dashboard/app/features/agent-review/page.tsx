@@ -1378,7 +1378,7 @@ function Review({
                       onClick={() => {
                         void navigator.clipboard
                           .writeText(
-                            `Use Niu to ${kind === "routing" ? "configure model routing for my task" : kind === "evaluations" ? "define a task-specific model evaluation; agree on acceptance criteria and a bounded paid budget before running it" : "configure workspace event notifications to a receiver I authorize"}. Use the Niu deployment at ${window.location.origin} and workspace ${new URL(`/workspaces/${encodeURIComponent(routeWorkspace)}`, window.location.origin).href}. Read https://niu.io/docs/agents.md and inspect the selected workspace grants first. Verify the deployment and workspace during authorization.`,
+                            `Use Niu to ${kind === "routing" ? "configure model routing for my task" : kind === "evaluations" ? "define a task-specific model evaluation; agree on acceptance criteria and a bounded paid budget before running it" : "configure workspace event notifications to a receiver I authorize"}. Use the Niu deployment at ${window.location.origin}${import.meta.env.BASE_URL.replace(/\/+$/, '')} and workspace ${window.location.origin}${import.meta.env.BASE_URL.replace(/\/+$/, '')}/workspaces/${encodeURIComponent(routeWorkspace)}. Read https://niu.io/docs/agents.md and inspect the selected workspace grants first. Verify the deployment and workspace during authorization.`,
                           )
                           .then(() => setCopied(true))
                           .catch(() =>

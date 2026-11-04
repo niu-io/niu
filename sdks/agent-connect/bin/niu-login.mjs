@@ -29,7 +29,7 @@ try {
  await saveCredential(options.credentials,credential);
  let invocationAllowed;
  for(const path of ['/v1/key','/v1/models']){
-  const response=await fetch(new URL(path,credential.origin),{headers:{authorization:`Bearer ${credential.token}`},signal:controller.signal,redirect:'error'});
+  const response=await fetch(new URL((credential.base_path || '')+path,credential.origin),{headers:{authorization:`Bearer ${credential.token}`},signal:controller.signal,redirect:'error'});
   if(!response.ok)throw new Error(`Authorization saved, but connection verification failed (HTTP ${response.status}). Recheck Niu access before proceeding.`);
   if(path==='/v1/key')invocationAllowed=(await response.json()).data?.invocation_allowed;
  }
