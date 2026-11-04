@@ -42,7 +42,7 @@ def load_local_env():
         return {}
     allowed = {
         'NIU_DATABASE_URL', 'NIU_ADMIN_TOKENS', 'NIU_VENDOR_ENCRYPTION_KEY',
-        'NIU_DEV_USERNAME', 'NIU_DEV_PASSWORD',
+        'NIU_DEV_USERNAME', 'NIU_DEV_PASSWORD', 'NIU_DEV_BASE',
         'NIU_ZHIFUX_CONFIG_FILE',
     }
 
@@ -169,6 +169,13 @@ def build(env):
     pending.replace(STATE / 'niu-gateway')
 
 
+def normalize_dev_base(raw):
+    value = (raw or '/').strip() or '/'
+    if not value.startswith('/'):
+        value = f'/{value}'
+    return value if value.endswith('/') else f'{value}/'
+
+
 def main():
     global pg_started
     parser = argparse.ArgumentParser(description=__doc__)
@@ -197,6 +204,7 @@ def main():
     local_config = load_local_env()
     dev_username = os.environ.get('NIU_DEV_USERNAME') or local_config.get('NIU_DEV_USERNAME') or 'demo@niu.io'
     dev_password_override = os.environ.get('NIU_DEV_PASSWORD') or local_config.get('NIU_DEV_PASSWORD')
+    dev_base = '/' if args.packaged else normalize_dev_base(os.environ.get('NIU_DEV_BASE') or local_config.get('NIU_DEV_BASE'))
     if not dev_username.strip():
         raise RuntimeError('The local dashboard username cannot be empty')
     if STATE.is_symlink():
@@ -277,7 +285,7 @@ def main():
     })
     print(f'Private runtime files and logs: {STATE}', flush=True)
     for key, value in local_config.items():
-        if key in {'NIU_DEV_USERNAME', 'NIU_DEV_PASSWORD'}:
+        if key in {'NIU_DEV_USERNAME', 'NIU_DEV_PASSWORD', 'NIU_DEV_BASE'}:
             continue
         if key.endswith('DATABASE_URL') and value != env.get(key):
             raise RuntimeError(f'{key} in .env must match the managed development database')
@@ -308,7 +316,7 @@ def main():
         frontend_env['NIU_DEV_GATEWAY_URL'] = 'http://127.0.0.1:2567'
         frontend_env['NIU_DEV_GATEWAY_LOGIN'] = '1'
         frontend_env['VITE_NIU_GATEWAY_LOGIN'] = '1'
-        frontend_env['NIU_DEV_BASE'] = '/'
+        frontend_env['NIU_DEV_BASE'] = dev_base
         if mock_available:
             frontend_env['VITE_NIU_MOCK_PAYMENTS'] = '1'
         spawn('dashboard', ['pnpm', 'exec', 'vite', '--strictPort', '--host', '127.0.0.1', '--port', '2566'], CORE / 'apps/dashboard', frontend_env)
@@ -319,19 +327,19 @@ def main():
             raise RuntimeError(f"Service exited: {', '.join(failed)}; inspect its log")
         try:
             for name, port in active_ports.items():
-                suffix = '/readyz' if name == 'gateway' else '/healthz' if name == 'mock-payments' else '/'
+                suffix = '/readyz' if name == 'gateway' else '/healthz' if name == 'mock-payments' else dev_base
                 try:
                     urllib.request.urlopen(f'http://127.0.0.1:{port}{suffix}', timeout=2).close()
                 except urllib.error.HTTPError as error:
                     if name != 'mock-payments' or error.code != 503: raise
-            urllib.request.urlopen('http://127.0.0.1:2566/workspaces/default/', timeout=2).close()
+            urllib.request.urlopen(f'http://127.0.0.1:2566{dev_base}workspaces/default/', timeout=2).close()
             break
         except Exception:
             time.sleep(1)
     else:
         raise RuntimeError('Startup did not complete; inspect runtime logs')
     print('\nDevelopment stack ready:', flush=True)
-    print('  app: http://127.0.0.1:2566/ (dashboard, API, docs and catalog)', flush=True)
+    print(f'  app: http://127.0.0.1:2566{dev_base} (dashboard, API, docs and catalog)', flush=True)
     print('  dashboard: packaged verification' if args.packaged else '  dashboard: live source with hot reload; backend is loopback-only on 2567', flush=True)
     if dev_password_override is None:
         print(f'Dashboard login username: {dev_username} (private password file: {dev_password_path})', flush=True)

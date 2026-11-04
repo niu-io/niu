@@ -487,6 +487,26 @@ fn customer_feature(path: &str) -> bool {
         })
 }
 
+// These operations maintain existing credentials; they do not admit spending.
+// Match registered templates and methods so creation and limit writes remain gated.
+fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
+    let workspace = "/api/v1/workspaces/{workspace}/keys";
+    let project_api = "/api/v1/organizations/{organization}/projects/{project}/keys";
+    let project_admin = "/admin/v1/organizations/{organization}/projects/{project}/keys";
+    [workspace, project_api, project_admin].iter().any(|root| {
+        let Some(rest) = path.strip_prefix(root) else {
+            return false;
+        };
+        (rest.is_empty() && *method == axum::http::Method::GET)
+            || (rest == "/{key}"
+                && (*method == axum::http::Method::GET || *method == axum::http::Method::DELETE))
+            || (rest == "/{key}/rotate" && *method == axum::http::Method::POST)
+            || (rest == "/requests/{request}"
+                && *method == axum::http::Method::GET
+                && *root == workspace)
+    })
+}
+
 pub(crate) async fn gate(
     State(state): State<AppState>,
     mut request: Request<Body>,
@@ -509,7 +529,11 @@ pub(crate) async fn gate(
             .contains(&path.as_str()));
     let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
         && request.method() == axum::http::Method::GET;
-    if customer_feature(&path) && !directory && !lookup {
+    if customer_feature(&path)
+        && !directory
+        && !lookup
+        && !credential_maintenance(&path, request.method())
+    {
         let base_readiness = inspect(&state).await;
         if matches!(base_readiness, Ok(Readiness { ready: true, .. })) {
             return next.run(request).await;

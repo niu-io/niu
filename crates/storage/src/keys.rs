@@ -582,6 +582,7 @@ impl Store {
         Ok(serde_json::json!({
             "object": "api_key",
             "invocation_allowed": self.key_invocation_allowed(principal).await?,
+            "management_capabilities": self.agent_key_capabilities(scope, id).await?,
             "label": name,
             "allowed_models": allowed_models,
             "expires_at_ms": expires_at_ms,
@@ -1016,6 +1017,10 @@ impl Store {
         }
         sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug,invocation_allowed) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug,invocation_allowed FROM api_keys WHERE id=$3")
             .bind(id).bind(hash).bind(old).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO agent_key_capabilities (key_id,capability,authorization_id) SELECT $1,c.capability,c.authorization_id FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=$2 AND k.organization_id=$3 AND k.project_id=$4 AND a.organization_id=k.organization_id AND a.project_id=k.project_id AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id)")
+            .bind(id).bind(old).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
+        sqlx::query("UPDATE workspace_event_subscriptions SET issuer_key_id=$1 WHERE organization_id=$2 AND project_id=$3 AND issuer_key_id=$4 AND EXISTS(SELECT 1 FROM agent_key_capabilities WHERE key_id=$1 AND capability='events:write')")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
         // Record the replacement's inherited assignment at rotation time. The

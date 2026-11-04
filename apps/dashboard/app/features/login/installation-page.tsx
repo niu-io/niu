@@ -23,7 +23,7 @@ export default function InstallationRoute() {
   }, [context.token, context.session?.kind, navigate]);
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
-      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
+      <Link className="dashboard-login-brand" to="/" aria-label={uiF("{0} home", [branding.display_name])}>
         {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}<span className="dashboard-login-product">{t('Dashboard', '控制台')}</span>
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">

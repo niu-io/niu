@@ -96,8 +96,16 @@ export const routeImporters = {
   notFound: memoImport('notFound', () => import('@/features/not-found/page')),
 } as const;
 
+function stripBasePath(pathname: string): string {
+  const basePrefix = (import.meta.env?.BASE_URL ?? '/').replace(/\/+$/, '');
+  if (!basePrefix) return pathname;
+  if (pathname === basePrefix) return '/';
+  if (pathname.startsWith(`${basePrefix}/`)) return pathname.slice(basePrefix.length);
+  return pathname;
+}
+
 export function preloadRouteChunk(pathname: string): void {
-  const clean = pathname.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const clean = stripBasePath(pathname.split('?')[0].split('#')[0]).replace(/\/+$/, '') || '/';
   if (registeredRouteTree.length > 0) {
     const matches = matchRoutes(registeredRouteTree, clean);
     if (matches) {
@@ -186,7 +194,7 @@ export function prefetchRouteData(
 ): void {
   const { token, session } = snapshot;
   if (!token) return;
-  const clean = pathname.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const clean = stripBasePath(pathname.split('?')[0].split('#')[0]).replace(/\/+$/, '') || '/';
   const parts = clean.split('/').filter(Boolean);
   const ws = resolveTargetWorkspace(clean, search, snapshot);
 

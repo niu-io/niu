@@ -339,7 +339,7 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
         "/api/v1/auth/agents",
         None,
         None,
-        json!({"client_name":"Codex","capabilities":["pools:read","evaluations:read","events:read"]}),
+        json!({"client_name":"Codex","capabilities":["pools:read","pools:write","evaluations:read","events:read"]}),
     )
     .await;
     assert_eq!(status, StatusCode::CREATED);
@@ -357,8 +357,8 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let token = exchanged["token"].as_str().unwrap();
-    let principal = store.authenticate(token).await.unwrap();
+    let initial_token = exchanged["token"].as_str().unwrap();
+    let principal = store.authenticate(initial_token).await.unwrap();
     assert!(!principal.invocation_allowed());
     assert!(
         store
@@ -366,6 +366,32 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
             .await
             .unwrap()
     );
+    let (status, _, rotated) = request(
+        &app,
+        &format!(
+            "/api/v1/workspaces/{}/keys/{}/rotate",
+            scope.project_id,
+            principal.key_id()
+        ),
+        Some(&owner.token),
+        Some("https://niu.example.test"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "key rotation failed: {rotated}");
+    let token = rotated["token"].as_str().unwrap();
+    let old_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/key")
+                .header("authorization", format!("Bearer {initial_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(old_response.status(), StatusCode::UNAUTHORIZED);
     assert!(store.platform_currency().await.unwrap().is_none());
     for path in [
         "/v1/key",
@@ -390,7 +416,52 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
             StatusCode::OK,
             "unfunded discovery {path}"
         );
+        if path == "/v1/key" {
+            let inspected: Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 16384).await.unwrap())
+                    .unwrap();
+            assert_eq!(inspected["data"]["invocation_allowed"], json!(false));
+            assert_eq!(
+                inspected["data"]["management_capabilities"],
+                json!(["evaluations:read", "events:read", "pools:read", "pools:write"])
+            );
+        }
     }
+    let put_routing = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/v1/routing/assistant")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "slug": "assistant",
+                        "name": "Assistant",
+                        "description": "Managed after key rotation",
+                        "enabled": true,
+                        "revision": 0,
+                        "candidates": [{"alias": "fast", "priority": 100, "weight": 1, "enabled": true}],
+                        "rules": [],
+                        "default_action": "candidates"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(put_routing.status(), StatusCode::OK);
+    let (unapproved_status, _, _) = request(
+        &app,
+        "/v1/evaluations",
+        Some(token),
+        None,
+        json!({"name":"Unapproved write","model":"test","cases":[{"prompt":"hi"}]}),
+    )
+    .await;
+    assert_eq!(unapproved_status, StatusCode::FORBIDDEN);
     let ordinary = store
         .issue_key(scope, "Inference only", &["*".into()], 3600)
         .await

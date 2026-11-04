@@ -2,7 +2,6 @@
 title: "Install and configure Niu"
 ---
 
-# Install and configure Niu
 
 This is Niu's entry point for coding agents. Install the supported host integration, guide the user through account authorization, verify the granted scope, and then work directly with Niu. The user sets goals and reviews consequential decisions; retrieve model information and request evidence yourself.
 

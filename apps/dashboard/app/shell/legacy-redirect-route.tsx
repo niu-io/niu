@@ -38,13 +38,21 @@ const ADMIN_PROVIDER_STATIC_SECTIONS = new Set([
   'configuration',
 ]);
 
+function stripBasePath(pathname: string): string {
+  const basePrefix = (import.meta.env?.BASE_URL ?? '/').replace(/\/+$/, '');
+  if (!basePrefix) return pathname;
+  if (pathname === basePrefix) return '/';
+  if (pathname.startsWith(`${basePrefix}/`)) return pathname.slice(basePrefix.length);
+  return pathname;
+}
+
 export function resolveLegacyRedirectTarget(
   pathname: string,
   search: string,
   hash: string,
   params: Params<string>,
 ): string {
-  const clean = pathname.replace(/\/+$/, '') || '/';
+  const clean = stripBasePath(pathname).replace(/\/+$/, '') || '/';
   const suffix = `${search}${hash}`;
   const parts = clean.split('/').filter(Boolean);
 
@@ -192,7 +200,7 @@ export function shouldDeferLegacyRedirect(
   context?: LoaderFunctionArgs['context'],
 ): boolean {
   const url = new URL(request.url, 'http://localhost');
-  if ((url.pathname.replace(/\/+$/, '') || '/') === '/') return false;
+  if ((stripBasePath(url.pathname).replace(/\/+$/, '') || '/') === '/') return false;
   const snapshot = readRouterSessionSnapshot(context);
   return !snapshot.token || snapshot.workspaces.length === 0;
 }
