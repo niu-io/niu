@@ -30,10 +30,11 @@ pub struct Exchange {
 #[serde(deny_unknown_fields)]
 pub struct Decision {
     approve: bool,
-    organization_id: Uuid,
-    workspace_id: Uuid,
+    organization_id: Option<Uuid>,
+    workspace_id: Option<Uuid>,
+    #[serde(default)]
     allowed_models: Vec<String>,
-    ttl_seconds: i64,
+    ttl_seconds: Option<i64>,
     #[serde(default = "allow_legacy_invocation")]
     invocation_allowed: bool,
 }
@@ -296,7 +297,7 @@ pub async fn view(
 ///   "operation": {
 ///     "operationId": "decideAgentAuthorization",
 ///     "summary": "Approve or decline an agent connection",
-///     "description": "Requires an exact trusted same-origin Origin and a current Operator with write access to the selected workspace. Installation credentials and inference keys cannot approve. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
+///     "description": "Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -350,12 +351,10 @@ pub async fn view(
 ///           "schema": {
 ///             "type": "object",
 ///             "additionalProperties": false,
-///             "required": [
-///               "approve",
-///               "organization_id",
-///               "workspace_id",
-///               "allowed_models",
-///               "ttl_seconds"
+///             "required": ["approve"],
+///             "oneOf": [
+///               {"properties": {"approve": {"enum": [false]}}},
+///               {"properties": {"approve": {"enum": [true]}}, "required": ["organization_id", "workspace_id", "allowed_models", "ttl_seconds"]}
 ///             ],
 ///             "properties": {
 ///               "approve": {
@@ -404,14 +403,28 @@ pub async fn decide(
 ) -> Result<StatusCode, ApiError> {
     super::passwords::runtime(&state)?.require_origin(&headers)?;
     code(&user_code)?;
-    let auth = super::authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        input.organization_id,
-        input.workspace_id,
-    )
-    .await?;
+    let auth = match (input.organization_id, input.workspace_id) {
+        (Some(organization), Some(workspace)) => {
+            super::authorize_project(
+                &state,
+                &headers,
+                AdminPermission::Write,
+                organization,
+                workspace,
+            )
+            .await?
+        }
+        (None, None) if !input.approve => {
+            state
+                .authorize_admin_headers(&headers, AdminPermission::Write)
+                .await?
+        }
+        _ => {
+            return Err(ApiError::invalid_request(
+                "Select a workspace to authorize this connection",
+            ));
+        }
+    };
     let AdminAuthorization::Operator(actor) = auth else {
         return Err(ApiError::forbidden());
     };
@@ -423,11 +436,20 @@ pub async fn decide(
             .map_err(ApiError::from_store)?;
         return Ok(StatusCode::NO_CONTENT);
     }
+    let organization = input
+        .organization_id
+        .ok_or_else(|| ApiError::invalid_request("Select a workspace"))?;
+    let workspace = input
+        .workspace_id
+        .ok_or_else(|| ApiError::invalid_request("Select a workspace"))?;
+    let ttl_seconds = input
+        .ttl_seconds
+        .ok_or_else(|| ApiError::invalid_request("Select a credential lifetime"))?;
     let scope = TenantScope {
-        organization_id: input.organization_id,
-        project_id: input.workspace_id,
+        organization_id: organization,
+        project_id: workspace,
     };
-    let mut models = crate::vendors::scoped_models(&state, input.organization_id).await?;
+    let mut models = crate::vendors::scoped_models(&state, organization).await?;
     models.extend(crate::codex::private_models(&state, scope).await?);
     let wildcard = input.allowed_models.len() == 1 && input.allowed_models[0] == "*";
     if !wildcard
@@ -447,7 +469,7 @@ pub async fn decide(
             scope,
             actor.id,
             &input.allowed_models,
-            input.ttl_seconds,
+            ttl_seconds,
             input.invocation_allowed,
         )
         .await

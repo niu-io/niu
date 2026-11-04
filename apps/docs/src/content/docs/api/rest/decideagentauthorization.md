@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/auth/agents/{code}`
 
-Requires an exact trusted same-origin Origin and a current Operator with write access to the selected workspace. Installation credentials and inference keys cannot approve. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
+Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
 
 Operation: `decideAgentAuthorization`.
 
@@ -72,11 +72,33 @@ Location: **header**. **Required.**
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "approve",
-    "organization_id",
-    "workspace_id",
-    "allowed_models",
-    "ttl_seconds"
+    "approve"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "approve": {
+          "enum": [
+            false
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "approve": {
+          "enum": [
+            true
+          ]
+        }
+      },
+      "required": [
+        "organization_id",
+        "workspace_id",
+        "allowed_models",
+        "ttl_seconds"
+      ]
+    }
   ],
   "properties": {
     "approve": {
@@ -141,6 +163,6 @@ Request already decided or expired
 
 ## Behavior and supported scope
 
-Requires an exact trusted same-origin Origin and a current Operator with write access to the selected workspace. Installation credentials and inference keys cannot approve. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
+Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
 
 **Supported scope:** implemented

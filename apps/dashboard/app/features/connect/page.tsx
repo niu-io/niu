@@ -80,10 +80,10 @@ export default function ConnectAgent() {
     setQuery({ code: cleaned }, { replace: true });
   }
   async function decide(approve: boolean) {
-    if (!workspace || pending || !grant || (approve && (!consent || unsupported || !invocationReady))) return;
+    if (pending || !grant || (approve && (!workspace || !consent || unsupported || !invocationReady))) return;
     setPending(true); setError('');
     try {
-      const response = await fetch(`/api/v1/auth/agents/${code}`, { method: 'POST', headers, body: JSON.stringify({ approve, organization_id: workspace.organization_id, workspace_id: workspace.id, allowed_models: invocationAllowed ? selectedModels : ['*'], ttl_seconds: 3600, invocation_allowed: invocationAllowed }) });
+      const response = await fetch(`/api/v1/auth/agents/${code}`, { method: 'POST', headers, body: JSON.stringify(approve && workspace ? { approve: true, organization_id: workspace.organization_id, workspace_id: workspace.id, allowed_models: invocationAllowed ? selectedModels : ['*'], ttl_seconds: 3600, invocation_allowed: invocationAllowed } : { approve: false }) });
       if (!response.ok) throw new Error(t('The decision was not confirmed. Reload the request before trying again.', '未能确认操作结果，请重新加载请求后再试。'));
       setGrant({ ...grant, state: approve ? 'approved' : 'denied' });
     } catch (cause) { setError(cause instanceof Error ? cause.message : t('Could not save your decision.', '无法保存决定。')); }
@@ -163,7 +163,7 @@ export default function ConnectAgent() {
         </div>
         {Boolean(grant.capabilities?.length) && <div className="space-y-2 text-sm"><h2 className="font-medium">{t('Additional management access', '额外管理权限')}</h2><ul className="list-disc space-y-1 pl-5">{grant.capabilities?.map(capability => <li key={capability}>{capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')}</li>)}</ul></div>}
         <div className="flex items-start gap-3"><Checkbox id="agent-consent" checked={consent} disabled={pending || !workspace || !canApprove || unsupported || !invocationReady} onCheckedChange={value => setConsent(value === true)} /><Label htmlFor="agent-consent" className="text-sm leading-5">{t('I recognize this request and approve this access.', '我确认此请求由我发起，并批准上述访问。')}</Label></div>
-        <div className="flex gap-3"><Button disabled={!canApprove || !workspace || !consent || pending || Boolean(error) || unsupported || !invocationReady} onClick={() => void decide(true)}>{pending ? t('Saving…', '正在保存…') : t('Authorize agent', '授权 Agent')}</Button><Button variant="outline" disabled={!canApprove || !workspace || pending || Boolean(error)} onClick={() => void decide(false)}>{t('Decline', '拒绝')}</Button></div>
+        <div className="flex gap-3"><Button disabled={!canApprove || !workspace || !consent || pending || Boolean(error) || unsupported || !invocationReady} onClick={() => void decide(true)}>{pending ? t('Saving…', '正在保存…') : t('Authorize agent', '授权 Agent')}</Button><Button variant="outline" disabled={!canApprove || pending || Boolean(error)} onClick={() => void decide(false)}>{t('Decline', '拒绝')}</Button></div>
       </>}
     </section>
   </main>;

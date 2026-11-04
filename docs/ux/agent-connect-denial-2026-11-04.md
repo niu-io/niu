@@ -1,0 +1,9 @@
+# Agent connection denial without workspace selection
+
+2026-11-04. Tracking: `niu-74u`; related code-recovery work: `niu-287.13`. This is current-source development evidence, not hosted-candidate acceptance.
+
+A pending coding-agent request is not bound to a workspace until approval. Previously, the review page and decision API required a selected workspace even to decline. A current-source isolated gateway now permits a current member with write permission and a valid same-origin request to decline without supplying a workspace. Approval still requires the workspace, approved models and lifetime; changing the scope still clears consent. Existing scoped decline requests continue to check the supplied workspace.
+
+A real browser opened a newly created authorization request in an isolated installation. Before selecting any workspace, Decline was enabled and Authorize was disabled; selecting Decline displayed the declined state. An independent database read showed the request denied without an issued key. Separate current-input HTTP requests rejected anonymous, foreign-origin, installation-token and viewer decisions, rejected approval without a scope, refused a repeat decision and returned no credential to the denied agent. A legacy scoped decline was also accepted. This does not establish every race, current-role revocation or deployed behavior.
+
+The existing page structure and controls were retained. The [NN/g usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/) support an available, reversible exit from an unapproved workflow; preserving re-consent after a scope change is a Niu authorization constraint. The OpenRouter key reference required sign-in, so its authenticated authorization interaction was not assessed. Full account-identity, code-recovery, focus and narrow-screen review remains open in the linked tasks.
