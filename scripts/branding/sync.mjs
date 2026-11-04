@@ -37,7 +37,7 @@ await asset('png/niu-social-en-dark-1200x630.png', [
   'apps/docs/public/niu-social-en-dark.png', 'apps/docs/src/assets/niu-logo-dark.png',
 ]);
 for (const app of ['dashboard', 'docs', 'catalog']) {
-  for (const name of ['MAPLE-MONO-OFL', 'OPEN-HUNINN-OFL', 'SOURCE-LICENSE']) {
+  for (const name of ['MAPLE-MONO-OFL', 'OPEN-HUNINN-OFL', 'SOURCE-LICENSE', 'ARIAL-ROUNDED-NOTICE']) {
     const bytes = await readFile(path.join(kit, `sources/${name}.txt`));
     await emit(`apps/${app}/public/licenses/brand-${name.toLowerCase()}.txt`, bytes);
   }

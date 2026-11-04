@@ -1,4 +1,6 @@
 /* Brand artwork follows the surrounding theme; language changes do not need reloads. */
-.niu-brand { display:inline-flex; flex:none; height:2.25rem; vertical-align:middle; color:inherit; }
+.niu-brand { display:inline-flex; flex:none; height:2.25rem; vertical-align:middle; color:var(--niu-wordmark-color, #45352F); }
 .niu-brand > svg { display:block; height:100%; width:auto; overflow:visible; }
 .niu-brand-mark { width:2rem; height:2rem; }
+
+:root.dark .niu-brand, :root[data-theme="dark"] .niu-brand { --niu-wordmark-color:#EFE2DA; }

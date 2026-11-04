@@ -9,7 +9,7 @@ Use `tokens.css` as the shared light and dark theme reference. Logos and favicon
 ## Rounded brand kit
 
 The [rounded kit](rounded/README.md) contains the approved brighter warm mark,
-Maple Mono SemiBold (600) Latin and Open Huninn rounded Chinese lettering, scalable
+Arial Rounded MT Bold Latin and Open Huninn rounded Chinese lettering, scalable
 SVGs, transparent PNGs, monochrome variants, app icons, favicons and social cards.
 See its [dark](rounded/preview/niu-brand-sheet-dark.png) and
 [light](rounded/preview/niu-brand-sheet-light.png) preview sheets. The public apps consume its language-aware vector wordmark and refreshed compact

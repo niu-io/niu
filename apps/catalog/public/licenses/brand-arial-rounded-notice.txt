@@ -1,0 +1,7 @@
+Arial Rounded MT Bold
+
+The Niu wordmark contains static outlines of the letters N, i and u, rendered
+from the locally installed macOS supplemental Arial Rounded MT Bold typeface.
+Arial is a trademark of The Monotype Corporation. Font software and its rights
+remain with their respective owners. No font binaries are distributed in this kit.
+This notice does not license or relicense the original font software.

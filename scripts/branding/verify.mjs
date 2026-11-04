@@ -61,7 +61,8 @@ assert.equal(blades.blades.length, 7);
 const lettering = JSON.parse(await readFile(path.join(out, 'sources/lettering.json'), 'utf8'));
 assert.deepEqual(lettering.latin.map(glyph => glyph.character), ['N', 'i', 'u']);
 assert.deepEqual(lettering.chinese.map(glyph => glyph.character), ['牛', '元']);
-assert(lettering.latin.every(glyph => glyph.advance === lettering.latinAdvance));
+assert(lettering.latin.every(glyph => glyph.advance > 0));
+assert(new Set(lettering.latin.map(glyph => glyph.advance)).size > 1);
 assert.equal(lettering.fonts.length, 2);
 for (const font of lettering.fonts) {
   assert(manifest.sources.some(source => source.file === `sources/${font.license}`));

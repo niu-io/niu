@@ -15,7 +15,7 @@ const lettering = JSON.parse(await readFile(path.join(out, 'sources/lettering.js
 const palette = {
   gold: '#FFC857', amber: '#FFB547', tangerine: '#FF914D',
   orange: '#FF7A36', coral: '#F87863', salmon: '#FF8A75', marigold: '#FFB52E',
-  ink: '#202124', white: '#F7F7F8', dark: '#121314', light: '#FAFAF9',
+  ink: '#45352F', white: '#EFE2DA', dark: '#121314', light: '#FAFAF9',
 };
 const colors = ['gold', 'amber', 'tangerine', 'orange', 'coral', 'salmon', 'marigold'];
 const xml = (w, h, body, title = 'Niu 牛元') => `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${title}"><title>${title}</title>${body}</svg>\n`;

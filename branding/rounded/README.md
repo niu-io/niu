@@ -1,6 +1,6 @@
 # Niu rounded brand kit
 
-This kit implements the approved bright warm palette, Maple Mono SemiBold (600) Latin
+This kit implements the approved bright warm palette, Arial Rounded MT Bold Latin
 lettering and Open Huninn rounded Chinese lettering. The product name is **Niu**;
 the default wordmark is **Niu** in every locale. Chinese introductory copy may annotate the first mention as **Niu（牛元）** on landing and documentation home pages. Bilingual assets below are retained as legacy artwork.
 
@@ -52,7 +52,7 @@ gradient endpoints disappearing on dark surfaces.
 | Salmon | `#FF8A75` |
 | Marigold | `#FFB52E` |
 
-Lettering uses `#F7F7F8` on dark surfaces and `#202124` on light surfaces. Preview
+Lettering uses `#EFE2DA` on dark surfaces and `#45352F` on light surfaces. Preview
 backgrounds are `#121314` and `#FAFAF9`. This palette belongs to the artwork; it
 does not replace the shared product theme tokens in `../tokens.css`.
 
@@ -63,14 +63,14 @@ does not replace the shared product theme tokens in `../tokens.css`.
   at alpha ≥ 220, simplifies at 1.15 source pixels, and smooths adjacent vertices.
   Stray transparent-edge pixels are excluded. It retains the original blade
   silhouettes and orientation instead of retracing an AI-generated preview.
-- `sources/lettering.json`: actual outlines from **Maple Mono SemiBold (600) v7.9** and
+- `sources/lettering.json`: actual outlines from **Arial Rounded MT Bold v7.9** and
   **Open Huninn v2.1 (Open 粉圓)**. Latin letters retain equal 66-unit advances
   at a font size of 110. Chinese uses a size of 108, an optical baseline offset
   and a 2.4-unit round stroke for balanced weight. This replaces the rejected
   hand-drawn lettering. It is a rounded Chinese typeface, not Microsoft's YouYuan.
-  The file records pinned release URLs, original font-file hashes and font sizes.
+  The file records font provenance, original font-file hashes and font sizes.
 - `sources/MAPLE-MONO-OFL.txt` and `sources/OPEN-HUNINN-OFL.txt`: upstream font
-  copyright and SIL Open Font License notices, retained verbatim. The distributable
+  copyright and SIL Open Font License notices for historical Maple lettering and Chinese lettering, retained verbatim. Current Latin outline provenance is recorded in `sources/ARIAL-ROUNDED-NOTICE.txt`. The distributable
   logos contain vector outlines, not font binaries, and need no installed fonts.
 - `sources/SOURCE-LICENSE.txt`: original artwork attribution, retained verbatim.
 - `LICENSE.txt`: repository MIT notice for the kit tooling and original contributions.
@@ -114,7 +114,7 @@ sources, but no unrelated repository files. Rebuild it after changing the kit.
 
 To reproduce the font-to-path conversion on macOS, obtain the pinned upstream
 font files listed in `sources/lettering.json` and verify their SHA-256 values.
-Run `swift scripts/branding/outline-fonts.swift <MapleMono-SemiBold.ttf> <jf-openhuninn-2.1.ttf>`.
+Run `swift scripts/branding/outline-fonts.swift <Arial-Rounded-Bold.ttf> <jf-openhuninn-2.1.ttf>`.
 The tool uses Core Text to extract the original outlines; it does not synthesize
 replacement letter shapes. Its JSON contains glyph paths, advances and PostScript
 font names. Preserve the documented optical offsets and weight when updating
@@ -137,4 +137,4 @@ The public shell's language rules also apply outside Docs.
 
 ## Lockup alignment
 
-The shared `sources/lettering.json` lockup placement uses y=27 at 0.8 scale. The visible Latin bounds (3.52–89.10) center at y=64.048 in the 128-unit symbol frame, correcting the former y=57.048 placement. Components and generated horizontal lockups use this shared placement. Standalone wordmarks and the stacked arrangement retain their own canvas positions.
+The shared `sources/lettering.json` uses the approved Arial Rounded placement: x=154, y=24 and scale=0.85 within the 128-unit symbol frame. Components and exported horizontal lockups share this placement.
