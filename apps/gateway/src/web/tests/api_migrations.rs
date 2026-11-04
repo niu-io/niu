@@ -353,8 +353,14 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             .append_pair("after", &cursor)
             .append_pair("limit", "1")
             .finish();
-        let (status, page) =
-            call(&app, "GET", &format!("/api/v1/routing?{query}"), ADMIN, None).await;
+        let (status, page) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/routing?{query}"),
+            ADMIN,
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         seen.extend(
             page["data"]
@@ -374,7 +380,14 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         let query = url::form_urlencoded::Serializer::new(String::new())
             .append_pair("alias", alias)
             .finish();
-        let legacy = call(&app, "GET", &format!("/api/v1/routing?{query}"), ADMIN, None).await;
+        let legacy = call(
+            &app,
+            "GET",
+            &format!("/api/v1/routing?{query}"),
+            ADMIN,
+            None,
+        )
+        .await;
         let member = call(
             &app,
             "GET",
@@ -432,7 +445,9 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        call(&app, "GET", "/api/v1/routing", "invalid", None).await.0,
+        call(&app, "GET", "/api/v1/routing", "invalid", None)
+            .await
+            .0,
         StatusCode::UNAUTHORIZED
     );
     // Verify the reference through an HTTP forwarding hop as well as Axum.

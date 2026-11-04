@@ -1227,12 +1227,8 @@ pub async fn create_workspace(
             Some(operator.scope.organization_id)
         }
     };
-    crate::payments::readiness::require_creation_ready(
-        &state,
-        authorization,
-        organization_id,
-    )
-    .await?;
+    crate::payments::readiness::require_creation_ready(&state, authorization, organization_id)
+        .await?;
     validate_name(&input.name)?;
     if let Some(slug) = &input.slug
         && (slug.is_empty()
