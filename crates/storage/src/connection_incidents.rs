@@ -1,9 +1,32 @@
 //! Sanitized operational evidence. Caller authorization remains mandatory.
-use crate::{Store, StoreError};
+use crate::{Store, StoreError, TenantScope};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
 impl Store {
+    /// Only incidents with a recorded observation in this exact workspace.
+    /// No connection, other tenant, request content or commercial fields leave storage.
+    pub async fn workspace_active_incidents(
+        &self,
+        scope: TenantScope,
+    ) -> Result<Value, StoreError> {
+        let models: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT i.model_alias FROM connection_incidents i \
+             JOIN connection_incident_observations o ON o.incident_id=i.id \
+             JOIN attempts a ON a.id=o.attempt_id \
+             WHERE i.resolved_at IS NULL AND a.organization_id=$1 AND a.project_id=$2 \
+             ORDER BY i.model_alias LIMIT 51",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&self.pool)
+        .await?;
+        let more = models.len() > 50;
+        Ok(
+            json!({"data": models.into_iter().take(50).map(|model| json!({"model":model})).collect::<Vec<_>>(), "more":more}),
+        )
+    }
+
     pub async fn connection_incidents(
         &self,
         vendor: Uuid,

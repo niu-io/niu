@@ -17,7 +17,7 @@ pub struct IncidentQuery {
 ///   "operation": {
 ///     "operationId": "listVendorIncidents",
 ///     "summary": "Read upstream connection incidents and recovery evidence",
-///     "description": "Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions and qualified OpenRouter authentication refusals. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current connection revision. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.",
+///     "description": "Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions, qualified OpenRouter authentication refusals, and repeated 5xx or connection/timeout failures within five minutes. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current enabled connection and model mapping revisions. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.",
 ///     "security": [{"bearerAuth": []}],
 ///     "parameters": [
 ///       {"name":"vendor","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
@@ -30,7 +30,7 @@ pub struct IncidentQuery {
 ///             "type":"object","required":["reference","model","cause","status","first_observed_at","last_observed_at","observations","recovered_at"],
 ///             "properties":{
 ///               "reference":{"type":"string"},"model":{"type":"string"},
-///               "cause":{"type":"string","enum":["account_restricted","authentication_rejected"]},
+///               "cause":{"type":"string","enum":["account_restricted","authentication_rejected","repeated_upstream_failures"]},
 ///               "status":{"type":"string","enum":["active","resolved"]},
 ///               "first_observed_at":{"type":"string","format":"date-time"},
 ///               "last_observed_at":{"type":"string","format":"date-time"},
@@ -98,7 +98,7 @@ pub struct PlatformIncidentQuery {
 ///   "operation":{
 ///     "operationId":"listConnectionIncidents",
 ///     "summary":"Read platform upstream connection incidents",
-///     "description":"Platform administration only. Reads recognized model-scoped upstream incidents across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.",
+///     "description":"Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.",
 ///     "security":[{"bearerAuth":[]}],
 ///     "parameters":[
 ///       {"name":"status","in":"query","schema":{"type":"string","enum":["active","resolved"]}},
@@ -112,7 +112,7 @@ pub struct PlatformIncidentQuery {
 ///             "type":"object","required":["reference","model","cause","status","first_observed_at","last_observed_at","observations","recovered_at","connection_name","provider"],
 ///             "properties":{
 ///               "reference":{"type":"string"},"model":{"type":"string"},"connection_name":{"type":"string"},
-///               "cause":{"type":"string","enum":["account_restricted","authentication_rejected"]},
+///               "cause":{"type":"string","enum":["account_restricted","authentication_rejected","repeated_upstream_failures"]},
 ///               "status":{"type":"string","enum":["active","resolved"]},
 ///               "first_observed_at":{"type":"string","format":"date-time"},"last_observed_at":{"type":"string","format":"date-time"},
 ///               "observations":{"type":"string","pattern":"^[1-9][0-9]*$"},"recovered_at":{"type":["string","null"],"format":"date-time"},
@@ -180,4 +180,34 @@ fn incident_cursor(before: Option<String>) -> Result<Option<i64>, ApiError> {
                 })
         })
         .transpose()
+}
+
+/// ```openapi
+/// {"path":"/api/v1/workspaces/{workspace}/incidents","method":"get","operation":{"operationId":"listWorkspaceIncidents","summary":"Read active upstream incidents affecting this workspace","description":"Requires current workspace read authority. Returns only model aliases for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"workspace","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Workspace-scoped active incident projection","content":{"application/json":{"schema":{"type":"object","required":["data","more"],"properties":{"data":{"type":"array","maxItems":50,"items":{"type":"object","required":["model"],"properties":{"model":{"type":"string"}}}},"more":{"type":"boolean"}}}}}},"401":{"description":"Authentication required"},"403":{"description":"Workspace authority required"},"404":{"description":"Workspace unavailable"},"503":{"description":"Incident evidence unavailable"}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn workspace_list(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(workspace): Path<Uuid>,
+) -> Result<axum::response::Response, ApiError> {
+    let (_, scope) = super::workspace_aliases::authorize_workspace(
+        &state,
+        &headers,
+        workspace,
+        AdminPermission::Read,
+    )
+    .await?;
+    let mut response = Json(
+        state
+            .store
+            .workspace_active_incidents(scope)
+            .await
+            .map_err(ApiError::from_store)?,
+    )
+    .into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    Ok(response)
 }

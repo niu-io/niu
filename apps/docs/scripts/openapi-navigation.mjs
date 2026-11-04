@@ -24,6 +24,7 @@ const groups = [
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],
   ['Workspaces and content', [
+    ['Workspace incidents', 'Active incidents observed in the authorized workspace.', '^/api/v1/workspaces/[^/]+/incidents$'],
     ['Agent management review', 'Member review and management of workspace model routing, event subscriptions and evaluation evidence.', '^/api/v1/workspaces/[^/]+/(?:routing|events|evaluations)(?:/|$)'],
     ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/by-route/[^/]+|/[^/]+(?:/projects(?:/[^/]+)?)?)?$)'],
     ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chats(?:/|$)'],

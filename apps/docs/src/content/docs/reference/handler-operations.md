@@ -1463,7 +1463,7 @@ HTTP 503: Storage unavailable or bounded write wait exceeded.
 
 `GET /api/v1/vendors/{vendor}/incidents`
 
-Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions and qualified OpenRouter authentication refusals. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current connection revision. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.
+Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions, qualified OpenRouter authentication refusals, and repeated 5xx or connection/timeout failures within five minutes. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current enabled connection and model mapping revisions. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.
 
 Implementation: `implemented`. Operation: `listVendorIncidents`.
 
@@ -1541,7 +1541,8 @@ Content type: `application/json`.
             "type": "string",
             "enum": [
               "account_restricted",
-              "authentication_rejected"
+              "authentication_rejected",
+              "repeated_upstream_failures"
             ]
           },
           "status": {
@@ -1597,7 +1598,7 @@ HTTP 503: Operational evidence unavailable
 
 `GET /api/v1/incidents`
 
-Platform administration only. Reads recognized model-scoped upstream incidents across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.
+Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.
 
 Implementation: `implemented`. Operation: `listConnectionIncidents`.
 
@@ -1687,7 +1688,8 @@ Content type: `application/json`.
             "type": "string",
             "enum": [
               "account_restricted",
-              "authentication_rejected"
+              "authentication_rejected",
+              "repeated_upstream_failures"
             ]
           },
           "status": {
@@ -1746,6 +1748,81 @@ HTTP 400: Invalid filter or cursor
 HTTP 401: Authentication required
 
 HTTP 403: Platform administration required
+
+HTTP 503: Incident evidence unavailable
+
+## Read active upstream incidents affecting this workspace
+
+`GET /api/v1/workspaces/{workspace}/incidents`
+
+Requires current workspace read authority. Returns only model aliases for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listWorkspaceIncidents`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Workspace-scoped active incident projection
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "more"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "more": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace authority required
+
+HTTP 404: Workspace unavailable
 
 HTTP 503: Incident evidence unavailable
 

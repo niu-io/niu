@@ -402,7 +402,7 @@ export type VendorCooldown = ProviderCooldown;
 export type ProviderConnectionIncident = {
   reference: string;
   model: string;
-  cause: 'account_restricted' | 'authentication_rejected';
+  cause: 'account_restricted' | 'authentication_rejected' | 'repeated_upstream_failures';
   status: 'active' | 'resolved';
   first_observed_at: string;
   last_observed_at: string;
@@ -3235,6 +3235,11 @@ export class NiuAdminClient {
     if (before !== undefined && !/^incident-[1-9][0-9]*$/.test(before)) throw new TypeError('Use the incident reference from the next page cursor');
     const query = before === undefined ? '' : `?before=${encodeURIComponent(before)}`;
     return this.request(`/vendors/${uuid(connectionId)}/incidents${query}`, undefined, options);
+  }
+
+  /** Models with recorded active incidents in this authorized workspace only. */
+  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string }[]; more: boolean }> {
+    return this.request(`/workspaces/${uuid(workspaceId)}/incidents`, undefined, options);
   }
 
   listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null }> {

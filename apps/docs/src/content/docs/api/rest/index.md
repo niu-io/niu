@@ -436,6 +436,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/workspaces/{workspace}/events` — Review: List workspace event subscriptions](/docs/api/rest/listworkspacereviewsubscriptions/)
 - [`GET /api/v1/workspaces/{workspace}/events/{slug}` — Review: Read an event subscription](/docs/api/rest/getworkspacereviewsubscription/)
 - [`GET /api/v1/workspaces/{workspace}/events/{slug}/deliveries` — Review: Inspect the latest 100 subscription deliveries](/docs/api/rest/getworkspacereviewdeliveries/)
+- [`GET /api/v1/workspaces/{workspace}/incidents` — Read active upstream incidents affecting this workspace](/docs/api/rest/listworkspaceincidents/)
 - [`GET /api/v1/workspaces/{workspace}/keys` — List workspace API keys with aggregated limits and policies](/docs/api/rest/listworkspacekeys/)
 - [`POST /api/v1/workspaces/{workspace}/keys` — Create a workspace API key with optional initial limits and policies](/docs/api/rest/createworkspacekey/)
 - [`DELETE /api/v1/workspaces/{workspace}/keys/{key}` — Revoke a workspace API key](/docs/api/rest/revokeworkspacekey/)

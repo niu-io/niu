@@ -2736,6 +2736,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1capabilities'
   /v1/video/jobs/{id}/results/{kind}/refresh:
     $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs~1{id}~1results~1{kind}~1refresh'
+  /api/v1/workspaces/{workspace}/incidents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1incidents'
   /api/v1/workspaces/{workspace}/keys:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys'
   /api/v1/workspaces/{workspace}/keys/{key}:

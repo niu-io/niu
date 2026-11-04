@@ -799,6 +799,10 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::admin::workspaces).post(crate::admin::create_workspace),
     )
     .route(
+        "/api/v1/workspaces/{workspace}/incidents",
+        get(crate::admin::connection_incidents::workspace_list),
+    )
+    .route(
         "/api/v1/workspaces/{workspace}/keys",
         get(crate::admin::workspace_aliases::list_keys)
             .post(crate::admin::workspace_aliases::create_key)

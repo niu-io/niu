@@ -12,7 +12,7 @@ export async function loadIncidents(token: string, status: 'active' | 'resolved'
     !item || !/^incident-[1-9][0-9]*$/.test(item.reference)
     || typeof item.connection_name !== 'string' || !item.connection_name.trim()
     || typeof item.model !== 'string' || !item.model.trim()
-    || !['account_restricted', 'authentication_rejected'].includes(item.cause)
+    || !['account_restricted', 'authentication_rejected', 'repeated_upstream_failures'].includes(item.cause)
     || item.status !== status || !date(item.first_observed_at) || !date(item.last_observed_at)
     || !/^[1-9][0-9]*$/.test(item.observations)
     || (item.status === 'active' ? item.recovered_at !== null : !date(item.recovered_at))

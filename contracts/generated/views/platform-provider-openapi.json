@@ -11429,7 +11429,7 @@
       "get": {
         "operationId": "listVendorIncidents",
         "summary": "Read upstream connection incidents and recovery evidence",
-        "description": "Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions and qualified OpenRouter authentication refusals. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current connection revision. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.",
+        "description": "Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions, qualified OpenRouter authentication refusals, and repeated 5xx or connection/timeout failures within five minutes. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current enabled connection and model mapping revisions. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.",
         "security": [
           {
             "bearerAuth": []
@@ -11494,7 +11494,8 @@
                             "type": "string",
                             "enum": [
                               "account_restricted",
-                              "authentication_rejected"
+                              "authentication_rejected",
+                              "repeated_upstream_failures"
                             ]
                           },
                           "status": {
@@ -11572,7 +11573,7 @@
       "get": {
         "operationId": "listConnectionIncidents",
         "summary": "Read platform upstream connection incidents",
-        "description": "Platform administration only. Reads recognized model-scoped upstream incidents across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.",
+        "description": "Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.",
         "security": [
           {
             "bearerAuth": []
@@ -11648,7 +11649,8 @@
                             "type": "string",
                             "enum": [
                               "account_restricted",
-                              "authentication_rejected"
+                              "authentication_rejected",
+                              "repeated_upstream_failures"
                             ]
                           },
                           "status": {

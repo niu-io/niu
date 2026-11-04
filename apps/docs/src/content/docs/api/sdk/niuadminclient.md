@@ -2655,6 +2655,18 @@ listProviderConnectionIncidents(connectionId: string, before?: string, options?:
 }>;
 ```
 
+### listWorkspaceIncidents
+
+```typescript
+/** Models with recorded active incidents in this authorized workspace only. */
+listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{
+    data: {
+        model: string;
+    }[];
+    more: boolean;
+}>;
+```
+
 ### listConnectionIncidents
 
 ```typescript
