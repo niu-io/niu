@@ -43,3 +43,21 @@ Carry the original explicit capability relationship into the replacement within 
 Verify all approved capabilities are retained exactly, unapproved capabilities remain denied, the old token no longer authenticates, and the replacement retains its fixed model scope, invocation flag, expiry and allowance root. Cover repeated/concurrent rotation, revoked or narrowed approver membership, capability introspection and a real non-inference management operation. Inspect revocation and audit readback after rotation so that fixing the capability rows does not leave lifecycle surfaces referring only to an obsolete credential.
 
 This document proves the controlled storage failure for the reviewed commit. It does not establish a defect on another deployed revision, a fix, hosted acceptance, or complete agent-lifecycle readiness. Implementation belongs to the receiving developer and remains open in Beads until the required evidence exists.
+
+## Receiving-worktree verification
+
+Independent follow-up on 2026-11-04 inspected the receiving developer's uncommitted changes. The expanded storage test passed in disposable PostgreSQL: exact capabilities, fixed model scope, absolute expiry, spending root, old-token denial, repeated rotation, subscription continuity and approver-demotion denial were exercised. The implementation file `crates/storage/src/keys.rs` had SHA-256 `9f7c7d5f871dad025da099b48453a74493417cf26eb40f0dd01486f5d2b0b7f9`.
+
+The connected gateway test **failed**:
+
+```sh
+python3 scripts/test-postgres.py \
+  management_connection_denies_all_inference_protocols_before_execution \
+  --package niu-gateway
+```
+
+Before currency setup, the authenticated rotation request returned503 `payment_setup_required` / `currency_required`, rather than200. The gateway test file had SHA-256 `c7478cb4e0612424801ac218cde0dd3b4e3eb6947b410be2e4b9ef8a0233a29c`. Compilation succeeded; the failure was an actual response assertion, not a build failure. Later inference-denial assertions were not reached in this run.
+
+The path-based readiness gate still classifies credential-maintenance routes as paid workspace features. Track the shared prerequisite correction in `niu-ya50.3`. Authorized inspection, rotation, emergency revocation and receipt recovery must remain available without funding; role, scope and write protections still apply. Do not seed funds merely to avoid this first-use regression. Exercise both API route families, unavailable-merchant and no-currency states, foreign-scope denial, old-token denial and continued inference refusal. Source inspection also identifies revocation as payment-classified, but a separate revocation request has not yet been exercised.
+
+These results apply only to the identified uncommitted files. They do not certify a published revision or deployed browser flow. The receiving agent stopped on an account-quota error; preserve its work and complete the remaining checks before closing either finding.
