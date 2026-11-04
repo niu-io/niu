@@ -512,13 +512,13 @@ function workspacePoolSlug(slug: string): string {
 }
 
 export type EventSubscription = {
-  slug: string; name: string; endpoint: string; event_types: Array<'pool.changed' | 'evaluation.recorded'>; enabled: boolean;
+  slug: string; name: string; endpoint: string; event_types: Array<'pool.changed' | 'evaluation.recorded' | 'incident.opened' | 'incident.resolved'>; enabled: boolean;
   /** Expected revision on write; zero creates. */
   revision: number;
 };
 export type WorkspaceEvent = {
-  id: string; sequence: string; type: 'pool.changed' | 'evaluation.recorded' | 'subscription.test'; schema_version: 1; occurred_at: string;
-  resource: { kind: 'pool' | 'evaluation' | 'subscription'; slug: string; revision: number; run?: string };
+  id: string; sequence: string; type: 'pool.changed' | 'evaluation.recorded' | 'incident.opened' | 'incident.resolved' | 'subscription.test'; schema_version: 1; occurred_at: string;
+  resource: { kind: 'pool' | 'evaluation' | 'incident' | 'subscription'; slug: string; revision: number; run?: string };
 };
 export type EventDelivery = {
   id: string; subscription_revision: number; sequence: string;
@@ -643,6 +643,11 @@ export class NiuClient {
   listWorkspaceEvents(after = '0', options?: RequestOptions): Promise<{ data: WorkspaceEvent[]; has_more: boolean; next_after: string; retention: 'no_pruning' }> {
     if (!/^[0-9]+$/.test(after) || after.length > 19 || BigInt(after) > 9223372036854775807n) throw new TypeError('Use the returned decimal event cursor');
     return this.request(`/events/log?after=${after}`, undefined, options);
+  }
+  /** Reconcile one workspace-local incident reference from an event. */
+  getWorkspaceIncidentEvent(reference: string, options?: RequestOptions): Promise<{ data: { reference: string; model: string; owner_funded: boolean; status: 'active' | 'resolved'; recovered_at: string | null } }> {
+    if (!/^incident-[0-9a-f]{32}$/.test(reference)) throw new TypeError('Use the workspace incident event reference');
+    return this.request(`/incidents/${reference}`, undefined, options);
   }
   getEventSubscriptionHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: EventSubscription[]; next_before: number | null }> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) throw new TypeError('Use a positive revision cursor');

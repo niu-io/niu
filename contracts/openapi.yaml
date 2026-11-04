@@ -2710,6 +2710,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1{session}~1turns~1{turn}~1intent'
   /v1/events:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events'
+  /v1/incidents/{reference}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1incidents~1{reference}'
   /v1/events/log:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events~1log'
   /v1/events/{slug}:

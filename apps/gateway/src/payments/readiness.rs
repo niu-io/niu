@@ -501,6 +501,14 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
     if *method != axum::http::Method::GET {
         return false;
     }
+    // Incident evidence is read-only and must remain available for recovery
+    // without funding; each handler independently enforces its scope and grant.
+    if matches!(
+        path,
+        "/v1/incidents/{reference}" | "/api/v1/workspaces/{workspace}/incidents"
+    ) {
+        return true;
+    }
     let request_history = [
         "/api/v1/organizations/{organization}/projects/{project}/requests",
         "/admin/v1/organizations/{organization}/projects/{project}/requests",

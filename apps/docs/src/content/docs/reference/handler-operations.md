@@ -43945,6 +43945,99 @@ HTTP 409: Revision, quota or cursor conflict
 
 HTTP 503: Required encryption or storage unavailable
 
+## Reconcile an incident event in the current workspace
+
+`GET /v1/incidents/{reference}`
+
+Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state and recovery time. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `getWorkspaceIncidentEvent`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`reference` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[0-9a-f]{32}$"
+}
+```
+
+### Responses
+
+HTTP 200: Workspace-scoped incident
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "reference",
+        "model",
+        "owner_funded",
+        "status",
+        "recovered_at"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "owner_funded": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "resolved"
+          ]
+        },
+        "recovered_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid reference
+
+HTTP 401: Authentication required
+
+HTTP 403: events:read required
+
+HTTP 404: Incident unavailable
+
+HTTP 503: Evidence unavailable
+
 ## List workspace model policies
 
 `GET /v1/routing`
@@ -57044,12 +57137,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "event_types": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 2,
+      "maxItems": 4,
       "items": {
         "type": "string",
         "enum": [
           "pool.changed",
-          "evaluation.recorded"
+          "evaluation.recorded",
+          "incident.opened",
+          "incident.resolved"
         ]
       },
       "uniqueItems": true
@@ -64383,6 +64478,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "enum": [
         "pool.changed",
         "evaluation.recorded",
+        "incident.opened",
+        "incident.resolved",
         "subscription.test"
       ]
     },
@@ -64402,6 +64499,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "enum": [
             "pool",
             "evaluation",
+            "incident",
             "subscription"
           ]
         },

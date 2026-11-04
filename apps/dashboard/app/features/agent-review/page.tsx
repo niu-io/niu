@@ -122,7 +122,11 @@ const eventLabel = (value: string) =>
     ? "Model pool changed"
     : value === "evaluation.recorded"
       ? "Evaluation recorded"
-      : "Unknown event";
+      : value === "incident.opened"
+        ? "Incident opened"
+        : value === "incident.resolved"
+          ? "Incident resolved"
+          : "Unknown event";
 const deliveryLabel: Record<string, string> = {
   pending: "Pending",
   sending: "Sending",
@@ -1273,8 +1277,8 @@ function Review({
             {!slug &&
               (rows.length ? (
                 <>
-                  <Table>
-                    <TableHeader>
+                  <Table className={kind === "events" ? "block sm:table" : undefined}>
+                    <TableHeader className={kind === "events" ? "hidden sm:table-header-group" : undefined}>
                       <TableRow>
                         <TableHead>{uiT("Name")}</TableHead>
                         <TableHead>
@@ -1290,10 +1294,10 @@ function Review({
                         <TableHead>{uiT("Revision")}</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
+                    <TableBody className={kind === "events" ? "block sm:table-row-group" : undefined}>
                       {rows.map((row) => (
-                        <TableRow key={row.slug}>
-                          <TableCell>
+                        <TableRow key={row.slug} className={kind === "events" ? "block py-3 sm:table-row sm:py-0" : undefined}>
+                          <TableCell className={kind === "events" ? "block sm:table-cell" : undefined}>
                             <Link
                               className="font-medium underline-offset-4 hover:underline"
                               to={`${base}/${encodeURIComponent(row.slug)}`}
@@ -1301,7 +1305,7 @@ function Review({
                               {safeText(row.name)}
                             </Link>
                           </TableCell>
-                          <TableCell className="whitespace-normal">
+                          <TableCell className={kind === "events" ? "block whitespace-normal sm:table-cell" : "whitespace-normal"}>
                             {"task" in row ? (
                               safeText(row.task)
                             ) : (
@@ -1312,7 +1316,7 @@ function Review({
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className={kind === "events" ? "block whitespace-normal break-words sm:table-cell" : undefined}>
                             {"candidates" in row
                               ? row.candidates
                                   .filter((model) => model.enabled)
@@ -1322,7 +1326,7 @@ function Review({
                                 ? row.event_types.map(value => uiT(eventLabel(value))).join(", ")
                                 : row.protocol}
                           </TableCell>
-                          <TableCell>{row.revision}</TableCell>
+                          <TableCell className={kind === "events" ? "block sm:table-cell" : undefined}>{kind === "events" && <span className="sm:hidden">{uiT("Revision")}: </span>}{row.revision}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

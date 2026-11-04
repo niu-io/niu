@@ -11,11 +11,11 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type WorkspaceEvent = {
     id: string;
     sequence: string;
-    type: 'pool.changed' | 'evaluation.recorded' | 'subscription.test';
+    type: 'pool.changed' | 'evaluation.recorded' | 'incident.opened' | 'incident.resolved' | 'subscription.test';
     schema_version: 1;
     occurred_at: string;
     resource: {
-        kind: 'pool' | 'evaluation' | 'subscription';
+        kind: 'pool' | 'evaluation' | 'incident' | 'subscription';
         slug: string;
         revision: number;
         run?: string;

@@ -117,6 +117,21 @@ listWorkspaceEvents(after?: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getWorkspaceIncidentEvent
+
+```typescript
+/** Reconcile one workspace-local incident reference from an event. */
+getWorkspaceIncidentEvent(reference: string, options?: RequestOptions): Promise<{
+    data: {
+        reference: string;
+        model: string;
+        owner_funded: boolean;
+        status: 'active' | 'resolved';
+        recovered_at: string | null;
+    };
+}>;
+```
+
 ### getEventSubscriptionHistory
 
 ```typescript

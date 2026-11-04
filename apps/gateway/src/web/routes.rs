@@ -1255,6 +1255,10 @@ pub(crate) fn router(state: AppState) -> Router {
             .route("/v1/events", get(super::workspace_events::list))
             .route("/v1/events/log", get(super::workspace_events::log))
             .route(
+                "/v1/incidents/{reference}",
+                get(super::workspace_events::incident),
+            )
+            .route(
                 "/v1/events/{slug}",
                 get(super::workspace_events::get).put(super::workspace_events::put),
             )

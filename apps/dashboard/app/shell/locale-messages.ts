@@ -3571,6 +3571,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   " · {0} ms p95": " · P95 {0} 毫秒",
   "Model pool changed": "模型池已更改",
   "Evaluation recorded": "评估已记录",
+  "Incident opened": "事故已发生",
+  "Incident resolved": "事故已恢复",
   "Unknown event": "未知事件",
   "Sending": "正在发送",
   "HTTP error": "HTTP 错误",

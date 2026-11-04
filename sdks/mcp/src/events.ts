@@ -22,12 +22,14 @@ const configuration = {
     "event_types": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 2,
+      "maxItems": 4,
       "items": {
         "type": "string",
         "enum": [
           "pool.changed",
-          "evaluation.recorded"
+          "evaluation.recorded",
+          "incident.opened",
+          "incident.resolved"
         ]
       },
       "uniqueItems": true
@@ -58,6 +60,7 @@ export const eventToolDefinitions = [
   { name: "list_event_subscriptions", description: "List workspace subscriptions under events:read. Saved enabled configuration is not verified delivery. No signing secrets are returned.", inputSchema: object({}), annotations: read },
   { name: "get_event_subscription", description: "Read subscription configuration, processed event cursor and current original delegation. Requires events:read. Missing authorization requires an explicitly authorized update under a current grant; no signing secret is returned.", inputSchema: object({ slug: slugSchema }, ["slug"]), annotations: read },
   { name: "set_event_subscription", description: "Create/update an authorized workspace event destination under events:write. Provide configuration and optional rotate_secret. Revision zero creates; otherwise use the current revision. Public HTTPS only; destination changes require rotation. Creation/rotation saves its one-time secret to a private local credential file and returns only that path. Do not print or commit the file. Disabling stops future attempts; in-flight requests cannot be recalled. Read back configuration; never blindly replay an uncertain mutation.", inputSchema: object({ configuration, rotate_secret: { type: "boolean" } }, ["configuration"]), annotations: { ...read, readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true } },
+  { name: "get_workspace_incident", description: "Reconcile an incident event reference within the current workspace under events:read; no Provider identity, procurement data or other tenant information is returned.", inputSchema: object({ reference: { type: "string", pattern: "^incident-[0-9a-f]{32}$" } }, ["reference"]), annotations: read },
   { name: "list_workspace_events", description: "Read immutable workspace resource events using a decimal sequence cursor under events:read. Follow next_after; stable event identity supports deduplication. This read does not dispatch notifications. No pruning window is enabled.", inputSchema: object({ after: { type: "string", pattern: "^[0-9]+$" } }), annotations: read },
   { name: "get_event_subscription_history", description: "Read immutable subscription configuration revisions under events:read. Follow next_before. No signing secrets are included.", inputSchema: object({ slug: slugSchema, before: { type: "integer", minimum: 1 } }, ["slug"]), annotations: read },
   { name: "get_event_deliveries", description: "Read the latest 100 delivery states, attempts, HTTP outcomes and retry/lease timing under events:read. Expired sending leases are not active network evidence. A 2xx acknowledges receipt, not receiver processing, host wake or task success. Reconcile failures using sequence in list_workspace_events.", inputSchema: object({ slug: slugSchema }, ["slug"]), annotations: read },
@@ -71,7 +74,7 @@ export async function callEventTool(client: GatewayClient, name: string, raw: un
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Event arguments must be an object");
   const input = raw as Record<string, unknown>;
   if (JSON.stringify(input).length > 65536) throw new Error("Event arguments exceed 64 KiB");
-  const fields = name === "list_event_subscriptions" ? [] : name === "set_event_subscription" ? ["configuration", "rotate_secret"] : name === "list_workspace_events" ? ["after"] : name === "get_event_subscription_history" ? ["slug", "before"] : name === "test_event_subscription" ? ["slug", "revision"] : ["slug"];
+  const fields = name === "get_workspace_incident" ? ["reference"] : name === "list_event_subscriptions" ? [] : name === "set_event_subscription" ? ["configuration", "rotate_secret"] : name === "list_workspace_events" ? ["after"] : name === "get_event_subscription_history" ? ["slug", "before"] : name === "test_event_subscription" ? ["slug", "revision"] : ["slug"];
   if (Object.keys(input).some(key => !fields.includes(key))) throw new Error("Unexpected event argument");
   if (name === "set_event_subscription") {
     if (!input.configuration || typeof input.configuration !== "object" || Array.isArray(input.configuration)) throw new Error("A subscription configuration is required");
@@ -95,7 +98,10 @@ export async function callEventTool(client: GatewayClient, name: string, raw: un
   }
   let path = "/events";
   let body: unknown;
-  if (name === "list_workspace_events") {
+  if (name === "get_workspace_incident") {
+    if (typeof input.reference !== "string" || !/^incident-[0-9a-f]{32}$/.test(input.reference)) throw new Error("Use the workspace incident event reference");
+    path = `/incidents/${input.reference}`;
+  } else if (name === "list_workspace_events") {
     const after = input.after ?? "0";
     if (typeof after !== "string" || !/^[0-9]+$/.test(after) || after.length > 19 || BigInt(after) > 9223372036854775807n) throw new Error("Use the returned decimal event cursor");
     path += `/log?after=${after}`;

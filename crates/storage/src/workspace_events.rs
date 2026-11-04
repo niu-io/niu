@@ -24,11 +24,16 @@ impl EventSubscription {
             || self.name.trim() != self.name
             || self.name.len() > 200
             || self.event_types.is_empty()
-            || self.event_types.len() > 2
-            || self
-                .event_types
-                .iter()
-                .any(|event| !["pool.changed", "evaluation.recorded"].contains(&event.as_str()))
+            || self.event_types.len() > 4
+            || self.event_types.iter().any(|event| {
+                ![
+                    "pool.changed",
+                    "evaluation.recorded",
+                    "incident.opened",
+                    "incident.resolved",
+                ]
+                .contains(&event.as_str())
+            })
             || self
                 .event_types
                 .iter()
@@ -68,6 +73,54 @@ pub struct EventSubscriptionRecord {
     pub cursor: i64,
 }
 impl Store {
+    /// Publish one durable per-workspace incident transition to the existing
+    /// event stream. The bridge row and stream update commit in one transaction;
+    /// competing workers skip the same row and crashes cannot duplicate a step.
+    pub async fn publish_one_incident_event(&self) -> Result<bool, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let row = sqlx::query("SELECT b.incident_id,b.organization_id,b.project_id,b.reference,b.opened_sequence,i.resolved_at IS NOT NULL AS resolved FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.opened_sequence IS NULL OR (i.resolved_at IS NOT NULL AND b.resolved_sequence IS NULL) ORDER BY b.created_at,b.incident_id,b.organization_id,b.project_id FOR UPDATE OF b SKIP LOCKED LIMIT 1")
+            .fetch_optional(&mut *tx).await?;
+        let Some(row) = row else {
+            tx.commit().await?;
+            return Ok(false);
+        };
+        let scope = TenantScope {
+            organization_id: row.try_get("organization_id")?,
+            project_id: row.try_get("project_id")?,
+        };
+        let opened: Option<i64> = row.try_get("opened_sequence")?;
+        let (event_type, revision) = if opened.is_none() {
+            ("incident.opened", 1_i64)
+        } else {
+            ("incident.resolved", 2_i64)
+        };
+        Self::event_stream_head_in_tx(&mut tx, scope).await?;
+        let sequence: i64 = sqlx::query_scalar("UPDATE workspace_event_streams SET sequence=sequence+1 WHERE organization_id=$1 AND project_id=$2 RETURNING sequence")
+            .bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+        sqlx::query("INSERT INTO workspace_events(organization_id,project_id,sequence,id,event_type,resource_kind,resource_slug,resource_revision) VALUES($1,$2,$3,$4,$5,'incident',$6,$7)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(sequence).bind(Uuid::new_v4()).bind(event_type).bind(row.try_get::<String,_>("reference")?).bind(revision).execute(&mut *tx).await?;
+        let incident: i64 = row.try_get("incident_id")?;
+        if opened.is_none() {
+            sqlx::query("UPDATE incident_workspace_events SET opened_sequence=$4 WHERE incident_id=$1 AND organization_id=$2 AND project_id=$3")
+                .bind(incident).bind(scope.organization_id).bind(scope.project_id).bind(sequence).execute(&mut *tx).await?;
+        } else {
+            sqlx::query("UPDATE incident_workspace_events SET resolved_sequence=$4 WHERE incident_id=$1 AND organization_id=$2 AND project_id=$3")
+                .bind(incident).bind(scope.organization_id).bind(scope.project_id).bind(sequence).execute(&mut *tx).await?;
+        }
+        tx.commit().await?;
+        Ok(true)
+    }
+
+    /// Scope-bound reconciliation for references returned by incident events.
+    pub async fn workspace_incident_event_detail(
+        &self,
+        scope: TenantScope,
+        reference: &str,
+    ) -> Result<Option<Value>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('reference',b.reference,'model',i.model_alias,'owner_funded',EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND p.organization_id=b.organization_id),'status',CASE WHEN i.resolved_at IS NULL THEN 'active' ELSE 'resolved' END,'recovered_at',i.resolved_at) FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.organization_id=$1 AND b.project_id=$2 AND b.reference=$3")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reference).fetch_optional(&self.pool).await?)
+    }
+
     pub(crate) async fn event_stream_head_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: TenantScope,

@@ -32,6 +32,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`POST /v1/events/{slug}/test` — Queue a signed subscription test](/docs/api/rest/testeventsubscription/)
 - [`GET /v1/events/log` — Read workspace resource events](/docs/api/rest/listworkspaceevents/)
 - [`GET /v1/generations/{id}` — Get generation usage, latency, and customer charge by ID](/docs/api/rest/getgeneration/)
+- [`GET /v1/incidents/{reference}` — Reconcile an incident event in the current workspace](/docs/api/rest/getworkspaceincidentevent/)
 - [`GET /v1/key` — Inspect the current workspace API key](/docs/api/rest/getcurrentkey/)
 - [`POST /v1/messages` — Create a native text Message, optionally streamed](/docs/api/rest/createmessage/)
 - [`GET /v1/models` — List key-accessible model aliases and workspace customer prices](/docs/api/rest/listmodels/)

@@ -12,7 +12,7 @@ export type EventSubscription = {
     slug: string;
     name: string;
     endpoint: string;
-    event_types: Array<'pool.changed' | 'evaluation.recorded'>;
+    event_types: Array<'pool.changed' | 'evaluation.recorded' | 'incident.opened' | 'incident.resolved'>;
     enabled: boolean;
     /** Expected revision on write; zero creates. */
     revision: number;
