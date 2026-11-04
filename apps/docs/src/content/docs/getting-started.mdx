@@ -15,10 +15,17 @@ If you are setting up a new installation, first [deploy Niu](/docs/deployment/si
 
 ## Make a request
 
-Set your installation's origin and workspace key, then discover the models the key can access. Container installations normally use port 2555; repository development uses port 2566. Hosted Niu uses `https://niu.io`.
+Enter the origin of the Niu installation you are using, then set your workspace key and discover its available models. For example, hosted Niu uses `https://niu.io`; staging uses `https://staging.niu.io`. A container on your own computer normally uses `http://localhost:2555`, and repository development uses `http://127.0.0.1:2566`. Use your actual deployment address if it differs. Do not enter an address you do not trust: the next request sends your workspace key to it.
+
+Run this command, then enter the address without `/v1` and press Enter:
 
 ```sh
-export NIU_ORIGIN='http://localhost:2555'
+read -r NIU_ORIGIN; export NIU_ORIGIN
+```
+
+After entering the address, set the key and request the model list:
+
+```sh
 export NIU_API_KEY='your-issued-client-key'
 curl --fail-with-body "$NIU_ORIGIN/v1/models" \
   -H "Authorization: Bearer $NIU_API_KEY"

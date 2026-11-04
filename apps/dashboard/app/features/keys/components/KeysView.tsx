@@ -86,6 +86,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const canManagePlatform = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const location = useLocation();
   const navigate = useNavigate();
+  const generationReturn = useRef<string | null>(null);
   const initialCollectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
   const initialCachedKeys = initialCollectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, initialCollectionPath) : undefined;
   const [keys, setKeys] = useState<ProjectKey[]>(() => loaderKeys ?? initialCachedKeys?.data ?? []);
@@ -291,6 +292,8 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
 
   useEffect(() => {
     if (location.state?.createKey !== true || workspaceLoading) return;
+    const returnTo = location.state?.returnTo;
+    if (typeof returnTo === 'string' && /^\/generations(?:\/[^/?#]+)?(?:[?#]|$)/.test(returnTo) && !returnTo.startsWith('//')) generationReturn.current = returnTo;
     if (canIssue) openCreate();
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [location.state, location.pathname, location.search, workspaceLoading, canIssue, navigate]);
@@ -403,7 +406,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
 
 
     {copyError && <p role="alert" className="error-text">{copyError}</p>}
-    <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { setDialog(null); setDialogError(''); } }}>
+    <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { const returnTo = dialog?.kind === 'create' ? generationReturn.current : null; setDialog(null); setDialogError(''); if (returnTo) navigate(returnTo); } }}>
       <DialogContent className="niu-modal key-dialog max-h-[90dvh] overflow-y-auto" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : searchTriggerRef.current;if (target) {event.preventDefault();target.focus();}}}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div><DialogTitle>{dialogTitle}</DialogTitle>{dialogDescription && <DialogDescription>{dialogDescription}</DialogDescription>}</div>
@@ -470,8 +473,9 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             <div className="grid gap-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="api-key-spending-limit">{uiT("Spending limit")}{spendingCurrency ? ` (${currencySymbol(spendingCurrency)})` : ''}</Label>
-                <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder={uiT("Unlimited")} value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
+                <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help api-key-spending-scope" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder={uiT("Unlimited")} value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
                 <p id="api-key-spending-help" className="text-xs text-muted-foreground">{uiT("Lifetime spending allowance for this key. It does not reset monthly. Leave blank for unlimited spending.")}</p>
+                <p id="api-key-spending-scope" className="text-xs text-muted-foreground">{uiT("This limit covers Niu customer charges and reserved requests. It does not cover charges paid directly to a Provider using your own API key. Manage those costs with the Provider.")}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -496,7 +500,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
           </div>}
         </div>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button type="button" variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
+        <footer className="niu-modal-actions"><Button type="button" variant="ghost" disabled={busy} onClick={() => {if (generationReturn.current) navigate(generationReturn.current); else setDialog(null);}}>{generationReturn.current ? uiT("Return to chat") : uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
       </form>}
       {dialog?.kind === 'secret' && issued && <div className="niu-modal-form key-issued-view">
         <div className="key-once-notice"><Check size={17} /><span>{uiT("Copy this secret before closing. Niu cannot reveal it again.")}</span></div>
@@ -504,7 +508,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
         <div className="key-copy-row"><Label htmlFor="issued-base-url">{uiT("Base URL")}</Label><div><Input id="issued-base-url" value={baseUrl()} readOnly /><Button type="button" variant="outline" onClick={() => void copy('url', baseUrl())}><Clipboard size={15} />{copied === 'url' ? uiT("Copied") : uiT("Copy URL")}</Button></div></div>
         <div className="key-example key-example-prerequisite" role="status"><div><strong>{uiT("Request example unavailable")}</strong></div><p>{videoExample ? uiT("Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.") : exampleModel ? uiT("A runnable request example cannot be confirmed from this model’s catalog metadata. Open Generations to choose a supported workflow.") : canManagePlatform ? uiT("Connect a Provider and add a supported model route to use this key.") : uiT("Ask a platform administrator to add a model route to the catalog.")}</p>{!exampleModel&&canManagePlatform && <Button asChild variant="outline"><Link to="/admin/providers">{uiT("Connect provider")}</Link></Button>}</div>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button asChild><Link to={`/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.key?.slug || issued.id})}`} onClick={() => setDialog(null)}>{videoExample?uiT("Use in Video"):uiT("Open Generations")}</Link></Button><Button variant="outline" onClick={() => setDialog(null)}>{uiT("Done")}</Button></footer>
+        <footer className="niu-modal-actions"><Button asChild><Link to={(() => {if (!generationReturn.current) return `/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.key?.slug || issued.id})}`; const target = new URL(generationReturn.current, window.location.origin); target.searchParams.set('key', issued.key?.slug || issued.id); return target.pathname + target.search + target.hash;})()} onClick={() => setDialog(null)}>{generationReturn.current ? uiT("Return to chat") : videoExample?uiT("Use in Video"):uiT("Open Generations")}</Link></Button><Button variant="outline" onClick={() => setDialog(null)}>{uiT("Done")}</Button></footer>
       </div>}
       {dialog?.kind === 'rotate' && <div className="niu-modal-form"><p className="key-confirm-copy">{uiT("The replacement secret is shown once.")}</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? uiT("Rotating…") : uiT("Rotate key")}</Button></footer></div>}
       {dialog?.kind === 'revoke' && <div className="niu-modal-form"><p className="key-confirm-copy">{uiT("This cannot be undone.")}</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Keep key")}</Button><Button variant="destructive" disabled={busy} onClick={() => void revoke(dialog.key)}>{busy ? uiT("Revoking…") : uiT("Revoke key")}</Button></footer></div>}

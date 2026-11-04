@@ -515,6 +515,21 @@ impl AppState {
             .await
     }
 
+    pub async fn authorize_invocation_headers(
+        &self,
+        headers: &HeaderMap,
+    ) -> Result<niu_storage::Principal, ApiError> {
+        let principal = self
+            .authorize_api_headers_with_permission(headers, niu_storage::AdminPermission::Write)
+            .await?;
+        if !principal.invocation_allowed() {
+            return Err(ApiError::from_store(
+                niu_storage::StoreError::InvocationDenied,
+            ));
+        }
+        Ok(principal)
+    }
+
     pub async fn authorize_api_headers_with_permission(
         &self,
         headers: &HeaderMap,

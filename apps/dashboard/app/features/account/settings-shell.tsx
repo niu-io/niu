@@ -50,9 +50,8 @@ function SettingsContent({context, section}: {context: DashboardContext; section
       {context.session ? (
         <OperatorsView
           embedded
-          key={`${context.token}:${context.organization?.id}:${context.workspace?.id}`}
+          key={`${context.token}:${context.organization?.id}`}
           initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
-          initialWorkspace={context.workspace?.id}
           token={context.token}
           session={context.session}
           refreshWorkspace={context.refreshWorkspace}
@@ -66,7 +65,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
         <div className="min-w-0"><h2 aria-label={t('About Niu', '关于 Niu')}><NiuBrand locale={locale} /></h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发构建版')}</p></div>
       </header>
       <dl className="space-y-3 text-sm">
-        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('Release date', '发布日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE || t('Not released', '未发布')}</dd></div>
+        {import.meta.env.VITE_NIU_RELEASE_DATE && <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('Release date', '发布日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE}</dd></div>}
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('License', '开源许可')}</dt><dd>MIT</dd></div>
       </dl>
       <nav aria-label={uiT("Product resources")} className="grid gap-1 sm:grid-cols-2">

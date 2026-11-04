@@ -5,6 +5,16 @@ import { expect, it, vi } from 'vitest';
 import ModelMappings from '@/features/providers/components/ModelMappings';
 import type { VendorModel, ProviderModelCheck } from '@/features/providers/api';
 
+it('explains a Qiniu account restriction instead of implying the key is wrong', async () => {
+  const model: VendorModel = {alias:'test',upstream_model:'test',vendor_id:'supplier',public_catalog:false,enabled:true,pricing:null,revision:1,
+    capabilities:{supports_tool_calls:false,supports_streaming_tool_calls:false,supports_structured_output:false,supports_embeddings:false,supports_embedding_dimensions:false,supports_embedding_base64:false,supports_responses:false}};
+  const result: ProviderModelCheck = {status:'account_chat_banned',model:'unknown',http_status:403,duration_ms:1,checked_at_ms:1};
+  render(<MemoryRouter><ModelMappings models={[model]} catalog={[]} catalogLoading={false} catalogError="" loading={false} disabled={false} onRefresh={vi.fn()} onLoadCatalog={vi.fn()} onSave={vi.fn()} onCheck={vi.fn().mockResolvedValue(result)}/></MemoryRouter>);
+  await userEvent.setup().click(screen.getByRole('button',{name:'Check',exact:true}));
+  expect(await screen.findByText(/Qiniu account is not permitted to use chat services/)).toBeTruthy();
+  expect(screen.queryByText('Key rejected. Check the saved provider key.')).toBeNull();
+});
+
 it('shows remaining models when a refresh removes the current page', async () => {
   const models: VendorModel[] = Array.from({ length: 25 }, (_, index) => ({
     alias: `model-${index + 1}`, upstream_model: `model-${index + 1}`, vendor_id: 'supplier',

@@ -219,7 +219,9 @@ export default function PublicModelCatalog() {
       {state === 'ready' && models.length === 0 && <div className="catalog-empty">
         <span className="catalog-empty-icon"><IconLayoutGrid size={20} aria-hidden="true" /></span>
         <p className="catalog-empty-title">{t('No models published yet', '暂无公开模型')}</p>
-        <p>{t('No models are published for public discovery on this gateway.', '此网关暂未公开发布任何可供浏览的模型。')}</p>
+        <p>{t('This catalog has no public models. Your workspace may still have private models; sign in to check. If your workspace is also empty, ask an administrator to connect a Provider.', '此目录暂无公开模型。你的工作空间可能仍有私有模型，登录后即可查看；如果工作空间也为空，请联系管理员连接 Provider。')}</p>
+        <Button asChild variant="outline"><a href="/models?workspace=default">{t('View workspace models', '查看工作空间模型')}</a></Button>
+        <a href="/docs/getting-started/">{t('Getting started', '开始使用')}</a>
       </div>}
       {state === 'ready' && models.length > 0 && matches.length === 0 && <div className="catalog-empty">
         <span className="catalog-empty-icon"><IconSearchOff size={20} aria-hidden="true" /></span>
@@ -265,7 +267,7 @@ export default function PublicModelCatalog() {
               {streaming && chip('streaming', 'streaming', t('Streaming', '流式输出'), IconBolt)}
             </div>
             <div className="catalog-model-footer">
-              {developer.id !== 'other' && <span>{isZh ? `开发商 ${developer.name}` : `by ${developer.name}`}</span>}
+              {developer.id !== 'other' && <span>{isZh ? `推测开发商：${developer.name}` : `Likely developer: ${developer.name}`}</span>}
               {output && <span title={isZh ? `最大输出 ${output.full} Token` : `${output.full} max output tokens`}>{isZh ? `最大输出 ${output.short}` : `${output.short} max output`}</span>}
               {guides.length > 0 && <nav className="catalog-model-guides" aria-label={`${name} API documentation`}>{guides.map(({ label, slug }) => <a key={slug} href={`/docs/api/rest/${slug}/`}>{label} API</a>)}</nav>}
             </div>
@@ -274,18 +276,5 @@ export default function PublicModelCatalog() {
       })}</div>}
       <p className="catalog-footnote">{t('Public discovery does not grant access. Your workspace key determines which models you can call and your customer prices.', '公开目录仅用于浏览，不直接授予调用权限。您的工作空间密钥决定了可调用的模型范围及客户计费价格。')}</p>
     </section>
-    <p className="catalog-help">
-      {isZh ? (
-        <>
-          需要为您的密钥启用模型别名？请<a href="/workspaces/default/keys">打开工作空间</a>或阅读<a href="/docs/configuration/models/">路由配置文档</a>。
-        </>
-      ) : (
-        <>
-          Need an alias enabled for your key?{" "}
-          <a href="/workspaces/default/keys">Open the workspace</a> or{" "}
-          <a href="/docs/configuration/models/">read route configuration</a>.
-        </>
-      )}
-    </p>
   </>;
 }

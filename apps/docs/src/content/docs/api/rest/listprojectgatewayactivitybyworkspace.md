@@ -527,6 +527,7 @@ Content type: `application/json`.
                     "enum": [
                       "upstream_http_error",
                       "upstream_region_unavailable",
+                      "upstream_account_restricted",
                       "upstream_timeout",
                       "upstream_connection_error",
                       "upstream_transport_error",

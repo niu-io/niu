@@ -37,7 +37,7 @@ export default function WorkspaceSettings() {
   if (!workspace) return null;
   const canEdit = Boolean(context.session?.permissions.write);
   const canDelete = Boolean(context.session?.permissions.manage_operators && (context.session.kind === 'installation' || context.session.operator?.project_id === null));
-  const canFund = Boolean(context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
+  const canFund = context.session?.operating_mode !== 'internal' && context.organization?.id === workspace.organization_id && Boolean(context.session?.kind === 'installation' || (context.session?.operator?.organization_id === workspace.organization_id && context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   async function rename(event: FormEvent) {
     event.preventDefault(); if (!workspace || saving || !name.trim()) return;
     setSaving(true); setError('');

@@ -24,4 +24,4 @@ The root `pnpm dev` command serves the hot-reloading dashboard and proxies API r
 
 ## Release metadata
 
-Set `VITE_NIU_VERSION` and `VITE_NIU_RELEASE_DATE` (ISO date, `YYYY-MM-DD`) when building a published dashboard artifact. About uses these release values; an unversioned local build displays “Development build” and “Not released” rather than treating its build time as a release date.
+The container build embeds the version from the repository's `VERSION` file in About. Distributors can override it with the `VITE_NIU_VERSION` Docker build argument and may provide a verified release date with `VITE_NIU_RELEASE_DATE` (ISO date, `YYYY-MM-DD`). Standalone dashboard builds can set the corresponding environment variables. An unversioned local build displays “Development build”; About omits the release date when none is supplied rather than treating build time as a release date.

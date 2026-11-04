@@ -101,6 +101,8 @@ pub struct RouteRegistryOffer {
     pub current_revision: Option<Uuid>,
     pub offer_review: Option<Uuid>,
     pub supplier_review: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offer_authorization: Option<Uuid>,
 }
 
 /// Server-only catalog inputs from a single database snapshot.
@@ -578,8 +580,9 @@ impl Store {
         Ok(vendor)
     }
 
-    /// Explicit administrator-managed internal-use import. Existing routes, disabled choices and prices are preserved.
-    pub async fn import_personal_vendor_models(
+    /// Import catalog discoveries without changing existing routes or prices.
+    /// Shared commercial discoveries start disabled until explicitly configured.
+    pub async fn import_discovered_vendor_models(
         &self,
         vendor: Uuid,
         expected_revision: i64,
@@ -603,17 +606,16 @@ impl Store {
         .bind(vendor)
         .fetch_one(&mut *tx)
         .await?;
-        if !personal
-            || entries
-                .iter()
-                .any(|e| e.pricing.is_some() || e.public_catalog || e.expected_revision.is_some())
+        if entries
+            .iter()
+            .any(|e| e.pricing.is_some() || e.public_catalog || e.expected_revision.is_some())
         {
             return Err(StoreError::InvalidVendor);
         }
         let mut inserted = 0;
         for entry in entries {
             let result = sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) SELECT $1,$2,$3,false,$4,$5,NULL WHERE NOT EXISTS(SELECT 1 FROM vendor_models WHERE vendor_id=$2 AND upstream_model=$3)")
-                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(entry.enabled).bind(entry.capabilities)
+                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(entry.enabled && personal).bind(entry.capabilities)
                 .execute(&mut *tx).await.map_err(map_vendor_write_error)?;
             if result.rows_affected() > 0 {
                 insert_audit(
@@ -1009,7 +1011,7 @@ impl Store {
             pools.push(pool);
         }
         let offers = sqlx::query_as::<_, RouteRegistryOffer>(
-            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id ORDER BY o.model_alias"
+            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review,o.current_authorization AS offer_authorization FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id ORDER BY o.model_alias"
         ).fetch_all(&mut **tx).await?;
         Ok(RouteRegistryInputs {
             routes,

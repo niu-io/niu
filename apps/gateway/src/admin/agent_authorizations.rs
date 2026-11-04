@@ -34,6 +34,12 @@ pub struct Decision {
     workspace_id: Uuid,
     allowed_models: Vec<String>,
     ttl_seconds: i64,
+    #[serde(default = "allow_legacy_invocation")]
+    invocation_allowed: bool,
+}
+
+fn allow_legacy_invocation() -> bool {
+    true
 }
 
 fn code(value: &str) -> Result<(), ApiError> {
@@ -376,6 +382,11 @@ pub async fn view(
 ///                 "type": "integer",
 ///                 "minimum": 60,
 ///                 "maximum": 86400
+///               },
+///               "invocation_allowed": {
+///                 "type": "boolean",
+///                 "default": true,
+///                 "description": "Whether the issued credential may dispatch inference. False preserves separately granted discovery and management access. Omitted retains legacy invocation authority."
 ///               }
 ///             }
 ///           }
@@ -431,12 +442,13 @@ pub async fn decide(
     }
     state
         .store
-        .approve_agent_authorization(
+        .approve_agent_authorization_with_invocation(
             &user_code,
             scope,
             actor.id,
             &input.allowed_models,
             input.ttl_seconds,
+            input.invocation_allowed,
         )
         .await
         .map_err(ApiError::from_store)?;

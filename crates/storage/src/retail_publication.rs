@@ -13,6 +13,7 @@ pub struct RetailStandardPublication {
     pub schedule: RetailSchedule,
     pub expected_version: String,
     pub idempotency_key: Uuid,
+    #[serde(default)]
     pub reason: String,
 }
 #[derive(Clone, Deserialize, Serialize)]
@@ -191,7 +192,9 @@ impl Store {
         if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
             return Err(StoreError::InvalidPrice);
         }
-        reason(&input.reason)?;
+        if !input.reason.is_empty() {
+            reason(&input.reason)?;
+        }
         let expected = integer(&input.expected_version, i64::MAX - 1)?;
         input.expected_version = expected.to_string();
         let intent = json!({"action":"standard_published","input":input});

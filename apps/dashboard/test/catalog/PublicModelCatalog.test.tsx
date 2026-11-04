@@ -9,6 +9,15 @@ const models = [
 ];
 beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: models }) })));
 
+it('offers a workspace and getting-started path when no public models are published', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok:true, json:async () => ({data:[]})}));
+  render(<PublicModelCatalog />);
+  await screen.findByText('No models published yet');
+  expect(screen.getByRole('link', {name:'View workspace models'}).getAttribute('href')).toBe('/models?workspace=default');
+  expect(screen.getByRole('link', {name:'Getting started'}).getAttribute('href')).toBe('/docs/getting-started/');
+  expect(screen.getByText(/Your workspace may still have private models/)).toBeTruthy();
+});
+
 it('reports a denied clipboard write without claiming the model ID was copied', async () => {
   const user = userEvent.setup();
   vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('Denied'));

@@ -31,10 +31,10 @@ function peekScopedModels(token: string, providerId: string): { connections: Pro
 }
 type Props = {
   token: string; providerId: string; providerSlug: string; canManage: boolean;
-  offers: ProviderOffer[]; offersComplete: boolean; qualified: boolean;
+  offers: ProviderOffer[]; offersComplete: boolean;
+  commercialEnabled?: boolean;
   onOffer: (alias: string, media: boolean) => void;
-  onQualification: () => void;
-  onReviewOffer: (id: string) => void;
+  onEnableOffer: (id: string) => void;
   onSaved: () => void;
 };
 
@@ -43,7 +43,7 @@ export default function ProviderModels(props: Props) {
   // Remount on authorization/provider changes so neither reads nor dialogs cross scopes.
   return <ScopedModels key={`${props.token}:${props.providerId}:${props.canManage}`} {...props} />;
 }
-function ScopedModels({ token, providerId, providerSlug, canManage, offers, offersComplete, qualified, onOffer, onQualification, onReviewOffer, onSaved }: Props) {
+function ScopedModels({ token, providerId, providerSlug, canManage, offers, offersComplete, commercialEnabled = true, onOffer, onEnableOffer, onSaved }: Props) {
   const { t: uiT, format: uiF } = useUILocale();
   const initial = peekScopedModels(token, providerId);
   const [connections, setConnections] = useState<ProviderConnection[]>(() => initial?.connections ?? []);
@@ -53,6 +53,14 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
   const [notice, setNotice] = useState('');
   const [revision, setRevision] = useState(0);
   const lastRevision = useRef(0);
+  const offerState = JSON.stringify(offers.map(({id, revision: offerRevision, active, qualified, route_ready}) => [id, offerRevision, active, qualified, route_ready]));
+  const previousOfferState = useRef(offerState);
+  useEffect(() => {
+    if (previousOfferState.current !== offerState) {
+      previousOfferState.current = offerState;
+      setRevision(value => value + 1);
+    }
+  }, [offerState]);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(20);
   const opener = useRef<HTMLElement | null>(null);
@@ -127,7 +135,6 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     } finally { if (active.current) { setBusy(false); write.current = null; } }
   }
   return <div className="empty-region space-y-4 px-4 py-4 sm:px-6">
-    {!loading && !error && (offers.length > 0 || entries.some(entry => !entry.connection.owner_funded)) && !qualified && <div className="flex flex-wrap items-center gap-2 text-sm"><span>{uiT("Provider review required for commercial supply.")}</span><Button variant="outline" size="sm" onClick={onQualification}>{uiT("Review Provider")}</Button></div>}
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
       <Button disabled={!canManage || loading || !!error || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null})}><IconPlus size={16} />{uiT("Add model")}</Button>
@@ -143,17 +150,17 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
           const offer = offers.find(item => item.model_alias === alias);
           const commercial = routes.some(entry => !entry.connection.owner_funded);
           const media = offer?.rate_kind === 'media' || routes.some(entry => !!entry.model.capabilities.video_schema);
-          const supplyStatus = !offer ? offersComplete ? uiT("No purchase offer") : uiT("Offer status not loaded") : !qualified ? uiT("Provider review required") : !offer.qualified ? uiT("Offer review required") : !offer.active ? uiT("Offer paused") : !offer.route_ready ? uiT("No eligible connection") : uiT("Ready for commercial supply");
+          const supplyStatus = !offer ? offersComplete ? uiT("No purchase offer") : uiT("Offer status not loaded") : !offer.active ? uiT("Offer paused") : !offer.route_ready ? uiT("No eligible connection") : uiT("Ready for commercial supply");
           return <TableRow key={alias} className="flex flex-col sm:table-row">
             <TableCell className="block align-top whitespace-normal break-words font-medium sm:table-cell">{alias}</TableCell>
             <TableCell className="block space-y-3 whitespace-normal sm:table-cell">
               {routes.map(({connection, model}) => <div key={connection.id} className="space-y-1">
                 <div className="break-words">{model.upstream_model} <span className="text-muted-foreground">{uiT("via")}{" "}{connection.name || uiT("Unnamed API key")}</span></div>
-                <p className="text-sm text-muted-foreground">{connection.owner_funded ? uiT("Personal use · billed by Provider") : uiT("Commercial connection")} · {!connection.has_credential ? uiT("API key missing") : !connection.enabled ? uiT("API key disabled") : !model.enabled ? uiT("Model disabled") : model.available === true ? uiT("Connection available") : model.available === false ? uiT("Connection unavailable") : uiT("Connection status unknown")}</p>
+                <p className="text-sm text-muted-foreground">{connection.owner_funded ? uiT("Personal use · billed by Provider") : uiT("Commercial connection")} · {!connection.has_credential ? uiT("API key missing") : !connection.enabled ? uiT("API key disabled") : !model.enabled ? uiT("Model disabled") : model.available === true ? uiT("Route configured · Provider access not verified") : model.available === false ? uiT("Route unavailable") : uiT("Route status unknown")}</p>
                 <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model})}>{uiT("Edit model")}</Button><Button size="sm" variant="ghost" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model, credential: true})}>{uiT("Edit API key")}</Button></div>
               </div>)}
               {!routes.length && <div><p>{uiT("No model connection configured.")}</p><Button size="sm" variant="outline" disabled={!canManage || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null, initialAlias: alias})}>{uiT("Add model connection")}</Button></div>}
-              {(commercial || offer) && <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm">{supplyStatus}</p><div><Button size="sm" variant="outline" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>{offer && !offer.qualified && <Button size="sm" variant="ghost" disabled={!qualified || !canManage} onClick={() => onReviewOffer(offer.id)}>{uiT("Review offer")}</Button>}</div></div>}
+              {commercialEnabled && (commercial || offer) && <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm">{supplyStatus}</p><div><Button size="sm" variant="outline" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>{offer && !offer.active && <Button size="sm" variant="ghost" disabled={!canManage} onClick={() => onEnableOffer(offer.id)}>{uiT("Enable offer")}</Button>}</div></div>}
             </TableCell>
           </TableRow>;
         })}</TableBody>

@@ -83,9 +83,14 @@ Content type: `application/json`.
         "rate_limits",
         "usage_window",
         "allowed_cidrs",
-        "management_capabilities"
+        "management_capabilities",
+        "invocation_allowed"
       ],
       "properties": {
+        "invocation_allowed": {
+          "type": "boolean",
+          "description": "Current credential invocation authority, independent of discovery and resource management."
+        },
         "object": {
           "type": "string",
           "const": "api_key"

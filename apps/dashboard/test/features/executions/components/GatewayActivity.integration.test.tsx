@@ -48,6 +48,18 @@ const summary = {
 function RouteHash() { return <output aria-label="Selected request URL">{useLocation().hash}</output>; }
 function RouteQuery() { return <output aria-label="Route query">{useLocation().search}</output>; }
 
+it.each([
+  ['/workspaces/demo', undefined],
+  ['/activity?workspace=demo', '/workspaces/demo'],
+])('links activity billing to the selected workspace from %s', async (entry, workspaceRoute) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    if (String(input).endsWith('/keys')) return Response.json({ data: [] });
+    return Response.json({ data: [], next_cursor: null, summary });
+  }));
+  render(<MemoryRouter initialEntries={[entry]}><GatewayActivity token="test" models={['fast']} statisticsOnly workspaceRoute={workspaceRoute} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+  expect((await screen.findByRole('link', {name: 'View billing'})).getAttribute('href')).toBe('/workspaces/demo/billing');
+});
+
 it('uses the same local calendar boundaries for query and histogram on a single-day range', async () => {
   const start = new Date(2026, 9, 9).getTime();
   const end = new Date(2026, 9, 10).getTime();

@@ -7,7 +7,6 @@ import { IconSun as Sun } from "@tabler/icons-react";
 import { IconMoon as Moon } from "@tabler/icons-react";
 import { IconDeviceDesktop as Monitor } from "@tabler/icons-react";
 import { IconBuildings as Building2 } from "@tabler/icons-react";
-import { IconPlus as Plus } from "@tabler/icons-react";
 import { FolderKey } from "lucide-react";
 import { IconSparkles } from "@tabler/icons-react";
 import { IconCpu as Boxes } from "@tabler/icons-react";
@@ -43,7 +42,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, [theme]);
-  const { session, token, signOut, organizations, organization, selectOrganization, organizationSwitching, organizationSwitchError, openCreateOrganization, workspaceLoading, workspaceError } = context;
+  const { session, token, signOut, organizations, organization, selectOrganization, organizationSwitching, organizationSwitchError, workspaceLoading, workspaceError } = context;
   const modelsHref = token ? workspaceModelsHref(context.workspace, context.workspaces) : '/models/';
   const installation = session?.kind === 'installation';
   const platformAdmin = Boolean(session?.permissions?.platform_admin || (installation && session?.permissions?.manage_operators !== false));
@@ -103,16 +102,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
             </DropdownMenuRadioGroup>
           </>}
           {organizationSwitchError && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{organizationSwitchError}</DropdownMenuLabel>}
-          {!supplierOnly && token && openCreateOrganization && <DropdownMenuItem onSelect={() => {
-            setAccountMenuOpen(false);
-            if (compactNavigation) {
-              setOpenMobile(false);
-              window.setTimeout(() => openCreateOrganization(), 320);
-            } else {
-              window.setTimeout(() => openCreateOrganization(), 160);
-            }
-          }}><Plus size={18}/>{t('Create organization', '创建组织')}</DropdownMenuItem>}
-          {!supplierOnly && organization && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(`${workspacePath}/organization`)} onFocus={() => prefetchRouteIntent(`${workspacePath}/organization`)} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={`${workspacePath}/organization`}><Building2 size={18}/>{t('Organization settings', '组织设置')}</Link></DropdownMenuItem>}
+          {!supplierOnly && organization && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(`${workspacePath}/organization`)} onFocus={() => prefetchRouteIntent(`${workspacePath}/organization`)} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={`${workspacePath}/organization`}><Building2 size={18}/>{t('Manage organizations', '管理组织')}</Link></DropdownMenuItem>}
           <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref(location.pathname, location.search, location.hash, !token || installation ? "appearance" : "account"))} onFocus={() => prefetchRouteIntent(settingsHref(location.pathname, location.search, location.hash, !token || installation ? "appearance" : "account"))} onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(location.pathname, location.search, location.hash, !token || installation ? "appearance" : "account")}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>
           {!token && <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/login')} onFocus={() => prefetchRouteIntent('/login')} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}><KeyRound size={18}/>{t('Sign in', '登录')}</Link></DropdownMenuItem></>}
           <DropdownMenuSeparator />

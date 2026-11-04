@@ -113,9 +113,15 @@ export default function OperatorDetails({ operator, organizations, projects, ses
     } finally { setRoleBusy(false); }
   }
   const [expiryDays, setExpiryDays] = useState(30);
+  const [expandedHistoryFor, setExpandedHistoryFor] = useState<string | null>(null);
   if (!operator) return <section className="operator-detail" aria-labelledby="operator-detail-title">
     <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">{uiT("Select a user")}</h2><p>{uiT("Review their role, create an access token, or revoke their access.")}</p></div>
   </section>;
+
+  const activeSessions = sessions.filter(item => expiryState(item) === 'Active');
+  const pastSessions = sessions.filter(item => expiryState(item) !== 'Active');
+  const historyExpanded = expandedHistoryFor === operator.id;
+  const visibleSessions = historyExpanded ? [...activeSessions, ...pastSessions] : activeSessions;
 
   return <section className="operator-detail" aria-labelledby="operator-detail-title">
     <div className="operator-detail-heading">
@@ -123,7 +129,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       <div className="operator-detail-copy"><p className="eyebrow">{uiT("USER")}</p><h2 className="scroll-mt-20" id="operator-detail-title">{operator.name}</h2><p>{displayScope(operator, organizations, projects)}</p></div>
       <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role)}</span>
     </div>
-    <p className="operator-scope-footnote px-4">{{ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role]}</p>
+    <p className="operator-scope-footnote px-4">{uiT({ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role])}{!operator.project_id && operator.role !== 'viewer' && <> {uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</>}</p>
     {canChangeRole && <div className="space-y-3 px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <Label className="grid gap-2" htmlFor="operator-role">{uiT("Role")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
@@ -137,6 +143,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         <Button size="sm" disabled={busy || roleBusy || roleConflict || draftRole === expectedRole} onClick={() => void saveRole()}>{uiT("Save role")}</Button>
         {(roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
       </div>
+      {!operator.project_id && draftRole !== 'viewer' && draftRole !== operator.role && <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>}
       {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{roleRefreshError}</p>}
       {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{roleMessage || uiT("The saved role changed. Reload it before saving again.")}</p>}
     </div>}
@@ -164,9 +171,9 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         ? <TableSkeleton columns={4} rows={3} label={uiT("Loading sessions…")} />
         : sessions.length === 0
           ? <div className="operator-session-empty">{uiT("This user has no access sessions. Create an access token to let them connect.")}</div>
-          : <div className="table-wrap"><Table>
+          : <>{activeSessions.length === 0 && <div className="operator-session-empty">{uiT("No active sessions.", "没有有效的访问会话。")}</div>}{pastSessions.length > 0 && <Button type="button" variant="ghost" size="sm" aria-expanded={historyExpanded} onClick={() => setExpandedHistoryFor(historyExpanded ? null : operator.id)}>{historyExpanded ? uiT("Hide past sessions", "隐藏历史会话") : uiT("Show past sessions", "显示历史会话")} ({pastSessions.length})<ChevronDown aria-hidden="true" className={historyExpanded ? 'rotate-180' : ''} /></Button>}{visibleSessions.length > 0 && <div className="table-wrap"><Table>
             <TableHeader><TableRow><TableHead>{uiT("Session")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Expires")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-28"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
-            <TableBody>{sessions.map(item => {
+            <TableBody>{visibleSessions.map(item => {
               const state = expiryState(item);
               const confirming = confirmTarget?.kind === 'session' && confirmTarget.id === item.id;
               return <TableRow key={item.id}>
@@ -180,7 +187,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
                   : <span className="operator-no-action">—</span>}</TableCell>
               </TableRow>;
             })}</TableBody>
-          </Table></div>}
+          </Table></div>}</>}
     </div>
     <section className="operator-activity" aria-labelledby="operator-activity-title">
       <div className="operator-activity-heading"><div><h3 id="operator-activity-title">{uiT("Recent access activity")}</h3></div>{hasMoreEvents && <Button type="button" variant="ghost" size="sm" disabled={eventsLoading} onClick={onLoadMoreEvents}>{eventsLoading ? uiT("Loading…") : uiT("Load older")}</Button>}</div>

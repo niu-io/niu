@@ -26,9 +26,11 @@ describe('model developer and provider boundaries', () => {
     expect(modelIdentity({id:'byok/gpt-4.1-mini'}).name).toBe('OpenAI');
     expect(modelIdentity({id:'byok/private',upstream_model:'openrouter/anthropic/claude-sonnet-4'}).name).toBe('Anthropic');
     expect(modelIdentity({id:'fastrouter/seedream-4'}).name).toBe('ByteDance');
+    expect(modelIdentity({id:'babelark/claude-sonnet-4'}).name).toBe('Anthropic');
+    expect(modelIdentity({id:'qiniu/deepseek-v3'}).name).toBe('DeepSeek');
   });
   it('does not fabricate developers from arbitrary aliases or providers', () => {
-    for(const id of ['byok/private','fastrouter/custom','my-team/private-model','fastrouter','byok']) {
+    for(const id of ['byok/private','fastrouter/custom','babelark/custom','qiniu/custom','my-team/private-model','fastrouter','babelark','qiniu','byok']) {
       expect(modelDeveloper({id})).toBeUndefined();
       expect(modelIdentity({id}).id).toBe('other');
     }

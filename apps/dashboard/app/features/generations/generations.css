@@ -35,10 +35,12 @@
 .generations-toolbar h1 { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
 .generations-toolbar-actions { min-width:0; }
 .generations-toolbar .playground-toolbar-actions { display:flex; }
-.generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr); }
-.generations-session .playground-transcript, .generations-session .playground-composer { grid-area:1 / 1; }
+.generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr) auto; }
+.generations-session .playground-transcript { grid-area:1 / 1; padding-bottom:24px; }
+.generations-session .playground-composer { grid-area:2 / 1; }
 .generations-layout { --generation-reading-width:880px; }
 .generations-layout .playground-comparison-thread, .generations-layout .playground-composer-surface { width:100%; max-width:var(--generation-reading-width); margin-inline:auto; }
+.generations-layout .playground-composer-notices { width:100%; max-width:var(--generation-reading-width); margin:6px auto 0; padding:0 4px; color:var(--muted-foreground); font-size:12px; line-height:1.4; }
 @media(max-width:640px) { .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice { width:36px; height:36px; padding:0; } .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span { display:none; } }
 
 .generations-toolbar [data-slot="button"] { font-size:14px; font-weight:500; line-height:20px; }

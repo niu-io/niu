@@ -839,7 +839,7 @@ async fn execute(
     mut body: Value,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_api_headers(headers).await?;
+    let principal = state.authorize_invocation_headers(headers).await?;
     if headers.contains_key("anthropic-beta")
         || headers.get_all("anthropic-version").iter().count() > 1
         || headers

@@ -27089,7 +27089,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.",
+        "description": "Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup, credential inspection, model discovery, non-inference routing/evaluation/event management and funding recovery stay available. No amounts, merchant credentials or identities are returned.",
         "responses": {
           "200": {
             "description": "Current prerequisite state",
@@ -33672,6 +33672,7 @@
                     "enum": [
                       "upstream_http_error",
                       "upstream_region_unavailable",
+                      "upstream_account_restricted",
                       "upstream_timeout",
                       "upstream_connection_error",
                       "upstream_transport_error",
@@ -34727,7 +34728,6 @@
           },
           "reason": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 500
           }
         },
@@ -34736,8 +34736,7 @@
           "currency",
           "schedule",
           "expected_version",
-          "idempotency_key",
-          "reason"
+          "idempotency_key"
         ]
       },
       "handler_operations_json_RetailPriceRecord": {
@@ -38083,8 +38082,14 @@
           "model": {
             "type": "string"
           },
+          "store": {
+            "type": "boolean",
+            "const": false,
+            "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+          },
           "messages": {
             "type": "array",
+            "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
             "items": {
               "type": "object"
             }

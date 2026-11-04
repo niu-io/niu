@@ -7,6 +7,8 @@ Use Niu directly rather than asking the person to relay model lists or diagnosti
 
 Read [capability entry](references/capabilities.md) to locate the relevant tools and contracts. Inspect current grants and available models before choosing an operation. Declared catalog capability, configured access and verified model behavior are different evidence.
 
+Check `inspect_key.invocation_allowed` before running a model. False permits only separately authorized discovery and management operations. Obtain explicit invocation approval before paid execution. If the deployment omits this field, inspect its current authorization contract rather than assuming invocation authority. Read `allowed_models` after connecting. A fixed named grant excludes models added later, and custom routing must stay within its allowed backing models. Existing wildcard grants retain their saved scope. Model invocation approval and an agreed trial budget remain separate decisions.
+
 You own task completion and quality/cost tradeoffs. Niu supplies information and controls. For paid comparisons, establish task samples, acceptance criteria and an approved test budget. Preserve uncertain charges; do not blindly retry a possibly charged request.
 
 Only use management operations exposed by the connected tool set and actual grants. A workspace inference credential does not confer pool administration or event-subscription access. When authority is missing, identify the concrete review action in Niu and read back the result afterward. Never retrieve confidential procurement rates or platform margins for customer decisions.

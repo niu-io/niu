@@ -38,7 +38,9 @@ it('renders routed Settings in a dialog and switches sections', async () => {
   expect(screen.queryByRole('link', { name: 'Workspaces', exact: true })).toBeNull();
   await userEvent.click(screen.getByRole('link', {name:'About',exact:true}));
   expect(screen.getByRole('region', {name:'About Niu'})).toBeTruthy();
-  expect(screen.getByText('Development build')).toBeTruthy();
+  expect(screen.getByText(import.meta.env.VITE_NIU_VERSION ? `Version ${import.meta.env.VITE_NIU_VERSION}` : 'Development build')).toBeTruthy();
+  if (import.meta.env.VITE_NIU_RELEASE_DATE) expect(screen.getByText(import.meta.env.VITE_NIU_RELEASE_DATE)).toBeTruthy();
+  else expect(screen.queryByText('Release date')).toBeNull();
   expect(screen.getByRole('link', {name:'Third-party notices'})).toBeTruthy();
 });
 

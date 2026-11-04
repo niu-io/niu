@@ -193,6 +193,7 @@ pub async fn capture(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
+    let chat = path == "/v1/chat/completions";
     let saved_video_submit = request
         .extensions()
         .get::<axum::extract::MatchedPath>()
@@ -234,8 +235,24 @@ pub async fn capture(
                 return ApiError::invalid_request("Could not read request body").into_response();
             }
         };
-        if serde_json::from_slice::<serde::de::IgnoredAny>(&bytes).is_err() {
-            return ApiError::invalid_request("Invalid JSON request").into_response();
+        let no_store = if chat {
+            match serde_json::from_slice::<Value>(&bytes) {
+                Ok(value) => value.get("store") == Some(&Value::Bool(false)),
+                Err(_) => return ApiError::invalid_request("Invalid JSON request").into_response(),
+            }
+        } else {
+            if serde_json::from_slice::<serde::de::IgnoredAny>(&bytes).is_err() {
+                return ApiError::invalid_request("Invalid JSON request").into_response();
+            }
+            false
+        };
+        // The Chat compatibility flag takes precedence over an explicit capture
+        // header. Metadata and accounting remain available, but neither payload
+        // is persisted by this middleware.
+        if no_store {
+            return next
+                .run(Request::from_parts(parts, Body::from(bytes)))
+                .await;
         }
         (
             CapturedRequest::Raw(bytes.clone()),

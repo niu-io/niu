@@ -46,6 +46,17 @@ function page(path: string) {
     </MemoryRouter>
   );
 }
+test('the agent handoff identifies the current deployment and workspace', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({data: [], next_after: null})));
+  const user = userEvent.setup();
+  render(page('/workspaces/demo/routing'));
+  await user.click(await screen.findByRole('button', {name: 'Copy agent prompt'}));
+  const prompt = await navigator.clipboard.readText();
+  expect(prompt).toContain(`deployment at ${window.location.origin}`);
+  expect(prompt).toContain(`${window.location.origin}/workspaces/demo`);
+  expect(prompt).not.toContain(context.workspace.id);
+  expect(prompt).toContain('Verify the deployment and workspace during authorization');
+});
 test("evaluation review preserves unknown charges and does not display internal identifiers", async () => {
   const id = "22222222-2222-4222-8222-222222222222";
   const summary = {

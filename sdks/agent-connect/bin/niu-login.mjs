@@ -27,10 +27,17 @@ try {
   }
  }});
  await saveCredential(options.credentials,credential);
+ let invocationAllowed;
  for(const path of ['/v1/key','/v1/models']){
   const response=await fetch(new URL(path,credential.origin),{headers:{authorization:`Bearer ${credential.token}`},signal:controller.signal,redirect:'error'});
   if(!response.ok)throw new Error(`Authorization saved, but connection verification failed (HTTP ${response.status}). Recheck Niu access before proceeding.`);
+  if(path==='/v1/key')invocationAllowed=(await response.json()).data?.invocation_allowed;
  }
+ process.stdout.write(invocationAllowed===false
+  ? 'Model invocation is not authorized. Discovery and approved management operations remain available.\n'
+  : invocationAllowed===true
+   ? 'Model invocation is authorized under the existing workspace and key limits. Agree on a bounded budget before paid trials.\n'
+   : 'Model invocation authority was not reported. Inspect the connection permissions before paid trials.\n');
  process.stdout.write('Niu connection verified. Credential saved in your private local configuration. No paid model calls were made.\n');
 } catch(error){
  process.stderr.write(`niu-login: ${error instanceof Error?error.message:'Authorization failed'}\n`);process.exitCode=1;

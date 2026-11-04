@@ -17,6 +17,26 @@ function context(projectId:string|null=null):DashboardContext {
 function view(path='/settings/appearance') {return <MemoryRouter initialEntries={[path]}><SidebarProvider><SettingsNavigation context={current}/></SidebarProvider><Link to="/settings/account">Account section</Link><Link to="/settings/appearance">Appearance section</Link><Link to="/settings/billing">Billing section</Link><Routes><Route path="/settings/:section" element={<SettingsPage/>}/></Routes></MemoryRouter>;}
 function mockRequests() {const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input)==='/api/v1/auth/profile'?Response.json({data:{name:'Member',email:null,avatar_data_url:null,revision:0}}):Response.json({password_login:false,data:[]}));vi.stubGlobal('fetch',fetcher);return fetcher;}
 describe('global settings routes',()=>{
+ it('shows members from other workspaces when organization settings opens from a selected workspace',async()=>{
+  current=context();
+  current.token='organization-members-regression';
+  current.workspace={id:'workspace-a',name:'Production',organization_id:organization.id} as DashboardContext['workspace'];
+  current.session!.operator!.organization_id=organization.id;
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>{
+   const path=String(input);
+   if(path==='/api/v1/organizations')return Response.json({data:[organization]});
+   if(path.endsWith('/projects'))return Response.json({data:[{id:'workspace-a',name:'Production'},{id:'workspace-b',name:'Staging'}]});
+   if(path.startsWith('/api/v1/operators'))return Response.json({data:[
+    {id:'member-a',name:'Production member',role:'viewer',organization_id:organization.id,project_id:'workspace-a',revoked:false},
+    {id:'member-b',name:'Staging member',role:'viewer',organization_id:organization.id,project_id:'workspace-b',revoked:false},
+   ]});
+   return Response.json({data:[]});
+  }));
+  render(view('/settings/members'));
+  expect(await screen.findByRole('button',{name:'Production member',exact:true})).toBeTruthy();
+  expect(await screen.findByRole('button',{name:'Staging member',exact:true})).toBeTruthy();
+  expect(screen.getByText('Staging',{exact:true})).toBeTruthy();
+ });
  it('does not report a permission denial while an authorized billing account loads',()=>{
   current={...context(),organization:null,organizations:[],workspaceLoading:true};mockRequests();
   const rendered=render(view('/settings/billing'));

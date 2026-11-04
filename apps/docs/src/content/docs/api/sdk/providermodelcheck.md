@@ -10,7 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 /** Catalog reachability only; this does not prove inference or billing readiness. */
 export type ProviderModelCheck = {
-    status: 'connected' | 'credentials_rejected' | 'endpoint_unavailable' | 'private_endpoint_blocked' | 'invalid_endpoint' | 'redirect_blocked' | 'provider_rate_limited' | 'provider_error' | 'model_catalog_unavailable' | 'model_catalog_too_large' | 'invalid_model_catalog';
+    status: 'connected' | 'credentials_rejected' | 'account_chat_banned' | 'endpoint_unavailable' | 'private_endpoint_blocked' | 'invalid_endpoint' | 'redirect_blocked' | 'provider_rate_limited' | 'provider_error' | 'model_catalog_unavailable' | 'model_catalog_too_large' | 'invalid_model_catalog';
     model: 'listed' | 'not_listed' | 'unknown';
     http_status: number | null;
     duration_ms: number;

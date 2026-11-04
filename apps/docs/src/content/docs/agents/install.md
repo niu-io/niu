@@ -2,6 +2,7 @@
 title: "Install and configure Niu"
 ---
 
+# Install and configure Niu
 
 This is Niu's entry point for coding agents. Install the supported host integration, guide the user through account authorization, verify the granted scope, and then work directly with Niu. The user sets goals and reviews consequential decisions; retrieve model information and request evidence yourself.
 
@@ -41,6 +42,8 @@ A built package contains `plugin.json` and `mcp.json` for Codex, `.claude-plugin
 Invoke the packaged `niu-connect` skill explicitly after installation; do not rely on automatic onboarding execution. Its login client is `runtime/connect/bin/niu-login.mjs`. The host needs Node with built-in fetch. The skill selects `--client Codex`, `--client "Claude Code"` or `--client "DeepSeek Harness"`; hosted Niu is default and `--origin` is limited to the deployment the user selected. It prints/opens a verification URL and polls a separate bounded device channel. Credentials are saved in private local configuration, never in skill text or the conversation. MCP reloads them per operation, so the same process can continue after approval.
 
 Request only task-relevant management grants: `pools:read/write`, `evaluations:read/write` and `events:read/write` are separate capabilities. Each additional grant must be visible in the browser approval; it does not grant a paid-test budget or platform authority. Connection verification uses `inspect_key` and discovery without inference. Continue through agents.md after verification.
+
+Inspect `invocation_allowed` in the connected key response before model execution. The current approval form starts with model calls disabled. Discovery and separately approved management remain available. A person can explicitly allow calls to selected model names; this fixed scope does not include models added later. Inspect `allowed_models` as well as `invocation_allowed` after connecting. Older wildcard grants retain their existing meaning. Model-call approval does not establish a separate trial budget. Older deployments may omit the field, which requires checking their authorization contract before paid execution.
 
 Disconnect by revoking the issued credential in Niu API keys and removing the host plugin. Removing local files alone does not revoke server access. Keep application production credentials separate from the expiring agent-management credential.
 

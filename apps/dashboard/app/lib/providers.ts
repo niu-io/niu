@@ -53,7 +53,7 @@ export function identifyProvider(value?: string): ProviderIdentity | undefined {
 }
 type ModelIdentityInput = { id: string; upstream_model?: string };
 // Route namespaces describe access or transport, not model authorship.
-const routingNamespaces = new Set(['byok', 'fastrouter', 'openrouter']);
+const routingNamespaces = new Set(['byok', 'fastrouter', 'openrouter', 'babelark', 'qiniu']);
 export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | undefined {
   for (const source of [model.upstream_model, model.id]) {
     if (!source?.trim()) continue;

@@ -19,6 +19,7 @@ mod inference_schema;
 mod native_messages_tools;
 mod payments;
 mod provider_integrations;
+mod provider_rejections;
 mod providers;
 mod request_body;
 mod request_payloads;

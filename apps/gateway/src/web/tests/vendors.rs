@@ -30,7 +30,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         ));
         state
     };
-    let state = make_state();
+    let mut state = make_state();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let stripe_runtime = state.stripe_payments.clone();
     let store = state.store.clone();
     let app = router(state);
     let (status, first) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
@@ -51,8 +53,48 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     for (id, alias, upstream_model, _) in routes {
         let (status, _) = call(&app, Method::POST,
             &format!("/admin/v1/vendors/{id}/models"), ADMIN,
-            json!({"alias":alias,"upstream_model":upstream_model,"enabled":true,"public_catalog":true,"capabilities":{}})).await;
+            json!({"alias":alias,"upstream_model":upstream_model,"enabled":true,"public_catalog":true,"capabilities":{},"pricing":{"currency":"USD","api_prompt_rate":1000000000,"api_completion_rate":2000000000,"cash_prompt_rate":1000000000,"cash_completion_rate":2000000000,"max_input_tokens":64,"max_output_tokens":10}})).await;
         assert_eq!(status, StatusCode::OK);
+    }
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    store
+        .create_budget(scope, "USD", 1_000_000_000)
+        .await
+        .unwrap();
+    let provider_id: Uuid = supplier_id.parse().unwrap();
+    let mut offers = Vec::new();
+    for (vendor, alias, _, _) in routes {
+        let rate = niu_storage::ProviderOfferInput {
+            model_alias: alias.into(),
+            currency: "USD".into(),
+            prompt_rate: "1000000000".into(),
+            completion_rate: "2000000000".into(),
+            expected_revision: None,
+        };
+        let revision = store
+            .publish_provider_offer(provider_id, &rate)
+            .await
+            .unwrap();
+        let offer: Uuid = sqlx::query_scalar(
+            "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias=$2",
+        )
+        .bind(provider_id)
+        .bind(alias)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        store
+            .enable_authorized_provider_offer(
+                provider_id,
+                offer,
+                revision,
+                OperatorAuditActor::Installation,
+            )
+            .await
+            .unwrap();
+        store.publish_customer_tariff(scope, &rate).await.unwrap();
+        offers.push((vendor, offer, revision));
     }
     let first_mappings =
         serde_json::to_value(store.vendor_models(first_id).await.unwrap()).unwrap();
@@ -60,7 +102,6 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         serde_json::to_value(store.vendor_models(second_id).await.unwrap()).unwrap();
     let second_metadata = serde_json::to_value(store.vendor(second_id).await.unwrap()).unwrap();
     let second_ciphertext = store.vendor_credential_ciphertext(second_id).await.unwrap();
-    let scope = store.default_workspace().await.unwrap();
     let mut key = store
         .issue_key(
             scope,
@@ -79,6 +120,27 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
                 &format!("/admin/v1/vendors/{first_id}"), ADMIN,
                 json!({"name":"Independent Supplier","api_base":endpoints[0],"api_key":secret,"enabled":true,"expected_revision":first["data"]["revision"]})).await;
             assert_eq!(status, StatusCode::OK);
+            for (vendor, offer, revision) in &offers {
+                if *vendor == first_id {
+                    let (active, authorization): (bool, Option<Uuid>) = sqlx::query_as(
+                        "SELECT active,current_authorization FROM provider_offers WHERE id=$1",
+                    )
+                    .bind(offer)
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+                    assert!(!active && authorization.is_none());
+                    store
+                        .enable_authorized_provider_offer(
+                            provider_id,
+                            *offer,
+                            *revision,
+                            OperatorAuditActor::Installation,
+                        )
+                        .await
+                        .unwrap();
+                }
+            }
             // A stale editor cannot replace the rotated credential or disable
             // this key; neither action may affect the other Supplier key.
             let (status, _) = call(&app, Method::PUT,
@@ -103,7 +165,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             );
         }
         // Rebuild process-local state: stored ownership, mappings and encrypted keys survive.
-        let reloaded = router(make_state());
+        let mut reloaded_state = make_state();
+        reloaded_state.stripe_payments = stripe_runtime.clone();
+        let reloaded = router(reloaded_state);
         for (_, alias, upstream_model, index) in routes {
             for capture in &captures {
                 *capture.0.lock().unwrap() = None;
@@ -116,7 +180,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
                 json!({"model":alias,"messages":[{"role":"user","content":"hello"}]}),
             )
             .await;
-            assert_eq!(status, StatusCode::OK);
+            assert_eq!(status, StatusCode::OK, "{body}");
             assert_eq!(body["model"], alias);
             let captured = captures[index].0.lock().unwrap();
             let (headers, request) = captured.as_ref().unwrap();
@@ -170,7 +234,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             .unwrap()
             .revoked
     );
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     let attempts_before: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
         .fetch_one(&pool)
         .await
@@ -251,23 +317,23 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     let current = store.vendor(first_id).await.unwrap().unwrap();
     assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{first_id}"), ADMIN,
         json!({"name":current.name,"api_base":current.api_base,"enabled":false,"expected_revision":current.revision})).await.0, StatusCode::OK);
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     for capture in &captures {
         *capture.0.lock().unwrap() = None;
     }
     for alias in ["independent-a", "independent-b"] {
-        assert_eq!(
-            call(
-                &reloaded,
-                Method::POST,
-                "/v1/chat/completions",
-                &key.token,
-                json!({"model":alias,"messages":[{"role":"user","content":"hello"}]})
-            )
-            .await
-            .0,
-            StatusCode::NOT_FOUND
-        );
+        let (status, body) = call(
+            &reloaded,
+            Method::POST,
+            "/v1/chat/completions",
+            &key.token,
+            json!({"model":alias,"messages":[{"role":"user","content":"hello"}]}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+        assert_eq!(body["error"]["type"], "upstream_error", "{body}");
     }
     assert!(
         captures
@@ -311,7 +377,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     let disabled = store.vendor(first_id).await.unwrap().unwrap();
     assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{first_id}"), ADMIN,
         json!({"name":disabled.name,"api_base":disabled.api_base,"enabled":true,"expected_revision":disabled.revision})).await.0, StatusCode::OK);
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     for (_, alias, upstream_model, index) in routes {
         for capture in &captures {
             *capture.0.lock().unwrap() = None;
@@ -364,7 +432,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             .0,
         StatusCode::NO_CONTENT
     );
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     for capture in &captures {
         *capture.0.lock().unwrap() = None;
     }

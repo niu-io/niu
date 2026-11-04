@@ -20,6 +20,7 @@ pub mod request_exports;
 pub mod request_payloads;
 mod session;
 pub(crate) mod vendor_cooldown;
+pub(crate) mod connection_incidents;
 pub(crate) mod vendor_request_rate;
 pub mod video_composer_drafts;
 pub mod workspace_aliases;
@@ -4833,6 +4834,7 @@ pub async fn gateway_request(
 ///                   "enum": [
 ///                     "upstream_http_error",
 ///                     "upstream_region_unavailable",
+///                     "upstream_account_restricted",
 ///                     "upstream_timeout",
 ///                     "upstream_connection_error",
 ///                     "upstream_transport_error",

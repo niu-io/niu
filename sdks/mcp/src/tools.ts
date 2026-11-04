@@ -1573,7 +1573,7 @@ export const toolDefinitions = [
   {
     name: "inspect_key",
     description:
-      "Inspect the current workspace API key: label, allowed_models, management_capabilities (explicit resource grants, not installation authority), expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
+      "Inspect the current workspace API key: label, allowed_models, invocation_allowed (false blocks model calls independently of discovery and management), management_capabilities (explicit resource grants, not installation authority), expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {

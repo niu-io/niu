@@ -174,7 +174,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/vendors/{id}/catalog` — Discover upstream models for a Provider API-key configuration](/docs/api/rest/listprovidermodelcatalog/)
 - [`POST /api/v1/vendors/{id}/catalog` — Refresh descriptive metadata for existing vendor model mappings](/docs/api/rest/refreshprovidercatalogmetadata/)
 - [`POST /api/v1/vendors/{id}/check` — Check provider reachability and whether a mapped model is listed](/docs/api/rest/checkvendormodel/)
-- [`POST /api/v1/vendors/{id}/import` — Discover and import owner-funded Provider models](/docs/api/rest/importpersonalprovidermodels/)
+- [`POST /api/v1/vendors/{id}/import` — Discover and import Provider models](/docs/api/rest/importpersonalprovidermodels/)
 - [`GET /api/v1/vendors/{id}/integration` — Read vendor integration identity](/docs/api/rest/getvendorintegration/)
 - [`PUT /api/v1/vendors/{id}/integration` — Set vendor integration identity](/docs/api/rest/setvendorintegration/)
 - [`GET /api/v1/vendors/{id}/models` — List model bindings for one Provider API-key configuration](/docs/api/rest/listvendormodels/)
@@ -183,6 +183,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/vendors/{id}/supplier` — Read the Provider owning an API configuration](/docs/api/rest/getconfigurationprovider/)
 - [`PUT /api/v1/vendors/{id}/supplier` — Associate an API configuration with a Provider](/docs/api/rest/associateconfigurationprovider/)
 - [`GET /api/v1/vendors/{vendor}/cooldown` — Read credential safe-failure cooldown](/docs/api/rest/getvendorcooldown/)
+- [`GET /api/v1/vendors/{vendor}/incidents` — Read upstream connection incidents and recovery evidence](/docs/api/rest/listvendorincidents/)
 - [`GET /api/v1/vendors/{vendor}/request-rate-limit` — Read upstream credential request limit](/docs/api/rest/getvendorrequestratelimit/)
 - [`PUT /api/v1/vendors/{vendor}/request-rate-limit` — Set upstream credential request limit](/docs/api/rest/setvendorrequestratelimit/)
 - [`GET /api/v1/vendors/{vendor}/request-rate-limit/history` — Read credential request-limit history](/docs/api/rest/listvendorrequestratelimithistory/)
@@ -502,6 +503,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 
 ## Service endpoints
 
+- [`GET /api/v1/incidents` — Read platform upstream connection incidents](/docs/api/rest/listconnectionincidents/)
 - [`GET /api/v1/payments/readiness` — Read deployment service and payment readiness](/docs/api/rest/getpaymentreadiness/)
 - [`GET /api/v1/platform/audit-events` — List platform operation audit logs](/docs/api/rest/listplatformauditevents/)
 - [`GET /api/v1/platform/branding` — Read platform branding and theme configuration](/docs/api/rest/getbranding/)

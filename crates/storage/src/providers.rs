@@ -285,7 +285,7 @@ impl Store {
             .bind(input.valid_until_ms)
             .execute(&mut *tx)
             .await.map_err(map_qualification_write_error)?;
-        sqlx::query("UPDATE provider_offers SET current_qualification_review=$3 WHERE provider_id=$1 AND id=$2 AND current_revision=$4")
+        sqlx::query("UPDATE provider_offers SET current_qualification_review=$3,current_authorization=NULL WHERE provider_id=$1 AND id=$2 AND current_revision=$4")
             .bind(provider)
             .bind(offer)
             .bind(review)
@@ -345,7 +345,7 @@ impl Store {
             .bind(provider)
             .execute(&mut *tx)
             .await?;
-        sqlx::query("UPDATE provider_offers SET active=FALSE,current_qualification_review=NULL WHERE provider_id=$1")
+        sqlx::query("UPDATE provider_offers SET active=FALSE,current_qualification_review=NULL,current_authorization=NULL WHERE provider_id=$1")
             .bind(provider)
             .execute(&mut *tx)
             .await?;
@@ -898,6 +898,127 @@ impl Store {
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'offer_priced',$2)").bind(provider).bind(revision).execute(&mut *tx).await?;
         self.commit_route_write(tx).await?;
         Ok(revision)
+    }
+
+    /// Record an authorization without activating it; retained for migration
+    /// tests. Product enablement must use the atomic method below.
+    pub async fn record_provider_offer_authorization(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        expected_revision: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        self.authorize_provider_offer(provider, offer, expected_revision, actor, false)
+            .await
+    }
+
+    /// Authorize and enable the exact rate revision in one serialized write.
+    pub async fn enable_authorized_provider_offer(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        expected_revision: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        self.authorize_provider_offer(provider, offer, expected_revision, actor, true)
+            .await
+    }
+
+    async fn authorize_provider_offer(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        expected_revision: Uuid,
+        actor: OperatorAuditActor,
+        enable: bool,
+    ) -> Result<Uuid, StoreError> {
+        let mut tx = self.begin_route_write().await?;
+        let (actor_kind, operator) = actor.kind_and_id();
+        if let Some(operator) = operator {
+            let authorized = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM admin_operators WHERE id=$1 AND platform_admin AND revoked_at IS NULL FOR SHARE)")
+                .bind(operator).fetch_one(&mut *tx).await?;
+            if !authorized {
+                return Err(StoreError::Unauthorized);
+            }
+        }
+        if enable {
+            // A lost response can be retried without creating a second record.
+            let current: Option<Uuid> = sqlx::query_scalar("SELECT current_authorization FROM provider_offers WHERE provider_id=$1 AND id=$2 AND current_revision=$3 AND active AND current_authorization IS NOT NULL AND niu_offer_qualification_current(provider_id,id,current_revision) FOR UPDATE")
+                .bind(provider).bind(offer).bind(expected_revision)
+                .fetch_optional(&mut *tx).await?.flatten();
+            if let Some(current) = current {
+                self.commit_route_write(tx).await?;
+                return Ok(current);
+            }
+        }
+        // The same writer lock serializes this check against route changes and
+        // rate publication. A matching credential is configuration, not proof
+        // that the upstream accepts requests.
+        let ready = sqlx::query_scalar::<_, bool>("SELECT NOT o.active AND o.current_revision=$3 AND m.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND EXISTS(SELECT 1 FROM vendor_supplier_ownership own WHERE own.vendor_id=v.id AND own.provider_id=$1) AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) AND niu_media_offer_binding_current($1,$2,$3) FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id JOIN vendor_models m ON m.alias=o.model_alias AND m.vendor_id=o.vendor_id JOIN vendors v ON v.id=o.vendor_id WHERE o.provider_id=$1 AND o.id=$2 AND p.deleted_at IS NULL FOR UPDATE OF o FOR SHARE OF p,m,v")
+            .bind(provider).bind(offer).bind(expected_revision)
+            .fetch_optional(&mut *tx).await?.unwrap_or(false);
+        if !ready {
+            return Err(StoreError::Conflict);
+        }
+        let authorization = Uuid::new_v4();
+        sqlx::query("INSERT INTO provider_offer_authorizations(id,provider_id,offer_id,rate_revision,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6)")
+            .bind(authorization).bind(provider).bind(offer).bind(expected_revision)
+            .bind(actor_kind).bind(operator).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_authorized',$4)")
+            .bind(provider).bind(actor_kind).bind(operator).bind(authorization).execute(&mut *tx).await?;
+        if enable {
+            // The activation trigger reads the current stored pointer, so bind
+            // first and activate second within the same transaction.
+            sqlx::query("UPDATE provider_offers SET current_qualification_review=NULL,current_authorization=$3 WHERE provider_id=$1 AND id=$2")
+                .bind(provider).bind(offer).bind(authorization).execute(&mut *tx).await?;
+            sqlx::query("UPDATE provider_offers SET active=TRUE WHERE provider_id=$1 AND id=$2")
+                .bind(provider)
+                .bind(offer)
+                .execute(&mut *tx)
+                .await
+                .map_err(map_qualification_write_error)?;
+            sqlx::query("INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_resumed',$4)")
+                .bind(provider).bind(actor_kind).bind(operator).bind(offer).execute(&mut *tx).await?;
+        }
+        self.commit_route_write(tx).await?;
+        Ok(authorization)
+    }
+
+    /// Revoke a recorded authorization without changing legacy qualification.
+    /// Repeating the same revocation is safe and does not create another audit.
+    pub async fn revoke_provider_offer_authorization(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        authorization: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin_route_write().await?;
+        let (actor_kind, operator) = actor.kind_and_id();
+        if let Some(operator) = operator {
+            let authorized = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM admin_operators WHERE id=$1 AND platform_admin AND revoked_at IS NULL FOR SHARE)")
+                .bind(operator).fetch_one(&mut *tx).await?;
+            if !authorized {
+                return Err(StoreError::Unauthorized);
+            }
+        }
+        let exists = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM provider_offer_authorizations WHERE id=$1 AND provider_id=$2 AND offer_id=$3 FOR SHARE)")
+            .bind(authorization).bind(provider).bind(offer).fetch_one(&mut *tx).await?;
+        if !exists {
+            return Err(StoreError::Conflict);
+        }
+        let inserted = sqlx::query("INSERT INTO provider_offer_authorization_revocations(id,provider_id,offer_id,authorization_id,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(authorization_id) DO NOTHING")
+            .bind(Uuid::new_v4()).bind(provider).bind(offer).bind(authorization)
+            .bind(actor_kind).bind(operator).execute(&mut *tx).await?.rows_affected();
+        sqlx::query("UPDATE provider_offers SET active=FALSE,current_authorization=NULL WHERE provider_id=$1 AND id=$2 AND current_authorization=$3")
+            .bind(provider).bind(offer).bind(authorization).execute(&mut *tx).await?;
+        if inserted != 0 {
+            sqlx::query("INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_authorization_revoked',$4)")
+                .bind(provider).bind(actor_kind).bind(operator).bind(authorization).execute(&mut *tx).await?;
+        }
+        self.commit_route_write(tx).await?;
+        Ok(())
     }
 
     pub async fn set_provider_offer_active(

@@ -181,3 +181,256 @@ async fn agent_connection_requires_scoped_explicit_browser_approval(pool: PgPool
         StatusCode::UNAUTHORIZED
     );
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn named_agent_grant_does_not_expand_when_workspace_models_are_added(pool: PgPool) {
+    let mut state = test_state(None, pool);
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Named grant owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state.clone());
+    let (status, _, created) = request(
+        &app,
+        "/api/v1/auth/agents",
+        None,
+        None,
+        json!({"client_name":"Codex"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let code = created["user_code"].as_str().unwrap();
+    let (status, _, _) = request(&app, &format!("/api/v1/auth/agents/{code}"), Some(&owner.token),
+        Some("https://niu.example.test"), json!({"approve":true,"organization_id":scope.organization_id,
+            "workspace_id":scope.project_id,"allowed_models":["fast"],"ttl_seconds":3600,"invocation_allowed":true})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _, exchanged) = request(
+        &app,
+        "/api/v1/auth/agents/token",
+        None,
+        None,
+        json!({"device_secret":created["device_secret"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let token = exchanged["token"].as_str().unwrap();
+    let existing = state.config.models["fast"].clone();
+    Arc::make_mut(&mut state.config)
+        .models
+        .insert("later-model".into(), existing);
+    let app = router(state);
+    let principal = store.authenticate(token).await.unwrap();
+    assert!(principal.invocation_allowed());
+    assert!(principal.allows_model("fast"));
+    assert!(!principal.allows_model("later-model"));
+    let catalog = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/models?organization_id={}&project_id={}",
+                    scope.organization_id, scope.project_id
+                ))
+                .header("authorization", format!("Bearer {}", owner.token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(catalog.status(), StatusCode::OK);
+    let catalog: Value =
+        serde_json::from_slice(&to_bytes(catalog.into_body(), 65536).await.unwrap()).unwrap();
+    assert!(
+        catalog["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == "later-model")
+    );
+    for path in ["/v1/key", "/v1/models"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let data: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        if path == "/v1/models" {
+            assert!(
+                data["data"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|model| model["id"] != "later-model")
+            );
+        } else {
+            assert!(data.to_string().contains("fast"));
+            assert!(!data.to_string().contains("later-model"));
+        }
+    }
+    let (status, _, denied) = request(
+        &app,
+        "/v1/chat/completions",
+        Some(token),
+        None,
+        json!({"model":"later-model","messages":[{"role":"user","content":"Must not execute"}]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{denied}");
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn management_connection_denies_all_inference_protocols_before_execution(pool: PgPool) {
+    let mut state = test_state(None, pool);
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Management owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state.clone());
+    let (status, _, created) = request(
+        &app,
+        "/api/v1/auth/agents",
+        None,
+        None,
+        json!({"client_name":"Codex","capabilities":["pools:read","evaluations:read","events:read"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let code = created["user_code"].as_str().unwrap();
+    let (status, _, _) = request(&app, &format!("/api/v1/auth/agents/{code}"), Some(&owner.token),
+        Some("https://niu.example.test"), json!({"approve":true,"organization_id":scope.organization_id,
+            "workspace_id":scope.project_id,"allowed_models":["*"],"ttl_seconds":3600,"invocation_allowed":false})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _, exchanged) = request(
+        &app,
+        "/api/v1/auth/agents/token",
+        None,
+        None,
+        json!({"device_secret":created["device_secret"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let token = exchanged["token"].as_str().unwrap();
+    let principal = store.authenticate(token).await.unwrap();
+    assert!(!principal.invocation_allowed());
+    assert!(
+        store
+            .agent_key_has_capability(scope, principal.key_id(), "pools:read")
+            .await
+            .unwrap()
+    );
+    assert!(store.platform_currency().await.unwrap().is_none());
+    for path in [
+        "/v1/key",
+        "/v1/models",
+        "/v1/routing",
+        "/v1/evaluations",
+        "/v1/events",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "unfunded discovery {path}"
+        );
+    }
+    let ordinary = store
+        .issue_key(scope, "Inference only", &["*".into()], 3600)
+        .await
+        .unwrap();
+    for path in ["/v1/routing", "/v1/evaluations", "/v1/events"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("authorization", format!("Bearer {}", ordinary.token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::FORBIDDEN,
+            "ordinary key {path}"
+        );
+    }
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let app = router(state);
+    for path in [
+        "/v1/chat/completions",
+        "/v1/responses",
+        "/v1/messages",
+        "/v1/embeddings",
+        "/v1beta/models/test:generateContent",
+        "/v1/video/jobs",
+    ] {
+        let (status, _, body) =
+            request(&app, path, Some(token), None, json!({"model":"test"})).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}: {body}");
+        assert!(body.to_string().contains("invocation"), "{path}: {body}");
+    }
+}

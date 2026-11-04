@@ -7,7 +7,7 @@ import { emptyCapabilities } from '@/features/providers/api';
 
 const connection = { id: 'credential-one', name: 'Production key', adapter: 'openrouter', api_base: 'https://openrouter.ai/api/v1', enabled: true, revision: 2, has_credential: true, provider: {id:'provider-one',name:'Provider'} };
 const model = {alias:'team/chat',upstream_model:'upstream/chat',vendor_id:connection.id,public_catalog:false,enabled:true,capabilities:emptyCapabilities(),pricing:null,revision:3,available:false};
-const props = {token:'token',providerId:'provider-one',providerSlug:'example',canManage:true,offers:[],offersComplete:true,qualified:false,onOffer:vi.fn(),onQualification:vi.fn(),onReviewOffer:vi.fn(),onSaved:vi.fn()};
+const props = {token:'token',providerId:'provider-one',providerSlug:'example',canManage:true,offers:[],offersComplete:true,onOffer:vi.fn(),onEnableOffer:vi.fn(),onSaved:vi.fn()};
 function setup(personal=false, failSave=false) {
  const fetcher=vi.fn(async (input: RequestInfo | URL, init?:RequestInit) => {
    const path=String(input);
@@ -30,7 +30,7 @@ it('includes unpriced models and exposes commercial prerequisites without declar
 it('does not require commercial offers for a personal connection',async()=>{
  setup(true); render(<MemoryRouter><ProviderModels {...props}/></MemoryRouter>);
  await screen.findByText('team/chat');
- expect(screen.getByText(/Personal use · billed by Provider · Connection available/)).toBeTruthy();
+ expect(screen.getByText(/Personal use · billed by Provider · Route configured · Provider access not verified/)).toBeTruthy();
  expect(screen.queryByRole('button',{name:'Manage offer'})).toBeNull();
 });
 it('keeps missing paginated offers unknown',async()=>{
@@ -89,7 +89,17 @@ it('does not present a failed route inventory as an empty model list',async()=>{
 it('keeps route availability separate from commercial qualification',async()=>{
  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>Response.json({data:String(input).includes('/models') ? [{...model,available:true}] : [connection]})));
  render(<MemoryRouter><ProviderModels {...props}/></MemoryRouter>);
- expect(await screen.findByText(/Commercial connection · Connection available/)).toBeTruthy();
+ expect(await screen.findByText(/Commercial connection · Route configured · Provider access not verified/)).toBeTruthy();
  expect(screen.getByText('No purchase offer')).toBeTruthy();
  expect(screen.queryByText('Ready for commercial supply')).toBeNull();
+});
+it('refreshes route availability when offer activation changes',async()=>{
+ let available=false;
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>Response.json({data:String(input).includes('/models') ? [{...model,available}] : [connection]})));
+ const offer={id:'offer-one',model_alias:'team/chat',revision:'revision-one',active:false,qualified:false,route_ready:false,rate_kind:'text' as const,currency:'USD',prompt_rate:'1',completion_rate:'1'};
+ const view=render(<MemoryRouter><ProviderModels {...props} token="offer-refresh-test" offers={[offer]}/></MemoryRouter>);
+ expect(await screen.findByText(/Commercial connection · Route unavailable/)).toBeTruthy();
+ available=true;
+ view.rerender(<MemoryRouter><ProviderModels {...props} token="offer-refresh-test" offers={[{...offer,active:true,qualified:true,route_ready:true}]}/></MemoryRouter>);
+ expect(await screen.findByText(/Commercial connection · Route configured · Provider access not verified/)).toBeTruthy();
 });

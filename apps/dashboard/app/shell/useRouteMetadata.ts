@@ -156,6 +156,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                     pricing: t('Pricing', '定价配置'),
                     branding: t('Branding', '品牌定制'),
                     audit: t('Audit logs', '审计日志'),
+                    incidents: t('Connection incidents', '连接事故'),
                     pools: t('Routing', '模型路由'),
                     routing: t('Routing', '模型路由'),
                     overview: t('Overview', '概览'),

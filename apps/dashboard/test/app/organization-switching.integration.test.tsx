@@ -42,7 +42,7 @@ describe('organization switching', () => {
     await screen.findByRole('heading', { name: 'API keys' });
     await waitFor(() => expect(requests.some(item => item.path === '/api/v1/models?organization_id=org-2&project_id=project-2')).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Manage organizations' }));
     await screen.findByRole('heading', { name: 'Organization settings' });
     expect(screen.getByText('Research', { exact: true })).toBeTruthy();
     expect(screen.queryByText('Acme', { exact: true })).toBeNull();
@@ -69,7 +69,7 @@ describe('organization switching', () => {
     expect(screen.queryByRole('menuitemradio')).toBeNull();
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Manage organizations' }));
     await screen.findByRole('heading', { name: 'Organization settings' });
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
     const dialog = await screen.findByRole('dialog', { name: 'Create workspace' });
@@ -200,9 +200,11 @@ describe('organization switching', () => {
     );
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/lab-notes/keys'));
 
-    // Self-service create a new organization from AccountMenu
+    // Self-service organization creation is available from organization settings.
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Create organization' }));
+    expect(screen.queryByRole('menuitem', { name: 'Create organization' })).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: 'Manage organizations' }));
+    await user.click(await screen.findByRole('button', { name: 'Create organization' }));
     const createDialog = await screen.findByRole('dialog', { name: 'Create organization' });
     expect(within(createDialog).getByText(/New organizations start with 0 credits/)).toBeTruthy();
     await user.type(within(createDialog).getByLabelText('Organization name'), 'Studio Alpha');
@@ -218,7 +220,7 @@ describe('organization switching', () => {
     });
     await screen.findByRole('heading', { name: 'Organization settings' });
     expect(router.state.location.search).toContain('organization=studio-alpha');
-    expect(screen.getByText('Studio Alpha', { exact: true })).toBeTruthy();
+    expect(await screen.findByText('Studio Alpha', { exact: true })).toBeTruthy();
     expect(screen.getByText('studio-alpha', { exact: true })).toBeTruthy();
 
     // Rename the organization in Organization settings

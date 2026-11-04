@@ -77,7 +77,7 @@ it('preserves developer filters when their group is collapsed with the keyboard'
   const user=userEvent.setup();
   render(<MemoryRouter><SidebarProvider><ModelTable models={models}/></SidebarProvider></MemoryRouter>);
   await user.click(screen.getByRole('checkbox',{name:'OpenAI',exact:true}));
-  const trigger=screen.getByRole('button',{name:'Model developer',exact:true});
+  const trigger=screen.getByRole('button',{name:'Developer (inferred)',exact:true});
   trigger.focus();await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('false');
   expect(screen.queryByRole('checkbox',{name:'OpenAI',exact:true})).toBeNull();
@@ -174,8 +174,10 @@ it('keeps developer and provider facets separate without treating access namespa
     {id:'anthropic/claude-haiku',provider:'fastrouter',public_catalog:true},
   ];
   render(<MemoryRouter><SidebarProvider><ModelTable models={routes}/></SidebarProvider></MemoryRouter>);
-  const developers=within(screen.getByRole('region',{name:'Model developer filters'}));
+  const developers=within(screen.getByRole('region',{name:'Inferred developer filters'}));
   const connections=within(screen.getByRole('region',{name:'Provider filters'}));
+  expect(developers.getByText('Inferred from model identifiers; not verified.')).toBeTruthy();
+  expect(screen.getAllByText(/Likely developer:/).length).toBeGreaterThan(0);
   expect(developers.queryByRole('checkbox',{name:/byok|fastrouter|team/i})).toBeNull();
   expect(connections.queryByRole('checkbox',{name:/byok/i})).toBeNull();
   expect(developers.getByRole('checkbox',{name:'ByteDance'})).toBeTruthy();
@@ -186,7 +188,7 @@ it('keeps developer and provider facets separate without treating access namespa
   await user.click(connections.getByRole('checkbox',{name:'FastRouter'}));
   expect(screen.getAllByRole('article')).toHaveLength(1);
   expect(screen.getByRole('link',{name:'anthropic/claude-haiku',exact:true})).toBeTruthy();
-  expect(screen.getByText('Developer: Anthropic')).toBeTruthy();
+  expect(screen.getByText('Inferred developer: Anthropic')).toBeTruthy();
   expect(screen.getByText('Provider: FastRouter')).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
   expect(screen.getAllByRole('article')).toHaveLength(4);
@@ -229,6 +231,18 @@ it.each([
   expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
   expect(document.querySelector('pre')?.textContent).toContain(endpoint);
   if(!chat && !video) expect(document.querySelector('pre')?.textContent).not.toContain('/chat/completions');
+});
+
+it('links an unknown-capability model to Chat while stating that support is unverified', () => {
+  const model = {id:'babelark/example',public_catalog:false,catalog:{output_modalities:[]}};
+  const browse = render(<MemoryRouter><SidebarProvider><ModelTable models={[model]}/></SidebarProvider></MemoryRouter>);
+  expect(screen.getByRole('link', {name:'Try in Chat · support unverified'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByText('Capabilities not published')).toBeTruthy();
+  browse.unmount();
+  render(<MemoryRouter initialEntries={['/models/babelark/example']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  expect(screen.getByRole('link', {name:'Try in Chat · support unverified'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByText(/capabilities have not been published/)).toBeTruthy();
+  expect(screen.queryByRole('link', {name:'Open Generations'})).toBeNull();
 });
 
 

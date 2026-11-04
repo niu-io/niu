@@ -148,7 +148,8 @@ Content type: `application/json`.
             "type": "boolean"
           },
           "qualified": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Compatibility field indicating current exact-revision commercial authorization or legacy qualification and required binding. It is not proof of an independent evidence review, live access, an active offer, or a customer selling price."
           },
           "revision": {
             "type": "string",

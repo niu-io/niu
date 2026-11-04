@@ -186,6 +186,91 @@ pub async fn set_offer(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizeOffer {
+    rate_revision: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/authorization",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "authorizeProviderOffer",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Authorize and enable the current Provider offer",
+///     "description": "Platform administration required. Atomically authorizes and enables the exact current rate revision for the Provider-owned enabled route and saved credential. A stale revision or unavailable route returns 409. Repeating a successful request for the same current revision returns its existing authorization. This does not verify upstream access, create a workspace selling price, or grant customer access. Media liability requirements remain independent.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [
+///       {"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"offer","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+///     ],
+///     "requestBody": {"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["rate_revision"],"properties":{"rate_revision":{"type":"string","format":"uuid"}}}}}},
+///     "responses": {
+///       "200":{"description":"Authorized and enabled","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["active","authorization_id"],"properties":{"active":{"type":"boolean"},"authorization_id":{"type":"string","format":"uuid"}}}}}}}},
+///       "401":{"description":"Authentication required"},
+///       "403":{"description":"Platform administration required"},
+///       "409":{"description":"Offer revision or route is unavailable"}
+///     }
+///   }
+/// }
+/// ```
+pub async fn authorize_offer(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, offer)): Path<(Uuid, Uuid)>,
+    Json(input): Json<AuthorizeOffer>,
+) -> Result<Json<Value>, ApiError> {
+    let actor = supplier_audit_actor(auth(&state, &headers).await?);
+    let authorization = state
+        .store
+        .enable_authorized_provider_offer(provider, offer, input.rate_revision, actor)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"active":true,"authorization_id":authorization}}),
+    ))
+}
+/// ```openapi
+/// {
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}",
+///   "method": "delete",
+///   "operation": {
+///     "operationId": "revokeProviderOfferAuthorization",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Revoke a Provider offer authorization",
+///     "description": "Platform administration required. Revokes the specified authorization and pauses the offer if it is still current. Historical attempts and records remain unchanged. Repeating the same revocation is safe. This does not revoke a different current authorization.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [
+///       {"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"offer","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"authorization","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+///     ],
+///     "responses": {
+///       "200":{"description":"Authorization revoked","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["revoked"],"properties":{"revoked":{"type":"boolean"}}}}}}}},
+///       "401":{"description":"Authentication required"},
+///       "403":{"description":"Platform administration required"},
+///       "409":{"description":"Authorization does not match this Provider and offer"}
+///     }
+///   }
+/// }
+/// ```
+pub async fn revoke_offer_authorization(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, offer, authorization)): Path<(Uuid, Uuid, Uuid)>,
+) -> Result<Json<Value>, ApiError> {
+    let actor = supplier_audit_actor(auth(&state, &headers).await?);
+    state
+        .store
+        .revoke_provider_offer_authorization(provider, offer, authorization, actor)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"revoked":true}})))
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/providers",
@@ -2090,7 +2175,7 @@ pub async fn record_settlement(
 ///                       "ready_offers": {
 ///                         "type": "integer",
 ///                         "minimum": 0,
-///                         "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+///                         "description": "Active offers with a current exact-revision commercial authorization or a current legacy review, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
 ///                       },
 ///                       "enabled_api_keys": {
 ///                         "type": "integer",
@@ -2102,6 +2187,7 @@ pub async fn record_settlement(
 ///                       },
 ///                       "qualification_status": {
 ///                         "type": "string",
+///                         "description": "Legacy Provider evidence-review status only. An unqualified value does not rule out an explicitly authorized offer and does not measure live Provider access.",
 ///                         "enum": [
 ///                           "qualified",
 ///                           "unqualified"
@@ -3403,7 +3489,8 @@ pub struct CurrentOfferPage {
 ///                         "type": "boolean"
 ///                       },
 ///                       "qualified": {
-///                         "type": "boolean"
+///                         "type": "boolean",
+///                         "description": "Compatibility field indicating current exact-revision commercial authorization or legacy qualification and required binding. It is not proof of an independent evidence review, live access, an active offer, or a customer selling price."
 ///                       },
 ///                       "revision": {
 ///                         "type": "string",

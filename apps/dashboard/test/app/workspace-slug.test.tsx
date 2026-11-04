@@ -57,9 +57,31 @@ describe('workspace slugs', () => {
     render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
     await user.type(screen.getByLabelText('Workspace name'), 'Budget test');
     expect((screen.getByLabelText('Reset') as HTMLInputElement).value).toBe('Never (lifetime)');
+    expect(screen.getByLabelText('Spending limit ($)').getAttribute('placeholder')).toBe('No limit');
+    expect(screen.getByText(/zero blocks new paid requests/)).toBeTruthy();
     await user.type(screen.getByLabelText('Spending limit ($)'), '0');
     await user.click(screen.getByRole('button', {name:'Create workspace'}));
     expect(createWorkspace).toHaveBeenCalledWith('Budget test',undefined,'budget-test',{currency:'USD',limit_nanos:'0'});
+  });
+  it('leaves the workspace limit unset when the field is blank', async () => {
+    const user = userEvent.setup();
+    const createWorkspace = vi.fn().mockResolvedValue({});
+    render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    await user.type(screen.getByLabelText('Workspace name'), 'No cap');
+    await user.click(screen.getByRole('button', {name:'Create workspace'}));
+    expect(createWorkspace).toHaveBeenCalledWith('No cap', undefined, 'no-cap');
+  });
+  it('does not allow entering a limit while the currency is unavailable', () => {
+    currencyState.currency = '';
+    currencyState.error = 'Currency unavailable';
+    try {
+      render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace:vi.fn()} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+      expect((screen.getByLabelText('Spending limit') as HTMLInputElement).disabled).toBe(true);
+      expect(screen.getByText('Currency unavailable')).toBeTruthy();
+    } finally {
+      currencyState.currency = 'USD';
+      currencyState.error = '';
+    }
   });
   it('rejects excess precision before creating anything', async () => {
     const user = userEvent.setup();

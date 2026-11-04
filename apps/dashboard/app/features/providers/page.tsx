@@ -44,6 +44,9 @@ export default function ProvidersRoute() {
   if (section && !validSections.has(section)) {
     return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}${location.search}${location.hash}`} />;
   }
+  if (context.session?.operating_mode === 'internal' && section === 'settlements') {
+    return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}`} />;
+  }
   if (section === "settings") return <ProviderSettings key={activeProviderId} />;
   if (section !== "keys") return <ProviderAdministration />;
   return <ConnectGate>

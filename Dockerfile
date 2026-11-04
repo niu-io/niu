@@ -20,7 +20,14 @@ COPY sdks/javascript/src sdks/javascript/src
 COPY sdks/javascript/tsconfig.json sdks/javascript/tsconfig.json
 COPY contracts contracts
 COPY branding branding
-RUN pnpm build:dashboard && pnpm build:docs && pnpm build:catalog
+COPY VERSION VERSION
+# The dashboard is a static artifact: release metadata must be present while
+# it is built, not only in the running container's environment. A distributor
+# may override the source version and provide a verified release date.
+ARG VITE_NIU_VERSION
+ARG VITE_NIU_RELEASE_DATE
+RUN export VITE_NIU_VERSION="${VITE_NIU_VERSION:-$(cat VERSION)}" \
+    && pnpm build:dashboard && pnpm build:docs && pnpm build:catalog
 
 FROM rust:1.98-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS gateway-build
 WORKDIR /workspace

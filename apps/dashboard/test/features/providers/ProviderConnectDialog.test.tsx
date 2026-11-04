@@ -49,12 +49,13 @@ it('blocks blind replay after uncertain key creation and clears the secret', asy
   expect(request).toHaveBeenCalledOnce();
 });
 
-it('uses deployment Resale policy without importing personal free routes', async () => {
+it('discovers commercial models without presenting them as ready to sell', async () => {
   mode.value='resale';
-  vi.mocked(request).mockImplementation(async (_token,path) => path.endsWith('/supplier') ? {data:{id:'resale-provider'}} : path.endsWith('/integration') ? {data:{effective_type:'deepseek',revision:0}} : {data:{id:'resale-key',revision:1}});
+  vi.mocked(request).mockImplementation(async (_token,path) => path.endsWith('/supplier') ? {data:{id:'resale-provider'}} : path.endsWith('/integration') ? {data:{effective_type:'deepseek',revision:0}} : path.endsWith('/import') ? {data:{imported:2,discovered:2}} : {data:{id:'resale-key',revision:1}});
   const {user}=show();await user.type(screen.getByLabelText('Provider API key'),'resale-private-key');
-  await user.click(screen.getByRole('button',{name:'Save connection'}));
+  await user.click(screen.getByRole('button',{name:'Connect and import models'}));
   await screen.findByRole('link',{name:'Configured Providers'});
-  expect(vi.mocked(request).mock.calls.filter(([,path])=>path.endsWith('/import'))).toHaveLength(0);
+  expect(screen.getByRole('status').textContent).toContain('New commercial models are disabled');
+  expect(vi.mocked(request).mock.calls.filter(([,path])=>path.endsWith('/import'))).toHaveLength(1);
   expect(vi.mocked(request).mock.calls[0][3]).not.toHaveProperty('personal_organization_id');
 });

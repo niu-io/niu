@@ -8,6 +8,7 @@ mod qiniu;
 mod types;
 use crate::catalog_metadata::CatalogMetadata;
 pub(crate) use estimate::{Quantity, estimate};
+pub(crate) use qiniu::model_square_metadata as qiniu_model_square_metadata;
 use serde_json::Value;
 pub(crate) use types::{Descriptor, Pricing, now_ms};
 

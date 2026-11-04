@@ -39,6 +39,60 @@ fn copy_model_input(input: &VendorModelInput) -> VendorModelInput {
 }
 
 #[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn shared_catalog_import_starts_disabled_and_preserves_existing_routes(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool);
+    let vendor = store
+        .create_vendor(vendor_input(
+            Uuid::new_v4(),
+            "Shared discovery",
+            vec![0x11; 48],
+        ))
+        .await
+        .unwrap();
+    let entry = || VendorModelInput {
+        alias: "shared-discovery/example".into(),
+        upstream_model: "example".into(),
+        public_catalog: false,
+        enabled: true,
+        capabilities: json!({}),
+        pricing: None,
+        expected_revision: None,
+    };
+    assert_eq!(
+        store
+            .import_discovered_vendor_models(vendor.id, vendor.revision, vec![entry()])
+            .await
+            .unwrap(),
+        1
+    );
+    let rows = store.vendor_models(vendor.id).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(!rows[0].enabled);
+    assert!(!rows[0].public_catalog);
+    assert!(rows[0].pricing.is_none());
+    let availability = store
+        .vendor_models_with_availability(vendor.id)
+        .await
+        .unwrap();
+    assert_eq!(availability[0]["available"], false);
+    assert_eq!(
+        store
+            .import_discovered_vendor_models(vendor.id, vendor.revision, vec![entry()])
+            .await
+            .unwrap(),
+        0
+    );
+    assert!(matches!(
+        store
+            .import_discovered_vendor_models(vendor.id, vendor.revision + 1, vec![entry()])
+            .await,
+        Err(StoreError::Conflict)
+    ));
+}
+
+#[sqlx::test]
 #[ignore = "requires PostgreSQL"]
 async fn configured_video_schema_is_versioned_and_matches_supplier_mapping(pool: PgPool) {
     MIGRATOR.run(&pool).await.unwrap();

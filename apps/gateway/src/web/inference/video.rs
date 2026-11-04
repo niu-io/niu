@@ -1648,7 +1648,7 @@ pub(in crate::web) async fn create(
     Json(body): Json<Value>,
 ) -> Result<axum::response::Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state.authorize_invocation_headers(&headers).await?;
     let identity = submission_identity(&headers, &body)?;
     create_as(state, body, principal, identity, None).await
 }
@@ -1726,6 +1726,9 @@ pub(super) async fn create_as(
     identity: Option<SubmissionIdentity>,
     expected_owner_funded: Option<bool>,
 ) -> Result<axum::response::Response, ApiError> {
+    if !principal.invocation_allowed() {
+        return Err(ApiError::from_store(niu_storage::StoreError::InvocationDenied));
+    }
     let model = body
         .get("model")
         .and_then(Value::as_str)

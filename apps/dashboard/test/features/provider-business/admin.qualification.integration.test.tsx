@@ -14,16 +14,16 @@ vi.mock("../../../app/shell/dashboard-context", () => ({
 const supplierId = "9cc6b65a-0b19-4f18-8828-89d6038973f0";
 const offerId = "f31c9646-b8df-4090-aa8b-a9794dfe62bd";
 const rateRevision = "7c923678-90fa-4a66-8343-a3e34975859b";
-const sha256 = "a".repeat(64);
 
-function setup(promptRate = "1000000000", failInitialRead = false, media = false, section = "models", cachedRate: string | null = null, mediaConsumption?: unknown[], offersHasMore = false) {
+function setup(promptRate = "1000000000", failInitialRead = false, media = false, section = "models", cachedRate: string | null = null, mediaConsumption?: unknown[], offersHasMore = false, operatingMode = 'resale') {
   fixture.context = {
-    token: "installation-token",
-    session: { kind: "installation", operator: { name: "Administrator" } },
+    token: `installation-token-${operatingMode}`,
+    session: { kind: "installation", operating_mode: operatingMode, operator: { name: "Administrator" } },
   } as unknown as DashboardContext;
 
   let supplierQualified = false;
   let offerQualified = false;
+  let offerActive = false;
   const requests: { path: string; method: string; body?: Record<string, unknown> }[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
@@ -62,9 +62,9 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
             prompt_rate: media ? null : promptRate,
             completion_rate: media ? null : "2000000000",
             cached_prompt_rate: cachedRate,
-            active: false,
+            active: offerActive,
             qualified: offerQualified,
-            route_ready: false,
+            route_ready: offerActive,
           }],
         },
       });
@@ -72,6 +72,14 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     if (path.includes('/media-offer-models')) return Response.json({data:[{model_alias:'example/model',api_key_name:'Video credential',vendor_id:supplierId,vendor_revision:'2',model_revision:'1',schema_revision:'private-schema',channel:'ark-direct-v1',offer_revision:rateRevision}],has_more:false,next_after:null});
     if (offersHasMore && path.includes('/offers?limit=100&after=')) return Response.json({data:[{id:'later-offer',model_alias:'later/model',revision:'later-revision',rate_kind:'text',currency:'USD',prompt_rate:'3000000000',completion_rate:'4000000000',active:false,qualified:false,route_ready:false}],next_after:null});
     if (path.includes('/media-rates')) return Response.json({data:[],has_more:false,next_after:null});
+    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}/authorization` && method === "PUT") {
+      offerActive = true; offerQualified = true;
+      return Response.json({data:{active:true,authorization_id:"authorization"}});
+    }
+    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}` && method === "PATCH") {
+      offerActive = false;
+      return Response.json({data:{active:false}});
+    }
     if (path === `/api/v1/providers/${supplierId}/qualification` && method === "PUT") {
       supplierQualified = true;
       return Response.json({ data: { qualification_status: "qualified" } });
@@ -94,6 +102,26 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
 }
 
 describe("installation Provider qualification workflow", () => {
+  it("does not present commercial setup as required for internal Provider overview", async () => {
+    setup("1000000000", false, false, "overview", null, undefined, false, 'internal');
+    await screen.findByText('Connect an API key and discover models for internal use.');
+    await screen.findByText('1. Connect upstream API key');
+    expect(screen.queryByText('3. Set customer selling prices')).toBeNull();
+    expect(screen.queryByText('Model offers')).toBeNull();
+    expect(screen.queryByText('Provider qualification')).toBeNull();
+    expect(screen.queryByText('Provider payables')).toBeNull();
+  });
+
+  it("ignores a commercial rates deep link in internal mode", async () => {
+    setup("1000000000", false, false, "models", null, undefined, false, 'internal');
+    await screen.findByText('Manage model connections and availability.');
+    await screen.findByText('No models configured yet.');
+    expect(screen.queryByRole('tab', {name: 'Text rates'})).toBeNull();
+    expect(screen.queryByRole('tab', {name: 'Media rates'})).toBeNull();
+    expect(screen.queryByText('Provider qualification')).toBeNull();
+    expect(screen.queryByRole('button', {name: 'Set agreed rates'})).toBeNull();
+    expect(screen.queryByText('example/model')).toBeNull();
+  });
   it("ignores a previous Provider save failure after navigation", async () => {
     const { router } = setup("1000000000", false, false, "members");
     const originalFetch = globalThis.fetch;
@@ -165,7 +193,7 @@ describe("installation Provider qualification workflow", () => {
     expect(await screen.findByText("example/model")).toBeTruthy();
     expect(screen.queryByText("$1.00")).toBeNull();
     await user.click(screen.getByRole("button",{name:"Actions for example/model"}));
-    expect(screen.getByRole("menuitem",{name:"Review offer"}).getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByRole("menuitem",{name:"Enable offer"}).getAttribute("aria-disabled")).not.toBe("true");
     await user.click(screen.getByRole("menuitem",{name:"Update configuration"}));
     await waitFor(()=>expect(screen.getByLabelText("Model").textContent).toContain("example/model · Video credential"));
     expect(document.body.textContent).not.toContain(offerId);
@@ -173,74 +201,23 @@ describe("installation Provider qualification workflow", () => {
     expect(document.body.textContent).not.toContain("private-schema");
   });
 
-  it("requires provider review before offer review and binds the offer review to current rates", async () => {
-    const { requests } = setup();
-    const user = userEvent.setup();
-
-    expect(await screen.findByText("Qualification required")).toBeTruthy();
-    await user.click(await screen.findByRole("button", { name: "Actions for example/model" }));
-    const offerReview = screen.getByRole("menuitem", { name: "Review offer" });
-    expect(offerReview.getAttribute("aria-disabled")).toBe("true");
-    await user.keyboard("{Escape}");
-
-    await user.click(screen.getByRole("button", { name: "Review Provider" }));
-    await user.type(screen.getByLabelText("Supply-rights evidence SHA-256"), "invalid");
-    await user.click(screen.getByRole("button", { name: "Record review" }));
-    expect(requests.some((request) => request.path.endsWith("/qualification") && request.method === "PUT")).toBe(false);
-
-    await user.clear(screen.getByLabelText("Supply-rights evidence SHA-256"));
-    await user.click(screen.getByLabelText("Supply-rights evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByLabelText("Supply-capability evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByLabelText("Data-handling evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByRole("button", { name: "Record review" }));
-    await waitFor(() => expect(requests.some((request) => request.path === `/api/v1/providers/${supplierId}/qualification` && request.method === "PUT")).toBe(true));
-
-    await user.click(await screen.findByRole("button", { name: "Actions for example/model" }));
-    expect(screen.getByRole("menuitem", { name: "Review offer" }).getAttribute("aria-disabled")).not.toBe("true");
-    await user.click(screen.getByRole("menuitem", { name: "Review offer" }));
-    await user.click(screen.getByLabelText("Model-identity evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByLabelText("Protocol test-matrix SHA-256"));
-    await user.paste(sha256);
-    await user.type(screen.getByLabelText("Protocol matrix version"), "2026-09");
-    await user.click(screen.getByLabelText("Offer data-handling evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByLabelText("Availability evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByLabelText("Agreed-rate evidence SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByRole("button", { name: "Record review" }));
-
-    await waitFor(() => {
-      const offerWrite = requests.find((request) => request.path === `/api/v1/providers/${supplierId}/offers/${offerId}/qualification` && request.method === "PUT");
-      expect(offerWrite?.body).toMatchObject({
-        rate_revision: rateRevision,
-        model_identity_sha256: sha256,
-        protocol_matrix_version: "2026-09",
-        agreed_rates_sha256: sha256,
-      });
-    });
-    expect(document.body.textContent).not.toContain(supplierId);
+  it("enables the confirmed offer revision without requesting evidence hashes and can pause it", async () => {
+    const {requests}=setup(); const user=userEvent.setup();
+    await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
+    await user.click(screen.getByRole("menuitem",{name:"Enable offer"}));
+    expect(screen.queryByText(/SHA-256/)).toBeNull();
+    expect(screen.getByText(/Provider connection, customer selling price/)).toBeTruthy();
+    await user.click(screen.getByRole("button",{name:"Enable offer",exact:true}));
+    await waitFor(()=>expect(requests.find(item=>item.path.endsWith("/authorization") && item.method==="PUT")?.body).toEqual({rate_revision:rateRevision}));
+    await screen.findByText("Offer enabled. Provider access and customer selling prices remain separate.");
+    await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
+    await user.click(await screen.findByRole("menuitem",{name:"Pause offer"}));
+    await user.click(screen.getByRole("button",{name:"Pause offer",exact:true}));
+    await waitFor(()=>expect(requests.find(item=>item.path===`/api/v1/providers/${supplierId}/offers/${offerId}` && item.method==="PATCH")?.body).toEqual({active:false}));
     expect(document.body.textContent).not.toContain(offerId);
     expect(document.body.textContent).not.toContain(rateRevision);
-    expect(await screen.findByText("Qualification review recorded. No discount or model-equivalence claim is implied.")).toBeTruthy();
+  });
 
-    await user.click(await screen.findByRole("button", { name: "Actions for example/model" }));
-    await user.click(screen.getByRole("menuitem", { name: "Revoke review" }));
-    await user.click(screen.getByLabelText("Revocation reason SHA-256"));
-    await user.paste(sha256);
-    await user.click(screen.getByRole("button", { name: "Revoke and pause offers" }));
-    await waitFor(() => {
-      const revocation = requests.find((request) => request.path === `/api/v1/providers/${supplierId}/offers/${offerId}/qualification/revoke` && request.method === "POST");
-      expect(revocation?.body).toEqual({ reason_sha256: sha256 });
-    });
-    expect(await screen.findByText("Qualification review revoked; affected offers are paused.")).toBeTruthy();
-    await user.click(await screen.findByRole("button", { name: "Actions for example/model" }));
-    expect(screen.getByRole("menuitem", { name: "Review offer" })).toBeTruthy();
-  }, 30_000);
 });
 
 it('edits current agreed rates with exact decimal values and the saved revision', async () => {

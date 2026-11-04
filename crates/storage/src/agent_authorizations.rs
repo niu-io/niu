@@ -92,6 +92,26 @@ impl Store {
         models: &[String],
         ttl_seconds: i64,
     ) -> Result<(), StoreError> {
+        self.approve_agent_authorization_with_invocation(
+            user_code,
+            scope,
+            actor,
+            models,
+            ttl_seconds,
+            true,
+        )
+        .await
+    }
+
+    pub async fn approve_agent_authorization_with_invocation(
+        &self,
+        user_code: &str,
+        scope: TenantScope,
+        actor: Uuid,
+        models: &[String],
+        ttl_seconds: i64,
+        invocation_allowed: bool,
+    ) -> Result<(), StoreError> {
         if !(60..=86400).contains(&ttl_seconds)
             || models.is_empty()
             || models.iter().any(|m| m.is_empty() || m.len() > 200)
@@ -99,8 +119,8 @@ impl Store {
         {
             return Err(StoreError::InvalidKey);
         }
-        let result=sqlx::query("UPDATE agent_authorizations SET state='approved',organization_id=$2,project_id=$3,approved_by=$4,approved_models=$5,credential_ttl_seconds=$6 WHERE user_code=$1 AND state='pending' AND expires_at>clock_timestamp() AND EXISTS(SELECT 1 FROM admin_operators o WHERE o.id=$4 AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=$2 AND (o.project_id IS NULL OR o.project_id=$3))")
-            .bind(user_code).bind(scope.organization_id).bind(scope.project_id).bind(actor).bind(models).bind(ttl_seconds).execute(&self.pool).await?;
+        let result=sqlx::query("UPDATE agent_authorizations SET state='approved',organization_id=$2,project_id=$3,approved_by=$4,approved_models=$5,credential_ttl_seconds=$6,invocation_allowed=$7 WHERE user_code=$1 AND state='pending' AND expires_at>clock_timestamp() AND EXISTS(SELECT 1 FROM admin_operators o WHERE o.id=$4 AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=$2 AND (o.project_id IS NULL OR o.project_id=$3))")
+            .bind(user_code).bind(scope.organization_id).bind(scope.project_id).bind(actor).bind(models).bind(ttl_seconds).bind(invocation_allowed).execute(&self.pool).await?;
         if result.rows_affected() != 1 {
             return Err(StoreError::Conflict);
         }
@@ -163,6 +183,8 @@ impl Store {
             ttl,
         )
         .await?;
+        sqlx::query("UPDATE api_keys SET invocation_allowed=a.invocation_allowed FROM agent_authorizations a WHERE api_keys.id=$1 AND a.id=$2")
+            .bind(issued.id).bind(id).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO agent_key_capabilities(key_id,capability,authorization_id) SELECT $2,unnest(requested_capabilities),id FROM agent_authorizations WHERE id=$1")
             .bind(id).bind(issued.id).execute(&mut *tx).await?;
         sqlx::query(

@@ -57,7 +57,7 @@ it('retries a failed key read without claiming the key is missing', async () => 
   render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={[]} canWrite={false} initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
   const user=userEvent.setup();
   await screen.findByRole('button',{name:'Retry API key'});
-  expect(screen.queryByText('This key is not in the selected workspace.')).toBeNull();
+  expect(screen.queryByText('This key could not be found or accessed in this workspace.')).toBeNull();
   await user.click(screen.getByRole('button',{name:'Retry API key'}));
   await screen.findByRole('heading',{name:'Application key'});
   expect(reads).toBe(2);
@@ -81,13 +81,20 @@ it('hides stale key details and ignores a late revocation after changing scope',
   rendered.rerender(view('next'));
   expect(screen.queryByRole('heading',{name:'Previous workspace key'})).toBeNull();
   expect(screen.queryByRole('group',{name:'Confirm API key revocation'})).toBeNull();
-  expect(screen.queryByText('This key is not in the selected workspace.')).toBeNull();
+  expect(screen.queryByText('This key could not be found or accessed in this workspace.')).toBeNull();
   finishRead(Response.json({data:[record('Current workspace key')]}));
   await screen.findByRole('heading',{name:'Current workspace key'});
   finishRevoke(new Response(null,{status:204}));
   await user.click(screen.getByRole('button',{name:'Revoke key'}));
   expect(screen.queryByText('Key revoked. Requests using it will be rejected.')).toBeNull();
   expect((screen.getByRole('button',{name:'Confirm revoke'}) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('offers a neutral, workspace-scoped recovery when the key is absent', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({data: []})));
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/missing']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="missing-test" models={[]} canWrite={false} initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  await screen.findByText('This key could not be found or accessed in this workspace.');
+  expect(screen.getByRole('link', {name:'Return to API keys'}).getAttribute('href')).toBe('/workspaces/demo/keys');
 });
 
 it('redirects an old key ID bookmark to its stable slug and edits by the API ID', async () => {

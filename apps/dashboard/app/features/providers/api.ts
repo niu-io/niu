@@ -85,6 +85,7 @@ export type ProviderModelCheck = {
   status:
     | 'connected'
     | 'credentials_rejected'
+    | 'account_chat_banned'
     | 'endpoint_unavailable'
     | 'private_endpoint_blocked'
     | 'invalid_endpoint'

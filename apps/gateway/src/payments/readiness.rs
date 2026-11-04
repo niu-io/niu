@@ -255,7 +255,7 @@ pub(crate) struct ReadinessQuery {
 }
 
 /// ```openapi
-/// {"path":"/api/v1/payments/readiness","method":"get","operation":{"operationId":"getPaymentReadiness","summary":"Read deployment service and payment readiness","x-niu-implementation":"implemented","security":[{},{"bearerAuth":[]}],"description":"Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.","responses":{"200":{"description":"Current prerequisite state","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["ready","reason"],"properties":{"ready":{"type":"boolean"},"reason":{"type":["string","null"],"enum":["currency_required","payment_setup_required",null]}}}}}}}},"500":{"description":"Readiness could not be established; clients must not assume readiness."},"401":{"description":"Requested authenticated scope has no valid session"},"403":{"description":"Company outside authorized scope"}},"parameters":[{"name":"organization","in":"query","required":false,"schema":{"type":"string","format":"uuid"},"description":"Authenticated company scope; installation credentials may select a company, members may only select their own."}]}}
+/// {"path":"/api/v1/payments/readiness","method":"get","operation":{"operationId":"getPaymentReadiness","summary":"Read deployment service and payment readiness","x-niu-implementation":"implemented","security":[{},{"bearerAuth":[]}],"description":"Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup, credential inspection, model discovery, non-inference routing/evaluation/event management and funding recovery stay available. No amounts, merchant credentials or identities are returned.","responses":{"200":{"description":"Current prerequisite state","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["ready","reason"],"properties":{"ready":{"type":"boolean"},"reason":{"type":["string","null"],"enum":["currency_required","payment_setup_required",null]}}}}}}}},"500":{"description":"Readiness could not be established; clients must not assume readiness."},"401":{"description":"Requested authenticated scope has no valid session"},"403":{"description":"Company outside authorized scope"}},"parameters":[{"name":"organization","in":"query","required":false,"schema":{"type":"string","format":"uuid"},"description":"Authenticated company scope; installation credentials may select a company, members may only select their own."}]}}
 /// ```
 pub(crate) async fn read(
     State(state): State<AppState>,
@@ -451,7 +451,27 @@ async fn current_stripe_verification(
 
 // Account funding, authentication and administration remain available for recovery.
 fn customer_feature(path: &str) -> bool {
-    if path == "/v1/currency" || path == "/v1/branding" {
+    if matches!(
+        path,
+        "/v1/currency" | "/v1/branding" | "/v1/key" | "/v1/models"
+    ) {
+        return false;
+    }
+    // These resource operations never invoke models or reserve customer funds.
+    // Their handlers still enforce the credential's scope and management grants.
+    if [
+        "/v1/routing",
+        "/v1/evaluations",
+        "/v1/events",
+        "/api/v1/workspaces/{workspace}/routing",
+        "/api/v1/workspaces/{workspace}/evaluations",
+        "/api/v1/workspaces/{workspace}/events",
+    ]
+    .iter()
+    .any(|root| {
+        path.strip_prefix(root)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    }) {
         return false;
     }
     path == "/v1"
@@ -480,7 +500,13 @@ pub(crate) async fn gate(
         .to_owned();
     // Directory/slug lookup is necessary to select a funded workspace. Creation
     // checks the authorized body scope in its handler, before any write.
-    let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str());
+    let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str())
+        || (request.method() == axum::http::Method::GET
+            && [
+                "/api/v1/organizations/{organization}/projects",
+                "/admin/v1/organizations/{organization}/projects",
+            ]
+            .contains(&path.as_str()));
     let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
         && request.method() == axum::http::Method::GET;
     if customer_feature(&path) && !directory && !lookup {
@@ -556,13 +582,13 @@ pub(crate) async fn gate(
                     .unwrap_or("readiness_unavailable");
                 return (axum::http::StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":{
                     "type":"payment_setup_required", "code":reason,
-                    "message":"Workspace features require platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
+                    "message":"This action requires platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
                 }}))).into_response();
             }
             Err(_) => {
                 return (axum::http::StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":{
                     "type":"payment_setup_required", "code":"readiness_unavailable",
-                    "message":"Workspace features require platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
+                    "message":"This action requires platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
                 }}))).into_response();
             }
         }
@@ -685,6 +711,12 @@ mod tests {
         }
         for path in [
             "/v1/currency",
+            "/v1/key",
+            "/v1/models",
+            "/v1/routing",
+            "/v1/evaluations/example/runs",
+            "/v1/events/example/test",
+            "/api/v1/workspaces/{workspace}/routing/{slug}",
             "/api/v1/payments/readiness",
             "/api/v1/platform/payments/epay",
             "/api/v1/platform/currency",
@@ -1130,7 +1162,7 @@ mod tests {
                 403,
             ),
             ("/v1/models".into(), key.token.as_str(), 200),
-            ("/v1/models".into(), foreign_key.token.as_str(), 503),
+            ("/v1/models".into(), foreign_key.token.as_str(), 200),
             ("/api/v1/workspaces".into(), owner.token.as_str(), 200),
             (
                 format!("/api/v1/payments/readiness?organization={other}"),

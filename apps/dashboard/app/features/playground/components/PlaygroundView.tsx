@@ -400,15 +400,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     (opener?.isConnected ? opener : historyToggleRef.current)?.focus();
     historyDialogOpener.current = null;
   }
-  useEffect(() => {
-    const composer = composerRef.current;
-    if (!composer) return;
-    const resize = new ResizeObserver(() => {
-      transcriptRef.current?.style.setProperty('padding-bottom', `${composer.getBoundingClientRect().height + 24}px`);
-    });
-    resize.observe(composer);
-    return () => resize.disconnect();
-  }, [initialScope, models.length]);
   const dashboard=useDashboardContext();
   const { chatKeys, workspace, workspaces, session } = dashboard;
   const organization = initialScope?.organizationId ?? '';
@@ -450,6 +441,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     setModelPickerOpen(true);
   };
   const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
+  const [manualKeyRequested, setManualKeyRequested] = useState(false);
   const availableKeys=useGenerationKeys(dashboard,apiSettingsOpen);
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -799,6 +791,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     return () => controller.abort();
   }, [apiSettingsOpen, token, organization, workspaceId]);
   const keyChoices = [...sessionKeys, ...workspaceKeys.filter(key => !sessionKeys.some(saved => saved.id === key.id))];
+  const noAvailableKeys = workspaceKeysReady && !keyLoadError && !availableKeys.loading && !availableKeys.error && keyChoices.length === 0 && availableKeys.keys.length === 0;
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
@@ -1141,7 +1134,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
 
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">
-          {error && !results && <p role="alert" className="playground-chat-error">{error}</p>}
+          {error && !results && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
           {selectedModels.some(model => unverifiedModels.includes(model)) && <Alert role="status"><AlertDescription>{uiT("Chat support is unverified for")}{" "}{selectedModels.filter(model => unverifiedModels.includes(model)).join(', ')}{uiT(". Confirm support with your platform administrator before sending.")}</AlertDescription></Alert>}
           {modelsError && <div role="alert" className="playground-chat-error">{modelsError}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>{uiT("Retry model catalog")}</Button>}</div>}
           {!initialScope
@@ -1164,13 +1157,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 ? null
                 : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results }]).map((turn, turnIndex) => <div className="playground-comparison-thread" key={turnIndex}>
                   <div className="playground-user-prompt"><span>{uiT("You")}</span><p>{turn.prompt}</p></div>
-                  {error && <p role="alert" className="playground-chat-error">{error}</p>}
+                  {error && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
                     <div className="playground-results-heading"><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
                       <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{result.model}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : generationOutcome(result.finishReason).label}</Badge></div>
                       {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{generationOutcome(result.finishReason).detail}</p>}
-                      {result.phase === 'failed' && <p className="playground-response-error">{result.error}</p>}
+                      {result.phase === 'failed' && <p className="playground-response-error">{result.error && uiT(result.error)}</p>}
                       {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
                       <div className="playground-result-footer">
                         <div className="playground-card-metrics">
@@ -1248,9 +1241,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 ? <Button type="button" size="icon" className="rounded-full" aria-label={uiT("Stop generating")} onClick={cancelComparison}><Square size={14} /></Button>
                 : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit}><ArrowUp size={19} /></Button>}
             </div>
-          {workspaceKeysReady && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)) && <p role="status" className="px-3 pb-2 text-xs text-muted-foreground">{uiT("The requested API key is unavailable or you no longer have access. Choose another key before sending.")}</p>}
-          <p aria-label={uiT("Usage billing")} className="px-3 pb-2 text-xs text-muted-foreground">{billingSummary}</p>
           </div></PopoverAnchor>
+          <div className="playground-composer-notices">
+            {workspaceKeysReady && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)) && <p role="status">{uiT("The requested API key is unavailable or you no longer have access. Choose another key before sending.")}</p>}
+            <p aria-label={uiT("Usage billing")}>{billingSummary}</p>
+          </div>
         </form>
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
@@ -1354,13 +1349,14 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         <div className="space-y-4">
           {availableKeys.error && <p role="alert" className="text-sm text-destructive">{availableKeys.error}</p>}
           {keyLoadError && <p role="alert" className="text-sm text-destructive">{keyLoadError}</p>}
-          <div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? uiT("Use another key")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId || 'manual'} onValueChange={value => {manualKeySelection.current=value==='manual';const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
+          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && !manualKeyRequested && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("No active API key is available. Create one for this workspace, then return to your chat. Its limits and the workspace billing policy apply.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}{noAvailableKeys && <Button type="button" variant="ghost" onClick={() => setManualKeyRequested(true)}>{uiT("Use an existing key secret")}</Button>}</div>}{(!noAvailableKeys || manualKeyRequested) && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? (manualKeyRequested ? uiT("Use another key") : uiT("Select API key"))}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={manualKeyRequested ? 'manual' : selectedKeyId === 'manual' ? '' : selectedKeyId} onValueChange={value => {manualKeySelection.current=value==='manual';setManualKeyRequested(value==='manual');const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
               {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">{uiT("Use another key")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </div>
-          {!selectedKey && !managedKey && <div className="space-y-2"><Label htmlFor="playground-existing-key">{uiT("Key secret")}</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving || !draft.ready} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder={uiT("Paste your API key")} /><p className="text-sm text-muted-foreground">{uiT("Paste a workspace API key to use it in this chat.")}</p></div>}
+          {!selectedKey && !managedKey && manualKeyRequested && <div className="space-y-2"><Label htmlFor="playground-existing-key">{uiT("Key secret")}</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving || !draft.ready} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder={uiT("Paste your API key")} /><p className="text-sm text-muted-foreground">{uiT("Paste a workspace API key to use it in this chat.")}</p></div>}
           {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">{uiT("This key does not allow any available models.")}</p>}
+          </>}</>}
         </div>
         <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>{uiT("Manage keys")}</Link></Button><Button disabled={!apiKey} onClick={() => setApiSettingsOpen(false)}>{uiT("Done")}</Button></div>
     </DialogContent>

@@ -8,6 +8,7 @@ use uuid::Uuid;
 pub enum RequestFailureKind {
     UpstreamHttpError,
     UpstreamRegionUnavailable,
+    UpstreamAccountRestricted,
     UpstreamTimeout,
     UpstreamConnectionError,
     UpstreamTransportError,
@@ -20,6 +21,7 @@ impl RequestFailureKind {
         match self {
             Self::UpstreamHttpError => "upstream_http_error",
             Self::UpstreamRegionUnavailable => "upstream_region_unavailable",
+            Self::UpstreamAccountRestricted => "upstream_account_restricted",
             Self::UpstreamTimeout => "upstream_timeout",
             Self::UpstreamConnectionError => "upstream_connection_error",
             Self::UpstreamTransportError => "upstream_transport_error",
@@ -69,7 +71,9 @@ impl Store {
     ) -> Result<(), StoreError> {
         use RequestFailureKind::*;
         let valid = match failure.kind {
-            UpstreamRegionUnavailable => failure.upstream_http_status == Some(403),
+            UpstreamRegionUnavailable | UpstreamAccountRestricted => {
+                failure.upstream_http_status == Some(403)
+            }
             UpstreamHttpError => failure.upstream_http_status.is_some_and(|status| {
                 (100..=599).contains(&status) && !(200..=299).contains(&status)
             }),
@@ -127,6 +131,12 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
+        // Operational evidence commits with the classification. This neither
+        // authorizes a retry nor changes execution, settlement or route policy.
+        sqlx::query("SELECT niu_record_connection_incident($1)")
+            .bind(attempt)
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         if confirmed {
             // Independent transactions keep customer and procurement recovery

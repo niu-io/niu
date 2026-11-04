@@ -2,7 +2,7 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate, useParams, useSearchParams, type LoaderFunctionArgs } from "react-router";
+import { Link, useLocation, useParams, useSearchParams, type LoaderFunctionArgs } from "react-router";
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from "@/lib/route-data";
 import {
   IconArrowLeft,
@@ -448,7 +448,6 @@ function Review({
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
-  const navigate = useNavigate();
   const availableModels = useMemo(
     () =>
       models.filter(
@@ -1219,26 +1218,13 @@ function Review({
           </div>
         }
       />
-      {slug ? (
+      {slug && (
         <Button variant="ghost" size="sm" asChild>
           <Link to={run ? `${base}/${encodeURIComponent(slug)}` : base}>
             <IconArrowLeft size={16} />
             {run ? t("All runs", "所有评估记录") : title}
           </Link>
         </Button>
-      ) : (
-        <Tabs
-          value={kind}
-          onValueChange={(nextKind) =>
-            navigate(base.replace(/\/(routing|evaluations|events)$/, `/${nextKind}`))
-          }
-        >
-          <TabsList variant="line">
-            <TabsTrigger value="routing">{t("Routing", "模型路由")}</TabsTrigger>
-            <TabsTrigger value="evaluations">{t("Evaluations", "评估")}</TabsTrigger>
-            <TabsTrigger value="events">{t("Event subscriptions", "事件订阅")}</TabsTrigger>
-          </TabsList>
-        </Tabs>
       )}
       <div>
         {slug && (
@@ -1392,7 +1378,7 @@ function Review({
                       onClick={() => {
                         void navigator.clipboard
                           .writeText(
-                            `Use Niu to ${kind === "routing" ? "configure model routing for my task" : kind === "evaluations" ? "define a task-specific model evaluation; agree on acceptance criteria and a bounded paid budget before running it" : "configure workspace event notifications to a receiver I authorize"}. Read https://niu.io/docs/agents.md and inspect my current workspace grants first.`,
+                            `Use Niu to ${kind === "routing" ? "configure model routing for my task" : kind === "evaluations" ? "define a task-specific model evaluation; agree on acceptance criteria and a bounded paid budget before running it" : "configure workspace event notifications to a receiver I authorize"}. Use the Niu deployment at ${window.location.origin} and workspace ${new URL(`/workspaces/${encodeURIComponent(routeWorkspace)}`, window.location.origin).href}. Read https://niu.io/docs/agents.md and inspect the selected workspace grants first. Verify the deployment and workspace during authorization.`,
                           )
                           .then(() => setCopied(true))
                           .catch(() =>

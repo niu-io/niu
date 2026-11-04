@@ -52,7 +52,7 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/v1/chat/completions" \
 
 ### x-niu-log-payloads
 
-Location: **header**. Optional. Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+Location: **header**. Optional. Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content unless store is false. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
 
 ```json
 {
@@ -109,8 +109,14 @@ Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. 
     "model": {
       "type": "string"
     },
+    "store": {
+      "type": "boolean",
+      "const": false,
+      "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+    },
     "messages": {
       "type": "array",
+      "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
       "items": {
         "type": "object"
       }

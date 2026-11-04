@@ -232,7 +232,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{error}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
     {notice && <p role="status" className="key-revoke-notice"><Check size={15} />{notice}</p>}
     {loading && !key && <section className="panel key-detail-card"><FormSectionSkeleton fields={3} label={uiT("Loading key…")} /></section>}
-    {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="panel key-detail-card key-not-found"><KeyRound size={20} /><strong>{uiT("This key is not in the selected workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
+    {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="panel key-detail-card key-not-found"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
     {key && <>
       <section className="panel key-detail-card" aria-label={uiT("API key details")}>
         <div className="key-detail-heading"><div><span className="key-detail-icon"><KeyRound size={18} /></span><div><h2>{key.name}</h2></div></div><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></div>

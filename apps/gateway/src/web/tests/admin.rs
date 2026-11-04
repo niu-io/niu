@@ -3812,7 +3812,7 @@ async fn retail_media_price_choices_publish_and_read_back_exactly(pool: PgPool) 
         .find(|row| row["model_alias"] == "review-video")
         .unwrap();
     let schedule = json!({"kind":"media","dimensions":{"model":"review-video","channel":choice["media"]["channel"],"resolution":choice["media"]["resolutions"][0],"reference_video":false},"meter":choice["media"]["meter"],"decimal_places":9,"amount_units":"70","per_quantity":{"numerator":"1000000","denominator":"1"},"minimum_quantity":{"numerator":"0","denominator":"1"},"rounding":"HalfEven"});
-    let input = json!({"model_alias":"review-video","currency":"USD","schedule":schedule,"expected_version":"0","idempotency_key":Uuid::new_v4(),"reason":"Media preparation regression"});
+    let input = json!({"model_alias":"review-video","currency":"USD","schedule":schedule,"expected_version":"0","idempotency_key":Uuid::new_v4()});
     let (status, saved) = call(&app, "POST", root, input.clone()).await;
     assert_eq!(status, StatusCode::OK, "{saved}");
     assert_eq!(call(&app, "POST", root, input).await.1, saved);

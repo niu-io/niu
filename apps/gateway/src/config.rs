@@ -179,6 +179,16 @@ impl ModelRequirements {
             && (!self.structured_output || model.supports_structured_output)
             && (!self.embedding_dimensions || model.supports_embedding_dimensions)
             && (!self.embedding_base64 || model.supports_embedding_base64)
+            // Missing declarations are not evidence of optional modality support.
+            && (!self.vision || model.catalog.input_modalities.iter().any(|mode| mode == "image"))
+            && (!self.reasoning || model.catalog.supported_parameters.iter().any(|parameter| parameter == "reasoning"))
+            && self.estimated_input_tokens.is_none_or(|tokens| model.allows_input_tokens(tokens))
+            && self.requested_output_tokens.is_none_or(|tokens| model.allows_output_tokens(tokens))
+            // Context capacity includes both input and the requested output budget.
+            && match (self.estimated_input_tokens, self.requested_output_tokens, model.catalog.context_length) {
+                (Some(input), Some(output), Some(context)) => input.checked_add(output).is_some_and(|total| total <= context),
+                _ => true,
+            }
     }
 }
 
@@ -710,4 +720,122 @@ fn image_source_origin_is_fixed_public_https_without_request_overrides() {
 
 fn default_endpoint_timeout() -> u64 {
     3
+}
+
+#[cfg(test)]
+mod routing_requirements_tests {
+    use super::*;
+
+    fn model() -> ModelConfig {
+        toml::from_str(
+            r#"
+            provider = "openai"
+            upstream_model = "example"
+            api_key_env = "EXAMPLE_KEY"
+            [catalog]
+            context_length = 8192
+            max_completion_tokens = 2048
+            input_modalities = ["text", "image"]
+            supported_parameters = ["reasoning"]
+        "#,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn routing_requires_declared_vision_and_reasoning() {
+        let mut model = model();
+        let vision = ModelRequirements {
+            vision: true,
+            ..Default::default()
+        };
+        let reasoning = ModelRequirements {
+            reasoning: true,
+            ..Default::default()
+        };
+        assert!(vision.allows(&model));
+        assert!(reasoning.allows(&model));
+        model.catalog.input_modalities = vec!["text".into()];
+        model.catalog.supported_parameters = vec!["tools".into()];
+        assert!(!vision.allows(&model));
+        assert!(!reasoning.allows(&model));
+        model.catalog = Default::default();
+        assert!(!vision.allows(&model));
+        assert!(!reasoning.allows(&model));
+        assert!(ModelRequirements::default().allows(&model));
+    }
+
+    #[test]
+    fn routing_skips_incompatible_high_priority_model() {
+        let candidates = [
+            niu_storage::RoutePoolCandidate {
+                alias: "text-only".into(),
+                priority: 100,
+                weight: 1,
+                enabled: true,
+            },
+            niu_storage::RoutePoolCandidate {
+                alias: "vision".into(),
+                priority: 1,
+                weight: 1,
+                enabled: true,
+            },
+        ];
+        let mut text_only = model();
+        text_only.catalog.input_modalities = vec!["text".into()];
+        let models = [text_only, model()];
+        let requirements = ModelRequirements {
+            vision: true,
+            ..Default::default()
+        };
+        let eligible = candidates
+            .iter()
+            .zip(&models)
+            .filter(|(_, model)| requirements.allows(model))
+            .map(|(candidate, _)| (candidate, candidate.alias.as_str()))
+            .collect();
+        assert_eq!(crate::vendors::select_candidate(eligible), Some("vision"));
+        let requirements = ModelRequirements {
+            requested_output_tokens: Some(2049),
+            ..Default::default()
+        };
+        let eligible = candidates
+            .iter()
+            .zip(&models)
+            .filter(|(_, model)| requirements.allows(model))
+            .map(|(candidate, _)| (candidate, candidate.alias.as_str()))
+            .collect();
+        assert_eq!(crate::vendors::select_candidate(eligible), None);
+    }
+
+    #[test]
+    fn routing_filters_token_bounds_before_priority_selection() {
+        let model = model();
+        let requirements = |input, output| ModelRequirements {
+            estimated_input_tokens: input,
+            requested_output_tokens: output,
+            ..Default::default()
+        };
+        assert!(requirements(Some(6144), Some(2048)).allows(&model));
+        assert!(!requirements(Some(6145), Some(2048)).allows(&model));
+        assert!(!requirements(Some(8193), None).allows(&model));
+        assert!(!requirements(None, Some(2049)).allows(&model));
+        assert!(!requirements(Some(u64::MAX), Some(1)).allows(&model));
+        let mut unknown = model.clone();
+        unknown.catalog = Default::default();
+        // Undeclared token bounds remain unknown, not invented limits.
+        assert!(requirements(Some(9000), Some(3000)).allows(&unknown));
+        unknown.pricing = Some(RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 1,
+            api_completion_rate: 1,
+            cash_prompt_rate: 1,
+            cash_completion_rate: 1,
+            max_input_tokens: 1000,
+            max_output_tokens: 500,
+        });
+        assert!(!requirements(Some(1001), None).allows(&unknown));
+        assert!(!requirements(None, Some(501)).allows(&unknown));
+        assert!(requirements(Some(1000), Some(500)).allows(&unknown));
+    }
 }

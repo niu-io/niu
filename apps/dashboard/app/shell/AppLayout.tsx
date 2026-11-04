@@ -486,6 +486,8 @@ export default function AppLayout() {
     (!adminArea || isInstallation) &&
     !settingsArea &&
     (activityArea || supplierManagement || destination === 'Workspace');
+  const nonInferenceManagement = destination === 'Workspace' &&
+    /^\/workspaces\/[^/]+\/(?:routing|evaluations|events)(?:\/|$)/.test(location.pathname);
   const setupBlocked = Boolean(
     token &&
       session?.operating_mode !== 'internal' &&
@@ -495,6 +497,7 @@ export default function AppLayout() {
       !supplierArea &&
       !settingsArea &&
       !helpArea &&
+      !nonInferenceManagement &&
       paymentReadiness.status !== 'ready',
   );
   const modelFiltersAvailable =

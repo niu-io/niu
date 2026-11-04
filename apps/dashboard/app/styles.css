@@ -1438,6 +1438,7 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .dashboard-login-form [data-slot="input"]:hover:not(:disabled):not(:focus-visible) { border-color: color-mix(in srgb, var(--foreground) 22%, var(--border)); }
 .dashboard-login-form [data-slot="input"]:focus-visible { border-color: color-mix(in oklab, #ed8645 68%, var(--ring)); background: var(--card); box-shadow: 0 0 0 3px color-mix(in oklab, #ed8645 18%, transparent); }
 .dashboard-login-hint { margin: 2px 0 0; color: var(--muted-foreground); font-size: 12.5px; line-height: 1.45; }
+.dashboard-login-access-help { margin-top: 12px; }
 .dashboard-login-status { margin: 0; padding: 9px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--info) 26%, var(--border)); background: color-mix(in srgb, var(--info) 8%, var(--card)); color: var(--foreground); font-size: 13px; line-height: 1.45; }
 .dashboard-login-error { margin: 0; padding: 9px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--destructive) 28%, var(--border)); background: color-mix(in srgb, var(--destructive) 10%, var(--card)); color: var(--destructive); font-size: 13px; line-height: 1.45; }
 .dashboard-login-unavailable { display: grid; gap: 10px; }
@@ -2837,6 +2838,12 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 }
 .playground-composer-surface { border-radius: var(--radius-dialog); }
 [data-slot="dialog-content"] { border-radius: var(--radius-dialog); }
+/* Keep the scroll track away from the rounded frame of long dialogs. */
+[data-slot="dialog-content"]::-webkit-scrollbar { width: 10px; height: 10px; }
+[data-slot="dialog-content"]::-webkit-scrollbar-track:vertical { margin-block: var(--radius-dialog); background: transparent; }
+[data-slot="dialog-content"]::-webkit-scrollbar-track:horizontal { margin-inline: var(--radius-dialog); background: transparent; }
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: color-mix(in srgb, var(--muted-foreground) 55%, transparent); background-clip: padding-box; }
+[data-slot="dialog-content"]::-webkit-scrollbar-corner { background: transparent; }
 [data-slot="popover-content"],
 [data-slot="hover-card-content"],
 [data-slot="dropdown-menu-content"],
@@ -3334,8 +3341,9 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 /* The full brand lockup and language control share one mobile header row. */
 @media (max-width: 30rem) {
-  .dashboard-login-nav > a { display:none; }
   .dashboard-login-brand .dashboard-login-product { display:none; }
+  .dashboard-login-topbar { gap: 4px; }
+  .dashboard-login-nav [data-slot="button"] { padding-inline: 5px; }
 }
 
 .gateway-route-content > div > .empty-state { width: 100%; }

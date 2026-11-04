@@ -6640,7 +6640,7 @@
       "get": {
         "operationId": "listModels",
         "summary": "List key-accessible model aliases and workspace customer prices",
-        "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
+        "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. Tool capability flags reflect the configured route, not a guarantee of admission or live upstream availability. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
         "security": [
           {
             "bearerAuth": []
@@ -6704,6 +6704,22 @@
                               "object",
                               "null"
                             ]
+                          },
+                          "capabilities": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "tool_calls",
+                              "streaming_tool_calls"
+                            ],
+                            "properties": {
+                              "tool_calls": {
+                                "type": "boolean"
+                              },
+                              "streaming_tool_calls": {
+                                "type": "boolean"
+                              }
+                            }
                           }
                         }
                       }
@@ -6745,7 +6761,7 @@
         "description": "Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.",
         "responses": {
           "200": {
-            "description": "Public model aliases and declared capabilities. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority."
+            "description": "Public model aliases and declared capabilities, including configured tool_calls and streaming_tool_calls. These flags do not guarantee upstream availability or authorization. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority."
           }
         },
         "security": [],
@@ -6779,7 +6795,7 @@
             "name": "x-niu-log-payloads",
             "in": "header",
             "required": false,
-            "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
+            "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content unless store is false. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
             "schema": {
               "type": "string",
               "enum": [
@@ -10580,9 +10596,14 @@
                         "rate_limits",
                         "usage_window",
                         "allowed_cidrs",
-                        "management_capabilities"
+                        "management_capabilities",
+                        "invocation_allowed"
                       ],
                       "properties": {
+                        "invocation_allowed": {
+                          "type": "boolean",
+                          "description": "Current credential invocation authority, independent of discovery and resource management."
+                        },
                         "object": {
                           "type": "string",
                           "const": "api_key"
@@ -17714,6 +17735,7 @@
                     "enum": [
                       "upstream_http_error",
                       "upstream_region_unavailable",
+                      "upstream_account_restricted",
                       "upstream_timeout",
                       "upstream_connection_error",
                       "upstream_transport_error",
@@ -18769,7 +18791,6 @@
           },
           "reason": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 500
           }
         },
@@ -18778,8 +18799,7 @@
           "currency",
           "schedule",
           "expected_version",
-          "idempotency_key",
-          "reason"
+          "idempotency_key"
         ]
       },
       "handler_operations_json_RetailPriceRecord": {
@@ -22125,8 +22145,14 @@
           "model": {
             "type": "string"
           },
+          "store": {
+            "type": "boolean",
+            "const": false,
+            "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+          },
           "messages": {
             "type": "array",
+            "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
             "items": {
               "type": "object"
             }

@@ -114,15 +114,65 @@ describe('RoutePoolsPage', () => {
     });
   });
 
-  it('reconciles uncertain pool writes without reposting', async () => {
+  it('discovers candidate models beyond the first twelve Provider connections', async () => {
     const user = userEvent.setup();
-    vi.mocked(request).mockImplementation(async (_token, path, method = 'GET') => {
+    vi.mocked(request).mockImplementation(async (_token, path) => {
+      if (path.startsWith('/api/v1/routing/index')) return { data: [], has_more: false, next_after: null };
+      if (path === '/api/v1/vendors') return { data: Array.from({length: 13}, (_, i) => ({id: `provider-${i}`, name: `Provider ${i}`})) };
+      if (path.startsWith('/api/v1/vendors/') && path.endsWith('/models')) return {data: path.includes('provider-12/') ? [{alias: 'last-provider-model', upstream_model: 'model', pricing: {}}] : []};
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
+    await screen.findByText('No model pools configured yet.');
+    await user.click(screen.getAllByRole('button', {name:'Create model pool'})[0]);
+    await user.click(within(await screen.findByRole('dialog')).getByLabelText('Candidate model #1'));
+    await user.type(screen.getByLabelText('Search candidate models 1'), 'last-provider-model');
+    expect(await screen.findByRole('menuitemradio', {name:/last-provider-model/})).toBeTruthy();
+  });
+
+  it('warns when a Provider model list could not be loaded', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    vi.mocked(request).mockImplementation(async (_token, path) => {
+      if (path.startsWith('/api/v1/routing/index')) return { data: [], has_more: false, next_after: null };
+      if (path === '/api/v1/vendors') return { data: [{id:'unavailable', name:'Provider'}] };
+      if (path === '/api/v1/vendors/unavailable/models') {
+        if (++attempts === 1) throw new Error('unavailable');
+        return { data: [{alias:'recovered-model', upstream_model:'model', pricing:{}}] };
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
+    await screen.findByText('No model pools configured yet.');
+    await user.click(screen.getAllByRole('button', {name:'Create model pool'})[0]);
+    expect(await screen.findByText(/Some Provider models could not be loaded/)).toBeTruthy();
+    await user.type(screen.getByLabelText('Pool alias'), 'draft-pool');
+    await user.click(screen.getByRole('button', {name:'Retry loading models'}));
+    await waitFor(() => expect(screen.queryByText(/Some Provider models could not be loaded/)).toBeNull());
+    expect((screen.getByLabelText('Pool alias') as HTMLInputElement).value).toBe('draft-pool');
+    await user.click(screen.getByLabelText('Candidate model #1'));
+    expect(await screen.findByRole('menuitemradio', {name:/recovered-model/})).toBeTruthy();
+  });
+
+  it('checks uncertain writes and preserves the draft through read failures and concurrent changes', async () => {
+    const user = userEvent.setup();
+    let checks = 0;
+    const writes: Array<Record<string, unknown>> = [];
+    vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
       if (path.startsWith('/api/v1/routing/index')) {
         return { data: [], has_more: false, next_after: null };
       }
       if (path === '/api/v1/vendors') return { data: [] };
       if (path === '/api/v1/routing' && method === 'PUT') {
-        throw new VendorRequestError('Service unavailable', 503);
+        writes.push(body as Record<string, unknown>);
+        if (writes.length === 1) throw new VendorRequestError('Service unavailable', 503);
+        if (writes.length === 2) throw new VendorRequestError('Conflict', 409);
+        return {data:{revision:2}};
+      }
+      if (path.startsWith('/api/v1/routing/') && method === 'GET') {
+        if (++checks === 1) throw new VendorRequestError('Unavailable', 503);
+        if (checks === 2) throw new VendorRequestError('Not found', 404);
+        return {data:{alias:'gpt-5',revision:1, organization_id:null, enabled:true, candidates:[{alias:'other-model',priority:10,weight:100,enabled:true}], rules:[]}};
       }
       throw new Error(`Unexpected request: ${method} ${path}`);
     });
@@ -143,7 +193,60 @@ describe('RoutePoolsPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Create model pool' }));
 
     expect(await screen.findByText(/write could not be confirmed/i)).toBeTruthy();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).value).toBe('gpt-5');
+    expect((within(dialog).getByRole('button', {name: 'Create model pool'}) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByRole('button', {name:'Check saved state'}));
+    await screen.findByText(/saved state could not be checked/);
+    expect(writes.length).toBe(1);
+    await user.click(within(dialog).getByRole('button', {name:'Check saved state'}));
+    await screen.findByText(/No newer saved changes were found/);
+    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).value).toBe('gpt-5');
+    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByRole('button', {name:'Ownership scope'}) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByRole('button', {name:'Create model pool'}));
+    await screen.findByText(/changed in another session/);
+    await user.click(within(dialog).getByRole('button', {name:'Check saved state'}));
+    await screen.findByText(/saved model pool has changed/);
+    expect((within(dialog).getByRole('button', {name:'Create model pool'}) as HTMLButtonElement).disabled).toBe(true);
+    const saved = within(dialog).getByRole('region', {name:'Saved model pool'});
+    expect(within(saved).getByText(/other-model/)).toBeTruthy();
+    await user.click(within(saved).getByRole('button', {name:'Continue with my draft'}));
+    expect((within(dialog).getByRole('button', {name:'Save changes'}) as HTMLButtonElement).disabled).toBe(false);
+    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).value).toBe('gpt-5');
+    expect(writes.length).toBe(2);
+    await user.click(within(dialog).getByRole('button', {name:'Save changes'}));
+    await waitFor(() => expect(writes.length).toBe(3));
+    expect(writes[2].expected_revision).toBe(1);
+    expect(writes[2].candidates).toEqual([{alias:'openai-gpt-5', priority:100, weight:1000, enabled:true}]);
+  });
+
+  it('recognizes an interrupted save that reached the server and keeps subsequent edits', async () => {
+    const user = userEvent.setup();
+    let attempted: Record<string, unknown> | undefined;
+    vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
+      if (path.startsWith('/api/v1/routing/index')) return {data:[], has_more:false, next_after:null};
+      if (path === '/api/v1/vendors') return {data:[]};
+      if (path === '/api/v1/routing' && method === 'PUT') {attempted = body as Record<string, unknown>; throw new VendorRequestError('Unavailable',503);}
+      if (path.startsWith('/api/v1/routing/') && method === 'GET') return {data:{...attempted, revision:1, display_name:null, description:null, project_id:null, public_catalog:false, billing_mode:'pool_tariff', rules:[], default_action:'candidates'}};
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+    render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
+    await screen.findByText('No model pools configured yet.');
+    await user.click(screen.getAllByRole('button',{name:'Create model pool'})[0]);
+    const dialog=await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Pool alias'),'gpt-5');
+    await user.click(within(dialog).getByLabelText('Candidate model #1'));
+    await user.type(screen.getByLabelText('Search candidate models 1'),'model-one');
+    await user.click(screen.getByRole('menuitem',{name:'Use existing alias “model-one”'}));
+    await user.click(within(dialog).getByRole('button',{name:'Create model pool'}));
+    await screen.findByText(/write could not be confirmed/);
+    await user.type(within(dialog).getByLabelText('Display name (optional)'),'Later draft');
+    await user.click(within(dialog).getByRole('button',{name:'Check saved state'}));
+    await screen.findByText(/previous save matches the saved model pool/);
+    expect((within(dialog).getByLabelText('Display name (optional)') as HTMLInputElement).value).toBe('Later draft');
+    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByRole('button',{name:'Save changes'}) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('configures custom model identity, billing mode, preset routing rules, preview, and strategy audit', async () => {

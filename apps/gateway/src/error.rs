@@ -96,6 +96,12 @@ impl ApiError {
                 kind: "key_request_rate_disabled",
                 message: "This API key's request rate is configured as zero; an authorized administrator must change the policy before requests can proceed",
             },
+            niu_storage::StoreError::InvocationDenied => Self {
+                failure: None,
+                status: StatusCode::FORBIDDEN,
+                kind: "invocation_not_authorized",
+                message: "This connection can discover or manage authorized resources but cannot invoke models. Request invocation approval from the workspace owner before running a model.",
+            },
             niu_storage::StoreError::VendorRequestRateDisabled => Self {
                 failure: None,
                 status: StatusCode::TOO_MANY_REQUESTS,
@@ -551,6 +557,18 @@ impl ApiError {
                 transport_phase: None,
             }),
         }
+    }
+
+    pub(crate) fn upstream_account_restricted(message: &'static str) -> Self {
+        let status = StatusCode::FORBIDDEN;
+        let mut error = Self::upstream_status(status, false);
+        error.message = message;
+        error.failure = Some(niu_storage::RequestFailure {
+            kind: niu_storage::RequestFailureKind::UpstreamAccountRestricted,
+            upstream_http_status: Some(status.as_u16()),
+            transport_phase: None,
+        });
+        error
     }
 
     pub(crate) fn upstream_transport(error: &reqwest::Error) -> Self {

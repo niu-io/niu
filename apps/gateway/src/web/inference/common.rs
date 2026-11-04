@@ -53,18 +53,21 @@ const MAX_PROVIDER_JSON_BYTES: usize = crate::customer_response::MAX_STRUCTURED_
 
 /// Read only a bounded error envelope and classify a known regional refusal.
 /// Never expose the upstream message, metadata, URLs or credentials.
-pub(super) async fn provider_rejection(mut response: reqwest::Response) -> ApiError {
+pub(super) async fn provider_rejection(response: reqwest::Response) -> ApiError {
+    provider_rejection_for_base(response, None).await
+}
+
+pub(super) async fn provider_rejection_for_base(
+    response: reqwest::Response,
+    base: Option<&str>,
+) -> ApiError {
     let status = response.status();
-    let mut body = Vec::new();
-    let read = async {
-        while let Some(chunk) = response.chunk().await.ok().flatten() {
-            if body.len().saturating_add(chunk.len()) > 16 * 1024 {
-                break;
-            }
-            body.extend_from_slice(&chunk);
-        }
-    };
-    let _ = tokio::time::timeout(std::time::Duration::from_secs(2), read).await;
+    let body = crate::provider_rejections::bounded_body(response).await;
+    if crate::provider_rejections::qiniu_chat_banned(base, status, &body) {
+        return ApiError::upstream_account_restricted(
+            crate::provider_rejections::QINIU_CHAT_BANNED,
+        );
+    }
     let regional = status == axum::http::StatusCode::FORBIDDEN
         && serde_json::from_slice::<Value>(&body)
             .ok()
@@ -1029,6 +1032,47 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
 #[cfg(test)]
 mod tests {
     use super::append_provider_json_chunk;
+
+    #[tokio::test]
+    async fn qiniu_rejection_is_actionable_without_exposing_upstream_body() {
+        use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
+        let app = Router::new().route("/", get(|| async {
+            (StatusCode::FORBIDDEN, r#"{"error":{"code":"account_chat_banned","message":"private-provider-secret"}}"#)
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        for (base, expected_specific) in [
+            (Some("https://api.qnaigc.com/v1"), true),
+            (Some("https://other.example/v1"), false),
+        ] {
+            let upstream = client
+                .get(format!("http://{address}/"))
+                .send()
+                .await
+                .unwrap();
+            let response = super::provider_rejection_for_base(upstream, base)
+                .await
+                .into_response();
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert_eq!(
+                response.extensions().get::<niu_storage::RequestFailure>().unwrap().kind,
+                if expected_specific {
+                    niu_storage::RequestFailureKind::UpstreamAccountRestricted
+                } else {
+                    niu_storage::RequestFailureKind::UpstreamHttpError
+                }
+            );
+            let body = axum::body::to_bytes(response.into_body(), 4096)
+                .await
+                .unwrap();
+            let body = String::from_utf8(body.to_vec()).unwrap();
+            assert_eq!(body.contains("account_chat_banned"), expected_specific);
+            assert!(!body.contains("private-provider-secret"));
+        }
+        server.abort();
+    }
 
     #[test]
     fn provider_json_limit_is_enforced_across_chunks() {

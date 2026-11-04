@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError } from "@/features/providers/api";
@@ -58,22 +57,6 @@ type AdminData = {
   }[];
 };
 
-function defaultReviewExpiry() {
-  const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
-}
-
-function reviewExpiryMilliseconds(value: string) {
-  const expiry = Date.parse(value);
-  if (!Number.isFinite(expiry) || expiry <= Date.now()) {
-    throw new Error("Choose a valid review expiry in the future.");
-  }
-  return expiry;
-}
-
-const sha256Pattern = "[0-9a-f]{64}";
-
 export default function ProviderAdministration() {
   const { t: uiT } = useUILocale();
   const { session, token } = useDashboardContext();
@@ -96,6 +79,7 @@ export default function ProviderAdministration() {
 function Administration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { session } = useDashboardContext();
+  const internal = session?.operating_mode === 'internal';
   const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
   const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/providers")?.data ?? null : null;
@@ -119,7 +103,7 @@ function Administration({ token }: { token: string }) {
   const [membersLoading, setMembersLoading] = useState(false);
   const [offerQuery, setOfferQuery] = useState("");
   const offerSearch = useRef<HTMLInputElement>(null);
-  const pricingTab = ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
+  const pricingTab = !internal && ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
   const setPricingTab = (value: string) => setSearch(current => { if (value === 'models') current.delete('view'); else current.set('view', value); return current; });
   useEffect(() => { setOfferQuery(""); }, [selected, section]);
   const [mediaPublishing, setMediaPublishing] = useState(false);
@@ -262,17 +246,7 @@ function Administration({ token }: { token: string }) {
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [notice, setNotice] = useState("");
   const [offerId, setOfferId] = useState("");
-  const [validUntil, setValidUntil] = useState(defaultReviewExpiry);
-  const [supplyRightsHash, setSupplyRightsHash] = useState("");
-  const [supplyCapabilityHash, setSupplyCapabilityHash] = useState("");
-  const [supplierDataHandlingHash, setSupplierDataHandlingHash] = useState("");
-  const [modelIdentityHash, setModelIdentityHash] = useState("");
-  const [protocolMatrixHash, setProtocolMatrixHash] = useState("");
-  const [protocolMatrixVersion, setProtocolMatrixVersion] = useState("");
-  const [offerDataHandlingHash, setOfferDataHandlingHash] = useState("");
-  const [availabilityHash, setAvailabilityHash] = useState("");
-  const [agreedRatesHash, setAgreedRatesHash] = useState("");
-  const [revocationReasonHash, setRevocationReasonHash] = useState("");
+  const [offerSnapshot, setOfferSnapshot] = useState<ProviderOffer | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const force = lastProvidersRevision.current !== revision;
@@ -395,17 +369,7 @@ function Administration({ token }: { token: string }) {
       void loadOfferDetails(selectedOfferId, "", true, draftAlias);
     }
 
-    setValidUntil(defaultReviewExpiry());
-    setSupplyRightsHash("");
-    setSupplyCapabilityHash("");
-    setSupplierDataHandlingHash("");
-    setModelIdentityHash("");
-    setProtocolMatrixHash("");
-    setProtocolMatrixVersion("");
-    setOfferDataHandlingHash("");
-    setAvailabilityHash("");
-    setAgreedRatesHash("");
-    setRevocationReasonHash("");
+    setOfferSnapshot(data?.offers.find(item => item.id === selectedOfferId) ?? null);
     setPaymentSubmitted(false);
     setPaymentKey(crypto.randomUUID());
     setReference("");
@@ -413,7 +377,6 @@ function Administration({ token }: { token: string }) {
   }
 
   const selectedBusiness = businesses.find(item => item.id === selected);
-  const supplierQualified = selectedBusiness?.qualification_status === "qualified";
   const sectionTitle = {
     overview: "Overview",
     usage: "Usage",
@@ -458,9 +421,6 @@ function Administration({ token }: { token: string }) {
     setBusy(true);
     setError("");
     try {
-      const validUntilMs = dialog.includes("qualification")
-        ? reviewExpiryMilliseconds(validUntil)
-        : undefined;
       if (dialog === "membership" && !accounts.some(account => account.id === operator))
         throw new Error("Choose an account to manage Provider access.");
       if (dialog === "membership")
@@ -486,35 +446,11 @@ function Administration({ token }: { token: string }) {
           expected_revision: currentOffer?.revision ?? null,
         });
       }
-      if (dialog === "supplier-qualification")
-        await request(token, `/api/v1/providers/${selected}/qualification`, "PUT", {
-          supply_rights_sha256: supplyRightsHash,
-          supply_capability_sha256: supplyCapabilityHash,
-          data_handling_sha256: supplierDataHandlingHash,
-          valid_until_ms: validUntilMs,
-        });
-      if (dialog === "offer-qualification") {
-        const offer = data?.offers.find((item) => item.id === offerId);
-        if (!offer) throw new Error("This offer is no longer available. Refresh and try again.");
-        await request(token, `/api/v1/providers/${selected}/offers/${offerId}/qualification`, "PUT", {
-          rate_revision: offer.revision,
-          model_identity_sha256: modelIdentityHash,
-          protocol_matrix_sha256: protocolMatrixHash,
-          protocol_matrix_version: protocolMatrixVersion,
-          data_handling_sha256: offerDataHandlingHash,
-          availability_sha256: availabilityHash,
-          agreed_rates_sha256: agreedRatesHash,
-          valid_until_ms: validUntilMs,
-        });
+      if (dialog === "offer-enable" || dialog === "offer-pause") {
+        if (!offerSnapshot || offerSnapshot.id !== offerId) throw new Error("This offer is no longer available. Refresh and try again.");
+        if (dialog === "offer-enable") await request(token, `/api/v1/providers/${selected}/offers/${offerId}/authorization`, "PUT", {rate_revision: offerSnapshot.revision});
+        else await request(token, `/api/v1/providers/${selected}/offers/${offerId}`, "PATCH", {active:false});
       }
-      if (dialog === "supplier-revocation")
-        await request(token, `/api/v1/providers/${selected}/qualification/revoke`, "POST", {
-          reason_sha256: revocationReasonHash,
-        });
-      if (dialog === "offer-revocation")
-        await request(token, `/api/v1/providers/${selected}/offers/${offerId}/qualification/revoke`, "POST", {
-          reason_sha256: revocationReasonHash,
-        });
       if (dialog === "settlement") {
         const selectedEarnings = paymentEarnings.filter(item => attempts.includes(item.id));
         if (!attempts.length || attempts.length > 1000 || new Set(attempts).size !== attempts.length ||
@@ -538,13 +474,9 @@ function Administration({ token }: { token: string }) {
         );
       }
       if (scope !== operationScope.current) return;
-      setNotice(dialog === "settlement"
-        ? "External payment recorded. No funds were transferred."
-        : dialog === "supplier-qualification" || dialog === "offer-qualification"
-          ? "Qualification review recorded. No discount or model-equivalence claim is implied."
-          : dialog === "supplier-revocation" || dialog === "offer-revocation"
-            ? "Qualification review revoked; affected offers are paused."
-            : "Provider configuration saved.");
+      setNotice(dialog === "settlement" ? uiT("External payment recorded. No funds were transferred.")
+        : dialog === "offer-enable" ? uiT("Offer enabled. Provider access and customer selling prices remain separate.")
+        : dialog === "offer-pause" ? uiT("Offer paused.") : uiT("Provider configuration saved."));
       setDialog("");
       setRevision((value) => value + 1);
     } catch (reason) {
@@ -586,15 +518,15 @@ function Administration({ token }: { token: string }) {
     }
   }
   const sectionDescription = {
-    overview: 'Connect API access and model routes, then manage commercial rates and payments.',
-    models: 'Model connections, availability and commercial offers.',
+    overview: internal ? 'Connect an API key and discover models for internal use.' : 'Connect API access and model routes, then manage commercial rates and payments.',
+    models: internal ? 'Manage model connections and availability.' : 'Model connections, availability and commercial offers.',
     consumption: 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
     members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
   }[section];
   return (
     <>
-      <div className="supplier-section-heading"><p>{sectionDescription}</p></div>
+      <div className="supplier-section-heading"><p>{sectionDescription && uiT(sectionDescription)}</p></div>
       <PageHeader
         title={sectionTitle}
         action={businesses.length > 0 && <div className="provider-header-actions">
@@ -624,13 +556,13 @@ function Administration({ token }: { token: string }) {
         <section className="provider-admin-panel supplier-admin-surface" data-section={section}>
           {section === "overview" && selectedBusiness && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("API connection")}</h2></div>
-            <p className="px-6 pb-4 text-sm text-muted-foreground">{uiT("Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.")}</p>
+            <p className="px-6 pb-4 text-sm text-muted-foreground">{internal ? uiT("Niu attempts to discover models when you connect. A saved API key does not verify access to the Provider.") : uiT("Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.")}</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>{uiT("Setup step")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>
               <TableRow><TableCell>{uiT("1. Connect upstream API key")}</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_api_keys, selectedBusiness.api_keys ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? uiT("Connect API key") : uiT("Manage API keys")}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>{uiT("2. Add model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{uiT("Configure models")}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>{uiT("3. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>{internal ? uiT("2. Review discovered models") : uiT("2. Add model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{internal ? uiT("View models") : uiT("Configure models")}</Link></Button></TableCell></TableRow>
+              {!internal && <TableRow><TableCell>{uiT("3. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>}
             </TableBody></ShadcnTable>
-            <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>
+            {!internal && <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>}
           </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
@@ -644,7 +576,7 @@ function Administration({ token }: { token: string }) {
               <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={uiF("Edit access for {0}", [member.name || uiT("unnamed account")])} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>{uiT("Edit access")}</Button></TableCell>
             </TableRow>)}</TableBody>
           </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
-          {section === "overview" && <div className="provider-admin-block">
+          {!internal && section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Model offers")}</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>{uiT("Models")}</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
               <div><span>{data?.offers_has_more ? uiT("Loaded text offers") : uiT("Text offers")}</span><strong>{textOffers.length}</strong></div>
@@ -653,25 +585,10 @@ function Administration({ token }: { token: string }) {
             </div></div>
           </div>}
           {(section === "overview" || section === "models") && <>
-          {(section !== "models" || pricingTab !== "models") && <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
-            <div className="provider-admin-section-heading">
-              <h2>{uiT("Provider qualification")}</h2>
-              <Badge variant={supplierQualified ? "default" : "secondary"}>
-                {supplierQualified ? uiT("Qualified") : uiT("Qualification required")}
-              </Badge>
-            </div>
-            <div className="provider-qualification-content">
-              <p>{section === "models" ? uiT("Provider qualification and an offer review are required before activation.") : uiT("Review supply rights, capabilities, and data handling before enabling offers. Model offers and their agreed rates are reviewed separately.")}</p>
-              <div className="provider-qualification-actions">
-                <Button variant="outline" onClick={() => open("supplier-qualification")}>{uiT("Review Provider")}</Button>
-                {supplierQualified && <Button variant="outline" onClick={() => open("supplier-revocation")}>{uiT("Revoke review")}</Button>}
-              </div>
-            </div>
-          </div>}
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
-            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={!!session?.permissions?.manage_operators} offers={data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} qualified={supplierQualified} onQualification={() => open("supplier-qualification")} onReviewOffer={id => open("offer-qualification", id)} onOffer={(modelAlias, media) => { if (media) { setMediaOfferModel(modelAlias); setMediaPublishing(true); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
+            {!internal && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
+            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin} offers={internal ? [] : data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} commercialEnabled={!internal} onEnableOffer={id => open("offer-enable", id)} onOffer={(modelAlias, media) => { if (media) { setMediaOfferModel(modelAlias); setMediaPublishing(true); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
             <TabsContent value="text">
             {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
@@ -684,7 +601,7 @@ function Administration({ token }: { token: string }) {
                       <TableHead>{uiT("Input / 1M tokens")}</TableHead>
                       <TableHead>{uiT("Cache read / 1M tokens")}</TableHead>
                       <TableHead>{uiT("Output / 1M tokens")}</TableHead>
-                      <TableHead>{uiT("Qualification")}</TableHead>
+
                       <TableHead>{uiT("Offer status")}</TableHead>
                       {section === "models" && <TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
                     </TableRow>
@@ -696,21 +613,19 @@ function Administration({ token }: { token: string }) {
                           <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd>{money(offer.prompt_rate, offer.currency)}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd>{money(offer.completion_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Qualification")}</dt><dd>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</dd></div>
+
                           <div><dt className="text-xs text-muted-foreground">{uiT("Offer status")}</dt><dd>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</dd></div>
                         </dl></TableCell>
                         <TableCell>{money(offer.prompt_rate, offer.currency)}</TableCell>
                         <TableCell>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
                         <TableCell>{money(offer.completion_rate, offer.currency)}</TableCell>
-                        <TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</Badge></TableCell>
+
                         <TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell>
                         {section === "models" && <TableCell className="supplier-offer-actions"><DropdownMenu>
                           <DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                           <DropdownMenuItem onSelect={() => open("offer", offer.id)}>{uiT("Edit rates")}</DropdownMenuItem>
-                          {!offer.qualified
-                            ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>{uiT("Review offer")}</DropdownMenuItem>
-                            : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>{uiT("Revoke review")}</DropdownMenuItem>}
+                          {offer.active ? <DropdownMenuItem onSelect={() => open("offer-pause", offer.id)}>{uiT("Pause offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-enable", offer.id)}>{uiT("Enable offer")}</DropdownMenuItem>}
                           </DropdownMenuContent>
                         </DropdownMenu></TableCell>}
                       </TableRow>
@@ -725,14 +640,14 @@ function Administration({ token }: { token: string }) {
             )}
             </TabsContent>
             {section === "models" && <TabsContent value="media">
-              {mediaOffers.length > 0 && <div className="table-wrap mb-6"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Qualification")}</TableHead><TableHead>{uiT("Offer status")}</TableHead><TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{mediaOffers.map(offer => <TableRow key={offer.id}><TableCell>{offer.model_alias}</TableCell><TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</Badge></TableCell><TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell><TableCell className="supplier-offer-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setMediaOfferModel(offer.model_alias); setMediaPublishing(true); }}>{uiT("Update configuration")}</DropdownMenuItem>{!offer.qualified ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>{uiT("Review offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>{uiT("Revoke review")}</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
+              {mediaOffers.length > 0 && <div className="table-wrap mb-6"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Offer status")}</TableHead><TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{mediaOffers.map(offer => <TableRow key={offer.id}><TableCell>{offer.model_alias}</TableCell><TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell><TableCell className="supplier-offer-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setMediaOfferModel(offer.model_alias); setMediaPublishing(true); }}>{uiT("Update configuration")}</DropdownMenuItem>{offer.active ? <DropdownMenuItem onSelect={() => open("offer-pause", offer.id)}>{uiT("Pause offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-enable", offer.id)}>{uiT("Enable offer")}</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
               <div className="px-6"><MediaRateHistory key={selected} token={token} supplier={selected} /></div>
             </TabsContent>}
             </Tabs>
-            {data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
+            {!internal && data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}
-          {(section === "overview" || section === "settlements") && <div className="provider-admin-block">
+          {!internal && (section === "overview" || section === "settlements") && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Provider payables")}</h2></div>
             <div className="provider-balance-list">
               {data?.balances?.length ? data.balances.map(balance => <div className="provider-balance-row" key={balance.currency}>
@@ -757,7 +672,7 @@ function Administration({ token }: { token: string }) {
           </>}
         </section>
       )}
-      {mediaPublishing && <MediaOfferPublisher key={selected} token={token} supplier={selected} supplierSlug={businesses.find(item => item.id === selected)?.slug} initialModel={mediaOfferModel} onClose={() => setMediaPublishing(false)} onSaved={() => { setMediaPublishing(false); setRevision(value => value + 1); setNotice("Media offer saved. Review is required before activation."); }} />}
+      {mediaPublishing && <MediaOfferPublisher key={selected} token={token} supplier={selected} supplierSlug={businesses.find(item => item.id === selected)?.slug} initialModel={mediaOfferModel} onClose={() => setMediaPublishing(false)} onSaved={() => { setMediaPublishing(false); setRevision(value => value + 1); setNotice("Media offer saved. Enable it when the agreed rates and connection are ready."); }} />}
       <Dialog open={Boolean(dialog)} onOpenChange={(value) => {
           if (!value && !busy) { offerRequest.current?.abort(); offerReadSequence.current += 1; setDialog(""); setSearch(current => { current.delete("create"); current.delete("properties"); return current; }, { replace: true }); }
         }}>
@@ -768,19 +683,17 @@ function Administration({ token }: { token: string }) {
         opener.focus();
       }}>
         <DialogHeader className="niu-modal-heading flex-row items-start justify-between text-left">
-          <div><DialogTitle>{
+          <div><DialogTitle>{uiT(
           {
             create: "New provider",
             properties: "Provider properties",
             membership: "Manage provider portal access",
             offer: offerId ? "Edit agreed rates" : "Set agreed rates",
             settlement: "Record a confirmed external payment",
-            "supplier-qualification": "Review Provider qualification",
-            "offer-qualification": "Review offer qualification",
-            "supplier-revocation": "Revoke Provider qualification",
-            "offer-revocation": "Revoke offer qualification",
-          }[dialog] ?? ""
-        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : dialog.includes("qualification") || dialog.includes("revocation") ? uiT("Installation-only evidence review") : uiT("Provider management")}</DialogDescription></div>
+            "offer-enable": "Enable offer",
+            "offer-pause": "Pause offer",
+          }[dialog] ?? "")
+        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : uiT("Provider management")}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
         {error && (
@@ -962,44 +875,15 @@ function Administration({ token }: { token: string }) {
                 {uiT("The recorded amount is the exact sum of the selected earnings. After submission, the reference and selection are locked so retries record the same payment.")}</p>
             </>
           )}
-          {dialog === "supplier-qualification" && <>
-            <p>{uiT("Enter fingerprints for the evidence reviewed in the confidential procurement system. Lowercase SHA-256 values are required; do not paste or upload the source documents here.")}</p>
-            <Label htmlFor="supplier-rights-hash">{uiT("Supply-rights evidence SHA-256")}</Label>
-            <Input id="supplier-rights-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplyRightsHash} onChange={event => setSupplyRightsHash(event.target.value)} />
-            <Label htmlFor="supplier-capability-hash">{uiT("Supply-capability evidence SHA-256")}</Label>
-            <Input id="supplier-capability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplyCapabilityHash} onChange={event => setSupplyCapabilityHash(event.target.value)} />
-            <Label htmlFor="supplier-data-handling-hash">{uiT("Data-handling evidence SHA-256")}</Label>
-            <Input id="supplier-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplierDataHandlingHash} onChange={event => setSupplierDataHandlingHash(event.target.value)} />
-            <Label htmlFor="supplier-qualification-expiry">{uiT("Review valid until")}</Label>
-            <Input id="supplier-qualification-expiry" type="datetime-local" required value={validUntil} onChange={event => setValidUntil(event.target.value)} />
-            <p>{uiT("Qualification status records an administrator’s review. It does not independently verify resale rights or establish a discounted customer price.")}</p>
-          </>}
-          {dialog === "offer-qualification" && <>
-            <p>{uiT("Review the model and the currently agreed-rate revision. A rate change clears this review and pauses the offer until it is reviewed again.")}</p>
-            <Label htmlFor="offer-model-identity-hash">{uiT("Model-identity evidence SHA-256")}</Label>
-            <Input id="offer-model-identity-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={modelIdentityHash} onChange={event => setModelIdentityHash(event.target.value)} />
-            <Label htmlFor="offer-protocol-matrix-hash">{uiT("Protocol test-matrix SHA-256")}</Label>
-            <Input id="offer-protocol-matrix-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={protocolMatrixHash} onChange={event => setProtocolMatrixHash(event.target.value)} />
-            <Label htmlFor="offer-protocol-matrix-version">{uiT("Protocol matrix version")}</Label>
-            <Input id="offer-protocol-matrix-version" required maxLength={100} value={protocolMatrixVersion} onChange={event => setProtocolMatrixVersion(event.target.value)} />
-            <Label htmlFor="offer-data-handling-hash">{uiT("Offer data-handling evidence SHA-256")}</Label>
-            <Input id="offer-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={offerDataHandlingHash} onChange={event => setOfferDataHandlingHash(event.target.value)} />
-            <Label htmlFor="offer-availability-hash">{uiT("Availability evidence SHA-256")}</Label>
-            <Input id="offer-availability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={availabilityHash} onChange={event => setAvailabilityHash(event.target.value)} />
-            <Label htmlFor="offer-agreed-rates-hash">{uiT("Agreed-rate evidence SHA-256")}</Label>
-            <Input id="offer-agreed-rates-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={agreedRatesHash} onChange={event => setAgreedRatesHash(event.target.value)} />
-            <Label htmlFor="offer-qualification-expiry">{uiT("Review valid until")}</Label>
-            <Input id="offer-qualification-expiry" type="datetime-local" required value={validUntil} onChange={event => setValidUntil(event.target.value)} />
-            <p>{uiT("The current rate revision is attached automatically. Its internal reference is not displayed. A qualified status is not a claim of model equivalence or discount.")}</p>
-          </>}
-          {(dialog === "supplier-revocation" || dialog === "offer-revocation") && <>
-            <p>{dialog === "supplier-revocation" ? uiT("Revoking this Provider review pauses all of its offers.") : uiT("Revoking this offer review pauses this offer.")}{" "}{uiT("Store the detailed reason in the confidential procurement system; Niu records only its SHA-256 fingerprint.")}</p>
-            <Label htmlFor="qualification-revocation-reason">{uiT("Revocation reason SHA-256")}</Label>
-            <Input id="qualification-revocation-reason" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={revocationReasonHash} onChange={event => setRevocationReasonHash(event.target.value)} />
+          {(dialog === "offer-enable" || dialog === "offer-pause") && offerSnapshot && <>
+            <p>{offerSnapshot.model_alias}</p>
+            <p>{dialog === "offer-enable" ? uiT("Enable this offer at its current agreed rates. A working Provider connection, customer selling price and workspace authorization are still required; upstream access is not verified.") : uiT("Pause this offer to stop new requests using it. Existing requests and billing records remain available.")}</p>
+            {offerSnapshot.rate_kind !== "media" && <p>{uiT("Input / 1M tokens")}: {money(offerSnapshot.prompt_rate, offerSnapshot.currency)} · {uiT("Output / 1M tokens")}: {money(offerSnapshot.completion_rate, offerSnapshot.currency)}</p>}
+            {dialog === "offer-enable" && (offerSnapshot.rate_kind === "media" || offerSnapshot.cached_prompt_rate != null || offerSnapshot.cache_write_prompt_rate != null || offerSnapshot.reasoning_completion_rate != null || !!offerSnapshot.context_tiers?.length) && <p>{uiT("Additional rates or tiers may apply. Review all saved rates before enabling.")}</p>}
           </>}
           <Button
             type="submit"
-            variant={dialog.includes("revocation") ? "destructive" : "default"}
+            variant={dialog === "offer-pause" ? "destructive" : "default"}
             disabled={
               busy ||
               (dialog === "offer" && (!offerLoad?.ready || offerLoad.loading || offerLoad.conflict || offerLoad.token !== token || offerLoad.supplier !== selected || offerLoad.scope !== operationScope.current)) ||
@@ -1017,11 +901,8 @@ function Administration({ token }: { token: string }) {
               ? uiT("Saving…")
               : dialog === "settlement"
                 ? uiT("Record confirmed payment")
-                : dialog === "supplier-qualification" || dialog === "offer-qualification"
-                  ? uiT("Record review")
-                  : dialog.includes("revocation")
-                    ? uiT("Revoke and pause offers")
-                    : uiT("Save")}
+                : dialog === "offer-enable" ? uiT("Enable offer")
+                  : dialog === "offer-pause" ? uiT("Pause offer") : uiT("Save")}
           </Button>
         </form>)}
       </DialogContent>

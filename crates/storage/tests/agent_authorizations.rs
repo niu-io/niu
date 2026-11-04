@@ -189,3 +189,95 @@ async fn denied_and_expired_requests_never_issue_credentials(pool: PgPool) {
             .is_err()
     );
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn management_grant_retains_discovery_but_refuses_dispatch_and_rotation_expansion(
+    pool: PgPool,
+) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let scope = store.default_workspace().await.unwrap();
+    let actor = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Management owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let request = store
+        .create_agent_authorization_with_capabilities("Codex", &["pools:read".into()])
+        .await
+        .unwrap();
+    store
+        .approve_agent_authorization_with_invocation(
+            &request.user_code,
+            scope,
+            actor.operator_id,
+            &["*".into()],
+            3600,
+            false,
+        )
+        .await
+        .unwrap();
+    let issued = store
+        .exchange_agent_authorization(&request.device_secret)
+        .await
+        .unwrap()
+        .unwrap();
+    let principal = store.authenticate(&issued.token).await.unwrap();
+    assert!(principal.allows_model("discovered-model"));
+    assert!(
+        !store
+            .authenticate_with_ip(&issued.token, None)
+            .await
+            .unwrap()
+            .invocation_allowed()
+    );
+    assert!(
+        !store
+            .dashboard_key_with_ip(scope, issued.id, None)
+            .await
+            .unwrap()
+            .invocation_allowed()
+    );
+    assert!(
+        !store
+            .dashboard_key_by_id_with_ip(issued.id, None)
+            .await
+            .unwrap()
+            .0
+            .invocation_allowed()
+    );
+    assert!(
+        store
+            .agent_key_has_capability(scope, issued.id, "pools:read")
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        store.key_introspection(&principal).await.unwrap()["invocation_allowed"],
+        false
+    );
+    assert!(matches!(
+        store
+            .mark_dispatched(&principal, uuid::Uuid::new_v4())
+            .await,
+        Err(niu_storage::StoreError::InvocationDenied)
+    ));
+    let rotated = store.rotate_key(scope, issued.id).await.unwrap();
+    let replacement = store.authenticate(&rotated.token).await.unwrap();
+    assert!(!store.key_invocation_allowed(&replacement).await.unwrap());
+    assert!(matches!(
+        store
+            .mark_dispatched(&replacement, uuid::Uuid::new_v4())
+            .await,
+        Err(niu_storage::StoreError::InvocationDenied)
+    ));
+}

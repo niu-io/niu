@@ -367,7 +367,7 @@ export type ProviderModelAvailability = ProviderModel & { available: boolean; ow
 export type SupplierModelAvailability = ProviderModelAvailability;
 /** Catalog reachability only; this does not prove inference or billing readiness. */
 export type ProviderModelCheck = {
-  status: 'connected' | 'credentials_rejected' | 'endpoint_unavailable' | 'private_endpoint_blocked'
+  status: 'connected' | 'credentials_rejected' | 'account_chat_banned' | 'endpoint_unavailable' | 'private_endpoint_blocked'
     | 'invalid_endpoint' | 'redirect_blocked' | 'provider_rate_limited' | 'provider_error'
     | 'model_catalog_unavailable' | 'model_catalog_too_large' | 'invalid_model_catalog';
   model: 'listed' | 'not_listed' | 'unknown'; http_status: number | null;
@@ -399,6 +399,20 @@ export type ProviderDiscovery = {
 export type SupplierCatalogModel = ProviderCatalogModel;
 export type ProviderCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorCooldown = ProviderCooldown;
+export type ProviderConnectionIncident = {
+  reference: string;
+  model: string;
+  cause: 'account_restricted' | 'authentication_rejected';
+  status: 'active' | 'resolved';
+  first_observed_at: string;
+  last_observed_at: string;
+  observations: string;
+  recovered_at: string | null;
+};
+export type PlatformConnectionIncident = ProviderConnectionIncident & {
+  connection_name: string;
+  provider: { name: string; slug: string } | null;
+};
 export type ProviderRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimit = ProviderRequestRateLimit;
 export type ProviderRequestRateLimitRevision = ProviderRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -820,6 +834,7 @@ export type CustomerBilling = {
   unresolved: string; unpriced: string; tariffs: CustomerTariff[];
   invoices: Array<{ id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; created_at: string; status: 'issued' | 'paid'; payment_reference: string | null }>;
 };
+/** `qualified` is a compatibility readiness field, not proof of evidence review or live access. */
 export type ProviderOffer = {
   context_tiers?: ContextPriceTier[];
   id: string; model_alias: string; revision: string; active: boolean; qualified: boolean; route_ready: boolean;
@@ -1517,7 +1532,7 @@ export type RetailTextEnrollment = { model_alias: string; price_id: string | nul
 export type RetailPublicationResult = { price_id: string; revision: string; version: string };
 export type RetailStandardPublication = {
   model_alias: string; currency: string; schedule: RetailSchedule;
-  expected_version: string; idempotency_key: string; reason: string;
+  expected_version: string; idempotency_key: string; reason?: string;
 };
 export type RetailPromotionPublication = {
   baseline_revision: string; customer_organization_id: string | null; schedule: RetailSchedule;
@@ -2443,6 +2458,14 @@ export class NiuAdminClient {
     if (typeof active !== 'boolean') throw new TypeError('Offer active state must be boolean');
     return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
   }
+  /** Atomically authorize and enable the exact current offer revision. */
+  authorizeProviderOffer(providerId: string, offerId: string, rateRevision: string, options?: RequestOptions): Promise<{data: {active: boolean; authorization_id: string}}> {
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/authorization`, {rate_revision:uuid(rateRevision)}, options, 'PUT');
+  }
+  /** Revoke one exact authorization; a different current authorization is unaffected. */
+  revokeProviderOfferAuthorization(providerId: string, offerId: string, authorizationId: string, options?: RequestOptions): Promise<{data: {revoked: boolean}}> {
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/authorization/${uuid(authorizationId)}`, undefined, options, 'DELETE');
+  }
   setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     return this.setProviderOfferActive(supplierId, offerId, active, options);
   }
@@ -2841,7 +2864,7 @@ export class NiuAdminClient {
 
   /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
   publishRetailStandard(input: RetailStandardPublication, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
-    retailPublication(input); retailSchedule(input.schedule, input.model_alias, input.currency);
+    retailPublication(input, true); retailSchedule(input.schedule, input.model_alias, input.currency);
     return this.request('/pricing/standard-prices', input, options, 'POST');
   }
   listRetailStandards(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: RetailPriceRecord[]; next_after: string | null }> {
@@ -3205,6 +3228,19 @@ export class NiuAdminClient {
   }
   getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{ data: VendorCooldown }> {
     return this.getProviderCooldown(vendorId, options);
+  }
+
+  /** Platform-only operational evidence. Follow next_before for older incidents. */
+  listProviderConnectionIncidents(connectionId: string, before?: string, options?: RequestOptions): Promise<{ data: ProviderConnectionIncident[]; next_before: string | null }> {
+    if (before !== undefined && !/^incident-[1-9][0-9]*$/.test(before)) throw new TypeError('Use the incident reference from the next page cursor');
+    const query = before === undefined ? '' : `?before=${encodeURIComponent(before)}`;
+    return this.request(`/vendors/${uuid(connectionId)}/incidents${query}`, undefined, options);
+  }
+
+  listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null }> {
+    if (page.before !== undefined && !/^incident-[1-9][0-9]*$/.test(page.before)) throw new TypeError('Use the incident reference from the next page cursor');
+    const query = new URLSearchParams(page);
+    return this.request(`/incidents${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   getProviderRequestRateLimit(providerId: string, options?: RequestOptions): Promise<{ data: ProviderRequestRateLimit }> {
@@ -4325,9 +4361,10 @@ function unitInteger(value: unknown, positive = false): void {
     throw new TypeError('Use a canonical exact integer string within the supported range');
   }
 }
-function retailPublication(input: { expected_version: string; idempotency_key: string; reason: string }): void {
+function retailPublication(input: { expected_version: string; idempotency_key: string; reason?: string }, optionalReason = false): void {
   retailInteger(input.expected_version,9223372036854775806n); uuid(input.idempotency_key);
-  if (typeof input.reason !== 'string' || input.reason!==input.reason.trim() || [...input.reason].length<1 || [...input.reason].length>500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed justification without control characters');
+  const reason = input.reason === undefined ? '' : input.reason;
+  if (typeof reason !== 'string' || reason !== reason.trim() || (!optionalReason && !reason) || [...reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(reason)) throw new TypeError('Use a trimmed justification without control characters');
 }
 function retailSchedule(schedule: RetailSchedule, model: string, currency: string): void {
   if (typeof model!=='string' || !model.length || model!==model.trim() || model.length>200 || /[\u0000-\u001f\u007f-\u009f]/.test(model) || !/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use a model alias and uppercase currency');

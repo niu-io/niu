@@ -45,6 +45,13 @@ function streamResponse(model: string, completion: number, attemptId: string, fi
 
 async function setWorkspaceKey(user: ReturnType<typeof userEvent.setup>, key = 'workspace-key-secret') {
   await user.click(screen.getByRole('button', { name: /API key:/i }));
+  await waitFor(() => expect(screen.queryByRole('button', {name:'Use an existing key secret'}) || screen.queryByRole('button', {name:'API key', exact:true}) || screen.queryByLabelText('Key secret')).toBeTruthy());
+  const existing = screen.queryByRole('button', {name:'Use an existing key secret'});
+  if (existing) await user.click(existing);
+  else if (!screen.queryByLabelText('Key secret')) {
+    await user.click(screen.getByRole('button', {name:'API key',exact:true}));
+    await user.click(screen.getByRole('menuitemradio', {name:'Use another key'}));
+  }
   await user.type(screen.getByLabelText('Key secret'), key);
   await user.click(screen.getByRole('button', { name: 'Done' }));
 }
@@ -87,6 +94,24 @@ function stubFetch(fallback: ReturnType<typeof vi.fn>) {
 beforeEach(() => { localStorage.clear(); serverChats.clear(); serverDrafts.clear(); vi.stubGlobal('crypto', webcrypto); });
 
 describe('Global Chat', () => {
+  it('guides a user with no active keys to creation while preserving the draft return path', async () => {
+    stubFetch(vi.fn(async () => jsonResponse({data:[]})));
+    function Target() { const location=useLocation(); return <output data-testid="key-handoff">{JSON.stringify(location.state)}</output>; }
+    const user=userEvent.setup();
+    render(<SidebarProvider><MemoryRouter initialEntries={['/generations/chat-42?workspace=workspace-a']}><Routes>
+      <Route path="/generations/:session" element={<PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>}/>
+      <Route path="/workspaces/:workspace/keys" element={<Target/>}/>
+    </Routes></MemoryRouter></SidebarProvider>);
+    const prompt=await screen.findByLabelText('Prompt for all selected models');
+    await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
+    await user.type(prompt,'Keep this draft');
+    await user.click(screen.getByRole('button',{name:/API key: Choose API key/i}));
+    expect(await screen.findByText(/No active API key is available/)).toBeTruthy();
+    expect(screen.queryByLabelText('Key secret')).toBeNull();
+    await user.click(screen.getByRole('button',{name:'Create API key'}));
+    expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
+    expect([...serverDrafts.values()].some(draft=>(draft.payload as {prompt:string})?.prompt==='Keep this draft')).toBe(true);
+  });
   it('consumes new-generation intent and restores an unsent server draft after remount', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     function LocationProbe() { const location=useLocation(); return <output data-testid="draft-location">{location.pathname+location.search}</output>; }
@@ -805,12 +830,14 @@ describe('Global Chat', () => {
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     expect(await screen.findByRole('heading', { name: 'API key' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
-    expect(screen.getByLabelText('Key secret')).toBeTruthy();
+    expect(screen.queryByLabelText('Key secret')).toBeNull();
     expect(screen.queryByText('Choose a workspace API key before sending this prompt.')).toBeNull();
     expect(screen.queryByText('Select a workspace API key to send requests')).toBeNull();
     expect(screen.queryByText(/Create a key on the API keys page/)).toBeNull();
     expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(0);
-      await user.type(screen.getByLabelText('Key secret'), 'workspace-key-secret');
+    await user.click(await screen.findByRole('button', {name:'API key',exact:true}));
+    await user.click(screen.getByRole('menuitemradio', {name:'Use another key'}));
+    await user.type(screen.getByLabelText('Key secret'), 'workspace-key-secret');
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await waitFor(() => expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(2));
@@ -1143,6 +1170,7 @@ it('does not carry saved-workspace billing claims over to a manually supplied ke
   renderPlayground(['fast', 'strong']);
   await screen.findByRole('button', {name:'API key: Default'});
   expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider API keys');
+  expect(screen.getByLabelText('Usage billing').closest('.playground-composer-surface')).toBeNull();
   await user.click(screen.getByRole('button', {name:'API key: Default'}));
   await user.click(screen.getByRole('button', {name:'API key', exact:true}));
   await user.click(screen.getByRole('menuitemradio', {name:'Use another key'}));

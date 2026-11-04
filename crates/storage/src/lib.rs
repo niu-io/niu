@@ -2,6 +2,7 @@
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
 mod evaluation_runs;
+mod connection_incidents;
 mod evaluation_summary;
 pub use evaluation_runs::{
     EvaluationEvaluator, EvaluationResult, EvaluationRunSubmission, EvaluationVerdict,
@@ -495,6 +496,8 @@ pub enum StoreError {
     InvalidKey,
     #[error("API key is invalid, expired, revoked, or lacks permission")]
     Unauthorized,
+    #[error("this credential is not authorized to invoke models")]
+    InvocationDenied,
     #[error("invalid price, currency or monetary amount")]
     InvalidPrice,
     #[error("invalid Credits definition, exact quantity, conversion or expiry")]
@@ -1077,6 +1080,24 @@ impl Store {
         const MAX_BATCH_SIZE: usize = 64;
         if admissions.is_empty() || admissions.len() > MAX_BATCH_SIZE {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
+        }
+
+        // Invocation authority is immutable after issuance. Reject before the
+        // batch function can reserve or dispatch, including direct store callers.
+        let requested_keys: Vec<_> = admissions.iter().map(|entry| entry.key_id).collect();
+        let requested_organizations: Vec<_> = admissions
+            .iter()
+            .map(|entry| entry.scope.organization_id)
+            .collect();
+        let requested_workspaces: Vec<_> = admissions
+            .iter()
+            .map(|entry| entry.scope.project_id)
+            .collect();
+        let invocation_denied: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM api_keys k JOIN unnest($1::uuid[],$2::uuid[],$3::uuid[]) r(key_id,organization_id,project_id) ON k.id=r.key_id AND k.organization_id=r.organization_id AND k.project_id=r.project_id WHERE NOT k.invocation_allowed)",
+        ).bind(&requested_keys).bind(&requested_organizations).bind(&requested_workspaces).fetch_one(&self.pool).await?;
+        if invocation_denied {
+            return Err(StoreError::InvocationDenied);
         }
 
         let admission_count = admissions.len();

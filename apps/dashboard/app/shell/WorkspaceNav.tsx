@@ -23,16 +23,6 @@ function isWorkspaceNavItemActive(itemTo: string, activePath: string): boolean {
       activePath.startsWith('video/')
     );
   }
-  if (itemTo === 'routing') {
-    return (
-      activePath === 'routing' ||
-      activePath.startsWith('routing/') ||
-      activePath === 'evaluations' ||
-      activePath.startsWith('evaluations/') ||
-      activePath === 'events' ||
-      activePath.startsWith('events/')
-    );
-  }
   if (itemTo === 'settings') {
     return activePath === 'settings' || activePath === 'billing' || activePath === 'costs';
   }

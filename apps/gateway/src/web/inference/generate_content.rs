@@ -738,7 +738,7 @@ async fn execute(
     mut body: Value,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_api_headers(headers).await?;
+    let principal = state.authorize_invocation_headers(headers).await?;
     let mut selected_model = action
         .strip_suffix(":generateContent")
         .filter(|v| {

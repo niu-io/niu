@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconArrowRight,
   IconCheck,
@@ -10,13 +10,16 @@ import {
 import { Badge } from "../../../dashboard/app/components/ui/badge";
 import { Button } from "../../../dashboard/app/components/ui/button";
 import type { Locale } from "../../../dashboard/app/shell/locale";
-const setupPrompt =
-  "Install and configure Niu by following https://niu.io/docs/install.md.";
 function DocsHomeContent({ locale }: { locale: Locale }) {
   const t = (english: string, chinese: string) =>
     locale === "zh-CN" ? chinese : english;
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [deployment, setDeployment] = useState<string | null>(null);
+  useEffect(() => { setDeployment(window.location.origin); }, []);
+  const setupPrompt = deployment
+    ? `Install and configure Niu for ${deployment} by following https://niu.io/docs/install.md. Verify the deployment and workspace during authorization.`
+    : "Install and configure Niu by following https://niu.io/docs/install.md. Specify your Niu deployment and verify it during authorization.";
   const references = [
     {
       href: "/docs/agents.md",

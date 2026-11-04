@@ -21,7 +21,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
   const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const location = useLocation();
-  const { organization, workspaces, session, token, refreshWorkspace, workspace } = context;
+  const { organization, workspaces, session, token, refreshWorkspace } = context;
   const [createOpen, setCreateOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(organization?.name ?? '');
   const [renaming, setRenaming] = useState(false);
@@ -156,9 +156,8 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
           </div>
           <OperatorsView
             embedded
-            key={`${token}:${organization.id}:${workspace?.id ?? ''}`}
+            key={`${token}:${organization.id}`}
             initialOrganization={organization.id}
-            initialWorkspace={workspace?.id ?? entries[0]?.id}
             token={token}
             session={session}
             refreshWorkspace={refreshWorkspace}

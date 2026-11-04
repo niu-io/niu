@@ -135,13 +135,16 @@ export function clientLoader(args: LoaderFunctionArgs) {
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function BillingRoute() {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   useOptionalRouteLoaderData();
-  const { token, workspace, session } = useDashboardContext();
+  const { token, workspace, session, organization } = useDashboardContext();
   const location = useLocation();
-  const canFund = session?.kind === 'installation' || (session?.operator?.project_id === null && ['owner','admin'].includes(session.operator.role));
+  const internal = session?.operating_mode === 'internal';
+  const canFund = session?.kind === 'installation' || (session?.operator?.organization_id === workspace?.organization_id && session?.operator?.project_id === null && ['owner','admin'].includes(session.operator.role));
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
-  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{uiT("Spending and limits apply to this workspace. Funds are shared across the account.")}</p>{canFund ? <Button asChild variant="outline"><Link to={settingsHref(location.pathname,location.search,location.hash,'billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your company owner to add credits.")}</p>}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} /></>;
+  const organizationName = workspace.organization_name?.trim() || (organization?.id === workspace.organization_id ? organization.name : '') || '';
+  const matchingOrganization = organization?.id === workspace.organization_id;
+  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>{!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : canFund ? <Button asChild variant="outline"><Link to={settingsHref(location.pathname,location.search,location.hash,'billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p>)}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} /></>;
 }
 
 function BillingView({ token, organization, project, canConfigure }: { token: string; organization: string; project: string; canConfigure: boolean }) {

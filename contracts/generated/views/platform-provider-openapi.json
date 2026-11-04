@@ -406,8 +406,8 @@
             "bearerAuth": []
           }
         ],
-        "summary": "Discover and import owner-funded Provider models",
-        "description": "Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.",
+        "summary": "Discover and import Provider models",
+        "description": "Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.",
         "parameters": [
           {
             "name": "id",
@@ -424,7 +424,7 @@
             "description": "Import counts and discovery evidence."
           },
           "400": {
-            "description": "Not a personal connection or unsupported catalog identifiers."
+            "description": "Unsupported catalog identifiers."
           },
           "409": {
             "description": "Connection changed or an alias conflicts; no models imported."
@@ -11425,6 +11425,312 @@
         }
       }
     },
+    "/api/v1/vendors/{vendor}/incidents": {
+      "get": {
+        "operationId": "listVendorIncidents",
+        "summary": "Read upstream connection incidents and recovery evidence",
+        "description": "Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions and qualified OpenRouter authentication refusals. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current connection revision. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vendor",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^incident-[1-9][0-9]*$"
+            },
+            "description": "Durable incident reference from next_before."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sanitized operational incidents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_before"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "maxItems": 50,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "reference",
+                          "model",
+                          "cause",
+                          "status",
+                          "first_observed_at",
+                          "last_observed_at",
+                          "observations",
+                          "recovered_at"
+                        ],
+                        "properties": {
+                          "reference": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "cause": {
+                            "type": "string",
+                            "enum": [
+                              "account_restricted",
+                              "authentication_rejected"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "resolved"
+                            ]
+                          },
+                          "first_observed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "last_observed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "observations": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "recovered_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "next_before": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cursor"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "Connection unavailable"
+          },
+          "503": {
+            "description": "Operational evidence unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Provider API connections"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/incidents": {
+      "get": {
+        "operationId": "listConnectionIncidents",
+        "summary": "Read platform upstream connection incidents",
+        "description": "Platform administration only. Reads recognized model-scoped upstream incidents across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "resolved"
+              ]
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^incident-[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sanitized connection incident page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_before"
+                  ],
+                  "properties": {
+                    "next_before": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "maxItems": 50,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "reference",
+                          "model",
+                          "cause",
+                          "status",
+                          "first_observed_at",
+                          "last_observed_at",
+                          "observations",
+                          "recovered_at",
+                          "connection_name",
+                          "provider"
+                        ],
+                        "properties": {
+                          "reference": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "connection_name": {
+                            "type": "string"
+                          },
+                          "cause": {
+                            "type": "string",
+                            "enum": [
+                              "account_restricted",
+                              "authentication_rejected"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "resolved"
+                            ]
+                          },
+                          "first_observed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "last_observed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "observations": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "recovered_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "provider": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "required": [
+                              "name",
+                              "slug"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter or cursor"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "503": {
+            "description": "Incident evidence unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Connection incidents"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
     "/api/v1/vendors/{vendor}/request-rate-limit/history": {
       "get": {
         "operationId": "listVendorRequestRateLimitHistory",
@@ -15446,7 +15752,7 @@
                           "ready_offers": {
                             "type": "integer",
                             "minimum": 0,
-                            "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+                            "description": "Active offers with a current exact-revision commercial authorization or a current legacy review, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
                           },
                           "enabled_api_keys": {
                             "type": "integer",
@@ -15458,6 +15764,7 @@
                           },
                           "qualification_status": {
                             "type": "string",
+                            "description": "Legacy Provider evidence-review status only. An unqualified value does not rule out an explicitly authorized offer and does not measure live Provider access.",
                             "enum": [
                               "qualified",
                               "unqualified"
@@ -16600,7 +16907,8 @@
                             "type": "boolean"
                           },
                           "qualified": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Compatibility field indicating current exact-revision commercial authorization or legacy qualification and required binding. It is not proof of an independent evidence review, live access, an active offer, or a customer selling price."
                           },
                           "revision": {
                             "type": "string",
@@ -21311,6 +21619,7 @@
                           "enum": [
                             "connected",
                             "credentials_rejected",
+                            "account_chat_banned",
                             "endpoint_unavailable",
                             "private_endpoint_blocked",
                             "invalid_endpoint",
@@ -28816,6 +29125,7 @@
                     "enum": [
                       "upstream_http_error",
                       "upstream_region_unavailable",
+                      "upstream_account_restricted",
                       "upstream_timeout",
                       "upstream_connection_error",
                       "upstream_transport_error",
@@ -29871,7 +30181,6 @@
           },
           "reason": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 500
           }
         },
@@ -29880,8 +30189,7 @@
           "currency",
           "schedule",
           "expected_version",
-          "idempotency_key",
-          "reason"
+          "idempotency_key"
         ]
       },
       "handler_operations_json_RetailPriceRecord": {
@@ -33227,8 +33535,14 @@
           "model": {
             "type": "string"
           },
+          "store": {
+            "type": "boolean",
+            "const": false,
+            "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+          },
           "messages": {
             "type": "array",
+            "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
             "items": {
               "type": "object"
             }

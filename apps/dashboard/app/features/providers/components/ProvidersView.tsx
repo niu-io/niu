@@ -421,9 +421,9 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   return <>
     {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>{uiT("API keys")}</h2>}<p>{uiT("Configure API keys and the model routes they serve.")}</p></div>}
     <PageHeader title={uiT("Providers")} action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
-    {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
+    {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
     <div className="supplier-detail-layout">
-      {selectedConnection?.owner_funded && <Button variant="outline" disabled={busy} onClick={() => void importModels()}>{uiT("Import models")}</Button>}
+      {selectedConnection && <Button variant="outline" disabled={busy} onClick={() => void importModels()}>{uiT("Import models")}</Button>}
       {connections.length > 1 && <ProviderDirectory
         connections={connections}
         selectedId={addingConnection ? '' : selectedConnectionId}

@@ -6,13 +6,15 @@ Agreed direction, 2026-10-31. These principles govern subsequent product, integr
 
 **The Model Platform for Agents**
 
-Discover and evaluate models, build model pools, and manage performance and cost—all through your agent.
+Product terminology: use **Routing** (路由) and **routing policy** (路由策略). Retain `pool` only when quoting historical evidence or referring to existing compatibility identifiers.
 
-The core promise is to give agents the information needed to make decisions and the authorized controls to configure Niu around their workload. A scenario-specific model pool is the connection between that decision and actual execution. Better value means meeting the task's acceptance criteria within its quality, latency, reliability and spending constraints; it is not synonymous with choosing the cheapest model.
+Discover and evaluate models, configure routing, and manage performance and cost—all through your agent.
+
+The core promise is to give agents the information needed to make decisions and the authorized controls to configure Niu around their workload. A scenario-specific routing policy is the connection between that decision and actual execution. Better value means meeting the task's acceptance criteria within its quality, latency, reliability and spending constraints; it is not synonymous with choosing the cheapest model.
 
 The motivation for managing model use already belongs to the coding agent: complete the user's task while improving value within the user's constraints. Niu supplies the information and authorized management capabilities the agent needs to pursue that objective. Niu does not guarantee the best model, optimal cost, task success or a particular quality/price ratio.
 
-Model invocation is one operation within model resource management. Discovery, evaluation evidence, access, pool configuration, routing, budgets, diagnostics and event subscriptions belong in the product model alongside inference.
+Model invocation is one operation within model resource management. Discovery, evaluation evidence, access, routing configuration, budgets, diagnostics and event subscriptions belong in the product model alongside inference.
 
 | Responsibility | Owner |
 | --- | --- |
@@ -28,16 +30,16 @@ Niu may execute an explicitly selected routing strategy, including a cost-based 
 The public narrative is **Agent-friendly · Cost-efficient · High-performance**.
 
 - **Agent-friendly:** agents discover, authorize, configure, verify and recover directly; humans set goals and review consequential changes.
-- **Cost-efficient:** agents obtain decision evidence and configure Niu for their scenario. They build and revise model pools, routing and authorized event subscriptions using task requirements, evaluation results, published customer prices and observed performance. The goal is better cost per acceptable result within the user’s constraints, not a platform guarantee of optimal value.
+- **Cost-efficient:** agents obtain decision evidence and configure Niu for their scenario. They build and revise routing policies and authorized event subscriptions using task requirements, evaluation results, published customer prices and observed performance. The goal is better cost per acceptable result within the user’s constraints, not a platform guarantee of optimal value.
 - **High-performance:** efficient gateway execution and inspectable latency, reliability and usage evidence support the application. Publish measured boundaries and reproducible results; distinguish gateway overhead from upstream model speed and task quality.
 
-The feedback loop connects information to action: inspect → evaluate → configure a scenario-specific model pool → observe execution → adjust and verify. Information without authorized configuration is insufficient; configuration without trustworthy feedback is insufficient.
+The feedback loop connects information to action: inspect → evaluate → configure a scenario-specific routing policy → observe execution → adjust and verify. Information without authorized configuration is insufficient; configuration without trustworthy feedback is insufficient.
 
 ## Information sufficient for decisions
 
 Expose information through structured, scoped interfaces so agents can retrieve it directly:
 
-- Available models and pools, supported protocols and capabilities, context/input/output limits, access requirements and known qualification limits.
+- Available models and routing policies, supported protocols and capabilities, context/input/output limits, access requirements and known qualification limits.
 - Published customer prices with units, currencies, billing categories, applicable conditions and effective revisions. Keep advertised prices, estimates, reservations and settled charges distinct.
 - Request and attempt outcomes, latency boundaries, usage, failures, fallback history and customer charges, with stable correlation references and provenance.
 - Current configuration, grants, budgets, resource revisions and prerequisites needed to explain what an agent can do next.
@@ -48,7 +50,7 @@ Agents judge value using task outcomes and these measurements. Niu supplies boun
 
 ## The gateway closes the feedback loop
 
-The gateway is a continuous source of execution evidence for model management. Each call can connect the selected model and pool revision to its actual attempts, performance, usage and customer charges. Associate task-specific quality evaluations with that evidence so agents and people can revisit decisions as workloads, models, prices and observed behavior change.
+The gateway is a continuous source of execution evidence for model management. Each call can connect the selected model and routing revision to its actual attempts, performance, usage and customer charges. Associate task-specific quality evaluations with that evidence so agents and people can revisit decisions as workloads, models, prices and observed behavior change.
 
 The product loop is **observe → evaluate → feed back → adjust → verify**. Make the same scoped evidence directly retrievable by agents and inspectable by people. Preserve the baseline, evaluation provenance and policy revision so an authorized change can be compared and reversed. Evaluation support and trustworthy feedback are Niu responsibilities; the agent and user retain ownership of the acceptance rule and quality/cost tradeoff.
 
@@ -56,17 +58,17 @@ Continuous evaluation does not mean evaluating every request or starting unlimit
 
 ## Management sufficient for action
 
-Design management operations to be usable by an authorized agent without a person relaying dashboard data or copying configuration between systems. The target includes inspecting and changing model pools, routing policies, access and spending controls, and event subscriptions within each resource's actual scope.
+Design management operations to be usable by an authorized agent without a person relaying dashboard data or copying configuration between systems. The target includes inspecting and changing routing policies, access and spending controls, and event subscriptions within each resource's actual scope.
 
 Mutations need an inspectable proposal or preview where relevant, explicit authority and scope, revision/conflict handling, idempotency appropriate to the operation, durable results, readback verification and recoverable failure semantics. Reject unauthorized operations on the backend. An agent plugin does not elevate a workspace credential into administrator authority.
 
-For a model pool, the agent determines the candidate set and policy from task requirements and evidence. Niu validates the configuration, executes the selected policy, exposes which route was used, and preserves configuration and billing revisions. Pool ownership and delegation must be designed explicitly before expanding beyond the current administrator-only model.
+For a routing policy, the agent determines the candidate set and policy from task requirements and evidence. Niu validates the configuration, executes the selected policy, exposes which route was used, and preserves configuration and billing revisions. Routing ownership and delegation must be designed explicitly before expanding beyond the current administrator-only model.
 
 An approval handoff should name the proposed change, its scope and consequences, and link to the relevant Niu review surface. The agent must be able to check the resulting state and resume. Approval should not require the human to carry raw JSON, model lists, logs or secrets back to the agent. Current manual handoffs remain documented until a structured replacement exists.
 
 ## Direct upstream payment is the default connection path
 
-Default Provider onboarding is Internal use: choose a supported service, supply its API key, select models and configure the workload pool. The account maintains its upstream access and pays that Provider directly. Niu must not require resale pricing, payment collection or commercial qualification for owner-funded use. The distinction from Resale is downstream charging, not who supplies the upstream API key. End-user BYOK is a separate future capability; administrator-managed Provider keys do not implement or advertise it. Common Provider presets should supply the supported adapter and endpoint without creating fictional inventory or saved businesses before a connection is requested.
+Default Provider onboarding is Internal use: choose a supported service, supply its API key, select models and configure the workload routing policy. The account maintains its upstream access and pays that Provider directly. Niu must not require resale pricing, payment collection or commercial qualification for owner-funded use. The distinction from Resale is downstream charging, not who supplies the upstream API key. End-user BYOK is a separate future capability; administrator-managed Provider keys do not implement or advertise it. Common Provider presets should supply the supported adapter and endpoint without creating fictional inventory or saved businesses before a connection is requested.
 
 Expose usage, performance and clearly attributed Provider cost evidence so agents can make decisions. Advertised-price estimates, Provider-reported expenses and Niu customer charges are distinct; unknown cost is not zero. Keep the account's own upstream expense evidence separate from confidential platform procurement. Commercial resale remains optional with its existing authorization and accounting boundaries. See [Provider onboarding and direct upstream payment](provider-onboarding.md) for the decision and current implementation limits.
 
@@ -74,7 +76,7 @@ Expose usage, performance and clearly attributed Provider cost evidence so agent
 
 Agents should be able to subscribe to relevant Niu changes, rather than relying on a human to notice and report them. Candidate event domains include budgets, model availability, price/capability revisions and configured performance conditions. Each supported event needs a defined producer, observation boundary and delivery contract; this list is direction, not a declaration that those events exist today.
 
-Niu owns event truth and delivery semantics. The agent owns the response policy. A notification is not permission to spend money, change a pool or expand access. Define authentication, tenant filtering, sensitive-field handling, stable event identity, ordering/version semantics, retries, deduplication, delivery inspection and subscription revocation. Agents need ways to reconcile missed or duplicated events with current resource state. Avoid event-triggered retry or evaluation loops that create unbounded cost.
+Niu owns event truth and delivery semantics. The agent owns the response policy. A notification is not permission to spend money, change a routing policy or expand access. Define authentication, tenant filtering, sensitive-field handling, stable event identity, ordering/version semantics, retries, deduplication, delivery inspection and subscription revocation. Agents need ways to reconcile missed or duplicated events with current resource state. Avoid event-triggered retry or evaluation loops that create unbounded cost.
 
 Keep Niu platform events separate from coding-agent host lifecycle hooks. A host hook can load guidance or run a permitted local integration step; it does not establish a durable Niu event subscription or the ability to wake an inactive agent.
 
@@ -84,7 +86,7 @@ MCP is a shared tool/resource interface, not the whole user experience. Build in
 
 A host integration should package capability discovery, secure connection setup, concise task guidance, appropriate host hooks, review handoffs and upgrade/uninstall behavior where the host supports them. Document supported host versions and missing features. Do not invent a common plugin format, pretend every host supports background events, or publish installation claims before verifying the corresponding package.
 
-Keep optimization policy with the agent. Integration guidance explains tool semantics, constraints and recovery; it should not impose a fixed model ranking, hard-coded pool or universal cost strategy. Keep MCP, API and SDK untranslated. Distinguish **coding-agent plugins** from Niu's existing server-side Plugin API; neither implies the other's capabilities.
+Keep optimization policy with the agent. Integration guidance explains tool semantics, constraints and recovery; it should not impose a fixed model ranking, hard-coded routing policy or universal cost strategy. Keep MCP, API and SDK untranslated. Distinguish **coding-agent plugins** from Niu's existing server-side Plugin API; neither implies the other's capabilities.
 
 Connecting an agent to Niu management does not require routing that coding agent's own inference through Niu. Do not intercept subscriptions, replace billing sources or collect unrelated external agent telemetry as a side effect of installation.
 
@@ -121,7 +123,7 @@ Preserve durable data, commercial confidentiality, existing authorization and co
 Source inspection on 2026-10-31 establishes the following limited baseline:
 
 - `sdks/mcp/src/tools.ts` and `resources.ts` expose key inspection, model/catalog discovery, bounded model comparison, inference and generation diagnostics, plus documented media operations. This is source evidence, not a new live qualification.
-- `apps/docs/src/content/docs/configuration/models.mdx` documents administrator-managed model pools, preview and publication. The MCP tool set does not expose pool administration, key creation or budget updates.
+- `apps/docs/src/content/docs/configuration/models.mdx` documents administrator-managed model pools (the historical term for Routing), preview and publication. The MCP tool set does not expose pool administration, key creation or budget updates.
 - `plugins/webhook-audit` implements a server-side observer/delivery-inspection facet. It is not evidence of a user-configurable agent event subscription workflow.
 - Native per-host coding-agent plugins and agent-managed event subscriptions have not been qualified by this decision. Historical Agent Connect prototypes are not that qualification.
 

@@ -69,6 +69,25 @@ function encodePoolReference(alias: string): string {
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
+// Normalize optional defaults and object key order before comparing an attempted
+// write with the authoritative record. Array order remains meaningful.
+function comparablePool(value: Record<string, unknown>): string {
+  const normalize = (item: unknown): unknown => {
+    if (Array.isArray(item)) return item.map(normalize);
+    if (item && typeof item === 'object') return Object.fromEntries(
+      Object.entries(item).filter(([, v]) => v !== null && v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, normalize(v)]),
+    );
+    return item;
+  };
+  return JSON.stringify(normalize({
+    alias: value.alias, organization_id: value.organization_id, project_id: value.project_id,
+    display_name: value.display_name, description: value.description,
+    public_catalog: value.public_catalog ?? false, billing_mode: value.billing_mode ?? 'pool_tariff',
+    enabled: value.enabled, candidates: value.candidates, rules: value.rules ?? [],
+    default_action: value.default_action ?? 'candidates',
+  }));
+}
+
 function formatDate(value: string, unavailableLabel = 'Date unavailable') {
   return Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : unavailableLabel;
 }
@@ -393,7 +412,6 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       <p className="mt-0.5 text-xs font-medium text-foreground/80">{pool.display_name}</p>
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <span>{t(`Revision ${pool.revision}`, `版本 ${pool.revision}`)}</span>
                       <span className="md:hidden"> · {scopeName}</span>
                       {!pool.organization_id && pool.public_catalog && (
                         <Badge variant="secondary" className="text-[11px] font-normal">
@@ -577,10 +595,6 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             setNotice(message);
             void loadPools();
           }}
-          onUncertain={message => {
-            setEditing(null);
-            setError(message);
-          }}
         />
       )}
 
@@ -629,7 +643,6 @@ function RoutePoolEditorDialog({
   triggerRef,
   onClose,
   onSaved,
-  onUncertain,
 }: {
   token: string;
   organizations: Organization[];
@@ -637,44 +650,61 @@ function RoutePoolEditorDialog({
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
   onSaved: (message: string) => void;
-  onUncertain: (message: string) => void;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
-  const isNew = initial === null;
-  const [alias, setAlias] = useState(initial?.alias ?? '');
-  const [displayName, setDisplayName] = useState(initial?.display_name ?? '');
-  const [description, setDescription] = useState(initial?.description ?? '');
-  const [organizationId, setOrganizationId] = useState<string | null>(initial?.organization_id ?? null);
-  const [publicCatalog, setPublicCatalog] = useState(Boolean(initial?.public_catalog));
-  const [billingMode, setBillingMode] = useState<ModelRoutePoolBillingMode>(initial?.billing_mode ?? 'pool_tariff');
-  const [enabled, setEnabled] = useState(initial?.enabled ?? true);
+  const [base, setBase] = useState(initial);
+  const isNew = base === null;
+  const [alias, setAlias] = useState(base?.alias ?? '');
+  const [displayName, setDisplayName] = useState(base?.display_name ?? '');
+  const [description, setDescription] = useState(base?.description ?? '');
+  const [organizationId, setOrganizationId] = useState<string | null>(base?.organization_id ?? null);
+  const [publicCatalog, setPublicCatalog] = useState(Boolean(base?.public_catalog));
+  const [billingMode, setBillingMode] = useState<ModelRoutePoolBillingMode>(base?.billing_mode ?? 'pool_tariff');
+  const [enabled, setEnabled] = useState(base?.enabled ?? true);
   const [candidates, setCandidates] = useState<ModelRoutePoolCandidate[]>(
-    initial?.candidates.length
-      ? initial.candidates.map(candidate => ({ ...candidate }))
+    base?.candidates.length
+      ? base.candidates.map(candidate => ({ ...candidate }))
       : [{ alias: '', priority: 100, weight: 1000, enabled: true }],
   );
   const [rules, setRules] = useState<ModelRoutePoolRule[]>(
-    (initial?.rules ?? []).map(rule => ({
+    (base?.rules ?? []).map(rule => ({
       ...rule,
       conditions: { ...rule.conditions },
       candidates: rule.candidates.map(c => ({ ...c })),
     })),
   );
-  const [defaultAction, setDefaultAction] = useState<ModelRoutePoolDefaultAction>(initial?.default_action ?? 'candidates');
+  const [defaultAction, setDefaultAction] = useState<ModelRoutePoolDefaultAction>(base?.default_action ?? 'candidates');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
+  const [writeUncertain, setWriteUncertain] = useState(false);
+  const [identityLocked, setIdentityLocked] = useState(false);
+  const [recoveryNotice, setRecoveryNotice] = useState('');
+  const [savedConflict, setSavedConflict] = useState<ModelRoutePool | null>(null);
+  const conflictHeading = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => { if (savedConflict) conflictHeading.current?.focus(); }, [savedConflict]);
+  const pendingAlias = useRef('');
+  const attemptedPayload = useRef<Record<string, unknown> | null>(null);
   const [candidateQuery, setCandidateQuery] = useState('');
   const [discoveredRoutes, setDiscoveredRoutes] = useState<DiscoveredRoute[]>([]);
+  const [discoveryIncomplete, setDiscoveryIncomplete] = useState(false);
+  const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
+  const [discovering, setDiscovering] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
+    setDiscovering(true);
     void (async () => {
       try {
         const providerResult = await request<{ data: ProviderConnection[] }>(token, '/api/v1/vendors', 'GET', undefined, controller.signal);
-        if (controller.signal.aborted || !Array.isArray(providerResult.data)) return;
-        const modelLists = await Promise.all(
-          providerResult.data.slice(0, 12).map(async provider => {
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(providerResult.data)) throw new Error('Invalid Provider list');
+        const modelLists: DiscoveredRoute[][] = [];
+        let incomplete = false;
+        // Discover every connection while bounding concurrent upstream requests.
+        for (let offset = 0; offset < providerResult.data.length; offset += 12) {
+          const batch = await Promise.all(
+          providerResult.data.slice(offset, offset + 12).map(async provider => {
             try {
               const models = await request<{ data: ProviderModel[] }>(
                 token,
@@ -693,22 +723,28 @@ function RoutePoolEditorDialog({
                   priced: model.pricing !== null && model.pricing !== undefined,
                 }));
             } catch {
-              return [];
+              return null;
             }
           }),
-        );
-        if (controller.signal.aborted) return;
+          );
+          if (controller.signal.aborted) return;
+          incomplete ||= batch.some(models => models === null);
+          modelLists.push(...batch.filter((models): models is DiscoveredRoute[] => models !== null));
+        }
         const byAlias = new Map<string, DiscoveredRoute>();
         for (const row of modelLists.flat()) {
           if (!byAlias.has(row.alias)) byAlias.set(row.alias, row);
         }
         setDiscoveredRoutes([...byAlias.values()].sort((a, b) => a.alias.localeCompare(b.alias)));
+        setDiscoveryIncomplete(incomplete);
       } catch {
-        // Candidate aliases remain directly editable when route discovery is unavailable.
+        if (!controller.signal.aborted) setDiscoveryIncomplete(true);
+      } finally {
+        if (!controller.signal.aborted) setDiscovering(false);
       }
     })();
     return () => controller.abort();
-  }, [token]);
+  }, [token, discoveryAttempt]);
 
   const winningShares = useMemo(() => computeWinningTierShares(candidates), [candidates]);
 
@@ -827,7 +863,7 @@ function RoutePoolEditorDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || writeUncertain) return;
     const trimmedAlias = alias.trim();
     if (!trimmedAlias || trimmedAlias.length > 200 || !/^[!-~]+$/.test(trimmedAlias)) {
       setFormError(t('Enter an ASCII pool alias between 1 and 200 characters without spaces.', '请输入 1 到 200 个字符且不含空格的 ASCII 模型池别名。'));
@@ -911,53 +947,61 @@ function RoutePoolEditorDialog({
       alias: trimmedAlias,
       organization_id: organizationId,
       enabled,
-      expected_revision: initial ? initial.revision : 0,
+      expected_revision: base ? base.revision : 0,
       candidates: normalizedCandidates,
     };
-    if (initial?.display_name != null || displayName.trim() !== '') {
+    if (base?.display_name != null || displayName.trim() !== '') {
       payload.display_name = displayName.trim() || null;
     }
-    if (initial?.description != null || description.trim() !== '') {
+    if (base?.description != null || description.trim() !== '') {
       payload.description = description.trim() || null;
     }
-    if (initial?.public_catalog !== undefined || publicCatalog) {
+    if (base?.public_catalog !== undefined || publicCatalog) {
       payload.public_catalog = organizationId === null ? publicCatalog : false;
     }
-    if (initial?.billing_mode !== undefined || billingMode !== 'pool_tariff') {
+    if (base?.billing_mode !== undefined || billingMode !== 'pool_tariff') {
       payload.billing_mode = billingMode;
     }
-    if (initial?.rules !== undefined || normalizedRules.length > 0) {
+    if (base?.rules !== undefined || normalizedRules.length > 0) {
       payload.rules = normalizedRules;
     }
-    if (initial?.default_action !== undefined || defaultAction !== 'candidates') {
+    if (base?.default_action !== undefined || defaultAction !== 'candidates') {
       payload.default_action = defaultAction;
     }
 
     setBusy(true);
     setFormError('');
+    setRecoveryNotice('');
+    setSavedConflict(null);
+    pendingAlias.current = trimmedAlias;
+    attemptedPayload.current = payload;
     try {
-      const response = await request<{ data: { revision: number } }>(token, '/api/v1/routing', 'PUT', payload);
+      await request<{ data: { revision: number } }>(token, '/api/v1/routing', 'PUT', payload);
       onSaved(
         t(
-          `Saved model pool "${trimmedAlias}" at revision ${response.data.revision}.`,
-          `已保存并发布模型池“${trimmedAlias}”（版本 ${response.data.revision}）。`,
+          `Saved model pool "${trimmedAlias}".`,
+          `已保存并发布模型池“${trimmedAlias}”。`,
         ),
       );
     } catch (reason) {
       if (writeMayHaveCommitted(reason)) {
-        onUncertain(
+        setIdentityLocked(true);
+        setWriteUncertain(true);
+        setFormError(
           t(
-            `Model pool "${trimmedAlias}" write could not be confirmed. Refresh model pools before saving again; the previous request may have committed.`,
-            `模型池“${trimmedAlias}”写入结果无法确认。请先刷新模型池列表再重试，前一次请求可能已经提交。`,
+            `Model pool "${trimmedAlias}" write could not be confirmed. Your draft is preserved. Check the saved state before trying again.`,
+            `无法确认模型池“${trimmedAlias}”是否已保存。草稿仍在，请先检查已保存的状态再重试。`,
           ),
         );
         return;
       }
       if (reason instanceof ProviderRequestError && reason.status === 409) {
+        setIdentityLocked(true);
+        setWriteUncertain(true);
         setFormError(
           t(
-            'This model pool changed in another session or already exists. Close and refresh model pools before retrying.',
-            '该模型池已在其他会话中更改或已存在。请关闭并刷新列表后再试。',
+            'This model pool changed in another session or already exists. Your draft is preserved; check the saved state.',
+            '该模型池已在其他会话中更改或已存在。草稿仍在，请检查已保存的状态。',
           ),
         );
       } else {
@@ -968,6 +1012,40 @@ function RoutePoolEditorDialog({
     }
   }
 
+  async function checkSavedState() {
+    if (busy || !writeUncertain || !pendingAlias.current) return;
+    setBusy(true);
+    setSavedConflict(null);
+    try {
+      let current: ModelRoutePool | null;
+      try {
+        const result = await request<{data: ModelRoutePool}>(token, `/api/v1/routing/${encodePoolReference(pendingAlias.current)}`, 'GET');
+        current = result.data;
+        if (!current || current.alias !== pendingAlias.current || !Number.isSafeInteger(current.revision) || !Array.isArray(current.candidates) || (current.rules !== undefined && !Array.isArray(current.rules))) throw new Error('Invalid saved state');
+      } catch (reason) {
+        if (reason instanceof ProviderRequestError && reason.status === 404) current = null;
+        else throw reason;
+      }
+      if (current && attemptedPayload.current && current.revision > (base?.revision ?? 0) && comparablePool(current as unknown as Record<string, unknown>) === comparablePool(attemptedPayload.current)) {
+        setBase(current);
+        setWriteUncertain(false);
+        setFormError('');
+        setRecoveryNotice(t('The previous save matches the saved model pool. Any later edits remain in this editor.', '前一次保存与已保存的模型池一致。之后的编辑仍保留在此处。'));
+      } else if ((current?.revision ?? 0) === (base?.revision ?? 0)) {
+        setWriteUncertain(false);
+        setFormError('');
+        setRecoveryNotice(t('No newer saved changes were found. You can save the retained draft with the same alias and scope; if another request finishes first, the save will be rejected safely.', '未发现更新的已保存内容。您可以用原有别名和归属范围保存保留的草稿；如果其他请求先完成，本次保存会被安全拒绝。'));
+      } else {
+        setSavedConflict(current);
+        setFormError(current
+          ? t('The saved model pool has changed. Compare it with your draft before choosing how to continue.', '已保存的模型池发生了变化。请将下方已保存配置与草稿比较，再决定如何继续。')
+          : t('The saved model pool no longer exists. Your draft is still here.', '已保存的模型池已不存在，草稿仍保留在此处。'));
+      }
+    } catch {
+      setFormError(t('The saved state could not be checked. Your draft is still here; try checking again.', '无法检查已保存的状态。草稿仍在，请重试检查。'));
+    } finally { setBusy(false); }
+  }
+
   const billingModeLabels: Record<ModelRoutePoolBillingMode, string> = {
     pool_tariff: t('Unified pool price (custom model)', '作为自定义模型统一定价 (pool_tariff)'),
     candidate_tariff: t('Per-candidate model price (pass-through)', '按命中的候选模型分别计费 (candidate_tariff)'),
@@ -976,6 +1054,13 @@ function RoutePoolEditorDialog({
   const defaultActionLabels: Record<ModelRoutePoolDefaultAction, string> = {
     candidates: t('Fall back to default pool candidates', '回退到默认候选模型池'),
     reject: t('Reject request when no rule matches', '无规则命中时直接拒绝请求'),
+  };
+
+  const conditionLabels: Record<keyof ModelRoutePoolRuleConditions, string> = {
+    protocol: t('Protocol', '协议'), streaming: t('Streaming', '流式输出'), tools: t('Tools', '工具调用'),
+    structured_output: t('Structured output', '结构化输出'), vision: t('Vision', '视觉'), reasoning: t('Reasoning', '推理'),
+    min_input_tokens: t('Minimum input tokens', '最少输入 token'), max_input_tokens: t('Maximum input tokens', '最多输入 token'),
+    min_output_tokens: t('Minimum output tokens', '最少输出 token'), max_output_tokens: t('Maximum output tokens', '最多输出 token'),
   };
 
   const protocolLabels: Record<ProtocolOption, string> = {
@@ -1004,14 +1089,14 @@ function RoutePoolEditorDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{isNew ? t('Create model pool', '创建模型池') : uiF("Edit {0}", [initial.alias])}</DialogTitle>
+          <DialogTitle>{isNew ? t('Create model pool', '创建模型池') : uiF("Edit {0}", [base!.alias])}</DialogTitle>
           <DialogDescription>
             {isNew
               ? t(
                   'Publish one model alias backed by multiple Provider routes, with conditional routing rules, priority/weight failover, and unified or per-candidate billing.',
                   '创建一个由多个 Provider 模型路由支撑的模型别名，支持条件分流、优先级与权重容灾，以及统一售价或按命中模型分别计费。',
                 )
-              : `${t(`Revision ${initial.revision}`, `版本 ${initial.revision}`)} · ${poolScopeLabel(initial.organization_id, organizations, t)}. ${t('Saving directly publishes a new revision.', '保存后将直接发布新版本。')}`}
+              : `${poolScopeLabel(base!.organization_id, organizations, t)}. ${t('Saving publishes your changes.', '保存后将发布更改。')}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -1024,7 +1109,7 @@ function RoutePoolEditorDialog({
                 autoFocus={isNew}
                 required
                 maxLength={200}
-                disabled={!isNew || busy}
+                disabled={!isNew || busy || identityLocked}
                 placeholder={uiT("e.g. claude-sonnet-4")}
                 value={alias}
                 onChange={event => setAlias(event.target.value)}
@@ -1042,7 +1127,7 @@ function RoutePoolEditorDialog({
               {isNew ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" className="w-full justify-between" disabled={busy} aria-label={uiT("Ownership scope")}>
+                    <Button type="button" variant="outline" className="w-full justify-between" disabled={busy || identityLocked} aria-label={uiT("Ownership scope")}>
                       <span className="truncate">{poolScopeLabel(organizationId, organizations, t)}</span>
                       <IconChevronDown size={16} />
                     </Button>
@@ -1636,17 +1721,38 @@ function RoutePoolEditorDialog({
             </div>
           </div>
 
+          {discoveryIncomplete && (
+            <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{t('Some Provider models could not be loaded. You can enter an existing model alias or retry.', '部分 Provider 模型无法加载。您可以输入已有模型别名，或重试加载。')}</span><Button type="button" variant="outline" size="sm" disabled={discovering} onClick={() => setDiscoveryAttempt(value => value + 1)}>{discovering ? t('Loading…', '正在加载…') : t('Retry loading models', '重试加载模型')}</Button></AlertDescription></Alert>
+          )}
+          {recoveryNotice && <Alert><AlertDescription>{recoveryNotice}</AlertDescription></Alert>}
           {formError && (
             <Alert variant="destructive">
-              <AlertDescription>{formError}</AlertDescription>
+              <AlertDescription className="flex flex-wrap items-center gap-2"><span>{formError}</span>{writeUncertain && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void checkSavedState()}>{t('Check saved state', '检查已保存状态')}</Button>}</AlertDescription>
             </Alert>
+          )}
+          {savedConflict && (
+            <section className="space-y-3 rounded-md border p-4" aria-label={t('Saved model pool', '已保存的模型池')}>
+              <div><h3 ref={conflictHeading} tabIndex={-1} className="font-semibold">{t('Saved model pool', '已保存的模型池')}</h3><p className="text-sm text-muted-foreground">{t('Compare these saved settings with your draft above. Continuing will prepare your draft to replace the saved settings; it does not save yet.', '请将这些已保存的设置与上方草稿比较。选择继续将准备使用草稿替换已保存的设置，此时不会立即保存。')}</p></div>
+              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                <div><dt className="text-muted-foreground">{t('Ownership scope', '归属范围')}</dt><dd>{poolScopeLabel(savedConflict.organization_id, organizations, t)}</dd></div>
+                <div><dt className="text-muted-foreground">{t('Display name', '显示名称')}</dt><dd>{savedConflict.display_name || '—'}</dd></div>
+                <div><dt className="text-muted-foreground">{t('Description', '描述')}</dt><dd>{savedConflict.description || '—'}</dd></div>
+                <div><dt className="text-muted-foreground">{t('Status', '状态')}</dt><dd>{savedConflict.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</dd></div>
+                <div><dt className="text-muted-foreground">{t('Customer billing mode', '客户计费方式')}</dt><dd>{billingModeLabels[savedConflict.billing_mode ?? 'pool_tariff']}</dd></div>
+                <div><dt className="text-muted-foreground">{t('Public catalog', '公开目录')}</dt><dd>{savedConflict.public_catalog ? t('Published', '已发布') : t('Not published', '未发布')}</dd></div>
+                <div><dt className="text-muted-foreground">{t('Default fallback action', '默认回退操作')}</dt><dd>{defaultActionLabels[savedConflict.default_action ?? 'candidates']}</dd></div>
+              </dl>
+              <div className="text-sm"><h4 className="font-medium">{t('Candidate models', '候选模型')}</h4><ul className="list-disc pl-5">{savedConflict.candidates.map((candidate, index) => <li key={index}>{candidate.alias} · {t('Priority', '优先级')} {candidate.priority} · {t('Weight', '权重')} {candidate.weight} · {candidate.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</li>)}</ul></div>
+              <div className="text-sm"><h4 className="font-medium">{t('Conditional routing rules', '条件路由规则')}</h4>{(savedConflict.rules ?? []).length === 0 ? <p>{t('None', '无')}</p> : <ul className="space-y-2">{savedConflict.rules!.map((rule, index) => <li key={index}><p>{rule.name} · {rule.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</p><p className="text-muted-foreground">{Object.entries(rule.conditions).filter(([, value]) => value != null).map(([key, value]) => `${conditionLabels[key as keyof ModelRoutePoolRuleConditions] ?? key}: ${typeof value === 'boolean' ? (value ? t('Yes', '是') : t('No', '否')) : String(value)}`).join(' · ')}</p><ul className="list-disc pl-5">{rule.candidates.map((candidate, candidateIndex) => <li key={candidateIndex}>{candidate.alias} · {t('Priority', '优先级')} {candidate.priority} · {t('Weight', '权重')} {candidate.weight} · {candidate.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</li>)}</ul></li>)}</ul>}</div>
+              {savedConflict.organization_id === organizationId && !savedConflict.project_id ? <Button type="button" variant="outline" onClick={() => {setBase(savedConflict);setSavedConflict(null);setWriteUncertain(false);setFormError('');setRecoveryNotice(t('Your draft will replace the saved settings when you save. Another change before saving will be rejected.', '保存时草稿将替换已保存的设置。如果保存前发生其他更改，本次保存会被拒绝。'));}}>{t('Continue with my draft', '继续使用我的草稿')}</Button> : <p className="text-sm">{t('This saved pool has a different scope and cannot be replaced from this draft.', '已保存模型池的归属范围不同，无法使用此草稿替换。')}</p>}
+            </section>
           )}
 
           <DialogFooter>
             <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
               {t('Cancel', '取消')}
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || writeUncertain}>
               {busy ? t('Saving…', '正在保存…') : isNew ? uiT("Create model pool") : uiT("Save changes")}
             </Button>
           </DialogFooter>
@@ -2253,7 +2359,6 @@ function RoutePoolHistoryDialog({
             <section key={entry.revision} className="space-y-2 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{t(`Revision ${entry.revision}`, `版本 ${entry.revision}`)}</Badge>
                   <Badge variant={entry.enabled ? 'secondary' : 'outline'}>
                     {entry.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}
                   </Badge>

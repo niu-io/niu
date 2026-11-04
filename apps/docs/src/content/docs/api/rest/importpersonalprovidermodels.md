@@ -1,5 +1,5 @@
 ---
-title: "Discover and import owner-funded Provider models"
+title: "Discover and import Provider models"
 description: "POST /api/v1/vendors/{id}/import"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/vendors/{id}/import`
 
-Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
+Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
 
 Operation: `importPersonalProviderModels`.
 
@@ -57,7 +57,7 @@ Import counts and discovery evidence.
 
 ### HTTP 400
 
-Not a personal connection or unsupported catalog identifiers.
+Unsupported catalog identifiers.
 
 ### HTTP 409
 
@@ -69,6 +69,6 @@ Upstream catalog read failed; saved connection is retained.
 
 ## Behavior and supported scope
 
-Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
+Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
 
 **Supported scope:** implemented

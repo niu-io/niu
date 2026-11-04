@@ -53,7 +53,7 @@ export default function OperatorCreateForm({ disabled, onCreate, nameInputRef, p
           </DropdownMenuRadioGroup></DropdownMenuContent>
         </DropdownMenu>
       </Label>}
-      <Label htmlFor="new-operator-role">{uiT("Role")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="new-operator-role" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled}>{{ viewer: 'Viewer · read workspace data', admin: 'Admin · change workspace data', owner: 'Owner · manage users and access' }[role]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+      <Label htmlFor="new-operator-role">{uiT("Role")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="new-operator-role" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled}>{uiT({ viewer: 'Viewer · read workspace data', admin: 'Admin · change workspace data', owner: 'Owner · manage users and access' }[role])}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={role} onValueChange={value => setRole(value as OperatorRole)}>
             <DropdownMenuRadioItem value="viewer">{uiT("Viewer · read workspace data")}</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="admin">{uiT("Admin · change workspace data")}</DropdownMenuRadioItem>
@@ -61,6 +61,7 @@ export default function OperatorCreateForm({ disabled, onCreate, nameInputRef, p
           </DropdownMenuRadioGroup></DropdownMenuContent>
         </DropdownMenu>
       </Label>
+      {!projectId && role !== 'viewer' && <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>}
       <Label htmlFor="new-operator-expiry">{uiT("Access token expires in")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="new-operator-expiry" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled}>{expiryChoices.find(item => item.days === expiryDays)?.label}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
             {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{item.label}</DropdownMenuRadioItem>)}

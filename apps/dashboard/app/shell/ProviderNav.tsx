@@ -7,6 +7,7 @@ import {
   IconCpu as Boxes,
   IconCreditCard as CreditCard,
   IconHistory,
+  IconAlertTriangle,
   IconKey as KeyRound,
   IconLayoutDashboard as LayoutDashboard,
   IconPalette,
@@ -117,6 +118,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         { to: '/admin/payments', label: 'Payment gateways', labelZh: '支付网关', end: false },
         { to: '/admin/branding', label: 'Branding', labelZh: '品牌定制', end: false },
         { to: '/admin/audit', label: 'Audit logs', labelZh: '审计日志', end: false },
+        { to: '/admin/incidents', label: 'Incidents', labelZh: '事故', end: false },
         { to: '/admin/settings', label: 'Settings', labelZh: '实例设置', end: false },
       ];
   const visibleEntries = context.session?.operating_mode === 'internal'
@@ -241,7 +243,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
           <SidebarMenu className="workspace-nav-menu">
             {visibleEntries.map(item => {
               const Icon =
-                item.label === 'Settings'
+                item.label === 'Incidents' ? IconAlertTriangle : item.label === 'Settings'
                   ? Settings2
                   : item.label === 'API keys'
                     ? KeyRound

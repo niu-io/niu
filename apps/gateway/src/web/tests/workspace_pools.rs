@@ -64,8 +64,160 @@ async fn send(
 }
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
+async fn unfunded_management_connection_can_save_routing_without_expanding_scope(pool: PgPool) {
+    let state = test_state(None, pool);
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    assert!(store.platform_currency().await.unwrap().is_none());
+    let owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: None,
+            },
+            "Unfunded routing owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let authorization = store
+        .create_agent_authorization_with_capabilities(
+            "Codex",
+            &["pools:read".into(), "pools:write".into()],
+        )
+        .await
+        .unwrap();
+    store
+        .approve_agent_authorization_with_invocation(
+            &authorization.user_code,
+            scope,
+            owner.operator_id,
+            &["fast".into()],
+            3600,
+            false,
+        )
+        .await
+        .unwrap();
+    let delegated = store
+        .exchange_agent_authorization(&authorization.device_secret)
+        .await
+        .unwrap()
+        .unwrap();
+    let other = store
+        .create_project(scope.organization_id, "Other workspace")
+        .await
+        .unwrap();
+    let foreign = grant(&store, other, owner.operator_id).await;
+    let ordinary = store
+        .issue_key(scope, "Inference only", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let foreign_organization = store
+        .create_organization("Foreign directory")
+        .await
+        .unwrap();
+    let app = router(state);
+    for prefix in ["/api/v1", "/admin/v1"] {
+        assert_eq!(
+            send(
+                &app,
+                "GET",
+                &format!("{prefix}/organizations/{}/projects", scope.organization_id),
+                &owner.token,
+                Value::Null
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            send(
+                &app,
+                "GET",
+                &format!("{prefix}/organizations/{foreign_organization}/projects"),
+                &owner.token,
+                Value::Null
+            )
+            .await
+            .0,
+            StatusCode::NOT_FOUND
+        );
+    }
+    let body = json!({"slug":"assistant","name":"Assistant","description":"Prepared without funding","enabled":true,"revision":0,"candidates":[{"alias":"fast","priority":100,"weight":1,"enabled":true}],"rules":[],"default_action":"candidates"});
+    assert_eq!(
+        send(
+            &app,
+            "PUT",
+            "/v1/routing/assistant",
+            &ordinary.token,
+            body.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, saved) = send(
+        &app,
+        "PUT",
+        "/v1/routing/assistant",
+        &delegated.token,
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let (status, reopened) = send(
+        &app,
+        "GET",
+        "/v1/routing/assistant",
+        &delegated.token,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(reopened["data"]["name"], "Assistant");
+    assert_eq!(
+        send(
+            &app,
+            "GET",
+            "/v1/routing/assistant",
+            &foreign.token,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        send(&app, "PUT", "/v1/routing/assistant", &delegated.token, body)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(send(&app, "POST", "/v1/chat/completions", &delegated.token,
+        json!({"model":"pool/assistant","messages":[{"role":"user","content":"Do not execute"}]})).await.0,
+        StatusCode::SERVICE_UNAVAILABLE);
+    assert!(
+        !store
+            .authenticate(&delegated.token)
+            .await
+            .unwrap()
+            .invocation_allowed()
+    );
+    assert!(store.platform_currency().await.unwrap().is_none());
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
 async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool: PgPool) {
     let mut state = test_state(None, pool);
+    let model = std::sync::Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap();
+    model.catalog.context_length = Some(1024);
+    model.catalog.max_completion_tokens = Some(512);
     state
         .store
         .configure_platform_currency("USD")
@@ -123,6 +275,31 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     assert_eq!(preview["data"]["persisted"], false);
     for (context, outcome, reason) in [
         (json!({"protocol":"chat"}), "candidates", Value::Null),
+        (
+            json!({"protocol":"chat","estimated_input_tokens":512,"requested_output_tokens":512}),
+            "candidates",
+            Value::Null,
+        ),
+        (
+            json!({"protocol":"chat","estimated_input_tokens":513,"requested_output_tokens":512}),
+            "no_eligible_candidates",
+            json!("request_capability_not_supported"),
+        ),
+        (
+            json!({"protocol":"chat","requested_output_tokens":513}),
+            "no_eligible_candidates",
+            json!("request_capability_not_supported"),
+        ),
+        (
+            json!({"protocol":"chat","vision":true}),
+            "no_eligible_candidates",
+            json!("request_capability_not_supported"),
+        ),
+        (
+            json!({"protocol":"chat","reasoning":true}),
+            "no_eligible_candidates",
+            json!("request_capability_not_supported"),
+        ),
         (
             json!({"protocol":"chat","tools":true}),
             "no_eligible_candidates",

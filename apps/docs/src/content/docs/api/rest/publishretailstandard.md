@@ -292,7 +292,6 @@ No path, query, or header parameters are declared.
     },
     "reason": {
       "type": "string",
-      "minLength": 1,
       "maxLength": 500
     }
   },
@@ -301,8 +300,7 @@ No path, query, or header parameters are declared.
     "currency",
     "schedule",
     "expected_version",
-    "idempotency_key",
-    "reason"
+    "idempotency_key"
   ]
 }
 ```

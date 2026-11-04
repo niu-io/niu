@@ -18,7 +18,7 @@ Internal use does not require payment collection and can serve authorized intern
 
 ## Default experience
 
-Niu's default connection experience is Internal use. A platform administrator or an appropriately authorized coding agent chooses a supported Provider, supplies a private API key, selects available models, and configures a scenario-specific model pool. The account pays the upstream Provider directly and maintains the upstream balance, subscription, credentials, and access rights. Niu does not require customer selling prices, collection, prepaid credit, commercial qualification, or settlement configuration for this path.
+Niu's default connection experience is Internal use. A platform administrator or an appropriately authorized coding agent chooses a supported Provider and supplies a private API key. Niu discovers and imports available models where the integration supports it; discovery failures require a clear retry or recovery path. Model pools are optional configuration for specific scenarios. The account pays the upstream Provider directly and maintains the upstream balance, subscription, credentials, and access rights. Niu does not require customer selling prices, collection, prepaid credit, commercial qualification, or settlement configuration for this path.
 
 Niu supplies routing, model-management controls, usage and performance evidence, and clearly attributed cost information. It does not guarantee an upstream service's continued validity or that the resulting configuration offers the best value.
 
@@ -54,7 +54,7 @@ An account may inspect its own owner-funded usage and expense evidence. This doe
 
 ## Optional commercial operation
 
-Commercial resale remains a separate supported workflow with its existing qualification, offer, purchase-rate, customer-price, collection and settlement contracts. Do not infer commercial supply from a connected internal-use key. Do not migrate existing shared routes, invoices, prices or historical accounting into the default Internal use mode.
+Commercial resale remains a separate workflow. An authorized platform administrator must enable an offer at its current agreed purchase rates; a connected key alone does not authorize resale or prove upstream access. Customer prices, workspace authorization, collection and settlement remain separate. Historical qualification reviews retain their original meaning and expiry. Do not migrate existing shared routes, invoices, prices or historical accounting into the default Internal use mode.
 
 ## Observed implementation boundary
 

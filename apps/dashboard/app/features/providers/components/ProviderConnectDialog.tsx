@@ -15,7 +15,6 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
   const { t, format } = useLocale();
   const { token, session, organization, workspace, workspaces, refreshWorkspace } = useDashboardContext();
   const resale = session?.operating_mode === 'resale';
-  const [savedResale, setSavedResale] = useState(false);
   const [name, setName] = useState(preset.name);
   const [base, setBase] = useState(preset.apiBase);
   const [key, setKey] = useState('');
@@ -51,7 +50,6 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
       if (current.data.effective_type !== preset.integration) {
         await request(token, path, 'PUT', { integration_type: preset.integration, expected_revision: current.data.revision });
       }
-      if (resale) { setSavedResale(true); await refreshWorkspace(); return; }
       const result = await request<{ data: { imported: number; discovered: number } }>(token, `/api/v1/vendors/${encodeURIComponent(saved.id)}/import`, 'POST', {});
       setImported(result.data.discovered); onSaved();
       await refreshWorkspace();
@@ -60,11 +58,11 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
     } finally { setBusy(false); }
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
-    <DialogHeader><DialogTitle className="flex items-center gap-3"><img src={preset.logo} alt="" className={`size-8 rounded-md object-contain${preset.monochrome ? ' dark:invert' : ''}`} />{format('Connect {0}', [preset.name])}</DialogTitle><DialogDescription>{resale ? t('Save this upstream connection, then configure commercial offers and customer pricing before selling.') : t('The account funds this Provider directly. Import models without customer pricing or payment collection.')}</DialogDescription></DialogHeader>
+    <DialogHeader><DialogTitle className="flex items-center gap-3"><img src={preset.logo} alt="" className={`size-8 rounded-md object-contain${preset.monochrome ? ' dark:invert' : ''}`} />{format('Connect {0}', [preset.name])}</DialogTitle><DialogDescription>{resale ? t('Connect this Provider and discover its models. Commercial models need offers and customer pricing before selling.') : t('The account funds this Provider directly. Import models without customer pricing or payment collection.')}</DialogDescription></DialogHeader>
     <form onSubmit={event => void connect(event)} className="space-y-4">
       <p className="text-sm font-medium">{resale ? t('Resale') : t('Internal use')}</p>
       <p className="text-sm text-muted-foreground">{t('Account')}: {organization?.name ?? t('Select an account first.')}</p>
-      {imported === null && !savedResale ? <>
+      {imported === null ? <>
         {!connection && !uncertain && <>
           <div className="space-y-2"><Label htmlFor="preset-key">{t('Provider API key')}</Label><Input id="preset-key" type="password" autoComplete="new-password" required value={key} maxLength={8192} onChange={event => setKey(event.target.value)} disabled={busy}/></div>
           <a href={preset.website} target="_blank" rel="noreferrer" className="text-sm underline">{t('Provider website')}</a>
@@ -75,10 +73,10 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
         </>}
         {connection && <p role="status" className="text-sm">{t('API key saved. Retry model import without entering or saving the key again.')}</p>}
         <p className="text-sm text-muted-foreground">{t('Importing the catalog does not make an inference request or verify model access. Upstream balance and permissions still apply.')}</p>
-      </> : <p role="status">{savedResale ? t('Connection saved. Configure commercial offers and customer pricing before selling.') : format('{0} models discovered. Existing model settings are preserved.', [imported])}</p>}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>{imported === null && !savedResale ? t('Cancel') : t('Done')}</Button>
-        {imported === null && !savedResale ? <Button type="submit" disabled={busy || uncertain || !organization || (!connection && (!key.trim() || !name.trim() || !base.trim()))}>{busy ? t('Connecting…') : connection ? t('Retry model import') : resale ? t('Save connection') : t('Connect and import models')}</Button> : <Button asChild><Link to={savedResale ? '/admin/providers' : workspace ? `/models?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : "/models"} onClick={onClose}>{savedResale ? t('Configured Providers') : t('View models')}</Link></Button>}
+      </> : <p role="status">{resale ? format('{0} models discovered. New commercial models are disabled until configured for selling. Existing settings are preserved.', [imported]) : format('{0} models discovered. Existing model settings are preserved.', [imported])}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{t(error)}</p>}
+      <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>{imported === null ? t('Cancel') : t('Done')}</Button>
+        {imported === null ? <Button type="submit" disabled={busy || uncertain || !organization || (!connection && (!key.trim() || !name.trim() || !base.trim()))}>{busy ? t('Connecting…') : connection ? t('Retry model import') : t('Connect and import models')}</Button> : <Button asChild><Link to={resale ? '/admin/providers' : workspace ? `/models?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : "/models"} onClick={onClose}>{resale ? t('Configured Providers') : t('View models')}</Link></Button>}
       </DialogFooter>
     </form>
   </DialogContent></Dialog>;

@@ -103,6 +103,11 @@ Location: **header**. **Required.**
       "type": "integer",
       "minimum": 60,
       "maximum": 86400
+    },
+    "invocation_allowed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the issued credential may dispatch inference. False preserves separately granted discovery and management access. Omitted retains legacy invocation authority."
     }
   }
 }

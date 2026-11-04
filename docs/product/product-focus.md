@@ -6,11 +6,11 @@ Status: agreed product direction, updated 2026-10-31. The [agent-oriented princi
 
 **The Model Platform for Agents**
 
-Discover and evaluate models, build model pools, and manage performance and cost—all through your agent.
+Discover and evaluate models, configure routing, and manage performance and cost—all through your agent.
 
 Coding agents already aim to complete user tasks while improving value within the user's constraints. Niu provides the information and authorized management capabilities needed to pursue that objective. The agent owns task completion, model choices and quality/cost tradeoffs. Niu owns trustworthy resource information, configured policy execution, scoped controls and verifiable results; it does not guarantee optimal price/performance or task success.
 
-Model invocation is one part of model resource management. The target workflow includes discovering capabilities and customer prices, comparing task samples, configuring model pools and routing, managing access and budgets, retrieving request evidence and subscribing to relevant events. Each capability must have explicit authority, observable results and recovery behavior. This is a product direction, not a claim that all operations are exposed by the current MCP server.
+Model invocation is one part of model resource management. The target workflow includes discovering capabilities and customer prices, comparing task samples, configuring routing policies, managing access and budgets, retrieving request evidence and subscribing to relevant events. Each capability must have explicit authority, observable results and recovery behavior. This is a product direction, not a claim that all operations are exposed by the current MCP server.
 
 MCP provides shared tools and resources. Native plugins or supported extensions for different coding agents should package connection setup, capability discovery, host-specific integration and review handoffs around the same contracts. They must not embed a universal optimization policy or silently reroute the coding agent's own inference. Native plugin availability and event delivery require their own verification.
 
@@ -52,7 +52,7 @@ The credit limit defaults to zero. An explicitly approved credit limit permits a
 
 | Responsibility | Niu | External applications and agent orchestration products |
 | --- | --- | --- |
-| Model resources | Discoverable model information, compatible inference APIs, authorized configuration, pools, routing and access controls | Choose models and policies for task requirements within granted authority |
+| Model resources | Discoverable model information, compatible inference APIs, authorized configuration, routing and access controls | Choose models and policies for task requirements within granted authority |
 | Consumption | Request/attempt usage, customer charges, timing, failures, available quota observations and their confidence | Decide what work is worth performing |
 | Execution | Model request transport, bounded request retries and explicit limits | Task planning, subagents, tools, environments and schedules |
 | Evaluation | Model comparison facilities, protocol/usage/performance evidence and explicit measurement limits | Judge task results and quality, latency, reliability and cost tradeoffs |

@@ -596,6 +596,32 @@ it('places video API key in the header consistently with Chat',async()=>{
   expect(await screen.findByRole('menuitemradio',{name:'Review key'})).toBeTruthy();
 });
 
+it('offers a recovery path when no video API key is available',async()=>{
+  mockFetch();
+  const delegate=globalThis.fetch;
+  vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith('/keys') ? Response.json({data:[]}) : delegate(input,init)));
+  mount();
+  const picker=await screen.findByRole('button',{name:'Video API key'});
+  await waitFor(()=>expect(picker.hasAttribute('disabled')).toBe(false));
+  await userEvent.click(picker);
+  const menu=await screen.findByRole('menu',{name:'Video API key'});
+  await waitFor(()=>expect(menu.textContent).toContain('No active API key'));
+  expect(menu.querySelector('a')?.getAttribute('href')).toBe('/workspaces/review-workspace/keys');
+});
+
+it('does not claim the key list is empty when loading it fails',async()=>{
+  mockFetch();
+  const delegate=globalThis.fetch;
+  vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith('/keys') ? Response.json({error:{message:'Key service unavailable'}},{status:503}) : delegate(input,init)));
+  mount();
+  const picker=await screen.findByRole('button',{name:'Video API key'});
+  await waitFor(()=>expect(picker.hasAttribute('disabled')).toBe(false));
+  await userEvent.click(picker);
+  const menu=await screen.findByRole('menu',{name:'Video API key'});
+  await waitFor(()=>expect(menu.textContent).toContain('Some API keys could not be loaded.'));
+  expect(menu.textContent).not.toContain('No active API key');
+});
+
 it('opens a public run reference and uses the resolved identity for diagnostics',async()=>{
   const calls=mockFetch();const delegate=globalThis.fetch;
   vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith('/tasks/run-1000') ? Response.json({data:{id:job,reference:'run-1000',kind:'video',model:model.id,state:'failed'}}) : delegate(input,init)));

@@ -61,7 +61,9 @@ export default function OperatorDirectory({ operators, organizations, projects, 
             <TableBody>{matches.map(operator => <TableRow key={operator.id}>
               <TableCell className="whitespace-normal">
                 <Button type="button" variant="link" className="h-auto max-w-full p-0 text-left whitespace-normal break-words" disabled={disabled} onClick={event => onSelect(operator.id, event.currentTarget)}>{operator.name}</Button>
-                {!operator.project_id && <p className="text-xs text-muted-foreground">{uiT("All workspaces")}</p>}
+                <p className="text-xs text-muted-foreground">{operator.project_id
+                  ? workspaceDisplayName(projects.find(item => item.id === operator.project_id)?.name ?? uiT('Workspace'))
+                  : uiT('All workspaces')}</p>
                 <p className="text-xs text-muted-foreground sm:hidden">{operator.revoked ? uiT("Revoked") : uiT("Active")}</p>
               </TableCell>
               <TableCell>{roleLabel(operator.role, uiT)}</TableCell>

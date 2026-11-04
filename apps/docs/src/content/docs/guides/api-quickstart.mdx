@@ -19,10 +19,17 @@ Use a **workspace API key** from your workspace's **API keys** page. Your instal
 
 ## Set your endpoint and key
 
-Copy the endpoint from your installation. Container deployments normally expose port 2555; repository development uses port 2566. Hosted installations use their own HTTPS origin.
+Enter the origin of the Niu installation you are using. Hosted Niu uses `https://niu.io`, staging uses `https://staging.niu.io`, a container on your computer normally uses `http://localhost:2555`, and repository development uses `http://127.0.0.1:2566`. Use your actual deployment address if it differs. Only enter an address you trust: subsequent requests send your workspace key to it.
+
+Run this command, then enter the address without `/v1` and press Enter:
 
 ```sh
-export NIU_ORIGIN='http://localhost:2555'
+read -r NIU_ORIGIN; export NIU_ORIGIN
+```
+
+After entering the address, set the key:
+
+```sh
 export NIU_API_KEY='your-workspace-api-key'
 ```
 
@@ -90,10 +97,17 @@ Preserve the response's error body and request-correlation headers for investiga
 
 ## 设置端点与密钥
 
-从你的运行实例中复制端点地址。容器部署通常暴露 2555 端口；源码仓库本地开发使用 2566 端口。托管实例则使用各自的 HTTPS 源站地址。
+输入你正在使用的 Niu 实例地址。托管 Niu 使用 `https://niu.io`，staging 使用 `https://staging.niu.io`；本机容器通常使用 `http://localhost:2555`，源码本地开发使用 `http://127.0.0.1:2566`。如果实际部署地址不同，请使用实际地址。后续请求会向该地址发送工作空间密钥，因此只输入你信任的地址。
+
+运行以下命令，然后输入不含 `/v1` 的地址并按回车：
 
 ```sh
-export NIU_ORIGIN='http://localhost:2555'
+read -r NIU_ORIGIN; export NIU_ORIGIN
+```
+
+输入地址后，再设置密钥：
+
+```sh
 export NIU_API_KEY='your-workspace-api-key'
 ```
 

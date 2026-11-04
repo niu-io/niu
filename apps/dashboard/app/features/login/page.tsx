@@ -38,6 +38,7 @@ export default function LoginRoute() {
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(true);
   const [configurationFailed, setConfigurationFailed] = useState(false);
+  const [signInNotConfigured, setSignInNotConfigured] = useState(false);
   const [configurationAttempt, setConfigurationAttempt] = useState(0);
 
   useEffect(() => {
@@ -52,10 +53,11 @@ export default function LoginRoute() {
         setMemberLogin(passwordEnabled);
         setTokenLogin(tokenEnabled);
         setDemoLogin(value.demo_login === true);
+        setSignInNotConfigured(value.password_login === false && value.browser_token_login === false);
         setConfigurationFailed(!passwordEnabled&&!tokenEnabled);
         if(!passwordEnabled&&tokenEnabled)setMode('token');
       })
-      .catch(() => { if (!controller.signal.aborted) setConfigurationFailed(true); })
+      .catch(() => { if (!controller.signal.aborted) { setSignInNotConfigured(false); setConfigurationFailed(true); } })
       .finally(() => { if (!controller.signal.aborted) setChecking(false); });
     return () => controller.abort();
   }, [configurationAttempt]);
@@ -160,7 +162,7 @@ export default function LoginRoute() {
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
             <p className="dashboard-login-status" role="status">{t('Password changed. Sign in again.', '密码已修改，请重新登录。')}</p>
           )}
-          {mode === 'token' ? (
+          {!signInNotConfigured && (mode === 'token' ? (
             <div className="dashboard-login-field">
               <Label htmlFor="local-access-token">{t('User access token', '用户访问令牌')}</Label>
               <Input
@@ -210,13 +212,14 @@ export default function LoginRoute() {
                 />
               </div>
             </>
-          )}
+          ))}
           {(localError || context.error) && (
             <p className="dashboard-login-error" role="alert">{localError || context.error}</p>
           )}
           {configurationFailed && (
             <div className="dashboard-login-unavailable">
-              <p className="dashboard-login-error" role="alert">{t('Sign-in is temporarily unavailable.', '登录服务暂不可用。')}</p>
+              <p className="dashboard-login-error" role="alert">{signInNotConfigured ? t('Account sign-in is not configured. Contact your installation administrator.', '此实例尚未配置账户登录，请联系实例管理员。') : t('Sign-in is temporarily unavailable.', '登录服务暂不可用。')}</p>
+              {signInNotConfigured && <p className="dashboard-login-hint">{t('Installation administrators can sign in with their administrator token.', '实例管理员可使用管理员令牌登录。')} <Link className="underline underline-offset-2" to="/installation">{t('Open installation administration', '打开实例管理')}</Link></p>}
               <Button
                 type="button"
                 variant="outline"
@@ -224,6 +227,7 @@ export default function LoginRoute() {
                 onClick={() => {
                   setChecking(true);
                   setConfigurationFailed(false);
+                  setSignInNotConfigured(false);
                   setLocalError('');
                   setConfigurationAttempt(value => value + 1);
                 }}
@@ -232,14 +236,15 @@ export default function LoginRoute() {
               </Button>
             </div>
           )}
-          <Button
+          {!signInNotConfigured && <Button
             type="submit"
             className="dashboard-login-submit"
             disabled={submitting || checking || configurationFailed || !(mode === 'token' ? tokenLogin : memberLogin)}
           >
             {submitting ? t('Signing in…', '正在登录…') : checking ? t('Loading…', '加载中…') : t('Sign in', '登录')}
-          </Button>
+          </Button>}
         </form>
+        {memberLogin && mode === 'password' && !configurationFailed && <p className="dashboard-login-hint dashboard-login-access-help">{t('Need an account or forgot your password? Ask your organization owner or installation administrator for help.', '需要账号或忘记密码？请联系组织所有者或实例管理员获取帮助。')}</p>}
         {(showModeSwitch || demoLogin) && (
           <div className="dashboard-login-secondary">
             {mode === 'password' && tokenLogin && (

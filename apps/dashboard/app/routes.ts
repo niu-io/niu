@@ -58,6 +58,7 @@ export default [
         route('pricing', 'features/retail-pricing/page.tsx', { id: 'admin-pricing' }),
         redirectRoute('legacy-admin-audit-logs', 'audit-logs'),
         route('audit', 'features/audit-logs/page.tsx', { id: 'admin-audit' }),
+        route('incidents', 'features/incidents/page.tsx', { id: 'admin-incidents' }),
         route('branding', 'features/branding/page.tsx', { id: 'admin-branding' }),
         route('payments', 'features/platform/page.tsx', { id: 'admin-payments' }),
         route('providers', 'features/providers/page.tsx', { id: 'admin-providers' }),

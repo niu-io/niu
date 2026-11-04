@@ -13,6 +13,7 @@ const groups = [
     ['Video generation', 'Discover video models, estimate a request, submit a job, and retrieve its status and results.', '/video/(?:models|estimate|jobs)'],
   ]],
   ['Providers and routing', [
+    ['Connection incidents', 'Qualified upstream access failures and verified operational recovery.', '^/api/v1/incidents$'],
     ['Providers', 'Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints.', '^/api/v1/(?:providers|provider-memberships)'],
     ['Provider API connections', 'Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics.', '^/api/v1/vendors(?!/[^/]+/asset-management)'],
     ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|routing)'],
@@ -86,7 +87,7 @@ export function deriveOperationAuthority(path, method, operation) {
     };
   }
   if (
-    /^\/api\/v1\/(?:platform\/|vendors|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
+    /^\/api\/v1\/(?:platform\/|vendors|incidents|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
     /\/billing\/(?:quotes|units\/(?:grants|refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
     /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
   ) {

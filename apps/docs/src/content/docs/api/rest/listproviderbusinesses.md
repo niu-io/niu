@@ -111,7 +111,7 @@ Content type: `application/json`.
           "ready_offers": {
             "type": "integer",
             "minimum": 0,
-            "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+            "description": "Active offers with a current exact-revision commercial authorization or a current legacy review, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
           },
           "enabled_api_keys": {
             "type": "integer",
@@ -123,6 +123,7 @@ Content type: `application/json`.
           },
           "qualification_status": {
             "type": "string",
+            "description": "Legacy Provider evidence-review status only. An unqualified value does not rule out an explicitly authorized offer and does not measure live Provider access.",
             "enum": [
               "qualified",
               "unqualified"

@@ -343,7 +343,6 @@ pub struct PreviewQuery {
 ///         },
 ///         "reason": {
 ///           "type": "string",
-///           "minLength": 1,
 ///           "maxLength": 500
 ///         }
 ///       },
@@ -352,8 +351,7 @@ pub struct PreviewQuery {
 ///         "currency",
 ///         "schedule",
 ///         "expected_version",
-///         "idempotency_key",
-///         "reason"
+///         "idempotency_key"
 ///       ]
 ///     },
 ///     "RetailPromotionPublication": {

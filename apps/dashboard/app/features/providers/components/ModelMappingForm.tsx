@@ -162,7 +162,7 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
     </div>
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
-      {capabilities.video_schema && <p className="text-sm text-muted-foreground">{uiT("Saving changes invalidates affected offer qualification. Rates and live capability reviews remain separate.")}</p>}
+      {!ownerFunded && capabilities.video_schema && <p className="text-sm text-muted-foreground">{uiT("Changes can pause affected offers. Review the rates and enable them again after updating the connection.")}</p>}
     </div>
     {videoEditing && <VideoSchemaEditor modelAlias={alias.trim()} upstreamModel={upstreamModel.trim()} schema={capabilities.video_schema} onClose={() => setVideoEditing(false)} onApply={schema => { setCapabilities(current => { const next = {...current}; if (schema) next.video_schema = schema; else delete next.video_schema; return next; }); setVideoEditing(false); }} />}
     <fieldset className="model-capabilities" disabled={disabled}>

@@ -281,6 +281,11 @@ Content type: `application/json`.
       "type": "integer",
       "minimum": 60,
       "maximum": 86400
+    },
+    "invocation_allowed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the issued credential may dispatch inference. False preserves separately granted discovery and management access. Omitted retains legacy invocation authority."
     }
   }
 }
@@ -1426,6 +1431,296 @@ HTTP 413: Request exceeds the 24 MiB transport limit.
 HTTP 409: Guarded creation/update does not match current owned state.
 
 HTTP 503: Storage unavailable or bounded write wait exceeded.
+
+## Read upstream connection incidents and recovery evidence
+
+`GET /api/v1/vendors/{vendor}/incidents`
+
+Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions and qualified OpenRouter authentication refusals. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current connection revision. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.
+
+Implementation: `implemented`. Operation: `listVendorIncidents`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`vendor` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+Durable incident reference from next_before.
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 200: Sanitized operational incidents
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "model",
+          "cause",
+          "status",
+          "first_observed_at",
+          "last_observed_at",
+          "observations",
+          "recovered_at"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "account_restricted",
+              "authentication_rejected"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "resolved"
+            ]
+          },
+          "first_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observations": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recovered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid cursor
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Connection unavailable
+
+HTTP 503: Operational evidence unavailable
+
+## Read platform upstream connection incidents
+
+`GET /api/v1/incidents`
+
+Platform administration only. Reads recognized model-scoped upstream incidents across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.
+
+Implementation: `implemented`. Operation: `listConnectionIncidents`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`status` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "resolved"
+  ]
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 200: Sanitized connection incident page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "model",
+          "cause",
+          "status",
+          "first_observed_at",
+          "last_observed_at",
+          "observations",
+          "recovered_at",
+          "connection_name",
+          "provider"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "connection_name": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "account_restricted",
+              "authentication_rejected"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "resolved"
+            ]
+          },
+          "first_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observations": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recovered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "provider": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "name",
+              "slug"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid filter or cursor
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 503: Incident evidence unavailable
 
 ## Read latest 100 workspace preparation refusals
 
@@ -23223,7 +23518,7 @@ HTTP 422: Malformed JSON shape, missing fields or unknown fields
 
 `GET /api/v1/payments/readiness`
 
-Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.
+Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup, credential inspection, model discovery, non-inference routing/evaluation/event management and funding recovery stay available. No amounts, merchant credentials or identities are returned.
 
 Implementation: `implemented`. Operation: `getPaymentReadiness`.
 
@@ -25243,6 +25538,190 @@ HTTP 401: Missing or unusable session.
 
 HTTP 503: Storage unavailable.
 
+## Authorize and enable the current Provider offer
+
+`PUT /api/v1/providers/{provider}/offers/{offer}/authorization`
+
+Platform administration required. Atomically authorizes and enables the exact current rate revision for the Provider-owned enabled route and saved credential. A stale revision or unavailable route returns 409. Repeating a successful request for the same current revision returns its existing authorization. This does not verify upstream access, create a workspace selling price, or grant customer access. Media liability requirements remain independent.
+
+Implementation: `implemented`. Operation: `authorizeProviderOffer`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rate_revision"
+  ],
+  "properties": {
+    "rate_revision": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Authorized and enabled
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "active",
+        "authorization_id"
+      ],
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "authorization_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Offer revision or route is unavailable
+
+## Revoke a Provider offer authorization
+
+`DELETE /api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}`
+
+Platform administration required. Revokes the specified authorization and pauses the offer if it is still current. Historical attempts and records remain unchanged. Repeating the same revocation is safe. This does not revoke a different current authorization.
+
+Implementation: `implemented`. Operation: `revokeProviderOfferAuthorization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`authorization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Authorization revoked
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revoked"
+      ],
+      "properties": {
+        "revoked": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Authorization does not match this Provider and offer
+
 ## Create a Provider business identity
 
 `POST /api/v1/providers`
@@ -26735,7 +27214,7 @@ Content type: `application/json`.
           "ready_offers": {
             "type": "integer",
             "minimum": 0,
-            "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+            "description": "Active offers with a current exact-revision commercial authorization or a current legacy review, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
           },
           "enabled_api_keys": {
             "type": "integer",
@@ -26747,6 +27226,7 @@ Content type: `application/json`.
           },
           "qualification_status": {
             "type": "string",
+            "description": "Legacy Provider evidence-review status only. An unqualified value does not rule out an explicitly authorized offer and does not measure live Provider access.",
             "enum": [
               "qualified",
               "unqualified"
@@ -27622,7 +28102,8 @@ Content type: `application/json`.
             "type": "boolean"
           },
           "qualified": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Compatibility field indicating current exact-revision commercial authorization or legacy qualification and required binding. It is not proof of an independent evidence review, live access, an active offer, or a customer selling price."
           },
           "revision": {
             "type": "string",
@@ -28807,6 +29288,7 @@ Content type: `application/json`.
           "enum": [
             "connected",
             "credentials_rejected",
+            "account_chat_banned",
             "endpoint_unavailable",
             "private_endpoint_blocked",
             "invalid_endpoint",
@@ -29141,11 +29623,11 @@ HTTP 403: Installation administration required.
 
 HTTP 503: Storage unavailable.
 
-## Discover and import owner-funded Provider models
+## Discover and import Provider models
 
 `POST /api/v1/vendors/{id}/import`
 
-Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
+Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
 
 Implementation: `implemented`. Operation: `importPersonalProviderModels`.
 
@@ -29176,7 +29658,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 HTTP 200: Import counts and discovery evidence.
 
-HTTP 400: Not a personal connection or unsupported catalog identifiers.
+HTTP 400: Unsupported catalog identifiers.
 
 HTTP 409: Connection changed or an alias conflicts; no models imported.
 
@@ -30310,7 +30792,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 `x-niu-log-payloads` (header, optional)
 
-Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content unless store is false. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
 
 ```json
 {
@@ -40191,7 +40673,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 `GET /v1/models`
 
-Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
+Requires a current workspace API key and filters aliases by its model grants and organization access. Tool capability flags reflect the configured route, not a guarantee of admission or live upstream availability. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
 
 Implementation: `implemented`. Operation: `listModels`.
 
@@ -40267,6 +40749,22 @@ Content type: `application/json`.
               "object",
               "null"
             ]
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tool_calls",
+              "streaming_tool_calls"
+            ],
+            "properties": {
+              "tool_calls": {
+                "type": "boolean"
+              },
+              "streaming_tool_calls": {
+                "type": "boolean"
+              }
+            }
           }
         }
       }
@@ -40333,9 +40831,14 @@ Content type: `application/json`.
         "rate_limits",
         "usage_window",
         "allowed_cidrs",
-        "management_capabilities"
+        "management_capabilities",
+        "invocation_allowed"
       ],
       "properties": {
+        "invocation_allowed": {
+          "type": "boolean",
+          "description": "Current credential invocation authority, independent of discovery and resource management."
+        },
         "object": {
           "type": "string",
           "const": "api_key"
@@ -55056,8 +55559,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "model": {
       "type": "string"
     },
+    "store": {
+      "type": "boolean",
+      "const": false,
+      "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+    },
     "messages": {
       "type": "array",
+      "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
       "items": {
         "type": "object"
       }
@@ -56708,6 +57217,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
               "enum": [
                 "upstream_http_error",
                 "upstream_region_unavailable",
+                "upstream_account_restricted",
                 "upstream_timeout",
                 "upstream_connection_error",
                 "upstream_transport_error",
@@ -61117,7 +61627,6 @@ Local `#/components/schemas/…` references resolve to these definitions.
     },
     "reason": {
       "type": "string",
-      "minLength": 1,
       "maxLength": 500
     }
   },
@@ -61126,8 +61635,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "currency",
     "schedule",
     "expected_version",
-    "idempotency_key",
-    "reason"
+    "idempotency_key"
   ]
 }
 ```

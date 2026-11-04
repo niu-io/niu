@@ -251,7 +251,7 @@ fn upstream_body(body: &Value, slug: &str, protocol: Protocol) -> Result<Value, 
         .as_object()
         .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
     let allowed: &[&str] = match protocol {
-        Protocol::Chat => &["model", "messages", "stream"],
+        Protocol::Chat => &["model", "messages", "stream", "store"],
         Protocol::Responses => &["model", "input", "instructions", "stream", "store"],
     };
     if object.keys().any(|k| !allowed.contains(&k.as_str())) {

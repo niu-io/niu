@@ -12,6 +12,29 @@ use uuid::Uuid;
 
 const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
 
+async fn qiniu_public_metadata(
+    state: &AppState,
+    timeout: Duration,
+) -> Option<std::collections::BTreeMap<String, crate::catalog_metadata::CatalogMetadata>> {
+    const URL: &str = "https://www.qiniu.com/ai/models";
+    let client = crate::upstream::configured_client_for_endpoint(state, URL, timeout)
+        .await
+        .ok()?;
+    // This public request must never receive the saved Provider credential.
+    let mut response = client.get(URL).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.ok()? {
+        if bytes.len().saturating_add(chunk.len()) > MAX_MODEL_CATALOG_BYTES {
+            return None;
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    crate::providers::adapters::qiniu_model_square_metadata(std::str::from_utf8(&bytes).ok()?)
+}
+
 /// Diagnostics use only server-owned authentication, never client headers.
 /// Anthropic catalogs are bounded to one maximal page; incomplete catalogs
 /// must not be mistaken for a complete inventory or a missing model.
@@ -40,7 +63,7 @@ fn model_catalog_request(
 
 /// Normalize only the documented catalog envelope and descriptive fields.
 /// Native resource names become model IDs accepted by GenerateContent; no
-/// upstream capability or price automatically enables an inference capability.
+/// upstream price automatically enables a billing capability.
 fn catalog_models(catalog: &Value, adapter: &str) -> Option<Vec<Value>> {
     let field = if adapter == "gemini" {
         "models"
@@ -1741,6 +1764,17 @@ async fn read_catalog(
     })?;
     let status = response.status();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        if status == reqwest::StatusCode::FORBIDDEN
+            && vendor.api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1"
+        {
+            let body = crate::provider_rejections::bounded_body(response).await;
+            if crate::provider_rejections::qiniu_chat_banned(Some(&vendor.api_base), status, &body)
+            {
+                return Err(ApiError::upstream_message(
+                    crate::provider_rejections::QINIU_CHAT_BANNED,
+                ));
+            }
+        }
         return Err(ApiError::upstream_message(
             "The provider rejected the saved API key. Check the key and provider account access.",
         ));
@@ -1800,6 +1834,13 @@ async fn read_catalog(
             adapter.pricing(&serde_json::Value::Null)
         }
     });
+    let qiniu_metadata = if integration.effective_type == "qiniu"
+        && vendor.api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1"
+    {
+        qiniu_public_metadata(state, timeout).await
+    } else {
+        None
+    };
     let data = models
         .iter()
         .filter_map(|model| {
@@ -1807,17 +1848,43 @@ async fn read_catalog(
             if id.is_empty() || id.len() > 200 {
                 return None;
             }
+            let mut metadata =
+                crate::providers::adapters::metadata(&integration.effective_type, model);
+            if let Some(extra) = qiniu_metadata.as_ref().and_then(|items| items.get(id)) {
+                if metadata.name.is_none() {
+                    metadata.name = extra.name.clone();
+                }
+                if metadata.description.is_none() {
+                    metadata.description = extra.description.clone();
+                }
+                if metadata.context_length.is_none() {
+                    metadata.context_length = extra.context_length;
+                }
+                if metadata.max_completion_tokens.is_none() {
+                    metadata.max_completion_tokens = extra.max_completion_tokens;
+                }
+                if metadata.input_modalities.is_empty() {
+                    metadata.input_modalities = extra.input_modalities.clone();
+                }
+                if metadata.output_modalities.is_empty() {
+                    metadata.output_modalities = extra.output_modalities.clone();
+                }
+                if metadata.supported_parameters.is_empty() {
+                    metadata.supported_parameters = extra.supported_parameters.clone();
+                }
+            }
             let name = model
                 .get("name")
                 .or_else(|| model.get("display_name"))
                 .and_then(Value::as_str)
                 .filter(|name| !name.is_empty() && name.len() <= 300)
+                .or(metadata.name.as_deref())
                 .unwrap_or(id);
             Some(json!({
                 "id": id,
                 "name": name,
                 "context_length": model.get("context_length").and_then(Value::as_u64),
-                "catalog": crate::providers::adapters::metadata(&integration.effective_type, model),
+                "catalog": metadata,
             }))
         })
         .collect::<Vec<_>>();
@@ -1905,6 +1972,7 @@ pub struct CheckModelInput {
 ///                       "enum": [
 ///                         "connected",
 ///                         "credentials_rejected",
+///                         "account_chat_banned",
 ///                         "endpoint_unavailable",
 ///                         "private_endpoint_blocked",
 ///                         "invalid_endpoint",
@@ -2046,6 +2114,23 @@ pub async fn check_model(
     let status = response.status();
     let status_code = status.as_u16();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        if status == reqwest::StatusCode::FORBIDDEN
+            && route.vendor.api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1"
+        {
+            let body = crate::provider_rejections::bounded_body(response).await;
+            if crate::provider_rejections::qiniu_chat_banned(
+                Some(&route.vendor.api_base),
+                status,
+                &body,
+            ) {
+                return Ok(check_response(
+                    "account_chat_banned",
+                    "unknown",
+                    Some(status_code),
+                    started,
+                ));
+            }
+        }
         return Ok(check_response(
             "credentials_rejected",
             "unknown",
@@ -2687,9 +2772,9 @@ pub async fn revoke_asset_management(
     ))
 }
 
-/// Explicit discovery and atomic import for an already saved owner-funded key.
+/// Explicit discovery and atomic import for an already saved Provider connection.
 /// ```openapi
-/// {"path":"/api/v1/vendors/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import owner-funded Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing private model mappings for the saved personal owner. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Not a personal connection or unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/vendors/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn import_models(
     State(state): State<AppState>,
@@ -2697,17 +2782,6 @@ pub async fn import_models(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
-    if state
-        .store
-        .personal_vendor_organization(id)
-        .await
-        .map_err(ApiError::from_store)?
-        .is_none()
-    {
-        return Err(ApiError::invalid_request(
-            "Only owner-funded connections support automatic model import",
-        ));
-    }
     let vendor = state
         .store
         .vendor(id)
@@ -2729,7 +2803,12 @@ pub async fn import_models(
     for model in data {
         let upstream = model["id"].as_str().ok_or_else(ApiError::unavailable)?;
         let alias = format!("{prefix}/{upstream}");
-        let capabilities = json!({"catalog":model["catalog"],"supports_tool_calls":false,"supports_streaming_tool_calls":false,"supports_structured_output":false,"supports_embeddings":false,"supports_embedding_dimensions":false,"supports_embedding_base64":false,"supports_responses":false});
+        let capabilities = imported_model_capabilities(
+            &result["discovery"]["integration"]["effective_type"],
+            &vendor.adapter,
+            &vendor.api_base,
+            &model["catalog"],
+        );
         validate_model(
             &alias,
             make_model(
@@ -2752,10 +2831,87 @@ pub async fn import_models(
     }
     let imported = state
         .store
-        .import_personal_vendor_models(id, revision, entries)
+        .import_discovered_vendor_models(id, revision, entries)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(
         json!({"data":{"imported":imported,"discovered":data.len()},"discovery":result["discovery"]}),
     ))
+}
+
+/// A recognized Provider's explicit tool declaration is evidence for buffered
+/// OpenAI-compatible tool calls. It does not establish streaming tool behavior,
+/// endpoint availability, account entitlements, or any other API capability.
+fn imported_model_capabilities(
+    integration: &Value,
+    adapter: &str,
+    api_base: &str,
+    catalog: &Value,
+) -> Value {
+    let recognized_catalog = integration.as_str() == Some("openrouter")
+        || (integration.as_str() == Some("qiniu")
+            && api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1");
+    let advertised_tools = recognized_catalog
+        && matches!(adapter, "openai" | "openrouter")
+        && catalog["supported_parameters"]
+            .as_array()
+            .is_some_and(|parameters| {
+                parameters
+                    .iter()
+                    .any(|value| value.as_str() == Some("tools"))
+            });
+    json!({"catalog":catalog,"supports_tool_calls":advertised_tools,"supports_streaming_tool_calls":false,"supports_structured_output":false,"supports_embeddings":false,"supports_embedding_dimensions":false,"supports_embedding_base64":false,"supports_responses":false})
+}
+
+#[cfg(test)]
+mod import_capability_tests {
+    use super::*;
+
+    #[test]
+    fn only_recognized_explicit_tools_enable_buffered_tool_calls() {
+        let advertised = json!({"supported_parameters":["tools", "structured_outputs"]});
+        let supported = imported_model_capabilities(
+            &json!("openrouter"),
+            "openrouter",
+            "https://openrouter.ai/api/v1",
+            &advertised,
+        );
+        assert_eq!(supported["supports_tool_calls"], true);
+        assert_eq!(supported["supports_streaming_tool_calls"], false);
+        assert_eq!(supported["supports_structured_output"], false);
+        assert_eq!(
+            imported_model_capabilities(
+                &json!("qiniu"),
+                "openai",
+                "https://api.qnaigc.com/v1",
+                &advertised
+            )["supports_tool_calls"],
+            true
+        );
+        for (integration, adapter, base, catalog) in [
+            (
+                json!("qiniu"),
+                "openai",
+                "https://other.example/v1",
+                advertised.clone(),
+            ),
+            (
+                json!("openrouter"),
+                "anthropic",
+                "https://openrouter.ai/api/v1",
+                advertised.clone(),
+            ),
+            (
+                json!("openrouter"),
+                "openrouter",
+                "https://openrouter.ai/api/v1",
+                json!({"supported_parameters":[]}),
+            ),
+        ] {
+            assert_eq!(
+                imported_model_capabilities(&integration, adapter, base, &catalog)["supports_tool_calls"],
+                false
+            );
+        }
+    }
 }

@@ -1,5 +1,87 @@
 use super::{ProviderAdapter, types::*};
+use crate::catalog_metadata::CatalogMetadata;
 use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Descriptive metadata only. Ambiguous IDs or aliases are omitted; public
+/// listings never add models to the credential-scoped API inventory.
+pub(crate) fn model_square_metadata(html: &str) -> Option<BTreeMap<String, CatalogMetadata>> {
+    let pattern = regex::Regex::new(
+        r#"(?s)<script id="__NEXT_DATA__" type="application/json">(.*?)</script>"#,
+    )
+    .ok()?;
+    let source: Value = serde_json::from_str(pattern.captures(html)?.get(1)?.as_str()).ok()?;
+    let models = source.pointer("/props/pageProps/models")?.as_array()?;
+    if models.is_empty() || models.len() > 5000 {
+        return None;
+    }
+    let mut found = BTreeMap::new();
+    let mut ambiguous = BTreeSet::new();
+    for model in models {
+        if model["private"].as_bool() != Some(false) {
+            continue;
+        }
+        let Some(id) = model["id"]
+            .as_str()
+            .filter(|id| !id.is_empty() && id.len() <= 200)
+        else {
+            continue;
+        };
+        let mut metadata = CatalogMetadata::from_provider(model);
+        metadata.context_length = metadata.context_length.or_else(|| {
+            model["model_constraints"]["context_length"]
+                .as_u64()
+                .filter(|n| *n > 0)
+        });
+        metadata.max_completion_tokens = metadata.max_completion_tokens.or_else(|| {
+            model["model_constraints"]["max_completion_tokens"]
+                .as_u64()
+                .filter(|n| *n > 0)
+        });
+        metadata.input_price = None;
+        metadata.output_price = None;
+        // The model square's protocol-specific declaration must corroborate
+        // any generic parameter label before it can enable Chat tool calls.
+        metadata
+            .supported_parameters
+            .retain(|parameter| parameter != "tools");
+        if model["architecture"]["function_calling"]["supported"].as_bool() == Some(true)
+            && model["support_api_protocols"]
+                .as_array()
+                .is_some_and(|protocols| {
+                    protocols
+                        .iter()
+                        .any(|protocol| protocol.as_str() == Some("openai-chat"))
+                })
+            && !metadata
+                .supported_parameters
+                .iter()
+                .any(|parameter| parameter == "tools")
+            && metadata.supported_parameters.len() < 64
+        {
+            metadata.supported_parameters.push("tools".to_owned());
+        }
+        if !metadata.valid() {
+            continue;
+        }
+        let aliases = model["model_alias"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .filter(|alias| !alias.is_empty() && alias.len() <= 200);
+        for key in std::iter::once(id).chain(aliases).collect::<BTreeSet<_>>() {
+            if ambiguous.contains(key) {
+                continue;
+            }
+            if found.insert(key.to_owned(), metadata.clone()).is_some() {
+                found.remove(key);
+                ambiguous.insert(key.to_owned());
+            }
+        }
+    }
+    Some(found)
+}
 pub struct Qiniu;
 pub static ADAPTER: Qiniu = Qiniu;
 impl ProviderAdapter for Qiniu {
@@ -170,6 +252,29 @@ impl Qiniu {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn model_square_metadata_matches_unique_public_ids_and_never_imports_prices() {
+        let data = json!({"props":{"pageProps":{"models":[
+            {"id":"maker/example","name":"Example","private":false,"model_alias":["example","shared"],"model_constraints":{"context_length":8192,"max_completion_tokens":1024},"support_api_protocols":["openai-chat"],"architecture":{"input_modalities":["text","image"],"output_modalities":["text"],"function_calling":{"supported":true}},"pricing":{"prompt":"1"}},
+            {"id":"maker/other","private":false,"model_alias":["shared"],"supported_parameters":["tools"],"architecture":{"function_calling":{"supported":true}},"support_api_protocols":["anthropic-messages"]},
+            {"id":"private/model","private":true,"model_alias":["secret"]}
+        ]}}});
+        let html = format!(r#"<script id="__NEXT_DATA__" type="application/json">{data}</script>"#);
+        let metadata = model_square_metadata(&html).unwrap();
+        assert_eq!(metadata["example"].name.as_deref(), Some("Example"));
+        assert_eq!(
+            metadata["maker/example"].input_modalities,
+            vec!["text", "image"]
+        );
+        assert_eq!(metadata["example"].context_length, Some(8192));
+        assert_eq!(metadata["example"].max_completion_tokens, Some(1024));
+        assert_eq!(metadata["example"].supported_parameters, vec!["tools"]);
+        assert!(metadata["maker/other"].supported_parameters.is_empty());
+        assert!(metadata["example"].input_price.is_none());
+        assert!(!metadata.contains_key("shared"));
+        assert!(!metadata.contains_key("secret"));
+        assert!(model_square_metadata("changed page").is_none());
+    }
     #[test]
     fn official_model_square_preserves_cny_tiers_and_unsupported_dimensions() {
         let rate = json!({"input_range":[0,99999999],"output_range":[0,99999999],"input_item_type":"","output_item_type":"","details_v2":{"input":{"unit_name":"token","unit_size":1000,"unit_price":"0.001","unit_price_usd":"9"},"output_peak":{"unit_name":"token","unit_size":1000,"unit_price":"0.2"}}});

@@ -95,6 +95,35 @@ function setup(kind = "operator", initialEntry = "/billing") {
   return render(<MemoryRouter initialEntries={[initialEntry]}><BillingRoute /></MemoryRouter>);
 }
 describe("customer billing", () => {
+  it('identifies the workspace organization and never links to another organization billing context', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data})));
+    fixture.context = {
+      token:'test', workspace:{id:'workspace',organization_id:'org-a',organization_name:'Alpha'},
+      organization:{id:'org-b',name:'Beta'}, session:{kind:'operator',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
+    } as unknown as DashboardContext;
+    const view = render(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.getByText(/Alpha's Niu balance is shared across its workspaces/)).toBeTruthy();
+    expect(screen.getByText(/Organization billing is unavailable/)).toBeTruthy();
+    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    fixture.context = {...fixture.context, organization:{id:'org-a',name:'Alpha'}};
+    view.rerender(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.getByRole('link',{name:'Manage credits'})).toBeTruthy();
+    fixture.context = {...fixture.context, session:{kind:'operator',operator:{role:'viewer',organization_id:'org-a',project_id:null}}} as unknown as DashboardContext;
+    view.rerender(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    expect(screen.getByText('Contact your organization owner to add credits.')).toBeTruthy();
+  });
+  it('does not offer credits management in internal mode', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data})));
+    fixture.context = {
+      token:'test', workspace:{id:'workspace',organization_id:'org-a',organization_name:'Alpha'}, organization:{id:'org-a',name:'Alpha'},
+      session:{kind:'operator',operating_mode:'internal',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
+    } as unknown as DashboardContext;
+    render(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.getByText(/Usage billed by a Provider is paid directly/)).toBeTruthy();
+    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    expect(screen.queryByText('Contact your organization owner to add credits.')).toBeNull();
+  });
   it("opens a directly linked billing tab", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data })));
     setup("operator", "/billing?tab=rates");

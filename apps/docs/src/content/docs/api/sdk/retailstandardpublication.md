@@ -14,6 +14,6 @@ export type RetailStandardPublication = {
     schedule: RetailSchedule;
     expected_version: string;
     idempotency_key: string;
-    reason: string;
+    reason?: string;
 };
 ```

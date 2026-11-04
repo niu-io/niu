@@ -1501,6 +1501,29 @@ setProviderOfferActive(providerId: string, offerId: string, active: boolean, opt
 }>;
 ```
 
+### authorizeProviderOffer
+
+```typescript
+/** Atomically authorize and enable the exact current offer revision. */
+authorizeProviderOffer(providerId: string, offerId: string, rateRevision: string, options?: RequestOptions): Promise<{
+    data: {
+        active: boolean;
+        authorization_id: string;
+    };
+}>;
+```
+
+### revokeProviderOfferAuthorization
+
+```typescript
+/** Revoke one exact authorization; a different current authorization is unaffected. */
+revokeProviderOfferAuthorization(providerId: string, offerId: string, authorizationId: string, options?: RequestOptions): Promise<{
+    data: {
+        revoked: boolean;
+    };
+}>;
+```
+
 ### setSupplierOfferActive
 
 ```typescript
@@ -2619,6 +2642,28 @@ getProviderCooldown(providerId: string, options?: RequestOptions): Promise<{
 ```typescript
 getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{
     data: VendorCooldown;
+}>;
+```
+
+### listProviderConnectionIncidents
+
+```typescript
+/** Platform-only operational evidence. Follow next_before for older incidents. */
+listProviderConnectionIncidents(connectionId: string, before?: string, options?: RequestOptions): Promise<{
+    data: ProviderConnectionIncident[];
+    next_before: string | null;
+}>;
+```
+
+### listConnectionIncidents
+
+```typescript
+listConnectionIncidents(page?: {
+    status?: 'active' | 'resolved';
+    before?: string;
+}, options?: RequestOptions): Promise<{
+    data: PlatformConnectionIncident[];
+    next_before: string | null;
 }>;
 ```
 

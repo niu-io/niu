@@ -2,6 +2,156 @@ use super::*;
 use axum::http::Method;
 use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
 const ADMIN: &str = "niu-test-admin-token-that-is-long-1234";
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn commercial_offer_authorization_requires_platform_admin_and_current_revision(pool: PgPool) {
+    let mut state = test_state(None, pool.clone());
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(
+            "authorization-test-master-secret-at-least-32-characters",
+        )
+        .unwrap(),
+    ));
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let member = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "customer member",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+        Some(json!({"name":"Authorization test", "adapter":"openai", "api_base":"https://example.com/v1", "api_key":"synthetic-key"}))).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let vendor = vendor["data"]["id"].as_str().unwrap();
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            &format!("/admin/v1/vendors/{vendor}/models"),
+            ADMIN,
+            Some(
+                json!({"alias":"authorization-api-model","upstream_model":"model","enabled":true})
+            )
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let provider = store
+        .create_provider_business("Authorization Provider")
+        .await
+        .unwrap();
+    let vendor_id: Uuid = vendor.parse().unwrap();
+    let vendor_revision: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1")
+        .bind(vendor_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    store
+        .associate_vendor_supplier(vendor_id, provider, vendor_revision)
+        .await
+        .unwrap();
+    let revision = store
+        .publish_provider_offer(
+            provider,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "authorization-api-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1".into(),
+                completion_rate: "1".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let offer: Uuid = sqlx::query_scalar("SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='authorization-api-model'")
+        .bind(provider).fetch_one(&pool).await.unwrap();
+    let path = format!("/admin/v1/providers/{provider}/offers/{offer}/authorization");
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &path,
+            &member.token,
+            Some(json!({"rate_revision":revision}))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &path,
+            ADMIN,
+            Some(json!({"rate_revision":Uuid::new_v4()}))
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let first = call(
+        &app,
+        Method::PUT,
+        &path,
+        ADMIN,
+        Some(json!({"rate_revision":revision})),
+    )
+    .await;
+    assert_eq!(first.0, StatusCode::OK);
+    assert_eq!(first.1["data"]["active"], true);
+    let retry = call(
+        &app,
+        Method::PUT,
+        &path,
+        ADMIN,
+        Some(json!({"rate_revision":revision})),
+    )
+    .await;
+    assert_eq!(retry.0, StatusCode::OK);
+    assert_eq!(
+        retry.1["data"]["authorization_id"],
+        first.1["data"]["authorization_id"]
+    );
+    let authorization = first.1["data"]["authorization_id"].as_str().unwrap();
+    let revoke_path = format!("{path}/{authorization}");
+    assert_eq!(
+        call(&app, Method::DELETE, &revoke_path, &member.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, &revoke_path, ADMIN, None)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, &revoke_path, ADMIN, None)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let active: bool = sqlx::query_scalar("SELECT active FROM provider_offers WHERE id=$1")
+        .bind(offer)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(!active);
+}
+
 async fn call(
     app: &Router,
     method: Method,
@@ -357,6 +507,16 @@ async fn customer_billing_is_project_scoped_and_financial_writes_are_installatio
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(pool: PgPool) {
+    inference_independent_ledgers(pool, false).await;
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn authorized_offer_inference_preserves_independent_financial_ledgers(pool: PgPool) {
+    inference_independent_ledgers(pool, true).await;
+}
+
+async fn inference_independent_ledgers(pool: PgPool, new_authorization: bool) {
     let upstream = Router::new()
         .route("/v1/chat/completions", post(provider))
         .with_state(Captured::default());
@@ -427,70 +587,89 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     .fetch_one(&pool)
     .await
     .unwrap();
-    let valid_until_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-        + 30 * 24 * 60 * 60 * 1000;
-    assert_eq!(
-        call(
+    let authorization = if new_authorization {
+        let (status, result) = call(
             &app,
             Method::PUT,
-            &format!("/admin/v1/providers/{supplier}/qualification"),
+            &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization"),
             ADMIN,
-            Some(json!({
-                "supply_rights_sha256":"a".repeat(64),
-                "supply_capability_sha256":"b".repeat(64),
-                "data_handling_sha256":"c".repeat(64),
-                "valid_until_ms":valid_until_ms
-            }))
+            Some(json!({"rate_revision":revision})),
         )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification"),
-            ADMIN,
-            Some(json!({
-                "rate_revision":revision,
-                "model_identity_sha256":"d".repeat(64),
-                "protocol_matrix_sha256":"e".repeat(64),
-                "protocol_matrix_version":"chat-v1",
-                "data_handling_sha256":"f".repeat(64),
-                "availability_sha256":"1".repeat(64),
-                "agreed_rates_sha256":"2".repeat(64),
-                "valid_until_ms":valid_until_ms
-            }))
+        .await;
+        assert_eq!(status, StatusCode::OK, "{result}");
+        Some(
+            result["data"]["authorization_id"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
         )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    let supplier_manager = store
-        .create_operator(
-            OperatorScope {
-                organization_id: scope.organization_id,
-                project_id: None,
-            },
-            "supplier manager",
-            OperatorRole::Owner,
-            3600,
-            OperatorAuditActor::Installation,
-        )
-        .await
-        .unwrap();
-    store
-        .set_provider_member(supplier, supplier_manager.operator_id, "manager", true)
-        .await
-        .unwrap();
-    store
-        .set_provider_offer_active(supplier, offer, supplier_manager.operator_id, true)
-        .await
-        .unwrap();
+    } else {
+        let valid_until_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+            + 30 * 24 * 60 * 60 * 1000;
+        assert_eq!(
+            call(
+                &app,
+                Method::PUT,
+                &format!("/admin/v1/providers/{supplier}/qualification"),
+                ADMIN,
+                Some(json!({
+                    "supply_rights_sha256":"a".repeat(64),
+                    "supply_capability_sha256":"b".repeat(64),
+                    "data_handling_sha256":"c".repeat(64),
+                    "valid_until_ms":valid_until_ms
+                }))
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            call(
+                &app,
+                Method::PUT,
+                &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification"),
+                ADMIN,
+                Some(json!({
+                    "rate_revision":revision,
+                    "model_identity_sha256":"d".repeat(64),
+                    "protocol_matrix_sha256":"e".repeat(64),
+                    "protocol_matrix_version":"chat-v1",
+                    "data_handling_sha256":"f".repeat(64),
+                    "availability_sha256":"1".repeat(64),
+                    "agreed_rates_sha256":"2".repeat(64),
+                    "valid_until_ms":valid_until_ms
+                }))
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+        let supplier_manager = store
+            .create_operator(
+                OperatorScope {
+                    organization_id: scope.organization_id,
+                    project_id: None,
+                },
+                "supplier manager",
+                OperatorRole::Owner,
+                3600,
+                OperatorAuditActor::Installation,
+            )
+            .await
+            .unwrap();
+        store
+            .set_provider_member(supplier, supplier_manager.operator_id, "manager", true)
+            .await
+            .unwrap();
+        store
+            .set_provider_offer_active(supplier, offer, supplier_manager.operator_id, true)
+            .await
+            .unwrap();
+        None
+    };
     rates.prompt_rate = "3000000000".into();
     rates.completion_rate = "6000000000".into();
     store.publish_customer_tariff(scope, &rates).await.unwrap();
@@ -599,18 +778,35 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     assert_eq!(lines["data"][0]["amount_nanos"], "12000");
     assert_eq!(lines["data"][0]["model_alias"], "billable");
     assert!(!lines.to_string().contains("earned_nanos"));
-    assert_eq!(
-        call(
-            &app,
-            Method::POST,
-            &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification/revoke"),
-            ADMIN,
-            Some(json!({"reason_sha256":"3".repeat(64)}))
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
+    if let Some(authorization) = authorization {
+        assert_eq!(
+            call(
+                &app,
+                Method::DELETE,
+                &format!(
+                    "/admin/v1/providers/{supplier}/offers/{offer}/authorization/{authorization}"
+                ),
+                ADMIN,
+                None
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    } else {
+        assert_eq!(
+            call(
+                &app,
+                Method::POST,
+                &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification/revoke"),
+                ADMIN,
+                Some(json!({"reason_sha256":"3".repeat(64)}))
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    }
     let second_response = app
         .oneshot(
             Request::post("/v1/chat/completions")

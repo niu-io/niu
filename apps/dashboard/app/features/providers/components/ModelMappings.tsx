@@ -99,6 +99,7 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
     if (result.status === 'connected' && result.model === 'listed') return model.capabilities.video_schema ? translateUI('Reachable · model listed. Video generation is not verified by this check.') : translateUI('Reachable · model listed. Try Chat to verify access.');
     if (result.status === 'connected' && result.model === 'not_listed') return translateUI('Reachable · model not listed. Check the upstream ID.');
     if (result.status === 'credentials_rejected') return translateUI('Key rejected. Check the saved provider key.');
+    if (result.status === 'account_chat_banned') return translateUI('The Qiniu account is not permitted to use chat services (account_chat_banned). Contact Qiniu to restore account access.');
     if (result.status === 'private_endpoint_blocked') return translateUI('Private endpoint blocked.');
     if (result.status === 'endpoint_unavailable') return translateUI('Could not reach provider endpoint.');
     if (result.status === 'invalid_endpoint') return translateUI('Provider endpoint URL is invalid.');

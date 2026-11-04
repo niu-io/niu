@@ -44,9 +44,14 @@ pub struct Principal {
     key_id: Uuid,
     scope: TenantScope,
     allowed_models: Vec<String>,
+    invocation_allowed: bool,
 }
 
 impl Principal {
+    pub fn invocation_allowed(&self) -> bool {
+        self.invocation_allowed
+    }
+
     pub fn allows_model(&self, model: &str) -> bool {
         self.allowed_models
             .iter()
@@ -333,13 +338,14 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Single-statement indexed lookup executes under its own PostgreSQL MVCC
         // statement snapshot without paying BEGIN/set_config/COMMIT round-trips.
-        let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models, invocation_allowed FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(hash)
             .fetch_optional(&self.pool)
             .await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
             key_id: row.get("id"),
             scope: TenantScope {
                 organization_id: row.get("organization_id"),
@@ -358,7 +364,7 @@ impl Store {
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         let row = sqlx::query(
-            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, \
+            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $2::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
@@ -378,6 +384,7 @@ impl Store {
         }
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
             key_id: row.get("id"),
             scope: TenantScope {
                 organization_id: row.get("organization_id"),
@@ -394,7 +401,7 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Principal, StoreError> {
-        let row = sqlx::query("SELECT allowed_models FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let row = sqlx::query("SELECT allowed_models,invocation_allowed FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id)
             .bind(scope.project_id)
             .bind(id)
@@ -405,6 +412,7 @@ impl Store {
             key_id: id,
             scope,
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
         })
     }
 
@@ -415,7 +423,7 @@ impl Store {
         source: Option<std::net::IpAddr>,
     ) -> Result<Principal, StoreError> {
         let row = sqlx::query(
-            "SELECT k.allowed_models, \
+            "SELECT k.allowed_models, k.invocation_allowed, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $4::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $4::text::inet <<= n::cidr) \
@@ -439,6 +447,7 @@ impl Store {
             key_id: id,
             scope,
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
         })
     }
 
@@ -455,7 +464,7 @@ impl Store {
         source: Option<std::net::IpAddr>,
     ) -> Result<(Principal, bool), StoreError> {
         let row = sqlx::query(
-            "SELECT k.organization_id, k.project_id, k.allowed_models, \
+            "SELECT k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $2::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
@@ -478,6 +487,7 @@ impl Store {
                     project_id: row.get("project_id"),
                 },
                 allowed_models: row.get("allowed_models"),
+                invocation_allowed: row.get("invocation_allowed"),
             },
             ip_allowed,
         ))
@@ -571,6 +581,7 @@ impl Store {
 
         Ok(serde_json::json!({
             "object": "api_key",
+            "invocation_allowed": self.key_invocation_allowed(principal).await?,
             "label": name,
             "allowed_models": allowed_models,
             "expires_at_ms": expires_at_ms,
@@ -588,6 +599,12 @@ impl Store {
             "usage_window": usage_window,
             "allowed_cidrs": allowed_cidrs,
         }))
+    }
+
+    pub async fn key_invocation_allowed(&self, principal: &Principal) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT invocation_allowed FROM api_keys WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp()")
+            .bind(principal.key_id()).bind(principal.scope().organization_id).bind(principal.scope().project_id)
+            .fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)
     }
 
     /// Unified console key detail view combining metadata, spending limits,
@@ -997,7 +1014,7 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug FROM api_keys WHERE id=$3")
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug,invocation_allowed) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug,invocation_allowed FROM api_keys WHERE id=$3")
             .bind(id).bind(hash).bind(old).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
@@ -1081,13 +1098,16 @@ impl Store {
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
 
-        let key = sqlx::query("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
+        let key = sqlx::query("SELECT k.id,k.invocation_allowed FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
             .bind(principal.key_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
         if key.is_none() {
             // The composite key foreign key guarantees that a valid key also
             // has its project. Locking both rows together keeps key revocation
             // and budget creation ordered with dispatch in a single query.
             return Err(StoreError::Unauthorized);
+        }
+        if !key.as_ref().unwrap().get::<bool, _>("invocation_allowed") {
+            return Err(StoreError::InvocationDenied);
         }
         let account_eligible = sqlx::query_scalar::<_, bool>("SELECT a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FROM account_assignments s JOIN supplier_accounts a ON a.organization_id=s.organization_id AND a.project_id=s.project_id AND a.id=s.account_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.attempt_id=$3 FOR SHARE OF a")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?;
