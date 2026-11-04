@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { Cpu as RailModels, FolderKey as RailWorkspace } from 'lucide-react';
 import {
   IconBook as RailDocs,
@@ -34,7 +34,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { SettingsNavigation } from '@/features/account/settings-shell';
 import AccountMenu from './AccountMenu';
 import type { DashboardContext, GatewayStatus, Model } from './dashboard-context';
-import type { usePaymentReadiness } from './payment-readiness';
 import { prefetchRouteIntent } from './prefetch';
 import ProductRailLink from './ProductRailLink';
 import { ProviderNav } from './ProviderNav';
@@ -451,73 +450,5 @@ export function AdminProviderTabs({
         </TabsList>
       </div>
     </Tabs>
-  );
-}
-
-export function ServiceSetupGate({
-  paymentReadiness,
-  isInstallation,
-  onRetryWorkspaces,
-}: {
-  paymentReadiness: ReturnType<typeof usePaymentReadiness>;
-  isInstallation: boolean;
-  onRetryWorkspaces: () => void;
-}) {
-  const { t } = useLocale();
-  const uiT = (en: string) => t(en, en);
-  return (
-    <section className="space-y-4 py-6" aria-label={uiT('Service setup')}>
-      <h2 className="text-lg font-semibold">
-        {paymentReadiness.status === 'loading'
-          ? t('Checking service setup…', '正在检查服务配置…')
-          : paymentReadiness.status === 'error'
-            ? t('Could not verify service setup', '无法验证服务配置')
-            : t('Service setup required', '需要完成服务配置')}
-      </h2>
-      <p role="status" className="text-muted-foreground">
-        {paymentReadiness.status === 'loading'
-          ? t('Checking payment setup or funding for this account.', '正在检查当前账户的支付配置或资金状态。')
-          : paymentReadiness.status === 'error'
-            ? t(
-                'We couldn’t check service setup. Your work is preserved. Check your connection and try again.',
-                '无法检查服务配置。您的工作已保留，请检查网络连接后重试。',
-              )
-            : isInstallation
-              ? t(
-                  'Configure the platform currency, then connect a payment gateway or fund this company’s account. Funded self-hosted workspaces do not require a merchant.',
-                  '请先配置平台结算币种，然后连接支付网关或为该企业账户充值。已充值的私有化部署工作空间无需配置商户网关。',
-                )
-              : t(
-                  'Your service administrator needs to configure payments or fund your company’s account before workspace features become available.',
-                  '您的服务管理员需要先配置支付网关或为企业账户充值，工作空间功能方可使用。',
-                )}
-      </p>
-      <div className="flex flex-wrap gap-3">
-        {isInstallation && paymentReadiness.status === 'blocked' && (
-          <Button asChild>
-            <NavLink to={paymentReadiness.reason === 'currency_required' ? '/admin/settings' : '/admin/payments'}>
-              {paymentReadiness.reason === 'currency_required'
-                ? t('Configure platform currency', '配置平台币种')
-                : t('Configure payment gateways', '配置支付网关')}
-            </NavLink>
-          </Button>
-        )}
-        {isInstallation && paymentReadiness.status === 'blocked' && paymentReadiness.reason !== 'currency_required' && (
-          <Button variant="outline" asChild>
-            <NavLink to="/admin/balances">{t('Manage account funding', '管理账户充值')}</NavLink>
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          disabled={paymentReadiness.status === 'loading'}
-          onClick={() => {
-            paymentReadiness.retry();
-            onRetryWorkspaces();
-          }}
-        >
-          {t('Check again', '重新检查')}
-        </Button>
-      </div>
-    </section>
   );
 }

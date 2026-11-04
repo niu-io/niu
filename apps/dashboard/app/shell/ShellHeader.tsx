@@ -121,7 +121,6 @@ export default function ShellHeader({
   modelsHref,
   token,
   title,
-  setupBlocked,
 }: {
   toggleRef: RefObject<HTMLButtonElement | null>;
   hasSidebar: boolean;
@@ -150,7 +149,6 @@ export default function ShellHeader({
   modelsHref: string;
   token: string;
   title: string;
-  setupBlocked: boolean;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { isZh, t } = useLocale();
@@ -383,8 +381,6 @@ export default function ShellHeader({
       <div
         id="dashboard-page-actions"
         className="dashboard-page-actions"
-        hidden={setupBlocked}
-        style={setupBlocked ? { display: 'none' } : undefined}
       />
     </header>
   );

@@ -507,6 +507,72 @@ fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
     })
 }
 
+// Existing request history remains readable without funding. Individual
+// handlers still enforce workspace and payload authorization.
+fn saved_history(path: &str, method: &axum::http::Method) -> bool {
+    if *method != axum::http::Method::GET {
+        return false;
+    }
+    let request_history = [
+        "/api/v1/organizations/{organization}/projects/{project}/requests",
+        "/admin/v1/organizations/{organization}/projects/{project}/requests",
+        "/api/v1/workspaces/{workspace}/requests",
+    ]
+    .iter()
+    .any(|root| {
+        path.strip_prefix(root).is_some_and(|rest| {
+            matches!(rest, "" | "/{attempt}" | "/{attempt}/payloads" | "/export")
+        })
+    });
+    request_history
+        || [
+            "/api/v1/workspaces/{workspace}/video/draft",
+            "/api/v1/organizations/{organization}/projects/{project}/video/draft",
+            "/admin/v1/organizations/{organization}/projects/{project}/video/draft",
+        ]
+        .contains(&path)
+        || [
+            "/api/v1/workspaces/{workspace}/chats",
+            "/api/v1/organizations/{organization}/projects/{project}/chats",
+            "/admin/v1/organizations/{organization}/projects/{project}/chats",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/draft" | "/{id}" | "/{id}/export"))
+        })
+        || [
+            "/api/v1/workspaces/{workspace}/sessions",
+            "/api/v1/organizations/{organization}/projects/{project}/generations",
+            "/admin/v1/organizations/{organization}/projects/{project}/generations",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/{session}"))
+        })
+        || [
+            "/api/v1/workspaces/{workspace}/video/intents",
+            "/api/v1/organizations/{organization}/projects/{project}/video/intents",
+            "/admin/v1/organizations/{organization}/projects/{project}/video/intents",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/{intent}"))
+        })
+        || [
+            "/api/v1/workspaces/{workspace}/tasks",
+            "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
+            "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/{task}" | "/{task}/diagnostics"))
+        })
+}
+
 pub(crate) async fn gate(
     State(state): State<AppState>,
     mut request: Request<Body>,
@@ -533,6 +599,7 @@ pub(crate) async fn gate(
         && !directory
         && !lookup
         && !credential_maintenance(&path, request.method())
+        && !saved_history(&path, request.method())
     {
         let base_readiness = inspect(&state).await;
         if matches!(base_readiness, Ok(Readiness { ready: true, .. })) {

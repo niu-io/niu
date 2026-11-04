@@ -41,7 +41,6 @@ import ShellHeader from './ShellHeader';
 import {
   AdminProviderTabs,
   GatewayOutageDialog,
-  ServiceSetupGate,
   ShellRail,
   ShellSidebar,
   SignOutFailureDialog,
@@ -486,24 +485,9 @@ export default function AppLayout() {
     (!adminArea || isInstallation) &&
     !settingsArea &&
     (activityArea || supplierManagement || destination === 'Workspace');
-  const nonInferenceManagement = destination === 'Workspace' &&
-    /^\/workspaces\/[^/]+\/(?:routing|evaluations|events)(?:\/|$)/.test(location.pathname);
-  const setupBlocked = Boolean(
-    token &&
-      session?.operating_mode !== 'internal' &&
-      destination !== 'Models' &&
-      destination !== 'Organization' &&
-      !workspaceDirectoryArea &&
-      !supplierArea &&
-      !settingsArea &&
-      !helpArea &&
-      !nonInferenceManagement &&
-      paymentReadiness.status !== 'ready',
-  );
   const modelFiltersAvailable =
     destination === 'Models' &&
     !activePath.startsWith('models/') &&
-    !setupBlocked &&
     !workspaceLoading &&
     authorityWorkspacesReady &&
     !effectiveWorkspaceError &&
@@ -732,7 +716,6 @@ export default function AppLayout() {
             modelsHref={modelsHref}
             token={token}
             title={title}
-            setupBlocked={setupBlocked}
           />
         )}
         {!isGlobalChat && context.environmentNotice}
@@ -751,15 +734,7 @@ export default function AppLayout() {
                   gatewayStatus={gatewayStatus}
                 />
               )}
-              {setupBlocked && (
-                <ServiceSetupGate
-                  paymentReadiness={paymentReadiness}
-                  isInstallation={isInstallation}
-                  onRetryWorkspaces={reloadWorkspaces}
-                />
-              )}
-              {(!setupBlocked || paymentReadiness.retainContent) && (
-                <div hidden={setupBlocked}>
+                <div>
                   {helpArea ? (
                     <Outlet context={context} />
                   ) : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? (
@@ -770,7 +745,6 @@ export default function AppLayout() {
                     <Outlet key={principalKey || 'anonymous'} context={context} />
                   )}
                 </div>
-              )}
             </div>
           )}
         </div>
