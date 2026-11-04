@@ -27,3 +27,9 @@ A fresh isolated database with no currency configured returned `currency_require
 ## Evidence limits
 
 No actual public webhook, signed wire acknowledgement, retry, lease-recovery delivery, recipient processing, or in-flight revocation was exercised. A disabled subscription and the authorization readback do not establish delivery behavior. URL checks above cover the listed syntactic destinations; they do not independently establish every DNS/address-pinning branch. The public-only sender was not modified to allow loopback. The production or hosted candidate, release artifacts, proactive detection without an eligible request, full fallback behavior and broader recovery races remain unverified.
+
+## Controlled-transport coverage added — 2026-11-05
+
+The gateway test module now contains an incident-specific scenario using the existing `cfg(test)` loopback transport. It specifies signed request verification, a failed response and retry, stable event and delivery identities, expired-lease recovery with stale-worker fencing, cross-workspace read denial and revocation between claim and send. Closing and reopening a separate database pool and reconstructing the storage/worker handle models restart at that boundary; it is not an operating-system process restart. The production sender still requires public HTTPS, resolves and pins public addresses, and does not use this test transport.
+
+The isolated PostgreSQL fixture command was executed. Under the active repository instruction, its outcome is disregarded and is not evidence of behavior. The existing actual-run observations above remain the evidence for publication and process restart; no real public delivery, signed receiver acknowledgement, retry or delivery after a lease failure has been verified. Authorization is checked before sending. Once a request has been dispatched, later revocation cannot recall it.

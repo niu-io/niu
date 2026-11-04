@@ -217,6 +217,15 @@ async fn deliver_fixture(
         .unwrap();
     send_claim(store, cipher, claim, &client, endpoint).await
 }
+#[cfg(test)]
+pub(crate) async fn send_fixture_claim(
+    store: &Store,
+    cipher: &CredentialCipher,
+    claim: &EventDeliveryClaim,
+    endpoint: &str,
+) -> Result<(), niu_storage::StoreError> {
+    deliver_fixture(store, cipher, claim, endpoint).await
+}
 fn signature(secret: &str, timestamp: u64, body: &[u8]) -> String {
     use std::fmt::Write;
     let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, secret.as_bytes());
