@@ -378,7 +378,11 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
         json!({}),
     )
     .await;
-    assert_eq!(status, StatusCode::CREATED, "key rotation failed: {rotated}");
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "key rotation failed: {rotated}"
+    );
     let token = rotated["token"].as_str().unwrap();
     let old_response = app
         .clone()
@@ -423,7 +427,12 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
             assert_eq!(inspected["data"]["invocation_allowed"], json!(false));
             assert_eq!(
                 inspected["data"]["management_capabilities"],
-                json!(["evaluations:read", "events:read", "pools:read", "pools:write"])
+                json!([
+                    "evaluations:read",
+                    "events:read",
+                    "pools:read",
+                    "pools:write"
+                ])
             );
         }
     }
@@ -453,15 +462,28 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
         .await
         .unwrap();
     assert_eq!(put_routing.status(), StatusCode::OK);
-    let (unapproved_status, _, _) = request(
-        &app,
-        "/v1/evaluations",
-        Some(token),
-        None,
-        json!({"name":"Unapproved write","model":"test","cases":[{"prompt":"hi"}]}),
-    )
-    .await;
-    assert_eq!(unapproved_status, StatusCode::FORBIDDEN);
+    let unapproved = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/v1/evaluations/unapproved")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "slug": "unapproved", "name": "Unapproved write",
+                        "task": "Assess an answer", "rubric": "The answer is relevant",
+                        "protocol": "chat", "revision": 0,
+                        "samples": [{"reference": "sample-one", "request_sha256": "a".repeat(64)}]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unapproved.status(), StatusCode::FORBIDDEN);
     let ordinary = store
         .issue_key(scope, "Inference only", &["*".into()], 3600)
         .await
