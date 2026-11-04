@@ -1759,6 +1759,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Copy this secret before closing. Niu cannot reveal it again.": "关闭前请复制密钥值，Niu 无法再次显示。",
   "Base URL": "基础 URL",
   "Request example unavailable": "请求示例暂不可用",
+  "This key is for management only and cannot invoke models.": "此密钥仅用于管理，不能调用模型。",
+  "Model invocation permission is unavailable for this key.": "无法确认此密钥是否具有模型调用权限。",
   "Done": "完成",
   "The replacement secret is shown once.": "替换后的密钥值仅显示一次。",
   "This cannot be undone.": "此操作无法撤销。",

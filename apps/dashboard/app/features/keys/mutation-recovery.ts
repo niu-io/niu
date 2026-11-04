@@ -56,9 +56,14 @@ function projectKey(value: unknown): value is ProjectKey {
 }
 
 export function confirmedKeyValidationFailure(error: unknown) {
-  // Authentication, conflict, transport, parsing and server errors all retain
+  if (!(error instanceof KeyRequestError)) return false;
+  // This structured response is emitted by the readiness middleware before it
+  // dispatches to a key mutation handler. Generic 503s remain ambiguous.
+  if (error.status === 503 && error.errorType === 'payment_setup_required'
+      && ['currency_required', 'payment_setup_required', 'readiness_unavailable'].includes(error.code ?? '')) return true;
+  // Authentication, conflict, transport, parsing and other server errors retain
   // recovery identity. They must not silently authorize a fresh mutation.
-  return error instanceof KeyRequestError && [400, 422].includes(error.status);
+  return [400, 422].includes(error.status);
 }
 
 export async function reconcileKeyMutation(token: string, collection: string, pending: PendingKeyMutation, signal?: AbortSignal): Promise<KeyMutationOutcome> {

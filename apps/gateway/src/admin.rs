@@ -2758,6 +2758,7 @@ pub struct KeyListQuery {
 ///         "revision",
 ///         "name",
 ///         "allowed_models",
+///         "invocation_allowed",
 ///         "expires_at_ms",
 ///         "last_used_at_ms",
 ///         "revoked",
@@ -2782,6 +2783,10 @@ pub struct KeyListQuery {
 ///           "items": {
 ///             "type": "string"
 ///           }
+///         },
+///         "invocation_allowed": {
+///           "type": "boolean",
+///           "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
 ///         },
 ///         "expires_at_ms": {
 ///           "type": [

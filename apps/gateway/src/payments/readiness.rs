@@ -501,11 +501,19 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
     if *method != axum::http::Method::GET {
         return false;
     }
-    // Incident evidence is read-only and must remain available for recovery
-    // without funding; each handler independently enforces its scope and grant.
+    // Read-only incident and customer billing history remains available without
+    // funding; each handler independently enforces its scope and grant.
     if matches!(
         path,
-        "/v1/incidents/{reference}" | "/api/v1/workspaces/{workspace}/incidents"
+        "/v1/incidents/{reference}"
+            | "/api/v1/workspaces/{workspace}/incidents"
+            | "/api/v1/workspaces/{workspace}/billing"
+            | "/api/v1/organizations/{organization}/projects/{project}/billing"
+            | "/admin/v1/organizations/{organization}/projects/{project}/billing"
+            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices"
+            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices"
+            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
+            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
     ) {
         return true;
     }

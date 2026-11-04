@@ -43,6 +43,7 @@ export type ProjectKey = {
   revision?: number;
   name: string;
   allowed_models: string[];
+  invocation_allowed?: boolean;
   expires_at_ms: number | null;
   last_used_at_ms?: number | null;
   revoked: boolean;
@@ -63,7 +64,7 @@ export type ProjectKey = {
 export type IssuedProjectKey = { id: string; token: string; allowed_models?: string[]; key?: ProjectKey };
 
 export class KeyRequestError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public errorType?: string, public code?: string) { super(message); }
 }
 
 export function workspaceKeyPath(workspaceId: string) {
@@ -95,8 +96,8 @@ export async function keyRequest<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!response.ok) {
-    const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-    throw new KeyRequestError(payload?.error?.message ?? `Request failed (${response.status}).`, response.status);
+    const payload = await response.json().catch(() => null) as { error?: { message?: string; type?: string; code?: string } } | null;
+    throw new KeyRequestError(payload?.error?.message ?? `Request failed (${response.status}).`, response.status, payload?.error?.type, payload?.error?.code);
   }
   const upper = method.toUpperCase();
   if (upper !== 'GET' && upper !== 'HEAD') {
