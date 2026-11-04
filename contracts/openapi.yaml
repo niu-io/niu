@@ -373,6 +373,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1cooldown'
   /api/v1/vendors/{vendor}/incidents:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1incidents'
+  /api/v1/incidents/{incident}/connection:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1incidents~1{incident}~1connection'
   /api/v1/incidents:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1incidents'
   /api/v1/vendors/{vendor}/request-rate-limit/history:

@@ -1755,7 +1755,7 @@ HTTP 503: Incident evidence unavailable
 
 `GET /api/v1/workspaces/{workspace}/incidents`
 
-Requires current workspace read authority. Returns only model aliases for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
+Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `listWorkspaceIncidents`.
 
@@ -1802,11 +1802,15 @@ Content type: `application/json`.
       "items": {
         "type": "object",
         "required": [
-          "model"
+          "model",
+          "owner_funded"
         ],
         "properties": {
           "model": {
             "type": "string"
+          },
+          "owner_funded": {
+            "type": "boolean"
           }
         }
       }
@@ -1825,6 +1829,76 @@ HTTP 403: Workspace authority required
 HTTP 404: Workspace unavailable
 
 HTTP 503: Incident evidence unavailable
+
+## Resolve a platform incident to its connection
+
+`GET /api/v1/incidents/{incident}/connection`
+
+Platform administration required. Resolves a durable incident reference to its connection identifier for authorized management navigation. Returns no credential, upstream URL, request content or financial information. A missing incident returns 404. This read does not change configuration or call the Provider. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `resolveIncidentConnection`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`incident` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 200: Internal connection routing identifier
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "connection_id"
+      ],
+      "properties": {
+        "connection_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid incident reference
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Incident unavailable
+
+HTTP 503: Evidence unavailable
 
 ## Read latest 100 workspace preparation refusals
 

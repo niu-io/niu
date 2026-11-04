@@ -183,7 +183,7 @@ fn incident_cursor(before: Option<String>) -> Result<Option<i64>, ApiError> {
 }
 
 /// ```openapi
-/// {"path":"/api/v1/workspaces/{workspace}/incidents","method":"get","operation":{"operationId":"listWorkspaceIncidents","summary":"Read active upstream incidents affecting this workspace","description":"Requires current workspace read authority. Returns only model aliases for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"workspace","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Workspace-scoped active incident projection","content":{"application/json":{"schema":{"type":"object","required":["data","more"],"properties":{"data":{"type":"array","maxItems":50,"items":{"type":"object","required":["model"],"properties":{"model":{"type":"string"}}}},"more":{"type":"boolean"}}}}}},"401":{"description":"Authentication required"},"403":{"description":"Workspace authority required"},"404":{"description":"Workspace unavailable"},"503":{"description":"Incident evidence unavailable"}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/workspaces/{workspace}/incidents","method":"get","operation":{"operationId":"listWorkspaceIncidents","summary":"Read active upstream incidents affecting this workspace","description":"Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"workspace","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Workspace-scoped active incident projection","content":{"application/json":{"schema":{"type":"object","required":["data","more"],"properties":{"data":{"type":"array","maxItems":50,"items":{"type":"object","required":["model","owner_funded"],"properties":{"model":{"type":"string"},"owner_funded":{"type":"boolean"}}}},"more":{"type":"boolean"}}}}}},"401":{"description":"Authentication required"},"403":{"description":"Workspace authority required"},"404":{"description":"Workspace unavailable"},"503":{"description":"Incident evidence unavailable"}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn workspace_list(
     State(state): State<AppState>,
@@ -205,6 +205,36 @@ pub async fn workspace_list(
             .map_err(ApiError::from_store)?,
     )
     .into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    Ok(response)
+}
+
+/// ```openapi
+/// {"path":"/api/v1/incidents/{incident}/connection","method":"get","operation":{"operationId":"resolveIncidentConnection","summary":"Resolve a platform incident to its connection","description":"Platform administration required. Resolves a durable incident reference to its connection identifier for authorized management navigation. Returns no credential, upstream URL, request content or financial information. A missing incident returns 404. This read does not change configuration or call the Provider. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"incident","in":"path","required":true,"schema":{"type":"string","pattern":"^incident-[1-9][0-9]*$"}}],"responses":{"200":{"description":"Internal connection routing identifier","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["connection_id"],"properties":{"connection_id":{"type":"string","format":"uuid"}}}}}}}},"400":{"description":"Invalid incident reference"},"401":{"description":"Authentication required"},"403":{"description":"Platform administration required"},"404":{"description":"Incident unavailable"},"503":{"description":"Evidence unavailable"}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn resolve_connection(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Result<axum::response::Response, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !auth.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
+    let incident = incident_cursor(Some(reference))?.ok_or_else(ApiError::not_found)?;
+    let connection = state
+        .store
+        .incident_connection(incident)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let mut response =
+        Json(serde_json::json!({"data":{"connection_id":connection}})).into_response();
     response.headers_mut().insert(
         axum::http::header::CACHE_CONTROL,
         axum::http::HeaderValue::from_static("no-store"),

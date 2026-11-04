@@ -10,12 +10,12 @@ impl Store {
         &self,
         scope: TenantScope,
     ) -> Result<Value, StoreError> {
-        let models: Vec<String> = sqlx::query_scalar(
-            "SELECT DISTINCT i.model_alias FROM connection_incidents i \
+        let models: Vec<(String, bool)> = sqlx::query_as(
+            "SELECT DISTINCT i.model_alias, EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND p.organization_id=a.organization_id) AS owner_funded FROM connection_incidents i \
              JOIN connection_incident_observations o ON o.incident_id=i.id \
              JOIN attempts a ON a.id=o.attempt_id \
              WHERE i.resolved_at IS NULL AND a.organization_id=$1 AND a.project_id=$2 \
-             ORDER BY i.model_alias LIMIT 51",
+             ORDER BY i.model_alias, owner_funded LIMIT 51",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -23,7 +23,18 @@ impl Store {
         .await?;
         let more = models.len() > 50;
         Ok(
-            json!({"data": models.into_iter().take(50).map(|model| json!({"model":model})).collect::<Vec<_>>(), "more":more}),
+            json!({"data": models.into_iter().take(50).map(|(model,owner_funded)| json!({"model":model,"owner_funded":owner_funded})).collect::<Vec<_>>(), "more":more}),
+        )
+    }
+
+    /// Platform-only callers resolve an incident reference without publishing the
+    /// connection UUID in a browser URL or exposing credential material.
+    pub async fn incident_connection(&self, incident: i64) -> Result<Option<Uuid>, StoreError> {
+        Ok(
+            sqlx::query_scalar("SELECT vendor_id FROM connection_incidents WHERE id=$1")
+                .bind(incident)
+                .fetch_optional(&self.pool)
+                .await?,
         )
     }
 

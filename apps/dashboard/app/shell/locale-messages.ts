@@ -2449,6 +2449,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Remove configuration": "移除配置",
   "Apply configuration": "应用配置",
   "Provider unavailable.": "Provider 不可用。",
+  "This connection is unavailable. Return to incidents and refresh before taking action.": "此连接不可用。请返回事故并刷新后再操作。",
   "Existing media contracts": "现有媒体合同",
   "Manage previously configured customer-specific media rates. New ordinary prices belong in Publish media price. Existing jobs retain their original prices.": "管理此前配置的客户专属媒体费率。新增普通价格请使用发布媒体价格，现有任务保留原始价格。",
   "Created": "创建时间",

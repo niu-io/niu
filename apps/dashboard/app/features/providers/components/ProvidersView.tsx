@@ -22,8 +22,9 @@ import ModelMappings from './ModelMappings';
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function ProvidersView({ token, session, refreshWorkspace, catalogPath = '/models' }: {
+export default function ProvidersView({ token, session, refreshWorkspace, catalogPath = '/models', fixedConnectionId }: {
   catalogPath?: string;
+  fixedConnectionId?: string;
   token: string;
   session: AdminSession;
   refreshWorkspace: () => Promise<void>;
@@ -35,7 +36,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const providerId = routeScopedId ?? search.get('provider') ?? search.get('supplier');
   const connectionsPath = '/api/v1/vendors' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
   const canManage = Boolean(session.permissions?.platform_admin || (session.kind === 'installation' && session.permissions?.manage_operators !== false));
-  const initialConnections = canManage && token ? peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null : null;
+  const cachedConnections = canManage && token ? peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null : null;
+  const initialConnections = cachedConnections && fixedConnectionId ? cachedConnections.filter(connection => connection.id === fixedConnectionId) : cachedConnections;
   const initialSelectedId = initialConnections?.[0]?.id ?? '';
   const initialModels = canManage && token && initialSelectedId
     ? peekCachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(initialSelectedId)}/models`)?.data ?? null
@@ -87,10 +89,11 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     if (!requestSignal || requestSignal.aborted) return;
     const result = await cachedGet<{ data: ProviderConnection[] }>(token, connectionsPath, { signal: requestSignal, force });
     if (requestSignal.aborted || generation !== authGeneration.current || !currentScope.current.canManage || currentScope.current.token !== token) return;
-    setConnections(result.data);
-    setSelectedConnectionId(current => result.data.some(connection => connection.id === current) ? current : result.data[0]?.id ?? '');
-    if (result.data.length > 0) setAddingConnection(false);
-  }, [canManage, token, connectionsPath]);
+    const visible = fixedConnectionId ? result.data.filter(connection => connection.id === fixedConnectionId) : result.data;
+    setConnections(visible);
+    setSelectedConnectionId(current => visible.some(connection => connection.id === current) ? current : visible[0]?.id ?? '');
+    if (visible.length > 0) setAddingConnection(false);
+  }, [canManage, token, connectionsPath, fixedConnectionId]);
 
   const reloadModels = useCallback(async (connectionId: string, signal?: AbortSignal, force = false) => {
     const generation = modelsGeneration.current;
@@ -127,7 +130,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     }
     const controller = new AbortController();
     authController.current = controller;
-    const cached = peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null;
+    const cachedAll = peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null;
+    const cached = cachedAll && fixedConnectionId ? cachedAll.filter(connection => connection.id === fixedConnectionId) : cachedAll;
     if (cached) {
       setConnections(cached);
       setSelectedConnectionId(current => cached.some(connection => connection.id === current) ? current : cached[0]?.id ?? '');
@@ -139,8 +143,9 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     void cachedGet<{ data: ProviderConnection[] }>(token, connectionsPath, { signal: controller.signal })
       .then(result => {
         if (controller.signal.aborted || generation !== authGeneration.current) return;
-        setConnections(result.data);
-        setSelectedConnectionId(current => result.data.some(connection => connection.id === current) ? current : result.data[0]?.id ?? '');
+        const visible = fixedConnectionId ? result.data.filter(connection => connection.id === fixedConnectionId) : result.data;
+        setConnections(visible);
+        setSelectedConnectionId(current => visible.some(connection => connection.id === current) ? current : visible[0]?.id ?? '');
       })
       .catch(reason => {
         if (controller.signal.aborted || generation !== authGeneration.current) return;
@@ -159,7 +164,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       busyRef.current = false;
       setBusy(false);
     };
-  }, [canManage, token, explainError, connectionsPath]);
+  }, [canManage, token, explainError, connectionsPath, fixedConnectionId]);
 
   useEffect(() => {
     modelsController.current?.abort();
@@ -420,10 +425,10 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
   return <>
     {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>{uiT("API keys")}</h2>}<p>{uiT("Configure API keys and the model routes they serve.")}</p></div>}
-    <PageHeader title={uiT("Providers")} action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
+    <PageHeader title={uiT(fixedConnectionId ? "API keys" : "Providers")} action={!fixedConnectionId && canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
     {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
     <div className="supplier-detail-layout">
-      {selectedConnection && <Button variant="outline" disabled={busy} onClick={() => void importModels()}>{uiT("Import models")}</Button>}
+      {selectedConnection && <Button variant="outline" className={fixedConnectionId ? "justify-self-start" : undefined} disabled={busy} onClick={() => void importModels()}>{uiT("Import models")}</Button>}
       {connections.length > 1 && <ProviderDirectory
         connections={connections}
         selectedId={addingConnection ? '' : selectedConnectionId}
@@ -439,7 +444,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <IntegrationSettings key={`${token}:${selectedConnection.id}:integration`} token={token} resource="vendors" id={selectedConnection.id} onSaved={() => { catalogController.current?.abort(); catalogGeneration.current += 1; setCatalog([]); setDiscovery(null); setCatalogError(''); setCatalogLoading(false); }} />}
-      </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading"><FormSectionSkeleton fields={3} label={uiT("Loading API keys…")} /></section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>{uiT("No API keys")}</strong><p>{uiT("Add an API key to configure the models supplied by this Provider.")}</p><Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button></div></section>}
+      </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading"><FormSectionSkeleton fields={3} label={uiT("Loading API keys…")} /></section> : fixedConnectionId ? <section role="alert" className="panel vendor-detail-panel"><p>{uiT("This connection is unavailable. Return to incidents and refresh before taking action.")}</p></section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>{uiT("No API keys")}</strong><p>{uiT("Add an API key to configure the models supplied by this Provider.")}</p><Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button></div></section>}
     </div>
     <Dialog open={managingModels && !!selectedConnection && !addingConnection} onOpenChange={setManagingModels}>
       <DialogContent className="supplier-models-dialog" showCloseButton={false}>

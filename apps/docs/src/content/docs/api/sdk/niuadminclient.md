@@ -2655,6 +2655,17 @@ listProviderConnectionIncidents(connectionId: string, before?: string, options?:
 }>;
 ```
 
+### resolveIncidentConnection
+
+```typescript
+/** Platform-only incident routing; the connection identifier is not a user-facing label. */
+resolveIncidentConnection(reference: string, options?: RequestOptions): Promise<{
+    data: {
+        connection_id: string;
+    };
+}>;
+```
+
 ### listWorkspaceIncidents
 
 ```typescript
@@ -2662,6 +2673,7 @@ listProviderConnectionIncidents(connectionId: string, before?: string, options?:
 listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{
     data: {
         model: string;
+        owner_funded: boolean;
     }[];
     more: boolean;
 }>;

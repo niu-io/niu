@@ -1077,6 +1077,7 @@ fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
         .dual_route("/vendors/{vendor}/cooldown", get(crate::admin::vendor_cooldown::read))
         .dual_route("/vendors/{vendor}/incidents", get(crate::admin::connection_incidents::list))
         .dual_route("/incidents", get(crate::admin::connection_incidents::platform_list))
+        .route("/api/v1/incidents/{incident}/connection", get(crate::admin::connection_incidents::resolve_connection))
         .dual_route("/vendors/{vendor}/request-rate-limit", get(crate::admin::vendor_request_rate::read).put(crate::admin::vendor_request_rate::write))
         .dual_route("/vendors/{vendor}/request-rate-limit/history", get(crate::admin::vendor_request_rate::history))
         .dual_route("/vendors", get(crate::vendors::list).post(crate::vendors::create))

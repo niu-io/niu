@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/workspaces/{workspace}/incidents`
 
-Requires current workspace read authority. Returns only model aliases for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
+Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
 
 Operation: `listWorkspaceIncidents`.
 
@@ -71,11 +71,15 @@ Content type: `application/json`.
       "items": {
         "type": "object",
         "required": [
-          "model"
+          "model",
+          "owner_funded"
         ],
         "properties": {
           "model": {
             "type": "string"
+          },
+          "owner_funded": {
+            "type": "boolean"
           }
         }
       }
@@ -105,6 +109,6 @@ Incident evidence unavailable
 
 ## Behavior and supported scope
 
-Requires current workspace read authority. Returns only model aliases for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
+Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.
 
 **Supported scope:** implemented

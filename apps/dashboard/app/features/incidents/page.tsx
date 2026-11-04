@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { readLocale, useLocale } from '@/shell/ui-locale';
 import { loadIncidents } from './api';
+import IncidentConnection from './IncidentConnection';
 
 function IncidentList({ token, status }: { token: string; status: 'active' | 'resolved' }) {
   const { t } = useLocale();
@@ -44,7 +45,7 @@ function IncidentList({ token, status }: { token: string; status: 'active' | 're
         <TableCell className="block whitespace-normal align-top sm:table-cell"><p className="font-medium">{incident.connection_name}</p><p className="text-sm text-muted-foreground break-words">{incident.model}</p></TableCell>
         <TableCell className="block whitespace-normal align-top sm:table-cell"><p>{incident.cause === 'account_restricted' ? t('Upstream account restricted', '上游账户受限') : incident.cause === 'authentication_rejected' ? t('Upstream authentication rejected', '上游认证被拒绝') : t('Repeated upstream failures', '上游连续故障')}</p><p className="mt-1 text-sm text-muted-foreground">{incident.status === 'resolved' ? t('A later successful request verified the connection and model mapping at that time.', '后续成功请求验证了当时的连接与模型映射。') : incident.cause === 'account_restricted' ? t('Contact the Provider to restore access.', '请联系 Provider 恢复访问。') : incident.cause === 'authentication_rejected' ? t('Replace or reauthorize the API key.', '请更换 API key 或重新授权。') : t('Check the Provider service and connection. A new authorized request can verify recovery and may incur charges; inspect earlier requests before retrying.', '请检查 Provider 服务与连接。新的授权请求可验证恢复，但可能产生费用；重试前请检查先前的请求。')}</p><Badge variant={incident.status === 'active' ? 'destructive' : 'secondary'} className="mt-2">{incident.status === 'active' ? t('Needs attention', '需要处理') : t('Recovered', '已恢复')}</Badge></TableCell>
         <TableCell className="block whitespace-normal align-top sm:table-cell"><p>{date(incident.recovered_at ?? incident.last_observed_at)}</p><p className="mt-1 text-xs text-muted-foreground">{t('First observed', '首次观察')}{' '}{date(incident.first_observed_at)}</p><p className="mt-1 text-xs text-muted-foreground">{t('Recorded failures', '记录的失败次数')}{' '}{BigInt(incident.observations).toLocaleString(readLocale())}</p></TableCell>
-        <TableCell className="block align-top sm:table-cell"><Button asChild variant="outline" size="sm"><Link to={incident.provider ? `/admin/providers/${encodeURIComponent(incident.provider.slug)}/keys` : '/admin/providers'}>{t('Manage connection', '管理连接')}</Link></Button></TableCell>
+        <TableCell className="block align-top sm:table-cell"><Button asChild variant="outline" size="sm"><Link to={incident.provider ? `/admin/providers/${encodeURIComponent(incident.provider.slug)}/keys` : `/admin/incidents?connection=${encodeURIComponent(incident.reference)}`}>{t('Manage connection', '管理连接')}</Link></Button></TableCell>
       </TableRow>)}</TableBody>
     </Table> : !error && <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{status === 'active' ? t('No active incidents recorded', '暂无待处理事故记录') : t('No recovered incidents recorded', '暂无已恢复事故记录')}</EmptyTitle><EmptyDescription>{t('This view covers recognized account restrictions, authentication refusals and repeated upstream failures. Other failures remain in request logs.', '此处显示已识别的账户限制、认证拒绝及上游连续故障，其他失败请查看请求日志。')}</EmptyDescription></EmptyHeader></Empty>}
     {next && !error && <div className="flex justify-end"><Button variant="outline" disabled={loading} onClick={() => setCursor(next)}>{loading ? t('Loading…', '加载中…') : t('Load more', '加载更多')}</Button></div>}
@@ -58,6 +59,8 @@ export default function ConnectionIncidents() {
   const status = query.get('status') === 'resolved' ? 'resolved' : 'active';
   const [refresh, setRefresh] = useState(0);
   const identity = `${context.token}:${context.session?.kind}:${context.session?.operator?.id ?? ''}`;
+  const connectionReference = query.get('connection');
+  if (connectionReference !== null) return <IncidentConnection key={connectionReference} reference={connectionReference} />;
   return <div className="w-full min-w-0 space-y-6">
     <PageHeader title={t('Connection incidents', '连接事故')} action={<Button variant="outline" onClick={() => setRefresh(value => value + 1)}><IconRefresh size={16} />{t('Refresh', '刷新')}</Button>} />
     <p className="text-sm text-muted-foreground">{t('Review upstream access failures and evidence of recovery. Configuration changes alone do not confirm recovery.', '查看上游访问失败及恢复证据。仅修改配置不能确认恢复。')}</p>

@@ -13,7 +13,7 @@ const groups = [
     ['Video generation', 'Discover video models, estimate a request, submit a job, and retrieve its status and results.', '/video/(?:models|estimate|jobs)'],
   ]],
   ['Providers and routing', [
-    ['Connection incidents', 'Qualified upstream access failures and verified operational recovery.', '^/api/v1/incidents$'],
+    ['Connection incidents', 'Qualified upstream access failures and verified operational recovery.', '^/api/v1/incidents(?:/|$)'],
     ['Providers', 'Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints.', '^/api/v1/(?:providers|provider-memberships)'],
     ['Provider API connections', 'Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics.', '^/api/v1/vendors(?!/[^/]+/asset-management)'],
     ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|routing)'],

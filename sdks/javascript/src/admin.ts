@@ -3237,8 +3237,14 @@ export class NiuAdminClient {
     return this.request(`/vendors/${uuid(connectionId)}/incidents${query}`, undefined, options);
   }
 
+  /** Platform-only incident routing; the connection identifier is not a user-facing label. */
+  resolveIncidentConnection(reference: string, options?: RequestOptions): Promise<{ data: { connection_id: string } }> {
+    if (!/^incident-[1-9][0-9]*$/.test(reference)) throw new TypeError('Use a valid incident reference');
+    return this.request(`/incidents/${encodeURIComponent(reference)}/connection`, undefined, options);
+  }
+
   /** Models with recorded active incidents in this authorized workspace only. */
-  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string }[]; more: boolean }> {
+  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean }> {
     return this.request(`/workspaces/${uuid(workspaceId)}/incidents`, undefined, options);
   }
 

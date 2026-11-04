@@ -505,6 +505,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 ## Service endpoints
 
 - [`GET /api/v1/incidents` — Read platform upstream connection incidents](/docs/api/rest/listconnectionincidents/)
+- [`GET /api/v1/incidents/{incident}/connection` — Resolve a platform incident to its connection](/docs/api/rest/resolveincidentconnection/)
 - [`GET /api/v1/payments/readiness` — Read deployment service and payment readiness](/docs/api/rest/getpaymentreadiness/)
 - [`GET /api/v1/platform/audit-events` — List platform operation audit logs](/docs/api/rest/listplatformauditevents/)
 - [`GET /api/v1/platform/branding` — Read platform branding and theme configuration](/docs/api/rest/getbranding/)
