@@ -4,6 +4,7 @@ pub mod agent_authorizations;
 pub mod asset_requests;
 pub mod browser_tokens;
 pub mod chat_sessions;
+pub(crate) mod connection_incidents;
 pub mod guardrails;
 pub(crate) mod key_concurrency;
 pub mod key_ip;
@@ -20,7 +21,6 @@ pub mod request_exports;
 pub mod request_payloads;
 mod session;
 pub(crate) mod vendor_cooldown;
-pub(crate) mod connection_incidents;
 pub(crate) mod vendor_request_rate;
 pub mod video_composer_drafts;
 pub mod workspace_aliases;
@@ -1100,7 +1100,7 @@ pub async fn delete_workspace(
 ///   "operation": {
 ///     "operationId": "createWorkspace",
 ///     "summary": "Create a workspace with retry-safe identity",
-///     "description": "Requires installation write access or a company-scoped member allowed to create workspaces, platform currency setup, and either payment readiness or a funded/granted/approved-credit arrangement for the selected company. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
+///     "description": "Requires installation write access or a company-scoped member allowed to create workspaces. Workspace creation does not require payment readiness and does not authorize paid execution. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1228,12 +1228,6 @@ pub async fn create_workspace(
             Some(operator.scope.organization_id)
         }
     };
-    crate::payments::readiness::require_creation_ready(
-        &state,
-        authorization,
-        organization_id,
-    )
-    .await?;
     validate_name(&input.name)?;
     if let Some(slug) = &input.slug
         && (slug.is_empty()

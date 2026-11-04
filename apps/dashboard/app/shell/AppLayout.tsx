@@ -25,7 +25,6 @@ import {
   type GatewayStatus,
 } from './dashboard-context';
 import { useMockPayments } from './mock-payments';
-import { usePaymentReadiness } from './payment-readiness';
 import { prefetchRouteIntent, scheduleWorkspaceWarmup } from './prefetch';
 import { resolveProvider } from './provider-route';
 import { ProviderNav } from './ProviderNav';
@@ -231,7 +230,6 @@ export default function AppLayout() {
     getWorkspaceError,
   });
 
-  const paymentReadiness = usePaymentReadiness(token, modelOrganizationId, authorityKey);
 
   // Synchronously publish the verified session/authority snapshot so React Router v8 Data Mode loaders always read current context.
   setActiveSessionSnapshot({
@@ -323,7 +321,7 @@ export default function AppLayout() {
   }, []);
 
   useEffect(() => {
-    if (!token || !authorityKey || paymentReadiness.status !== 'ready') return;
+    if (!token || !authorityKey) return;
     return scheduleWorkspaceWarmup({
       token,
       principalKey,
@@ -342,7 +340,6 @@ export default function AppLayout() {
     workspaces,
     activeContextWorkspace,
     effectiveActiveWorkspace,
-    paymentReadiness.status,
   ]);
 
   const gatewayStatus: GatewayStatus =
@@ -636,7 +633,7 @@ export default function AppLayout() {
         )}
       <WorkspaceCreateDialog
         context={context}
-        open={workspaceCreateOpen && paymentReadiness.status === 'ready'}
+        open={workspaceCreateOpen}
         onOpenChange={setWorkspaceCreateOpen}
       />
       <OrganizationCreateDialog
@@ -670,7 +667,7 @@ export default function AppLayout() {
           settingsArea={settingsArea}
           supplierArea={supplierArea}
           phoneNavigation={phoneNavigation}
-          creationAvailable={paymentReadiness.status === 'ready'}
+          creationAvailable
           context={context}
           activeWorkspacePath={activeWorkspacePath}
           models={models}

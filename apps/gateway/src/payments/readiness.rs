@@ -294,18 +294,6 @@ fn authorized_organization(
     })
 }
 
-pub(crate) async fn require_creation_ready(
-    state: &AppState,
-    authorization: AdminAuthorization,
-    organization: Option<uuid::Uuid>,
-) -> Result<(), ApiError> {
-    let organization = authorized_organization(authorization, organization)?;
-    if inspect_organization(state, organization).await?.ready {
-        return Ok(());
-    }
-    Err(ApiError::payment_setup_required())
-}
-
 // Match registered route templates rather than user-supplied path spellings.
 /// ```openapi
 /// {"path":"/api/v1/platform/payments/stripe/verification","method":"get","operation":{"operationId":"getStripeVerification","summary":"Read Stripe verification evidence","x-niu-implementation":"implemented","description":"Installation administrator only. Reads evidence bound to current effective Stripe configuration and currency. Account and callback verification are separate; no merchant identity or credentials are returned. Does not contact Stripe.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Current configuration-bound verification","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"account_verified":{"type":"boolean"},"callback_verified":{"type":"boolean"}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
@@ -488,7 +476,7 @@ fn customer_feature(path: &str) -> bool {
 }
 
 // These operations maintain existing credentials; they do not admit spending.
-// Match registered templates and methods so creation and limit writes remain gated.
+// Match registered templates and methods so key creation and limit writes remain gated.
 fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
     let workspace = "/api/v1/workspaces/{workspace}/keys";
     let project_api = "/api/v1/organizations/{organization}/projects/{project}/keys";
@@ -584,10 +572,10 @@ pub(crate) async fn gate(
         .map(|value| value.as_str())
         .unwrap_or(request.uri().path())
         .to_owned();
-    // Directory/slug lookup is necessary to select a funded workspace. Creation
-    // checks the authorized body scope in its handler, before any write.
+    // Directory and creation handlers enforce their own scope and write access.
     let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str())
-        || (request.method() == axum::http::Method::GET
+        || ((request.method() == axum::http::Method::GET
+            || request.method() == axum::http::Method::POST)
             && [
                 "/api/v1/organizations/{organization}/projects",
                 "/admin/v1/organizations/{organization}/projects",

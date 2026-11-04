@@ -411,15 +411,6 @@ impl ApiError {
         }
     }
 
-    pub fn payment_setup_required() -> Self {
-        Self {
-            failure: None,
-            status: StatusCode::SERVICE_UNAVAILABLE,
-            kind: "payment_setup_required",
-            message: "Configure the platform currency and a payment gateway, or fund this company's account, before creating a workspace",
-        }
-    }
-
     pub fn storage_unavailable() -> Self {
         Self {
             failure: None,
