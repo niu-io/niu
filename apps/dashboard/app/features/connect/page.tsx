@@ -192,7 +192,7 @@ export default function ConnectAgent() {
             ? t('Model calls use existing workspace and key spending limits. This connection does not add a separate trial budget or cap owner-funded Provider expense.', '模型调用受现有工作空间和密钥限额约束。本次连接不新增独立试用预算，也不限制由所有者承担的上游费用。')
             : t('No model calls are authorized, so this connection cannot create inference charges.', '未授权模型调用，因此此连接不会产生推理费用。')}</p>
         </div>
-        {Boolean(grant.capabilities?.length) && <p className="text-sm text-muted-foreground">{t(`${capabilityCount} workspace management ${capabilityCount === 1 ? 'operation is' : 'operations are'} also requested. Review the details under Advanced options before approving.`, `此请求还申请 ${capabilityCount} 项工作空间管理操作。批准前请在高级选项中审核。`)}</p>}
+        {Boolean(grant.capabilities?.length) && <div className="space-y-1 text-sm"><p className="font-medium">{t('This connection also requests workspace management access:', '此连接还申请工作空间管理权限：')}</p><p className="text-muted-foreground">{(grant.capabilities ?? []).map(capability => capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')).join(' · ')}</p><p className="text-muted-foreground">{t('These permissions are fixed at approval. Review Advanced options for technical details.', '这些权限在批准时固定。技术细节请在高级选项中查看。')}</p></div>}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <CollapsibleTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="-ml-2" aria-expanded={advancedOpen}>

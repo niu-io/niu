@@ -172,6 +172,7 @@ it('keeps task, interfaces and spending policy behind advanced options and submi
   await screen.findByText('Test agent');
   expect(screen.queryByText('Review the current routing policy')).toBeNull();
   expect(screen.queryByText('Spending basis')).toBeNull();
+  expect(await screen.findByText('Read workspace model routing')).toBeTruthy();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Choose a workspace' }));
   await user.click(screen.getByRole('menuitemradio', { name: 'Team workspace' }));
@@ -183,7 +184,7 @@ it('keeps task, interfaces and spending policy behind advanced options and submi
   expect(await screen.findByText('Review the current routing policy')).toBeTruthy();
   expect(screen.getByText('Spending basis')).toBeTruthy();
   expect(screen.getByText(/Owner-funded upstream Provider expense is not capped/)).toBeTruthy();
-  expect(screen.getByText(/fixed at approval/)).toBeTruthy();
+  expect(screen.getByText(/Allowed model names, model interfaces and management operations are fixed at approval/)).toBeTruthy();
   await user.click(screen.getByRole('checkbox', { name: 'Embeddings' }));
   expect(screen.getByRole('checkbox', { name: 'I recognize this request and approve this access.' }).getAttribute('data-state')).toBe('unchecked');
   await user.click(screen.getByRole('checkbox', { name: 'I recognize this request and approve this access.' }));
