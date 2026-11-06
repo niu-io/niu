@@ -103,7 +103,9 @@ impl Store {
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-workspace-create:'||$1::text||':'||$2::uuid::text||':'||encode($3::bytea,'hex'),0))")
                 .bind(kind).bind(actor).bind(hash).execute(&mut *tx).await?;
         }
-        if let Some(member) = member {
+        if let Some(member) = member
+            && !member.platform_admin
+        {
             Self::authorize_company_writer_in_tx(
                 &mut tx,
                 organization_id.ok_or(StoreError::Unauthorized)?,
