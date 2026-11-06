@@ -378,7 +378,7 @@ function Administration({ token }: { token: string }) {
       }
       const offer = result.data.offers.find(item => targetId ? item.id === targetId : item.model_alias === (targetAlias || draftAlias));
       if ((targetId || targetAlias) && (!offer || offer.rate_kind === "media")) throw new Error("The current text rates could not be found. Reload before saving.");
-      if (offer?.currency && currency && offer.currency !== currency) throw new Error(`These saved rates use ${offer.currency}. Publish new ${currency} terms without copying amounts across currencies.`);
+      if (offer?.currency && currency && offer.currency !== currency) throw new Error(uiF("These saved rates use {0}. Publish new {1} terms without copying amounts across currencies.", [offer.currency, currency]));
       const decimal = (value: string) => {
         const amount = BigInt(value), fraction = (amount % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
         return (amount / 1_000_000_000n).toString() + (fraction ? "." + fraction : "");

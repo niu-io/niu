@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import ImageReferences, {type NamedImageReference} from '@/features/video/ImageReferences';
+import { saveLocale } from '@/shell/locale';
 import type {VideoModel} from '@niu-io/sdk';
 const model={image_url:{maximum_items:2,maximum_bytes:128,https:false,data_mime_types:['image/png'],roles:['first_frame','last_frame'],role_required:true,requires_text:true,maximum_width:32,maximum_height:32,maximum_decoded_bytes:4096}} as VideoModel;
 function Harness(){const [images,setImages]=useState<NamedImageReference[]>([]);return <><ImageReferences model={model} images={images} onChange={setImages} disabled={false}/><output>{JSON.stringify(images)}</output></>;}
@@ -22,6 +23,13 @@ it('rejects oversize files before adding partial attachments',async()=>{
  await user.upload(screen.getByLabelText('Upload video reference images'),[new File(['small'],'first.png',{type:'image/png'}),new File(['x'.repeat(128)],'large.png',{type:'image/png'})]);
  expect((await screen.findByRole('alert')).textContent).toContain('exceeds the reference size limit');
  expect(screen.getByRole('status').textContent).toBe('[]');
+});
+it('renders a zh-CN interpolated reference error without translating the file name',async()=>{
+ saveLocale('zh-CN');
+ render(<Harness/>);const user=userEvent.setup();
+ await user.upload(screen.getByLabelText('上传视频参考图片'),new File(['x'.repeat(128)],'large.png',{type:'image/png'}));
+ expect((await screen.findByRole('alert')).textContent).toBe('large.png 超过参考图片大小上限。');
+ saveLocale('en');
 });
 it('keeps attachments unavailable during submission',()=>{
  render(<ImageReferences model={model} images={[]} onChange={()=>{throw new Error('cannot change during submission');}} disabled/>);

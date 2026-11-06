@@ -20,7 +20,7 @@ import type {
   WorkspaceProblem,
 } from './dashboard-context';
 import { buildSessionAuthorityKey, buildSessionPrincipalKey } from './router-context';
-import { useLocale } from './ui-locale';
+import { formatLocalizedMessage, readLocale, useLocale } from './ui-locale';
 import {
   resolveWorkspacePathSegment,
   workspaceModelsHref,
@@ -515,7 +515,7 @@ export function useWorkspaceController({
         | (Workspace & { error?: { message?: string } })
         | null;
       if (!response.ok || !body) {
-        throw new Error(body?.error?.message ?? `Could not create workspace (${response.status}).`);
+        throw new Error(body?.error?.message ?? formatLocalizedMessage('Could not create workspace ({0}).', [response.status], readLocale()));
       }
       const created: Workspace = {
         ...body,
@@ -632,7 +632,7 @@ export function useWorkspaceController({
       if (!response.ok || !body || !body.id) {
         throw new Error(
           body?.error?.message ??
-            t(`Could not create organization (${response.status}).`, `无法创建组织 (${response.status})。`),
+            formatLocalizedMessage('Could not create organization ({0}).', [response.status], readLocale()),
         );
       }
       const createdOrg: Organization = {

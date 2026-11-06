@@ -47,11 +47,11 @@ function InlineImageReferences({model,images,onChange,disabled,onReadingChange}:
     setReading(true);onReadingChange?.(true);setError('');
     let failed=false;
     try {
-      if (files.length+images.length > rule.maximum_items) throw new Error(`Choose up to ${rule.maximum_items} reference images.`);
+      if (files.length+images.length > rule.maximum_items) throw new Error(uiF("Choose up to {0} reference images.", [rule.maximum_items]));
       const added:NamedImageReference[]=[];
       for (const file of Array.from(files)) {
         if (!rule.data_mime_types.some(mime=>mime === file.type)) throw new Error('Choose a supported PNG, JPEG or WebP image.');
-        if (Math.ceil(file.size/3)*4+`data:${file.type};base64,`.length > rule.maximum_bytes) throw new Error(`${file.name} exceeds the reference size limit.`);
+        if (Math.ceil(file.size/3)*4+`data:${file.type};base64,`.length > rule.maximum_bytes) throw new Error(uiF("{0} exceeds the reference size limit.", [file.name]));
         const url=await new Promise<string>((resolve,reject)=>{
           const reader=new FileReader();readers.current.add(reader);
           reader.onload=()=>{readers.current.delete(reader);resolve(String(reader.result));};
@@ -142,7 +142,7 @@ function SavedImageReferences({model,client,scope,references,onReferencesChange,
   if(!chosen.length||!rule||disabled||uploading||uncertain)return;
   setError('');setProgress(null);
   const available=maximum-latest.current.filter(reference=>reference.type==='workspace_asset').length;
-  if(chosen.length>available){setError(`Choose up to ${maximum} saved reference images.`);if(input.current)input.current.value='';return;}
+  if(chosen.length>available){setError(uiF("Choose up to {0} saved reference images.", [maximum]));if(input.current)input.current.value='';return;}
   for(const file of chosen){
    if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size<1||file.size>8*1024*1024){setError('Choose a PNG, JPEG or WebP image up to 8 MiB.');if(input.current)input.current.value='';return;}
   }

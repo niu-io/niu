@@ -178,7 +178,7 @@ function errorMessage(payload: unknown, fallback: string) {
 
 async function responseData<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null) as { data?: T } | null;
-  if (!response.ok) throw new Error(errorMessage(payload, `Request failed (${response.status}).`));
+  if (!response.ok) throw new Error(errorMessage(payload, formatLocalizedMessage('Request failed ({0}).', [response.status], readUILocale())));
   return (payload && 'data' in payload ? payload.data : payload) as T;
 }
 
@@ -466,15 +466,15 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     const generation = attachmentGeneration.current;
     if (attachments.length + files.length > 4) { setError('Attach up to four files.'); return; }
     for (const file of Array.from(files)) {
-      if (file.size > 4 * 1024 * 1024) { setError(`${file.name} exceeds 4 MB.`); continue; }
+      if (file.size > 4 * 1024 * 1024) { setError(uiF('{0} exceeds 4 MB.', [file.name])); continue; }
       const image = ['image/png', 'image/jpeg', 'image/webp'].includes(file.type);
       const text = file.type.startsWith('text/') || /\.(txt|md|csv|json|js|ts|py|html|css)$/i.test(file.name);
-      if (!image && !text) { setError(`${file.name}: use PNG, JPEG, WebP, or a text file.`); continue; }
+      if (!image && !text) { setError(uiF('{0}: use PNG, JPEG, WebP, or a text file.', [file.name])); continue; }
       try {
       const content = image ? await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); }) : await file.text();
       if (generation !== attachmentGeneration.current) return;
       setAttachments(current => [...current, {name: file.name, type: image ? 'image' : 'text', content}].slice(0, 4));
-      } catch { if (generation !== attachmentGeneration.current) return; setError(`Could not read ${file.name}. Try attaching it again.`); }
+      } catch { if (generation !== attachmentGeneration.current) return; setError(uiF('Could not read {0}. Try attaching it again.', [file.name])); }
     }
     if (attachmentInput.current) attachmentInput.current.value = '';
   }

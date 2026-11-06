@@ -200,38 +200,39 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
     setError('');
     try {
       if (!channel.trim() || new TextEncoder().encode(channel.trim()).length > 256 || /[\u0000-\u001f\u007f]/.test(channel)) throw new Error('Enter the exact channel name from its verified adapter contract.');
-      const maximumBody = schemaInteger(bodyBytes, 'Maximum request bytes', 1, 16_777_216);
-      const maximumItems = schemaInteger(contentItems, 'Maximum content items', 1, 32);
+      const maximumBody = schemaInteger(bodyBytes, uiT('Maximum request bytes'), 1, 16_777_216);
+      const maximumItems = schemaInteger(contentItems, uiT('Maximum content items'), 1, 32);
       const result: VideoSchema = {version:1,revision:crypto.randomUUID(),model_alias:modelAlias,upstream_model:upstreamModel,channel:channel.trim(),maximum_body_bytes:maximumBody,maximum_content_items:maximumItems,inputs:{},controls:{},required_controls:[],exclusive_controls:[],callbacks_qualified:callbacks};
       for (const name of Object.keys(inputLabels) as InputName[]) {
         const draft = inputs[name];
         if (!draft.enabled) continue;
-        const label = inputLabels[name];
-        const mime = schemaNames(draft.mime, `${label} MIME types`);
-        if (mime.some(value => !value.includes('/'))) throw new Error(`${label} MIME types must contain a slash.`);
-        const roles = schemaNames(draft.roles, `${label} roles`);
-        if (draft.required && !roles.length) throw new Error(`${label} requires at least one allowed role.`);
-        if (name !== 'text' && !draft.https && !mime.length) throw new Error(`${label} needs HTTPS input or an allowed Base64 MIME type.`);
-        result.inputs[name] = {maximum_items:schemaInteger(draft.items,`${label} maximum items`,1,maximumItems),maximum_bytes:schemaInteger(draft.bytes,`${label} maximum bytes`,1,maximumBody),https:draft.https,data_mime_types:mime,roles,role_required:draft.required};
+        const label = uiT(inputLabels[name]);
+        const mime = schemaNames(draft.mime, uiF('{0} MIME types', [label]));
+        if (mime.some(value => !value.includes('/'))) throw new Error(uiF('{0} MIME types must contain a slash.', [label]));
+        const roles = schemaNames(draft.roles, uiF('{0} roles', [label]));
+        if (draft.required && !roles.length) throw new Error(uiF('{0} requires at least one allowed role.', [label]));
+        if (name !== 'text' && !draft.https && !mime.length) throw new Error(uiF('{0} needs HTTPS input or an allowed Base64 MIME type.', [label]));
+        result.inputs[name] = {maximum_items:schemaInteger(draft.items,uiF('{0} maximum items', [label]),1,maximumItems),maximum_bytes:schemaInteger(draft.bytes,uiF('{0} maximum bytes', [label]),1,maximumBody),https:draft.https,data_mime_types:mime,roles,role_required:draft.required};
       }
       if (!Object.keys(result.inputs).length) throw new Error('Configure at least one input type.');
       for (const name of Object.keys(videoControls) as VideoControlName[]) {
         const draft = controls[name];
         if (!draft.enabled) continue;
         const {label,kind} = videoControls[name];
+        const controlLabel = uiT(label);
         if (kind === 'integer') {
-          const minimum = schemaInteger(draft.minimum,`${label} minimum`,-Number.MAX_SAFE_INTEGER);
-          const maximum = schemaInteger(draft.maximum,`${label} maximum`,minimum);
-          result.controls[name] = {kind,minimum,maximum,default:draft.fallback.trim() ? schemaInteger(draft.fallback,`${label} default`,minimum,maximum) : null};
+          const minimum = schemaInteger(draft.minimum,uiF('{0} minimum', [controlLabel]),-Number.MAX_SAFE_INTEGER);
+          const maximum = schemaInteger(draft.maximum,uiF('{0} maximum', [controlLabel]),minimum);
+          result.controls[name] = {kind,minimum,maximum,default:draft.fallback.trim() ? schemaInteger(draft.fallback,uiF('{0} default', [controlLabel]),minimum,maximum) : null};
         } else if (kind === 'choice') {
-          const values = schemaNames(draft.values,`${label} choices`,64);
-          if (!values.length || (draft.fallback.trim() && !values.includes(draft.fallback.trim()))) throw new Error(`${label} needs choices and any default must be one of them.`);
+          const values = schemaNames(draft.values,uiF('{0} choices', [controlLabel]),64);
+          if (!values.length || (draft.fallback.trim() && !values.includes(draft.fallback.trim()))) throw new Error(uiF('{0} needs choices and any default must be one of them.', [controlLabel]));
           result.controls[name] = {kind,values,default:draft.fallback.trim() || null};
         } else if (kind === 'boolean') {
           result.controls[name] = {kind,default:draft.fallback === '' ? null : draft.fallback === 'true'};
         } else {
           if (!callbacks) throw new Error('Callback URL requires a qualified callback contract for this schema.');
-          result.controls[name] = {kind,maximum_bytes:schemaInteger(draft.bytes,'Maximum callback URL bytes',1,8192)};
+          result.controls[name] = {kind,maximum_bytes:schemaInteger(draft.bytes,uiT('Maximum callback URL bytes'),1,8192)};
         }
         if (draft.required) result.required_controls.push(name);
       }
@@ -247,7 +248,7 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
         if (!outputMappings.length || outputMappings.length > 256) throw new Error('Configure at least one output mapping, up to 256.');
         const specifications = outputMappings.map(row => {
           if (!resolution.values.includes(row.resolution) || !ratio.values.includes(row.ratio)) throw new Error('Each output mapping must use configured resolution and aspect ratio choices.');
-          return {...row,width:schemaInteger(row.width,'Output width',1,4_294_967_295),height:schemaInteger(row.height,'Output height',1,4_294_967_295)};
+          return {...row,width:schemaInteger(row.width,uiT('Output width'),1,4_294_967_295),height:schemaInteger(row.height,uiT('Output height'),1,4_294_967_295)};
         });
         if (new Set(specifications.map(row => JSON.stringify([row.resolution,row.ratio]))).size !== specifications.length) throw new Error('Use only one output mapping for each resolution and aspect ratio.');
         if (resolution.default && ratio.default && !specifications.some(row => row.resolution === resolution.default && row.ratio === ratio.default)) throw new Error('Map the default resolution and aspect ratio to output pixels.');
@@ -258,7 +259,7 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
       const pairs = exclusive.trim() ? exclusive.split('\n').filter(line => line.trim()) : [];
       if (pairs.length > 32) throw new Error('Use at most 32 incompatible control pairs.');
       for (const line of pairs) {
-        const names = schemaNames(line,'Incompatible controls',2) as VideoControlName[];
+        const names = schemaNames(line,uiT('Incompatible controls'),2) as VideoControlName[];
         if (names.length !== 2 || names.some(name => !result.controls[name])) throw new Error('Each incompatible pair needs two configured control names.');
         if (names.every(name => {const rule = result.controls[name]!; return 'default' in rule && rule.default !== null;})) throw new Error('Both incompatible controls cannot have defaults.');
         result.exclusive_controls.push([names[0],names[1]]);

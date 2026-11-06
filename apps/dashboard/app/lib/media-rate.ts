@@ -5,6 +5,7 @@
  * quantities as reduced rationals. These helpers keep the editor in ordinary
  * decimal notation without losing that representation.
  */
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
 export type ExactQuantity = { numerator: string; denominator: string };
 
 export const MAX_MEDIA_AMOUNT_UNITS = 9_007_199_254_740_991n; // JavaScript-safe integer used by the SDK.
@@ -33,7 +34,7 @@ export function formatMediaAmount(units: string, places: number): string {
  */
 export function parseMediaPrice(value: string): { amountUnits: string; decimalPlaces: number } {
   const match = /^(\d{1,18})(?:\.(\d{1,9}))?$/.exec(value.trim());
-  if (!match) throw new Error(`Enter a nonnegative price with at most ${MAX_MEDIA_PRICE_PLACES} decimal places.`);
+  if (!match) throw new Error(formatLocalizedMessage('Enter a nonnegative price with at most {0} decimal places.', [MAX_MEDIA_PRICE_PLACES], readLocale()));
   const fraction = (match[2] ?? '').replace(/0+$/, '');
   const amount = BigInt(match[1]) * 10n ** BigInt(fraction.length) + BigInt(fraction || '0');
   if (amount > MAX_MEDIA_AMOUNT_UNITS) throw new Error('Price exceeds the supported range.');

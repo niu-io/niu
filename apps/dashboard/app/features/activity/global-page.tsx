@@ -1,3 +1,4 @@
+import { formatLocalizedMessage } from '@/shell/ui-locale';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -51,7 +52,7 @@ export function activityTotals(pages: Array<{page: {summary: Summary}}>) {
 
 async function read<T>(url: string, token: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, {headers: {authorization: `Bearer ${token}`}, signal});
-  if (!response.ok) throw new Error(`Activity could not be loaded (${response.status}). Try again.`);
+  if (!response.ok) throw new Error(formatLocalizedMessage('Activity could not be loaded ({0}). Try again.', [response.status], readUILocale()));
   return response.json() as Promise<T>;
 }
 function checkedRequestPage(value: Page): Page {
@@ -186,7 +187,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
         {!selected && <Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh Activity")} disabled={loading || older} onClick={()=>setRevision(value=>value+1)}><IconRefresh size={16}/></Button>}
       </div>
     </div>
-    {error && <Alert variant="destructive"><AlertDescription><p>{error}</p><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Try again")}</Button>{selectedId && <Button variant="outline" size="sm" onClick={()=>chooseWorkspace('')}>{uiT("Show all workspaces")}</Button>}</div></AlertDescription></Alert>}
+    {error && <Alert variant="destructive"><AlertDescription><p>{uiT(error)}</p><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Try again")}</Button>{selectedId && <Button variant="outline" size="sm" onClick={()=>chooseWorkspace('')}>{uiT("Show all workspaces")}</Button>}</div></AlertDescription></Alert>}
     {loading && !selected && !pages.length ? (section === 'overview' ? <div className="space-y-4"><MetricStripSkeleton count={3} label={uiT("Loading Activity…")} /><TableSkeleton columns={4} rows={3} label="" /></div> : <TableSkeleton columns={6} rows={6} label={uiT("Loading Activity…")} />) : selected && !error ? <GatewayActivity key={`${selected.id}:${section}:${revision}`} token={token} models={models} initialScope={{organizationId: selected.organization_id, projectId: selected.id}} workspaceRoute={`/workspaces/${scopeSegment(selected, workspaces)}`} statisticsOnly={section==='overview'}/> : !selectedId && !error && (!loading || pages.length > 0) && <>
       {!workspaces.length ? <p>{uiT("No workspaces are available.")}</p> : section === 'overview' ? <>
         <section aria-label={uiT("All workspace totals")} className="gateway-activity-summary global-activity-summary">

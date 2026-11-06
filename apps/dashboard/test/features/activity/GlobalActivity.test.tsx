@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import GlobalActivityRoute, {activityTotals} from '@/features/activity/global-page';
+import { saveLocale } from '@/shell/locale';
 vi.mock('@/shell/ConnectGate',()=>({default:({children}: {children: (value: unknown)=>unknown})=>children({token:'authorized-token',models:[]})}));
 vi.mock('@/features/executions/components/GatewayActivity',()=>({default:({initialScope,statisticsOnly}: {initialScope:{projectId:string};statisticsOnly:boolean})=><p>{initialScope.projectId} scoped {statisticsOnly ? 'Overview' : 'Logs'}</p>}));
 const workspaces=[{id:'a',organization_id:'first',name:'Application',organization_name:'First organization'},{id:'b',organization_id:'second',name:'Research',organization_name:'Second organization'}];
@@ -59,6 +60,11 @@ describe('Global Activity',()=>{
   mockData(true);open();expect(await screen.findByRole('alert')).toBeTruthy();
   expect(screen.queryByRole('region',{name:'All workspace totals'})).toBeNull();
   expect(screen.queryByText('Usage by workspace')).toBeNull();
+ });
+ it('renders a zh-CN status-bearing activity failure without translating identifiers',async()=>{
+  saveLocale('zh-CN');mockData(true);open();
+  expect((await screen.findByRole('alert')).textContent).toContain('无法加载活动记录（403）。请重试。');
+  saveLocale('en');
  });
  it('recovers from an unavailable workspace by clearing the scope',async()=>{
   mockData();open('/activity?workspace=outside');const user=userEvent.setup();

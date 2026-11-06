@@ -216,7 +216,7 @@ type KeyOption = { id: string; slug?: string; name: string; allowed_models: stri
 
 async function get<T>(path: string, token: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal, headers: { authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error(`Could not load gateway activity (${response.status}).`);
+  if (!response.ok) throw new Error(formatLocalizedMessage('Could not load gateway activity ({0}).', [response.status], readUILocale()));
   return await response.json() as T;
 }
 
@@ -574,7 +574,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       });
       if (!response.ok) throw new Error(response.status === 413
         ? 'Too many requests to export. Narrow the date range, model or API key filter to 10,000 requests or fewer.'
-        : `Could not export requests (${response.status}). Try again.`);
+        : uiF('Could not export requests ({0}). Try again.', [response.status]));
       if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/csv') {
         throw new Error('The export response was not CSV. Refresh Logs and try again.');
       }
@@ -851,7 +851,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     {linkedLoading && <p role="status">{uiT("Loading linked request…")}</p>}
     {linkedError && <div role="alert" className="page-error"><span>{linkedError}</span><Button variant="outline" size="sm" onClick={()=>setLinkedRevision(value=>value+1)}>{uiT("Retry linked request")}</Button></div>}
 
-    {error && <div role="alert" className="page-error"><span>{error}</span><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>{uiT("Try again")}</Button></div>}
+    {error && <div role="alert" className="page-error"><span>{uiT(error)}</span><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>{uiT("Try again")}</Button></div>}
     {!project && <section className="panel empty-state"><strong>{uiT("Choose a workspace")}</strong><span>{uiT("Select or create a workspace to view its activity.")}</span></section>}
     {project && <>
       {!compact && <PageHeader title={statisticsOnly ? uiT("Activity") : uiT("Logs")} action={<>
