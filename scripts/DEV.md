@@ -55,11 +55,13 @@ app ports fail explicitly; unrelated servers are never stopped. Use `--no-watch`
 to disable Rust watching, or `--packaged` for packaged-product verification.
 
 The launcher reads `.env` from the repository root. It accepts `NIU_ADMIN_TOKENS`,
-`NIU_VENDOR_ENCRYPTION_KEY`, `NIU_DEV_USERNAME`, `NIU_DEV_PASSWORD`, and its managed
-database URLs. Database URLs must match the isolated cluster; external database
+`NIU_VENDOR_ENCRYPTION_KEY`, `NIU_DEV_USERNAME`, `NIU_DEV_PASSWORD`,
+`NIU_OPERATING_MODE`, and its managed database URLs. Database URLs must match the isolated cluster; external database
 overrides are rejected. Other variables are ignored. Values are literal, with no
 shell execution or variable expansion. Restart `pnpm dev` after editing `.env`.
-Keep the file private and Git-ignored.
+`NIU_OPERATING_MODE` accepts `internal` (default) or `resale`; resale must start
+from a fresh dev database because existing internal-scope connections cannot be
+decrypted under a different mode. Keep the file private and Git-ignored.
 
 ## OpenRouter demo rates
 

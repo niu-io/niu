@@ -43,7 +43,7 @@ def load_local_env():
     allowed = {
         'NIU_DATABASE_URL', 'NIU_ADMIN_TOKENS', 'NIU_VENDOR_ENCRYPTION_KEY',
         'NIU_DEV_USERNAME', 'NIU_DEV_PASSWORD', 'NIU_DEV_BASE',
-        'NIU_ZHIFUX_CONFIG_FILE',
+        'NIU_OPERATING_MODE', 'NIU_ZHIFUX_CONFIG_FILE',
     }
 
     values = {}
