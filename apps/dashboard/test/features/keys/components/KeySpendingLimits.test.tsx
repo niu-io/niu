@@ -1,4 +1,6 @@
-import { it, expect } from 'vitest';
+import { it, expect, vi } from 'vitest';
+
+vi.mock('@/shell/platform-currency', () => ({ usePlatformCurrency: () => ({ currency: 'USD', unit: null }) }));
 import { render, screen } from '@testing-library/react';
 import KeySpendingLimits from '@/features/keys/components/KeySpendingLimits';
 import type { ProjectKey } from '@/features/keys/api';
@@ -38,10 +40,9 @@ it('shows lifetime, committed and remaining allowances without edit or history c
   expect(screen.queryByText('EUR')).toBeNull();
 });
 
-it('distinguishes an empty allowance from unavailable data', () => {
-  const { rerender } = render(<KeySpendingLimits projectKey={{ ...key, spending_limits: [], unit_spending_limit: null }} />);
-  expect(screen.getByText('No billing currency is available for this key yet.')).toBeTruthy();
-  rerender(<KeySpendingLimits projectKey={{ ...key, spending_limits: [{ currency: 'USD', limit_nanos: null, committed_nanos: '1', remaining_nanos: null, revision: null }], unit_spending_limit: null }} />);
+it('shows the platform currency as unlimited before an explicit key limit exists', () => {
+  render(<KeySpendingLimits projectKey={{ ...key, spending_limits: [], unit_spending_limit: null }} />);
   expect(screen.getByText('USD')).toBeTruthy();
-  expect(screen.getAllByText('Unlimited').length).toBeGreaterThan(0);
+  expect(screen.getByText('$0.00')).toBeTruthy();
+  expect(screen.getAllByText('Unlimited').length).toBe(2);
 });
