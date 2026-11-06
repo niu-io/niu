@@ -1218,14 +1218,20 @@ pub async fn create_workspace(
     let organization_id = match authorization {
         crate::state::AdminAuthorization::Installation => input.organization_id,
         crate::state::AdminAuthorization::Operator(operator) => {
-            if !authorization.permits_project_creation(
+            if authorization.can_manage_platform() {
                 input
                     .organization_id
-                    .unwrap_or(operator.scope.organization_id),
-            ) {
-                return Err(ApiError::not_found());
+                    .or(Some(operator.scope.organization_id))
+            } else {
+                if !authorization.permits_project_creation(
+                    input
+                        .organization_id
+                        .unwrap_or(operator.scope.organization_id),
+                ) {
+                    return Err(ApiError::not_found());
+                }
+                Some(operator.scope.organization_id)
             }
-            Some(operator.scope.organization_id)
         }
     };
     validate_name(&input.name)?;
@@ -2371,13 +2377,21 @@ pub async fn operators(
             })
         }
         crate::state::AdminAuthorization::Operator(operator) => {
-            if page
-                .organization_id
-                .is_some_and(|id| id != operator.scope.organization_id)
+            if !authorization.can_manage_platform()
+                && page
+                    .organization_id
+                    .is_some_and(|id| id != operator.scope.organization_id)
             {
                 return Err(ApiError::not_found());
             }
-            Some(operator.scope)
+            if authorization.can_manage_platform() {
+                page.organization_id.map(|organization_id| OperatorScope {
+                    organization_id,
+                    project_id: None,
+                })
+            } else {
+                Some(operator.scope)
+            }
         }
     };
     let limit = page.limit.unwrap_or(1000);
@@ -2410,7 +2424,7 @@ pub async fn create_operator(
         project_id: input.project_id,
     };
     let authorization = authorize(&state, &headers, AdminPermission::ManageOperators).await?;
-    if !authorization.permits_operator_scope(scope) {
+    if !authorization.permits_operator_scope(scope) && !authorization.can_manage_platform() {
         return Err(ApiError::not_found());
     }
     let key = creation_idempotency_key(&headers)?;
