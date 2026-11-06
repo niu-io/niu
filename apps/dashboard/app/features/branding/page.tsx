@@ -116,7 +116,7 @@ export default function BrandingPage() {
   const previewColors = previewPalette(draft, palette) as CSSProperties;
   const defaultAppearanceLabel = draft.default_appearance === 'light' ? t('Light', '浅色') : draft.default_appearance === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
   return <section className="w-full min-w-0">
-    {!saved ? <>{error ? <div role="alert"><p>{error}</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>{t('Retry', '重试')}</Button></div> : <FormSectionSkeleton fields={3} label={t('Loading branding settings…', '正在加载品牌与主题设置…')} />}</> : <form onSubmit={event => void save(event)}>
+    {!saved ? <>{error ? <div role="alert"><p>{error}</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>{t('Retry', '重试')}</Button></div> : <FormSectionSkeleton fields={3} label={t('Loading branding settings…', '正在加载品牌与主题设置…')} />}</> : <form noValidate onSubmit={event => void save(event)}>
       <Tabs value={tab} onValueChange={value => { const next = new URLSearchParams(search); value === 'theme' ? next.set('tab', 'theme') : next.delete('tab'); setSearch(next, { replace: true }); }}>
         <div className="flex flex-wrap items-center justify-between gap-3"><TabsList variant="line"><TabsTrigger value="branding">{t('Branding', '品牌标识')}</TabsTrigger><TabsTrigger value="theme">{t('Theme', '主题外观')}</TabsTrigger></TabsList><Button type="button" variant="outline" onClick={() => setPreview(true)}><IconPalette />{t('Preview', '预览')}</Button></div>
         <TabsContent value="branding" className="space-y-7 pt-6">
