@@ -600,27 +600,48 @@ async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool
         })
         .await
         .unwrap();
+    let other = store
+        .create_vendor(niu_storage::VendorInput {
+            id: Uuid::new_v4(),
+            name: "Keep Me".into(),
+            adapter: "openai".into(),
+            api_base: "https://example.com/v1".into(),
+            enabled: true,
+            credential_ciphertext: vec![2u8; 48],
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_vendor_model(
+            vendor.id,
+            niu_storage::VendorModelInput {
+                alias: "retire-model".into(),
+                upstream_model: "retire-upstream".into(),
+                public_catalog: false,
+                enabled: true,
+                capabilities: json!({}),
+                pricing: None,
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
     let app = router(state);
     let id = vendor.id.to_string();
-    let (status, retired) = call(
-        &app,
-        Method::POST,
-        &format!("/admin/v1/vendors/{id}/retire"),
-        ADMIN,
-        json!({}),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{retired}");
-    assert_eq!(retired["data"]["enabled"], false);
-    assert_eq!(retired["data"]["has_credential"], false);
-    let (status, replay) = call(
-        &app,
-        Method::POST,
-        &format!("/admin/v1/vendors/{id}/retire"),
-        ADMIN,
-        json!({}),
-    )
-    .await;
+    let path = format!("/admin/v1/vendors/{id}/retire");
+    let (status, _) = call(&app, Method::POST, &path, "", json!({})).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let second = app.clone();
+    let (first_result, second_result) = tokio::join!(
+        call(&app, Method::POST, &path, ADMIN, json!({})),
+        call(&second, Method::POST, &path, ADMIN, json!({})),
+    );
+    assert_eq!(first_result.0, StatusCode::OK, "{}", first_result.1);
+    assert_eq!(second_result.0, StatusCode::OK, "{}", second_result.1);
+    assert_eq!(first_result.1["data"]["enabled"], false);
+    assert_eq!(first_result.1["data"]["has_credential"], false);
+    assert_eq!(second_result.1["data"]["enabled"], false);
+    let (status, replay) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(replay["data"]["enabled"], false);
     let audits: i64 = sqlx::query_scalar(
@@ -630,7 +651,19 @@ async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(audits, 2);
+    assert_eq!(audits, 3);
+    let model_enabled: bool = sqlx::query_scalar("SELECT enabled FROM vendor_models WHERE vendor_id=$1::uuid AND alias='retire-model'")
+        .bind(&id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(!model_enabled);
+    let other_enabled: bool = sqlx::query_scalar("SELECT enabled FROM vendors WHERE id=$1")
+        .bind(other.id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(other_enabled);
     let vendor_count: i64 = sqlx::query_scalar("SELECT count(*) FROM vendors WHERE id=$1::uuid")
         .bind(&id)
         .fetch_one(&pool)
