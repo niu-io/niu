@@ -209,15 +209,19 @@ export type ProviderServiceDescriptor = {
   id: 'openrouter' | 'fastrouter' | 'babelark' | 'qiniu' | 'deepseek'; name: string; protocol: 'openrouter' | 'openai'; api_base: string; website: string;
   price_support: 'model_catalog' | 'native_ratios' | 'requires_qualification' | 'official_catalog_unqualified' | 'official_markdown' | 'official_page_json';
   price_source: string;
+  adapter_version: string; capabilities: string[]; price_currency: string | null;
 };
 export type ProviderPriceEvidence = {
-  normalization_version: number; source_digest: string | null; conditions: Array<{id:string;description:string}>;
+  normalization_version: number; source_digest: string | null; source_version: string | null; conditions: Array<{id:string;description:string}>;
   observed_at_ms: number | null;
   status: 'available' | 'partial' | 'unavailable'; source: string;
   basis: 'advertised' | 'native_ratios_not_money'; reason: string | null;
   prices: Array<{model: string; source_rules: unknown | null; rates: Array<{meter: string; amount: string; currency: string; per_units: number; unit: string; condition: string | null}>; unsupported_dimensions: string[]}>;
   group_multipliers: Record<string,string>;
-  native_ratios: Array<{model: string; eligible_groups: string[]; input_ratio: string | null; output_ratio: string | null; cached_input_ratio: string | null; request_price: string | null; quota_type: number | null}>;
+  native_ratios: Array<{model: string; eligible_groups: string[]; input_ratio: string | null; output_ratio: string | null; cached_input_ratio: string | null; request_price: string | null; quota_type: number | null; tiered_ratios: unknown | null}>;
+  discounts: Array<{model: string | null; kind: string; description: string; source_rules: unknown | null}>;
+  ambiguities: Array<{kind: string; detail: string}>;
+  recovery: string | null;
 };
 export type ProviderPriceVersion = { revision: string; adapter: string; integration_revision: number; evidence: ProviderPriceEvidence; captured_at_ms: number };
 export type ProviderCostEstimate = { basis:'advertised_quote_estimate'; status:'available'|'partial'|'unavailable'; totals:Array<{currency:string;amount:string}>; unknown_meters:string[]; unsupported_price_dimensions:string[]; complete_for_supplied_meters:boolean; is_actual_provider_charge:false };
@@ -239,6 +243,53 @@ export type OperatorRoleUpdate = { role: OperatorAccessRole; expected_role: Oper
 export type OperatorAccessView = {
   id: string; name: string; role: OperatorAccessRole;
   organization_id: string | null; project_id: string | null; revoked: boolean;
+};
+
+export type MemberInvitationStatus = 'pending' | 'expired' | 'canceled' | 'accepted';
+/** Owner-visible invitation metadata. The one-time secret is not part of this view. */
+export type MemberInvitation = {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_slug: string;
+  project_id: string | null;
+  project_name: string | null;
+  project_slug: string | null;
+  role: OperatorAccessRole;
+  recipient_email: string;
+  recipient_name: string | null;
+  status: MemberInvitationStatus;
+  /** No email provider is configured; only the copyable one-time link is delivered. */
+  delivery: 'not_configured';
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  invited_by: string | null;
+};
+export type MemberInvitationInput = {
+  email: string;
+  name?: string | null;
+  role: OperatorAccessRole;
+  project_id?: string | null;
+  expires_in_seconds?: number;
+};
+/** The redemption secret is returned once at creation and can never be read again. */
+export type CreatedMemberInvitation = {
+  invitation: MemberInvitation;
+  token: string;
+  accept_path: string;
+  delivery: { state: 'not_configured'; email_sent: false };
+};
+export type MemberInvitationPreview = MemberInvitation & {
+  caller_email: string | null;
+  email_matches: boolean;
+  already_accepted_by_caller: boolean;
+};
+export type AcceptedMemberInvitation = {
+  data: unknown;
+  invitation: MemberInvitation;
+  replayed: boolean;
 };
 
 import { createGenerationTaskDiagnosticsClient } from './generation-task-diagnostics.js';
@@ -307,7 +358,6 @@ export type ProviderBusiness = {
   /** Enabled saved configurations and mappings; not upstream verification. */
   enabled_api_keys?: number; enabled_model_routes?: number;
   internal_api_keys?: number; internal_model_routes?: number;
-  qualification_status: 'qualified' | 'unqualified';
 };
 export type SupplierBusiness = ProviderBusiness;
 
@@ -332,7 +382,7 @@ export type SupplierProfileUpdate = ProviderProfileUpdate;
 export type ProviderCredential = {
   id: string; name: string; adapter: string; api_base: string;
   enabled: boolean; revision: number; has_credential: boolean;
-  owner_funded: boolean; supplier: { id: string; name: string } | null;
+  owner_funded: boolean; access_scope: 'commercial' | 'personal' | 'internal'; supplier: { id: string; name: string } | null;
 };
 export type SupplierCredential = ProviderCredential;
 /** Write-only secret input; creation does not establish upstream or commercial qualification. */
@@ -341,6 +391,8 @@ export type ProviderCredentialCreateInput = {
   enabled?: boolean; create_supplier?: boolean; supplier_id?: string;
   /** Explicit account paying upstream directly; saved atomically with this credential. */
   personal_organization_id?: string;
+  /** Explicit access: personal is restricted to the funding account; internal is shared with every organization while Internal use is active and rejected in Resale. Omit only for compatibility with an explicit funding account (personal) or Resale shared commercial supply. */
+  access_scope?: 'personal' | 'internal';
 };
 export type SupplierCredentialCreateInput = ProviderCredentialCreateInput;
 export type ProviderCredentialUpdateInput = {
@@ -408,6 +460,44 @@ export type ProviderConnectionIncident = {
   last_observed_at: string;
   observations: string;
   recovered_at: string | null;
+  notifications: ConnectionIncidentNotifications;
+};
+/** Truthful per-workspace incident notification state. A 2xx receiver acknowledgement is not processing or task success. */
+export type IncidentNotification = {
+  state: 'not_configured' | 'authority_inactive' | 'queued' | 'sending' | 'delivered' | 'failed' | 'partial';
+  event: 'opened' | 'resolved';
+  subscribers: number;
+  authorized: number;
+  delivered: number;
+  failed: number;
+  cancelled: number;
+  queued: number;
+  sending: number;
+  last_attempt_at: string | null;
+};
+export type WorkspaceIncidentNotifications = {
+  state: 'none' | 'not_configured' | 'authority_inactive' | 'queued' | 'sending' | 'delivered' | 'failed';
+  incidents: number;
+  subscribers: number;
+  authorized: number;
+  delivered: number;
+  failed: number;
+  cancelled: number;
+  queued: number;
+  sending: number;
+  not_configured: number;
+  authority_inactive: number;
+};
+export type ConnectionIncidentNotifications = {
+  state: 'delivered' | 'incomplete' | 'failed' | 'sending' | 'queued' | 'no_recipients';
+  workspaces: number;
+  delivered: number;
+  failed: number;
+  cancelled: number;
+  queued: number;
+  sending: number;
+  not_configured: number;
+  authority_inactive: number;
 };
 export type PlatformConnectionIncident = ProviderConnectionIncident & {
   connection_name: string;
@@ -708,6 +798,8 @@ export type ProviderMediaRateModel = {
   model_alias: string; api_key_name: string; offer_revision: string;
   vendor_revision: string; model_revision: string; schema_revision: string;
   channel: string; resolutions: string[]; reference_video: boolean;
+  /** Billing unit derived from the model's validated output estimator; null when unavailable. */
+  meter: string | null;
 };
 export type SupplierMediaRateModel = ProviderMediaRateModel;
 /** Platform-administrator choices; vendor_id binds configuration and is never a display label. */
@@ -759,6 +851,15 @@ export type CustomerBalance = {
   outstanding_nanos?: string;
   credit_limit_nanos: string; warning_threshold_nanos: string | null; policy_revision: string;
   low_balance: boolean; posted_credit_exhausted: boolean;
+};
+/** Standard-unit display summary for one customer, with no atoms, lots or provenance. */
+export type PlatformCustomerCreditSummary = {
+  name: string; display_precision: number; available: string; additional_units: number;
+};
+/** Platform account discovery row; credits is null when no Credits lots exist. */
+export type PlatformCustomerAccount = {
+  organization_id: string; organization_name: string;
+  accounts: CustomerBalance[]; credits: PlatformCustomerCreditSummary | null;
 };
 export type CustomerTopupInput = {
   /** Required in Credits mode; forbidden for a new currency-mode checkout. */
@@ -860,8 +961,25 @@ export type ProviderEarning = { revision: string; offer_id: string; context_mini
 export type SupplierEarning = ProviderEarning;
 export type ProviderEarningPage = { data: ProviderEarning[]; next_cursor: string | null };
 export type SupplierEarningPage = ProviderEarningPage;
-export type ProviderSettlementInput = { idempotency_key: string; payment_reference: string; attempt_ids: string[] };
+export type ProviderSettlementInput = {
+  idempotency_key: string;
+  payment_reference: string;
+  attempt_ids?: string[];
+  currency?: string;
+  from_ms?: number;
+  cutoff_ms?: number;
+};
 export type SupplierSettlementInput = ProviderSettlementInput;
+export type ProviderSettlementPreview = {
+  currency: string;
+  from_ms: number | null;
+  cutoff_ms: number;
+  entry_count: number;
+  amount_nanos: string;
+  remaining_unpaid_nanos: string;
+  remaining_entry_count: number;
+};
+export type SupplierSettlementPreview = ProviderSettlementPreview;
 export type ProviderSettlementPage = { data: ProviderSettlement[]; next_cursor: string | null };
 export type SupplierSettlementPage = ProviderSettlementPage;
 export type ProviderSettlementQuery = LedgerHistoryQuery;
@@ -879,7 +997,10 @@ export type SupplierOfferHistory = ProviderOfferHistory;
 export type ProviderMediaOfferModel = {
   model_alias: string; api_key_name: string; vendor_id: string;
   vendor_revision: string; model_revision: string; schema_revision: string;
-  channel: string; offer_revision: string | null;
+  channel: string; offer_revision: string | null; offer_id: string | null;
+  offer_active: boolean; offer_qualified: boolean; offer_current: boolean;
+  route_ready: boolean; resolutions: string[]; reference_video: boolean;
+  meter: string | null;
 };
 export type SupplierMediaOfferModel = ProviderMediaOfferModel;
 /** Client-owned immutable receipt; explicitly replay the same document after uncertainty. */
@@ -888,19 +1009,6 @@ export type ProviderMediaOfferInput = {
   model_revision: number | string; schema_revision: string; expected_revision: string | null;
 };
 export type SupplierMediaOfferInput = ProviderMediaOfferInput;
-/** Digests of reviewed private evidence; a digest alone does not establish supply rights. */
-export type ProviderQualificationInput = {
-  supply_rights_sha256: string; supply_capability_sha256: string;
-  data_handling_sha256: string; valid_until_ms: number;
-};
-export type SupplierQualificationInput = ProviderQualificationInput;
-export type ProviderOfferQualificationInput = {
-  rate_revision: string; model_identity_sha256: string;
-  protocol_matrix_sha256: string; protocol_matrix_version: string;
-  data_handling_sha256: string; availability_sha256: string;
-  agreed_rates_sha256: string; valid_until_ms: number;
-};
-export type SupplierOfferQualificationInput = ProviderOfferQualificationInput;
 export type GuardrailAccessRule = { mode: 'inherit' | 'allow_all' | 'deny_all' } | { mode: 'allow_list'; values: string[] };
 export type WorkspaceDetectorDescription = {
   detector: string; schema_version: 1; detector_revision: string; configuration_fingerprint: string;
@@ -936,6 +1044,7 @@ export type ImageDetectorPreviewResult = {
   reason: 'inspected_image' | 'image_match' | 'inspection_unavailable';
   synthetic: true; enforcement: false; policy_activation: false;
 };
+export type KeyGuardrailMode = 'fixed' | 'active';
 export type GuardrailPolicy = { schema_version: 1; name: string; models: GuardrailAccessRule; providers: GuardrailAccessRule; input_rules?: GuardrailInputTest['rules']; input_detectors?: Array<{ detector: string; configuration_fingerprint: string; consent_to_external_processing: true }>; image_detectors?: Array<{ detector: string; configuration_fingerprint: string; consent_to_image_processing: true }>; output?: { mode: 'buffered_full' | 'observe_only'; rules: GuardrailInputTest['rules'] } };
 export type RequestGuardrailDecision = {
   stage: 'dispatch'; outcome: 'allowed'; coverage: 'model_provider_access'; enforcer_version: 'access-v1';
@@ -1131,6 +1240,8 @@ export type WorkspaceKey = {
   allowed_models: string[];
   /** False for management-only keys, irrespective of their model scope. */
   invocation_allowed: boolean;
+  /** Exact approved model interfaces; absent on older deployments. */
+  invocation_protocols?: string[];
   /** Null means no automatic expiration. */
   expires_at_ms: number | null;
   /** Latest durable dispatch intent; null means no recorded dispatch, not no authentication. */
@@ -1598,6 +1709,10 @@ export class NiuAdminClient {
     if (!configuration || configuration.slug !== reviewSlug(slug)) throw new TypeError('Pool slug must match its URL');
     return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}`, configuration, options, 'PUT');
   }
+  deleteWorkspaceReviewPool(workspace: string, slug: string, revision: number, options?: RequestOptions): Promise<void> {
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('Use the current pool revision');
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}?revision=${revision}`, undefined, options, 'DELETE');
+  }
   getWorkspaceReviewPoolHistory(workspace: string, slug: string, before?: number, options?: RequestOptions): Promise<{data: import('./index.js').WorkspaceModelPool[]; next_before: number | null}> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) throw new TypeError('Use a positive revision cursor');
     return this.apiRequest(`/workspaces/${uuid(workspace)}/routing/${reviewSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
@@ -1638,6 +1753,43 @@ export class NiuAdminClient {
   createOperatorIdentity(input: { organization_id: string; project_id?: string | null; name: string; role: OperatorAccessRole }, options: RequestOptions & { idempotencyKey: string }): Promise<{ operator: OperatorAccessView; session: null; token: null }> {
     if (!options.idempotencyKey) throw new TypeError('An idempotency key is required for user creation');
     return this.request('/operators', { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false }, options, 'POST');
+  }
+
+  /** Create a one-time invitation and return its link secret exactly once. */
+  createMemberInvitation(organizationId: string, input: MemberInvitationInput, options?: RequestOptions): Promise<CreatedMemberInvitation> {
+    const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new TypeError('Use a valid recipient email');
+    if (!['owner', 'admin', 'viewer'].includes(input.role)) throw new TypeError('A supported invitation role is required');
+    if (input.expires_in_seconds !== undefined && (!Number.isInteger(input.expires_in_seconds) || input.expires_in_seconds < 3600 || input.expires_in_seconds > 2592000)) throw new RangeError('Invitation expiry must be between 1 hour and 30 days');
+    return this.request(`/organizations/${uuid(organizationId)}/invitations`, {
+      email,
+      ...(input.name === undefined ? {} : {name: input.name}),
+      role: input.role,
+      project_id: input.project_id == null ? input.project_id : uuid(input.project_id),
+      ...(input.expires_in_seconds === undefined ? {} : {expires_in_seconds: input.expires_in_seconds}),
+    }, options, 'POST');
+  }
+
+  /** Owner-only invitation directory; never returns redemption secrets. */
+  listMemberInvitations(organizationId: string, options?: RequestOptions): Promise<{data: MemberInvitation[]}> {
+    return this.request(`/organizations/${uuid(organizationId)}/invitations`, undefined, options);
+  }
+
+  /** Cancel a pending invitation. Repeated cancellation is idempotent. */
+  cancelMemberInvitation(invitationId: string, options?: RequestOptions): Promise<void> {
+    return this.request(`/invitations/${uuid(invitationId)}`, undefined, options, 'DELETE');
+  }
+
+  /** Inspect a signed-in recipient's invitation before acceptance. */
+  previewMemberInvitation(token: string, options?: RequestOptions): Promise<{data: MemberInvitationPreview}> {
+    if (typeof token !== 'string' || !token.startsWith('niu_invite_') || token.length > 512) throw new TypeError('Use the one-time invitation token');
+    return this.request('/invitations/preview', {token}, options, 'POST');
+  }
+
+  /** Accept an invitation for the signed-in account and switch to its exact role/scope. */
+  acceptMemberInvitation(token: string, options?: RequestOptions): Promise<AcceptedMemberInvitation> {
+    if (typeof token !== 'string' || !token.startsWith('niu_invite_') || token.length > 512) throw new TypeError('Use the one-time invitation token');
+    return this.request('/session/invitations', {token}, options, 'POST');
   }
 
   /** Scope is enforced before pagination; follow next_cursor to avoid incomplete user recovery. */
@@ -2394,14 +2546,46 @@ export class NiuAdminClient {
     return this.listProviderEarnings(supplierId, page, options);
   }
 
+  /** Read-only aggregate preview of the unpaid earnings a period settlement would include. */
+  previewProviderSettlement(providerId: string, page: { currency: string; cutoff_ms: number; from_ms?: number }, options?: RequestOptions): Promise<{ data: ProviderSettlementPreview }> {
+    const { currency, cutoff_ms, from_ms } = page;
+    if (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use one uppercase ISO 4217 currency code');
+    if (!Number.isInteger(cutoff_ms) || cutoff_ms < 0 || cutoff_ms > 253402300799999) throw new TypeError('Use a cutoff in Unix milliseconds within the supported range');
+    const query = new URLSearchParams({ currency, cutoff_ms: String(cutoff_ms) });
+    if (from_ms !== undefined) {
+      if (!Number.isInteger(from_ms) || from_ms < 0 || from_ms >= cutoff_ms) throw new TypeError('Use a period start before the cutoff');
+      query.set('from_ms', String(from_ms));
+    }
+    return this.request(`/providers/${uuid(providerId)}/settlements/preview?${query}`, undefined, options);
+  }
+  previewSupplierSettlement(supplierId: string, page: { currency: string; cutoff_ms: number; from_ms?: number }, options?: RequestOptions): Promise<{ data: ProviderSettlementPreview }> {
+    return this.previewProviderSettlement(supplierId, page, options);
+  }
+
   /** Record confirmed external payment only; preserve the supplied key/reference/selection on retry. */
   recordProviderSettlement(providerId: string, input: ProviderSettlementInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
     const reference = input.payment_reference;
     if (typeof reference !== 'string' || !reference.trim() || new TextEncoder().encode(reference).length > 200 || /[\x00-\x1f\x7f-\x9f]/.test(reference)) throw new TypeError('Use a nonblank payment reference of at most 200 UTF-8 bytes without control characters');
-    if (!Array.isArray(input.attempt_ids) || input.attempt_ids.length < 1 || input.attempt_ids.length > 1000) throw new TypeError('Select 1 to 1000 earning entries');
-    const entries = input.attempt_ids.map(value => uuid(value).toLowerCase());
-    if (new Set(entries).size !== entries.length) throw new TypeError('Select each earning entry only once');
-    return this.request(`/providers/${uuid(providerId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
+    const periodMode = input.currency !== undefined || input.cutoff_ms !== undefined || input.from_ms !== undefined;
+    const attemptsMode = input.attempt_ids !== undefined;
+    if (periodMode === attemptsMode) throw new TypeError('Send either attempt_ids or currency and cutoff_ms');
+    if (attemptsMode) {
+      if (!Array.isArray(input.attempt_ids) || input.attempt_ids.length < 1 || input.attempt_ids.length > 1000) throw new TypeError('Select 1 to 1000 earning entries');
+      const entries = input.attempt_ids.map(value => uuid(value).toLowerCase());
+      if (new Set(entries).size !== entries.length) throw new TypeError('Select each earning entry only once');
+      return this.request(`/providers/${uuid(providerId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
+    }
+    const { currency, cutoff_ms, from_ms } = input;
+    if (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use one uppercase ISO 4217 currency code');
+    if (typeof cutoff_ms !== 'number' || !Number.isInteger(cutoff_ms) || cutoff_ms < 0 || cutoff_ms > 253402300799999) throw new TypeError('Use a cutoff in Unix milliseconds within the supported range');
+    if (from_ms !== undefined && (!Number.isInteger(from_ms) || from_ms < 0 || from_ms >= cutoff_ms)) throw new TypeError('Use a period start before the cutoff');
+    return this.request(`/providers/${uuid(providerId)}/settlements`, {
+      idempotency_key: uuid(input.idempotency_key),
+      payment_reference: reference,
+      currency,
+      ...(from_ms !== undefined ? { from_ms } : {}),
+      cutoff_ms,
+    }, options);
   }
   recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
     return this.recordProviderSettlement(supplierId, input, options);
@@ -2416,46 +2600,7 @@ export class NiuAdminClient {
     return this.listProviderSettlements(supplierId, page, options);
   }
 
-  /** Platform-administrator review. Does not activate offers or verify the underlying evidence. */
-  qualifyProvider(providerId: string, input: ProviderQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
-    const body = {supply_rights_sha256: evidenceDigest(input.supply_rights_sha256),
-      supply_capability_sha256: evidenceDigest(input.supply_capability_sha256),
-      data_handling_sha256: evidenceDigest(input.data_handling_sha256), valid_until_ms: qualificationExpiry(input.valid_until_ms)};
-    return this.request(`/providers/${uuid(providerId)}/qualification`, body, options, 'PUT');
-  }
-  qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
-    return this.qualifyProvider(supplierId, input, options);
-  }
-
-  /** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
-  qualifyProviderOffer(providerId: string, offerId: string, input: ProviderOfferQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
-    if (typeof input.protocol_matrix_version !== 'string' || !input.protocol_matrix_version.trim()
-      || new TextEncoder().encode(input.protocol_matrix_version).length > 100) throw new TypeError('A bounded protocol matrix version is required');
-    const body = {rate_revision: uuid(input.rate_revision), model_identity_sha256: evidenceDigest(input.model_identity_sha256),
-      protocol_matrix_sha256: evidenceDigest(input.protocol_matrix_sha256), protocol_matrix_version: input.protocol_matrix_version,
-      data_handling_sha256: evidenceDigest(input.data_handling_sha256), availability_sha256: evidenceDigest(input.availability_sha256),
-      agreed_rates_sha256: evidenceDigest(input.agreed_rates_sha256), valid_until_ms: qualificationExpiry(input.valid_until_ms)};
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/qualification`, body, options, 'PUT');
-  }
-  qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
-    return this.qualifyProviderOffer(supplierId, offerId, input, options);
-  }
-
-  revokeProviderQualification(providerId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
-    return this.request(`/providers/${uuid(providerId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
-  }
-  revokeSupplierQualification(supplierId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
-    return this.revokeProviderQualification(supplierId, reasonSha256, options);
-  }
-
-  revokeProviderOfferQualification(providerId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
-  }
-  revokeSupplierOfferQualification(supplierId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
-    return this.revokeProviderOfferQualification(supplierId, offerId, reasonSha256, options);
-  }
-
-  /** Requires Provider owner/admin or installation access; activation still requires current qualification. */
+  /** Requires Provider owner/admin or installation access; resuming still requires a current authorization. */
   setProviderOfferActive(providerId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     if (typeof active !== 'boolean') throw new TypeError('Offer active state must be boolean');
     return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
@@ -2546,7 +2691,7 @@ export class NiuAdminClient {
 
   /** Shared company funds require organization-wide owner/admin authorization. */
   /** Platform-only named company accounts. Does not grant ordinary tenant access or create funds. */
-  listPlatformCustomerAccounts(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { organization_id: string; organization_name: string; accounts: CustomerBalance[] }[]; next_after: string | null }> {
+  listPlatformCustomerAccounts(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: PlatformCustomerAccount[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', uuid(page.after));
     if (page.limit !== undefined) {
@@ -3055,7 +3200,7 @@ export class NiuAdminClient {
   }
 
   /** Publishes an inactive media offer without text prices. Never retries automatically. */
-  publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+  publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string; offer_id: string } }> {
     for (const value of [input.model_alias, input.schema_revision]) {
       if (typeof value !== 'string' || !value || value.trim() !== value || new TextEncoder().encode(value).length > 256 || /\p{Cc}/u.test(value)) throw new TypeError('A bounded model and schema binding is required');
     }
@@ -3067,7 +3212,7 @@ export class NiuAdminClient {
       expected_revision: input.expected_revision === null ? null : uuid(input.expected_revision) };
     return this.request(`/providers/${uuid(providerId)}/media-offers`, body, options);
   }
-  publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+  publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string; offer_id: string } }> {
     return this.publishProviderMediaOffer(supplierId, input, options);
   }
 
@@ -3246,11 +3391,11 @@ export class NiuAdminClient {
   }
 
   /** Models with recorded active incidents in this authorized workspace only. */
-  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean }> {
+  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean; notifications: WorkspaceIncidentNotifications }> {
     return this.request(`/workspaces/${uuid(workspaceId)}/incidents`, undefined, options);
   }
 
-  listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null }> {
+  listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null; coverage: { request_observed: true; proactive_probe: 'not_configured' } }> {
     if (page.before !== undefined && !/^incident-[1-9][0-9]*$/.test(page.before)) throw new TypeError('Use the incident reference from the next page cursor');
     const query = new URLSearchParams(page);
     return this.request(`/incidents${query.size ? `?${query}` : ''}`, undefined, options);
@@ -3595,16 +3740,22 @@ export class NiuAdminClient {
     return this.request(`${this.guardrailsPath(scope)}/rollback`, { expected_revision: expectedRevision, target_revision: targetRevision }, options);
   }
 
-  getKeyGuardrail(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: { assignment_revision: number; policy_revision: number | null; policy: GuardrailPolicy | null } | null }> {
+  getKeyGuardrail(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: { assignment_revision: number; policy_revision: number | null; mode: KeyGuardrailMode; policy: GuardrailPolicy | null } | null }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, undefined, options);
   }
 
   assignKeyGuardrail(scope: TenantScope, keyId: string, policyRevision: number, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(policyRevision) || policyRevision < 1 || !Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 0) throw new Error('Invalid policy or assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { policy_revision: policyRevision, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: policyRevision, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
-  listKeyGuardrailHistory(scope: TenantScope, keyId: string, beforeAssignmentRevision?: number, options?: RequestOptions): Promise<{ data: Array<{ assignment_revision: number; policy_revision: number | null; policy_name: string | null; actor_name: string; created_at: string }>; next_cursor: number | null }> {
+  /** Follow the workspace's active policy; later activations apply without re-pinning this key. */
+  followActiveKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
+    if (!Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 0) throw new Error('Invalid assignment revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'active', expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+  }
+
+  listKeyGuardrailHistory(scope: TenantScope, keyId: string, beforeAssignmentRevision?: number, options?: RequestOptions): Promise<{ data: Array<{ assignment_revision: number; policy_revision: number | null; mode: KeyGuardrailMode; policy_name: string | null; actor_name: string; created_at: string }>; next_cursor: number | null }> {
     if (beforeAssignmentRevision !== undefined && (!Number.isSafeInteger(beforeAssignmentRevision) || beforeAssignmentRevision < 1)) throw new Error('Invalid assignment history cursor');
     const suffix = beforeAssignmentRevision === undefined ? '' : `?before_assignment_revision=${beforeAssignmentRevision}`;
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail/history${suffix}`, undefined, options);
@@ -3612,7 +3763,7 @@ export class NiuAdminClient {
 
   clearKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 1) throw new Error('Invalid assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { policy_revision: null, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: null, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   activateWorkspaceGuardrail(scope: TenantScope, expectedRevision: number, policy: GuardrailPolicy, options?: RequestOptions): Promise<{ revision: number }> {
@@ -4332,14 +4483,6 @@ function gatewayActivityParameters(query: GatewayActivityQuery): URLSearchParams
   return parameters;
 }
 
-function evidenceDigest(value: string): string {
-  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) throw new TypeError('Reviewed evidence requires a lowercase SHA-256 digest');
-  return value;
-}
-function qualificationExpiry(value: number): number {
-  if (!Number.isSafeInteger(value) || value <= Date.now() || value > 253402300799999) throw new TypeError('Qualification requires a future supported expiry timestamp');
-  return value;
-}
 function validateRates(rates: SupplierRateInput | CustomerTariffInput): void {
   if (!rates.model_alias.trim() || rates.model_alias.length > 200 || !/^[A-Z]{3}$/.test(rates.currency)) throw new Error('A model alias and three-letter currency are required');
   for (const value of [rates.prompt_rate, rates.completion_rate]) {

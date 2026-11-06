@@ -11,27 +11,15 @@ pub struct ApiError {
 
 impl ApiError {
     pub fn from_store(error: niu_storage::StoreError) -> Self {
+        // Storage methods translate trigger failures they observe. This catch
+        // keeps errors returned from custom SQL in other paths on the same
+        // table instead of exposing a generic storage failure.
+        if let niu_storage::StoreError::Database(ref database) = error
+            && let Some(mapped) = niu_storage::trigger_error::classify(database)
+        {
+            return Self::from_store(mapped);
+        }
         match error {
-            niu_storage::StoreError::Database(ref error)
-                if error.as_database_error().and_then(|db| db.constraint())
-                    == Some("customer_unit_mode_guard") =>
-            {
-                Self::from_store(niu_storage::StoreError::Conflict)
-            }
-            niu_storage::StoreError::Database(ref error)
-                if error.as_database_error().and_then(|db| db.constraint())
-                    == Some("customer_payment_reference_target") =>
-            {
-                Self::from_store(niu_storage::StoreError::Conflict)
-            }
-            niu_storage::StoreError::Database(ref error)
-                if error.as_database_error().and_then(|db| db.constraint())
-                    == Some("platform_currency_guard") =>
-            {
-                Self::invalid_request(
-                    "Use the configured platform currency. Configure it once in Admin → Account balances.",
-                )
-            }
             niu_storage::StoreError::InvalidVendor => {
                 Self::invalid_request("Invalid vendor or model configuration")
             }
@@ -51,6 +39,21 @@ impl ApiError {
             niu_storage::StoreError::InvalidPrice => {
                 Self::invalid_request("Invalid price, currency or monetary amount")
             }
+            niu_storage::StoreError::PlatformCurrencyMismatch => Self::invalid_request(
+                "Use the configured platform currency. Configure it once in Admin → Account balances.",
+            ),
+            niu_storage::StoreError::InvalidProviderSettlement => Self::invalid_request(
+                "Choose one currency and a valid cutoff. Do not combine attempt IDs with currency, cutoff or period fields.",
+            ),
+            niu_storage::StoreError::NoProviderSettlementEarnings => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "no_settlement_earnings",
+                message: "No unpaid earnings match the selected currency and cutoff. Refresh the unpaid balance and try again.",
+            },
+            niu_storage::StoreError::ProviderSettlementOverflow => Self::invalid_request(
+                "The selected earnings exceed the supported settlement amount. Narrow the currency or cutoff.",
+            ),
             niu_storage::StoreError::InvalidCustomerUnit => Self::invalid_request(
                 "Use a valid Credits definition, exact quantity, conversion and future expiry",
             ),
@@ -194,6 +197,39 @@ impl ApiError {
             niu_storage::StoreError::InvalidOperator => {
                 Self::invalid_request("Invalid operator name, role, or session lifetime")
             }
+            niu_storage::StoreError::InvalidInvitation => Self::invalid_request(
+                "Enter a valid recipient email, role, workspace scope and invitation expiry",
+            ),
+            niu_storage::StoreError::InvitationUnavailable => Self {
+                failure: None,
+                status: StatusCode::NOT_FOUND,
+                kind: "invitation_unavailable",
+                message: "This invitation is invalid, expired, canceled, already used, or no longer authorized. Ask the organization owner for a new invitation.",
+            },
+            niu_storage::StoreError::InvitationIdentityMismatch => Self {
+                failure: None,
+                status: StatusCode::FORBIDDEN,
+                kind: "invitation_identity_mismatch",
+                message: "Sign in with the email this invitation was issued to",
+            },
+            niu_storage::StoreError::InvitationRecipientAlreadyMember => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "invitation_recipient_already_member",
+                message: "This email already belongs to a member of this organization. Change the existing member's role instead of inviting them again.",
+            },
+            niu_storage::StoreError::InvitationAuthorityLost => Self {
+                failure: None,
+                status: StatusCode::FORBIDDEN,
+                kind: "invitation_authority_lost",
+                message: "Invitation authority changed. Ask an organization owner to create a new invitation.",
+            },
+            niu_storage::StoreError::InvitationAlreadyAccepted => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "invitation_already_accepted",
+                message: "This invitation has already been accepted. Manage the member in the member list.",
+            },
             niu_storage::StoreError::InvalidPlatformAuditQuery => {
                 Self::invalid_request("Invalid platform audit category, cursor, or page size")
             }
@@ -339,6 +375,18 @@ impl ApiError {
         }
     }
 
+    /// Invocation is approved, but not through this model interface. The
+    /// distinction matters: a truthful refusal must not claim that all model
+    /// calls are disabled when another approved interface remains available.
+    pub(crate) fn invocation_protocol_not_authorized() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::FORBIDDEN,
+            kind: "invocation_not_authorized",
+            message: "This connection is not authorized for this model interface. Request approval for this interface from the workspace owner, or use an interface already approved for this connection.",
+        }
+    }
+
     pub fn invalid_request(message: &'static str) -> Self {
         Self {
             failure: None,
@@ -346,6 +394,11 @@ impl ApiError {
             kind: "invalid_request_error",
             message,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_message(&self) -> &'static str {
+        self.message
     }
 
     pub fn request_body_timeout() -> Self {
@@ -402,12 +455,100 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn routing_decision_rejected() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "routing_decision_rejected",
+            message: "Auto routing could not select a compatible execution path under the configured policy",
+        }
+    }
+
+    /// The explicit decision capability requires a concrete qualified model.
+    /// A pool or Auto policy cannot substitute a generated response for a
+    /// structured decision.
+    pub(crate) fn decision_pool_not_supported() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::BAD_REQUEST,
+            kind: "decision_pool_not_supported",
+            message: "Decision requests require a concrete qualified model; workspace pool and Auto routing cannot substitute a generated response",
+        }
+    }
+
+    pub(crate) fn decision_invalid_request(message: &'static str) -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::BAD_REQUEST,
+            kind: "decision_invalid_request",
+            message,
+        }
+    }
+
+    pub(crate) fn decision_not_qualified() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::NOT_IMPLEMENTED,
+            kind: "decision_not_qualified",
+            message: "The selected model is not qualified for structured decisions; choose a visible workspace Chat model with declared structured output support",
+        }
+    }
+
+    /// The model ran, but its content cannot be accepted as the requested
+    /// typed decision. The call may already have incurred customer charges.
+    pub(crate) fn decision_invalid_output() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::BAD_GATEWAY,
+            kind: "decision_invalid_output",
+            message: "The decision model returned content that does not satisfy the requested decision schema; the call may have incurred customer charges",
+        }
+    }
+
+    pub(crate) fn decision_output_bound_exceeded() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::BAD_GATEWAY,
+            kind: "decision_output_bound_exceeded",
+            message: "The decision model exceeded the requested completion bound; the call may have incurred customer charges",
+        }
+    }
+
+    pub(crate) fn decision_timeout() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::GATEWAY_TIMEOUT,
+            kind: "decision_timeout",
+            message: "The decision model did not return within the requested timeout; the call may have incurred customer charges or remain unresolved",
+        }
+    }
+
+    pub(crate) fn decision_cancelled() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "decision_cancelled",
+            message: "The decision request was cancelled before a decision could be validated",
+        }
+    }
+
     pub fn unavailable() -> Self {
         Self {
             failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "upstream_error",
             message: "The configured provider credential is unavailable",
+        }
+    }
+
+    /// No public fetch origin is configured for workspace-material dispatch.
+    /// This is a pre-dispatch configuration refusal, never an uncertain send.
+    pub fn workspace_asset_source_unavailable() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "workspace_asset_source_unavailable",
+            message: "Workspace media fetch is not configured; use a public HTTPS URL instead",
         }
     }
 
@@ -609,6 +750,17 @@ impl ApiError {
         Self::upstream_message("The provider request failed")
     }
 
+    /// Sanitized read-only Provider price-source failure. The machine-readable
+    /// kind identifies timeout/auth/redirect/etc. without exposing source data.
+    pub fn price_source(kind: &'static str, message: &'static str) -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::BAD_GATEWAY,
+            kind,
+            message,
+        }
+    }
+
     pub fn upstream_message(message: &'static str) -> Self {
         Self {
             failure: None,
@@ -658,6 +810,18 @@ impl IntoResponse for ApiError {
             response.headers_mut().insert(
                 axum::http::header::RETRY_AFTER,
                 axum::http::HeaderValue::from_static("60"),
+            );
+        } else if matches!(
+            self.kind,
+            "provider_price_source_timeout"
+                | "provider_price_source_unreachable"
+                | "provider_price_source_transport"
+                | "provider_price_source_rate_limited"
+                | "provider_price_source_server_error"
+        ) {
+            response.headers_mut().insert(
+                axum::http::header::RETRY_AFTER,
+                axum::http::HeaderValue::from_static("30"),
             );
         }
         if let Some(failure) = self.failure {

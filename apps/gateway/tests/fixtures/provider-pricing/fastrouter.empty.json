@@ -1,0 +1,60 @@
+{
+  "auto_groups": [],
+  "data": [],
+  "group_ratio": {},
+  "pricing_version": "a42d372ccf0b5dd13ecf71203521f9d2",
+  "success": true,
+  "supported_endpoint": {
+    "anthropic": {
+      "path": "/v1/messages",
+      "method": "POST"
+    },
+    "openai": {
+      "path": "/v1/chat/completions",
+      "method": "POST"
+    }
+  },
+  "usable_group": {},
+  "vendors": [
+    {
+      "id": -1012,
+      "name": "OpenAI",
+      "icon": "OpenAI"
+    },
+    {
+      "id": 1,
+      "name": "\u5b57\u8282\u8df3\u52a8",
+      "icon": "Doubao.Color"
+    },
+    {
+      "id": 2,
+      "name": "DeepSeek",
+      "icon": "DeepSeek.Color"
+    },
+    {
+      "id": 3,
+      "name": "MiniMax",
+      "icon": "Minimax.Color"
+    },
+    {
+      "id": 4,
+      "name": "Moonshot",
+      "icon": "Moonshot"
+    },
+    {
+      "id": 5,
+      "name": "\u963f\u91cc\u5df4\u5df4",
+      "icon": "Qwen.Color"
+    },
+    {
+      "id": 6,
+      "name": "\u667a\u8c31",
+      "icon": "Zhipu.Color"
+    },
+    {
+      "id": -1002,
+      "name": "Anthropic",
+      "icon": "Claude.Color"
+    }
+  ]
+}
