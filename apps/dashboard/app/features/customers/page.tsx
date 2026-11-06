@@ -60,7 +60,7 @@ export default function CustomersRoute() {
   if (!canManagePlatform(context.session)) {
     return <Alert><AlertTitle>{uiT("Platform administrator access required")}</AlertTitle><AlertDescription><p>{uiT("Your account does not have Platform administrator access. Ask an installation administrator to grant it.")}</p></AlertDescription></Alert>;
   }
-  return <Customers key={context.token} token={context.token} canSetup={context.session?.kind === 'installation'} onWorkspaceCreated={context.reloadWorkspaces} />;
+  return <Customers key={context.token} token={context.token} canSetup={canManagePlatform(context.session)} onWorkspaceCreated={context.reloadWorkspaces} />;
 }
 
 /**
