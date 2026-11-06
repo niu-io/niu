@@ -4670,4 +4670,5 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Health check returned HTTP {0}.": "健康检查返回 HTTP {0}。",
   "Could not create workspace ({0}).": "无法创建工作空间（{0}）。",
   "Could not create organization ({0}).": "无法创建组织（{0}）。",
+  "pool/{0}": "pool/{0}",
 };

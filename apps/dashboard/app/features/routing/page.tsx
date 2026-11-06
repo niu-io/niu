@@ -120,7 +120,7 @@ const ruleDescription = (
     .join(' · ') || translateUI('All requests');
 
 function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const customerPrice = pool.strategy?.mode === 'customer_price';
   return (
@@ -1032,8 +1032,8 @@ function RoutingView({
                       >
                         {safeText(row.name)}
                       </Link>
-                      <p className="mt-0.5 break-all text-xs text-muted-foreground">
-                        pool/{safeText(row.slug)}
+                      <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
+                        {uiF('pool/{0}', [safeText(row.slug)])}
                       </p>
                       <div className="mt-1 space-y-0.5 text-xs text-muted-foreground sm:hidden">
                         <p>
