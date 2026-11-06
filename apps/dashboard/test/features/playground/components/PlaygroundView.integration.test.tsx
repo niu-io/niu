@@ -1424,6 +1424,7 @@ it('does not carry saved-workspace billing claims over to a manually supplied ke
   await screen.findByRole('button', {name:'API key: Default'});
   expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider API keys');
   expect(screen.getByLabelText('Usage billing').closest('.playground-composer-surface')).toBeNull();
+  expect(screen.getByLabelText('Usage billing').closest('form')).toBeNull();
   await user.click(screen.getByRole('button', {name:'API key: Default'}));
   await user.click(screen.getByRole('button', {name:'API key', exact:true}));
   await user.click(screen.getByRole('menuitemradio', {name:'Use another key'}));

@@ -1257,11 +1257,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit}><ArrowUp size={19} /></Button>}
             </div>
           </div></PopoverAnchor>
+        </form>
           <div className="playground-composer-notices">
             {workspaceKeysReady && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)) && <p role="status">{uiT("The requested API key is unavailable or you no longer have access. Choose another key before sending.")}</p>}
             <p aria-label={uiT("Usage billing")}>{billingSummary}</p>
           </div>
-        </form>
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
                   {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
