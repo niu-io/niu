@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refresh the portable Beads issue snapshot without inferred owner emails."""
+"""Refresh the public Beads snapshot, excluding private issues and owner emails."""
 
 import json
 from pathlib import Path
@@ -13,6 +13,7 @@ def main():
         ['bd', 'export'], cwd=root, check=True, capture_output=True, text=True,
     )
     issues = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    issues = [issue for issue in issues if 'private' not in (issue.get('labels') or [])]
     for issue in issues:
         # Beads infers this email from local Git configuration. Keep it local.
         issue.pop('owner', None)
@@ -25,7 +26,7 @@ def main():
         for issue in issues:
             temporary.write(json.dumps(issue, ensure_ascii=False, sort_keys=True) + '\n')
     temporary_path.replace(destination)
-    print(f'Exported {len(issues)} issues to .beads/issues.jsonl (owner emails omitted).')
+    print(f'Exported {len(issues)} issues to .beads/issues.jsonl (private issues and owner emails omitted).')
 
 
 if __name__ == '__main__':
