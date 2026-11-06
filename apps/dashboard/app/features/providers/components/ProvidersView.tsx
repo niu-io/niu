@@ -2,7 +2,7 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useProviderParams } from '@/shell/provider-route';
 import { Link, useSearchParams } from 'react-router';
 import { IconX as X } from "@tabler/icons-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ProviderLogo from '@/components/ProviderLogo';
 import { connectionIdentity } from '@/lib/providers';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -44,6 +44,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const [busy, setBusy] = useState(false);
   const [addingConnection, setAddingConnection] = useState(false);
   const [editingConnection, setEditingConnection] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
   const [error, setError] = useState('');
   const authController = useRef<AbortController | null>(null);
   const authGeneration = useRef(0);
@@ -197,6 +198,27 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     });
   }
 
+  async function retireConnection() {
+    if (!selectedConnection) return;
+    setBusy(true);
+    setError('');
+    try {
+      await request(
+        token,
+        `/api/v1/vendors/${encodeURIComponent(selectedConnection.id)}/retire`,
+        'POST',
+        {},
+      );
+      setDisconnectOpen(false);
+      window.location.reload();
+    } catch (reason) {
+      explainError(reason);
+      setError(reason instanceof Error && !(reason instanceof TypeError) ? reason.message : 'Could not disconnect this Provider. Nothing was changed. Retry.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshConnections() {
     setError('');
     const generation = authGeneration.current;
@@ -240,7 +262,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       />}
       {!loadingConnections && selectedConnection ? <section className="supplier-detail-header" aria-labelledby="vendor-detail-title">
         <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedConnection)} size="large" /><div><h2 id="vendor-detail-title">{selectedConnection.name}</h2><p>{providerAdapterApiLabels[selectedConnection.adapter]}</p></div><span className={'vendor-status-badge' + (selectedConnection.enabled ? ' is-enabled' : '')}>{selectedConnection.enabled ? uiT("Enabled") : uiT("Disabled")}</span></div>
-        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions">{modelsHref && <Button asChild size="sm" variant="outline"><Link to={modelsHref}>{uiT("Models")}</Link></Button>}<Button type="button" size="sm" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit API key")}</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/routing">{uiT("Routing")}</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>{uiT("Model catalog")}</Link></Button></div></div>
+        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions">{modelsHref && <Button asChild size="sm" variant="outline"><Link to={modelsHref}>{uiT("Models")}</Link></Button>}<Button type="button" size="sm" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit API key")}</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/routing">{uiT("Routing")}</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>{uiT("Model catalog")}</Link></Button>{selectedConnection.enabled && <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => { setError(''); setDisconnectOpen(true); }}>{uiT("Disconnect")}</Button>}</div></div>
         {!selectedConnection.has_credential && <p className="error-text" role="status">{uiT("No credential stored. Edit this API key to configure access.")}</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}
@@ -264,5 +286,12 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       />}
     </DialogContent>
     </Dialog>
+    <Dialog open={disconnectOpen} onOpenChange={open => { if (!busy) setDisconnectOpen(open); }}>
+      <DialogContent className="niu-modal" showCloseButton={false}>
+        <DialogHeader><DialogTitle>{uiT("Disconnect this Provider connection?")}</DialogTitle><DialogDescription>{uiT("New requests stop immediately, all model bindings are disabled and the stored credential is erased. In-flight requests may finish. Requests, billing, incidents and audit history are retained. This cannot be undone; reconnect and re-import models to restore access.")}</DialogDescription></DialogHeader>
+        <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => setDisconnectOpen(false)}>{uiT("Cancel")}</Button><Button type="button" variant="destructive" disabled={busy} onClick={() => void retireConnection()}>{busy ? uiT("Disconnecting…") : uiT("Disconnect")}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+
   </>;
 }

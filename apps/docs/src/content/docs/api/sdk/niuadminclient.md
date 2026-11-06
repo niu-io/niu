@@ -2527,6 +2527,23 @@ updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, optio
 }>;
 ```
 
+### retireProviderCredential
+
+```typescript
+/** Retire a connection: disable new dispatch, erase the credential and disable models; history remains. */
+retireProviderCredential(id: string, options?: RequestOptions): Promise<{
+    data: Omit<ProviderCredential, 'supplier'>;
+}>;
+```
+
+### retireSupplierCredential
+
+```typescript
+retireSupplierCredential(id: string, options?: RequestOptions): Promise<{
+    data: Omit<SupplierCredential, 'supplier'>;
+}>;
+```
+
 ### listProviderModels
 
 ```typescript

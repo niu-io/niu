@@ -638,6 +638,41 @@ pub async fn create(
 
 /// ```openapi
 /// {
+///   "path": "/api/v1/vendors/{id}/retire",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "retireVendorConnection",
+///     "summary": "Retire a Provider API-key connection without deleting history",
+///     "description": "Platform administration required. Disables the connection and every model binding, erases the stored credential and appends an immutable retirement audit event. Existing offers, requests, earnings, incidents and audit history are retained; in-flight attempts keep their pinned configuration, while new dispatch is blocked. Idempotent for an already retired connection. Not a hard delete.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+///     "responses": {
+///       "200": {"description": "Retired connection wrapped in data.", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/Vendor"}}}}}},
+///       "404": {"description": "Vendor does not exist."},
+///       "401": {"description": "Invalid or expired administrative credential."},
+///       "403": {"description": "Platform administration permission required."}
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn retire(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let vendor = state
+        .store
+        .retire_vendor(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":vendor})))
+}
+
+/// ```openapi
+/// {
 ///   "path": "/api/v1/vendors/{id}",
 ///   "method": "put",
 ///   "operation": {

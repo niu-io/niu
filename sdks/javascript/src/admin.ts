@@ -3327,6 +3327,14 @@ export class NiuAdminClient {
     return this.updateProviderCredential(id, input, options);
   }
 
+  /** Retire a connection: disable new dispatch, erase the credential and disable models; history remains. */
+  retireProviderCredential(id: string, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
+    return this.request(`/vendors/${uuid(id)}/retire`, {}, options);
+  }
+  retireSupplierCredential(id: string, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+    return this.retireProviderCredential(id, options);
+  }
+
   /** Complete per-credential management inventory; availability is not commercial qualification. */
   listProviderModels(credentialId: string, options?: RequestOptions): Promise<{ data: ProviderModelAvailability[] }> {
     return this.request(`/vendors/${uuid(credentialId)}/models`, undefined, options);

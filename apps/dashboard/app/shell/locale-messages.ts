@@ -4671,4 +4671,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Could not create workspace ({0}).": "无法创建工作空间（{0}）。",
   "Could not create organization ({0}).": "无法创建组织（{0}）。",
   "pool/{0}": "pool/{0}",
+  "Disconnect": "断开连接",
+  "Disconnect this Provider connection?": "断开此 Provider 连接？",
+  "New requests stop immediately, all model bindings are disabled and the stored credential is erased. In-flight requests may finish. Requests, billing, incidents and audit history are retained. This cannot be undone; reconnect and re-import models to restore access.": "新请求将立即停止，所有模型绑定将被禁用，已保存的凭据将被删除。正在进行的请求可以完成。请求、账单、事故和审计历史都会保留。此操作不可撤销；需要重新连接并重新导入模型才能恢复访问。",
+  "Disconnecting…": "正在断开…",
 };

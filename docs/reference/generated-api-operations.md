@@ -29077,6 +29077,63 @@ HTTP 503: Storage or credential encryption unavailable.
 
 HTTP 401: Invalid or expired administrative credential.
 
+## Retire a Provider API-key connection without deleting history
+
+`POST /api/v1/vendors/{id}/retire`
+
+Platform administration required. Disables the connection and every model binding, erases the stored credential and appends an immutable retirement audit event. Existing offers, requests, earnings, incidents and audit history are retained; in-flight attempts keep their pinned configuration, while new dispatch is blocked. Idempotent for an already retired connection. Not a hard delete.
+
+Implementation: `implemented`. Operation: `retireVendorConnection`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Retired connection wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/Vendor"
+    }
+  }
+}
+```
+
+HTTP 404: Vendor does not exist.
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 403: Platform administration permission required.
+
 ## Update one Provider API-key configuration or rotate its credential
 
 `PUT /api/v1/vendors/{id}`

@@ -583,6 +583,71 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
     );
 }
 
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let vendor = store
+        .create_vendor(niu_storage::VendorInput {
+            id: Uuid::new_v4(),
+            name: "Retire Me".into(),
+            adapter: "openai".into(),
+            api_base: "https://example.com/v1".into(),
+            enabled: true,
+            credential_ciphertext: vec![1u8; 48],
+        })
+        .await
+        .unwrap();
+    let app = router(state);
+    let id = vendor.id.to_string();
+    let (status, retired) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{id}/retire"),
+        ADMIN,
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{retired}");
+    assert_eq!(retired["data"]["enabled"], false);
+    assert_eq!(retired["data"]["has_credential"], false);
+    let (status, replay) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{id}/retire"),
+        ADMIN,
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(replay["data"]["enabled"], false);
+    let audits: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM vendor_audit_events WHERE vendor_id=$1::uuid AND action='vendor_retired'",
+    )
+    .bind(&id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(audits, 2);
+    let vendor_count: i64 = sqlx::query_scalar("SELECT count(*) FROM vendors WHERE id=$1::uuid")
+        .bind(&id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(vendor_count, 1);
+    let (status, _) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{}/retire", Uuid::new_v4()),
+        ADMIN,
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 async fn call(
     app: &Router,
     method: Method,

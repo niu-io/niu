@@ -6,7 +6,7 @@ use std::net::IpAddr;
 use url::Url;
 use uuid::Uuid;
 
-const VENDOR_COLUMNS: &str = "id,name,adapter,api_base,enabled,revision,(credential_ciphertext IS NOT NULL) AS has_credential";
+const VENDOR_COLUMNS: &str = "id,name,adapter,api_base,enabled,revision,(octet_length(credential_ciphertext) > 0) AS has_credential";
 
 /// Credential access scope is separate from the funding/owning account.
 /// Commercial configurations have no owner record; personal configurations are
@@ -763,6 +763,43 @@ impl Store {
         }
         self.commit_route_write(tx).await?;
         Ok(inserted)
+    }
+
+    /// Disable a Provider connection without deleting its historical rows.
+    /// The credential is erased, models are disabled and an immutable audit
+    /// event is appended. In-flight attempts keep their pinned snapshot.
+    pub async fn retire_vendor(&self, id: Uuid) -> Result<Option<VendorView>, StoreError> {
+        let mut transaction = self.begin_route_write().await?;
+        let revision: Option<i64> = sqlx::query_scalar(
+            "SELECT revision FROM vendors WHERE id=$1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_vendor_write_error)?;
+        let Some(revision) = revision else {
+            self.commit_route_write(transaction).await?;
+            return Ok(None);
+        };
+        let revision = revision + 1;
+        sqlx::query(
+            "UPDATE vendors SET enabled=false,credential_ciphertext=''::bytea,              revision=$2,updated_at=now() WHERE id=$1",
+        )
+        .bind(id)
+        .bind(revision)
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_vendor_write_error)?;
+        sqlx::query(
+            "UPDATE vendor_models SET enabled=false,revision=revision+1 WHERE vendor_id=$1",
+        )
+        .bind(id)
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_vendor_write_error)?;
+        insert_audit(&mut transaction, id, None, "vendor_retired", revision).await?;
+        self.commit_route_write(transaction).await?;
+        self.vendor(id).await
     }
 
     pub async fn update_vendor(

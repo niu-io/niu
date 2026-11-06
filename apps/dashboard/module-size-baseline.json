@@ -2,7 +2,7 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 4673,
+      "lines": 4678,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {
@@ -10,7 +10,7 @@
       "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
     },
     "app/features/routing/page.tsx": {
-      "lines": 1928,
+      "lines": 1930,
       "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives."
     },
     "app/features/commercial-position/page.tsx": {

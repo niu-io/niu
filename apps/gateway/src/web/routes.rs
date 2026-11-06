@@ -1110,6 +1110,7 @@ fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
         .dual_route("/routing/history", axum::routing::get(crate::vendors::route_pools::history))
         .dual_route("/routing-registry", get(crate::vendors::publication::status))
         .dual_route("/vendors/{id}", axum::routing::put(crate::vendors::update))
+        .dual_route("/vendors/{id}/retire", axum::routing::post(crate::vendors::retire))
         .dual_route("/vendors/{id}/supplier", get(crate::vendors::supplier).put(crate::vendors::associate_supplier))
         .dual_route("/vendors/{id}/asset-management", get(crate::vendors::asset_management_configuration).put(crate::vendors::configure_asset_management).delete(crate::vendors::revoke_asset_management).layer(DefaultBodyLimit::max(16 * 1024)))
         .dual_route("/vendors/{id}/asset-management/authorizations", get(crate::vendors::asset_authorizations::list).post(crate::vendors::asset_authorizations::create).layer(DefaultBodyLimit::max(16 * 1024)))

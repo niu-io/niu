@@ -18,7 +18,7 @@ mod startup;
 pub use api::{
     asset_management_configuration, assign_personal_owner, associate_supplier, catalog,
     check_model, configure_asset_management, create, import_models, list, list_models,
-    refresh_catalog, revoke_asset_management, supplier, update, upsert_model,
+    refresh_catalog, retire, revoke_asset_management, supplier, update, upsert_model,
 };
 pub(crate) use bootstrap::collect_seeds_from_env;
 #[cfg(test)]
