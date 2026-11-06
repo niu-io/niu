@@ -12,6 +12,7 @@ pub struct KeyView {
     pub name: String,
     pub allowed_models: Vec<String>,
     pub invocation_allowed: bool,
+    pub invocation_protocols: Vec<String>,
     pub expires_at_ms: Option<i64>,
     /// Latest durable dispatch intent; absent does not establish that a key was never authenticated.
     pub last_used_at_ms: Option<i64>,
@@ -46,11 +47,27 @@ pub struct Principal {
     scope: TenantScope,
     allowed_models: Vec<String>,
     invocation_allowed: bool,
+    invocation_protocols: Vec<String>,
 }
 
 impl Principal {
     pub fn invocation_allowed(&self) -> bool {
         self.invocation_allowed
+    }
+
+    /// Both the paid-execution switch and the exact interface grant must allow
+    /// the request. A protocol added after approval is never implicitly
+    /// authorized, including a protocol that did not exist at approval time.
+    pub fn allows_invocation_protocol(&self, protocol: &str) -> bool {
+        self.invocation_allowed
+            && self
+                .invocation_protocols
+                .iter()
+                .any(|allowed| allowed == protocol)
+    }
+
+    pub fn invocation_protocols(&self) -> &[String] {
+        &self.invocation_protocols
     }
 
     pub fn allows_model(&self, model: &str) -> bool {
@@ -339,7 +356,7 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Single-statement indexed lookup executes under its own PostgreSQL MVCC
         // statement snapshot without paying BEGIN/set_config/COMMIT round-trips.
-        let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models, invocation_allowed FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models, invocation_allowed, invocation_protocols FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(hash)
             .fetch_optional(&self.pool)
             .await?;
@@ -347,6 +364,7 @@ impl Store {
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
             invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
             key_id: row.get("id"),
             scope: TenantScope {
                 organization_id: row.get("organization_id"),
@@ -365,7 +383,7 @@ impl Store {
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         let row = sqlx::query(
-            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, \
+            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, k.invocation_protocols, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $2::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
@@ -386,6 +404,7 @@ impl Store {
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
             invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
             key_id: row.get("id"),
             scope: TenantScope {
                 organization_id: row.get("organization_id"),
@@ -402,7 +421,7 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Principal, StoreError> {
-        let row = sqlx::query("SELECT allowed_models,invocation_allowed FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let row = sqlx::query("SELECT allowed_models,invocation_allowed,invocation_protocols FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id)
             .bind(scope.project_id)
             .bind(id)
@@ -414,6 +433,7 @@ impl Store {
             scope,
             allowed_models: row.get("allowed_models"),
             invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
         })
     }
 
@@ -424,7 +444,7 @@ impl Store {
         source: Option<std::net::IpAddr>,
     ) -> Result<Principal, StoreError> {
         let row = sqlx::query(
-            "SELECT k.allowed_models, k.invocation_allowed, \
+            "SELECT k.allowed_models, k.invocation_allowed, k.invocation_protocols, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $4::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $4::text::inet <<= n::cidr) \
@@ -449,6 +469,7 @@ impl Store {
             scope,
             allowed_models: row.get("allowed_models"),
             invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
         })
     }
 
@@ -465,7 +486,7 @@ impl Store {
         source: Option<std::net::IpAddr>,
     ) -> Result<(Principal, bool), StoreError> {
         let row = sqlx::query(
-            "SELECT k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, \
+            "SELECT k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, k.invocation_protocols, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $2::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
@@ -489,6 +510,7 @@ impl Store {
                 },
                 allowed_models: row.get("allowed_models"),
                 invocation_allowed: row.get("invocation_allowed"),
+                invocation_protocols: row.get("invocation_protocols"),
             },
             ip_allowed,
         ))
@@ -503,7 +525,7 @@ impl Store {
         let scope = principal.scope;
         let id = principal.key_id;
         let key: KeyView = sqlx::query_as(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -583,6 +605,7 @@ impl Store {
         Ok(serde_json::json!({
             "object": "api_key",
             "invocation_allowed": self.key_invocation_allowed(principal).await?,
+            "invocation_protocols": self.key_invocation_protocols(principal).await?,
             "management_capabilities": self.agent_key_capabilities(scope, id).await?,
             "label": name,
             "allowed_models": allowed_models,
@@ -609,6 +632,15 @@ impl Store {
             .fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)
     }
 
+    pub async fn key_invocation_protocols(
+        &self,
+        principal: &Principal,
+    ) -> Result<Vec<String>, StoreError> {
+        sqlx::query_scalar("SELECT invocation_protocols FROM api_keys WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp()")
+            .bind(principal.key_id()).bind(principal.scope().organization_id).bind(principal.scope().project_id)
+            .fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)
+    }
+
     /// Unified console key detail view combining metadata, spending limits,
     /// rate/concurrency limits, token window, and IP policy.
     pub async fn key_detail(
@@ -617,7 +649,7 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let key: Option<KeyView> = sqlx::query_as(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -807,6 +839,7 @@ impl Store {
                 "name": key.name,
                 "allowed_models": key.allowed_models,
                 "invocation_allowed": key.invocation_allowed,
+                "invocation_protocols": key.invocation_protocols,
                 "expires_at_ms": key.expires_at_ms,
                 "last_used_at_ms": key.last_used_at_ms,
                 "revoked": key.revoked,
@@ -896,7 +929,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,invocation_allowed,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,invocation_allowed,invocation_protocols,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
         );
         query
             .push(" WHERE k.organization_id=")
@@ -1017,17 +1050,17 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug,invocation_allowed) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug,invocation_allowed FROM api_keys WHERE id=$3")
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols FROM api_keys WHERE id=$3")
             .bind(id).bind(hash).bind(old).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO agent_key_capabilities (key_id,capability,authorization_id) SELECT $1,c.capability,c.authorization_id FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=$2 AND k.organization_id=$3 AND k.project_id=$4 AND a.organization_id=k.organization_id AND a.project_id=k.project_id AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id)")
             .bind(id).bind(old).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         sqlx::query("UPDATE workspace_event_subscriptions SET issuer_key_id=$1 WHERE organization_id=$2 AND project_id=$3 AND issuer_key_id=$4 AND EXISTS(SELECT 1 FROM agent_key_capabilities WHERE key_id=$1 AND capability='events:write')")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
-        sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
+        sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,mode,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,mode,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
         // Record the replacement's inherited assignment at rotation time. The
         // original key's immutable history remains attached to that key.
-        sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor) SELECT organization_id,project_id,key_id,assignment_revision,policy_revision,'system' FROM key_guardrail_assignments WHERE organization_id=$1 AND project_id=$2 AND key_id=$3")
+        sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor,mode) SELECT organization_id,project_id,key_id,assignment_revision,policy_revision,'system',mode FROM key_guardrail_assignments WHERE organization_id=$1 AND project_id=$2 AND key_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action,replacement_key_id) VALUES ($1,$2,$3,$4,'rotated',$5)")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(old).bind(id).execute(&mut **tx).await?;
@@ -1107,13 +1140,13 @@ impl Store {
 
         let key = sqlx::query("SELECT k.id,k.invocation_allowed FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
             .bind(principal.key_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
-        if key.is_none() {
+        let Some(key) = key else {
             // The composite key foreign key guarantees that a valid key also
             // has its project. Locking both rows together keeps key revocation
             // and budget creation ordered with dispatch in a single query.
             return Err(StoreError::Unauthorized);
-        }
-        if !key.as_ref().unwrap().get::<bool, _>("invocation_allowed") {
+        };
+        if !key.get::<bool, _>("invocation_allowed") {
             return Err(StoreError::InvocationDenied);
         }
         let account_eligible = sqlx::query_scalar::<_, bool>("SELECT a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FROM account_assignments s JOIN supplier_accounts a ON a.organization_id=s.organization_id AND a.project_id=s.project_id AND a.id=s.account_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.attempt_id=$3 FOR SHARE OF a")
@@ -1134,6 +1167,17 @@ impl Store {
         // reservation check observes any release committed while we waited.
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+        // Owned here rather than in a PL/pgSQL trigger (0429): the retry deadline
+        // is one static timestamp and this transaction already holds the attempt
+        // lock. The original SQLSTATE P0028 meaning is preserved.
+        let retry_deadline_expired: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM attempts a JOIN gateway_retry_policies p ON p.operation_id=a.operation_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.execution='not_sent' AND p.deadline<=clock_timestamp())",
+        )
+            .bind(scope.organization_id).bind(scope.project_id).bind(id)
+            .fetch_one(&mut **tx).await?;
+        if retry_deadline_expired {
+            return Err(StoreError::GatewayRequestDeadlineExceeded);
+        }
         let changed: i64 =
             sqlx::query_scalar("SELECT niu_mark_dispatched_with_guardrail_audit($1,$2,$3,$4,$5)")
                 .bind(scope.organization_id)

@@ -338,7 +338,8 @@ impl Store {
         let (kind, operator) = actor.kind_and_id();
         sqlx::query("INSERT INTO customer_balance_grant_corrections(id,organization_id,account_id,currency,grant_id,entry_id,amount_nanos,noncash_offset_nanos,idempotency_key,reason,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11)")
             .bind(id).bind(organization).bind(account).bind(publication.currency).bind(grant).bind(entry).bind(publication.amount_nanos).bind(publication.idempotency_key).bind(publication.reason).bind(kind).bind(operator).execute(&mut *tx).await.map_err(|error| {
-                if error.as_database_error().is_some_and(|e| e.code().is_some_and(|c| c=="P0040" || c=="23505")) { StoreError::Conflict } else { StoreError::Database(error) }
+                let unique = error.as_database_error().is_some_and(|e| e.code().is_some_and(|c| c=="23505"));
+                if unique { StoreError::Conflict } else { crate::trigger_error::map(error) }
             })?;
         tx.commit().await?;
         Ok(id)

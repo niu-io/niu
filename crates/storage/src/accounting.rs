@@ -326,68 +326,12 @@ fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
 }
 
-type TriggerErrorMapping = (&'static str, fn() -> StoreError);
-
-pub(crate) const TRIGGER_CODE_MAPPINGS: &[TriggerErrorMapping] = &[
-    ("P0005", || StoreError::Unauthorized),
-    ("P0006", || StoreError::Conflict),
-    ("P0007", || StoreError::AccountUnavailable),
-    ("P0008", || StoreError::BudgetExceeded),
-    ("P0009", || StoreError::InvalidPrice),
-    ("P0010", || StoreError::Conflict),
-    ("P0011", || StoreError::Conflict),
-    ("P0020", || StoreError::KeyRequestRateExceeded),
-    ("P0021", || StoreError::KeyConcurrencyExceeded),
-    ("P0022", || StoreError::KeyTokenRateExceeded),
-    ("P0023", || StoreError::KeyTokenBoundRequired),
-    ("P0024", || StoreError::ManagedRouteChanged),
-    ("P0025", || StoreError::VendorRequestRateExceeded),
-    ("P0026", || StoreError::KeyRequestRateDisabled),
-    ("P0027", || StoreError::VendorRequestRateDisabled),
-    ("P0028", || StoreError::GatewayRequestDeadlineExceeded),
-    ("P0039", || StoreError::ProcurementUnavailable),
-];
-
-pub(crate) const TRIGGER_CONSTRAINT_MAPPINGS: &[TriggerErrorMapping] = &[
-    ("customer_workspace_spending_limit_exceeded", || {
-        StoreError::WorkspaceSpendingLimitExceeded
-    }),
-    ("customer_key_spending_limit_exceeded", || {
-        StoreError::KeySpendingLimitExceeded
-    }),
-];
-
 pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
-    if let Some(database_error) = error.as_database_error() {
-        if let Some(constraint) = database_error.constraint() {
-            for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
-                if *expected == constraint {
-                    return constructor();
-                }
-            }
-        }
-        if let Some(code) = database_error.code() {
-            for (expected, constructor) in TRIGGER_CODE_MAPPINGS {
-                if *expected == code.as_ref() {
-                    return constructor();
-                }
-            }
-        }
-    }
-    StoreError::Database(error)
+    crate::trigger_error::map(error)
 }
 
 pub(crate) fn map_reservation_error(error: sqlx::Error) -> StoreError {
-    if let Some(database_error) = error.as_database_error()
-        && let Some(constraint) = database_error.constraint()
-    {
-        for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
-            if *expected == constraint {
-                return constructor();
-            }
-        }
-    }
-    StoreError::Database(error)
+    crate::trigger_error::map(error)
 }
 
 impl Store {
@@ -768,10 +712,14 @@ impl Store {
                     .await?,
             );
         }
-        let charges_by_key = charge_breakdowns.pop().unwrap();
-        let charges_by_model = charge_breakdowns.pop().unwrap();
-        let unit_charges_by_key = unit_charge_breakdowns.pop().unwrap();
-        let unit_charges_by_model = unit_charge_breakdowns.pop().unwrap();
+        let charges_by_key = charge_breakdowns.pop().ok_or(sqlx::Error::RowNotFound)?;
+        let charges_by_model = charge_breakdowns.pop().ok_or(sqlx::Error::RowNotFound)?;
+        let unit_charges_by_key = unit_charge_breakdowns
+            .pop()
+            .ok_or(sqlx::Error::RowNotFound)?;
+        let unit_charges_by_model = unit_charge_breakdowns
+            .pop()
+            .ok_or(sqlx::Error::RowNotFound)?;
 
         let mut usage = QueryBuilder::new(
             "SELECT o.model_alias AS model_alias, COUNT(*)::bigint AS request_count, \

@@ -7,6 +7,43 @@ use url::Url;
 use uuid::Uuid;
 
 const VENDOR_COLUMNS: &str = "id,name,adapter,api_base,enabled,revision,(credential_ciphertext IS NOT NULL) AS has_credential";
+
+/// Credential access scope is separate from the funding/owning account.
+/// Commercial configurations have no owner record; personal configurations are
+/// usable only by their recorded account; internal configurations are usable by
+/// every organization on an Internal-use installation.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VendorAccessScope {
+    #[default]
+    Personal,
+    Internal,
+    Commercial,
+}
+
+impl VendorAccessScope {
+    pub fn from_ownership(organization_id: Option<Uuid>, stored: Option<&str>) -> Self {
+        if organization_id.is_none() {
+            return Self::Commercial;
+        }
+        match stored {
+            Some("internal") => Self::Internal,
+            _ => Self::Personal,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Personal => "personal",
+            Self::Internal => "internal",
+            Self::Commercial => "commercial",
+        }
+    }
+
+    pub fn is_internal(self) -> bool {
+        self == Self::Internal
+    }
+}
 const MODEL_COLUMNS: &str =
     "alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing,revision";
 const MAX_JSON_BYTES: usize = 16 * 1024;
@@ -69,6 +106,20 @@ pub struct VendorRoute {
     pub credential_ciphertext: Vec<u8>,
     /// Internal ownership from the same statement snapshot as this route.
     pub personal_organization_id: Option<Uuid>,
+    /// Access scope from the same ownership row; `None` is legacy metadata.
+    pub access_scope: Option<VendorAccessScope>,
+}
+
+impl VendorRoute {
+    pub fn access_scope(&self) -> VendorAccessScope {
+        self.access_scope.unwrap_or_else(|| {
+            VendorAccessScope::from_ownership(self.personal_organization_id, None)
+        })
+    }
+
+    pub fn is_internal_shared(&self) -> bool {
+        self.personal_organization_id.is_some() && self.access_scope().is_internal()
+    }
 }
 
 /// Server-only route metadata. No encrypted or plaintext credentials are loaded.
@@ -78,6 +129,39 @@ pub struct VendorCatalogRoute {
     pub model: VendorModelView,
     pub vendor: VendorView,
     pub personal_organization_id: Option<Uuid>,
+    /// Present on newly published metadata. A missing value is legacy metadata
+    /// and derives the scope from `personal_organization_id`, so older registry
+    /// snapshots keep their exact personal/commercial behavior.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_scope: Option<VendorAccessScope>,
+}
+
+impl VendorCatalogRoute {
+    pub fn access_scope(&self) -> VendorAccessScope {
+        self.access_scope.unwrap_or_else(|| {
+            VendorAccessScope::from_ownership(self.personal_organization_id, None)
+        })
+    }
+
+    pub fn is_internal_shared(&self) -> bool {
+        self.personal_organization_id.is_some() && self.access_scope().is_internal()
+    }
+
+    /// Scope-aware catalog visibility. Personal routes remain private to their
+    /// owning account. Internal routes are shared only while Internal use is
+    /// active; in Resale they retain personal-owner visibility. Anonymous reads
+    /// include strictly the configured public-catalog flag.
+    pub fn visible_to(&self, organization_id: Option<Uuid>, allow_internal_scope: bool) -> bool {
+        match self.access_scope() {
+            VendorAccessScope::Personal => self.personal_organization_id == organization_id,
+            VendorAccessScope::Internal if allow_internal_scope => match organization_id {
+                Some(_) => true,
+                None => self.model.public_catalog,
+            },
+            VendorAccessScope::Internal => self.personal_organization_id == organization_id,
+            VendorAccessScope::Commercial => self.personal_organization_id.is_none(),
+        }
+    }
 }
 
 /// Configured routing inputs, without credentials or clock-dependent eligibility.
@@ -131,10 +215,15 @@ struct VendorCatalogRow {
     vendor_revision: i64,
     has_credential: bool,
     personal_organization_id: Option<Uuid>,
+    access_scope: Option<String>,
 }
 
 impl VendorCatalogRow {
     fn into_catalog(self) -> VendorCatalogRoute {
+        let scope = VendorAccessScope::from_ownership(
+            self.personal_organization_id,
+            self.access_scope.as_deref(),
+        );
         VendorCatalogRoute {
             model: VendorModelView {
                 alias: self.alias,
@@ -156,6 +245,7 @@ impl VendorCatalogRow {
                 has_credential: self.has_credential,
             },
             personal_organization_id: self.personal_organization_id,
+            access_scope: Some(scope),
         }
     }
 }
@@ -192,6 +282,7 @@ impl VendorRouteRow {
             model: metadata.model,
             vendor: metadata.vendor,
             personal_organization_id: metadata.personal_organization_id,
+            access_scope: metadata.access_scope,
             credential_ciphertext: self.credential_ciphertext,
         }
     }
@@ -289,6 +380,23 @@ impl Store {
         .await?)
     }
 
+    /// Access scope for management reads. `None` means commercial/shared supply.
+    pub async fn vendor_access_scope(
+        &self,
+        vendor: Uuid,
+    ) -> Result<Option<VendorAccessScope>, StoreError> {
+        let stored: Option<Option<String>> = sqlx::query_scalar(
+            "SELECT access_scope FROM personal_vendor_ownership WHERE vendor_id=$1",
+        )
+        .bind(vendor)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(stored.flatten().map(|value| match value.as_str() {
+            "internal" => VendorAccessScope::Internal,
+            _ => VendorAccessScope::Personal,
+        }))
+    }
+
     /// Startup requires a master key even if saved credentials were revoked.
     /// Check registry presence without loading or sorting all configurations.
     pub async fn has_registered_vendors(&self) -> Result<bool, StoreError> {
@@ -312,7 +420,7 @@ impl Store {
         supplier: Option<Uuid>,
     ) -> Result<Vec<Value>, StoreError> {
         Ok(sqlx::query_scalar(
-            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
+            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'access_scope',COALESCE((SELECT po.access_scope FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),'commercial'),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
         ).bind(supplier).fetch_all(&self.pool).await?)
     }
 
@@ -488,8 +596,31 @@ impl Store {
         existing_supplier: Option<Uuid>,
         personal_owner: Option<Uuid>,
     ) -> Result<VendorView, StoreError> {
+        self.create_vendor_with_access_scope(
+            input,
+            create_supplier,
+            existing_supplier,
+            personal_owner,
+            VendorAccessScope::Personal,
+        )
+        .await
+    }
+
+    /// Save access scope in the same transaction as credential creation. Internal
+    /// scope still records the funding account and never becomes commercial supply.
+    pub async fn create_vendor_with_access_scope(
+        &self,
+        input: VendorInput,
+        create_supplier: bool,
+        existing_supplier: Option<Uuid>,
+        personal_owner: Option<Uuid>,
+        access_scope: VendorAccessScope,
+    ) -> Result<VendorView, StoreError> {
         validate_vendor(&input)?;
         if create_supplier && existing_supplier.is_some() {
+            return Err(StoreError::InvalidVendor);
+        }
+        if access_scope.is_internal() && personal_owner.is_none() {
             return Err(StoreError::InvalidVendor);
         }
         let mut transaction = self.begin_route_write().await?;
@@ -560,10 +691,11 @@ impl Store {
         }
         if let Some(owner) = personal_owner {
             sqlx::query(
-                "INSERT INTO personal_vendor_ownership(vendor_id,organization_id) VALUES($1,$2)",
+                "INSERT INTO personal_vendor_ownership(vendor_id,organization_id,access_scope) VALUES($1,$2,$3)",
             )
             .bind(vendor.id)
             .bind(owner)
+            .bind(access_scope.as_str())
             .execute(&mut *transaction)
             .await
             .map_err(map_vendor_write_error)?;
@@ -825,6 +957,16 @@ impl Store {
         &self,
         pool: &crate::ModelRoutePool,
     ) -> Result<Vec<VendorRoute>, StoreError> {
+        self.eligible_pool_routes_for(pool, false).await
+    }
+
+    /// Internal scope is honored only when the caller's operating mode permits
+    /// it. Resale mode preserves the personal organization-bound behavior.
+    pub async fn eligible_pool_routes_for(
+        &self,
+        pool: &crate::ModelRoutePool,
+        allow_internal_scope: bool,
+    ) -> Result<Vec<VendorRoute>, StoreError> {
         if pool.candidates.len() > 64 {
             return Err(StoreError::InvalidVendor);
         }
@@ -853,13 +995,15 @@ impl Store {
             AND NOT EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id=v.id AND c.cooldown_until>statement_timestamp())
             AND NOT (m.capabilities ? 'video_schema')
             AND (($2::uuid IS NOT NULL AND EXISTS (
-                SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id=$2))
+                SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id
+                    AND (o.organization_id=$2 OR ($3::boolean AND o.access_scope='internal'))))
                 OR ($2::uuid IS NULL AND m.pricing IS NOT NULL
                     AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
                     AND niu_supplier_model_route_available(m.alias)))");
         Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
             .bind(aliases)
             .bind(pool.organization_id)
+            .bind(allow_internal_scope)
             .fetch_all(&self.pool)
             .await?
             .into_iter()
@@ -875,14 +1019,29 @@ impl Store {
         organization_id: Uuid,
         alias: &str,
     ) -> Result<Option<VendorRoute>, StoreError> {
+        self.accessible_vendor_route(organization_id, alias, false)
+            .await
+    }
+
+    /// Read an enabled owner-funded route visible to this organization. Internal
+    /// scope is included only when the deployment operating mode permits shared
+    /// internal credentials. Ownership and both enabled flags share one query.
+    pub async fn accessible_vendor_route(
+        &self,
+        organization_id: Uuid,
+        alias: &str,
+        allow_internal_scope: bool,
+    ) -> Result<Option<VendorRoute>, StoreError> {
         let query = route_query(
             "WHERE m.alias=$1 AND m.enabled AND v.enabled AND EXISTS \
              (SELECT 1 FROM personal_vendor_ownership o \
-              WHERE o.vendor_id=v.id AND o.organization_id=$2)",
+              WHERE o.vendor_id=v.id AND (o.organization_id=$2 \
+                OR ($3::boolean AND o.access_scope='internal')))",
         );
         Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
             .bind(alias)
             .bind(organization_id)
+            .bind(allow_internal_scope)
             .fetch_optional(&self.pool)
             .await?
             .map(VendorRouteRow::into_route))
@@ -892,13 +1051,23 @@ impl Store {
         &self,
         organization_id: Uuid,
     ) -> Result<Vec<VendorRoute>, StoreError> {
+        self.accessible_vendor_routes(organization_id, false).await
+    }
+
+    pub async fn accessible_vendor_routes(
+        &self,
+        organization_id: Uuid,
+        allow_internal_scope: bool,
+    ) -> Result<Vec<VendorRoute>, StoreError> {
         let query = route_query(
             "WHERE m.enabled AND v.enabled AND EXISTS \
              (SELECT 1 FROM personal_vendor_ownership o \
-              WHERE o.vendor_id=v.id AND o.organization_id=$1)",
+              WHERE o.vendor_id=v.id AND (o.organization_id=$1 \
+                OR ($2::boolean AND o.access_scope='internal')))",
         );
         Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
             .bind(organization_id)
+            .bind(allow_internal_scope)
             .fetch_all(&self.pool)
             .await?
             .into_iter()
@@ -1150,7 +1319,8 @@ fn catalog_query(filter: &str, include_credential: bool) -> String {
          m.revision AS model_revision,v.id AS vendor_id,v.name AS vendor_name, \
          v.adapter,v.api_base,v.enabled AS vendor_enabled,v.revision AS vendor_revision, \
          (v.credential_ciphertext IS NOT NULL) AS has_credential,{credential} \
-         personal_owner.organization_id AS personal_organization_id \
+         personal_owner.organization_id AS personal_organization_id, \
+         personal_owner.access_scope AS access_scope \
          FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
          LEFT JOIN personal_vendor_ownership personal_owner ON personal_owner.vendor_id=v.id \
          {filter} ORDER BY m.alias"
@@ -1257,14 +1427,17 @@ fn json_size(value: &Value) -> usize {
 }
 
 fn map_vendor_write_error(error: sqlx::Error) -> StoreError {
-    if error.as_database_error().is_some_and(|database_error| {
+    // Catalog writes translate a missing budget (P0008) into a generic conflict;
+    // every other trigger code keeps its table-driven meaning.
+    let conflict = error.as_database_error().is_some_and(|database_error| {
         database_error
             .code()
             .is_some_and(|code| matches!(code.as_ref(), "23503" | "23505" | "P0008"))
-    }) {
+    });
+    if conflict {
         StoreError::Conflict
     } else {
-        StoreError::Database(error)
+        crate::trigger_error::map(error)
     }
 }
 
@@ -1338,6 +1511,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::OperatorAuditActor;
 
     #[sqlx::test(migrations = "./migrations")]
     #[ignore = "requires PostgreSQL"]
@@ -1747,7 +1921,9 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     #[ignore = "requires PostgreSQL"]
-    async fn personal_credentials_and_commercial_offer_reviews_are_exclusive(pool: sqlx::PgPool) {
+    async fn personal_credentials_and_commercial_offer_authorizations_are_exclusive(
+        pool: sqlx::PgPool,
+    ) {
         let store = Store::from_pool(pool.clone());
         let owner = store
             .create_prepaid_organization("Personal owner", "USD")
@@ -1755,24 +1931,6 @@ mod tests {
             .unwrap();
         let supplier = store
             .create_provider_business("Commercial fixture")
-            .await
-            .unwrap();
-        let digest = "a".repeat(64);
-        let expiry = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64
-            + 60000;
-        store
-            .qualify_provider_business(
-                supplier,
-                &crate::ProviderQualificationInput {
-                    supply_rights_sha256: digest.clone(),
-                    supply_capability_sha256: digest.clone(),
-                    data_handling_sha256: digest.clone(),
-                    valid_until_ms: expiry,
-                },
-            )
             .await
             .unwrap();
         for personal in [true, false] {
@@ -1831,16 +1989,10 @@ mod tests {
                     .fetch_one(&pool)
                     .await
                     .unwrap();
-            let review = crate::ProviderOfferQualificationInput {
-                rate_revision: revision,
-                model_identity_sha256: digest.clone(),
-                protocol_matrix_sha256: digest.clone(),
-                protocol_matrix_version: "fixture-v1".into(),
-                data_handling_sha256: digest.clone(),
-                availability_sha256: digest.clone(),
-                agreed_rates_sha256: digest.clone(),
-                valid_until_ms: expiry,
-            };
+            store
+                .associate_vendor_supplier(vendor.id, supplier, vendor.revision)
+                .await
+                .unwrap();
             let current_revision = store.vendor(vendor.id).await.unwrap().unwrap().revision;
             if personal {
                 store
@@ -1849,7 +2001,12 @@ mod tests {
                     .unwrap();
                 assert!(
                     store
-                        .qualify_provider_offer(supplier, offer, &review)
+                        .enable_authorized_provider_offer(
+                            supplier,
+                            offer,
+                            revision,
+                            OperatorAuditActor::Installation,
+                        )
                         .await
                         .is_err()
                 );
@@ -1862,7 +2019,30 @@ mod tests {
                 );
             } else {
                 store
-                    .qualify_provider_offer(supplier, offer, &review)
+                    .enable_authorized_provider_offer(
+                        supplier,
+                        offer,
+                        revision,
+                        OperatorAuditActor::Installation,
+                    )
+                    .await
+                    .unwrap();
+                // A paused offer keeps its exact authorization, so the
+                // credential still cannot be converted to personal supply.
+                sqlx::query("UPDATE provider_offers SET active=FALSE WHERE id=$1")
+                    .bind(offer)
+                    .execute(&pool)
+                    .await
+                    .unwrap();
+                assert!(
+                    store
+                        .assign_personal_vendor_owner(vendor.id, owner, current_revision)
+                        .await
+                        .is_err()
+                );
+                sqlx::query("UPDATE provider_offers SET active=TRUE WHERE id=$1")
+                    .bind(offer)
+                    .execute(&pool)
                     .await
                     .unwrap();
                 assert!(

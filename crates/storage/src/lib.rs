@@ -1,8 +1,10 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
-mod evaluation_runs;
 mod connection_incidents;
+mod evaluation_runs;
 mod evaluation_summary;
 pub use evaluation_runs::{
     EvaluationEvaluator, EvaluationResult, EvaluationRunSubmission, EvaluationVerdict,
@@ -16,7 +18,10 @@ pub use workspace_events::{EventDeliveryClaim, EventSubscription, EventSubscript
 mod workspace_model_pools;
 pub use workspace_model_pools::WorkspaceModelPool;
 mod agent_authorizations;
-pub use agent_authorizations::{AgentAuthorizationRequest, AgentAuthorizationView};
+pub use agent_authorizations::{
+    AgentAuthorizationRequest, AgentAuthorizationView, INVOCATION_PROTOCOLS,
+    valid_invocation_protocols,
+};
 mod customer_unit_grants;
 mod customer_unit_limits;
 mod customer_unit_modes;
@@ -34,6 +39,7 @@ pub use customer_unit_tariffs::{
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,
 };
+pub use payment_verification::PaymentReadinessFacts;
 mod platform_currency;
 mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{
@@ -55,12 +61,13 @@ pub use workspace_provider_assets::{
     WorkspaceProviderAssetFailureCategory, WorkspaceProviderAssetFailurePhase,
     WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation, WorkspaceProviderAssetOperation,
     WorkspaceProviderAssetOutcome, WorkspaceProviderAssetPage, WorkspaceProviderAssetPrepared,
-    WorkspaceProviderAssetRoute,
+    WorkspaceProviderAssetRoute, WorkspaceProviderAssetSource,
 };
 mod workspace_asset_library;
 pub use workspace_asset_library::{
     AssetLibraryAsset, AssetLibraryContent, AssetLibraryCreate, AssetLibraryKind,
-    AssetLibraryLimits, AssetLibraryPage, workspace_asset_content_aad,
+    AssetLibraryLimits, AssetLibraryPage, VerifiedWorkspaceAssetSource, WorkspaceAssetSourceAccess,
+    workspace_asset_content_aad,
 };
 mod ingested_video_dispatch;
 pub use ingested_video_dispatch::{IngestedVideoDispatch, IngestedVideoImage};
@@ -92,9 +99,27 @@ pub use route_pools::{
     ModelRoutePool, RoutePoolBillingMode, RoutePoolCandidate, RoutePoolDefaultAction,
     RoutePoolRule, RoutePoolRuleConditions, is_valid_pool_slug, validate_pool_candidates_and_rules,
 };
+mod routing_auto;
+pub use routing_auto::{
+    AUTO_STRATEGY_VERSION, AutoDecider, AutoDecision, AutoDecisionAction, AutoDecisionAttempt,
+    AutoDecisionDocument, AutoDecisionFailure, AutoDecisionOutcome, AutoDecisionUsage,
+    AutoFallbackReason, AutoPath, AutoResponseType, AutoStrategy, AutoTaskContext,
+    MAX_AUTO_CONTEXT_BYTES, MAX_AUTO_DECIDER_INPUT_TOKENS, MAX_AUTO_DECIDER_OUTPUT_TOKENS,
+    MAX_AUTO_DECIDER_SPEND_NANOS, MAX_AUTO_DECIDER_TIMEOUT_MS, MAX_AUTO_PATH_DESCRIPTION_LEN,
+    MAX_AUTO_PATH_KEYWORDS, MAX_AUTO_PATH_NAME_LEN, MAX_AUTO_PATHS, MIN_AUTO_DECIDER_TIMEOUT_MS,
+    evaluate_auto_decision, match_auto_context,
+};
+mod routing_strategy;
+pub use routing_strategy::{
+    CUSTOMER_PRICE_UNIT, CustomerPriceCandidate, CustomerPriceEvaluation,
+    CustomerPriceFallbackReason, CustomerPriceStrategy, CustomerPriceUnit, CustomerPriceUnknown,
+    CustomerTextSellingPrice, MAX_PRICE_ASSUMPTION_TOKENS, WORKSPACE_ROUTING_STRATEGY_VERSION,
+    WorkspaceRoutingMode, WorkspaceRoutingStrategy, evaluate_customer_price_selection,
+};
 mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
+pub mod trigger_error;
 mod background_work;
 mod balance_policy_history;
 mod balance_reservations;
@@ -144,7 +169,12 @@ mod observations;
 mod operator_audit;
 mod platform_audit;
 pub use platform_audit::{PlatformAuditEvent, PlatformAuditPage};
+mod member_invitations;
 mod operators;
+pub use member_invitations::{
+    AcceptedMemberInvitation, CreatedMemberInvitation, MemberInvitationPreview,
+    MemberInvitationStatus, MemberInvitationView,
+};
 pub use member_profiles::MemberProfile;
 mod password_logins;
 pub mod passwords;
@@ -192,9 +222,9 @@ pub use operators::{
     OperatorSessionView, OperatorView,
 };
 pub use vendors::{
-    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorCatalogInputs,
-    VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate,
-    VendorView,
+    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorAccessScope,
+    VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView,
+    VendorRoute, VendorUpdate, VendorView,
 };
 mod context_pricing;
 pub use context_pricing::{
@@ -306,9 +336,8 @@ pub use keys::{IssuedKey, KeyMutationResult, KeyMutationStatus, KeyView, Princip
 pub use pricing::{PriceInput, TokenRates};
 pub use provider_integrations::ProviderIntegration;
 pub use providers::{
-    ProviderBusinessCreate, ProviderMembership, ProviderOfferInput,
-    ProviderOfferQualificationInput, ProviderOfferSchedule, ProviderQualificationInput,
-    ProviderQualificationRevocationInput, SupplierProfile, SupplierProfileUpdate,
+    ProviderBusinessCreate, ProviderMembership, ProviderOfferInput, ProviderOfferSchedule,
+    ProviderSettlementPreview, ProviderSettlementResult, SupplierProfile, SupplierProfileUpdate,
 };
 
 mod request_payloads;
@@ -500,6 +529,8 @@ pub enum StoreError {
     InvocationDenied,
     #[error("invalid price, currency or monetary amount")]
     InvalidPrice,
+    #[error("money row does not use the configured platform currency")]
+    PlatformCurrencyMismatch,
     #[error("invalid Credits definition, exact quantity, conversion or expiry")]
     InvalidCustomerUnit,
     #[error("configured token pricing requires unsupported usage categories")]
@@ -550,8 +581,26 @@ pub enum StoreError {
     AssetLibraryCapacityExceeded,
     #[error("aggregate exceeds the supported numeric range")]
     AggregateOverflow,
+    #[error("invalid Provider settlement period or currency")]
+    InvalidProviderSettlement,
+    #[error("no unpaid Provider earnings match this settlement period")]
+    NoProviderSettlementEarnings,
+    #[error("Provider settlement amount exceeds the supported numeric range")]
+    ProviderSettlementOverflow,
     #[error("invalid operator name, role, or session lifetime")]
     InvalidOperator,
+    #[error("invalid invitation recipient, role, scope or expiry")]
+    InvalidInvitation,
+    #[error("invitation is invalid, expired, canceled or already used")]
+    InvitationUnavailable,
+    #[error("invitation belongs to a different account email")]
+    InvitationIdentityMismatch,
+    #[error("recipient already belongs to the organization")]
+    InvitationRecipientAlreadyMember,
+    #[error("invitation creator no longer has authority over the target scope")]
+    InvitationAuthorityLost,
+    #[error("invitation was already accepted")]
+    InvitationAlreadyAccepted,
     #[error("invalid operator audit cursor or page size")]
     InvalidOperatorAuditQuery,
     #[error("invalid platform audit category, cursor, or page size")]
