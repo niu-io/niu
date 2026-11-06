@@ -447,7 +447,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     setModelPickerOpen(true);
   };
   const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
-  const [manualKeyRequested, setManualKeyRequested] = useState(false);
   const availableKeys=useGenerationKeys(dashboard,apiSettingsOpen);
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -482,8 +481,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [temperature, setTemperature] = useState(() => initialDraftPayload?.settings.temperature ?? initialSelection?.settings?.temperature ?? 0.7);
   const [logPayloads, setLogPayloads] = useState(() => initialDraftPayload?.settings.logPayloads ?? initialSelection?.settings?.logPayloads ?? true);
   const [selectedKeyId, setSelectedKeyId] = useState('');
-  const manualKeySelection = useRef(false);
-  const [manualKey, setManualKey] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -814,7 +811,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const usableModels = useMemo(() => allowedModels && !allowedModels.includes('*')
     ? modelAliases.filter(model => allowedModels.includes(model))
     : modelAliases, [modelAliases, allowedModels]);
-  const apiKey = managedKey ? token : selectedKey?.token ?? manualKey.trim();
+  const apiKey = managedKey ? token : selectedKey?.token ?? '';
   const chatEndpoint = '/v1/chat/completions';
   const keyIds = keyChoices.map(key => key.id).join('\u0000') + '\u0000' + workspaceKeys.map(key => key.slug ?? '').join('\u0000');
   const preferredKey = new URLSearchParams(location.search).get('key');
@@ -830,9 +827,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         next.set('key', resolved.slug);
         navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
       }
-    } else if (preferredKey) setSelectedKeyId('manual');
-    else if (manualKeySelection.current) setSelectedKeyId('manual');
-    else if (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId)) setSelectedKeyId(keyChoices[0]?.id ?? 'manual');
+    } else if (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId)) setSelectedKeyId(keyChoices[0]?.id ?? '');
   }, [preferredKey, keyIds]);
 
   // A new-generation URL is an action, not a permanent draft-restoration mode.
@@ -1128,7 +1123,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
   const canSubmit = Boolean(organization && workspaceId && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
   const activeComparison = history.find(item => item.id === activeComparisonId);
-  const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (manualKey ? uiT("Workspace key added") : uiT("Choose API key"));
+  const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? uiT("Choose API key");
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);
   const currentWorkspaceSegment = workspace ? workspacePathSegment(workspace, workspaces) : workspaceId;
 
@@ -1364,12 +1359,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         <div className="space-y-4">
           {availableKeys.error && <p role="alert" className="text-sm text-destructive">{uiT(availableKeys.error)}</p>}
           {keyLoadError && <p role="alert" className="text-sm text-destructive">{uiT(keyLoadError)}</p>}
-          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && !manualKeyRequested && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("No active API key is available. Create one for this workspace, then return to your chat. Its limits and the workspace billing policy apply.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}{noAvailableKeys && <Button type="button" variant="ghost" onClick={() => setManualKeyRequested(true)}>{uiT("Use an existing key secret")}</Button>}</div>}{(!noAvailableKeys || manualKeyRequested) && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? (manualKeyRequested ? uiT("Use another key") : uiT("Select API key"))}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={manualKeyRequested ? 'manual' : selectedKeyId === 'manual' ? '' : selectedKeyId} onValueChange={value => {manualKeySelection.current=value==='manual';setManualKeyRequested(value==='manual');const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
-              {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">{uiT("Use another key")}</DropdownMenuRadioItem>
+          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("No active API key is available. Create one for this workspace, then return to your chat. Its limits and the workspace billing policy apply.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}</div>}{!noAvailableKeys && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? uiT("Select API key")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setResults(null); setError(''); }}>
+              {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </div>
-          {!selectedKey && !managedKey && manualKeyRequested && <div className="space-y-2"><Label htmlFor="playground-existing-key">{uiT("Key secret")}</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder={uiT("Paste your API key")} /><p className="text-sm text-muted-foreground">{uiT("Paste a workspace API key to use it in this chat.")}</p></div>}
           {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">{uiT("This key does not allow any available models.")}</p>}
           </>}</>}
         </div>
