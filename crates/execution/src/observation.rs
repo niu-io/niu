@@ -277,16 +277,25 @@ impl ExecutionRecord {
             if !nodes.contains_key(link.from.as_str()) || !nodes.contains_key(link.to.as_str()) {
                 return Err(InvalidRecord::Reference);
             }
+            let Some(from_node) = nodes.get(link.from.as_str()) else {
+                return Err(InvalidRecord::Reference);
+            };
+            let Some(to_node) = nodes.get(link.to.as_str()) else {
+                return Err(InvalidRecord::Reference);
+            };
             if link.kind == LinkKind::Fallbacks
-                && (nodes.get(link.from.as_str()).unwrap().kind != SpanKind::ModelInvocation
-                    || nodes.get(link.to.as_str()).unwrap().kind != SpanKind::ModelInvocation)
+                && (from_node.kind != SpanKind::ModelInvocation
+                    || to_node.kind != SpanKind::ModelInvocation)
             {
                 return Err(InvalidRecord::Reference);
             }
             if !edges.insert((&link.from, &link.to, &link.kind)) {
                 return Err(InvalidRecord::Duplicate);
             }
-            *indegree.get_mut(link.to.as_str()).unwrap() += 1;
+            let Some(degree) = indegree.get_mut(link.to.as_str()) else {
+                return Err(InvalidRecord::Reference);
+            };
+            *degree += 1;
             outgoing.entry(&link.from).or_default().push(&link.to);
         }
         // Iterative traversal bounds stack usage even for a deeply nested trace.
@@ -298,7 +307,9 @@ impl ExecutionRecord {
         while let Some(id) = ready.pop() {
             visited += 1;
             for &next in outgoing.get(id).into_iter().flatten() {
-                let degree = indegree.get_mut(next).unwrap();
+                let Some(degree) = indegree.get_mut(next) else {
+                    return Err(InvalidRecord::Reference);
+                };
                 *degree -= 1;
                 if *degree == 0 {
                     ready.push(next);

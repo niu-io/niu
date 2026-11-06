@@ -1161,37 +1161,12 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
     .fetch_one(&pool)
     .await
     .unwrap();
-    let expiry = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-        + 3600000;
     store
-        .qualify_provider_business(
-            supplier,
-            &niu_storage::ProviderQualificationInput {
-                supply_rights_sha256: "a".repeat(64),
-                supply_capability_sha256: "b".repeat(64),
-                data_handling_sha256: "c".repeat(64),
-                valid_until_ms: expiry,
-            },
-        )
-        .await
-        .unwrap();
-    store
-        .qualify_provider_offer(
+        .enable_authorized_provider_offer(
             supplier,
             offer,
-            &niu_storage::ProviderOfferQualificationInput {
-                rate_revision: offer_revision,
-                model_identity_sha256: "d".repeat(64),
-                protocol_matrix_sha256: "e".repeat(64),
-                protocol_matrix_version: "chat-fixture-v1".into(),
-                data_handling_sha256: "f".repeat(64),
-                availability_sha256: "1".repeat(64),
-                agreed_rates_sha256: "2".repeat(64),
-                valid_until_ms: expiry,
-            },
+            offer_revision,
+            niu_storage::OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -1210,10 +1185,6 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
         .unwrap();
     store
         .set_provider_member(supplier, manager.operator_id, "manager", true)
-        .await
-        .unwrap();
-    store
-        .set_provider_offer_active(supplier, offer, manager.operator_id, true)
         .await
         .unwrap();
     let app = router(state);
@@ -1666,37 +1637,12 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
     .fetch_one(&pool)
     .await
     .unwrap();
-    let expiry = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-        + 3_600_000;
     store
-        .qualify_provider_business(
-            supplier,
-            &niu_storage::ProviderQualificationInput {
-                supply_rights_sha256: "a".repeat(64),
-                supply_capability_sha256: "b".repeat(64),
-                data_handling_sha256: "c".repeat(64),
-                valid_until_ms: expiry,
-            },
-        )
-        .await
-        .unwrap();
-    store
-        .qualify_provider_offer(
+        .enable_authorized_provider_offer(
             supplier,
             offer,
-            &niu_storage::ProviderOfferQualificationInput {
-                rate_revision: offer_revision,
-                model_identity_sha256: "d".repeat(64),
-                protocol_matrix_sha256: "e".repeat(64),
-                protocol_matrix_version: "chat-fixture-v1".into(),
-                data_handling_sha256: "f".repeat(64),
-                availability_sha256: "1".repeat(64),
-                agreed_rates_sha256: "2".repeat(64),
-                valid_until_ms: expiry,
-            },
+            offer_revision,
+            niu_storage::OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -1715,10 +1661,6 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
         .unwrap();
     store
         .set_provider_member(supplier, supply_mgr.operator_id, "manager", true)
-        .await
-        .unwrap();
-    store
-        .set_provider_offer_active(supplier, offer, supply_mgr.operator_id, true)
         .await
         .unwrap();
     store

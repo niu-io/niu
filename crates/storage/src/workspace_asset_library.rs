@@ -1,7 +1,7 @@
 //! Durable workspace-owned media bytes, separate from inspection and upstream grants.
 //! Lists contain metadata only. Deletion erases bytes and prevents new references;
 //! it does not cancel already dispatched work or erase its financial liability.
-use crate::{Store, StoreError, TenantScope};
+use crate::{Principal, Store, StoreError, TenantScope};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, Row};
@@ -450,5 +450,146 @@ impl Store {
             .bind(id).bind(revision+1).bind(actor).bind(row.get::<String,_>("name")).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(true)
+    }
+}
+
+/// A one-shot public fetch capability for one exact workspace material.
+/// Deliberately no Serialize/Debug; the token is a secret.
+pub struct WorkspaceAssetSourceAccess {
+    token: String,
+}
+impl WorkspaceAssetSourceAccess {
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+}
+/// Exact decrypted bytes for one capability delivery. Deliberately no Debug.
+pub struct VerifiedWorkspaceAssetSource {
+    content_type: String,
+    bytes: Vec<u8>,
+}
+impl VerifiedWorkspaceAssetSource {
+    pub fn content_type(&self) -> &str {
+        &self.content_type
+    }
+    pub fn into_parts(self) -> (String, Vec<u8>) {
+        (self.content_type, self.bytes)
+    }
+}
+
+impl Store {
+    /// Mint one short-lived fetch capability for a workspace material after the
+    /// caller has authorized the exact workspace/key/model and claimed a
+    /// Provider mutation. Binds workspace + asset + current content hash +
+    /// expiry + delivery budget. The plaintext token is never stored.
+    pub async fn issue_workspace_asset_source_access(
+        &self,
+        principal: &Principal,
+        asset_id: Uuid,
+    ) -> Result<Option<WorkspaceAssetSourceAccess>, StoreError> {
+        let scope = principal.scope();
+        let token = format!("nws_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+        let digest = Sha256::digest(token.as_bytes());
+        let changed = sqlx::query(
+            "INSERT INTO workspace_asset_source_access(token_sha256,organization_id,project_id,asset_id,content_sha256,expires_at) \
+             SELECT $1,a.organization_id,a.project_id,a.id,a.content_sha256,statement_timestamp()+interval '5 minutes' \
+             FROM workspace_asset_library a JOIN workspace_asset_library_content content ON content.asset_id=a.id \
+             WHERE a.organization_id=$2 AND a.project_id=$3 AND a.id=$4 AND a.deleted_at IS NULL \
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(digest.as_slice())
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(asset_id)
+        .execute(&self.pool)
+        .await?
+        .rows_affected()
+            == 1;
+        Ok(changed.then_some(WorkspaceAssetSourceAccess { token }))
+    }
+
+    /// Serve exact immutable bytes for one capability at most its delivery
+    /// budget, before expiry, and only while the stored content hash still
+    /// matches the capability binding. This path is intentionally unauthenticated:
+    /// the token is the capability, and it conveys only those bytes.
+    pub async fn deliver_workspace_asset_source<F>(
+        &self,
+        token: &str,
+        open: F,
+    ) -> Result<Option<VerifiedWorkspaceAssetSource>, StoreError>
+    where
+        F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
+    {
+        if token.len() != 68
+            || !token.starts_with("nws_")
+            || !token[4..].bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Ok(None);
+        }
+        let digest: [u8; 32] = Sha256::digest(token.as_bytes()).into();
+        let mut tx = self.begin_bounded_recording().await?;
+        let row = sqlx::query(
+            "SELECT access.organization_id,access.project_id,access.asset_id,access.content_sha256,access.delivery_limit,a.content_type,a.byte_length \
+             FROM workspace_asset_source_access access \
+             JOIN workspace_asset_library a ON a.organization_id=access.organization_id AND a.project_id=access.project_id AND a.id=access.asset_id \
+             JOIN workspace_asset_library_content content ON content.asset_id=a.id \
+             WHERE access.token_sha256=$1 AND access.expires_at>clock_timestamp() \
+               AND a.deleted_at IS NULL AND a.content_sha256=access.content_sha256 \
+             FOR UPDATE OF access",
+        )
+        .bind(digest.as_slice())
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let delivery_limit: i16 = row.get("delivery_limit");
+        let used: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM workspace_asset_source_deliveries WHERE token_sha256=$1",
+        )
+        .bind(digest.as_slice())
+        .fetch_one(&mut *tx)
+        .await?;
+        if used >= i64::from(delivery_limit) {
+            return Ok(None);
+        }
+        sqlx::query(
+            "INSERT INTO workspace_asset_source_deliveries(token_sha256,ordinal) VALUES($1,$2)",
+        )
+        .bind(digest.as_slice())
+        .bind(i16::try_from(used + 1).map_err(|_| StoreError::InvalidObservation)?)
+        .execute(&mut *tx)
+        .await?;
+        let asset_id: Uuid = row.get("asset_id");
+        let organization_id: Uuid = row.get("organization_id");
+        let project_id: Uuid = row.get("project_id");
+        let content_sha256: String = row.get("content_sha256");
+        let content_type: String = row.get("content_type");
+        let byte_length: i64 = row.get("byte_length");
+        let ciphertext: Vec<u8> = sqlx::query_scalar(
+            "SELECT ciphertext FROM workspace_asset_library_content WHERE asset_id=$1",
+        )
+        .bind(asset_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let aad = workspace_asset_content_aad(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            asset_id,
+        );
+        let bytes = open(&aad, &ciphertext)?;
+        if bytes.is_empty()
+            || i64::try_from(bytes.len()).ok() != Some(byte_length)
+            || format!("{:x}", Sha256::digest(&bytes)) != content_sha256
+        {
+            return Err(StoreError::InvalidObservation);
+        }
+        Ok(Some(VerifiedWorkspaceAssetSource {
+            content_type,
+            bytes,
+        }))
     }
 }

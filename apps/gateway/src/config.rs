@@ -62,7 +62,7 @@ impl ServerConfig {
             || host.ends_with(".internal")
             || host.trim_matches(['[', ']']).parse::<IpAddr>().is_ok()
             || token.len() != 68
-            || !token.starts_with("nis_")
+            || !(token.starts_with("nis_") || token.starts_with("nws_"))
             || !token[4..].bytes().all(|b| b.is_ascii_hexdigit())
         {
             return Err(ConfigError::Invalid(
@@ -150,7 +150,7 @@ impl ModelProtocol {
 }
 
 /// Validated request capabilities used only to filter route-pool candidates.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ModelRequirements {
     pub project_id: Option<uuid::Uuid>,
     pub streaming: bool,
@@ -685,6 +685,7 @@ mod tests {
 #[test]
 fn image_source_origin_is_fixed_public_https_without_request_overrides() {
     let token = format!("nis_{}", "a".repeat(64));
+    let workspace_token = format!("nws_{}", "b".repeat(64));
     let configured = |origin: &str| ServerConfig {
         image_source_origin: Some(origin.into()),
         ..ServerConfig::default()
@@ -694,6 +695,12 @@ fn image_source_origin_is_fixed_public_https_without_request_overrides() {
             .image_source_url(&token)
             .unwrap(),
         format!("https://niu.example/v1/media/sources/{token}")
+    );
+    assert_eq!(
+        configured("https://niu.example")
+            .image_source_url(&workspace_token)
+            .unwrap(),
+        format!("https://niu.example/v1/media/sources/{workspace_token}")
     );
     for origin in [
         "http://niu.example",

@@ -6,7 +6,7 @@ use crate::{
 use axum::{
     Json,
     extract::{Path, State, rejection::JsonRejection},
-    http::HeaderMap,
+    http::{HeaderMap, HeaderValue},
 };
 use niu_storage::{AdminPermission, OperatorAuditActor, OperatorRole, OperatorScope};
 use serde::Deserialize;
@@ -227,9 +227,6 @@ pub(super) async fn update_operator_role(
         .await
         .map_err(ApiError::from_store)?;
     let mut response_headers = HeaderMap::new();
-    response_headers.insert(
-        "cache-control",
-        "no-store".parse().expect("constant header"),
-    );
+    response_headers.insert("cache-control", HeaderValue::from_static("no-store"));
     Ok((response_headers, Json(json!({"data":updated}))))
 }

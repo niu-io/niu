@@ -9,6 +9,7 @@
     "build:catalog": "pnpm --filter @niu-io/catalog build",
     "check:catalog": "pnpm --filter @niu-io/catalog check",
     "check:dashboard": "pnpm --filter @niu-io/dashboard check",
+    "lint:dashboard": "pnpm --filter @niu-io/dashboard lint",
     "check:docs": "pnpm --filter @niu-io/docs check",
     "build:sdk:js": "pnpm --filter @niu-io/sdk build",
     "check:sdk:js": "pnpm --filter @niu-io/sdk check",

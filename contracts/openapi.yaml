@@ -343,20 +343,18 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors'
   /api/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detectors'
-  /api/v1/providers/{provider}/offers/{offer}/qualification/revoke:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1qualification~1revoke'
-  /api/v1/providers/{provider}/offers/{offer}/qualification:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1qualification'
-  /api/v1/providers/{provider}/qualification/revoke:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1qualification~1revoke'
-  /api/v1/providers/{provider}/qualification:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1qualification'
   /api/v1/auth/preferences:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1preferences'
   /api/v1/auth/profile:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1profile'
   /api/v1/organizations/{organization}/projects:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects'
+  /api/v1/providers/{provider}/offers/{offer}/authorization:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization'
+  /api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization~1{authorization}'
+  /api/v1/providers/{provider}/settlements/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements~1preview'
   /api/v1/providers/{provider}/configuration-usage:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1configuration-usage'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation:
@@ -1023,6 +1021,8 @@ paths:
           description: Public model aliases and declared capabilities, including configured tool_calls and streaming_tool_calls. These flags do not guarantee upstream availability or authorization. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
   /v1/chat/completions:
     $ref: './generated/handler-operations.json#/paths/~1v1~1chat~1completions'
+  /v1/decisions:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1decisions'
   /v1/embeddings:
     $ref: './generated/handler-operations.json#/paths/~1v1~1embeddings'
   /v1beta/models/{model_action}:
@@ -2385,6 +2385,20 @@ paths:
   /api/v1/session/memberships:
     post:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1memberships/post'
+  /api/v1/session/invitations:
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1invitations/post'
+  /api/v1/organizations/{organization}/invitations:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1invitations/get'
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1invitations/post'
+  /api/v1/invitations/preview:
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1invitations~1preview/post'
+  /api/v1/invitations/{invitation}:
+    delete:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1invitations~1{invitation}/delete'
   /api/v1/workspaces:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces/get'

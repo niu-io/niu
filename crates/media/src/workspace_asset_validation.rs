@@ -101,7 +101,7 @@ pub(crate) fn wav(bytes: &[u8]) -> bool {
     if bytes.len() < 44 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return false;
     }
-    let declared = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+    let declared = u32::from_le_bytes(bytes[4..8].try_into().unwrap_or_default()) as usize;
     if declared.checked_add(8) != Some(bytes.len()) {
         return false;
     }
@@ -112,7 +112,7 @@ pub(crate) fn wav(bytes: &[u8]) -> bool {
         let Some(header) = bytes.get(offset..offset + 8) else {
             return false;
         };
-        let length = u32::from_le_bytes(header[4..8].try_into().unwrap()) as usize;
+        let length = u32::from_le_bytes(header[4..8].try_into().unwrap_or_default()) as usize;
         let Some(end) = offset.checked_add(8).and_then(|n| n.checked_add(length)) else {
             return false;
         };
@@ -124,12 +124,12 @@ pub(crate) fn wav(bytes: &[u8]) -> bool {
                 if align.is_some() || chunk.len() < 16 {
                     return false;
                 }
-                let format = u16::from_le_bytes(chunk[..2].try_into().unwrap());
-                let channels = u16::from_le_bytes(chunk[2..4].try_into().unwrap());
-                let rate = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
-                let byte_rate = u32::from_le_bytes(chunk[8..12].try_into().unwrap());
-                let block = u16::from_le_bytes(chunk[12..14].try_into().unwrap());
-                let bits = u16::from_le_bytes(chunk[14..16].try_into().unwrap());
+                let format = u16::from_le_bytes(chunk[..2].try_into().unwrap_or_default());
+                let channels = u16::from_le_bytes(chunk[2..4].try_into().unwrap_or_default());
+                let rate = u32::from_le_bytes(chunk[4..8].try_into().unwrap_or_default());
+                let byte_rate = u32::from_le_bytes(chunk[8..12].try_into().unwrap_or_default());
+                let block = u16::from_le_bytes(chunk[12..14].try_into().unwrap_or_default());
+                let bits = u16::from_le_bytes(chunk[14..16].try_into().unwrap_or_default());
                 if !(1..=8).contains(&channels)
                     || rate == 0
                     || rate > 384000
@@ -265,8 +265,8 @@ fn ogg(bytes: &[u8]) -> bool {
         if &h[..4] != b"OggS" || h[4] != 0 || h[5] & !7 != 0 || eos {
             return false;
         }
-        let current_serial = u32::from_le_bytes(h[14..18].try_into().unwrap());
-        let seq = u32::from_le_bytes(h[18..22].try_into().unwrap());
+        let current_serial = u32::from_le_bytes(h[14..18].try_into().unwrap_or_default());
+        let seq = u32::from_le_bytes(h[18..22].try_into().unwrap_or_default());
         if first {
             if h[5] & 2 == 0 || h[5] & 1 != 0 || seq != 0 {
                 return false;
@@ -286,7 +286,7 @@ fn ogg(bytes: &[u8]) -> bool {
         let Some(page) = bytes.get(offset..end) else {
             return false;
         };
-        let expected = u32::from_le_bytes(h[22..26].try_into().unwrap());
+        let expected = u32::from_le_bytes(h[22..26].try_into().unwrap_or_default());
         let crc = ogg_crc32_update(
             ogg_crc32_update(ogg_crc32_update(0, &page[..22]), &[0; 4]),
             &page[26..],
@@ -360,12 +360,14 @@ fn boxes(bytes: &[u8], depth: usize, movie: &mut Movie) -> bool {
         if movie.boxes > 65536 {
             return false;
         }
-        let short = u32::from_be_bytes(h[..4].try_into().unwrap());
+        let short = u32::from_be_bytes(h[..4].try_into().unwrap_or_default());
         let (length, header) = if short == 1 {
             let Some(large) = bytes.get(offset + 8..offset + 16) else {
                 return false;
             };
-            let Ok(length) = usize::try_from(u64::from_be_bytes(large.try_into().unwrap())) else {
+            let Ok(length) =
+                usize::try_from(u64::from_be_bytes(large.try_into().unwrap_or_default()))
+            else {
                 return false;
             };
             (length, 16)

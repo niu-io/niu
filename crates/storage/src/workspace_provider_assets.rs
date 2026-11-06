@@ -208,6 +208,14 @@ impl WorkspaceProviderAssetRoute {
         self.generation
     }
 }
+/// A Provider asset can be created from a caller-supplied public HTTPS URL or
+/// from one active workspace material. The workspace source is resolved to a
+/// short-lived public capability only at dispatch, after authorization and the
+/// durable claim; the capability URL is never part of the stored request hash.
+pub enum WorkspaceProviderAssetSource {
+    Url(String),
+    WorkspaceAsset(Uuid),
+}
 pub enum WorkspaceProviderAssetMutation {
     CreateGroup {
         name: String,
@@ -225,7 +233,7 @@ pub enum WorkspaceProviderAssetMutation {
     },
     CreateAsset {
         group_id: Uuid,
-        url: String,
+        source: WorkspaceProviderAssetSource,
         name: Option<String>,
         kind: FastRouterAssetKind,
     },
@@ -244,6 +252,7 @@ pub struct WorkspaceProviderAssetPrepared {
     group: Option<WorkspaceProviderAssetGroup>,
     asset: Option<WorkspaceProviderAsset>,
     body: Value,
+    workspace_asset_id: Option<Uuid>,
 }
 impl WorkspaceProviderAssetPrepared {
     pub fn operation(&self) -> &WorkspaceProviderAssetOperation {
@@ -257,6 +266,12 @@ impl WorkspaceProviderAssetPrepared {
     }
     pub fn request_body(&self) -> &Value {
         &self.body
+    }
+    /// Present only for a CreateAsset sourced from one workspace material. The
+    /// caller must mint the public capability after claiming and replace `URL`
+    /// in the request body immediately before dispatch.
+    pub fn workspace_asset_id(&self) -> Option<Uuid> {
+        self.workspace_asset_id
     }
 }
 #[derive(Serialize)]
@@ -916,6 +931,7 @@ impl Store {
         };
         let mut new_group = false;
         let mut new_asset = false;
+        let mut prepared_workspace_asset_id: Option<Uuid> = None;
         let (action, gid, aid, body, name, description, prior_status) = match mutation {
             WorkspaceProviderAssetMutation::CreateGroup { name, description } => {
                 let body = FastRouterGroupCreate {
@@ -996,7 +1012,7 @@ impl Store {
             }
             WorkspaceProviderAssetMutation::CreateAsset {
                 group_id,
-                url,
+                source,
                 name,
                 kind,
             } => {
@@ -1007,16 +1023,39 @@ impl Store {
                 if replay.is_none() && g.status != "ready" {
                     return Err(StoreError::Conflict);
                 }
+                let kind_text = provider_kind(&kind)?;
+                // A workspace source is bound by its stable Niu asset reference,
+                // never by a public URL or an ephemeral fetch capability. The
+                // provider body carries a non-fetchable canonical placeholder
+                // for the request hash; the Gateway replaces it at dispatch.
+                let (source_url, workspace_asset_id) = match source {
+                    WorkspaceProviderAssetSource::Url(url) => (url, None),
+                    WorkspaceProviderAssetSource::WorkspaceAsset(id) => {
+                        let asset_kind: Option<String> = sqlx::query_scalar(
+                            "SELECT media_kind FROM workspace_asset_library                              WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND deleted_at IS NULL",
+                        )
+                        .bind(s.organization_id)
+                        .bind(s.project_id)
+                        .bind(id)
+                        .fetch_optional(&mut *tx)
+                        .await?;
+                        if asset_kind.as_deref() != Some(kind_text.as_str()) {
+                            return Err(StoreError::Conflict);
+                        }
+                        (format!("https://workspace-asset.invalid/{id}"), Some(id))
+                    }
+                };
+                prepared_workspace_asset_id = workspace_asset_id;
                 let reference = provider_ref(g.private_reference())?;
                 let mut body = FastRouterAssetCreate {
                     group_reference: &reference,
-                    url,
+                    url: source_url,
                     name: name.clone(),
                     kind,
                 }
                 .body()
                 .map_err(|_| StoreError::InvalidObservation)?;
-                body["_niu_kind"] = json!(provider_kind(&kind)?);
+                body["_niu_kind"] = json!(kind_text);
                 new_asset = replay.is_none();
                 (
                     "create_asset",
@@ -1151,6 +1190,7 @@ impl Store {
             group,
             asset,
             body,
+            workspace_asset_id: prepared_workspace_asset_id,
         })
     }
     /// Cancel only an unclaimed, original-key operation; never infer an unknown outcome.

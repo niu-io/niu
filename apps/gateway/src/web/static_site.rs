@@ -352,7 +352,7 @@ async fn static_cache_headers(
                     &DASHBOARD_CSP_REPORT_ONLY
                         .replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
                 )
-                .expect("static documentation policy is a valid header")
+                .unwrap_or_else(|_| axum::http::HeaderValue::from_static("frame-ancestors 'self'"))
             } else {
                 axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY)
             },

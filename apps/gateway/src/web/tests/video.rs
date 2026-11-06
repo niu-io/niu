@@ -1466,22 +1466,22 @@ async fn video_selling_configuration_requires_platform_administration(pool: PgPo
 #[sqlx::test]
 #[ignore = "requires PostgreSQL"]
 async fn prepaid_video_reserves_before_egress_and_settles_reported_usage_once(pool: PgPool) {
-    prepaid_video_path(pool, false, false).await;
+    prepaid_video_path(pool, false).await;
 }
 
 #[sqlx::test]
 #[ignore = "requires PostgreSQL"]
 async fn dashboard_video_owner_uses_prepaid_admission_and_durable_settlement(pool: PgPool) {
-    prepaid_video_path(pool, true, false).await;
+    prepaid_video_path(pool, true).await;
 }
 
 #[sqlx::test]
 #[ignore = "requires PostgreSQL"]
 async fn authorized_offer_video_preserves_liability_and_financial_isolation(pool: PgPool) {
-    prepaid_video_path(pool, false, true).await;
+    prepaid_video_path(pool, false).await;
 }
 
-async fn prepaid_video_path(pool: PgPool, via_dashboard: bool, new_authorization: bool) {
+async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     niu_storage::MIGRATOR.run(&pool).await.unwrap();
     let posts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let gets = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -1615,44 +1615,6 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool, new_authorization
     .fetch_one(&pool)
     .await
     .unwrap();
-    if !new_authorization {
-        let expiry = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64
-            + 3600000;
-        state
-            .store
-            .qualify_provider_business(
-                supplier,
-                &niu_storage::ProviderQualificationInput {
-                    supply_rights_sha256: "a".repeat(64),
-                    supply_capability_sha256: "b".repeat(64),
-                    data_handling_sha256: "c".repeat(64),
-                    valid_until_ms: expiry,
-                },
-            )
-            .await
-            .unwrap();
-        state
-            .store
-            .qualify_provider_offer(
-                supplier,
-                offer,
-                &niu_storage::ProviderOfferQualificationInput {
-                    rate_revision: offer_revision,
-                    model_identity_sha256: "d".repeat(64),
-                    protocol_matrix_sha256: "e".repeat(64),
-                    protocol_matrix_version: "video-fixture-v1".into(),
-                    data_handling_sha256: "f".repeat(64),
-                    availability_sha256: "1".repeat(64),
-                    agreed_rates_sha256: "2".repeat(64),
-                    valid_until_ms: expiry,
-                },
-            )
-            .await
-            .unwrap();
-    }
     let actor = state
         .store
         .create_operator(
@@ -1691,24 +1653,16 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool, new_authorization
         .set_member_platform_administration(platform_actor.operator_id, true, false)
         .await
         .unwrap();
-    if new_authorization {
-        state
-            .store
-            .enable_authorized_provider_offer(
-                supplier,
-                offer,
-                offer_revision,
-                niu_storage::OperatorAuditActor::Operator(platform_actor.operator_id),
-            )
-            .await
-            .unwrap();
-    } else {
-        state
-            .store
-            .set_provider_offer_active(supplier, offer, actor.operator_id, true)
-            .await
-            .unwrap();
-    }
+    state
+        .store
+        .enable_authorized_provider_offer(
+            supplier,
+            offer,
+            offer_revision,
+            niu_storage::OperatorAuditActor::Operator(platform_actor.operator_id),
+        )
+        .await
+        .unwrap();
     let vendor = state.store.vendor(vendor_id).await.unwrap().unwrap();
     let q = |n: &str| json!({"numerator":n,"denominator":"1"});
     let card:niu_storage::CustomerMediaRateCard=serde_json::from_value(json!({"revision":"selling-fixture","vendor_id":vendor_id,"vendor_revision":vendor.revision,"model_revision":model.revision,"schema_revision":"prepaid-schema","offer_revision":offer_revision.to_string(),"tariff":{"revision":"retail-fixture","dimensions":{"model":"fixture-video","channel":"ark-direct-v1","resolution":"720p","reference_video":false},"meter":"video_tokens","currency":"CNY","decimal_places":9,"amount_units":100,"per_quantity":q("1000000"),"minimum_quantity":q("0"),"rounding":"Up","effective_from":0,"effective_until":null},"discounts":[],"maximum_quantity":q("200000"),"liability_qualification_revision":"synthetic-maximum-fixture"})).unwrap();
@@ -1851,6 +1805,10 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool, new_authorization
             );
             assert_eq!(value["data"][0]["resolutions"], json!(["720p"]));
             assert_eq!(value["data"][0]["reference_video"], false);
+            assert_eq!(
+                value["data"][0]["meter"], "video_tokens",
+                "the output estimator owns the media billing unit"
+            );
             assert_eq!(value["has_more"], false);
             assert!(value["next_after"].is_null());
             let serialized = value.to_string();
@@ -1910,6 +1868,10 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool, new_authorization
             );
             assert_eq!(value["data"][0]["resolutions"], json!(["720p"]));
             assert_eq!(value["data"][0]["reference_video"], false);
+            assert_eq!(
+                value["data"][0]["meter"], "video_tokens",
+                "the output estimator owns the media billing unit"
+            );
             assert_eq!(value["has_more"], false);
             assert!(value["next_after"].is_null());
             let serialized = value.to_string();

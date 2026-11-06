@@ -100,11 +100,11 @@ export function getPrompt(
   if (name === "check_key_budget") {
     const search = optionalStringArg(args, "search");
     const text = [
-      "1. Call inspect_key to read label, allowed_models, invocation_allowed, expires_at_ms (Unix milliseconds), spending_limits (limit_nanos, committed_nanos, remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), usage_window and allowed_cidrs.",
+      "1. Call inspect_key to read label, allowed_models, invocation_allowed, invocation_protocols, expires_at_ms (Unix milliseconds), spending_limits (limit_nanos, committed_nanos, remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), usage_window and allowed_cidrs.",
       search
         ? `2. Call list_models with {"search": ${JSON.stringify(search)}} to inspect matching models and their customer_pricing.`
         : "2. Call list_models to inspect accessible models and their customer_pricing.",
-      "3. Report spending by currency and distinguish null unlimited limits from known zero. A null expires_at_ms means no automatic expiration. Report rate policies and known usage without inferring complete RPM/TPM headroom when pending or unknown usage is not available. Report invocation_allowed independently: false blocks model calls even when models are discoverable. Fixed allowed_models do not expand with later additions. Keep customer-charge limits distinct from owner-funded upstream expense; a missing price is not zero and a customer cap is not an upstream-spend cap.",
+      "3. Report spending by currency and distinguish null unlimited limits from known zero. A null expires_at_ms means no automatic expiration. Report rate policies and known usage without inferring complete RPM/TPM headroom when pending or unknown usage is not available. Report invocation_allowed and invocation_protocols independently: false blocks model calls even when models are discoverable, and a protocol outside invocation_protocols is denied. Fixed allowed_models and interfaces do not expand with later additions. Treat only server spending limits as enforcement; a budget agreed in conversation is not a cap. Keep customer-charge limits distinct from owner-funded upstream expense; a missing price is not zero and a customer cap is not an upstream-spend cap.",
     ].join("\n");
     return {
       description: "Inspect workspace key limits, budget, and accessible models",

@@ -11,7 +11,7 @@ The current development configuration is TOML. The example file is [`config/niu.
 
 Set `public_catalog = true` on a route to publish its alias, declared capabilities and descriptive model metadata at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
 
-The public model directory filters published aliases by alias, display name, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. Missing metadata is omitted rather than estimated. Public discovery does not grant workspace access or establish live Provider verification; workspace keys and customer prices remain separate.
+The public model directory filters published aliases by alias, display name, inferred developer, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. Developer labels are inferred from published model identifiers and are not verified; unrecognized identifiers remain unattributed, and Provider identity stays separate. Missing metadata is omitted rather than estimated. `GET /v1/models` and `GET /catalog/v1/models` report `owned_by: "niu"` as the route owner, not the upstream model developer. Public discovery does not grant workspace access or establish live Provider verification; workspace keys and customer prices remain separate.
 
 ```toml
 [models.fast]
@@ -179,7 +179,7 @@ a separate selection mechanism and are not assigned a fabricated registry genera
 
 在路由上设置 `public_catalog = true` 可在 `/models/` 和 `GET /catalog/v1/models` 发布其别名、声明的能力及描述性模型元数据。这是一项显式的公开披露操作。公开目录会省略供应商名称、上游模型标识符、端点、凭证和定价信息。路由默认保持隐藏状态。
 
-公开模型目录支持按别名、显示名称、输入/输出模态以及声明的 API 能力筛选已发布的别名。目录条目会展示可用的描述、上下文与输出上限，以及指向受支持协议参考文档的链接。缺失的元数据会被省略，而不会进行估算。公开目录发现不会授予工作空间访问权限，也不代表已完成实时的模型供应商验证；工作空间密钥与客户价格仍然相互独立。
+公开模型目录支持按别名、显示名称、推测的开发商、输入/输出模态以及声明的 API 能力筛选已发布的别名。目录条目会展示可用的描述、上下文与输出上限，以及指向受支持协议参考文档的链接。开发商标签根据公开的模型标识符推测，未经核实；无法识别的标识符不会归属任何开发商，模型供应商身份仍保持独立。缺失的元数据会被省略，而不会进行估算。`GET /v1/models` 和 `GET /catalog/v1/models` 将 `owned_by: "niu"` 报告为路由所有者，而非上游模型开发商。公开目录发现不会授予工作空间访问权限，也不代表已完成实时的模型供应商验证；工作空间密钥与客户价格仍然相互独立。
 
 ```toml
 [models.fast]

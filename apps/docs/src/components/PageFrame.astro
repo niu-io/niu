@@ -595,6 +595,13 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       }
     });
 
+    root.querySelectorAll<HTMLElement>('.hero .tagline').forEach((el) => {
+      const orig = rememberOriginalText(el);
+      if (orig === 'This documentation link may be outdated.') {
+        el.textContent = isZh ? '此文档链接可能已过时。' : orig;
+      }
+    });
+
     // 2. Search button in header & search modal
     root.querySelectorAll<HTMLElement>('site-search button').forEach((btn) => {
       const label = isZh ? '搜索文档 (⌘K)' : 'Search documentation (⌘K)';
@@ -723,6 +730,13 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     // the iframe or rebuilding the documentation shell.
     window.addEventListener('message', (event) => {
       if (event.origin !== location.origin || event.source !== parent) return;
+      if (event.data?.type === 'niu-docs-theme' && (event.data.theme === 'system' || event.data.theme === 'light' || event.data.theme === 'dark')) {
+        const dark = event.data.theme === 'dark' || (event.data.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        return;
+      }
       if (event.data?.type === 'niu-docs-locale' && (event.data.locale === 'en' || event.data.locale === 'zh-CN')) {
         document.documentElement.dataset.locale = event.data.locale;
         document.documentElement.lang = event.data.locale;

@@ -1,0 +1,7 @@
+{
+  "model": "pool/assistant",
+  "input": "See image",
+  "instructions": "Be",
+  "stream": true,
+  "max_output_tokens": 128
+}

@@ -82,6 +82,16 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///           "maxLength": 200,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-routing-context",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 512
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -568,7 +578,9 @@ pub(in crate::web) async fn responses(
     Json(mut body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_invocation_headers(&headers).await?;
+    let principal = state
+        .authorize_invocation_headers(&headers, "responses")
+        .await?;
     let mut public_model = body
         .get("model")
         .and_then(Value::as_str)
@@ -588,18 +600,22 @@ pub(in crate::web) async fn responses(
         )
         .await;
     }
-    let input_chars = body
-        .get("input")
-        .and_then(Value::as_str)
-        .map_or(0, |s| s.chars().count());
-    let requirements = crate::config::ModelRequirements {
-        project_id: Some(principal.scope().project_id),
-        streaming: body.get("stream").and_then(Value::as_bool) == Some(true),
-        reasoning: body.get("reasoning").is_some(),
-        estimated_input_tokens: Some(((input_chars.saturating_add(3)) / 4).max(1) as u64),
-        requested_output_tokens: body.get("max_output_tokens").and_then(Value::as_u64),
-        ..Default::default()
-    };
+    let traits =
+        crate::routing_traits::extract(crate::guardrails::input::Protocol::Responses, &body);
+    // The implemented Responses subset is text only. Reject image, tool,
+    // structured-output and reasoning traits explicitly before filtering, rather
+    // than routing as if the request carried fewer traits than it does.
+    crate::routing_traits::require_supported(
+        crate::guardrails::input::Protocol::Responses,
+        &traits,
+    )?;
+    // Reject malformed native fields before they can filter candidates. Priced
+    // validation repeats at dispatch once the selected route is known.
+    validate_responses_request(&mut body, None)?;
+    let requirements = traits.requirements(
+        Some(principal.scope().project_id),
+        crate::guardrails::input::Protocol::Responses,
+    );
     let selection = crate::web::workspace_pools::select_for_request(
         &state,
         &principal,
@@ -607,6 +623,7 @@ pub(in crate::web) async fn responses(
         &mut body,
         crate::guardrails::input::Protocol::Responses,
         &requirements,
+        &headers,
     )
     .await?;
     let result = super::retry::execute(
@@ -617,6 +634,7 @@ pub(in crate::web) async fn responses(
         public_model,
         crate::guardrails::input::Protocol::Responses,
         Some(requirements),
+        true,
     )
     .await;
     if let Some(selection) = selection {

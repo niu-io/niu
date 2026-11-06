@@ -1043,7 +1043,7 @@ pub struct MediaRatePage {
 ///   "operation": {
 ///     "operationId": "listCustomerMediaRateModels",
 ///     "summary": "Read named qualified commercial video configuration choices",
-///     "description": "Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.",
+///     "description": "Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings and the billing unit derived from a validated output estimator. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.",
 ///     "parameters": [
 ///       {
 ///         "name": "organization",
@@ -1110,7 +1110,8 @@ pub struct MediaRatePage {
 ///                       "schema_revision",
 ///                       "channel",
 ///                       "resolutions",
-///                       "reference_video"
+///                       "reference_video",
+///                       "meter"
 ///                     ],
 ///                     "properties": {
 ///                       "model_alias": {
@@ -1150,6 +1151,13 @@ pub struct MediaRatePage {
 ///                       },
 ///                       "reference_video": {
 ///                         "type": "boolean"
+///                       },
+///                       "meter": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "description": "Billing unit derived from the validated output estimator; null when the model has no configured output mapping."
 ///                       }
 ///                     }
 ///                   }

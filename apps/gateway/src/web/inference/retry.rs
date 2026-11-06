@@ -9,7 +9,8 @@ use serde_json::Value;
 use std::{sync::atomic::Ordering, time::Duration};
 use uuid::Uuid;
 
-pub(super) async fn execute(
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn execute(
     state: AppState,
     principal: niu_storage::Principal,
     headers: HeaderMap,
@@ -17,6 +18,7 @@ pub(super) async fn execute(
     public_model: String,
     protocol: crate::guardrails::input::Protocol,
     requirements: Option<crate::config::ModelRequirements>,
+    allow_transport_retry: bool,
 ) -> Result<Response, ApiError> {
     let retry_protocol = match protocol {
         crate::guardrails::input::Protocol::Chat => niu_storage::GatewayRetryProtocol::Chat,
@@ -47,7 +49,8 @@ pub(super) async fn execute(
             Ok(resolved) => resolved,
             Err(error) => return previous_response.map_or_else(|| Err(error), Ok),
         };
-        let qualified = resolved.model.provider == "openrouter"
+        let qualified = allow_transport_retry
+            && resolved.model.provider == "openrouter"
             && resolved
                 .model
                 .endpoint_base()

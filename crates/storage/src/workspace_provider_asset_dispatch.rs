@@ -62,7 +62,7 @@ fn route_digest(route: &VendorRoute) -> Result<[u8; 32], StoreError> {
             "model_vendor":route.model.vendor_id,"model_revision":route.model.revision,
             "model_enabled":route.model.enabled,"upstream_model":route.model.upstream_model,
             "capabilities":route.model.capabilities,"pricing":route.model.pricing,
-            "owner":route.personal_organization_id,
+            "owner":route.personal_organization_id,"access_scope":route.access_scope(),
         }))
         .map_err(|_| StoreError::InvalidObservation)?,
     );
@@ -101,7 +101,7 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        let row=sqlx::query("SELECT v.revision AS vendor_revision,v.adapter,v.api_base,v.credential_ciphertext,m.revision AS model_revision,m.upstream_model,m.capabilities,m.pricing,own.organization_id AS personal_owner FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id LEFT JOIN personal_vendor_ownership own ON own.vendor_id=v.id WHERE m.alias=$1 AND v.id=$2 AND v.enabled AND m.enabled AND v.credential_ciphertext IS NOT NULL AND m.capabilities#>>'{provider_assets,channel}'='fastrouter-actions-v1' AND (own.organization_id=$3 OR (own.organization_id IS NULL AND niu_supplier_model_route_available(m.alias))) FOR SHARE OF v,m")
+        let row=sqlx::query("SELECT v.revision AS vendor_revision,v.adapter,v.api_base,v.credential_ciphertext,m.revision AS model_revision,m.upstream_model,m.capabilities,m.pricing,own.organization_id AS personal_owner,own.access_scope AS personal_scope FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id LEFT JOIN personal_vendor_ownership own ON own.vendor_id=v.id WHERE m.alias=$1 AND v.id=$2 AND v.enabled AND m.enabled AND v.credential_ciphertext IS NOT NULL AND m.capabilities#>>'{provider_assets,channel}'='fastrouter-actions-v1' AND ((own.organization_id=$3 OR own.access_scope='internal') OR (own.organization_id IS NULL AND niu_supplier_model_route_available(m.alias))) FOR SHARE OF v,m")
             .bind(&route.model.alias).bind(route.vendor.id).bind(scope.organization_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         if row.get::<i64, _>("vendor_revision") != route.vendor.revision
             || row.get::<i64, _>("model_revision") != route.model.revision
@@ -112,6 +112,14 @@ impl Store {
             || row.get::<Value, _>("capabilities") != route.model.capabilities
             || row.get::<Option<Value>, _>("pricing") != route.model.pricing
             || row.get::<Option<Uuid>, _>("personal_owner") != route.personal_organization_id
+            || row
+                .get::<Option<String>, _>("personal_scope")
+                .as_deref()
+                .map(|scope| match scope {
+                    "internal" => crate::VendorAccessScope::Internal,
+                    _ => crate::VendorAccessScope::Personal,
+                })
+                != route.personal_organization_id.map(|_| route.access_scope())
         {
             return Err(StoreError::Conflict);
         }

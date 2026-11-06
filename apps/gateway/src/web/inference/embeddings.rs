@@ -65,6 +65,16 @@ use super::common::*;
 ///           "maxLength": 200,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-routing-context",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 512
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -243,7 +253,9 @@ pub(in crate::web) async fn embeddings(
     Json(mut body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_invocation_headers(&headers).await?;
+    let principal = state
+        .authorize_invocation_headers(&headers, "embeddings")
+        .await?;
     let mut public_model = body
         .get("model")
         .and_then(Value::as_str)
@@ -267,6 +279,7 @@ pub(in crate::web) async fn embeddings(
         &mut body,
         crate::guardrails::input::Protocol::Embeddings,
         &requirements,
+        &headers,
     )
     .await?;
     let result = async {

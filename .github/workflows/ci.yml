@@ -81,6 +81,8 @@ jobs:
         run: |
           pnpm test:i18n
           pnpm check:i18n:new
+      - name: Lint dashboard sources and styles
+        run: pnpm lint:dashboard
       - name: Check dashboard types
         run: pnpm --filter @niu-io/dashboard check
       - name: Build dashboard

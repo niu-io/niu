@@ -40,6 +40,8 @@ pub enum RetrievedCheckout {
 impl Client {
     /// Internal evidence binding, never a customer-facing identifier.
     /// HMAC prevents the stored digest from becoming an unkeyed credential hash.
+    // HMAC accepts keys of any length; the embedded serializer only sees owned strings/vectors.
+    #[allow(clippy::expect_used)]
     pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;

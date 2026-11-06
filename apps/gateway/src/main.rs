@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 mod admin;
 mod admission;
 mod background_recovery;
@@ -26,6 +28,7 @@ mod request_payloads;
 mod request_source;
 mod request_timings;
 mod resource_events;
+mod routing_traits;
 mod state;
 mod streaming;
 mod structured_stream;
@@ -42,6 +45,19 @@ use std::{env, net::SocketAddr};
 use state::AppState;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
+
+/// Put the edge request ID in the request before TraceLayer builds its span, so
+/// generated IDs are logged and the inner correlation layer echoes the same ID.
+async fn ensure_request_id(
+    mut request: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let id = crate::web::resolve_or_generate_request_id(request.headers());
+    if let Ok(value) = axum::http::HeaderValue::from_str(&id) {
+        request.headers_mut().insert("x-request-id", value);
+    }
+    next.run(request).await
+}
 
 fn trace_path(path: &str) -> &str {
     if path.starts_with("/v1/media/sources/") {
@@ -152,21 +168,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let payment_account_checks =
         payments::readiness::spawn_account_checks(&state, bg_shutdown_rx.clone());
     // OAuth callbacks contain authorization codes: trace paths, never queries.
-    let app = web::router(state).layer(TraceLayer::new_for_http().make_span_with(
-        |request: &axum::http::Request<axum::body::Body>| {
-            let request_id = request
-                .headers()
-                .get("x-request-id")
-                .and_then(|value| value.to_str().ok())
-                .unwrap_or("-");
-            tracing::debug_span!(
-                "http_request",
-                method = %request.method(),
-                path = %trace_path(request.uri().path()),
-                request_id = %request_id
-            )
-        },
-    ));
+    let app = web::router(state)
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &axum::http::Request<axum::body::Body>| {
+                    let request_id = request
+                        .headers()
+                        .get("x-request-id")
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or("-");
+                    tracing::info_span!(
+                        "http_request",
+                        method = %request.method(),
+                        path = %trace_path(request.uri().path()),
+                        request_id = %request_id
+                    )
+                })
+                .on_response(
+                    tower_http::trace::DefaultOnResponse::new().level(tracing::Level::INFO),
+                ),
+        )
+        .layer(axum::middleware::from_fn(ensure_request_id));
 
     tracing::info!(
         address = %address,

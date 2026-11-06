@@ -48,6 +48,16 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///           "maxLength": 200,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-routing-context",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 512
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -738,7 +748,9 @@ async fn execute(
     mut body: Value,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_invocation_headers(headers).await?;
+    let principal = state
+        .authorize_invocation_headers(headers, "content")
+        .await?;
     let mut selected_model = action
         .strip_suffix(":generateContent")
         .filter(|v| {
@@ -746,14 +758,19 @@ async fn execute(
         })
         .ok_or_else(|| ApiError::unsupported_message("Only buffered generateContent is supported"))?
         .to_owned();
+    let traits = crate::routing_traits::extract(Protocol::GenerateContent, &body);
+    // The implemented GenerateContent subset is buffered text only. Tools,
+    // media, structured output and thinking configuration are rejected
+    // explicitly instead of being dropped from candidate filtering.
+    crate::routing_traits::require_supported(Protocol::GenerateContent, &traits)?;
     let bound = validate(&body)?;
     if !selected_model.starts_with("pool/") && !principal.allows_model(&selected_model) {
         return Err(ApiError::not_found());
     }
-    let requirements = crate::config::ModelRequirements {
-        project_id: Some(principal.scope().project_id),
-        ..Default::default()
-    };
+    let requirements = traits.requirements(
+        Some(principal.scope().project_id),
+        Protocol::GenerateContent,
+    );
     let selection = crate::web::workspace_pools::select_for_request(
         state,
         &principal,
@@ -761,6 +778,7 @@ async fn execute(
         &mut body,
         Protocol::GenerateContent,
         &requirements,
+        headers,
     )
     .await?;
     let public_model = selected_model.as_str();

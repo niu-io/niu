@@ -680,8 +680,9 @@ where
                 break Err(error);
             }
             if evidence.done {
-                let context = pending.take().expect("active buffered stream context");
-                context.complete(&evidence).await;
+                if let Some(context) = pending.take() {
+                    context.complete(&evidence).await;
+                }
                 break customer
                     .finish_terminal_with_observer(&mut |value| collector.observe(value))
                     .and_then(|_| collector.complete())
@@ -764,8 +765,9 @@ where
                                 .as_ref()
                                 .is_some_and(|output| !output.valid())
                         {
-                            let context = attempt.take().expect("active stream context");
-                            context.complete(&evidence).await;
+                            if let Some(context) = attempt.take() {
+                                context.complete(&evidence).await;
+                            }
                             customer_output.finish_observation();
                             customer_output.suppress_chat_terminal();
                             let output = customer_output.feed(&bytes).and_then(|mut output| {
@@ -817,8 +819,9 @@ where
                         };
                         if evidence.done {
                             stopped = true;
-                            let context = attempt.take().expect("active stream context");
-                            context.complete(&evidence).await;
+                            if let Some(context) = attempt.take() {
+                                context.complete(&evidence).await;
+                            }
                             customer_output.finish_observation();
                             Ok(bytes)
                         } else {

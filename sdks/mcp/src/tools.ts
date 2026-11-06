@@ -1573,13 +1573,13 @@ export const toolDefinitions = [
   {
     name: "inspect_key",
     description:
-      "Inspect the current workspace API key: label, allowed_models, invocation_allowed (false blocks model calls independently of discovery and management), management_capabilities (explicit resource grants, not installation authority), expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
+      "Inspect the current workspace API key: label, allowed_models, invocation_allowed (false blocks model calls independently of discovery and management), invocation_protocols (the exact approved model interfaces; an omitted or narrower list denies other interfaces), management_capabilities (explicit resource grants, not installation authority), expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "list_models",
     description:
-      "List the models available to this workspace API key, including customer prices when Niu publishes them. Prices are customer charges. Provider cost and platform margin are not available.",
+      "List the models available to this workspace API key, including customer prices when Niu publishes them. Prices are customer charges. Provider cost and platform margin are not available. Model ownership identifies the Niu route, not upstream model authorship.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -1598,7 +1598,7 @@ export const toolDefinitions = [
   {
     name: "list_catalog_models",
     description:
-      "List public Niu catalog models along with customer metadata and supported protocol capabilities (chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, responses).",
+      "List public Niu catalog models along with customer metadata and supported protocol capabilities (chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, responses). The owned_by field identifies the Niu route owner, not the upstream model developer.",
     inputSchema: {
       type: "object",
       additionalProperties: false,

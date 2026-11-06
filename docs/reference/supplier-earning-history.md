@@ -48,22 +48,34 @@ before revalidation. Original development data and encrypted identity were kept.
 
 ## SDK settlement recording
 
-`recordSupplierSettlement(supplierId, input)` calls the existing platform-only
-settlement POST. Supply `idempotency_key`, the exact `payment_reference` and the
-selected `attempt_ids`. It records an already confirmed external payment; it does
-not send money. Preserve the same values after an ambiguous response and retry
-with the original key. The server treats entry order as irrelevant and computes
-the exact total from the selected unpaid ledger entries.
+`previewProviderSettlement(providerId, {currency, cutoff_ms, from_ms?})`
+returns the aggregate unpaid count, exact amount, and the count/amount that
+would remain unpaid after that period. It is read-only and never returns
+request, customer or workspace identities. `cutoff_ms` is inclusive;
+`from_ms` is an optional inclusive lower bound.
 
-The SDK validates 1–1,000 unique UUID selections and a nonblank reference with no
-control characters and at most 200 UTF-8 bytes. It does not generate an idempotency
-key or payment reference. Handler annotations now expose this existing write in
-the generated OpenAPI and documentation.
+`recordProviderSettlement(providerId, input)` accepts one of two mutually
+exclusive forms:
 
-A current-input SDK run against the native gateway submitted an unmatched entry
-selection twice using one key and received 409 both times. A Supplier viewer was
-rejected with 403, including while its membership was active. Independent
-reopening confirmed no payment, settlement entry or earning was created; the
-HTTP run also checked absence of a payment-recorded audit. Successful payment
-recording, positive idempotent replay and concurrent settlement remain unverified.
-No external payment was claimed or fabricated for this rejection check.
+- **Period settlement** — `idempotency_key`, `payment_reference`, `currency`,
+  `cutoff_ms`, and optional `from_ms`. The server selects every unpaid earning
+  in that currency through the cutoff, computes the exact total, and reports the
+  amount, entry count and unpaid balance remaining in that currency. This mode
+  never uses request-level identifiers.
+- **Legacy attempt settlement** — `idempotency_key`, `payment_reference`, and
+  1–1,000 unique `attempt_ids`. Existing callers keep the previous contract.
+
+Both forms record an already confirmed external payment; they do not send money.
+The server rejects mixed mode fields, mixed currencies, changed idempotent
+replays, duplicate payment references, unavailable entries and periods with no
+positive unpaid earnings. Preserve the same key, reference and period bounds
+after an ambiguous response and retry with the original values. Every successful
+write appends the existing `external_payment_recorded` Provider audit event.
+
+The JavaScript SDK contract test covers period preview/write and the legacy
+attempt form with a mocked transport; the storage integration test covers
+period selection, partial cutoffs, currency isolation, idempotency and audit in
+an isolated PostgreSQL database. Full live bank reconciliation, a successful
+native HTTP settlement over real earnings, and concurrent real-payment
+settlement remain unverified; no external payment was claimed for those
+branches.

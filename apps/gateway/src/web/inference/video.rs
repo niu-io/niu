@@ -739,6 +739,7 @@ pub(super) async fn draft_route(
     ApiError,
 > {
     let scope = principal.scope();
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     let published = crate::vendors::publication::snapshot(state).await?;
     let route_generation = published.as_ref().map(|published| published.generation);
     let (route, owner_funded) = if let Some(published) = &published {
@@ -753,9 +754,7 @@ pub(super) async fn draft_route(
         let metadata = &configured.metadata;
         if !metadata.vendor.enabled
             || !metadata.model.enabled
-            || metadata
-                .personal_organization_id
-                .is_some_and(|owner| owner != scope.organization_id)
+            || !metadata.visible_to(Some(scope.organization_id), allow_internal)
         {
             return Err(ApiError::not_found());
         }
@@ -769,6 +768,7 @@ pub(super) async fn draft_route(
             || live.route.vendor.revision != metadata.vendor.revision
             || live.route.model.revision != metadata.model.revision
             || live.route.personal_organization_id != metadata.personal_organization_id
+            || live.route.access_scope() != metadata.access_scope()
         {
             return Err(ApiError::from_store(
                 niu_storage::StoreError::ManagedRouteChanged,
@@ -783,6 +783,7 @@ pub(super) async fn draft_route(
                 vendor: metadata.vendor.clone(),
                 model: metadata.model.clone(),
                 personal_organization_id: metadata.personal_organization_id,
+                access_scope: live.route.access_scope,
                 credential_ciphertext: live.route.credential_ciphertext,
             },
             owner_funded,
@@ -790,7 +791,7 @@ pub(super) async fn draft_route(
     } else {
         let personal = state
             .store
-            .personal_vendor_route(scope.organization_id, model)
+            .accessible_vendor_route(scope.organization_id, model, allow_internal)
             .await
             .map_err(ApiError::from_store)?;
         let owner_funded = personal.is_some();
@@ -1056,17 +1057,15 @@ pub(super) async fn validate_admission(
                                 *p == position && *kind == "image_url" && *uri == url
                             })
                     })
-                    || matches!(item["type"].as_str(), Some("audio_url" | "video_url"))
-                        && !item[item["type"].as_str().unwrap()]["url"]
-                            .as_str()
-                            .is_some_and(|url| {
+                    || item["type"].as_str().is_some_and(|kind| {
+                        matches!(kind, "audio_url" | "video_url")
+                            && !item[kind]["url"].as_str().is_some_and(|url| {
                                 url.starts_with("https://")
-                                    || provider_references.iter().any(|(p, kind, uri)| {
-                                        *p == position
-                                            && *kind == item["type"].as_str().unwrap()
-                                            && *uri == url
+                                    || provider_references.iter().any(|(p, ref_kind, uri)| {
+                                        *p == position && *ref_kind == kind && *uri == url
                                     })
                             })
+                    })
             })
         })
     {
@@ -1648,7 +1647,9 @@ pub(in crate::web) async fn create(
     Json(body): Json<Value>,
 ) -> Result<axum::response::Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_invocation_headers(&headers).await?;
+    let principal = state
+        .authorize_invocation_headers(&headers, "video")
+        .await?;
     let identity = submission_identity(&headers, &body)?;
     create_as(state, body, principal, identity, None).await
 }
@@ -1709,13 +1710,9 @@ async fn replay_submission(
         })),
     )
         .into_response();
-    response.headers_mut().insert(
-        "x-niu-attempt-id",
-        attempt
-            .to_string()
-            .parse()
-            .expect("UUID is an HTTP header value"),
-    );
+    if let Ok(value) = attempt.to_string().parse() {
+        response.headers_mut().insert("x-niu-attempt-id", value);
+    }
     Ok(response)
 }
 
@@ -1727,7 +1724,12 @@ pub(super) async fn create_as(
     expected_owner_funded: Option<bool>,
 ) -> Result<axum::response::Response, ApiError> {
     if !principal.invocation_allowed() {
-        return Err(ApiError::from_store(niu_storage::StoreError::InvocationDenied));
+        return Err(ApiError::from_store(
+            niu_storage::StoreError::InvocationDenied,
+        ));
+    }
+    if !principal.allows_invocation_protocol("video") {
+        return Err(ApiError::invocation_protocol_not_authorized());
     }
     let model = body
         .get("model")
@@ -2220,13 +2222,9 @@ pub(super) async fn create_as(
         })),
     )
         .into_response();
-    response.headers_mut().insert(
-        "x-niu-attempt-id",
-        attempt
-            .to_string()
-            .parse()
-            .expect("UUID is an HTTP header value"),
-    );
+    if let Ok(value) = attempt.to_string().parse() {
+        response.headers_mut().insert("x-niu-attempt-id", value);
+    }
     // Only the inspected customer request belongs in Logs. Upstream transport
     // bodies, credentials and result references have a different trust boundary.
     // Replays return above and cannot replace the original capture or its expiry.
@@ -2316,6 +2314,15 @@ async fn authorize_refresh_for_principal(
         .personal_vendor_organization(route.vendor_id)
         .await
         .map_err(ApiError::from_store)?;
+    let internal_shared = state.operating_mode == crate::state::OperatingMode::Internal
+        && state
+            .store
+            .vendor_access_scope(route.vendor_id)
+            .await
+            .map_err(ApiError::from_store)?
+            == Some(niu_storage::VendorAccessScope::Internal);
+    let owner_funded = owner.is_some();
+    let owned_by_workspace = owner == Some(scope.organization_id) || internal_shared;
     let priced = state
         .store
         .customer_media_is_priced(scope, id)
@@ -2323,9 +2330,8 @@ async fn authorize_refresh_for_principal(
         .map_err(ApiError::from_store)?;
     let openrouter = route.channel == niu_media::openrouter::REVISION;
     if (route.channel != "ark-direct-v1" && !openrouter)
-        || (openrouter
-            && (route.adapter != "openrouter" || priced || owner != Some(scope.organization_id)))
-        || (owner != Some(scope.organization_id) && !(owner.is_none() && priced))
+        || (openrouter && (route.adapter != "openrouter" || priced || !owned_by_workspace))
+        || (!owned_by_workspace && !(!owner_funded && priced))
     {
         return Err(ApiError::unsupported_message(
             "This video recovery channel is not implemented",

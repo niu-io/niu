@@ -336,7 +336,8 @@ pub(crate) async fn start(
         created: Instant::now(),
     };
     let state_value = seal_pending_login(cipher, &pending_entry, now())?;
-    let mut url = url::Url::parse("https://auth.openai.com/api/accounts/authorize").unwrap();
+    let mut url = url::Url::parse("https://auth.openai.com/api/accounts/authorize")
+        .map_err(|_| ApiError::storage_unavailable())?;
     {
         let mut query = url.query_pairs_mut();
         query.append_pair(

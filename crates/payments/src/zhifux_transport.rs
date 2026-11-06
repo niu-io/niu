@@ -139,6 +139,8 @@ fn public_address(address: IpAddr) -> bool {
     }
 }
 impl Client {
+    // HMAC accepts keys of any length; the embedded serializer only sees owned strings/vectors.
+    #[allow(clippy::expect_used)]
     pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
         let bound = serde_json::to_vec(&(self.base.as_str(), &self.checkout_origins, context))
             .expect("serializable checkout configuration");

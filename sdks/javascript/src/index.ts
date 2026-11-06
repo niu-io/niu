@@ -16,7 +16,7 @@ import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';
 export type { VideoWaitOptions } from './video-wait.js';
 import { normalizeVideoGeneration, type NiuVideoGenerationInput } from './video-generation.js';
 import { createMediaAssetsClient } from './media-assets.js';
-export type { MediaAssetObservation, MediaAssetGroupObservation, MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetOperationInput, MediaAssetPreparationOptions, MediaAssetPage } from './media-assets.js';
+export type { MediaAssetObservation, MediaAssetGroupObservation, MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetOperationInput, MediaAssetCreateSource, MediaAssetCreateInput, MediaAssetPreparationOptions, MediaAssetPage } from './media-assets.js';
 export type { MediaVerificationSession, MediaVerificationInput, MediaVerificationLink } from './media-verification.js';
 export type { NiuVideoGenerationInput } from './video-generation.js';
 /** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
@@ -476,6 +476,62 @@ export type VideoJobHistory = {
 };
 export type VideoJobHistoryQuery = { before?: string; limit?: number };
 
+export type WorkspaceAutoResponseType = 'text' | 'structured' | 'embedding';
+/** One declared Auto execution path. Candidates reference top-level aliases. */
+export type WorkspaceAutoPath = {
+  id: string;
+  name?: string;
+  description?: string;
+  response_type: WorkspaceAutoResponseType;
+  candidates: string[];
+  /** Lowercase caller task keywords that select this path without a model call. */
+  task?: string[];
+  stage?: string[];
+};
+/**
+ * Optional single-round semantic decider. Every dimension is explicit and
+ * bounded. Its customer price must be comparable in `currency`; otherwise no
+ * paid call is made and the failure action applies.
+ */
+export type WorkspaceAutoDecider = {
+  model: string;
+  currency: string;
+  timeout_ms: number;
+  max_calls: 1;
+  max_input_tokens: number;
+  max_output_tokens: number;
+  max_spend_nanos: number;
+  min_confidence: number;
+  on_abstain?: 'fallback' | 'reject';
+  on_failure?: 'fallback' | 'reject';
+};
+/** Versioned selection strategy for a customer-owned model policy. */
+export type WorkspacePoolStrategy = {
+  version: 1 | 2;
+  mode: 'priority_weight' | 'customer_price' | 'auto';
+  /**
+   * Required exactly for `customer_price`. Ranks eligible candidates by the
+   * estimated customer selling price in this currency and unit. Missing or
+   * incomparable prices remain unknown; selection then falls back to priority
+   * and weight. Provider procurement prices are never used.
+   */
+  customer_price?: {
+    currency: string;
+    unit: 'nanounits_per_million_tokens';
+    input_tokens: number;
+    output_tokens: number;
+  };
+  /**
+   * Required exactly for version 2 `auto`. Caller task/stage context is
+   * evaluated first; the optional decider may only select a declared,
+   * response-compatible path. Unknown or incompatible decisions are failures,
+   * never silent substitutions.
+   */
+  auto?: {
+    paths: WorkspaceAutoPath[];
+    decider?: WorkspaceAutoDecider;
+  };
+};
 /** Customer-owned model policy; never contains Provider supply configuration. */
 export type WorkspaceModelPool = {
   slug: string; name: string; description: string; enabled: boolean;
@@ -484,28 +540,177 @@ export type WorkspaceModelPool = {
   candidates: import('./admin.js').ModelRoutePoolCandidate[];
   rules?: Array<Omit<import('./admin.js').ModelRoutePoolRule, 'conditions'> & { conditions: Omit<import('./admin.js').ModelRoutePoolRuleConditions, 'protocol'> & { protocol?: 'chat' | 'responses' | 'messages' | null } }>;
   default_action?: 'candidates' | 'reject';
+  /** Omitted legacy configurations use version 1 priority/weight. */
+  strategy?: WorkspacePoolStrategy;
 };
 export type WorkspacePoolPreviewContext = {
   protocol: 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
   streaming?: boolean; vision?: boolean; tools?: boolean; structured_output?: boolean; reasoning?: boolean;
   embedding_dimensions?: boolean; embedding_base64?: boolean;
   estimated_input_tokens?: number; requested_output_tokens?: number;
+  /** Optional caller task context for Auto preview; preview never calls the decider. */
+  task?: string; stage?: string;
+};
+export type WorkspacePoolDecisionEvidence = {
+  outcome: 'context_match' | 'decider_selected' | 'decider_required'
+    | 'priority_weight_fallback' | 'rejected' | 'cancelled';
+  path: string | null;
+  fallback_reason: string | null;
+  failure: string | null;
+  calls: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number;
+  /** True when the upstream did not report usage and counts are estimates. */
+  tokens_estimated: boolean;
+  estimated_customer_charge_nanos: string | null;
+  /** Present on preview evidence: preview never dispatches inference. */
+  live_dispatch?: false;
+  compatible_paths?: string[];
+  decider?: {
+    configured: true; model: string; currency: string; max_calls: number;
+    max_input_tokens: number; max_output_tokens: number;
+    max_spend_nanos: string; timeout_ms: number; min_confidence: number;
+    prompt_estimated_tokens?: number; maximum_estimated_charge_nanos?: string;
+    would_reject: boolean;
+  };
+};
+export type WorkspacePoolPriceEvaluation = {
+  source: 'customer_selling_price'; billing_mode: string; currency: string;
+  unit: 'nanounits_per_million_tokens'; input_tokens: number; output_tokens: number;
+  basis: 'customer_price' | 'priority_weight_fallback';
+  fallback_reason: string | null; selected_candidate: string | null;
+  candidates: Array<{
+    alias: string;
+    estimated_customer_charge_nanos: string | null;
+    price_unknown_reason: string | null;
+  }>;
 };
 export type WorkspacePoolPreview = {
   configuration_valid: boolean; persisted: false; live_model_verification: 'not_performed'; candidate_count: number; rule_count: number;
+  strategy?: WorkspacePoolStrategy;
   simulation?: {
     protocol: WorkspacePoolPreviewContext['protocol']; matched_rule: string | null;
     outcome: 'pool_disabled' | 'default_reject' | 'no_eligible_candidates' | 'candidates';
+    strategy?: WorkspacePoolStrategy;
+    selection_basis?: 'not_evaluated' | 'priority_weight' | 'priority_weight_fallback' | 'customer_price'
+      | 'auto_context' | 'auto_decider_required' | 'auto_rejected';
+    /** Auto path selected deterministically from caller context. */
+    selected_path?: string | null;
+    selected_candidate?: string | null;
+    fallback_reason?: string | null;
+    price_evaluation?: WorkspacePoolPriceEvaluation | null;
+    decision?: WorkspacePoolDecisionEvidence | null;
     live_dispatch: false;
-    candidates: Array<{ alias: string; priority: number; weight: number; eligible: boolean; exclusion_reason: string | null; selection_weight: { numerator: number; denominator: number } }>;
+    candidates: Array<{
+      alias: string; priority: number; weight: number; eligible: boolean;
+      exclusion_reason: string | null;
+      selection_weight: { numerator: number; denominator: number };
+      estimated_customer_charge_nanos?: string | null;
+      price_unknown_reason?: string | null;
+    }>;
   };
 };
 export type WorkspacePoolSelection = {
   pool_revision: number; selected_model: string; created_at: string;
   operation_id: string | null; attempt_id: string | null;
+  /** Readable request reference for evidence navigation; null when unavailable. */
+  reference: string | null;
   /** Returned HTTP status, not terminal generation or quality acceptance. */
   response_status: number | null;
+  /** Bounded Auto decision evidence; null for non-Auto strategies. */
+  decision?: WorkspacePoolDecisionEvidence | null;
 };
+/** Explicit System 1 decision types. These are separate from Auto path selection. */
+export type DecisionValueType = 'string' | 'boolean' | 'integer' | 'number';
+export type DecisionPropertySchema = {
+  type: DecisionValueType;
+  /** Prompt guidance; at most 200 single-line characters. */
+  description?: string;
+  /** Required for a finite string choice; 1-32 unique values of at most 64 characters. */
+  enum?: string[];
+  /** Integer or number bound only. */
+  minimum?: number;
+  maximum?: number;
+};
+export type DecisionOutputSchema = {
+  type: 'object';
+  /** 1-16 flat properties. Nested objects, arrays and null are unsupported. */
+  properties: Record<string, DecisionPropertySchema>;
+  /** At least one declared property; closed output rejects unknown fields. */
+  required: string[];
+  additionalProperties: false;
+};
+export type DecisionRequest = {
+  /** Concrete workspace Chat model with declared structured-output support. */
+  model: string;
+  /** UTF-8 string or JSON object; at most 16 KiB serialized. */
+  input: string | Record<string, unknown>;
+  output_schema: DecisionOutputSchema;
+  /** 50-5000; default 2000. A timeout is not a decision and may have incurred charges. */
+  timeout_ms?: number;
+  /** 1-1024; default 128. */
+  max_output_tokens?: number;
+};
+export type DecisionEvidence = {
+  outcome: 'decided' | 'abstained';
+  model: string;
+  calls: 1;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  /** True when either count is a character-based estimate, not exact tokenization. */
+  tokens_estimated: boolean;
+  latency_ms: number;
+  timeout_ms: number;
+  max_output_tokens: number;
+};
+export type DecisionResult = {
+  /** Null only for an explicit model abstention, never a missing decision. */
+  decision: Record<string, unknown> | null;
+  evidence: DecisionEvidence;
+};
+function validateDecisionRequest(request: DecisionRequest): void {
+  if (request === null || typeof request !== 'object') throw new TypeError('A decision request is required');
+  const model = request.model;
+  if (typeof model !== 'string' || model.length === 0 || model.length > 200 || model.trim() !== model) throw new TypeError('A concrete decision model alias of at most 200 characters is required');
+  if (model.startsWith('pool/') || model.startsWith('codex/')) throw new TypeError('Decision requests require a concrete qualified model; pools and Auto are not accepted');
+  const input = request.input;
+  if (!(typeof input === 'string' || (input !== null && typeof input === 'object' && !Array.isArray(input)))) throw new TypeError('Decision input must be a string or an object');
+  const schema = request.output_schema;
+  if (schema === null || typeof schema !== 'object' || schema.type !== 'object' || schema.additionalProperties !== false) throw new TypeError('output_schema must be a closed object schema with additionalProperties false');
+  if (schema.properties === null || typeof schema.properties !== 'object' || Array.isArray(schema.properties)) throw new TypeError('output_schema.properties must be an object');
+  const names = Object.keys(schema.properties);
+  if (names.length < 1 || names.length > 16) throw new TypeError('output_schema must declare 1-16 properties');
+  if (!Array.isArray(schema.required) || schema.required.length < 1 || schema.required.length > names.length) throw new TypeError('output_schema.required must name at least one declared property');
+  const required = new Set<string>();
+  for (const name of schema.required) {
+    if (typeof name !== 'string' || required.has(name) || !Object.prototype.hasOwnProperty.call(schema.properties, name)) throw new TypeError('output_schema.required must name declared properties without duplicates');
+    required.add(name);
+  }
+  for (const [name, property] of Object.entries(schema.properties)) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(name) || name === 'abstain') throw new TypeError('Decision property names must be 1-64 ASCII letters, digits, underscores or hyphens; abstain is reserved');
+    if (property === null || typeof property !== 'object') throw new TypeError('Each decision property must be an object');
+    if (!['string', 'boolean', 'integer', 'number'].includes(property.type)) throw new TypeError('Decision properties must be string, boolean, integer or number');
+    if (property.description !== undefined && (typeof property.description !== 'string' || property.description.length === 0 || property.description.length > 200 || /[\u0000-\u001f]/.test(property.description))) throw new TypeError('Decision property descriptions must be single-line text of at most 200 characters');
+    if (property.enum !== undefined) {
+      if (property.type !== 'string' || !Array.isArray(property.enum) || property.enum.length < 1 || property.enum.length > 32) throw new TypeError('Decision enums require 1-32 string values');
+      const values = new Set<string>();
+      for (const value of property.enum) {
+        if (typeof value !== 'string' || value.length === 0 || value.length > 64 || value.trim() !== value || /[\u0000-\u001f]/.test(value) || values.has(value)) throw new TypeError('Decision enum values must be unique, trimmed strings of at most 64 characters');
+        values.add(value);
+      }
+    }
+    for (const bound of [property.minimum, property.maximum]) {
+      if (bound !== undefined && (typeof bound !== 'number' || !Number.isFinite(bound))) throw new TypeError('Decision bounds must be finite numbers');
+    }
+    if ((property.minimum !== undefined || property.maximum !== undefined) && property.type !== 'integer' && property.type !== 'number') throw new TypeError('Decision bounds are only supported for integer and number properties');
+    if (property.type === 'boolean' && (property.enum !== undefined || property.minimum !== undefined || property.maximum !== undefined)) throw new TypeError('Boolean decision properties cannot declare enums or bounds');
+    if (property.type === 'integer' && ((property.minimum !== undefined && !Number.isInteger(property.minimum)) || (property.maximum !== undefined && !Number.isInteger(property.maximum)))) throw new TypeError('Integer decision bounds must be integers');
+    if (property.minimum !== undefined && property.maximum !== undefined && property.minimum > property.maximum) throw new TypeError('Decision minimum cannot exceed maximum');
+  }
+  if (request.timeout_ms !== undefined && (!Number.isInteger(request.timeout_ms) || request.timeout_ms < 50 || request.timeout_ms > 5000)) throw new TypeError('timeout_ms must be an integer between 50 and 5000');
+  if (request.max_output_tokens !== undefined && (!Number.isInteger(request.max_output_tokens) || request.max_output_tokens < 1 || request.max_output_tokens > 1024)) throw new TypeError('max_output_tokens must be an integer between 1 and 1024');
+}
 function workspacePoolSlug(slug: string): string {
   if (typeof slug !== 'string' || slug.length > 80 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || ['index', 'history', 'preview', 'audit', 'new'].includes(slug)) throw new TypeError('A readable workspace pool slug is required');
   return slug;
@@ -645,7 +850,7 @@ export class NiuClient {
     return this.request(`/events/log?after=${after}`, undefined, options);
   }
   /** Reconcile one workspace-local incident reference from an event. */
-  getWorkspaceIncidentEvent(reference: string, options?: RequestOptions): Promise<{ data: { reference: string; model: string; owner_funded: boolean; status: 'active' | 'resolved'; recovered_at: string | null } }> {
+  getWorkspaceIncidentEvent(reference: string, options?: RequestOptions): Promise<{ data: { reference: string; model: string; owner_funded: boolean; status: 'active' | 'resolved'; recovered_at: string | null; notification: { state: 'not_configured' | 'authority_inactive' | 'queued' | 'sending' | 'delivered' | 'failed' | 'partial'; event: 'opened' | 'resolved'; subscribers: number; authorized: number; delivered: number; failed: number; cancelled: number; queued: number; sending: number; last_attempt_at: string | null } } }> {
     if (!/^incident-[0-9a-f]{32}$/.test(reference)) throw new TypeError('Use the workspace incident event reference');
     return this.request(`/incidents/${reference}`, undefined, options);
   }
@@ -680,6 +885,11 @@ export class NiuClient {
     const response = await this.send(`/routing/${workspacePoolSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT');
     return await readPayload(response) as { data: WorkspaceModelPool };
   }
+  /** Soft-delete the current pool revision; the slug and immutable history stay reserved. */
+  async deletePool(slug: string, revision: number, options: RequestOptions = {}): Promise<void> {
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('Use the current pool revision');
+    await this.send(`/routing/${workspacePoolSlug(slug)}?revision=${revision}`, undefined, options, 'application/json', 'DELETE');
+  }
   getPoolHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; next_before: number | null }> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before <= 0)) throw new TypeError('A positive revision cursor is required');
     return this.request(`/routing/${workspacePoolSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
@@ -687,6 +897,17 @@ export class NiuClient {
   /** Latest 100 selections; retrieve generation diagnostics for terminal state and charges. */
   getPoolSelections(slug: string, options?: RequestOptions): Promise<{ data: WorkspacePoolSelection[] }> {
     return this.request(`/routing/${workspacePoolSlug(slug)}/selections`, undefined, options);
+  }
+  /**
+   * Explicit System 1 structured decision. Requires a concrete workspace Chat
+   * model with declared structured-output support and a key grant; pool/Auto
+   * aliases are rejected so routing cannot substitute a generated response.
+   * A null decision is an explicit abstention. Inspect evidence and use the
+   * returned x-niu-attempt-id generation record for authoritative charges.
+   */
+  createDecision(request: DecisionRequest, options?: RequestOptions): Promise<DecisionResult> {
+    validateDecisionRequest(request);
+    return this.request('/decisions', request, options);
   }
   /** Public branding projection; the regular client credential does not expand it. */
   getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
@@ -922,6 +1143,18 @@ export class NiuClient {
       if (typeof options.evaluation !== 'string' || options.evaluation.length > 200 || !/^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*\/[A-Za-z0-9_.-]+$/.test(options.evaluation)) throw new TypeError('Use evaluation-slug@revision/sample');
       headers.set('x-niu-evaluation', options.evaluation);
     }
+    if (options.routingContext !== undefined) {
+      const context = options.routingContext;
+      const task = context?.task;
+      const stage = context?.stage;
+      if (task === undefined && stage === undefined) throw new TypeError('routingContext requires task or stage');
+      for (const value of [task, stage]) {
+        if (value !== undefined && (typeof value !== 'string' || value.length > 64 || !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(value))) {
+          throw new TypeError('routingContext task and stage must be lowercase tokens up to 64 characters');
+        }
+      }
+      headers.set('x-niu-routing-context', JSON.stringify({ ...(task === undefined ? {} : { task }), ...(stage === undefined ? {} : { stage }) }));
+    }
     if (options.logPayloads !== undefined) {
       if (typeof options.logPayloads !== 'boolean') throw new TypeError('logPayloads must be a boolean');
       headers.set('x-niu-log-payloads', String(options.logPayloads));
@@ -969,9 +1202,16 @@ export type ResponseMetadata = {
   readonly operationId: string | null;
 };
 
+export type WorkspaceRoutingContext = { task?: string; stage?: string };
 export type RequestOptions = {
   /** Opt-in binding: evaluation-slug@revision/sample. Requires evaluations:read. */
   evaluation?: string;
+  /**
+   * Optional bounded task context for an explicitly selected semantic Auto
+   * policy on a `pool/<slug>` request. Values are lowercase tokens up to 64
+   * characters. Sent as `x-niu-routing-context`; not forwarded upstream.
+   */
+  routingContext?: WorkspaceRoutingContext;
   signal?: AbortSignal;
   /** Called once when response headers arrive, including streams and HTTP errors. Does not consume the body. */
   onResponse?: (metadata: ResponseMetadata) => void;
@@ -1082,7 +1322,7 @@ export type { ContextPriceTier, CustomerInvoiceInput, CustomerInvoiceLine } from
 export type { WorkspaceSpendingAccount, WorkspaceSpendingLimit, WorkspaceSpendingLimitRevision } from './admin.js';
 export type { ProviderMediaOfferInput, ProviderMediaOfferModel, ProviderMediaRateModel, ProviderMediaRateRecord, ProviderMediaRateCard, SupplierMediaOfferInput, SupplierMediaOfferModel, SupplierMediaRateModel, SupplierMediaRateRecord, SupplierMediaRateCard, CustomerMediaRateCard, CustomerMediaRateRecord, CustomerMediaRateModel, VideoOutputSchema, ExactMediaQuantity, MediaBillingDimensions } from './admin.js';
 export type { GuardrailPreparationDenial } from './admin.js';
-export type { ProviderCatalogMetadata, ProviderCatalogModel, ProviderModelCheck, ProviderModelInput, ProviderModel, ProviderModelAvailability, ProviderCredentialCreateInput, ProviderCredentialUpdateInput, ProviderMember, ProviderMemberUpdate, ProviderBusiness, ProviderBusinessCreate, ProviderProfile, ProviderProfileUpdate, ProviderCredential, ProviderCooldown, ProviderRequestRateLimit, ProviderRequestRateLimitRevision, ProviderRateInput, ProviderOffer, ProviderOfferRevision, ProviderOfferHistory, ProviderSettlement, ProviderSettlementPage, ProviderSettlementInput, ProviderEarning, ProviderEarningPage, ProviderSettlementQuery, ProviderQualificationInput, ProviderOfferQualificationInput, ProviderAccountInput, ProviderAccount, SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, SupplierQualificationInput, SupplierOfferQualificationInput, TenantScope, WorkspaceScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
+export type { ProviderCatalogMetadata, ProviderCatalogModel, ProviderModelCheck, ProviderModelInput, ProviderModel, ProviderModelAvailability, ProviderCredentialCreateInput, ProviderCredentialUpdateInput, ProviderMember, ProviderMemberUpdate, ProviderBusiness, ProviderBusinessCreate, ProviderProfile, ProviderProfileUpdate, ProviderCredential, ProviderCooldown, ProviderRequestRateLimit, ProviderRequestRateLimitRevision, ProviderRateInput, ProviderOffer, ProviderOfferRevision, ProviderOfferHistory, ProviderSettlement, ProviderSettlementPage, ProviderSettlementInput, ProviderSettlementPreview, SupplierSettlementPreview, ProviderEarning, ProviderEarningPage, ProviderSettlementQuery, ProviderAccountInput, ProviderAccount, SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, TenantScope, WorkspaceScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, KeyGuardrailMode, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
 
 export { NiuAuthClient } from './auth.js';
 export type { NiuAuthOptions, MemberSignIn, MemberSession } from './auth.js';

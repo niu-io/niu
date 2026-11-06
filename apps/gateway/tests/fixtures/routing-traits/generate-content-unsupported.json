@@ -1,0 +1,28 @@
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        { "text": "See" },
+        {
+          "inlineData": {
+            "mimeType": "image/png",
+            "data": "AAAA"
+          }
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "functionDeclarations": [{ "name": "lookup" }]
+    }
+  ],
+  "toolConfig": {},
+  "generationConfig": {
+    "maxOutputTokens": 32,
+    "responseMimeType": "application/json",
+    "responseSchema": { "type": "object" },
+    "thinkingConfig": { "thinkingBudget": 128 }
+  }
+}

@@ -51,3 +51,25 @@ Exercise owner and recipient separately through normal browser entry points. Cov
 For configured mail, verify creation, queueing, delivery failure and successful handoff as distinct evidence. Do not send invitations to real people during a fixture run. Test role/scope explanations, supported return paths, keyboard use, open menus, desktop/intermediate/narrow layouts and revisiting invitation state. Receipt/API tests establish atomicity and authorization; they do not establish the usability of either person's complete task.
 
 This design removes the credential-transport burden and makes responsibility explicit. It does not close `niu-098` until the supported recipient journey is implemented and verified, nor does it authorize unsupported self-registration, mail delivery or arbitrary credential disclosure.
+
+## Implementation status (2026-11-06, handoff tree)
+
+Implemented in the handoff working tree (not deployed):
+
+- Migration `0426_member_invitations.sql` adds a purpose-bound invitation record and an immutable lifecycle journal. Only a SHA-256 digest of the redemption secret is stored.
+- `POST/GET /api/v1/organizations/{organization}/invitations` create and list invitations with Owner/installation authority, exact role/scope validation and a scope-filtered directory. A new invitation for the same organization, workspace and email revokes the earlier pending link and records a `replaced` event.
+- `POST /api/v1/invitations/preview` and `POST /api/v1/session/invitations` preview and accept a link for the signed-in account. Acceptance requires the account's saved sign-in email to match, revalidates the inviter's current Owner authority and target scope, creates only the invited role/scope, consumes the secret once, reconciles same-identity replay without a duplicate membership, and never returns a reusable operator token.
+- `DELETE /api/v1/invitations/{invitation}` cancels a pending invitation. Accepted members are managed through the existing member revocation path.
+- Dashboard Members now offers **Invite member** instead of new-user temporary-token creation. The dialog explains scope, role and expiry, returns a copyable one-time link, and states that no email was sent because delivery is not configured. Pending invitations can be canceled or replaced. The recipient review page shows the inviting organization, workspace scope, role consequences, intended email and expiry; mismatch, expired, canceled and already-accepted states are explicit.
+- Existing temporary-token session APIs and API-compatible member creation remain, but are no longer the member onboarding path in the dashboard. Acceptance refuses to add a second membership in the same organization and does not widen an existing operator record.
+- Verification: storage lifecycle tests, gateway HTTP tests, focused storage operator/auth tests and gateway password/operator/audit tests pass locally; dashboard invitation tests, typecheck, i18n audit, dashboard build, SDK tests and generated contract checks pass. Browser create → open → sign in → accept was exercised at desktop and 390 px against the local dev stack.
+
+Remaining security and deployment gaps (not claimed as solved):
+
+- **No email provider is configured.** Delivery always reports `not_configured`; the owner must copy the one-time link. There is no queued/sent/failed delivery evidence, no automatic resend, and no email-provider integration.
+- **Identity binding is not verified-mailbox binding.** Acceptance compares the invitation email with the account's saved password-login email. Niu does not verify mailbox ownership, and a token-only account without a saved email cannot accept an email-bound invitation.
+- **New-person first access remains unsupported.** A person without an existing account and password credential cannot complete acceptance; the UI states that an existing account is required. Self-registration and invitation-driven password setup remain part of `niu-287.5`.
+- The dashboard invitation route places the redemption secret in the URL path (`/invite/{token}`), so it can appear in browser history, referrers or infrastructure request logs. The API itself sends the secret in request bodies and stores only its digest.
+- Current authorization still reserves member management to organization Owners (or installation administration). Admin-role members cannot create invitations; enabling that would require a deliberate role-policy change.
+- Preview and acceptance have no dedicated rate limiter beyond the existing authenticated-session protections. The invitation secret is high entropy and single-use, but a broader abuse budget was not added.
+- No real email delivery, deployment migration execution, or staging/production browser verification was performed from this handoff tree.

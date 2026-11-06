@@ -7,6 +7,7 @@ const groups = [
     ['Workspace model routing', 'Customer-owned model policies and execution selections. Explicit delegated capabilities are required; these are separate from platform supply routing.', '^/v1/routing(?:/|$)'],
     ['Model discovery', 'Discover models and their published capabilities.', '^/(?:v1/models|catalog/v1/models|api/v1/models)$'],
     ['Chat completions', 'OpenAI-compatible Chat requests, including dashboard-key invocation.', '/chat/completions$'],
+    ['Structured decisions', 'Explicit System 1 decisions validated against a closed caller schema. Separate from Chat generation and Auto path selection.', '^/v1/decisions$'],
     ['Responses', 'Responses API requests.', '^/v1/responses$'],
     ['Messages and GenerateContent', 'Native protocol compatibility. Read each operation’s supported subset.', '^/(?:v1/messages|v1beta/)'],
     ['Embeddings', 'Embedding requests and supported response encodings.', '^/v1/embeddings$'],
@@ -19,6 +20,7 @@ const groups = [
     ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|routing)'],
   ]],
   ['Authentication and access', [
+    ['Member invitations', 'Purpose-bound one-time invitations to join an organization or workspace. Acceptance requires an existing signed-in account with the intended email; no reusable member credential is issued.', '^/api/v1/(?:invitations(?:/|$)|organizations/[^/]+/invitations$|session/invitations$)'],
     ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$))'],
     ['Users and sessions', 'User identities, roles, sessions and authentication events.', '^/api/v1/operators'],
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
@@ -97,6 +99,14 @@ export function deriveOperationAuthority(path, method, operation) {
       principals: ['platform_admin', 'installation_admin'],
       required_capability: isMutation ? 'platform_admin' : 'read',
       scope: 'platform',
+    };
+  }
+  if (/^\/api\/v1\/(?:session\/invitations|invitations(?:\/|$)|organizations\/[^/]+\/invitations$)/.test(path)) {
+    return {
+      audience: 'console',
+      principals: ['operator_session', 'installation_admin'],
+      required_capability: isMutation ? 'write' : 'read',
+      scope: 'organization',
     };
   }
   if (

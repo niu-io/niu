@@ -265,18 +265,32 @@ pub async fn preview(
     ))
 }
 
+/// A key either pins one immutable policy revision or explicitly follows the
+/// workspace's active policy. Follow mode carries no revision, so later
+/// workspace edits apply without re-pinning the key.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum KeyAssignmentMode {
+    Fixed,
+    Active,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyAssignment {
-    #[serde(deserialize_with = "deserialize_policy_revision")]
-    policy_revision: Option<i64>,
+    /// Outer None means the field was omitted; Some(None) is an explicit null.
+    /// The contract still rejects omission for fixed and clear writes.
+    #[serde(default, deserialize_with = "deserialize_policy_revision")]
+    policy_revision: Option<Option<i64>>,
     expected_assignment_revision: i64,
+    #[serde(default)]
+    mode: Option<KeyAssignmentMode>,
 }
 
 fn deserialize_policy_revision<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
-) -> Result<Option<i64>, D::Error> {
-    Option::<i64>::deserialize(deserializer)
+) -> Result<Option<Option<i64>>, D::Error> {
+    Option::<i64>::deserialize(deserializer).map(Some)
 }
 
 pub async fn read_key_assignment(
@@ -310,38 +324,67 @@ pub async fn assign_key(
     let actor = authorized(&state, &headers, scope, AdminPermission::Write).await?;
     let Json(input) =
         input.map_err(|_| ApiError::invalid_request("Invalid key guardrail assignment"))?;
-    if input.policy_revision.is_some_and(|revision| revision < 1)
+    if input
+        .policy_revision
+        .flatten()
+        .is_some_and(|revision| revision < 1)
         || input.expected_assignment_revision < 0
     {
         return Err(ApiError::invalid_request(
             "Invalid policy or assignment revision",
         ));
     }
-    let revision = if let Some(policy_revision) = input.policy_revision {
-        let policy = state
-            .store
-            .workspace_guardrail_revision(scope, policy_revision)
-            .await
-            .map_err(ApiError::from_store)?
-            .ok_or_else(ApiError::not_found)?;
-        let policy: PolicyDraft = serde_json::from_value(policy)
-            .map_err(|_| ApiError::invalid_request("Stored revision is unsupported"))?;
-        validate_policy(&state, scope, &policy, "Stored revision is unsupported").await?;
-        state
-            .store
-            .assign_key_guardrail_as(
-                scope,
-                key,
-                policy_revision,
-                input.expected_assignment_revision,
-                &actor,
-            )
-            .await
-    } else {
-        state
-            .store
-            .clear_key_guardrail_as(scope, key, input.expected_assignment_revision, &actor)
-            .await
+    let revision = match input.mode {
+        Some(KeyAssignmentMode::Active) => {
+            if input.policy_revision.flatten().is_some() {
+                return Err(ApiError::invalid_request(
+                    "Follow-active assignments cannot pin a policy revision",
+                ));
+            }
+            state
+                .store
+                .follow_active_key_guardrail_as(
+                    scope,
+                    key,
+                    input.expected_assignment_revision,
+                    &actor,
+                )
+                .await
+        }
+        Some(KeyAssignmentMode::Fixed) | None => match input.policy_revision {
+            Some(Some(policy_revision)) => {
+                let policy = state
+                    .store
+                    .workspace_guardrail_revision(scope, policy_revision)
+                    .await
+                    .map_err(ApiError::from_store)?
+                    .ok_or_else(ApiError::not_found)?;
+                let policy: PolicyDraft = serde_json::from_value(policy)
+                    .map_err(|_| ApiError::invalid_request("Stored revision is unsupported"))?;
+                validate_policy(&state, scope, &policy, "Stored revision is unsupported").await?;
+                state
+                    .store
+                    .assign_key_guardrail_as(
+                        scope,
+                        key,
+                        policy_revision,
+                        input.expected_assignment_revision,
+                        &actor,
+                    )
+                    .await
+            }
+            Some(None) => {
+                state
+                    .store
+                    .clear_key_guardrail_as(scope, key, input.expected_assignment_revision, &actor)
+                    .await
+            }
+            None => {
+                return Err(ApiError::invalid_request(
+                    "Missing policy_revision; omit it only for follow-active assignments",
+                ));
+            }
+        },
     }
     .map_err(ApiError::from_store)?;
     Ok(Json(json!({"assignment_revision":revision})))

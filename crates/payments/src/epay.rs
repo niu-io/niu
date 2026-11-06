@@ -67,6 +67,8 @@ fn https(value: &str) -> Result<Url, Error> {
 }
 impl Merchant {
     /// Internal binding of verified checkout settings; never expose the digest as a credential.
+    // HMAC accepts keys of any length; the embedded serializer only sees owned strings/vectors.
+    #[allow(clippy::expect_used)]
     pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
         use hmac::{Hmac, Mac};
         let mut mac =

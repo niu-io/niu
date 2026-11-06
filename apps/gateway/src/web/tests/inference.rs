@@ -1482,12 +1482,10 @@ async fn model_routes_require_a_valid_client_token() {
 #[ignore = "requires PostgreSQL"]
 async fn model_discovery_reports_configured_tool_capabilities(pool: PgPool) {
     let mut state = test_state(None, pool);
-    crate::payments::readiness::configure_test_gateway(&mut state).await;
-    state
-        .store
-        .configure_platform_currency("USD")
-        .await
-        .unwrap();
+    assert!(
+        state.store.platform_currency().await.unwrap().is_none(),
+        "discovery must not require payment setup"
+    );
     let config = Arc::make_mut(&mut state.config);
     let mut unsupported = config.models["fast"].clone();
     unsupported.supports_tool_calls = false;
@@ -1786,7 +1784,6 @@ async fn exercise_terminal_stream(pool: PgPool, funded_without_merchant: bool) {
             .await
             .unwrap();
     }
-    personal_test_route(&mut state, scope.organization_id).await;
     let key = state
         .store
         .issue_key(scope, "Outcome verification", &["fast".into()], 3600)
@@ -2327,7 +2324,6 @@ async fn payload_capture_defaults_on_with_explicit_opt_out_scoped_durable_and_cu
         }
     };
     let other_org = state.store.create_organization("Other").await.unwrap();
-    personal_test_route(&mut state, scope.organization_id).await;
     let other = state
         .store
         .create_project(other_org, "Other workspace")
@@ -3994,4 +3990,261 @@ async fn chat_session_archive_rejects_readers_inference_keys_and_other_owners(po
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn key_guardrail_follow_active_tracks_policy_without_repinning(pool: PgPool) {
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    let mut state = test_state(None, pool);
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let scope = state.store.default_workspace().await.unwrap();
+    let first = json!({"schema_version":1,"name":"First policy","models":{"mode":"allow_all"},"providers":{"mode":"inherit"}});
+    let second = json!({"schema_version":1,"name":"Second policy","models":{"mode":"deny_all"},"providers":{"mode":"deny_all"}});
+    state
+        .store
+        .activate_workspace_guardrail(scope, 0, &first)
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Follow API key", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let reader = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Follow reader",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state.clone());
+    let path = format!(
+        "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+        scope.organization_id, scope.project_id, key.id
+    );
+    let admin = "Bearer niu-test-admin-token-that-is-long-1234";
+    let write = |body: Value| {
+        Request::put(path.clone())
+            .header("authorization", admin)
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(body.to_string()))
+            .unwrap()
+    };
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"active","expected_assignment_revision":0}),
+        ))
+        .await
+        .unwrap();
+    let status = response.status();
+    let failure = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&failure)
+    );
+    let read = app
+        .clone()
+        .oneshot(
+            Request::get(&path)
+                .header("authorization", admin)
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(read.status(), StatusCode::OK);
+    let body: Value =
+        serde_json::from_slice(&read.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(body["data"]["assignment_revision"], 1);
+    assert_eq!(body["data"]["mode"], "active");
+    assert!(body["data"]["policy_revision"].is_null());
+    assert!(body["data"]["policy"].is_null());
+
+    // A later workspace activation applies without touching the key assignment.
+    state
+        .store
+        .activate_workspace_guardrail(scope, 1, &second)
+        .await
+        .unwrap();
+    let tracked = state
+        .store
+        .guardrail_snapshot(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tracked.workspace_revision, Some(2));
+    assert_eq!(tracked.workspace_policy, Some(second.clone()));
+    assert_eq!(tracked.key_assignment_revision, Some(1));
+    assert!(tracked.key_policy_revision.is_none());
+    assert!(tracked.key_policy.is_none());
+
+    // Follow mode rejects a pinned revision; a fixed update still works.
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"active","policy_revision":1,"expected_assignment_revision":1}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"fixed","policy_revision":1,"expected_assignment_revision":1}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let pinned = state
+        .store
+        .guardrail_snapshot(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(pinned.key_assignment_revision, Some(2));
+    assert_eq!(pinned.key_policy_revision, Some(1));
+    assert_eq!(pinned.key_policy, Some(first.clone()));
+
+    // Stale expected revisions conflict without changing the assignment.
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"active","expected_assignment_revision":1}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    // Unknown modes and non-positive pinned revisions are rejected.
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"workspace","expected_assignment_revision":2}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    // Omitting policy_revision is still rejected for fixed and legacy clears.
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"fixed","expected_assignment_revision":2}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response = app
+        .clone()
+        .oneshot(write(json!({"expected_assignment_revision":2})))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"fixed","policy_revision":0,"expected_assignment_revision":2}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    // Switching back to follow removes the pinned layer immediately. Both an
+    // absent and an explicit-null policy_revision are accepted in active mode.
+    let response = app
+        .clone()
+        .oneshot(write(
+            json!({"mode":"active","policy_revision":null,"expected_assignment_revision":2}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        state
+            .store
+            .key_guardrail(scope, key.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    // History preserves the mode transitions. Follow events have no pinned revision.
+    let history = app
+        .clone()
+        .oneshot(
+            Request::get(format!("{path}/history"))
+                .header("authorization", format!("Bearer {}", reader.token))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(history.status(), StatusCode::OK);
+    let history: Value =
+        serde_json::from_slice(&history.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let rows = history["data"].as_array().unwrap();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0]["assignment_revision"], 3);
+    assert_eq!(rows[0]["mode"], "active");
+    assert!(rows[0]["policy_revision"].is_null());
+    assert!(rows[0]["policy_name"].is_null());
+    assert_eq!(rows[1]["assignment_revision"], 2);
+    assert_eq!(rows[1]["mode"], "fixed");
+    assert_eq!(rows[1]["policy_revision"], 1);
+    assert_eq!(rows[1]["policy_name"], "First policy");
+    assert_eq!(rows[2]["assignment_revision"], 1);
+    assert_eq!(rows[2]["mode"], "active");
+    assert!(rows[2]["policy_revision"].is_null());
+
+    // Writers need workspace write access; inference credentials are rejected.
+    let response = app
+        .clone()
+        .oneshot(
+            Request::put(&path)
+                .header("authorization", format!("Bearer {}", reader.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"mode":"active","expected_assignment_revision":3}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let response = app
+        .clone()
+        .oneshot(
+            Request::put(&path)
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"mode":"active","expected_assignment_revision":3}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        state
+            .store
+            .key_guardrail_assignment(scope, key.id)
+            .await
+            .unwrap()
+            .unwrap()["assignment_revision"],
+        3
+    );
 }

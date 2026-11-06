@@ -38,6 +38,14 @@ const navZh: Record<string, string> = {
       event.newDocument.querySelector('[data-docs-search]')?.replaceChildren();
     }
   });
+  const moveSearchToBody = () => {
+    const search = document.querySelector('site-search');
+    if (search && search.parentElement !== document.body) document.body.appendChild(search);
+  };
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('site-search button')) moveSearchToBody();
+  }, true);
   document.addEventListener('astro:page-load', () => {
     const url = new URL(location.href);
     if (url.searchParams.get('search') !== '1') return;
@@ -45,6 +53,19 @@ const navZh: Record<string, string> = {
     if (!trigger) return;
     url.searchParams.delete('search');
     history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    moveSearchToBody();
     trigger.click();
+    const focusSearch = () => {
+      const input = document.querySelector<HTMLInputElement>('#starlight__search .pagefind-ui__search-input');
+      if (!input) return false;
+      input.focus();
+      return true;
+    };
+    if (!focusSearch()) {
+      let attempts = 0;
+      const timer = window.setInterval(() => {
+        if (focusSearch() || ++attempts > 20) window.clearInterval(timer);
+      }, 50);
+    }
   });
 </script>

@@ -45,7 +45,7 @@ pub struct OperatorPrincipal {
 }
 
 impl OperatorRole {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Owner => "owner",
             Self::Admin => "admin",
@@ -92,6 +92,7 @@ pub struct OperatorView {
 pub struct OperatorSessionView {
     pub id: Uuid,
     pub operator_id: Uuid,
+    pub created_at: String,
     pub expires_at_unix: i64,
     pub revoked: bool,
 }
@@ -143,6 +144,7 @@ struct PrincipalRow {
 struct SessionRow {
     id: Uuid,
     operator_id: Uuid,
+    created_at: String,
     expires_at_unix: i64,
     revoked: bool,
 }
@@ -152,6 +154,7 @@ impl From<SessionRow> for OperatorSessionView {
         Self {
             id: row.id,
             operator_id: row.operator_id,
+            created_at: row.created_at,
             expires_at_unix: row.expires_at_unix,
             revoked: row.revoked,
         }
@@ -421,7 +424,7 @@ impl Store {
         operator_id: Uuid,
     ) -> Result<Vec<OperatorSessionView>, StoreError> {
         let rows: Vec<SessionRow> = sqlx::query_as(
-            "SELECT id, operator_id, expires_at_unix, revoked_at IS NOT NULL AS revoked \
+            "SELECT id, operator_id, to_jsonb(created_at)#>>'{}' AS created_at, expires_at_unix, revoked_at IS NOT NULL AS revoked \
              FROM admin_sessions WHERE operator_id=$1 ORDER BY created_at, id LIMIT 1000",
         )
         .bind(operator_id)
@@ -835,18 +838,21 @@ pub(crate) async fn issue_session(
         .fetch_one(&mut **tx)
         .await?;
     let session_id = Uuid::new_v4();
-    sqlx::query("INSERT INTO admin_sessions (id, operator_id, token_hash, expires_at_unix) VALUES ($1, $2, $3, $4)")
+    let created_at: String = sqlx::query_scalar(
+        "INSERT INTO admin_sessions (id, operator_id, token_hash, expires_at_unix) VALUES ($1, $2, $3, $4) RETURNING to_jsonb(created_at)#>>'{}'",
+    )
         .bind(session_id)
         .bind(operator_id)
         .bind(digest.as_slice())
         .bind(expires_at_unix)
-        .execute(&mut **tx)
+        .fetch_one(&mut **tx)
         .await?;
     Ok(IssuedOperatorSession {
         operator_id,
         session: OperatorSessionView {
             id: session_id,
             operator_id,
+            created_at,
             expires_at_unix,
             revoked: false,
         },

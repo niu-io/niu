@@ -9,6 +9,7 @@ pub(super) fn compile_catalog(
     static_models: &BTreeMap<String, ModelConfig>,
     inputs: &niu_storage::VendorCatalogInputs,
     organization_id: Option<uuid::Uuid>,
+    allow_internal_scope: bool,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
     let mut models = static_models.clone();
     let mut routes = BTreeMap::new();
@@ -20,20 +21,31 @@ pub(super) fn compile_catalog(
         if !route.vendor.enabled || !route.model.enabled {
             continue;
         }
-        match route.personal_organization_id {
-            Some(owner) if Some(owner) == organization_id => {
-                let mut model = compile_model(&route.vendor, &route.model)?;
-                model.pricing = None;
-                model.public_catalog = false;
-                models.insert(route.model.alias.clone(), model);
-            }
-            None if !inputs.unavailable.contains(&route.model.alias) => {
+        let access_scope = route.access_scope();
+        let internal_visible = allow_internal_scope
+            && access_scope == niu_storage::VendorAccessScope::Internal
+            && route.visible_to(organization_id, true);
+        if internal_visible {
+            let mut model = compile_model(&route.vendor, &route.model)?;
+            // Internal owner-funded routes never carry customer or procurement
+            // tariff data. Their configured public-catalog flag is honored so a
+            // checked toggle has a truthful visible result.
+            model.pricing = None;
+            models.insert(route.model.alias.clone(), model);
+        } else if access_scope == niu_storage::VendorAccessScope::Commercial {
+            if !inputs.unavailable.contains(&route.model.alias) {
                 models.insert(
                     route.model.alias.clone(),
                     compile_model(&route.vendor, &route.model)?,
                 );
             }
-            _ => {}
+        } else if route.personal_organization_id == organization_id {
+            // Personal (and internal scope while Resale is active) remains
+            // private to the recorded funding account.
+            let mut model = compile_model(&route.vendor, &route.model)?;
+            model.pricing = None;
+            model.public_catalog = false;
+            models.insert(route.model.alias.clone(), model);
         }
     }
     // An unavailable offer may shadow a static-only alias as well.
@@ -64,7 +76,10 @@ pub(super) fn compile_catalog(
                     && route.model.enabled
                     && !inputs.cooling_down.contains(&route.vendor.id)
                     && route.model.capabilities.get("video_schema").is_none()
-                    && route.personal_organization_id == pool.organization_id
+                    && (route.personal_organization_id == pool.organization_id
+                        || (allow_internal_scope
+                            && pool.organization_id.is_some()
+                            && route.is_internal_shared()))
                     && (pool.organization_id.is_some()
                         || (route.model.pricing.is_some()
                             && !inputs.unavailable.contains(&route.model.alias))))
@@ -101,6 +116,7 @@ pub(super) fn compile_published_catalog(
     unavailable: &std::collections::BTreeSet<String>,
     cooling_down: &std::collections::BTreeSet<uuid::Uuid>,
     organization_id: Option<uuid::Uuid>,
+    allow_internal_scope: bool,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
     let mut models = registry.static_models.clone();
     for (alias, compiled) in &registry.routes {
@@ -109,17 +125,23 @@ pub(super) fn compile_published_catalog(
         if !route.vendor.enabled || !route.model.enabled {
             continue;
         }
-        match route.personal_organization_id {
-            Some(owner) if Some(owner) == organization_id => {
-                let mut model = compiled.model.clone();
-                model.pricing = None;
-                model.public_catalog = false;
-                models.insert(alias.clone(), model);
-            }
-            None if !unavailable.contains(alias) => {
+        let access_scope = route.access_scope();
+        let internal_visible = allow_internal_scope
+            && access_scope == niu_storage::VendorAccessScope::Internal
+            && route.visible_to(organization_id, true);
+        if internal_visible {
+            let mut model = compiled.model.clone();
+            model.pricing = None;
+            models.insert(alias.clone(), model);
+        } else if access_scope == niu_storage::VendorAccessScope::Commercial {
+            if !unavailable.contains(alias) {
                 models.insert(alias.clone(), compiled.model.clone());
             }
-            _ => {}
+        } else if route.personal_organization_id == organization_id {
+            let mut model = compiled.model.clone();
+            model.pricing = None;
+            model.public_catalog = false;
+            models.insert(alias.clone(), model);
         }
     }
     for alias in unavailable {
@@ -150,7 +172,10 @@ pub(super) fn compile_published_catalog(
                     && route.model.enabled
                     && !cooling_down.contains(&route.vendor.id)
                     && route.model.capabilities.get("video_schema").is_none()
-                    && route.personal_organization_id == pool.organization_id
+                    && (route.personal_organization_id == pool.organization_id
+                        || (allow_internal_scope
+                            && pool.organization_id.is_some()
+                            && route.is_internal_shared()))
                     && (pool.organization_id.is_some()
                         || (route.model.pricing.is_some()
                             && !unavailable.contains(&route.model.alias))))

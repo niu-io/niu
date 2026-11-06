@@ -46,35 +46,31 @@ test('detector disclosure and decision reads remain scoped, cancellable and body
   assert.equal(calls.length, 2);
 });
 
-test('Supplier qualification preserves reviewed digests, rate revision and explicit lifecycle operations', async () => {
-  const calls = []; const digest = 'a'.repeat(64); const expiry = Date.now()+60000;
+test('Provider offer authorization pins the exact rate revision and explicit lifecycle operations', async () => {
+  const calls = [];
   const client = new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json({data:{}});}});
-  const business = {supply_rights_sha256:digest,supply_capability_sha256:digest,data_handling_sha256:digest,valid_until_ms:expiry};
-  const offer = {rate_revision:id,model_identity_sha256:digest,protocol_matrix_sha256:digest,protocol_matrix_version:'review-v1',data_handling_sha256:digest,availability_sha256:digest,agreed_rates_sha256:digest,valid_until_ms:expiry};
+  const authorization = id;
   const abort = new AbortController();
-  await client.qualifySupplier(id,{...business,secret:'must-not-send'}, {signal:abort.signal});
-  await client.qualifySupplierOffer(id,id,{...offer,agreement:'must-not-send'});
-  await client.revokeSupplierQualification(id,digest);
-  await client.revokeSupplierOfferQualification(id,id,digest);
-  await client.setSupplierOfferActive(id,id,false);
-  assert.deepEqual(calls.map(call=>call.init.method),['PUT','PUT','POST','POST','PATCH']);
-  assert.deepEqual(JSON.parse(calls[0].init.body),business);
-  assert.deepEqual(JSON.parse(calls[1].init.body),offer);
+  await client.authorizeProviderOffer(id, id, id, {signal:abort.signal});
+  await client.revokeProviderOfferAuthorization(id, id, authorization);
+  await client.setProviderOfferActive(id, id, false);
+  await client.setSupplierOfferActive(id, id, false);
+  assert.deepEqual(calls.map(call=>call.init.method),['PUT','DELETE','PATCH','PATCH']);
+  assert.deepEqual(JSON.parse(calls[0].init.body),{rate_revision:id});
   assert.equal(calls[0].init.signal,abort.signal);
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/qualification`));
-  assert.ok(calls[1].url.endsWith(`/providers/${id}/offers/${id}/qualification`));
-  assert.ok(calls[2].url.endsWith(`/providers/${id}/qualification/revoke`));
-  assert.ok(calls[3].url.endsWith(`/providers/${id}/offers/${id}/qualification/revoke`));
-  assert.deepEqual(JSON.parse(calls[4].init.body),{active:false});
+  assert.ok(calls[0].url.endsWith(`/providers/${id}/offers/${id}/authorization`));
+  assert.equal(calls[1].init.body,undefined);
+  assert.ok(calls[1].url.endsWith(`/providers/${id}/offers/${id}/authorization/${authorization}`));
+  assert.deepEqual(JSON.parse(calls[2].init.body),{active:false});
+  assert.deepEqual(JSON.parse(calls[3].init.body),{active:false});
 });
-test('Supplier qualification rejects malformed evidence locally and never retries uncertain writes', async () => {
-  const digest='b'.repeat(64); const input={supply_rights_sha256:digest,supply_capability_sha256:digest,data_handling_sha256:digest,valid_until_ms:Date.now()+60000};
+test('Provider offer authorization rejects malformed revisions locally and never retries uncertain writes', async () => {
   let calls=0; const client=new NiuAdminClient({adminToken:'test',fetch:async()=>{calls++;throw new Error('uncertain');}});
-  for(const value of ['',digest.toUpperCase(),'g'.repeat(64),'a'.repeat(63),null]) assert.throws(()=>client.qualifySupplier(id,{...input,supply_rights_sha256:value}),/SHA-256/);
-  for(const value of [0,Date.now()-1,Infinity,253402300800000,1.5]) assert.throws(()=>client.qualifySupplier(id,{...input,valid_until_ms:value}),/expiry/);
+  for(const value of ['', 'not-a-uuid', '../foreign']) assert.throws(()=>client.authorizeProviderOffer(id,id,value),/UUID/);
+  assert.throws(()=>client.revokeProviderOfferAuthorization(id,id,'not-a-uuid'),/UUID/);
   assert.throws(()=>client.setSupplierOfferActive(id,id,'yes'),/boolean/);
   assert.equal(calls,0);
-  await assert.rejects(client.qualifySupplier(id,input),/uncertain/);
+  await assert.rejects(client.authorizeProviderOffer(id,id,id),/uncertain/);
   assert.equal(calls,1);
 });
 
@@ -442,7 +438,7 @@ test('key Guardrail assignment is scoped, revision checked and not retried', asy
   assert.deepEqual(await client.assignKeyGuardrail(scope, id, 3, 0), { assignment_revision: 1 });
   assert.ok(calls[1].url.endsWith(`/organizations/${id}/projects/${id}/keys/${id}/guardrail`));
   assert.equal(calls[1].init.method, 'PUT');
-  assert.deepEqual(JSON.parse(calls[1].init.body), { policy_revision: 3, expected_assignment_revision: 0 });
+  assert.deepEqual(JSON.parse(calls[1].init.body), { mode: 'fixed', policy_revision: 3, expected_assignment_revision: 0 });
   await assert.rejects(client.assignKeyGuardrail(scope, id, 3, 0), e => e instanceof NiuAPIError && e.status === 409);
   assert.equal(calls.length, 3);
   for (const [policy, assignment] of [[0, 0], [1, -1], [1, 1.5]]) assert.throws(() => client.assignKeyGuardrail(scope, id, policy, assignment), /revision/);
@@ -456,15 +452,27 @@ test('key Guardrail removal sends an explicit null and current revision', async 
     call = { url, init }; return Response.json({ assignment_revision: 4 });
   }});
   assert.deepEqual(await client.clearKeyGuardrail(scope, id, 3), { assignment_revision: 4 });
-  assert.deepEqual(JSON.parse(call.init.body), { policy_revision: null, expected_assignment_revision: 3 });
+  assert.deepEqual(JSON.parse(call.init.body), { mode: 'fixed', policy_revision: null, expected_assignment_revision: 3 });
   assert.equal(call.init.method, 'PUT');
   for (const invalid of [0, -1, 1.5]) assert.throws(() => client.clearKeyGuardrail(scope, id, invalid), /revision/);
+});
+
+test('key Guardrail follow-active mode sends no pinned revision', async () => {
+  const calls = [];
+  const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
+    calls.push({ url, init }); return Response.json({ assignment_revision: 5 });
+  }});
+  assert.deepEqual(await client.followActiveKeyGuardrail(scope, id, 4), { assignment_revision: 5 });
+  assert.equal(calls[0].init.method, 'PUT');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { mode: 'active', expected_assignment_revision: 4 });
+  for (const invalid of [-1, 1.5]) assert.throws(() => client.followActiveKeyGuardrail(scope, id, invalid), /revision/);
+  assert.equal(calls.length, 1);
 });
 
 
 test('key Guardrail history preserves scope, cursor and readable attribution', async () => {
   let call;
-  const events = { data: [{ assignment_revision: 3, policy_revision: null, policy_name: null, actor_name: 'Workspace administrator', created_at: '2026-10-02T00:00:00Z' }], next_cursor: null };
+  const events = { data: [{ assignment_revision: 3, policy_revision: null, mode: 'active', policy_name: null, actor_name: 'Workspace administrator', created_at: '2026-10-02T00:00:00Z' }], next_cursor: null };
   const signal = new AbortController().signal;
   const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => { call = { url, init }; return Response.json(events); } });
   assert.deepEqual(await client.listKeyGuardrailHistory(scope, id, 4, { signal }), events);
@@ -1733,3 +1741,73 @@ test('admin client lists and publishes Credits media consumption tariffs with ex
 });
 
 
+
+test('Provider settlement previews and records a period without request identifiers', async () => {
+  const calls = [];
+  const client = new NiuAdminClient({ adminToken: 'test', fetch: async (url, init) => {
+    calls.push({ url, init });
+    return Response.json(url.includes('/preview')
+      ? { data: { currency: 'USD', from_ms: null, cutoff_ms: 123, entry_count: 2, amount_nanos: '300', remaining_unpaid_nanos: '0', remaining_entry_count: 0 } }
+      : { data: { id: '12345678-1234-1234-1234-123456789abc' } });
+  }});
+  const preview = await client.previewProviderSettlement(id, { currency: 'USD', cutoff_ms: 123 });
+  assert.equal(preview.data.entry_count, 2);
+  assert.ok(calls[0].url.endsWith(`/providers/${id}/settlements/preview?currency=USD&cutoff_ms=123`));
+  await client.recordProviderSettlement(id, { idempotency_key: id, payment_reference: 'October payout', currency: 'USD', cutoff_ms: 123 });
+  assert.deepEqual(JSON.parse(calls[1].init.body), { idempotency_key: id, payment_reference: 'October payout', currency: 'USD', cutoff_ms: 123 });
+  await client.recordProviderSettlement(id, { idempotency_key: id, payment_reference: 'Legacy payout', attempt_ids: [id] });
+  assert.deepEqual(JSON.parse(calls[2].init.body), { idempotency_key: id, payment_reference: 'Legacy payout', attempt_ids: [id] });
+  assert.throws(() => client.recordProviderSettlement(id, { idempotency_key: id, payment_reference: 'Mixed', attempt_ids: [id], currency: 'USD', cutoff_ms: 123 }), /either attempt_ids/);
+  assert.throws(() => client.previewProviderSettlement(id, { currency: 'usd', cutoff_ms: 123 }), /currency/);
+});
+
+test('member invitations return the link secret once and never expose it in directory reads', async () => {
+  const calls = [];
+  const invitation = {
+    id,
+    organization_id: id,
+    organization_name: 'Niu Labs',
+    organization_slug: 'niu-labs',
+    project_id: null,
+    project_name: null,
+    project_slug: null,
+    role: 'admin',
+    recipient_email: 'person@example.test',
+    recipient_name: 'Person',
+    status: 'pending',
+    delivery: 'not_configured',
+    created_at: '2026-11-05T00:00:00Z',
+    expires_at: '2026-11-12T00:00:00Z',
+    accepted_at: null,
+    revoked_at: null,
+    invited_by: 'Owner',
+  };
+  const client = new NiuAdminClient({ adminToken: 'test', fetch: async (url, init) => {
+    calls.push({ url, init });
+    if (url.endsWith('/session/invitations')) return Response.json({ data: { operator: { role: 'admin' } }, invitation, replayed: false });
+    if (url.endsWith('/invitations/preview')) return Response.json({ data: { ...invitation, caller_email: 'person@example.test', email_matches: true, already_accepted_by_caller: false } });
+    if (init?.method === 'POST') return Response.json({ invitation, token: 'niu_invite_once_only_secret', accept_path: '/invite/niu_invite_once_only_secret', delivery: { state: 'not_configured', email_sent: false } }, { status: 201 });
+    if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+    return Response.json({ data: [invitation] });
+  }});
+  const created = await client.createMemberInvitation(id, { email: ' Person@Example.Test ', name: 'Person', role: 'admin' });
+  assert.equal(created.token, 'niu_invite_once_only_secret');
+  assert.equal(created.delivery.email_sent, false);
+  assert.ok(calls[0].url.endsWith(`/organizations/${id}/invitations`));
+  assert.deepEqual(JSON.parse(calls[0].init.body), { email: 'person@example.test', name: 'Person', role: 'admin' });
+  const listed = await client.listMemberInvitations(id);
+  assert.equal(listed.data[0].token, undefined);
+  assert.equal(listed.data[0].delivery, 'not_configured');
+  const preview = await client.previewMemberInvitation('niu_invite_once_only_secret');
+  assert.equal(preview.data.email_matches, true);
+  assert.deepEqual(JSON.parse(calls[2].init.body), { token: 'niu_invite_once_only_secret' });
+  const accepted = await client.acceptMemberInvitation('niu_invite_once_only_secret');
+  assert.equal(accepted.replayed, false);
+  assert.ok(calls[3].url.endsWith('/session/invitations'));
+  await client.cancelMemberInvitation(id);
+  assert.equal(calls[4].init.method, 'DELETE');
+  assert.throws(() => client.createMemberInvitation(id, { email: 'not-an-email', role: 'viewer' }), /valid recipient email/);
+  assert.throws(() => client.createMemberInvitation(id, { email: 'person@example.test', role: 'viewer', expires_in_seconds: 60 }), /expiry/);
+  assert.throws(() => client.previewMemberInvitation('session-token'), /invitation token/);
+  assert.equal(calls.length, 5);
+});

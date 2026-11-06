@@ -152,6 +152,91 @@ async fn commercial_offer_authorization_requires_platform_admin_and_current_revi
     assert!(!active);
 }
 
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let supplier = state
+        .store
+        .create_provider_business("Period API Provider")
+        .await
+        .unwrap();
+    let app = router(state);
+    let settlements = format!("/admin/v1/providers/{supplier}/settlements");
+    let mixed = call(
+        &app,
+        Method::POST,
+        &settlements,
+        ADMIN,
+        Some(json!({
+            "idempotency_key": Uuid::new_v4(),
+            "payment_reference": "mixed",
+            "attempt_ids": [Uuid::new_v4()],
+            "currency": "USD",
+            "cutoff_ms": 1
+        })),
+    )
+    .await;
+    assert_eq!(mixed.0, StatusCode::BAD_REQUEST);
+    let missing = call(
+        &app,
+        Method::POST,
+        &settlements,
+        ADMIN,
+        Some(json!({"idempotency_key": Uuid::new_v4(), "payment_reference": "missing"})),
+    )
+    .await;
+    assert_eq!(missing.0, StatusCode::BAD_REQUEST);
+    let empty = call(
+        &app,
+        Method::POST,
+        &settlements,
+        ADMIN,
+        Some(json!({
+            "idempotency_key": Uuid::new_v4(),
+            "payment_reference": "empty period",
+            "currency": "USD",
+            "cutoff_ms": 1
+        })),
+    )
+    .await;
+    assert_eq!(empty.0, StatusCode::CONFLICT);
+    let preview = format!("/admin/v1/providers/{supplier}/settlements/preview");
+    let lowercase = call(
+        &app,
+        Method::GET,
+        &format!("{preview}?currency=usd&cutoff_ms=1"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(lowercase.0, StatusCode::BAD_REQUEST);
+    let unknown = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/admin/v1/providers/{}/settlements/preview?currency=USD&cutoff_ms=1",
+            Uuid::new_v4()
+        ),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(unknown.0, StatusCode::NOT_FOUND);
+    let empty_preview = call(
+        &app,
+        Method::GET,
+        &format!("{preview}?currency=USD&cutoff_ms=1"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(empty_preview.0, StatusCode::OK);
+    assert_eq!(empty_preview.1["data"]["entry_count"], 0);
+    assert_eq!(empty_preview.1["data"]["amount_nanos"], "0");
+    assert_eq!(empty_preview.1["data"]["remaining_unpaid_nanos"], "0");
+}
+
 async fn call(
     app: &Router,
     method: Method,
@@ -203,109 +288,6 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
     let supplier = store.create_provider_business("Supplier").await.unwrap();
     let foreign = store.create_provider_business("Foreign").await.unwrap();
     let app = router(state);
-    let supplier_qualification = format!("/admin/v1/providers/{supplier}/qualification");
-    let valid_until_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-        + 30 * 24 * 60 * 60 * 1000;
-    let qualification = json!({
-        "supply_rights_sha256":"a".repeat(64),
-        "supply_capability_sha256":"b".repeat(64),
-        "data_handling_sha256":"c".repeat(64),
-        "valid_until_ms":valid_until_ms
-    });
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &supplier_qualification,
-            &owner.token,
-            Some(qualification.clone())
-        )
-        .await
-        .0,
-        StatusCode::FORBIDDEN
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &supplier_qualification,
-            ADMIN,
-            Some(json!({
-                "supply_rights_sha256":"not-a-digest",
-                "supply_capability_sha256":"b".repeat(64),
-                "data_handling_sha256":"c".repeat(64),
-                "valid_until_ms":valid_until_ms
-            }))
-        )
-        .await
-        .0,
-        StatusCode::BAD_REQUEST
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &supplier_qualification,
-            ADMIN,
-            Some(qualification)
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    let businesses = call(&app, Method::GET, "/admin/v1/providers", ADMIN, None)
-        .await
-        .1["data"]
-        .as_array()
-        .unwrap()
-        .clone();
-    assert_eq!(
-        businesses
-            .iter()
-            .find(|business| business["id"] == supplier.to_string())
-            .unwrap()["qualification_status"],
-        "qualified"
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::POST,
-            &format!("/admin/v1/providers/{supplier}/qualification/revoke"),
-            &owner.token,
-            Some(json!({"reason_sha256":"d".repeat(64)}))
-        )
-        .await
-        .0,
-        StatusCode::FORBIDDEN
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::POST,
-            &format!("/admin/v1/providers/{supplier}/qualification/revoke"),
-            ADMIN,
-            Some(json!({"reason_sha256":"d".repeat(64)}))
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    let businesses = call(&app, Method::GET, "/admin/v1/providers", ADMIN, None)
-        .await
-        .1["data"]
-        .as_array()
-        .unwrap()
-        .clone();
-    assert_eq!(
-        businesses
-            .iter()
-            .find(|business| business["id"] == supplier.to_string())
-            .unwrap()["qualification_status"],
-        "unqualified"
-    );
     let path = format!("/admin/v1/providers/{supplier}/dashboard");
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,
@@ -506,17 +488,11 @@ async fn customer_billing_is_project_scoped_and_financial_writes_are_installatio
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
-async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(pool: PgPool) {
-    inference_independent_ledgers(pool, false).await;
-}
-
-#[sqlx::test(migrations = "../../crates/storage/migrations")]
-#[ignore = "requires PostgreSQL"]
 async fn authorized_offer_inference_preserves_independent_financial_ledgers(pool: PgPool) {
-    inference_independent_ledgers(pool, true).await;
+    inference_independent_ledgers(pool).await;
 }
 
-async fn inference_independent_ledgers(pool: PgPool, new_authorization: bool) {
+async fn inference_independent_ledgers(pool: PgPool) {
     let upstream = Router::new()
         .route("/v1/chat/completions", post(provider))
         .with_state(Captured::default());
@@ -587,89 +563,19 @@ async fn inference_independent_ledgers(pool: PgPool, new_authorization: bool) {
     .fetch_one(&pool)
     .await
     .unwrap();
-    let authorization = if new_authorization {
-        let (status, result) = call(
-            &app,
-            Method::PUT,
-            &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization"),
-            ADMIN,
-            Some(json!({"rate_revision":revision})),
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK, "{result}");
-        Some(
-            result["data"]["authorization_id"]
-                .as_str()
-                .unwrap()
-                .to_owned(),
-        )
-    } else {
-        let valid_until_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64
-            + 30 * 24 * 60 * 60 * 1000;
-        assert_eq!(
-            call(
-                &app,
-                Method::PUT,
-                &format!("/admin/v1/providers/{supplier}/qualification"),
-                ADMIN,
-                Some(json!({
-                    "supply_rights_sha256":"a".repeat(64),
-                    "supply_capability_sha256":"b".repeat(64),
-                    "data_handling_sha256":"c".repeat(64),
-                    "valid_until_ms":valid_until_ms
-                }))
-            )
-            .await
-            .0,
-            StatusCode::OK
-        );
-        assert_eq!(
-            call(
-                &app,
-                Method::PUT,
-                &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification"),
-                ADMIN,
-                Some(json!({
-                    "rate_revision":revision,
-                    "model_identity_sha256":"d".repeat(64),
-                    "protocol_matrix_sha256":"e".repeat(64),
-                    "protocol_matrix_version":"chat-v1",
-                    "data_handling_sha256":"f".repeat(64),
-                    "availability_sha256":"1".repeat(64),
-                    "agreed_rates_sha256":"2".repeat(64),
-                    "valid_until_ms":valid_until_ms
-                }))
-            )
-            .await
-            .0,
-            StatusCode::OK
-        );
-        let supplier_manager = store
-            .create_operator(
-                OperatorScope {
-                    organization_id: scope.organization_id,
-                    project_id: None,
-                },
-                "supplier manager",
-                OperatorRole::Owner,
-                3600,
-                OperatorAuditActor::Installation,
-            )
-            .await
-            .unwrap();
-        store
-            .set_provider_member(supplier, supplier_manager.operator_id, "manager", true)
-            .await
-            .unwrap();
-        store
-            .set_provider_offer_active(supplier, offer, supplier_manager.operator_id, true)
-            .await
-            .unwrap();
-        None
-    };
+    let (status, result) = call(
+        &app,
+        Method::PUT,
+        &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization"),
+        ADMIN,
+        Some(json!({"rate_revision":revision})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let authorization = result["data"]["authorization_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     rates.prompt_rate = "3000000000".into();
     rates.completion_rate = "6000000000".into();
     store.publish_customer_tariff(scope, &rates).await.unwrap();
@@ -778,35 +684,18 @@ async fn inference_independent_ledgers(pool: PgPool, new_authorization: bool) {
     assert_eq!(lines["data"][0]["amount_nanos"], "12000");
     assert_eq!(lines["data"][0]["model_alias"], "billable");
     assert!(!lines.to_string().contains("earned_nanos"));
-    if let Some(authorization) = authorization {
-        assert_eq!(
-            call(
-                &app,
-                Method::DELETE,
-                &format!(
-                    "/admin/v1/providers/{supplier}/offers/{offer}/authorization/{authorization}"
-                ),
-                ADMIN,
-                None
-            )
-            .await
-            .0,
-            StatusCode::OK
-        );
-    } else {
-        assert_eq!(
-            call(
-                &app,
-                Method::POST,
-                &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification/revoke"),
-                ADMIN,
-                Some(json!({"reason_sha256":"3".repeat(64)}))
-            )
-            .await
-            .0,
-            StatusCode::OK
-        );
-    }
+    assert_eq!(
+        call(
+            &app,
+            Method::DELETE,
+            &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization/{authorization}"),
+            ADMIN,
+            None
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
     let second_response = app
         .oneshot(
             Request::post("/v1/chat/completions")
@@ -1366,6 +1255,14 @@ async fn media_offer_configuration_is_installation_only_bounded_and_receipt_safe
     assert_eq!(status, StatusCode::OK);
     let choice = &page["data"][0];
     assert_eq!(choice["api_key_name"], "Video credential");
+    assert_eq!(choice["offer_id"], json!(null));
+    assert_eq!(choice["offer_active"], false);
+    assert_eq!(choice["offer_qualified"], false);
+    assert_eq!(choice["offer_current"], false);
+    assert_eq!(choice["route_ready"], true);
+    assert_eq!(choice["resolutions"], json!([]));
+    assert_eq!(choice["reference_video"], false);
+    assert_eq!(choice["meter"], json!(null));
     for forbidden in [
         "credential_ciphertext",
         "api_base",
@@ -1450,10 +1347,16 @@ async fn media_offer_configuration_is_installation_only_bounded_and_receipt_safe
         .0,
         StatusCode::FORBIDDEN
     );
+    let mut offer_id = None;
     for _ in 0..2 {
         let (status, saved) = call(&app, Method::POST, &publish, ADMIN, Some(body.clone())).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(saved["data"]["revision"], receipt.to_string());
+        let current = saved["data"]["offer_id"].as_str().unwrap().to_owned();
+        match &offer_id {
+            Some(existing) => assert_eq!(existing, &current),
+            None => offer_id = Some(current),
+        }
     }
     let mut changed = body.clone();
     changed["schema_revision"] = json!("different");

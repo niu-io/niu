@@ -66,7 +66,7 @@ pub(super) fn zhifux_configuration_digest(runtime: &super::Runtime) -> [u8; 32] 
         &runtime.notify_url,
         &runtime.payment_methods,
     ))
-    .expect("serializable configuration");
+    .unwrap_or_else(|_| b"zhifux-configuration-unavailable".to_vec());
     runtime.client.configuration_digest(&context)
 }
 
@@ -86,13 +86,26 @@ pub(crate) struct Verification {
 }
 
 /// Same authoritative evidence powers admission and the administrator recovery view.
+/// One statement returns installation currency, merchant configuration and
+/// configuration-bound evidence; digests still come from the live runtime, so
+/// a cache can never keep a revoked or expired gateway positive.
 pub(crate) async fn verification(state: &AppState) -> Result<Verification, ApiError> {
-    let currency = state
+    let facts = state
         .store
-        .platform_currency()
+        .payment_readiness_facts()
         .await
         .map_err(ApiError::from_store)?;
-    let epay = super::configuration::runtime(state).await?;
+    verification_from_facts(state, facts).await
+}
+
+async fn verification_from_facts(
+    state: &AppState,
+    facts: niu_storage::PaymentReadinessFacts,
+) -> Result<Verification, ApiError> {
+    let currency = facts.currency.clone();
+    let epay =
+        super::configuration::runtime_from_configuration(state, facts.epay_configuration.clone())
+            .await?;
     let mut gateways = Vec::new();
     let checkout_enabled = epay
         .as_ref()
@@ -101,11 +114,7 @@ pub(crate) async fn verification(state: &AppState) -> Result<Verification, ApiEr
     let currency_supported = currency.as_deref() == Some("CNY");
     let callback_verified =
         if let Some(digest) = epay.as_ref().and_then(|r| epay_configuration_digest(r)) {
-            state
-                .store
-                .payment_callback_verified("epay", &digest)
-                .await
-                .map_err(ApiError::from_store)?
+            facts.callback_verified("epay", &digest)
         } else {
             false
         };
@@ -122,11 +131,7 @@ pub(crate) async fn verification(state: &AppState) -> Result<Verification, ApiEr
         .as_ref()
         .is_some_and(|r| !r.payment_methods.is_empty());
     let callback_verified = if let Some(runtime) = state.payments.as_ref() {
-        state
-            .store
-            .payment_callback_verified("zhifux", &zhifux_configuration_digest(runtime))
-            .await
-            .map_err(ApiError::from_store)?
+        facts.callback_verified("zhifux", &zhifux_configuration_digest(runtime))
     } else {
         false
     };
@@ -156,18 +161,8 @@ pub(crate) async fn verification(state: &AppState) -> Result<Verification, ApiEr
                 .and_then(|c| stripe_configuration_digest(r, c))
         }) {
             (
-                Some(
-                    state
-                        .store
-                        .payment_verification_valid("stripe", &digest, "account")
-                        .await
-                        .map_err(ApiError::from_store)?,
-                ),
-                state
-                    .store
-                    .payment_callback_verified("stripe", &digest)
-                    .await
-                    .map_err(ApiError::from_store)?,
+                Some(facts.verification_valid("stripe", "account", &digest)),
+                facts.callback_verified("stripe", &digest),
             )
         } else {
             (Some(false), false)
@@ -338,14 +333,12 @@ async fn check_stripe_account(state: &AppState) -> Result<&'static str, ApiError
         .begin_payment_verification("stripe", &digest, "account")
         .await
         .map_err(ApiError::from_store)?;
-    let result = match runtime
-        .checkout
-        .as_ref()
-        .expect("validated checkout")
-        .client
-        .account_status()
-        .await
-    {
+    let Some(checkout) = runtime.checkout.as_ref() else {
+        return Err(ApiError::upstream_message(
+            "Payment checkout is not configured",
+        ));
+    };
+    let result = match checkout.client.account_status().await {
         Ok(account) if account.charges_enabled => "account_enabled",
         Ok(_) => "account_disabled",
         Err(niu_payments::stripe_transport::AccountCheckError::Rejected) => "credentials_rejected",
@@ -443,6 +436,12 @@ fn customer_feature(path: &str) -> bool {
         path,
         "/v1/currency" | "/v1/branding" | "/v1/key" | "/v1/models"
     ) {
+        return false;
+    }
+    // A short-lived source capability is not a spending feature. The Provider
+    // must be able to fetch it even while the installation is not ready; the
+    // handler still enforces token expiry, binding and delivery limits.
+    if path.starts_with("/v1/media/sources/") {
         return false;
     }
     // These resource operations never invoke models or reserve customer funds.
@@ -826,6 +825,41 @@ mod tests {
         }
     }
     #[test]
+    fn credential_maintenance_is_read_only_except_revocation_and_rotation() {
+        use axum::http::Method;
+        let keys = "/api/v1/workspaces/{workspace}/keys";
+        assert!(credential_maintenance(keys, &Method::GET));
+        assert!(!credential_maintenance(keys, &Method::POST));
+        let key = "/api/v1/workspaces/{workspace}/keys/{key}";
+        assert!(credential_maintenance(key, &Method::GET));
+        assert!(credential_maintenance(key, &Method::DELETE));
+        assert!(!credential_maintenance(key, &Method::PATCH));
+        let rotate = "/api/v1/workspaces/{workspace}/keys/{key}/rotate";
+        assert!(credential_maintenance(rotate, &Method::POST));
+        assert!(!credential_maintenance(rotate, &Method::GET));
+        for spending in [
+            "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit/USD",
+            "/api/v1/workspaces/{workspace}/keys/{key}/guardrail",
+        ] {
+            assert!(!credential_maintenance(spending, &Method::PUT));
+        }
+        for keys in [
+            "/api/v1/organizations/{organization}/projects/{project}/keys",
+            "/admin/v1/organizations/{organization}/projects/{project}/keys",
+        ] {
+            assert!(credential_maintenance(keys, &Method::GET));
+            assert!(!credential_maintenance(keys, &Method::POST));
+            assert!(credential_maintenance(
+                &format!("{keys}/{{key}}/rotate"),
+                &Method::POST
+            ));
+        }
+        // Saved history is read-only; a write must still pass the gate.
+        let history = "/api/v1/workspaces/{workspace}/requests/{attempt}/payloads";
+        assert!(saved_history(history, &Method::GET));
+        assert!(!saved_history(history, &Method::POST));
+    }
+    #[test]
     fn stripe_evidence_digest_covers_every_checkout_and_callback_setting() {
         fn runtime() -> super::super::StripeRuntime {
             super::super::StripeRuntime {
@@ -1136,6 +1170,22 @@ mod tests {
                 .unwrap()
                 .ready
         );
+        let mut internal_state = state.clone();
+        internal_state.operating_mode = crate::state::OperatingMode::Internal;
+        assert!(
+            inspect_organization(&internal_state, Some(other))
+                .await
+                .unwrap()
+                .ready,
+            "internal use keeps its separate no-payment bypass"
+        );
+        assert!(
+            !inspect_organization(&state, Some(other))
+                .await
+                .unwrap()
+                .ready,
+            "resale remains funding-bound"
+        );
         let revision = store
             .configure_customer_balance_policy(funded, "USD", 1_000_000_000, None, 0)
             .await
@@ -1232,6 +1282,10 @@ mod tests {
             "a wholly corrected grant is not a funding arrangement"
         );
         let app = crate::web::router(state.clone());
+        // Credential inspection is maintenance, not spending. Installation
+        // authority may inspect any workspace's keys without funding, while an
+        // ordinary company owner gets the handler's non-disclosure 404 outside
+        // its own tenant.
         for (path, token, status) in [
             (
                 "/api/v1/platform/configuration".into(),
@@ -1246,7 +1300,12 @@ mod tests {
             (
                 format!("/api/v1/workspaces/{}/keys", foreign.project_id),
                 "funding-fixture-installation-token",
-                503,
+                200,
+            ),
+            (
+                format!("/api/v1/workspaces/{}/keys", foreign.project_id),
+                owner.token.as_str(),
+                404,
             ),
             (
                 format!(
@@ -1254,7 +1313,7 @@ mod tests {
                     foreign.project_id
                 ),
                 owner.token.as_str(),
-                403,
+                404,
             ),
             ("/v1/models".into(), key.token.as_str(), 200),
             ("/v1/models".into(), foreign_key.token.as_str(), 200),
@@ -1276,6 +1335,29 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status().as_u16(), status, "{path}");
+        }
+        // Exempting discovery and maintenance must not turn missing or foreign
+        // credentials into an anonymous success.
+        for path in [
+            "/v1/key".to_owned(),
+            "/v1/models".to_owned(),
+            format!("/api/v1/workspaces/{}/keys", workspace.project_id),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(&path)
+                        .header("authorization", "Bearer invalid-credential-fixture")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                axum::http::StatusCode::UNAUTHORIZED,
+                "{path}"
+            );
         }
         let configuration = app
             .clone()
@@ -1341,7 +1423,10 @@ mod tests {
                     .unwrap();
             assert_eq!(body["data"]["ready"], ready);
         }
-        for (organization, expected) in [(funded, 201), (other, 503)] {
+        // Authorized workspace setup is configuration, not spend. It remains
+        // available before company funding while its handler still enforces
+        // scope and write authority; readiness for actual use stays per company.
+        for organization in [funded, other] {
             let response = app
                 .clone()
                 .oneshot(
@@ -1356,7 +1441,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            assert_eq!(response.status().as_u16(), expected);
+            assert_eq!(response.status().as_u16(), 201);
         }
     }
 
@@ -1508,6 +1593,10 @@ mod tests {
                 .await
                 .unwrap()
         );
+        let facts = store.payment_readiness_facts().await.unwrap();
+        assert!(facts.callback_verified("stripe", &digest));
+        assert!(!facts.callback_verified("stripe", &changed));
+        assert!(!facts.callback_verified("epay", &digest));
         assert!(
             !store
                 .payment_callback_verified("epay", &digest)
@@ -1616,6 +1705,12 @@ mod tests {
                     .await
                     .unwrap()
             );
+            let facts = store.payment_readiness_facts().await.unwrap();
+            assert!(
+                facts.callback_verified("zhifux", &digest),
+                "signed receipt plus settlement needs no later worker write"
+            );
+            assert!(!facts.callback_verified("zhifux", &changed));
             let count: i64 = sqlx::query_scalar(
                 "SELECT count(*) FROM payment_signed_notifications WHERE order_id=$1",
             )
@@ -1795,7 +1890,6 @@ mod tests {
     async fn payment_readiness_gates_and_recovers_without_mutating_customer_data(
         pool: sqlx::PgPool,
     ) {
-        use http_body_util::BodyExt;
         use std::sync::Arc;
         use tower::ServiceExt;
         let store = niu_storage::Store::from_pool(pool);
@@ -1835,14 +1929,9 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(
-            response.status(),
-            axum::http::StatusCode::SERVICE_UNAVAILABLE
-        );
-        let body: serde_json::Value =
-            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
-                .unwrap();
-        assert_eq!(body["error"]["type"], "payment_setup_required");
+        // Key listing is credential maintenance, not spending: an unready
+        // installation must still let an administrator inspect and rotate keys.
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
         let response = app
             .oneshot(
                 Request::builder()
@@ -1951,6 +2040,32 @@ mod tests {
             inspect(&state).await.unwrap().ready,
             "recovery reuses only unchanged configuration-bound callback evidence"
         );
+        let expiring = store
+            .begin_payment_verification("stripe", &digest, "account")
+            .await
+            .unwrap();
+        store
+            .finish_payment_verification(expiring, Some(1))
+            .await
+            .unwrap();
+        assert!(
+            inspect(&state).await.unwrap().ready,
+            "fresh positive evidence is authoritative within its interval"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+        assert!(
+            !inspect(&state).await.unwrap().ready,
+            "expired evidence is never served from a cache or prior readiness"
+        );
+        let recovered = store
+            .begin_payment_verification("stripe", &digest, "account")
+            .await
+            .unwrap();
+        store
+            .finish_payment_verification(recovered, Some(600))
+            .await
+            .unwrap();
+        assert!(inspect(&state).await.unwrap().ready);
         Arc::get_mut(state.stripe_payments.as_mut().unwrap())
             .unwrap()
             .endpoint_secret
@@ -1965,7 +2080,7 @@ mod tests {
         state.stripe_payments = None;
         let app = crate::web::router(state);
         for (path, expected) in [
-            (keys.as_str(), axum::http::StatusCode::SERVICE_UNAVAILABLE),
+            (keys.as_str(), axum::http::StatusCode::OK),
             ("/api/v1/payments/readiness", axum::http::StatusCode::OK),
             ("/api/v1/platform/payments/epay", axum::http::StatusCode::OK),
         ] {
@@ -1984,6 +2099,35 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status(), expected, "{path}");
+        }
+        // Credential inspection is exempt; creation and limit writes can widen
+        // spend authority and must still require payment readiness.
+        let key_id = uuid::Uuid::new_v4();
+        for (method, path) in [
+            ("POST", keys.clone()),
+            ("PATCH", format!("{keys}/{key_id}")),
+            ("PUT", format!("{keys}/{key_id}/spending-limit/USD")),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(&path)
+                        .header(
+                            "authorization",
+                            "Bearer readiness-fixture-administrator-token",
+                        )
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                "{method} {path}"
+            );
         }
     }
 }

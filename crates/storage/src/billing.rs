@@ -561,7 +561,40 @@ SELECT jsonb_build_object(
         for (organization, balance) in balances {
             grouped.entry(organization).or_default().push(balance);
         }
-        let data: Vec<Value> = companies.into_iter().map(|company| json!({"organization_id":company.id,"organization_name":company.name,"accounts":grouped.remove(&company.id).unwrap_or_default()})).collect();
+        let credit_rows: Vec<(Uuid, String, i16, i64, bool)> =
+            sqlx::query_as(include_str!("platform_customer_unit_summaries.sql"))
+                .bind(
+                    companies
+                        .iter()
+                        .map(|company| company.id)
+                        .collect::<Vec<_>>(),
+                )
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let mut credits = std::collections::BTreeMap::<Uuid, Vec<(String, i16, i64, bool)>>::new();
+        for (organization, name, display_precision, available_atoms, is_current) in credit_rows {
+            credits.entry(organization).or_default().push((
+                name,
+                display_precision,
+                available_atoms,
+                is_current,
+            ));
+        }
+        let data: Vec<Value> = companies
+            .into_iter()
+            .map(|company| {
+                let credit_summary = credits
+                    .remove(&company.id)
+                    .map(|rows| platform_customer_credit_summary(&rows))
+                    .unwrap_or(Value::Null);
+                json!({
+                    "organization_id":company.id,
+                    "organization_name":company.name,
+                    "accounts":grouped.remove(&company.id).unwrap_or_default(),
+                    "credits":credit_summary
+                })
+            })
+            .collect();
         snapshot.commit().await?;
         Ok(json!({"data":data,"next_after":next}))
     }
@@ -1207,7 +1240,7 @@ SELECT jsonb_build_object(
         let mut prices = Self::customer_model_prices_in_tx(&mut tx, scope).await?;
         // Match model discovery: an enabled personally funded route does not
         // expose a customer selling price, even if a legacy tariff exists.
-        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE o.organization_id=$1 AND m.enabled AND v.enabled")
+        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE (o.organization_id=$1 OR o.access_scope='internal') AND m.enabled AND v.enabled")
             .bind(scope.organization_id).fetch_all(&mut *tx).await?;
         for alias in &personal {
             prices.remove(alias);
@@ -1499,4 +1532,78 @@ pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
         .await
         .map_err(crate::accounting::map_reservation_error)?;
     Ok(())
+}
+
+/// Standard-unit Credits summary for the platform customer list. The largest
+/// positive unit is shown; the current definition breaks ties at equal amounts.
+/// No lot, provenance or atom detail leaves this projection.
+fn platform_customer_credit_summary(rows: &[(String, i16, i64, bool)]) -> Value {
+    if rows.is_empty() {
+        return Value::Null;
+    }
+    let primary = rows.iter().position(|row| row.2 > 0).unwrap_or(0);
+    let (name, display_precision, available_atoms, _) = &rows[primary];
+    let additional_units = rows
+        .iter()
+        .enumerate()
+        .filter(|(index, row)| *index != primary && row.2 > 0)
+        .count();
+    json!({
+        "name": name,
+        "display_precision": display_precision,
+        "available": format_customer_unit_decimal(*available_atoms, *display_precision),
+        "additional_units": additional_units
+    })
+}
+
+/// Exact standard-unit decimal string, keeping every represented nanounit and
+/// padding to the configured display precision. Never rounds a positive value to zero.
+fn format_customer_unit_decimal(atoms: i64, display_precision: i16) -> String {
+    const NANOS_PER_UNIT: u64 = 1_000_000_000;
+    let negative = atoms < 0;
+    let absolute = atoms.unsigned_abs();
+    let whole = absolute / NANOS_PER_UNIT;
+    let remainder = absolute % NANOS_PER_UNIT;
+    let mut fraction = format!("{remainder:09}");
+    while fraction.ends_with('0') {
+        fraction.pop();
+    }
+    while fraction.len() < display_precision.clamp(0, 9) as usize {
+        fraction.push('0');
+    }
+    let number = if fraction.is_empty() {
+        whole.to_string()
+    } else {
+        format!("{whole}.{fraction}")
+    };
+    if negative {
+        format!("-{number}")
+    } else {
+        number
+    }
+}
+
+#[cfg(test)]
+mod platform_credit_summary_tests {
+    use super::{format_customer_unit_decimal, platform_customer_credit_summary};
+
+    #[test]
+    fn formats_exact_standard_units_without_rounding_to_zero() {
+        assert_eq!(format_customer_unit_decimal(0, 2), "0.00");
+        assert_eq!(format_customer_unit_decimal(69_000_000_000, 2), "69.00");
+        assert_eq!(format_customer_unit_decimal(1_500_000, 2), "0.0015");
+        assert_eq!(format_customer_unit_decimal(1_234_000_000_000, 0), "1234");
+        assert_eq!(format_customer_unit_decimal(-1_500_000_000, 2), "-1.50");
+    }
+
+    #[test]
+    fn chooses_a_positive_unit_and_counts_the_rest() {
+        let summary = platform_customer_credit_summary(&[
+            ("Niu Credits".to_string(), 2, 0, true),
+            ("Legacy Credits".to_string(), 2, 12_500_000_000, false),
+        ]);
+        assert_eq!(summary["name"], "Legacy Credits");
+        assert_eq!(summary["available"], "12.50");
+        assert_eq!(summary["additional_units"], 0);
+    }
 }

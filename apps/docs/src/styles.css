@@ -501,6 +501,15 @@ starlight-toc a[aria-current='true'] {
 #starlight__search .pagefind-ui__search-clear {
   font-size: 0;
 }
+@media (max-width: 640px) {
+  site-search dialog {
+    width: calc(100vw - 2rem);
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 6rem);
+    margin: 4.5rem auto auto;
+  }
+}
+
 #starlight__search mark {
   background: color-mix(in srgb, var(--brand-accent) 22%, transparent);
   color: var(--foreground);
@@ -610,6 +619,9 @@ starlight-toc a[aria-current='true'] {
 }
 
 /* Embedded Help mode inside Niu Dashboard */
+:root[data-docs-embedded] .header {
+  display: none;
+}
 .docs-embedded-name {
   display: none;
 }
@@ -1411,6 +1423,8 @@ a[data-slot='button'][data-variant='outline']:hover {
 }
 
 .docs-home-setup-prompt { margin: 20px 0 !important; padding: 18px; border-radius: 8px; background: var(--sl-color-gray-6); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.7; }
+.docs-home-release-note { margin: 8px 0 0; color: var(--sl-color-gray-3); font-size: 12px; line-height: 1.5; }
+.docs-home-release-note a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .docs-home-setup-note { margin-top: 16px !important; font-size: 14px !important; }
 
 .docs-home-pipeline { justify-content: flex-start; align-self: start; gap: 12px; }

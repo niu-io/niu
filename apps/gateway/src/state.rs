@@ -356,9 +356,10 @@ impl AppState {
             state.password_auth = Some(Arc::new(runtime));
         }
         if let Some(auth) = state.password_auth.as_mut() {
-            Arc::get_mut(auth)
-                .expect("authentication runtime is not shared during setup")
-                .configure_demo_from_env()?;
+            let Some(auth) = Arc::get_mut(auth) else {
+                return Err("Authentication runtime is already shared during setup".into());
+            };
+            auth.configure_demo_from_env()?;
         } else if env::var_os("NIU_DEMO_LOGIN_EMAIL").is_some()
             || env::var_os("NIU_DEMO_LOGIN_PASSWORD").is_some()
         {
@@ -518,6 +519,7 @@ impl AppState {
     pub async fn authorize_invocation_headers(
         &self,
         headers: &HeaderMap,
+        protocol: &str,
     ) -> Result<niu_storage::Principal, ApiError> {
         let principal = self
             .authorize_api_headers_with_permission(headers, niu_storage::AdminPermission::Write)
@@ -526,6 +528,9 @@ impl AppState {
             return Err(ApiError::from_store(
                 niu_storage::StoreError::InvocationDenied,
             ));
+        }
+        if !principal.allows_invocation_protocol(protocol) {
+            return Err(ApiError::invocation_protocol_not_authorized());
         }
         Ok(principal)
     }

@@ -1022,7 +1022,7 @@ pub struct PreviewRequest {
 ///       }
 ///     ],
 ///     "summary": "Dry-run routing preview for a model route pool",
-///     "description": "Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.",
+///     "description": "Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.",
 ///     "parameters": [
 ///       {
 ///         "in": "path",
@@ -1050,7 +1050,9 @@ pub struct PreviewRequest {
 ///                 "enum": [
 ///                   "chat",
 ///                   "responses",
-///                   "messages"
+///                   "messages",
+///                   "embeddings",
+///                   "generate_content"
 ///                 ]
 ///               },
 ///               "streaming": {
@@ -1149,6 +1151,9 @@ pub async fn member_preview(
     Json(req): Json<PreviewRequest>,
 ) -> Result<Json<Value>, ApiError> {
     super::api::installation(&state, &headers).await?;
+    // Normalize and validate declared traits before moving preview overrides out
+    // of the request.
+    let (protocol, traits) = preview_request_traits(&req)?;
     let alias = decode_reference(&reference)?;
     let mut pool = state
         .store
@@ -1168,33 +1173,7 @@ pub async fn member_preview(
     niu_storage::validate_pool_candidates_and_rules(&pool.candidates, &pool.rules)
         .map_err(ApiError::from_store)?;
 
-    let protocol_str = req.protocol.as_deref().unwrap_or("chat");
-    let protocol = match protocol_str {
-        "chat" | "generate_content" => crate::guardrails::input::Protocol::Chat,
-        "responses" => crate::guardrails::input::Protocol::Responses,
-        "messages" => crate::guardrails::input::Protocol::Messages,
-        "embeddings" => crate::guardrails::input::Protocol::Embeddings,
-        _ => {
-            return Err(ApiError::invalid_request(
-                "protocol must be chat, responses, messages, embeddings, or generate_content",
-            ));
-        }
-    };
-    let requirements = crate::config::ModelRequirements {
-        project_id: pool.project_id,
-        streaming: protocol_str != "messages" && req.streaming,
-        messages_streaming: protocol_str == "messages" && req.streaming,
-        messages_tools: protocol_str == "messages" && req.tools,
-        messages_streaming_tools: protocol_str == "messages" && req.streaming && req.tools,
-        tools: protocol_str != "messages" && req.tools,
-        streaming_tools: protocol_str != "messages" && req.streaming && req.tools,
-        structured_output: req.structured_output,
-        vision: req.vision,
-        reasoning: req.reasoning,
-        estimated_input_tokens: req.input_tokens,
-        requested_output_tokens: req.output_tokens,
-        ..Default::default()
-    };
+    let requirements = traits.requirements(pool.project_id, protocol);
 
     let (_, inputs) = super::publication::catalog_inputs(&state).await?;
     let mut routes_by_alias = std::collections::BTreeMap::new();
@@ -1258,7 +1237,9 @@ pub async fn member_preview(
             {
                 reason = Some("supplier_unavailable");
             } else if let Ok(model) = super::models::compile_model(&route.vendor, &route.model) {
-                if !requirements.allows(&model) {
+                if !super::models::supports_protocol(&model, &protocol) {
+                    reason = Some("protocol_not_supported");
+                } else if !requirements.allows(&model) {
                     reason = Some("unsupported_capability");
                 } else if req
                     .input_tokens
@@ -1321,6 +1302,7 @@ pub async fn member_preview(
             let normalized_reason = match r {
                 "candidate_disabled" => "disabled_in_pool",
                 "unsupported_capability"
+                | "protocol_not_supported"
                 | "exceeds_context_length"
                 | "exceeds_max_completion_tokens" => "capability_or_token_mismatch",
                 _ => "route_unavailable",
@@ -1377,6 +1359,57 @@ pub async fn member_preview(
             "candidates": candidates_json,
         }
     })))
+}
+
+/// Parse the platform preview protocol and normalize its declared traits through
+/// the same support matrix used by native dispatch.
+fn preview_request_traits(
+    req: &PreviewRequest,
+) -> Result<
+    (
+        crate::guardrails::input::Protocol,
+        crate::routing_traits::RequestTraits,
+    ),
+    ApiError,
+> {
+    let protocol = match req.protocol.as_deref().unwrap_or("chat") {
+        "chat" => crate::guardrails::input::Protocol::Chat,
+        "responses" => crate::guardrails::input::Protocol::Responses,
+        "messages" => crate::guardrails::input::Protocol::Messages,
+        "embeddings" => crate::guardrails::input::Protocol::Embeddings,
+        "generate_content" => crate::guardrails::input::Protocol::GenerateContent,
+        _ => {
+            return Err(ApiError::invalid_request(
+                "protocol must be chat, responses, messages, embeddings, or generate_content",
+            ));
+        }
+    };
+    if req
+        .input_tokens
+        .is_some_and(|value| value == 0 || value > 10_000_000)
+        || req
+            .output_tokens
+            .is_some_and(|value| value == 0 || value > 10_000_000)
+    {
+        return Err(ApiError::invalid_request(
+            "Use a supported pool protocol and bounded request traits",
+        ));
+    }
+    let traits = crate::routing_traits::RequestTraits {
+        streaming: req.streaming,
+        vision: req.vision,
+        tools: req.tools,
+        structured_output: req.structured_output,
+        reasoning: req.reasoning,
+        estimated_input_tokens: req.input_tokens,
+        requested_output_tokens: req.output_tokens,
+        ..Default::default()
+    };
+    // Preview must apply the same protocol support matrix as dispatch. A route
+    // preview for an unsupported trait would otherwise advertise an outcome that
+    // the native endpoint rejects.
+    crate::routing_traits::require_supported(protocol, &traits)?;
+    Ok((protocol, traits))
 }
 
 #[derive(Deserialize)]
@@ -1477,4 +1510,131 @@ pub async fn member_audit(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data": report})))
+}
+
+#[cfg(test)]
+mod routing_preview_traits_tests {
+    use super::*;
+
+    fn preview(protocol: &str) -> PreviewRequest {
+        PreviewRequest {
+            protocol: Some(protocol.into()),
+            streaming: false,
+            vision: false,
+            tools: false,
+            structured_output: false,
+            reasoning: false,
+            input_tokens: None,
+            output_tokens: None,
+            candidates: None,
+            rules: None,
+            default_action: None,
+        }
+    }
+
+    #[test]
+    fn preview_protocol_names_map_to_native_protocols() {
+        for (name, expected) in [
+            ("chat", crate::guardrails::input::Protocol::Chat),
+            ("responses", crate::guardrails::input::Protocol::Responses),
+            ("messages", crate::guardrails::input::Protocol::Messages),
+            ("embeddings", crate::guardrails::input::Protocol::Embeddings),
+            (
+                "generate_content",
+                crate::guardrails::input::Protocol::GenerateContent,
+            ),
+        ] {
+            let (protocol, _) = preview_request_traits(&preview(name)).expect("known protocol");
+            assert_eq!(protocol, expected, "{name}");
+        }
+        assert!(preview_request_traits(&preview("video_text")).is_err());
+    }
+
+    #[test]
+    fn preview_rejects_traits_the_protocol_cannot_express() {
+        for (protocol, mutate, message) in [
+            (
+                "responses",
+                (|req: &mut PreviewRequest| req.tools = true) as fn(&mut PreviewRequest),
+                "Responses requests do not support tool declarations",
+            ),
+            (
+                "messages",
+                (|req: &mut PreviewRequest| req.vision = true) as fn(&mut PreviewRequest),
+                "Messages requests do not support image or document inputs",
+            ),
+            (
+                "generate_content",
+                (|req: &mut PreviewRequest| req.streaming = true) as fn(&mut PreviewRequest),
+                "GenerateContent supports buffered requests only; streaming is not implemented",
+            ),
+        ] {
+            let mut request = preview(protocol);
+            mutate(&mut request);
+            let error = preview_request_traits(&request)
+                .expect_err("unsupported preview trait must be rejected");
+            assert!(
+                error.test_message().contains(message),
+                "{protocol}: {}",
+                error.test_message()
+            );
+        }
+    }
+
+    #[test]
+    fn preview_requirements_match_native_dispatch_extraction() {
+        let cases = [
+            (
+                "responses",
+                crate::routing_traits::RequestTraits {
+                    streaming: true,
+                    estimated_input_tokens: Some(3),
+                    requested_output_tokens: Some(128),
+                    ..Default::default()
+                },
+                include_str!("../../tests/fixtures/routing-traits/responses-supported.json"),
+            ),
+            (
+                "messages",
+                crate::routing_traits::RequestTraits {
+                    streaming: true,
+                    tools: true,
+                    estimated_input_tokens: Some(2),
+                    requested_output_tokens: Some(64),
+                    ..Default::default()
+                },
+                include_str!("../../tests/fixtures/routing-traits/messages-supported.json"),
+            ),
+            (
+                "generate_content",
+                crate::routing_traits::RequestTraits {
+                    estimated_input_tokens: Some(2),
+                    requested_output_tokens: Some(32),
+                    ..Default::default()
+                },
+                include_str!("../../tests/fixtures/routing-traits/generate-content-supported.json"),
+            ),
+        ];
+        for (name, declared, source) in cases {
+            let native_body: serde_json::Value =
+                serde_json::from_str(source).expect("fixture JSON");
+            let mut request = preview(name);
+            request.streaming = declared.streaming;
+            request.tools = declared.tools;
+            request.vision = declared.vision;
+            request.structured_output = declared.structured_output;
+            request.reasoning = declared.reasoning;
+            request.input_tokens = declared.estimated_input_tokens;
+            request.output_tokens = declared.requested_output_tokens;
+            let (protocol, normalized) =
+                preview_request_traits(&request).expect("supported preview context");
+            let native = crate::routing_traits::extract(protocol, &native_body);
+            assert_eq!(normalized, native, "{name} normalized traits");
+            assert_eq!(
+                normalized.requirements(None, protocol),
+                native.requirements(None, protocol),
+                "{name} candidate requirements"
+            );
+        }
+    }
 }

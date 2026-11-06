@@ -73,7 +73,7 @@ impl Store {
         {
             return Err(StoreError::InvalidUsage);
         }
-        Ok(serde_json::to_value(choices).expect("finish metadata is serializable"))
+        Ok(serde_json::to_value(choices).map_err(|_| StoreError::InvalidUsage)?)
     }
 
     /// An immutable observation for a completed, scoped attempt. This neither

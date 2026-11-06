@@ -15,7 +15,19 @@ async fn currency_is_durable_once_and_does_not_relabel_history(pool: PgPool) {
         .create_prepaid_organization("Historical USD", "USD")
         .await
         .unwrap();
-    store.configure_platform_currency("CNY").await.unwrap();
+    // A store that observed the unconfigured state must not pin a stale
+    // negative answer after another process configures the immutable row.
+    let observer = Store::from_pool(pool.clone());
+    assert_eq!(observer.platform_currency().await.unwrap(), None);
+    let configurator = Store::from_pool(pool.clone());
+    configurator
+        .configure_platform_currency("CNY")
+        .await
+        .unwrap();
+    assert_eq!(
+        observer.platform_currency().await.unwrap().as_deref(),
+        Some("CNY")
+    );
     assert!(
         store
             .customer_balance_summary(legacy)

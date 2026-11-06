@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)] // Reference test extension fixture; not a request-path binary.
+
 //! Synthetic public extension used to compile and exercise every v1 contract.
 //! It is not loaded by the gateway and performs no network or persistence work.
 

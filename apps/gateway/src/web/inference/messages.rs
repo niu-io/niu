@@ -5,7 +5,7 @@ use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
     extract::State,
-    http::HeaderMap,
+    http::{HeaderMap, HeaderValue},
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
@@ -49,6 +49,16 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///           "type": "string",
 ///           "maxLength": 200,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+///         }
+///       },
+///       {
+///         "name": "x-niu-routing-context",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 512
 ///         }
 ///       }
 ///     ],
@@ -839,7 +849,9 @@ async fn execute(
     mut body: Value,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_invocation_headers(headers).await?;
+    let principal = state
+        .authorize_invocation_headers(headers, "messages")
+        .await?;
     if headers.contains_key("anthropic-beta")
         || headers.get_all("anthropic-version").iter().count() > 1
         || headers
@@ -850,25 +862,24 @@ async fn execute(
             "Only Messages version 2023-06-01 without beta features is supported",
         ));
     }
+    let traits = crate::routing_traits::extract(Protocol::Messages, &body);
+    // Native Messages accepts client tools, but media, extended thinking and
+    // structured output are not implemented. Reject those traits explicitly
+    // before a pool can select a route for a different request shape.
+    crate::routing_traits::require_supported(Protocol::Messages, &traits)?;
     let mut validated = validate(&body)?;
     let bound = validated.bound;
-    let streaming = body.get("stream").and_then(Value::as_bool) == Some(true);
-    let mut public_model = body["model"].as_str().unwrap().to_owned();
+    let streaming = traits.streaming;
+    let mut public_model = body["model"]
+        .as_str()
+        .ok_or_else(|| ApiError::invalid_request("A model is required"))?
+        .to_owned();
     if !public_model.starts_with("pool/") && !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
     // Native streaming is an independent capability, including on Anthropic
     // routes. Filter pool candidates before applying their priority/weight.
-    let requirements = crate::config::ModelRequirements {
-        project_id: Some(principal.scope().project_id),
-        messages_streaming: streaming,
-        messages_tools: validated.tools_requested,
-        messages_streaming_tools: streaming && validated.tools_requested,
-        reasoning: body.get("thinking").is_some(),
-        estimated_input_tokens: Some(bound.max(1) as u64),
-        requested_output_tokens: body.get("max_tokens").and_then(Value::as_u64),
-        ..Default::default()
-    };
+    let requirements = traits.requirements(Some(principal.scope().project_id), Protocol::Messages);
     let selection = crate::web::workspace_pools::select_for_request(
         state,
         &principal,
@@ -876,6 +887,7 @@ async fn execute(
         &mut body,
         Protocol::Messages,
         &requirements,
+        headers,
     )
     .await?;
     let result = async {
@@ -1027,12 +1039,13 @@ async fn execute(
                         &body,
                     ),
                 ));
+                response.headers_mut().insert(
+                    "content-type",
+                    HeaderValue::from_static("text/event-stream"),
+                );
                 response
                     .headers_mut()
-                    .insert("content-type", "text/event-stream".parse().unwrap());
-                response
-                    .headers_mut()
-                    .insert("cache-control", "no-store".parse().unwrap());
+                    .insert("cache-control", HeaderValue::from_static("no-store"));
                 return Ok(ProviderResponse {
                     response,
                     completed: false,

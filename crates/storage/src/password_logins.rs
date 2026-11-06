@@ -33,7 +33,7 @@ impl PasswordLoginCredential {
     }
 }
 
-fn email_address(email: &str) -> Option<String> {
+pub(crate) fn email_address(email: &str) -> Option<String> {
     let email = email.trim().to_ascii_lowercase();
     if email.len() > 254
         || !email.is_ascii()

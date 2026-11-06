@@ -848,6 +848,7 @@ impl Store {
             .bind(lot)
             .execute(&mut *tx)
             .await?;
+            Self::record_verified_signed_notification_digests(&mut tx, order).await?;
             tx.commit().await?;
             return Ok(lot);
         }
@@ -863,7 +864,30 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO customer_topup_settlements(order_id,organization_id,account_id,currency,entry_id) VALUES($1,$2,$3,$4,$5)").bind(order).bind(organization).bind(saved.account_id).bind(&saved.currency).bind(entry).execute(&mut *tx).await?;
+        Self::record_verified_signed_notification_digests(&mut tx, order).await?;
         tx.commit().await?;
         Ok(entry)
+    }
+
+    /// A signed ZhifuX notification can arrive before settlement. Materialize
+    /// that configuration digest in the settlement transaction so readiness
+    /// does not need a later callback worker write to become positive.
+    async fn record_verified_signed_notification_digests(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        order: Uuid,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO payment_verified_callback_digests(gateway,configuration_digest,verified_at) \
+             SELECT b.gateway,b.configuration_digest,statement_timestamp() \
+             FROM payment_checkout_verification b \
+             JOIN payment_signed_notifications n ON n.order_id=b.order_id \
+             WHERE b.order_id=$1 AND b.gateway='zhifux' \
+             ON CONFLICT (gateway,configuration_digest) DO UPDATE \
+             SET verified_at=GREATEST(payment_verified_callback_digests.verified_at,EXCLUDED.verified_at)",
+        )
+        .bind(order)
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
     }
 }

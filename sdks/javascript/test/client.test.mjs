@@ -318,6 +318,21 @@ test('per-request payload retention overrides defaults across inference protocol
   assert.equal(observed.length, 6);
 });
 
+test('per-request Auto routing context is bounded and validated', async () => {
+  const observed = [];
+  const client = new NiuClient({ apiKey: 'test-token', fetch: async (_url, init) => {
+    observed.push(new Headers(init.headers).get('x-niu-routing-context'));
+    return Response.json({});
+  } });
+  const chat = { model: 'pool/assistant', messages: [{role: 'user', content: 'hi'}] };
+  await client.chat.completions(chat, { routingContext: { task: 'architecture', stage: 'implementation' } });
+  await client.chat.completions(chat);
+  assert.deepEqual(observed, ['{"task":"architecture","stage":"implementation"}', null]);
+  await assert.rejects(client.chat.completions(chat, { routingContext: {} }), /task or stage/);
+  await assert.rejects(client.chat.completions(chat, { routingContext: { task: 'Bad Token' } }), /lowercase tokens/);
+  assert.equal(observed.length, 2);
+});
+
 test('video job reads preserve authorization, abort and unresolved state without retry', async () => {
   const controller = new AbortController();
   let calls = 0;

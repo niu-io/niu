@@ -88,6 +88,13 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
           <pre className="docs-home-setup-prompt">
             <code>{setupPrompt}</code>
           </pre>
+          <p className="docs-home-release-note">
+            {t(
+              "Installation checks for the published v0.3.0 release before changing the host. If that release or a required package is unavailable, the agent stops and explains the prerequisite; use the hosted deployment or a source checkout explicitly provided by your operator.",
+              "安装前会检查 v0.3.0 公开发布及所需包；如果发布或包不可用，Agent 会停止并说明前提。请改用托管部署，或使用运维方明确提供的源码检出。",
+            )}{" "}
+            <a href="https://github.com/niu-io/niu/releases/tag/v0.3.0">v0.3.0</a>
+          </p>
           <div className="docs-home-actions">
             <Button
               className="docs-home-primary-cta"

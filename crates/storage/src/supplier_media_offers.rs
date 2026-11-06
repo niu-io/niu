@@ -72,7 +72,7 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut rows=sqlx::query("SELECT m.alias,v.id AS vendor_id,v.name,v.revision AS vendor_revision,m.revision AS model_revision,m.upstream_model,m.capabilities->'video_schema' AS schema,o.current_revision FROM vendor_supplier_ownership s JOIN vendors v ON v.id=s.vendor_id JOIN vendor_models m ON m.vendor_id=v.id LEFT JOIN provider_offers o ON o.model_alias=m.alias AND o.provider_id=s.provider_id WHERE s.provider_id=$1 AND jsonb_typeof(m.capabilities->'video_schema')='object' AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=v.id) AND NOT EXISTS(SELECT 1 FROM provider_offers x WHERE x.model_alias=m.alias AND x.provider_id<>$1) AND ($2::text IS NULL OR m.alias>$2) ORDER BY m.alias LIMIT $3")
+        let mut rows=sqlx::query("SELECT m.alias,v.id AS vendor_id,v.name,v.revision AS vendor_revision,m.revision AS model_revision,m.upstream_model,m.capabilities->'video_schema' AS schema,o.id AS offer_id,o.current_revision,COALESCE(o.active,FALSE) AS offer_active,CASE WHEN o.active AND o.current_revision IS NOT NULL THEN niu_offer_qualification_current(s.provider_id,o.id,o.current_revision) ELSE FALSE END AS offer_qualified,CASE WHEN o.id IS NOT NULL AND o.current_revision IS NOT NULL THEN niu_media_offer_binding_current(s.provider_id,o.id,o.current_revision) ELSE FALSE END AS offer_current,(v.enabled AND m.enabled AND v.credential_ciphertext IS NOT NULL) AS route_ready FROM vendor_supplier_ownership s JOIN vendors v ON v.id=s.vendor_id JOIN vendor_models m ON m.vendor_id=v.id LEFT JOIN provider_offers o ON o.model_alias=m.alias AND o.provider_id=s.provider_id WHERE s.provider_id=$1 AND jsonb_typeof(m.capabilities->'video_schema')='object' AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=v.id) AND NOT EXISTS(SELECT 1 FROM provider_offers x WHERE x.model_alias=m.alias AND x.provider_id<>$1) AND ($2::text IS NULL OR m.alias>$2) ORDER BY m.alias LIMIT $3")
             .bind(supplier).bind(after).bind(limit+1).fetch_all(&self.pool).await?;
         let more = rows.len() > limit as usize;
         rows.truncate(limit as usize);
@@ -92,7 +92,22 @@ impl Store {
             {
                 continue;
             }
-            data.push(json!({"model_alias":alias,"api_key_name":row.get::<String,_>("name"),"vendor_id":row.get::<Uuid,_>("vendor_id"),"vendor_revision":row.get::<i64,_>("vendor_revision").to_string(),"model_revision":row.get::<i64,_>("model_revision").to_string(),"schema_revision":schema.revision,"channel":schema.channel,"offer_revision":row.get::<Option<Uuid>,_>("current_revision")}));
+            let resolutions = match schema.controls.get("resolution") {
+                Some(niu_media::Control::Choice { values, .. }) => values
+                    .iter()
+                    .filter(|value| {
+                        schema.output.as_ref().is_none_or(|output| {
+                            output
+                                .specifications
+                                .iter()
+                                .any(|spec| &spec.resolution == *value)
+                        })
+                    })
+                    .cloned()
+                    .collect(),
+                _ => Vec::new(),
+            };
+            data.push(json!({"model_alias":alias,"api_key_name":row.get::<String,_>("name"),"vendor_id":row.get::<Uuid,_>("vendor_id"),"vendor_revision":row.get::<i64,_>("vendor_revision").to_string(),"model_revision":row.get::<i64,_>("model_revision").to_string(),"schema_revision":schema.revision,"channel":schema.channel,"offer_revision":row.get::<Option<Uuid>,_>("current_revision"),"offer_id":row.get::<Option<Uuid>,_>("offer_id"),"offer_active":row.get::<bool,_>("offer_active"),"offer_qualified":row.get::<bool,_>("offer_qualified"),"offer_current":row.get::<bool,_>("offer_current"),"route_ready":row.get::<bool,_>("route_ready"),"resolutions":resolutions,"reference_video":schema.inputs.contains_key("video_url"),"meter":schema.output.as_ref().map(|output| output.estimator.meter())}));
         }
         Ok(json!({"data":data,"has_more":more,"next_after":next}))
     }
@@ -102,6 +117,18 @@ impl Store {
         supplier: Uuid,
         input: &SupplierMediaOfferInput,
     ) -> Result<Uuid, StoreError> {
+        self.publish_supplier_media_offer_with_offer(supplier, input)
+            .await
+            .map(|(_, revision)| revision)
+    }
+
+    /// Publication also returns the stable offer identity so an explicit
+    /// enablement can follow without a second binding lookup.
+    pub async fn publish_supplier_media_offer_with_offer(
+        &self,
+        supplier: Uuid,
+        input: &SupplierMediaOfferInput,
+    ) -> Result<(Uuid, Uuid), StoreError> {
         if input.vendor_revision < 1
             || input.model_revision < 1
             || input.model_alias.is_empty()
@@ -124,13 +151,14 @@ impl Store {
         .await?
         .ok_or(StoreError::Conflict)?;
         // Receipt replay never reactivates or replaces a later current revision.
-        if let Some(row)=sqlx::query("SELECT o.provider_id,o.model_alias,r.rate_kind,r.vendor_id,r.vendor_revision,r.model_revision,r.schema_revision,r.replaces_revision FROM provider_offer_revisions r JOIN provider_offers o ON o.id=r.offer_id WHERE r.id=$1").bind(input.revision).fetch_optional(&mut *tx).await? {
+        if let Some(row)=sqlx::query("SELECT o.provider_id,o.model_alias,o.id AS offer_id,r.rate_kind,r.vendor_id,r.vendor_revision,r.model_revision,r.schema_revision,r.replaces_revision FROM provider_offer_revisions r JOIN provider_offers o ON o.id=r.offer_id WHERE r.id=$1").bind(input.revision).fetch_optional(&mut *tx).await? {
             if row.get::<Uuid,_>("provider_id")!=supplier || row.get::<String,_>("model_alias")!=input.model_alias || row.get::<String,_>("rate_kind")!="media" || row.get::<Option<Uuid>,_>("vendor_id")!=Some(input.vendor_id)
                 || row.get::<Option<i64>,_>("vendor_revision")!=Some(input.vendor_revision) || row.get::<Option<i64>,_>("model_revision")!=Some(input.model_revision) || row.get::<Option<String>,_>("schema_revision").as_deref()!=Some(input.schema_revision.as_str()) || row.get::<Option<Uuid>,_>("replaces_revision")!=input.expected_revision {
                 return Err(StoreError::Conflict);
             }
+            let offer_id = row.get::<Uuid, _>("offer_id");
             self.commit_route_write(tx).await?;
-            return Ok(input.revision);
+            return Ok((offer_id, input.revision));
         }
         let model=sqlx::query("SELECT vendor_id,upstream_model,revision,capabilities->'video_schema' AS schema FROM vendor_models WHERE alias=$1 FOR SHARE").bind(&input.model_alias).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let vendor = model.get::<Uuid, _>("vendor_id");
@@ -175,7 +203,7 @@ impl Store {
         sqlx::query("UPDATE provider_offers SET vendor_id=$3,current_revision=$2,active=FALSE,current_qualification_review=NULL WHERE id=$1").bind(offer).bind(input.revision).bind(vendor).execute(&mut *tx).await.map_err(publication_error)?;
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'media_offer_configured',$2)").bind(supplier).bind(input.revision).execute(&mut *tx).await?;
         self.commit_route_write(tx).await?;
-        Ok(input.revision)
+        Ok((offer, input.revision))
     }
 
     pub async fn supplier_model_uses_media_offer(&self, alias: &str) -> Result<bool, StoreError> {

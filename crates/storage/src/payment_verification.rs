@@ -1,7 +1,73 @@
 //! Configuration-scoped payment evidence, separate from customer orders and balances.
 //! Callers authorize checks and derive the digest from the complete effective configuration.
 use crate::{Store, StoreError};
+use serde_json::Value;
 use uuid::Uuid;
+
+/// Installation-level readiness facts in one statement. The caller derives
+/// configuration digests from the current runtime and matches them here, so a
+/// process cache never decides whether a merchant or callback is still valid.
+/// Expiry is evaluated by the database clock together with the evidence rows.
+#[derive(Clone, Debug, Default)]
+pub struct PaymentReadinessFacts {
+    pub currency: Option<String>,
+    pub epay_configuration: Option<(i64, Vec<u8>)>,
+    callback_digests: Vec<(String, [u8; 32])>,
+    verification_evidence: Vec<PaymentVerificationEvidence>,
+}
+
+#[derive(Clone, Debug)]
+struct PaymentVerificationEvidence {
+    gateway: String,
+    kind: String,
+    digest: [u8; 32],
+    valid: bool,
+}
+
+impl PaymentReadinessFacts {
+    pub fn callback_verified(&self, gateway: &str, digest: &[u8; 32]) -> bool {
+        self.callback_digests
+            .iter()
+            .any(|(stored, candidate)| stored == gateway && candidate == digest)
+    }
+
+    pub fn verification_valid(&self, gateway: &str, kind: &str, digest: &[u8; 32]) -> bool {
+        self.verification_evidence.iter().any(|evidence| {
+            evidence.gateway == gateway
+                && evidence.kind == kind
+                && &evidence.digest == digest
+                && evidence.valid
+        })
+    }
+}
+
+fn digest_from_hex(value: &str) -> Option<[u8; 32]> {
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+    if value.len() != 64 {
+        return None;
+    }
+    let mut digest = [0u8; 32];
+    for (index, chunk) in value.as_bytes().chunks_exact(2).enumerate() {
+        digest[index] = (nibble(chunk[0])? << 4) | nibble(chunk[1])?;
+    }
+    Some(digest)
+}
+
+#[derive(sqlx::FromRow)]
+struct PaymentReadinessRow {
+    currency: Option<String>,
+    epay_revision: Option<i64>,
+    epay_ciphertext: Option<Vec<u8>>,
+    callback_digests: Value,
+    verification_evidence: Value,
+}
 
 fn valid_scope(gateway: &str, digest: &[u8], kind: &str) -> bool {
     matches!(gateway, "stripe" | "epay" | "zhifux")
@@ -9,6 +75,85 @@ fn valid_scope(gateway: &str, digest: &[u8], kind: &str) -> bool {
         && matches!(kind, "account" | "callback")
 }
 impl Store {
+    /// One statement supplies installation readiness and currency facts. The
+    /// readiness gate must not depend on a TTL cache: callback evidence can be
+    /// revoked immediately and account evidence expires on the database clock.
+    /// This keeps the authoritative read at one round trip without serving stale
+    /// positive state after a configuration revision or evidence change.
+    pub async fn payment_readiness_facts(&self) -> Result<PaymentReadinessFacts, StoreError> {
+        let row = sqlx::query_as::<_, PaymentReadinessRow>(
+            "SELECT \
+                (SELECT currency FROM platform_currency WHERE singleton) AS currency, \
+                (SELECT revision FROM payment_gateway_configuration WHERE gateway='epay') AS epay_revision, \
+                (SELECT ciphertext FROM payment_gateway_configuration WHERE gateway='epay') AS epay_ciphertext, \
+                COALESCE(( \
+                    SELECT jsonb_agg(jsonb_build_object('gateway', verified.gateway, 'digest', encode(verified.configuration_digest,'hex'))) \
+                    FROM payment_verified_callback_digests verified \
+                ), '[]'::jsonb) AS callback_digests, \
+                COALESCE(( \
+                    SELECT jsonb_agg(jsonb_build_object( \
+                        'gateway', evidence.gateway, 'kind', evidence.evidence_kind, \
+                        'digest', encode(evidence.configuration_digest,'hex'), \
+                        'valid', COALESCE(evidence.outcome='passed' AND evidence.expires_at>statement_timestamp(),false))) \
+                    FROM (SELECT DISTINCT ON (gateway,configuration_digest,evidence_kind) \
+                                 gateway,configuration_digest,evidence_kind,outcome,expires_at,sequence \
+                          FROM payment_verification_evidence \
+                          WHERE outcome IN ('passed','failed') \
+                          ORDER BY gateway,configuration_digest,evidence_kind,sequence DESC) evidence \
+                ), '[]'::jsonb) AS verification_evidence",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let epay_configuration = match (row.epay_revision, row.epay_ciphertext) {
+            (Some(revision), Some(ciphertext)) => Some((revision, ciphertext)),
+            (None, None) => None,
+            _ => return Err(StoreError::Conflict),
+        };
+        let mut callback_digests = Vec::new();
+        for entry in row.callback_digests.as_array().into_iter().flatten() {
+            let gateway = entry
+                .get("gateway")
+                .and_then(Value::as_str)
+                .ok_or(StoreError::Conflict)?;
+            let digest = entry
+                .get("digest")
+                .and_then(Value::as_str)
+                .and_then(digest_from_hex)
+                .ok_or(StoreError::Conflict)?;
+            callback_digests.push((gateway.to_owned(), digest));
+        }
+        let mut verification_evidence = Vec::new();
+        for entry in row.verification_evidence.as_array().into_iter().flatten() {
+            verification_evidence.push(PaymentVerificationEvidence {
+                gateway: entry
+                    .get("gateway")
+                    .and_then(Value::as_str)
+                    .ok_or(StoreError::Conflict)?
+                    .to_owned(),
+                kind: entry
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .ok_or(StoreError::Conflict)?
+                    .to_owned(),
+                digest: entry
+                    .get("digest")
+                    .and_then(Value::as_str)
+                    .and_then(digest_from_hex)
+                    .ok_or(StoreError::Conflict)?,
+                valid: entry
+                    .get("valid")
+                    .and_then(Value::as_bool)
+                    .ok_or(StoreError::Conflict)?,
+            });
+        }
+        Ok(PaymentReadinessFacts {
+            currency: row.currency,
+            epay_configuration,
+            callback_digests,
+            verification_evidence,
+        })
+    }
+
     /// A scoped, explicit funding arrangement permits self-hosted use without a
     /// merchant. This is setup eligibility, not spendable capacity: exhausting
     /// credits must not hide history/settings. Dispatch retains its own monetary
@@ -77,6 +222,28 @@ impl Store {
         }
         sqlx::query("INSERT INTO payment_callback_verification(order_id) SELECT b.order_id FROM payment_checkout_verification b JOIN customer_topup_settlements s ON s.order_id=b.order_id WHERE b.order_id=$1 AND b.gateway=$2 AND b.configuration_digest=$3 ON CONFLICT(order_id) DO NOTHING")
             .bind(order).bind(gateway).bind(digest).execute(&self.pool).await?;
+        self.record_verified_callback_digest(order, gateway, digest)
+            .await
+    }
+
+    /// Materialize only a configuration-bound callback that actually exists.
+    /// Replays cannot refresh the recorded verification time.
+    async fn record_verified_callback_digest(
+        &self,
+        order: Uuid,
+        gateway: &str,
+        digest: &[u8],
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO payment_verified_callback_digests(gateway,configuration_digest,verified_at) \
+             SELECT $1,$2,statement_timestamp() \
+             WHERE EXISTS(SELECT 1 FROM payment_callback_verification v \
+                          JOIN payment_checkout_verification b ON b.order_id=v.order_id \
+                          WHERE v.order_id=$3 AND b.gateway=$1 AND b.configuration_digest=$2) \
+             ON CONFLICT (gateway,configuration_digest) DO UPDATE \
+             SET verified_at=GREATEST(payment_verified_callback_digests.verified_at,EXCLUDED.verified_at)",
+        )
+        .bind(gateway).bind(digest).bind(order).execute(&self.pool).await?;
         Ok(())
     }
 
@@ -107,7 +274,8 @@ impl Store {
         }
         sqlx::query("INSERT INTO payment_callback_verification(order_id) SELECT b.order_id FROM payment_checkout_verification b JOIN payment_signed_notifications n ON n.order_id=b.order_id JOIN customer_topup_settlements s ON s.order_id=b.order_id WHERE b.order_id=$1 AND b.gateway=$2 AND b.configuration_digest=$3 ON CONFLICT DO NOTHING")
             .bind(order).bind(gateway).bind(digest).execute(&self.pool).await?;
-        Ok(())
+        self.record_verified_callback_digest(order, gateway, digest)
+            .await
     }
 
     /// Integration evidence is configuration-bound and durable; it does not

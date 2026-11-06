@@ -1205,7 +1205,7 @@ pub async fn refund_charge(
 ///   "operation": {
 ///     "operationId": "getCustomerUnitBalance",
 ///     "summary": "Read exact Credits quantities by original definition and provenance",
-///     "description": "Organization-wide billing owner/admin or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.",
+///     "description": "Organization-wide billing owner/admin, platform administration, or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1474,7 +1474,7 @@ pub async fn refund_charge(
 ///         "description": "Management read access required"
 ///       },
 ///       "404": {
-///         "description": "Company absent or outside permitted billing scope"
+///         "description": "Company absent or outside permitted billing or platform scope"
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable"
@@ -1492,7 +1492,7 @@ pub async fn balance(
     let auth = state
         .authorize_admin_headers(&headers, niu_storage::AdminPermission::Read)
         .await?;
-    if !auth.permits_billing_account(organization) {
+    if !auth.can_manage_platform() && !auth.permits_billing_account(organization) {
         return Err(ApiError::not_found());
     }
     let data = state

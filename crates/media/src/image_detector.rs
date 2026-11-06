@@ -346,7 +346,7 @@ pub(crate) fn validate_common_processing_config(
 }
 pub(crate) fn fingerprint_processing_config(domain: &str, config: &impl Serialize) -> String {
     let bytes =
-        serde_json::to_vec(&(domain, config)).expect("serializable processing detector settings");
+        serde_json::to_vec(&(domain, config)).unwrap_or_else(|_| domain.as_bytes().to_vec());
     format!("{:x}", Sha256::digest(bytes))
 }
 pub(crate) fn processing_permitted(

@@ -109,6 +109,16 @@ struct CompatibleExecution<'a> {
 ///           "maxLength": 200,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-routing-context",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 512
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -761,7 +771,7 @@ pub(in crate::web) async fn chat(
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_invocation_headers(&headers).await?;
+    let principal = state.authorize_invocation_headers(&headers, "chat").await?;
     chat_as(state, headers, body, principal).await
 }
 
@@ -822,6 +832,7 @@ async fn chat_as(
         &mut body,
         crate::guardrails::input::Protocol::Chat,
         &requirements.model,
+        &headers,
     )
     .await?;
     let result = super::retry::execute(
@@ -832,6 +843,7 @@ async fn chat_as(
         public_model,
         crate::guardrails::input::Protocol::Chat,
         Some(requirements.model),
+        true,
     )
     .await;
     if let Some(selection) = selection {
@@ -1786,51 +1798,14 @@ fn chat_route_requirements(body: &Value, stream: bool) -> Result<ChatRouteRequir
         }
     }
 
-    let mut has_vision = false;
-    let mut input_chars = 0usize;
-    if let Some(msgs) = body.get("messages").and_then(Value::as_array) {
-        for msg in msgs {
-            if let Some(s) = msg.get("content").and_then(Value::as_str) {
-                input_chars = input_chars.saturating_add(s.chars().count());
-            } else if let Some(parts) = msg.get("content").and_then(Value::as_array) {
-                for part in parts {
-                    if let Some(s) = part.get("text").and_then(Value::as_str) {
-                        input_chars = input_chars.saturating_add(s.chars().count());
-                    }
-                    if matches!(
-                        part.get("type").and_then(Value::as_str),
-                        Some("image_url" | "input_image" | "image")
-                    ) {
-                        has_vision = true;
-                    }
-                }
-            }
-        }
-    }
-    let has_reasoning = body.get("reasoning").is_some()
-        || body.get("reasoning_effort").is_some()
-        || body.get("include_reasoning").and_then(Value::as_bool) == Some(true);
-    let requested_output_tokens = body
-        .get("max_completion_tokens")
-        .and_then(Value::as_u64)
-        .or_else(|| body.get("max_tokens").and_then(Value::as_u64));
-
+    let mut traits = crate::routing_traits::extract(crate::guardrails::input::Protocol::Chat, body);
+    // The caller has already validated the native `stream` shape; keep the same
+    // normalized value used by dispatch rather than treating an invalid value as
+    // a false requirement.
+    traits.streaming = stream;
+    traits.tools = has_tool_semantics;
     Ok(ChatRouteRequirements {
-        model: crate::config::ModelRequirements {
-            streaming: stream,
-            tools: has_tool_semantics,
-            streaming_tools: stream && has_tool_semantics,
-            structured_output: matches!(
-                body.pointer("/response_format/type")
-                    .and_then(Value::as_str),
-                Some("json_object" | "json_schema")
-            ),
-            vision: has_vision,
-            reasoning: has_reasoning,
-            estimated_input_tokens: Some(((input_chars.saturating_add(3)) / 4).max(1) as u64),
-            requested_output_tokens,
-            ..Default::default()
-        },
+        model: traits.requirements(None, crate::guardrails::input::Protocol::Chat),
         schema_validator,
     })
 }

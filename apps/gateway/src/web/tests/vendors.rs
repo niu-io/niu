@@ -8301,7 +8301,10 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     let fixture = CatalogFixture::default();
     *fixture.response.lock().unwrap() = Some((
         StatusCode::OK,
-        json!({"data":[{"id":"maker/first","name":"First model"},{"id":"maker/second"}]}),
+        json!({"data":[
+            {"id":"maker/first","name":"First model","supported_parameters":["tools","structured_outputs"]},
+            {"id":"maker/second"}
+        ]}),
         None,
     ));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -8361,6 +8364,35 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
             .iter()
             .all(|m| !m.public_catalog && m.pricing.is_none() && m.enabled)
     );
+    let advertised = saved
+        .iter()
+        .find(|model| model.upstream_model == "maker/first")
+        .unwrap();
+    assert_eq!(advertised.alias, "deepseek-official/first");
+    assert_eq!(advertised.capabilities["supports_tool_calls"], true);
+    assert_eq!(
+        advertised.capabilities["supports_streaming_tool_calls"],
+        true
+    );
+    assert_eq!(advertised.capabilities["supports_structured_output"], true);
+    assert_eq!(advertised.capabilities["supports_responses"], false);
+    assert_eq!(
+        advertised.capabilities["catalog"]["supported_parameters"],
+        json!(["tools", "structured_outputs"])
+    );
+    let unknown = saved
+        .iter()
+        .find(|model| model.upstream_model == "maker/second")
+        .unwrap();
+    assert_eq!(unknown.alias, "deepseek-official/second");
+    for flag in [
+        "supports_tool_calls",
+        "supports_streaming_tool_calls",
+        "supports_structured_output",
+        "supports_responses",
+    ] {
+        assert_eq!(unknown.capabilities[flag], false, "{flag}");
+    }
     let (status, listed) = call(
         &app,
         Method::GET,
@@ -8378,10 +8410,10 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
             .as_array()
             .unwrap()
             .iter()
-            .any(|m| m["id"] == "deepseek-official/maker/first")
+            .any(|m| m["id"] == "deepseek-official/first")
     );
     let (_, public) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
-    assert!(!public.to_string().contains("deepseek-official/maker/first"));
+    assert!(!public.to_string().contains("deepseek-official/first"));
     assert!(store.platform_currency().await.unwrap().is_none());
     let (status, readiness) = call(
         &app,
@@ -8400,17 +8432,26 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         .issue_key(
             scope,
             "Internal use test",
-            &[
-                "deepseek-official/maker/first".to_owned(),
-                "fast".to_owned(),
-            ],
+            &["deepseek-official/first".to_owned(), "fast".to_owned()],
             3600,
         )
         .await
         .unwrap();
-    let (status, completion) = call(&app, Method::POST, "/v1/chat/completions", &key.token, json!({"model":"deepseek-official/maker/first","messages":[{"role":"user","content":"hello"}],"max_tokens":8})).await;
+    let (status, completion) = call(&app, Method::POST, "/v1/chat/completions", &key.token, json!({"model":"deepseek-official/first","messages":[{"role":"user","content":"hello"}],"max_tokens":8})).await;
     assert_eq!(status, StatusCode::OK, "{completion}");
     assert_eq!(completion["choices"][0]["message"]["content"], "READY");
+    // Explicit upstream tools evidence makes the imported route ready for Chat
+    // function declarations instead of failing route selection.
+    let (status, tool_completion) = call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        &key.token,
+        json!({"model":"deepseek-official/first","messages":[{"role":"user","content":"hello"}],"max_tokens":8,"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object"}}}]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{tool_completion}");
+    assert_eq!(tool_completion["choices"][0]["message"]["content"], "READY");
     // A personal route does not make paid shared inference free for this account.
     store.configure_platform_currency("USD").await.unwrap();
     store.create_budget(scope, "USD", 1).await.unwrap();
@@ -8442,7 +8483,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         ),
         "{denied}"
     );
-    let (status, _) = call(&app, Method::POST, &format!("/api/v1/vendors/{id}/models"), ADMIN, json!({"alias":"deepseek-official/maker/second","upstream_model":"maker/second","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":1})).await;
+    let (status, _) = call(&app, Method::POST, &format!("/api/v1/vendors/{id}/models"), ADMIN, json!({"alias":"deepseek-official/second","upstream_model":"maker/second","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":1})).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         call(&app, Method::POST, &path, ADMIN, json!({})).await.1["data"]["imported"],
@@ -8483,5 +8524,322 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
             .iter()
             .any(|v| v["name"] == "Must roll back")
     );
+
+    // Internal use requires an explicit access choice instead of silently
+    // binding a new administrator-supplied credential to the current account.
+    let (status, body) = call(
+        &app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({"name":"Unscoped internal","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    // Internal scope spans organizations on the same Internal-use installation.
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[
+            {"id":"maker/first","name":"First model","supported_parameters":["tools","structured_outputs"]},
+            {"id":"maker/second"}
+        ]}),
+        None,
+    ));
+    let org_b = store
+        .create_organization("Second internal org")
+        .await
+        .unwrap();
+    let scope_b = store
+        .create_workspace(Some(org_b), "Second workspace")
+        .await
+        .unwrap();
+    let (status, shared_created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({"name":"DeepSeek shared","adapter":"openai","api_base":base,"api_key":"fixture-only-shared-key","create_supplier":true,"access_scope":"internal","personal_organization_id":scope.organization_id}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{shared_created}");
+    assert_eq!(shared_created["data"]["owner_funded"], true);
+    assert_eq!(shared_created["data"]["access_scope"], "internal");
+    assert!(
+        !shared_created
+            .to_string()
+            .contains("fixture-only-shared-key")
+    );
+    let shared_id: Uuid = shared_created["data"]["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            &format!("/api/v1/vendors/{shared_id}/import"),
+            ADMIN,
+            json!({})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let shared_alias = "deepseek-shared/first";
+    let shared_model = store
+        .vendor_models(shared_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|model| model.alias == shared_alias)
+        .expect("imported shared model");
+    // Visibility is independent of the public-catalog flag inside the installation.
+    let (status, org_b_models) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={org_b}&project_id={}",
+            scope_b.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        org_b_models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == shared_alias),
+        "{org_b_models}"
+    );
+    assert!(
+        !org_b_models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == "deepseek-official/first"),
+        "personal routes must remain isolated"
+    );
+    assert!(!org_b_models.to_string().contains("fixture-only-shared-key"));
+    // A checked public-catalog flag now has a truthful anonymous result.
+    let (_, public_before) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert!(!public_before.to_string().contains(shared_alias));
+    let (status, updated) = call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/vendors/{shared_id}/models"),
+        ADMIN,
+        json!({"alias":shared_alias,"upstream_model":shared_model.upstream_model,"enabled":true,"public_catalog":true,"capabilities":{},"expected_revision":1}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    let (_, public_after) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert!(
+        public_after.to_string().contains(shared_alias),
+        "{public_after}"
+    );
+    assert!(!public_after.to_string().contains("fixture-only-shared-key"));
+    let key_b = store
+        .issue_key(
+            scope_b,
+            "Second org internal key",
+            &[shared_alias.to_owned()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let (status, completion_b) = call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        &key_b.token,
+        json!({"model":shared_alias,"messages":[{"role":"user","content":"hello"}],"max_tokens":8}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{completion_b}");
+    // Resale mode refuses an internal-scope connection instead of sharing it,
+    // and an existing internal credential remains private to its funding account.
+    let (status, _) = call(
+        &resale_app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({"name":"Resale internal","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true,"access_scope":"internal","personal_organization_id":scope.organization_id}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, resale_models) = call(
+        &resale_app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={org_b}&project_id={}",
+            scope_b.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !resale_models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == shared_alias),
+        "{resale_models}"
+    );
+    assert_ne!(
+        call(
+            &resale_app,
+            Method::POST,
+            "/v1/chat/completions",
+            &key_b.token,
+            json!({"model":shared_alias,"messages":[{"role":"user","content":"hello"}],"max_tokens":8}),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    server.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool: PgPool) {
+    let fixture = CatalogFixture::default();
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[
+            {"id":"maker/first","name":"First model","supported_parameters":["tools"]},
+            {"id":"maker/second"}
+        ]}),
+        None,
+    ));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}/v1", listener.local_addr().unwrap());
+    let upstream = Router::new()
+        .route("/v1/models", axum::routing::get(fixture_model_catalog))
+        .with_state(fixture.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, upstream).await.unwrap();
+    });
+
+    // Resale creates commercial supply when the caller names no funding account.
+    let mut state = test_state(Some(base.clone()), pool.clone());
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    state.operating_mode = crate::state::OperatingMode::Resale;
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let app = router(state);
+    let secret = "fixture-resale-discovery-key";
+    let (status, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({
+            "name":"Resale discovery",
+            "adapter":"openai",
+            "api_base":base,
+            "api_key":secret,
+            "create_supplier":true
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["data"]["owner_funded"], false);
+    assert_eq!(created["data"]["access_scope"], "commercial");
+    assert!(!created.to_string().contains(secret));
+    let id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    let path = format!("/api/v1/vendors/{id}/import");
+    assert_eq!(
+        call(&app, Method::POST, &path, "invalid", json!({}))
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, first) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    assert_eq!(first["data"]["imported"], 2);
+    assert_eq!(first["data"]["discovered"], 2);
+    assert_eq!(first["discovery"]["inference_verified"], false);
+    assert!(!first.to_string().contains(secret));
+
+    let models = store.vendor_models(id).await.unwrap();
+    assert_eq!(models.len(), 2);
+    for model in &models {
+        assert!(
+            !model.enabled,
+            "imported commercial route must start disabled: {}",
+            model.alias
+        );
+        assert!(!model.public_catalog);
+        assert!(model.pricing.is_none());
+        let offers: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM provider_offers WHERE model_alias=$1")
+                .bind(&model.alias)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(offers, 0, "import must not create a purchase offer");
+    }
+    let availability = store.vendor_models_with_availability(id).await.unwrap();
+    assert_eq!(availability.len(), 2);
+    for model in &availability {
+        assert_eq!(model["enabled"], false);
+        assert_eq!(model["public_catalog"], false);
+        assert!(model["pricing"].is_null());
+        assert_eq!(model["available"], false);
+        assert_eq!(model["owner_funded"], false);
+    }
+
+    // Imported inventory is not sellable or visible as customer supply until an
+    // operator explicitly enables it and qualifies a commercial offer.
+    let (status, listed) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={}&project_id={}",
+            scope.organization_id, scope.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, public) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    for model in &models {
+        assert!(!listed.to_string().contains(&model.alias), "{listed}");
+        assert!(!public.to_string().contains(&model.alias), "{public}");
+    }
+
+    // Repeating the import adds nothing and does not enable or price existing routes.
+    let (status, second) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{second}");
+    assert_eq!(second["data"]["imported"], 0);
+    assert_eq!(second["data"]["discovered"], 2);
+    assert!(
+        store
+            .vendor_models(id)
+            .await
+            .unwrap()
+            .iter()
+            .all(|model| !model.enabled && model.pricing.is_none())
+    );
+
+    // Discovery failure retains the saved connection and its disabled routes.
+    *fixture.response.lock().unwrap() =
+        Some((StatusCode::UNAUTHORIZED, json!({"error":"rejected"}), None));
+    let (status, failure) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "{failure}");
+    assert!(store.vendor(id).await.unwrap().is_some());
+    assert_eq!(store.vendor_models(id).await.unwrap().len(), 2);
     server.abort();
 }

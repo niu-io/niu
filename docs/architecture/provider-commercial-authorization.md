@@ -1,6 +1,6 @@
 # Provider commercial authorization transition
 
-Tracking: `niu-gh3`. This document specifies the replacement contract; it does not assert that the transition has been implemented.
+Tracking: `niu-gh3`. Status 2026-11-05: implemented in the current tree. The legacy SHA-256 review write APIs, SDK helpers and generated documentation are retired; the database keeps historical review and revocation records, and existing legacy offers remain eligible under their original expiry and revocation rules. Remaining migration work is listed at the end of this document.
 
 Connecting a Provider with an API key and discovering its models is an integration task. It must not require a commercial review or represent a credential as a successful upstream verification. Internal, owner-funded use remains separate from platform resale.
 
@@ -17,3 +17,11 @@ For resale, an authorized platform administrator must explicitly enable an offer
 ## Verification requirements
 
 Exercise the complete migration from an existing database containing active, expired and revoked legacy reviews and historical attempts. Test installation and platform-administrator authorization, denied ordinary users and Provider members, stale revisions, repeated enable and pause, credential and model changes, and concurrent invalidation between admission and dispatch. Verify text and media admission separately, including media liability bounds and customer balance isolation. Confirm that imported routes without an explicitly enabled offer are not exposed as sellable inventory, and that no customer-facing response reveals procurement rates. Verify key-only onboarding, discovery failure and recovery, and truthful availability in internal and resale modes in the rendered application.
+
+## Implementation record (2026-11-05)
+
+The explicit enable path is `PUT /api/v1/providers/{provider}/offers/{offer}/authorization` with the exact current `rate_revision`; it records an immutable authorization actor/revision, enables the offer and fails closed on a stale revision, disabled route, personal credential or stale media binding. `DELETE .../authorization/{authorization}` revokes that authorization and pauses the offer. The dashboard uses these operations for offer enable/revoke, and keeps pause as `PATCH .../offers/{offer}`. Rate publication, incompatible route/credential changes and model changes clear the current authorization; the personal-ownership guards now also treat a paused authorized offer as commercial supply.
+
+The four legacy review write endpoints, `NiuAdminClient` qualification/revocation helpers and their generated REST/SDK pages were removed. Historical `provider_qualification_reviews`, `provider_offer_qualification_reviews`, revocations and attempts are retained; `niu_offer_qualification_current` still accepts them under their original validity and revocation rules. `provider_businesses()` no longer exposes the legacy `qualification_status`, and the SDK/contracts no longer include it.
+
+Verification in this pass: storage provider, media-offer and authorization tests; gateway authorization, provider administrator, independent-ledger, text/media admission and password handoff tests; dashboard provider tests; SDK tests; dashboard typecheck/i18n/build; generated contract parity. Not verified here: live staging, a real Provider request, a real customer charge, concurrent external writers, and the two-process `vendor_restart` tests in this sandbox (their in-process writes after child startup conflict on the active routing-registry identity, a pre-existing harness limitation). Browser rendering of the changed offer lifecycle labels was not re-inspected in a running stack.

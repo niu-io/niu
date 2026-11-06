@@ -30,7 +30,10 @@ pub fn current() -> Option<Timing> {
 }
 pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
     if let Some(timing) = current() {
-        let mut m = timing.measurements.lock().unwrap();
+        let mut m = timing
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let elapsed = millis(m.start);
         if let Some(previous) = m.attempt.filter(|previous| *previous != attempt) {
             // The previous rejection was not delivered to the client. Preserve
@@ -60,7 +63,10 @@ pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
 
 impl Timing {
     pub fn output(&self) {
-        let mut m = self.measurements.lock().unwrap();
+        let mut m = self
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if m.first_output.is_none() {
             m.first_output = Some(millis(m.start));
         }
@@ -76,7 +82,11 @@ struct Finish {
 }
 impl Drop for Finish {
     fn drop(&mut self) {
-        let m = self.timing.measurements.lock().unwrap();
+        let m = self
+            .timing
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(attempt) = m.attempt else {
             return;
         };
@@ -142,7 +152,10 @@ pub async fn collect(
     };
     let response = CURRENT.scope(timing.clone(), next.run(request)).await;
     {
-        let mut m = timing.measurements.lock().unwrap();
+        let mut m = timing
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if m.attempt.is_none() {
             m.attempt = response
                 .headers()

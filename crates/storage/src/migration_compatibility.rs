@@ -68,6 +68,7 @@ fn try_parse_legacy_migrations() -> Result<Vec<Migration>, ()> {
     if out.is_empty() { Err(()) } else { Ok(out) }
 }
 
+#[allow(clippy::expect_used)] // validate_legacy_migrations runs before first use; test below covers the embedded baseline.
 fn parse_legacy_migrations() -> Vec<Migration> {
     try_parse_legacy_migrations().expect("embedded squashed migration baseline is malformed")
 }
@@ -156,10 +157,9 @@ async fn run_locked(connection: &mut PgConnection) -> Result<(), StoreError> {
         .fetch_optional(&mut *connection)
         .await?;
         let legacy = legacy_migrations();
-        let baseline = MIGRATOR
-            .migrations
-            .first()
-            .expect("0001_initial_schema.sql migration");
+        let Some(baseline) = MIGRATOR.migrations.first() else {
+            return Err(StoreError::MigrationBaselineInvalid);
+        };
         if let Some(ref current_v1) = v1_checksum
             && current_v1.as_slice() != baseline.checksum.as_ref()
             && let Some(first_legacy) = legacy.first()

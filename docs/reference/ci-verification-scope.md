@@ -14,8 +14,9 @@ Triggered on `push` (`main`, tags `*`), `pull_request`, and `workflow_dispatch`:
   - `python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs`
   - `node scripts/verify-js-licenses.mjs`
   - `python3 scripts/check-public-boundary.py --root . apps/dashboard/dist apps/docs/dist apps/catalog/dist`
-- **Dashboard typecheck, production build, and full behavioral test suite (114 test files; the Vitest run is authoritative for the test count)**:
-  - `pnpm --filter @niu-io/dashboard check`
+- **Dashboard lint, typecheck, production build, and full behavioral test suite (114 test files; the Vitest run is authoritative for the test count)**:
+  - `pnpm --filter @niu-io/dashboard lint` (Biome over app/ TS/TSX/CSS plus the unused-CSS audit; exact command in `apps/dashboard/README.md`)
+  - `pnpm --filter @niu-io/dashboard check` (typecheck plus the same lint gate)
   - `pnpm --filter @niu-io/dashboard build`
   - `pnpm --filter @niu-io/dashboard test`
 - **OpenAPI contract, audience views, and SDK parity**:

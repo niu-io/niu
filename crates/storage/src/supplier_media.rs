@@ -122,7 +122,10 @@ impl Store {
                 "schema_revision": schema.revision,
                 "channel": schema.channel,
                 "resolutions": resolutions,
-                "reference_video": schema.inputs.contains_key("video_url")
+                "reference_video": schema.inputs.contains_key("video_url"),
+                // The configured output estimator owns the billing unit. Absent
+                // output configuration cannot be turned into a guessed rate unit.
+                "meter": schema.output.as_ref().map(|output| output.estimator.meter())
             }));
         }
         Ok(serde_json::json!({"data":data,"has_more":more,"next_after":next}))

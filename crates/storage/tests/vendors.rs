@@ -630,8 +630,9 @@ async fn supplier_supports_independent_credentials_and_model_subsets(pool: PgPoo
     assert_eq!(owned.len(), 2);
     for configuration in owned {
         assert_eq!(configuration["supplier"], owner);
-        assert_eq!(configuration.as_object().unwrap().len(), 9);
+        assert_eq!(configuration.as_object().unwrap().len(), 10);
         assert_eq!(configuration["owner_funded"], false);
+        assert_eq!(configuration["access_scope"], "commercial");
         assert!(configuration.get("credential_ciphertext").is_none());
         assert!(configuration.get("api_key").is_none());
     }
@@ -670,4 +671,107 @@ async fn supplier_supports_independent_credentials_and_model_subsets(pool: PgPoo
         Err(StoreError::InvalidVendor)
     ));
     assert_eq!(store.supplier_vendors(supplier).await.unwrap().len(), 2);
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn internal_access_scope_is_explicit_and_keeps_historical_personal_rows(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool);
+    let owner = store.create_organization("Internal owner").await.unwrap();
+    let other = store
+        .create_organization("Other internal org")
+        .await
+        .unwrap();
+    let legacy_id = Uuid::new_v4();
+    store
+        .create_vendor_with_personal_owner(
+            vendor_input(legacy_id, "Legacy personal", vec![0x21; 48]),
+            false,
+            None,
+            Some(owner),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        store.vendor_access_scope(legacy_id).await.unwrap(),
+        Some(niu_storage::VendorAccessScope::Personal)
+    );
+
+    let shared_id = Uuid::new_v4();
+    store
+        .create_vendor_with_access_scope(
+            vendor_input(shared_id, "Shared internal", vec![0x22; 48]),
+            false,
+            None,
+            Some(owner),
+            niu_storage::VendorAccessScope::Internal,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        store.vendor_access_scope(shared_id).await.unwrap(),
+        Some(niu_storage::VendorAccessScope::Internal)
+    );
+    let listed = store.vendors_with_supplier(None).await.unwrap();
+    let shared = listed
+        .iter()
+        .find(|vendor| vendor["id"] == shared_id.to_string())
+        .unwrap();
+    assert_eq!(shared["owner_funded"], true);
+    assert_eq!(shared["access_scope"], "internal");
+    let legacy = listed
+        .iter()
+        .find(|vendor| vendor["id"] == legacy_id.to_string())
+        .unwrap();
+    assert_eq!(legacy["access_scope"], "personal");
+
+    store
+        .upsert_vendor_model(
+            shared_id,
+            VendorModelInput {
+                alias: "shared-internal/model".into(),
+                upstream_model: "upstream-model".into(),
+                public_catalog: true,
+                enabled: true,
+                capabilities: json!({}),
+                pricing: None,
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    // Personal routes remain account-isolated.
+    assert!(
+        store
+            .accessible_vendor_route(other, "shared-internal/model", false)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    // Internal scope is visible only when the caller permits Internal use.
+    let shared_route = store
+        .accessible_vendor_route(other, "shared-internal/model", true)
+        .await
+        .unwrap()
+        .expect("internal scope route");
+    assert!(shared_route.is_internal_shared());
+    assert_eq!(
+        shared_route.access_scope(),
+        niu_storage::VendorAccessScope::Internal
+    );
+    let catalog = store.vendor_catalog_inputs().await.unwrap();
+    let route = catalog
+        .routes
+        .iter()
+        .find(|route| route.model.alias == "shared-internal/model")
+        .unwrap();
+    assert_eq!(
+        route.access_scope(),
+        niu_storage::VendorAccessScope::Internal
+    );
+    assert!(route.visible_to(Some(other), true));
+    assert!(!route.visible_to(Some(other), false));
+    assert!(route.visible_to(None, true));
+    assert!(!route.visible_to(None, false));
 }

@@ -320,12 +320,16 @@ async fn admin_call(app: &Router, path: &str, body: Value) -> Value {
 mod accounting;
 mod admin;
 mod agent_authorizations;
-mod connection_incidents;
 mod api_migrations;
 mod codex_connections;
+mod connection_incidents;
+mod decisions;
 mod executions;
 mod functional_suite;
+mod hot_path_benchmark;
 mod inference;
+mod invitations;
+mod media_sources;
 mod operator_audit;
 mod operators;
 mod passwords;

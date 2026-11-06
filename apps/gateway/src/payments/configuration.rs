@@ -136,12 +136,30 @@ pub(super) async fn notification_runtime(
 pub(super) async fn runtime_snapshot(
     state: &AppState,
 ) -> Result<(i64, Option<Arc<EPayRuntime>>), ApiError> {
-    if let Some((revision, ciphertext)) = state
+    let configuration = state
         .store
         .payment_gateway_configuration()
         .await
-        .map_err(ApiError::from_store)?
-    {
+        .map_err(ApiError::from_store)?;
+    runtime_snapshot_from_configuration(state, configuration).await
+}
+
+/// Reuse a configuration row that the caller already read with its readiness
+/// facts; the revision and ciphertext cache still decide whether to decrypt.
+pub(super) async fn runtime_from_configuration(
+    state: &AppState,
+    configuration: Option<(i64, Vec<u8>)>,
+) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
+    runtime_snapshot_from_configuration(state, configuration)
+        .await
+        .map(|(_, runtime)| runtime)
+}
+
+async fn runtime_snapshot_from_configuration(
+    state: &AppState,
+    configuration: Option<(i64, Vec<u8>)>,
+) -> Result<(i64, Option<Arc<EPayRuntime>>), ApiError> {
+    if let Some((revision, ciphertext)) = configuration {
         let cipher = state
             .vendor_cipher
             .as_ref()

@@ -110,7 +110,15 @@ pub struct CreateVendor {
     #[serde(default)]
     create_supplier: bool,
     supplier_id: Option<Uuid>,
+    /// Funding/ownership account. Access scope is independent.
     personal_organization_id: Option<Uuid>,
+    /// `personal` restricts access to the funding account. `internal` shares the
+    /// owner-funded credential with every organization on an Internal-use
+    /// installation. Omission preserves the pre-scope API behavior: an explicit
+    /// funding account creates a personal credential; Resale without one creates
+    /// commercial shared supply; Internal use requires an explicit choice.
+    #[serde(default)]
+    access_scope: Option<niu_storage::VendorAccessScope>,
 }
 fn enabled() -> bool {
     true
@@ -306,7 +314,13 @@ pub struct VendorFilter {
 ///         "owner_funded": {
 ///           "type": "boolean",
 ///           "readOnly": true,
-///           "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+///           "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+///         },
+///         "access_scope": {
+///           "type": "string",
+///           "enum": ["commercial", "personal", "internal"],
+///           "readOnly": true,
+///           "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
 ///         },
 ///         "supplier": {
 ///           "type": [
@@ -379,7 +393,12 @@ pub struct VendorFilter {
 ///         },
 ///         "personal_organization_id": {
 ///           "type": "string", "format": "uuid",
-///           "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+///           "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+///         },
+///         "access_scope": {
+///           "type": "string",
+///           "enum": ["personal", "internal"],
+///           "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
 ///         },
 ///         "create_supplier": {
 ///           "type": "boolean",
@@ -518,25 +537,56 @@ pub async fn create(
     Json(input): Json<CreateVendor>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = state.authorize_platform_headers(&headers).await?;
-    let personal_owner = if state.operating_mode == crate::state::OperatingMode::Internal {
-        Some(match input.personal_organization_id {
-            Some(owner) => owner,
-            None => match authorization {
-                crate::state::AdminAuthorization::Operator(operator) => {
-                    operator.scope.organization_id
+    let internal_mode = state.operating_mode == crate::state::OperatingMode::Internal;
+    let access_scope = match input.access_scope {
+        Some(niu_storage::VendorAccessScope::Internal) if !internal_mode => {
+            return Err(ApiError::invalid_request(
+                "Internal access scope is available only in Internal use",
+            ));
+        }
+        Some(niu_storage::VendorAccessScope::Commercial) => {
+            return Err(ApiError::invalid_request(
+                "Commercial supply is selected by omitting a funding account, not by access scope",
+            ));
+        }
+        Some(scope) => scope,
+        // Preserve pre-scope behavior only when the caller named a funding
+        // account. Do not silently bind Internal use to the current account.
+        None if input.personal_organization_id.is_some() => {
+            niu_storage::VendorAccessScope::Personal
+        }
+        None if internal_mode => {
+            return Err(ApiError::invalid_request(
+                "Choose personal or internal access scope for this Provider connection",
+            ));
+        }
+        None => niu_storage::VendorAccessScope::Commercial,
+    };
+    let personal_owner = match access_scope {
+        niu_storage::VendorAccessScope::Commercial => None,
+        niu_storage::VendorAccessScope::Personal | niu_storage::VendorAccessScope::Internal => {
+            Some(match input.personal_organization_id {
+                Some(owner) => owner,
+                None if internal_mode => match authorization {
+                    crate::state::AdminAuthorization::Operator(operator) => {
+                        operator.scope.organization_id
+                    }
+                    crate::state::AdminAuthorization::Installation => {
+                        state
+                            .store
+                            .default_workspace()
+                            .await
+                            .map_err(ApiError::from_store)?
+                            .organization_id
+                    }
+                },
+                None => {
+                    return Err(ApiError::invalid_request(
+                        "Personal access scope requires a funding account",
+                    ));
                 }
-                crate::state::AdminAuthorization::Installation => {
-                    state
-                        .store
-                        .default_workspace()
-                        .await
-                        .map_err(ApiError::from_store)?
-                        .organization_id
-                }
-            },
-        })
-    } else {
-        input.personal_organization_id
+            })
+        }
     };
 
     if input.create_supplier && input.supplier_id.is_some() {
@@ -564,7 +614,7 @@ pub async fn create(
         .map_err(ApiError::invalid_request)?;
     let vendor = state
         .store
-        .create_vendor_with_personal_owner(
+        .create_vendor_with_access_scope(
             niu_storage::VendorInput {
                 id,
                 name: input.name,
@@ -576,11 +626,13 @@ pub async fn create(
             input.create_supplier,
             input.supplier_id,
             personal_owner,
+            access_scope,
         )
         .await
         .map_err(ApiError::from_store)?;
     let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
     vendor["owner_funded"] = json!(personal_owner.is_some());
+    vendor["access_scope"] = json!(access_scope.as_str());
     Ok((StatusCode::CREATED, Json(json!({"data":vendor}))))
 }
 
@@ -726,8 +778,18 @@ pub async fn update(
         .await
         .map_err(ApiError::from_store)?
         .is_some();
+    let access_scope = state
+        .store
+        .vendor_access_scope(id)
+        .await
+        .map_err(ApiError::from_store)?;
     let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
     vendor["owner_funded"] = json!(owner_funded);
+    vendor["access_scope"] = json!(
+        access_scope
+            .unwrap_or(niu_storage::VendorAccessScope::Commercial)
+            .as_str()
+    );
     Ok(Json(json!({"data":vendor})))
 }
 
@@ -738,7 +800,7 @@ pub async fn update(
 ///   "operation": {
 ///     "operationId": "listVendorModels",
 ///     "summary": "List model bindings for one Provider API-key configuration",
-///     "description": "Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
+///     "description": "Management reads include route eligibility in available, an owner_funded flag and the effective access_scope. Owner-funded routes use their funding account and are excluded from shared commercial supply and customer tariffs; personal scope restricts them to that account, while internal scope shares them with every organization on an Internal-use installation. Only internal-scope routes honor their explicit public_catalog publication flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -827,7 +889,7 @@ pub async fn update(
 ///         "owner_funded": {
 ///           "type": "boolean",
 ///           "readOnly": true,
-///           "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+///           "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
 ///         },
 ///         "capabilities": {
 ///           "$ref": "#/components/schemas/VendorCapabilities"
@@ -1684,27 +1746,28 @@ async fn read_catalog(
     };
     let endpoint = format!("{}/{catalog_path}", vendor.api_base.trim_end_matches('/'));
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds.clamp(1, 5));
-    let client =
-        match crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout).await {
-            Ok(client) => client,
-            Err(crate::upstream::EndpointError::PrivateAddress) => {
-                return Err(ApiError::upstream_message(
-                    "The provider endpoint resolves to a private address and was blocked.",
-                ));
-            }
-            Err(crate::upstream::EndpointError::InvalidUrl) => {
-                return Err(ApiError::upstream_message(
-                    "The provider endpoint URL is invalid.",
-                ));
-            }
-            Err(crate::upstream::EndpointError::ResolutionFailed)
-            | Err(crate::upstream::EndpointError::ClientConfiguration)
-            | Err(crate::upstream::EndpointError::InvalidTimeout) => {
-                return Err(ApiError::upstream_message(
-                    "The provider model catalog could not be reached.",
-                ));
-            }
-        };
+    let client = match crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
+        .await
+    {
+        Ok(client) => client,
+        Err(crate::upstream::EndpointError::PrivateAddress) => {
+            return Err(ApiError::upstream_message(
+                "The provider endpoint resolves to a private or reserved address and was blocked. If this machine uses fake-IP DNS (198.18.0.0/15, common with Clash, Surge or Mihomo), configure real DNS resolution for the provider hostname or disable fake-IP for it.",
+            ));
+        }
+        Err(crate::upstream::EndpointError::InvalidUrl) => {
+            return Err(ApiError::upstream_message(
+                "The provider endpoint URL is invalid.",
+            ));
+        }
+        Err(crate::upstream::EndpointError::ResolutionFailed)
+        | Err(crate::upstream::EndpointError::ClientConfiguration)
+        | Err(crate::upstream::EndpointError::InvalidTimeout) => {
+            return Err(ApiError::upstream_message(
+                "The provider model catalog could not be reached.",
+            ));
+        }
+    };
     if credential_filtered {
         // OpenRouter can return public inventory for an invalid bearer on
         // /models/user. Verify current-key identity without management APIs.
@@ -2789,39 +2852,38 @@ pub async fn import_models(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
     let (revision, result) = read_catalog(&state, id, &headers).await?;
-    let prefix = vendor
-        .name
-        .to_ascii_lowercase()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect::<String>();
-    let prefix = prefix.trim_matches('-');
+    let prefix = vendor_alias_prefix(&vendor.name);
     let data = result["data"]
         .as_array()
         .ok_or_else(ApiError::unavailable)?;
-    let mut entries = Vec::new();
+    // Discovery order is upstream-defined. Alias planning is sorted so the same
+    // catalog yields the same aliases regardless of listing order, and a
+    // basename collision is resolved within the batch instead of aborting the
+    // whole import with an alias conflict.
+    let mut catalogs = std::collections::BTreeMap::new();
     for model in data {
         let upstream = model["id"].as_str().ok_or_else(ApiError::unavailable)?;
-        let alias = format!("{prefix}/{upstream}");
-        let capabilities = imported_model_capabilities(
-            &result["discovery"]["integration"]["effective_type"],
-            &vendor.adapter,
-            &vendor.api_base,
-            &model["catalog"],
-        );
+        catalogs.entry(upstream).or_insert(&model["catalog"]);
+    }
+    let upstreams = catalogs.keys().copied().collect::<Vec<_>>();
+    let aliases = plan_imported_model_aliases(&prefix, &upstreams);
+    let mut entries = Vec::with_capacity(aliases.len());
+    for (upstream, alias) in aliases {
+        let capabilities =
+            imported_model_capabilities(&vendor.adapter, catalogs[upstream.as_str()]);
         validate_model(
             &alias,
             make_model(
                 &vendor.adapter,
                 &vendor.api_base,
-                upstream,
+                &upstream,
                 capabilities.clone(),
                 None,
             )?,
         )?;
         entries.push(niu_storage::VendorModelInput {
             alias,
-            upstream_model: upstream.to_owned(),
+            upstream_model: upstream,
             public_catalog: false,
             enabled: true,
             capabilities,
@@ -2839,79 +2901,326 @@ pub async fn import_models(
     ))
 }
 
-/// A recognized Provider's explicit tool declaration is evidence for buffered
-/// OpenAI-compatible tool calls. It does not establish streaming tool behavior,
-/// endpoint availability, account entitlements, or any other API capability.
-fn imported_model_capabilities(
-    integration: &Value,
-    adapter: &str,
-    api_base: &str,
-    catalog: &Value,
-) -> Value {
-    let recognized_catalog = integration.as_str() == Some("openrouter")
-        || (integration.as_str() == Some("qiniu")
-            && api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1");
-    let advertised_tools = recognized_catalog
-        && matches!(adapter, "openai" | "openrouter")
-        && catalog["supported_parameters"]
+const MAX_MODEL_ALIAS_BYTES: usize = 200;
+const MAX_ALIAS_PREFIX_BYTES: usize = 48;
+
+/// Provider names are display labels, not identifiers. Derive a readable,
+/// ASCII-safe namespace without depending on the caller's punctuation.
+fn vendor_alias_prefix(name: &str) -> String {
+    let mut prefix = String::new();
+    for character in name.chars() {
+        if character.is_ascii_alphanumeric() {
+            prefix.push(character.to_ascii_lowercase());
+        } else if !prefix.is_empty() && !prefix.ends_with('-') {
+            prefix.push('-');
+        }
+    }
+    while prefix.ends_with('-') {
+        prefix.pop();
+    }
+    if prefix.is_empty() {
+        prefix.push_str("provider");
+    }
+    prefix.truncate(MAX_ALIAS_PREFIX_BYTES);
+    while prefix.ends_with('-') {
+        prefix.pop();
+    }
+    prefix
+}
+
+fn normalize_alias_segment(segment: &str) -> String {
+    let mut normalized = String::new();
+    for character in segment.chars() {
+        if character.is_ascii_alphanumeric() || matches!(character, '.' | '_') {
+            normalized.push(character.to_ascii_lowercase());
+        } else if !normalized.is_empty() && !normalized.ends_with('-') {
+            normalized.push('-');
+        }
+    }
+    while normalized.ends_with('-') {
+        normalized.pop();
+    }
+    normalized
+}
+
+/// The upstream path is metadata only; it is never rewritten for dispatch.
+/// Slash-separated maker namespaces become alias components so a repeated maker
+/// prefix can be recognized instead of copied into the public alias.
+fn alias_path(upstream: &str) -> Vec<String> {
+    let mut path = upstream
+        .split('/')
+        .map(normalize_alias_segment)
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+    if path.is_empty() {
+        path.push(format!("model-{}", short_alias_hash(upstream)));
+    }
+    path
+}
+
+fn short_alias_hash(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(value.as_bytes())
+        .iter()
+        .take(4)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn model_alias_with_suffix(base: &str, suffix: usize, upstream: &str) -> String {
+    let numeric = if suffix == 0 {
+        String::new()
+    } else {
+        format!("-{suffix}")
+    };
+    let candidate = format!("{base}{numeric}");
+    if candidate.len() <= MAX_MODEL_ALIAS_BYTES {
+        return candidate;
+    }
+    // Keep collision suffixes and a stable upstream digest when a long ID must
+    // be shortened; truncating alone could make distinct models indistinguishable.
+    let tail = format!("{numeric}-{}", short_alias_hash(upstream));
+    let mut head = base
+        .chars()
+        .take(MAX_MODEL_ALIAS_BYTES.saturating_sub(tail.len()))
+        .collect::<String>();
+    while head.ends_with(['-', '.', '_']) {
+        head.pop();
+    }
+    if head.is_empty() {
+        head.push_str("model");
+    }
+    format!("{head}{tail}")
+}
+
+/// Plan one alias per unique upstream ID. The preferred alias is
+/// `provider/model-basename`; if that basename is shared, a compact full upstream
+/// path is used, then a numeric suffix. Sorting by path complexity and upstream
+/// ID makes the assignment independent of catalog order.
+fn plan_imported_model_aliases(prefix: &str, upstreams: &[&str]) -> Vec<(String, String)> {
+    let prefix = vendor_alias_prefix(prefix);
+    let mut unique = upstreams.to_vec();
+    unique.sort_unstable();
+    unique.dedup();
+    let mut ordered = unique
+        .into_iter()
+        .map(|upstream| (alias_path(upstream).len(), upstream))
+        .collect::<Vec<_>>();
+    ordered.sort_unstable_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(right.1)));
+    let mut used = std::collections::BTreeSet::new();
+    let mut planned = Vec::with_capacity(ordered.len());
+    let candidate_count = ordered.len();
+    for (_, upstream) in ordered {
+        let mut path = alias_path(upstream);
+        if path.first().is_some_and(|segment| segment == &prefix) {
+            path.remove(0);
+        }
+        if path.is_empty() {
+            path.push("model".to_owned());
+        }
+        let preferred = format!("{prefix}/{}", path[path.len() - 1]);
+        let compact = format!("{prefix}/{}", path.join("-"));
+        let mut candidates = vec![preferred];
+        if candidates[0] != compact {
+            candidates.push(compact);
+        }
+        let mut chosen = None;
+        'candidate: for candidate in candidates {
+            for suffix in 0..=candidate_count {
+                let alias = model_alias_with_suffix(&candidate, suffix, upstream);
+                if used.insert(alias.clone()) {
+                    chosen = Some(alias);
+                    break 'candidate;
+                }
+            }
+        }
+        // The bounded suffix search always finds a free candidate; the fallback
+        // only keeps the function panic-free if that invariant ever changes.
+        let alias = match chosen {
+            Some(alias) => alias,
+            None => {
+                let mut fallback = format!("{prefix}/model-{}", short_alias_hash(upstream));
+                while !used.insert(fallback.clone()) {
+                    fallback.push_str("-x");
+                }
+                fallback
+            }
+        };
+        planned.push((upstream.to_owned(), alias));
+    }
+    planned
+}
+
+/// Imported capabilities use explicit upstream declarations plus the
+/// OpenAI-compatible Chat Completions adapter family. Familiar model names are
+/// deliberately not used as evidence: a name does not establish the account,
+/// endpoint or model version's current support. Missing metadata means unknown,
+/// represented by the conservative false default.
+fn imported_model_capabilities(adapter: &str, catalog: &Value) -> Value {
+    let openai_compatible_chat = matches!(adapter, "openai" | "openrouter");
+    let advertised = |parameter: &str| {
+        catalog["supported_parameters"]
             .as_array()
             .is_some_and(|parameters| {
-                parameters
-                    .iter()
-                    .any(|value| value.as_str() == Some("tools"))
-            });
-    json!({"catalog":catalog,"supports_tool_calls":advertised_tools,"supports_streaming_tool_calls":false,"supports_structured_output":false,"supports_embeddings":false,"supports_embedding_dimensions":false,"supports_embedding_base64":false,"supports_responses":false})
+                parameters.iter().any(|value| {
+                    value
+                        .as_str()
+                        .is_some_and(|value| value.eq_ignore_ascii_case(parameter))
+                })
+            })
+    };
+    let tool_calls = openai_compatible_chat && advertised("tools");
+    // Streaming tool deltas are part of the OpenAI-compatible Chat Completions
+    // wire contract. The explicit tools declaration gates this adapter-family
+    // inference; native Messages/Bedrock routes never receive these Chat flags.
+    let streaming_tool_calls = tool_calls;
+    // `structured_outputs` is the explicit JSON Schema declaration.
+    // `response_format` alone can mean json_object support, so it is not enough.
+    let structured_output = openai_compatible_chat && advertised("structured_outputs");
+    // `/responses` is a distinct endpoint and is not established by Chat
+    // metadata. Only an explicit upstream declaration enables it; none of the
+    // current catalog adapters make that declaration.
+    let responses = openai_compatible_chat && advertised("responses");
+    json!({"catalog":catalog,"supports_tool_calls":tool_calls,"supports_streaming_tool_calls":streaming_tool_calls,"supports_structured_output":structured_output,"supports_embeddings":false,"supports_embedding_dimensions":false,"supports_embedding_base64":false,"supports_responses":responses})
 }
 
 #[cfg(test)]
-mod import_capability_tests {
+mod import_model_tests {
     use super::*;
 
     #[test]
-    fn only_recognized_explicit_tools_enable_buffered_tool_calls() {
+    fn imported_capabilities_follow_explicit_openai_chat_evidence() {
         let advertised = json!({"supported_parameters":["tools", "structured_outputs"]});
-        let supported = imported_model_capabilities(
-            &json!("openrouter"),
-            "openrouter",
-            "https://openrouter.ai/api/v1",
-            &advertised,
+        for adapter in ["openai", "openrouter"] {
+            let supported = imported_model_capabilities(adapter, &advertised);
+            assert_eq!(supported["supports_tool_calls"], true);
+            assert_eq!(supported["supports_streaming_tool_calls"], true);
+            assert_eq!(supported["supports_structured_output"], true);
+            assert_eq!(supported["supports_responses"], false);
+            assert_eq!(supported["catalog"], advertised);
+        }
+    }
+
+    #[test]
+    fn imported_capabilities_do_not_guess_from_adapter_or_model_name() {
+        let named = json!({"name":"gpt-4o", "supported_parameters":[]});
+        for adapter in ["openai", "openrouter"] {
+            let unknown = imported_model_capabilities(adapter, &named);
+            for flag in [
+                "supports_tool_calls",
+                "supports_streaming_tool_calls",
+                "supports_structured_output",
+                "supports_responses",
+            ] {
+                assert_eq!(unknown[flag], false, "{adapter} {flag}");
+            }
+        }
+        // Native adapters cannot carry Chat capability flags through validation.
+        let native = imported_model_capabilities(
+            "anthropic",
+            &json!({"supported_parameters":["tools", "structured_outputs", "responses"]}),
         );
-        assert_eq!(supported["supports_tool_calls"], true);
-        assert_eq!(supported["supports_streaming_tool_calls"], false);
-        assert_eq!(supported["supports_structured_output"], false);
-        assert_eq!(
-            imported_model_capabilities(
-                &json!("qiniu"),
-                "openai",
-                "https://api.qnaigc.com/v1",
-                &advertised
-            )["supports_tool_calls"],
-            true
-        );
-        for (integration, adapter, base, catalog) in [
-            (
-                json!("qiniu"),
-                "openai",
-                "https://other.example/v1",
-                advertised.clone(),
-            ),
-            (
-                json!("openrouter"),
-                "anthropic",
-                "https://openrouter.ai/api/v1",
-                advertised.clone(),
-            ),
-            (
-                json!("openrouter"),
-                "openrouter",
-                "https://openrouter.ai/api/v1",
-                json!({"supported_parameters":[]}),
-            ),
+        for flag in [
+            "supports_tool_calls",
+            "supports_streaming_tool_calls",
+            "supports_structured_output",
+            "supports_responses",
         ] {
+            assert_eq!(native[flag], false, "{flag}");
+        }
+        // JSON object mode alone does not establish JSON Schema support.
+        let object_only = imported_model_capabilities(
+            "openai",
+            &json!({"supported_parameters":["response_format"]}),
+        );
+        assert_eq!(object_only["supports_structured_output"], false);
+        // A Responses declaration is separate from Chat tools.
+        let responses =
+            imported_model_capabilities("openai", &json!({"supported_parameters":["responses"]}));
+        assert_eq!(responses["supports_responses"], true);
+        assert_eq!(responses["supports_tool_calls"], false);
+    }
+
+    #[test]
+    fn aliases_do_not_repeat_vendor_or_maker_prefixes() {
+        for upstream in ["deepseek/deepseek-v3", "qiniu/deepseek-v3", "deepseek-v3"] {
+            let planned = plan_imported_model_aliases("qiniu", &[upstream]);
             assert_eq!(
-                imported_model_capabilities(&integration, adapter, base, &catalog)["supports_tool_calls"],
-                false
+                planned,
+                vec![(upstream.to_owned(), "qiniu/deepseek-v3".to_owned())]
             );
         }
+        let planned =
+            plan_imported_model_aliases("qiniu", &["meituan/longcat-flash-lite", "LongCat-Flash"]);
+        assert_eq!(planned[0].1, "qiniu/longcat-flash");
+        assert_eq!(planned[1].1, "qiniu/longcat-flash-lite");
+    }
+
+    #[test]
+    fn alias_planning_resolves_collisions_deterministically() {
+        let upstreams = ["openai/gpt-4o", "azure/gpt-4o", "gpt-4o"];
+        let forward = plan_imported_model_aliases("openrouter", &upstreams);
+        let reverse = plan_imported_model_aliases(
+            "openrouter",
+            &upstreams.into_iter().rev().collect::<Vec<_>>(),
+        );
+        assert_eq!(forward, reverse);
+        let aliases = forward
+            .iter()
+            .map(|(_, alias)| alias.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(aliases.len(), upstreams.len());
+        assert!(aliases.contains("openrouter/gpt-4o"));
+        assert!(
+            aliases
+                .iter()
+                .all(|alias| alias.starts_with("openrouter/") && alias.len() <= 200)
+        );
+    }
+
+    #[test]
+    fn alias_normalization_is_safe_bounded_and_unique_for_long_ids() {
+        let long_a = format!("{}/{}", "a".repeat(10), "b".repeat(189));
+        let long_b = format!("{}/{}", "c".repeat(10), "b".repeat(189));
+        let planned = plan_imported_model_aliases(
+            "My Provider!",
+            &["Meta/Llama 3: 8B", long_a.as_str(), long_b.as_str()],
+        );
+        assert!(
+            planned
+                .iter()
+                .any(|(_, alias)| alias == "my-provider/llama-3-8b"),
+            "{planned:?}"
+        );
+        let aliases = planned
+            .iter()
+            .map(|(_, alias)| alias.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(aliases.len(), 3, "{planned:?}");
+        for alias in aliases {
+            assert!(alias.len() <= MAX_MODEL_ALIAS_BYTES, "{alias}");
+            assert!(alias.is_ascii());
+            assert!(alias.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-' | '/')
+            }));
+        }
+        let long_aliases = planned
+            .iter()
+            .filter(|(upstream, _)| upstream == &long_a || upstream == &long_b)
+            .map(|(_, alias)| alias)
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(long_aliases.len(), 2);
+        // Truncation keeps a stable upstream digest instead of collapsing the
+        // two long IDs to the same alias.
+        for alias in long_aliases {
+            assert_eq!(alias.len(), MAX_MODEL_ALIAS_BYTES, "{alias}");
+        }
+        assert_eq!(
+            plan_imported_model_aliases("!!!", &["/"]),
+            vec![(
+                "/".to_owned(),
+                format!("provider/model-{}", short_alias_hash("/"))
+            )]
+        );
     }
 }

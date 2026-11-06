@@ -1,6 +1,25 @@
 use crate::{Store, StoreError, TenantScope};
 use serde_json::{Value, json};
 
+/// How an API key's additional Guardrail policy is resolved. A fixed assignment
+/// pins one immutable workspace revision. An active assignment carries no key
+/// layer at all: the workspace's current active policy applies directly, so a
+/// later activation needs no key rewrite or integer re-pin.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyGuardrailAssignmentMode {
+    Fixed,
+    Active,
+}
+
+impl KeyGuardrailAssignmentMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Fixed => "fixed",
+            Self::Active => "active",
+        }
+    }
+}
+
 /// A single database snapshot for policy inspection before dispatch. Dispatch
 /// must still recheck current policies under its coordination locks.
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -228,7 +247,7 @@ impl Store {
              LEFT JOIN workspace_guardrail_heads h ON h.organization_id=key.organization_id AND h.project_id=key.project_id
              LEFT JOIN workspace_guardrail_revisions w ON w.organization_id=h.organization_id AND w.project_id=h.project_id AND w.revision=h.revision
              LEFT JOIN key_guardrail_assignments a ON a.organization_id=key.organization_id AND a.project_id=key.project_id AND a.key_id=key.id
-             LEFT JOIN workspace_guardrail_revisions k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.revision=a.policy_revision
+             LEFT JOIN workspace_guardrail_revisions k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND a.mode='fixed' AND k.revision=a.policy_revision
              WHERE key.organization_id=$1 AND key.project_id=$2 AND key.id=$3",
         ).bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(executor).await?)
     }
@@ -292,6 +311,38 @@ impl Store {
             scope,
             key,
             Some(policy_revision),
+            KeyGuardrailAssignmentMode::Fixed,
+            expected_assignment,
+            actor,
+        )
+        .await
+    }
+
+    /// The key explicitly follows the workspace's active policy instead of
+    /// pinning a revision. It carries no key policy layer, so later workspace
+    /// activations apply without rewriting this assignment.
+    pub async fn follow_active_key_guardrail(
+        &self,
+        scope: TenantScope,
+        key: uuid::Uuid,
+        expected_assignment: i64,
+    ) -> Result<i64, StoreError> {
+        self.follow_active_key_guardrail_as(scope, key, expected_assignment, "system")
+            .await
+    }
+
+    pub async fn follow_active_key_guardrail_as(
+        &self,
+        scope: TenantScope,
+        key: uuid::Uuid,
+        expected_assignment: i64,
+        actor: &str,
+    ) -> Result<i64, StoreError> {
+        self.update_key_guardrail_assignment(
+            scope,
+            key,
+            None,
+            KeyGuardrailAssignmentMode::Active,
             expected_assignment,
             actor,
         )
@@ -308,8 +359,15 @@ impl Store {
         if expected_assignment < 1 {
             return Err(StoreError::Conflict);
         }
-        self.update_key_guardrail_assignment(scope, key, None, expected_assignment, actor)
-            .await
+        self.update_key_guardrail_assignment(
+            scope,
+            key,
+            None,
+            KeyGuardrailAssignmentMode::Fixed,
+            expected_assignment,
+            actor,
+        )
+        .await
     }
 
     async fn update_key_guardrail_assignment(
@@ -317,6 +375,7 @@ impl Store {
         scope: TenantScope,
         key: uuid::Uuid,
         policy_revision: Option<i64>,
+        mode: KeyGuardrailAssignmentMode,
         expected_assignment: i64,
         actor: &str,
     ) -> Result<i64, StoreError> {
@@ -326,6 +385,9 @@ impl Store {
         if expected_assignment < 0 || expected_assignment == i64::MAX {
             return Err(StoreError::Conflict);
         }
+        if mode == KeyGuardrailAssignmentMode::Active && policy_revision.is_some() {
+            return Err(StoreError::Conflict);
+        }
         let mut tx = self.pool.begin().await?;
         let active: Option<uuid::Uuid> = sqlx::query_scalar("SELECT id FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp() FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut *tx).await?;
@@ -333,15 +395,15 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let revision: Option<i64> = if expected_assignment == 0 {
-            sqlx::query_scalar("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING assignment_revision")
-                .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(policy_revision).fetch_optional(&mut *tx).await?
+            sqlx::query_scalar("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,mode) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING assignment_revision")
+                .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(policy_revision).bind(mode.as_str()).fetch_optional(&mut *tx).await?
         } else {
-            sqlx::query_scalar("UPDATE key_guardrail_assignments SET policy_revision=$4,assignment_revision=assignment_revision+1 WHERE organization_id=$1 AND project_id=$2 AND key_id=$3 AND assignment_revision=$5 RETURNING assignment_revision")
-                .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(policy_revision).bind(expected_assignment).fetch_optional(&mut *tx).await?
+            sqlx::query_scalar("UPDATE key_guardrail_assignments SET policy_revision=$4,mode=$5,assignment_revision=assignment_revision+1 WHERE organization_id=$1 AND project_id=$2 AND key_id=$3 AND assignment_revision=$6 RETURNING assignment_revision")
+                .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(policy_revision).bind(mode.as_str()).bind(expected_assignment).fetch_optional(&mut *tx).await?
         };
         let revision = revision.ok_or(StoreError::Conflict)?;
-        sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor) VALUES ($1,$2,$3,$4,$5,$6)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(revision).bind(policy_revision).bind(actor).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor,mode) VALUES ($1,$2,$3,$4,$5,$6,$7)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(revision).bind(policy_revision).bind(actor).bind(mode.as_str()).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(revision)
     }
@@ -355,7 +417,7 @@ impl Store {
         if before.is_some_and(|revision| revision < 1) {
             return Err(StoreError::Conflict);
         }
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('assignment_revision',e.assignment_revision,'policy_revision',e.policy_revision,'policy_name',r.policy->>'name','actor_name',CASE WHEN e.actor='installation' THEN 'Installation administrator' WHEN e.actor='system' THEN 'System' ELSE COALESCE(op.name,'Unknown administrator') END,'created_at',e.created_at) FROM key_guardrail_assignment_events e LEFT JOIN workspace_guardrail_revisions r ON r.organization_id=e.organization_id AND r.project_id=e.project_id AND r.revision=e.policy_revision LEFT JOIN admin_operators op ON e.actor='operator:'||op.id::text WHERE e.organization_id=$1 AND e.project_id=$2 AND e.key_id=$3 AND ($4::bigint IS NULL OR e.assignment_revision<$4) ORDER BY e.assignment_revision DESC LIMIT 101")
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('assignment_revision',e.assignment_revision,'policy_revision',e.policy_revision,'mode',e.mode,'policy_name',r.policy->>'name','actor_name',CASE WHEN e.actor='installation' THEN 'Installation administrator' WHEN e.actor='system' THEN 'System' ELSE COALESCE(op.name,'Unknown administrator') END,'created_at',e.created_at) FROM key_guardrail_assignment_events e LEFT JOIN workspace_guardrail_revisions r ON r.organization_id=e.organization_id AND r.project_id=e.project_id AND r.revision=e.policy_revision LEFT JOIN admin_operators op ON e.actor='operator:'||op.id::text WHERE e.organization_id=$1 AND e.project_id=$2 AND e.key_id=$3 AND ($4::bigint IS NULL OR e.assignment_revision<$4) ORDER BY e.assignment_revision DESC LIMIT 101")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(before).fetch_all(&self.pool).await?)
     }
 
@@ -364,7 +426,7 @@ impl Store {
         scope: TenantScope,
         key: uuid::Uuid,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('assignment_revision',a.assignment_revision,'policy_revision',a.policy_revision,'policy',r.policy) FROM key_guardrail_assignments a LEFT JOIN workspace_guardrail_revisions r ON r.organization_id=a.organization_id AND r.project_id=a.project_id AND r.revision=a.policy_revision WHERE a.organization_id=$1 AND a.project_id=$2 AND a.key_id=$3")
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('assignment_revision',a.assignment_revision,'policy_revision',a.policy_revision,'mode',a.mode,'policy',r.policy) FROM key_guardrail_assignments a LEFT JOIN workspace_guardrail_revisions r ON r.organization_id=a.organization_id AND r.project_id=a.project_id AND r.revision=a.policy_revision WHERE a.organization_id=$1 AND a.project_id=$2 AND a.key_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&self.pool).await?)
     }
 

@@ -68,9 +68,7 @@ pub async fn csv(
             row.cache_write_input_tokens.unwrap_or_default(),
             row.reasoning_output_tokens.unwrap_or_default(),
             row.finish_reasons
-                .map(|value| {
-                    serde_json::to_string(&value.0).expect("finish metadata is serializable")
-                })
+                .map(|value| serde_json::to_string(&value.0).unwrap_or_default())
                 .unwrap_or_default(),
             row.failure
                 .as_ref()

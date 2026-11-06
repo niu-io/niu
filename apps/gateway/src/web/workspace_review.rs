@@ -3,7 +3,7 @@ use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
     extract::{Path, Query, State, rejection::JsonRejection},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
 };
 use niu_storage::{AdminPermission, TenantScope, WorkspaceModelPool};
 use serde::Deserialize;
@@ -354,6 +354,19 @@ pub async fn put_pool(
             "Every pool candidate must be an authorized model; pool names cannot shadow an existing model",
         ));
     }
+    if let Some(decider) = input.strategy.auto().and_then(|auto| auto.decider.as_ref()) {
+        let decider_model = models.get(&decider.model).ok_or_else(|| {
+            ApiError::invalid_request("The Auto decider model must be a visible workspace model")
+        })?;
+        if !crate::vendors::supports_protocol(
+            decider_model,
+            &crate::guardrails::input::Protocol::Chat,
+        ) {
+            return Err(ApiError::invalid_request(
+                "The Auto decider model must support the Chat protocol",
+            ));
+        }
+    }
     let saved = state
         .store
         .set_workspace_model_pool_for_scope(scope, &input)
@@ -361,6 +374,35 @@ pub async fn put_pool(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":saved})))
 }
+#[derive(Deserialize)]
+pub struct DeletePool {
+    revision: i64,
+}
+
+/// Soft-delete a custom model under the current member Write authority.
+pub async fn delete_pool(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((workspace, name)): Path<(Uuid, String)>,
+    Query(query): Query<DeletePool>,
+) -> Result<StatusCode, ApiError> {
+    let scope = crate::admin::workspace_aliases::authorize_workspace(
+        &state,
+        &headers,
+        workspace,
+        AdminPermission::Write,
+    )
+    .await?
+    .1;
+    slug(&name)?;
+    state
+        .store
+        .delete_workspace_model_pool_for_scope(scope, &name, query.revision)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/workspaces/{workspace}/routing/{slug}/history",

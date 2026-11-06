@@ -22,6 +22,22 @@ Niu's default connection experience is Internal use. A platform administrator or
 
 Niu supplies routing, model-management controls, usage and performance evidence, and clearly attributed cost information. It does not guarantee an upstream service's continued validity or that the resulting configuration offers the best value.
 
+## Access scope
+
+Internal use separates the **funding account** from **who may use the connection**. A platform administrator creating a connection chooses one explicit scope:
+
+- **Internal** (default in the connection dialog): every organization on the Internal-use installation may discover and invoke the imported models through its authorized workspaces and keys. The recorded funding account pays the upstream Provider directly. This is installation-internal sharing, not public supply or commercial qualification.
+- **Personal**: only the funding account may discover or invoke the imported models. This preserves the previous private-credential behavior for existing connections.
+
+The choice is explicit in the API (`access_scope`). Internal use rejects a creation that supplies neither `access_scope` nor an explicit funding account instead of silently binding the credential to the administrator's current account. Resale rejects `internal` scope: commercial shared supply remains a separate, explicitly configured workflow. Historical connections keep their recorded personal ownership; the migration adds a scope column with a `personal` default and does not rewrite ownership, attempts, tariffs, invoices or audit records.
+
+Visibility and funding attribution are enforced by the backend:
+
+- Internal-scope models are visible to authorized organizations and their model-granted keys; personal-scope routes remain isolated to their funding account.
+- Both scopes remain owner-funded. They are excluded from shared commercial supply, customer tariffs, retail media, settlement and Provider offers.
+- `public_catalog` is truthful for internal scope: an operator may publish an alias to the unauthenticated model list, and the checked flag now produces that result. Personal scope never publishes.
+- Catalog responses contain model metadata only. Credentials, endpoints, upstream mappings and procurement prices remain server-side. Route readiness still requires an enabled credential, enabled mapping and a matching scope; catalog visibility does not qualify supply or prove inference access.
+
 ## Administrator-managed Provider presets
 
 Provider management must include a prepared directory even when no connections have been saved. The initial required entries are **OpenRouter**, **FastRouter**, **BabelArk**, **Qiniu**, and official **DeepSeek**. Retain custom Provider setup and make the directory extensible without changing the connection workflow. This directory is a separate deliverable from the default Internal use funding and cost-accounting changes.
@@ -30,7 +46,7 @@ Present common supported services as connection presets even when no connection 
 
 Each preset identifies the supported adapter, canonical endpoint, relevant region or service variant, and an official credential-management destination. Prefer a key-first form with these values prefilled. Keep custom endpoints and advanced configuration available. Do not imply that API compatibility establishes full feature support, model entitlement, successful inference, or catalog availability.
 
-Saving creates the credential and its explicit funding ownership together. A failed or uncertain write must not leave an apparently shared credential behind or invite blind retries. Preserve existing records and stable references; presets must not generate duplicate business records on startup or overwrite user configuration.
+Saving creates the credential, its explicit funding ownership and its explicit access scope together. A failed or uncertain write must not leave an apparently shared credential behind or invite blind retries. Preserve existing records and stable references; presets must not generate duplicate business records on startup or overwrite user configuration.
 
 The platform-administrator authorization boundary remains in force. End-user BYOK requires a separate future self-service authorization contract. Presets do not grant ordinary accounts platform administration. Private funding ownership and Provider business identity are separate relationships.
 

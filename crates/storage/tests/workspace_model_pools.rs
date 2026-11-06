@@ -60,6 +60,7 @@ async fn workspace_pools_require_delegation_preserve_revisions_and_isolate_tenan
         }],
         rules: vec![],
         default_action: RoutePoolDefaultAction::Candidates,
+        strategy: Default::default(),
     };
     let ordinary = store
         .issue_key(scope, "Ordinary", &["fast".into()], 3600)
@@ -105,7 +106,7 @@ async fn workspace_pools_require_delegation_preserve_revisions_and_isolate_tenan
     assert_eq!(history[0].revision, 2);
     assert_eq!(history[1].revision, 1);
     let selection = store
-        .record_workspace_pool_selection(&principal, &saved, "fast")
+        .record_workspace_pool_selection(&principal, &saved, "fast", None)
         .await
         .unwrap();
     let operation = store.create_operation(scope, "fast").await.unwrap();
@@ -126,6 +127,11 @@ async fn workspace_pools_require_delegation_preserve_revisions_and_isolate_tenan
     assert_eq!(evidence[0]["selected_model"], "fast");
     assert_eq!(evidence[0]["response_status"], 200);
     assert!(
+        evidence[0]["reference"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
+    assert!(
         store
             .finish_workspace_pool_selection(scope, selection, Some(operation), Some(attempt), 500)
             .await
@@ -133,7 +139,7 @@ async fn workspace_pools_require_delegation_preserve_revisions_and_isolate_tenan
         "a response record cannot be overwritten"
     );
     let early_failure = store
-        .record_workspace_pool_selection(&principal, &saved, "fast")
+        .record_workspace_pool_selection(&principal, &saved, "fast", None)
         .await
         .unwrap();
     store
@@ -141,7 +147,7 @@ async fn workspace_pools_require_delegation_preserve_revisions_and_isolate_tenan
         .await
         .unwrap();
     let invalid_link = store
-        .record_workspace_pool_selection(&principal, &saved, "fast")
+        .record_workspace_pool_selection(&principal, &saved, "fast", None)
         .await
         .unwrap();
     assert!(
@@ -217,6 +223,39 @@ async fn workspace_pools_require_delegation_preserve_revisions_and_isolate_tenan
             .await
             .is_err(),
         "stale authenticated model grants must not authorize a write"
+    );
+    store
+        .delete_workspace_model_pool(&principal, "assistant", 2)
+        .await
+        .unwrap();
+    assert!(
+        store
+            .workspace_model_pool(scope, "assistant")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        store
+            .workspace_model_pools(scope, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .delete_workspace_model_pool(&principal, "assistant", 2)
+            .await
+            .is_err(),
+        "a deleted pool cannot be deleted twice"
+    );
+    assert_eq!(
+        store
+            .workspace_model_pool_history(scope, "assistant", None)
+            .await
+            .unwrap()
+            .len(),
+        2
     );
     store.revoke_key(scope, issued.id).await.unwrap();
     assert!(

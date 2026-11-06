@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)] // Cargo sets CARGO_PKG_VERSION for package build scripts.
+
 use std::{env, process::Command};
 
 fn main() {

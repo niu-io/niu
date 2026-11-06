@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 //! Configured video validation and bounded query transport; no entitlement.
 pub mod asset_create;
 pub mod asset_group;
@@ -734,7 +736,8 @@ fn inline_image_format_parts(mime: &str, total_len: usize, head: &[u8], tail: &[
                 && head.starts_with(b"RIFF")
                 && &head[8..12] == b"WEBP"
                 && matches!(&head[12..16], b"VP8 " | b"VP8L" | b"VP8X")
-                && u32::from_le_bytes(head[4..8].try_into().unwrap()) as usize == total_len - 8
+                && u32::from_le_bytes(head[4..8].try_into().unwrap_or_default()) as usize
+                    == total_len - 8
         }
         _ => false,
     }

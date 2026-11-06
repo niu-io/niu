@@ -69,3 +69,13 @@ public bookmark first and uses the returned internal identity for subsequent act
 Session and turn UUID query hints are removed after the saved record supplies its
 authoritative binding. This preserves continuation without putting internal context
 identifiers in newly generated links. Chat reference resolution remains owner-scoped.
+
+A saved Video session is the canonical result surface at
+`/generations/video-<n>`; its turns render their saved results and recovery
+actions in place. A turn is addressed by the readable request or run reference
+in the fragment (`#input-<n>` or `#run-<n>`). Legacy `?intent=` and `?job=`
+result links resolve within the authorized workspace to the owning session and
+turn, then redirect there. Composer-owned continuation links keep their editable
+surface until the saved session can be resolved. Records without a readable
+session reference retain the legacy result surface instead of exposing an
+internal identifier in a new URL.

@@ -995,7 +995,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
     }
 
     let mut hasher = Sha256::new();
-    serde_json::to_writer(
+    let _ = serde_json::to_writer(
         &mut hasher,
         &RouteRevisionPayload {
             credential_reference: &model.api_key_env,
@@ -1024,8 +1024,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
             supports_structured_output: model.supports_structured_output,
             supports_tool_calls: model.supports_tool_calls,
         },
-    )
-    .expect("route serialization");
+    );
     format!("{:x}", hasher.finalize())
 }
 
@@ -1057,7 +1056,11 @@ mod tests {
                 .into_response();
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
             assert_eq!(
-                response.extensions().get::<niu_storage::RequestFailure>().unwrap().kind,
+                response
+                    .extensions()
+                    .get::<niu_storage::RequestFailure>()
+                    .unwrap()
+                    .kind,
                 if expected_specific {
                     niu_storage::RequestFailureKind::UpstreamAccountRestricted
                 } else {
@@ -1440,14 +1443,12 @@ pub(super) async fn finalize_response(
             .extensions_mut()
             .insert(crate::request_payloads::InspectedRequestPayload(input));
     }
-    response.headers_mut().insert(
-        "x-niu-operation-id",
-        HeaderValue::from_str(&dispatch.operation.to_string()).unwrap(),
-    );
-    response.headers_mut().insert(
-        "x-niu-attempt-id",
-        HeaderValue::from_str(&dispatch.attempt.to_string()).unwrap(),
-    );
+    if let Ok(value) = HeaderValue::from_str(&dispatch.operation.to_string()) {
+        response.headers_mut().insert("x-niu-operation-id", value);
+    }
+    if let Ok(value) = HeaderValue::from_str(&dispatch.attempt.to_string()) {
+        response.headers_mut().insert("x-niu-attempt-id", value);
+    }
     response
 }
 

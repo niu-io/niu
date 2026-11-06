@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 //! Bounded local text inspection. Protocol extraction and dispatch integration are separate.
 use regex::{Regex, RegexBuilder};
 
@@ -80,12 +82,10 @@ impl CompiledInputPolicy {
         }
         let inspected = inspect_chat(&serde_json::json!({"messages":messages}), &self.rules)?;
         let mut output = body.clone();
-        for (index, item) in output["content"]
-            .as_array_mut()
-            .unwrap()
-            .iter_mut()
-            .enumerate()
-        {
+        let Some(content) = output["content"].as_array_mut() else {
+            return Err(InspectionError::UnsupportedContent);
+        };
+        for (index, item) in content.iter_mut().enumerate() {
             item["text"] = inspected["messages"][index]["content"].clone();
         }
         Ok(output)
@@ -218,8 +218,8 @@ fn inspect_generate_content(
     }
     let messages: Vec<Value> = paths
         .iter()
-        .map(|path| json!({"role":"user","content":body.pointer(path).unwrap()}))
-        .collect();
+        .map(|path| Ok(json!({"role":"user","content":body.pointer(path).ok_or_else(invalid)?})))
+        .collect::<Result<Vec<_>, InspectionError>>()?;
     let transformed = inspect_chat(&json!({"messages":messages}), rules)?;
     let mut result = body.clone();
     for (i, path) in paths.iter().enumerate() {
@@ -266,7 +266,10 @@ pub fn inspect_messages(
     for (message_index, part_index, control) in cache_controls {
         normalized["messages"][message_index]["content"][part_index]["cache_control"] = control;
     }
-    let mut messages = normalized["messages"].as_array().unwrap().clone();
+    let mut messages = normalized["messages"]
+        .as_array()
+        .cloned()
+        .ok_or(InspectionError::UnsupportedContent)?;
     if has_system {
         inspected["system"] = messages.remove(0)["content"].clone();
     }
@@ -365,7 +368,7 @@ pub fn inspect_chat_cow<'a>(
         let text = body
             .pointer(path)
             .and_then(serde_json::Value::as_str)
-            .unwrap();
+            .ok_or(InspectionError::UnsupportedContent)?;
         if rules
             .iter()
             .any(|rule| matches!(rule.action, Action::Block) && rule.expression.is_match(text))
@@ -385,7 +388,7 @@ pub fn inspect_chat_cow<'a>(
         let original = body
             .pointer(&path)
             .and_then(serde_json::Value::as_str)
-            .unwrap();
+            .ok_or(InspectionError::UnsupportedContent)?;
         let text = inspect_text(original, rules)?;
         transformed_bytes = transformed_bytes
             .checked_add(text.len())
@@ -393,7 +396,9 @@ pub fn inspect_chat_cow<'a>(
             .ok_or(InspectionError::ResourceLimit)?;
         if text != original {
             let owned = output.get_or_insert_with(|| body.clone());
-            *owned.pointer_mut(&path).unwrap() = serde_json::Value::String(text);
+            *owned
+                .pointer_mut(&path)
+                .ok_or(InspectionError::UnsupportedContent)? = serde_json::Value::String(text);
         }
     }
     Ok(match output {
@@ -447,7 +452,10 @@ pub fn inspect_responses(
                 return Err(InspectionError::UnsupportedContent);
             }
             let mut message = item.clone();
-            message.as_object_mut().unwrap().remove("type");
+            let Some(object) = message.as_object_mut() else {
+                return Err(InspectionError::UnsupportedContent);
+            };
+            object.remove("type");
             if let Some(parts) = message.get_mut("content").and_then(Value::as_array_mut) {
                 for part in parts {
                     if part.get("type") != Some(&json!("input_text")) {
@@ -469,16 +477,17 @@ pub fn inspect_responses(
     if plain {
         output["input"] = inspected["messages"][offset]["content"].clone();
     } else {
-        for (index, item) in output["input"]
-            .as_array_mut()
-            .unwrap()
-            .iter_mut()
-            .enumerate()
-        {
+        let Some(items) = output["input"].as_array_mut() else {
+            return Err(InspectionError::UnsupportedContent);
+        };
+        for (index, item) in items.iter_mut().enumerate() {
             let original_parts = item["content"].is_array();
             item["content"] = inspected["messages"][offset + index]["content"].clone();
             if original_parts {
-                for part in item["content"].as_array_mut().unwrap() {
+                let Some(parts) = item["content"].as_array_mut() else {
+                    return Err(InspectionError::UnsupportedContent);
+                };
+                for part in parts {
                     part["type"] = json!("input_text");
                 }
             }
@@ -522,7 +531,7 @@ pub fn inspect_embeddings(
         Value::Array(
             inspected["messages"]
                 .as_array()
-                .unwrap()
+                .ok_or(InspectionError::UnsupportedContent)?
                 .iter()
                 .map(|message| message["content"].clone())
                 .collect(),
@@ -550,6 +559,9 @@ impl Preset {
         }
     }
 
+    /// Preset patterns are fixed at compile time; the regression test below
+    /// proves every preset builds. The expect is therefore infallible.
+    #[allow(clippy::expect_used)]
     pub fn regex(self) -> &'static Regex {
         static NIU_API_KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             RegexBuilder::new(Preset::NiuApiKeyV1.pattern())
@@ -715,6 +727,17 @@ pub async fn run_bounded<T: Send + 'static>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn every_preset_regex_compiles() {
+        for preset in [
+            super::Preset::NiuApiKeyV1,
+            super::Preset::EmailV1,
+            super::Preset::ApiKeyPrefixV1,
+        ] {
+            let _ = preset.regex();
+        }
+    }
+
     use super::*;
 
     #[test]

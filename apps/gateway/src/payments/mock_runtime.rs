@@ -104,10 +104,10 @@ pub(crate) async fn checkout_proxy(
     let Ok(Some(public)) = public_base() else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let origin = url::Url::parse(&public)
-        .expect("validated public URL")
-        .origin()
-        .ascii_serialization();
+    let Ok(public_url) = url::Url::parse(&public) else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let origin = public_url.origin().ascii_serialization();
     if post
         && request
             .headers()

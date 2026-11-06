@@ -396,7 +396,7 @@ paths:
       - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       summary: Read immutable key policy assignment history
-      description: Returns at most 100 newest events with assignment/policy revisions, nullable policy name, readable actor name and creation time. Removal events have a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
+      description: Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
       security: [{ adminBearerAuth: [] }]
       parameters:
         - { name: before_assignment_revision, in: query, schema: { type: integer, minimum: 1 }, description: Exclusive cursor from next_cursor. }
@@ -414,12 +414,12 @@ paths:
       summary: Read a workspace-scoped key policy assignment
       security: [{ adminBearerAuth: [] }]
       responses:
-        '200': { description: "Data contains assignment_revision, policy_revision and policy, or null when no assignment exists in this workspace." }
+        '200': { description: "Data contains assignment_revision, policy_revision, mode and policy, or null when no assignment has ever existed in this workspace. mode is fixed or active; an active assignment has a null policy_revision and policy because the workspace's current policy applies directly." }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
     put:
-      summary: Assign a preserved workspace policy revision to an active key
-      description: Key restrictions intersect mandatory workspace restrictions and cannot weaken them. Revision zero creates an assignment; subsequent updates require its current assignment revision. An explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omission is rejected. Rotation preserves assigned policies; mandatory workspace restrictions remain enforced.
+      summary: Pin a workspace policy revision or follow the active workspace policy
+      description: Key restrictions intersect mandatory workspace restrictions and cannot weaken them. mode fixed pins policy_revision; mode active explicitly follows the workspace's current active policy and must not include policy_revision. Omission of mode keeps the historical fixed/clear behaviour for existing clients. Revision zero creates an assignment; subsequent updates require its current assignment revision. A fixed-mode explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omitting policy_revision without mode active is rejected. An active assignment also removes any pinned key layer. Rotation preserves the assignment mode and pinned revision; mandatory workspace restrictions remain enforced and later workspace edits need no key re-pin in active mode.
       security: [{ adminBearerAuth: [] }]
       requestBody:
         required: true
@@ -428,18 +428,26 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [policy_revision, expected_assignment_revision]
+              required: [expected_assignment_revision]
               properties:
-                policy_revision: { type: [integer, 'null'], minimum: 1 }
+                mode:
+                  type: string
+                  enum: [fixed, active]
+                  default: fixed
+                  description: fixed pins policy_revision. active follows the workspace's active policy and requires policy_revision to be absent or null. Omitted mode preserves fixed-or-clear compatibility.
+                policy_revision:
+                  type: [integer, 'null']
+                  minimum: 1
+                  description: Required with mode fixed to pin a saved revision, and when mode is omitted. An explicit null clears the key assignment. Must be absent or null with mode active; omission with mode active is allowed.
                 expected_assignment_revision: { type: integer, minimum: 0 }
       responses:
         '200': { description: New assignment_revision. }
-        '400': { description: Invalid revision or unsupported policy. }
+        '400': { description: "Invalid revision, incompatible mode and revision combination, unsupported policy, or missing fields." }
         '401': { description: Authentication required. }
         '403': { description: Workspace write access required. }
         '404': { description: Policy revision absent in this workspace. }
         '409': { description: "Stale assignment revision or inactive, expired or foreign key." }
-        '422': { description: Missing required assignment fields or malformed JSON shape. }
+        '422': { description: Malformed JSON shape or unknown mode. }
   /api/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }

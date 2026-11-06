@@ -1,39 +1,54 @@
 use niu_storage::{
-    MIGRATOR, OperatorAuditActor, OperatorRole, OperatorScope, ProviderOfferInput,
-    ProviderOfferQualificationInput, ProviderQualificationInput, Store,
+    MIGRATOR, OperatorAuditActor, OperatorRole, OperatorScope, ProviderOfferInput, Store,
+    StoreError,
 };
 use serde_json::json;
 use sqlx::PgPool;
+use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-fn qualification_expiry_ms() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+fn default_review_expiry_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis() as i64
         + 30 * 24 * 60 * 60 * 1000
 }
 
-fn supplier_qualification() -> ProviderQualificationInput {
-    ProviderQualificationInput {
-        supply_rights_sha256: "a".repeat(64),
-        supply_capability_sha256: "b".repeat(64),
-        data_handling_sha256: "c".repeat(64),
-        valid_until_ms: qualification_expiry_ms(),
-    }
-}
-
-fn offer_qualification(rate_revision: Uuid) -> ProviderOfferQualificationInput {
-    ProviderOfferQualificationInput {
-        rate_revision,
-        model_identity_sha256: "d".repeat(64),
-        protocol_matrix_sha256: "e".repeat(64),
-        protocol_matrix_version: "chat-v1".into(),
-        data_handling_sha256: "f".repeat(64),
-        availability_sha256: "1".repeat(64),
-        agreed_rates_sha256: "2".repeat(64),
-        valid_until_ms: qualification_expiry_ms(),
-    }
+/// Seed the retired hash-review records directly. The write API is gone, but
+/// existing reviews must retain their original eligibility and expiry meaning.
+async fn seed_legacy_review(
+    pool: &PgPool,
+    supplier: Uuid,
+    offer: Uuid,
+    revision: Uuid,
+    valid_until_ms: i64,
+) {
+    let business_review = Uuid::new_v4();
+    sqlx::query("INSERT INTO provider_qualification_reviews(id,provider_id,supply_rights_sha256,supply_capability_sha256,data_handling_sha256,valid_until) VALUES($1,$2,$3,$4,$5,to_timestamp($6::double precision/1000.0))")
+        .bind(business_review).bind(supplier).bind("a".repeat(64)).bind("b".repeat(64))
+        .bind("c".repeat(64)).bind(valid_until_ms).execute(pool).await.unwrap();
+    sqlx::query("UPDATE provider_businesses SET current_qualification_review=$2 WHERE id=$1")
+        .bind(supplier)
+        .bind(business_review)
+        .execute(pool)
+        .await
+        .unwrap();
+    let offer_review = Uuid::new_v4();
+    sqlx::query("INSERT INTO provider_offer_qualification_reviews(id,provider_id,offer_id,rate_revision,model_identity_sha256,protocol_matrix_sha256,protocol_matrix_version,data_handling_sha256,availability_sha256,agreed_rates_sha256,valid_until) VALUES($1,$2,$3,$4,$5,$6,'chat-v1',$7,$8,$9,to_timestamp($10::double precision/1000.0))")
+        .bind(offer_review).bind(supplier).bind(offer).bind(revision)
+        .bind("d".repeat(64)).bind("e".repeat(64)).bind("f".repeat(64))
+        .bind("1".repeat(64)).bind("2".repeat(64)).bind(valid_until_ms)
+        .execute(pool).await.unwrap();
+    sqlx::query(
+        "UPDATE provider_offers SET current_qualification_review=$3 WHERE provider_id=$1 AND id=$2",
+    )
+    .bind(supplier)
+    .bind(offer)
+    .bind(offer_review)
+    .execute(pool)
+    .await
+    .unwrap();
 }
 
 #[sqlx::test]
@@ -89,6 +104,12 @@ async fn provider_earnings_pin_rates_reconcile_and_settle_exactly_once(pool: PgP
     let vendor = Uuid::new_v4();
     sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'test upstream','openai','https://example.com/v1',$2)").bind(vendor).bind(vec![1u8;48]).execute(&pool).await.unwrap();
     sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('test-model',$1,'qwen/test',$2)").bind(vendor).bind(json!({})).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+        .bind(vendor)
+        .bind(supplier)
+        .execute(&pool)
+        .await
+        .unwrap();
     let mut rate = ProviderOfferInput {
         model_alias: "test-model".into(),
         currency: "USD".into(),
@@ -109,10 +130,6 @@ async fn provider_earnings_pin_rates_reconcile_and_settle_exactly_once(pool: PgP
             .unwrap()
     );
     assert!(store.publish_provider_offer(other, &rate).await.is_err());
-    assert_eq!(
-        store.provider_businesses().await.unwrap()[0]["qualification_status"],
-        "unqualified"
-    );
     let offer: Uuid = sqlx::query_scalar(
         "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='test-model'",
     )
@@ -138,15 +155,12 @@ async fn provider_earnings_pin_rates_reconcile_and_settle_exactly_once(pool: PgP
             .is_err()
     );
     store
-        .qualify_provider_business(supplier, &supplier_qualification())
-        .await
-        .unwrap();
-    store
-        .qualify_provider_offer(supplier, offer, &offer_qualification(revision))
-        .await
-        .unwrap();
-    store
-        .set_provider_offer_active(supplier, offer, operator.operator_id, true)
+        .enable_authorized_provider_offer(
+            supplier,
+            offer,
+            revision,
+            OperatorAuditActor::Installation,
+        )
         .await
         .unwrap();
     assert!(store.supplier_model_available("test-model").await.unwrap());
@@ -335,12 +349,13 @@ async fn provider_earnings_pin_rates_reconcile_and_settle_exactly_once(pool: PgP
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
-async fn expired_supplier_evidence_blocks_a_bound_attempt_before_dispatch(pool: PgPool) {
+async fn provider_period_settlement_selects_unpaid_earnings_by_currency_and_cutoff(pool: PgPool) {
+    const DAY_MS: i64 = 86_400_000;
     MIGRATOR.run(&pool).await.unwrap();
     let store = Store::from_pool(pool.clone());
     let scope = store.default_workspace().await.unwrap();
     let supplier = store
-        .create_provider_business("Expiring supplier")
+        .create_provider_business("Period settlement provider")
         .await
         .unwrap();
     let operator = store
@@ -349,8 +364,8 @@ async fn expired_supplier_evidence_blocks_a_bound_attempt_before_dispatch(pool: 
                 organization_id: scope.organization_id,
                 project_id: Some(scope.project_id),
             },
-            "supplier manager",
-            OperatorRole::Owner,
+            "period settlement operator",
+            OperatorRole::Viewer,
             3600,
             OperatorAuditActor::Installation,
         )
@@ -360,7 +375,325 @@ async fn expired_supplier_evidence_blocks_a_bound_attempt_before_dispatch(pool: 
         .set_provider_member(supplier, operator.operator_id, "manager", true)
         .await
         .unwrap();
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let cutoff_ms = now_ms;
+    let vendor = Uuid::new_v4();
+    sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'period upstream','openai','https://example.com/v1',$2)")
+        .bind(vendor)
+        .bind(vec![1u8; 48])
+        .execute(&pool)
+        .await
+        .unwrap();
+    for (alias, upstream) in [
+        ("period-model", "qwen/period"),
+        ("period-model-eur", "qwen/period-eur"),
+    ] {
+        sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES($1,$2,$3,$4)")
+            .bind(alias)
+            .bind(vendor)
+            .bind(upstream)
+            .bind(json!({}))
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+        .bind(vendor)
+        .bind(supplier)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let usd_revision = store
+        .publish_provider_offer(
+            supplier,
+            &ProviderOfferInput {
+                model_alias: "period-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000000".into(),
+                completion_rate: "2000000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let usd_offer: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='period-model'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    store
+        .enable_authorized_provider_offer(
+            supplier,
+            usd_offer,
+            usd_revision,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let eur_revision = store
+        .publish_provider_offer(
+            supplier,
+            &ProviderOfferInput {
+                model_alias: "period-model-eur".into(),
+                currency: "EUR".into(),
+                prompt_rate: "1000000000".into(),
+                completion_rate: "2000000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let eur_offer: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='period-model-eur'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    store
+        .enable_authorized_provider_offer(
+            supplier,
+            eur_offer,
+            eur_revision,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let usd_operation = store.create_operation(scope, "period-model").await.unwrap();
+    let eur_operation = store
+        .create_operation(scope, "period-model-eur")
+        .await
+        .unwrap();
+    let attempt_a = store
+        .prepare_attempt(scope, usd_operation, "period-model", "route-v1")
+        .await
+        .unwrap();
+    let attempt_b = store
+        .prepare_attempt(scope, usd_operation, "period-model", "route-v1")
+        .await
+        .unwrap();
+    let attempt_c = store
+        .prepare_attempt(scope, usd_operation, "period-model", "route-v1")
+        .await
+        .unwrap();
+    let attempt_d = store
+        .prepare_attempt(scope, eur_operation, "period-model-eur", "route-v1")
+        .await
+        .unwrap();
+    for attempt in [attempt_a, attempt_b, attempt_c] {
+        store
+            .bind_provider_offer(
+                scope,
+                attempt,
+                "period-model",
+                "qwen/period",
+                Some("https://example.com/v1"),
+            )
+            .await
+            .unwrap();
+    }
+    store
+        .bind_provider_offer(
+            scope,
+            attempt_d,
+            "period-model-eur",
+            "qwen/period-eur",
+            Some("https://example.com/v1"),
+        )
+        .await
+        .unwrap();
+    for attempt in [attempt_a, attempt_b, attempt_c, attempt_d] {
+        sqlx::query(
+            "UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1",
+        )
+        .bind(attempt)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    for (attempt, revision, currency, amount, created_ms) in [
+        (
+            attempt_a,
+            usd_revision,
+            "USD",
+            1_000_000_000i64,
+            now_ms - 3 * DAY_MS,
+        ),
+        (
+            attempt_b,
+            usd_revision,
+            "USD",
+            2_000_000_000i64,
+            now_ms - 2 * DAY_MS,
+        ),
+        (
+            attempt_c,
+            usd_revision,
+            "USD",
+            3_000_000_000i64,
+            now_ms + DAY_MS,
+        ),
+        (
+            attempt_d,
+            eur_revision,
+            "EUR",
+            4_000_000_000i64,
+            now_ms - DAY_MS,
+        ),
+    ] {
+        sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,created_at) VALUES($1,$2,$3,$4,$5,1,1,to_timestamp($6::bigint / 1000.0))")
+            .bind(attempt)
+            .bind(supplier)
+            .bind(revision)
+            .bind(currency)
+            .bind(amount)
+            .bind(created_ms)
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    let preview = store
+        .preview_provider_period_settlement(supplier, "USD", None, cutoff_ms)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(preview.entry_count, 2);
+    assert_eq!(preview.amount_nanos, "3000000000");
+    assert_eq!(preview.remaining_unpaid_nanos, "3000000000");
+    assert_eq!(preview.remaining_entry_count, 1);
+    let partial = store
+        .preview_provider_period_settlement(
+            supplier,
+            "USD",
+            Some(now_ms - 2 * DAY_MS - DAY_MS / 2),
+            cutoff_ms,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(partial.entry_count, 1);
+    assert_eq!(partial.amount_nanos, "2000000000");
+    assert_eq!(partial.remaining_unpaid_nanos, "4000000000");
+    assert_eq!(partial.remaining_entry_count, 2);
+    assert!(
+        store
+            .preview_provider_period_settlement(Uuid::new_v4(), "USD", None, cutoff_ms)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(matches!(
+        store
+            .preview_provider_period_settlement(supplier, "usd", None, cutoff_ms)
+            .await,
+        Err(StoreError::InvalidProviderSettlement)
+    ));
+    assert!(matches!(
+        store
+            .preview_provider_period_settlement(supplier, "USD", Some(cutoff_ms), cutoff_ms)
+            .await,
+        Err(StoreError::InvalidProviderSettlement)
+    ));
+    let key = Uuid::new_v4();
+    let first = store
+        .record_provider_period_settlement(supplier, key, "period-payment", "USD", None, cutoff_ms)
+        .await
+        .unwrap();
+    assert_eq!(first.amount_nanos, "3000000000");
+    assert_eq!(first.entry_count, 2);
+    assert_eq!(first.remaining_unpaid_nanos, "3000000000");
+    assert_eq!(first.remaining_entry_count, 1);
+    let replay = store
+        .record_provider_period_settlement(supplier, key, "period-payment", "USD", None, cutoff_ms)
+        .await
+        .unwrap();
+    assert_eq!(replay.id, first.id);
+    assert_eq!(replay.amount_nanos, first.amount_nanos);
+    assert!(matches!(
+        store
+            .record_provider_period_settlement(
+                supplier,
+                key,
+                "period-payment",
+                "USD",
+                None,
+                cutoff_ms - DAY_MS,
+            )
+            .await,
+        Err(StoreError::Conflict)
+    ));
+    assert!(matches!(
+        store
+            .record_provider_period_settlement(
+                supplier,
+                key,
+                "period-payment",
+                "EUR",
+                None,
+                cutoff_ms,
+            )
+            .await,
+        Err(StoreError::Conflict)
+    ));
+    let legacy = store
+        .record_provider_settlement(supplier, Uuid::new_v4(), "legacy-payment", &[attempt_c])
+        .await
+        .unwrap();
+    assert_ne!(legacy, first.id);
+    let settled = store
+        .preview_provider_period_settlement(supplier, "USD", None, cutoff_ms)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(settled.entry_count, 0);
+    assert_eq!(settled.amount_nanos, "0");
+    assert_eq!(settled.remaining_unpaid_nanos, "0");
+    assert_eq!(settled.remaining_entry_count, 0);
+    let report = store.provider_dashboard(supplier, 30).await.unwrap();
+    let balances = report["balances"].as_array().unwrap();
+    let usd = balances
+        .iter()
+        .find(|balance| balance["currency"] == "USD")
+        .unwrap();
+    assert_eq!(usd["unpaid_nanos"], "0");
+    assert_eq!(usd["paid_nanos"], "6000000000");
+    let eur = balances
+        .iter()
+        .find(|balance| balance["currency"] == "EUR")
+        .unwrap();
+    assert_eq!(eur["unpaid_nanos"], "4000000000");
+    let audits: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM provider_audit_events WHERE provider_id=$1 AND action='external_payment_recorded'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(audits, 2);
+    let entries: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM provider_settlement_entries WHERE provider_id=$1")
+            .bind(supplier)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(entries, 3);
+}
 
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn expired_supplier_evidence_blocks_a_bound_attempt_before_dispatch(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let scope = store.default_workspace().await.unwrap();
+    let supplier = store
+        .create_provider_business("Expiring supplier")
+        .await
+        .unwrap();
     let vendor = Uuid::new_v4();
     sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'expiring upstream','openai','https://example.com/v1',$2)")
         .bind(vendor)
@@ -394,21 +727,16 @@ async fn expired_supplier_evidence_blocks_a_bound_attempt_before_dispatch(pool: 
     .fetch_one(&pool)
     .await
     .unwrap();
-    let valid_until_ms = qualification_expiry_ms() - 30 * 24 * 60 * 60 * 1000 + 1200;
-    let mut business_review = supplier_qualification();
-    business_review.valid_until_ms = valid_until_ms;
-    store
-        .qualify_provider_business(supplier, &business_review)
-        .await
-        .unwrap();
-    let mut offer_review = offer_qualification(revision);
-    offer_review.valid_until_ms = valid_until_ms;
-    store
-        .qualify_provider_offer(supplier, offer, &offer_review)
-        .await
-        .unwrap();
-    store
-        .set_provider_offer_active(supplier, offer, operator.operator_id, true)
+    // Historical review records keep their original expiry semantics.
+    let valid_until_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
+        + 1200;
+    seed_legacy_review(&pool, supplier, offer, revision, valid_until_ms).await;
+    sqlx::query("UPDATE provider_offers SET active=TRUE WHERE id=$1")
+        .bind(offer)
+        .execute(&pool)
         .await
         .unwrap();
 
@@ -488,10 +816,6 @@ async fn material_supplier_route_changes_require_new_qualification(pool: PgPool)
         .fetch_one(&pool)
         .await
         .unwrap();
-    store
-        .qualify_provider_business(supplier, &supplier_qualification())
-        .await
-        .unwrap();
     sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'replacement review route','openai','https://replacement.example/v1',$2)")
         .bind(Uuid::new_v4()).bind(vec![1u8;48]).execute(&pool).await.unwrap();
     for mutation in [
@@ -502,10 +826,7 @@ async fn material_supplier_route_changes_require_new_qualification(pool: PgPool)
         "UPDATE vendor_models SET capabilities='{\"tools\":true}' WHERE vendor_id=$1",
         "UPDATE vendor_models SET vendor_id=(SELECT id FROM vendors WHERE name='replacement review route') WHERE vendor_id=$1",
     ] {
-        store
-            .qualify_provider_offer(supplier, offer, &offer_qualification(revision))
-            .await
-            .unwrap();
+        seed_legacy_review(&pool, supplier, offer, revision, default_review_expiry_ms()).await;
         sqlx::query("UPDATE provider_offers SET active=TRUE WHERE id=$1")
             .bind(offer)
             .execute(&pool)
@@ -629,11 +950,9 @@ async fn material_supplier_route_changes_require_new_qualification(pool: PgPool)
                 .await
                 .is_err()
         );
-        // Requalifying the changed route must not revive an already prepared request.
-        store
-            .qualify_provider_offer(supplier, offer, &offer_qualification(revision))
-            .await
-            .unwrap();
+        // A historical review for the changed route must not revive an already
+        // prepared request.
+        seed_legacy_review(&pool, supplier, offer, revision, default_review_expiry_ms()).await;
         sqlx::query("UPDATE provider_offers SET active=TRUE WHERE id=$1")
             .bind(offer)
             .execute(&pool)
@@ -710,7 +1029,6 @@ async fn supplier_configuration_counts_do_not_confuse_saved_disabled_and_qualifi
     assert_eq!(setup["ready_offers"], 0);
     assert_eq!(setup["enabled_api_keys"], 1);
     assert_eq!(setup["enabled_model_routes"], 1);
-    assert_eq!(setup["qualification_status"], "unqualified");
     let unrelated = rows
         .iter()
         .find(|row| row["id"] == other.to_string())
@@ -741,16 +1059,12 @@ async fn supplier_configuration_counts_do_not_confuse_saved_disabled_and_qualifi
     assert_eq!(setup["offers"], 1);
     assert_eq!(setup["ready_offers"], 0);
     store
-        .qualify_provider_business(supplier, &supplier_qualification())
-        .await
-        .unwrap();
-    store
-        .qualify_provider_offer(supplier, offer, &offer_qualification(revision))
-        .await
-        .unwrap();
-    sqlx::query("UPDATE provider_offers SET active=true WHERE id=$1")
-        .bind(offer)
-        .execute(&pool)
+        .enable_authorized_provider_offer(
+            supplier,
+            offer,
+            revision,
+            OperatorAuditActor::Installation,
+        )
         .await
         .unwrap();
     let rows = store.provider_businesses().await.unwrap();

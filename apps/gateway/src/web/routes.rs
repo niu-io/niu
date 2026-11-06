@@ -12,6 +12,8 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use tower_http::compression::{CompressionLayer, predicate::NotForContentType};
+
 use crate::{error::ApiError, state::AppState};
 
 use super::inference::{chat, embeddings, generate_content, messages, responses};
@@ -613,14 +615,6 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         axum::routing::put(crate::providers::set_member),
     )
     .dual_route(
-        "/providers/{provider}/qualification",
-        axum::routing::put(crate::providers::qualify_business),
-    )
-    .dual_route(
-        "/providers/{provider}/qualification/revoke",
-        axum::routing::post(crate::providers::revoke_business_qualification),
-    )
-    .dual_route(
         "/providers/{provider}/offers",
         get(crate::providers::offers).post(crate::providers::publish_offer),
     )
@@ -631,6 +625,10 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
     .dual_route(
         "/providers/{provider}/settlements",
         get(crate::providers::settlement_history).post(crate::providers::record_settlement),
+    )
+    .dual_route(
+        "/providers/{provider}/settlements/preview",
+        get(crate::providers::preview_settlement),
     )
     .dual_route(
         "/providers/{provider}/administration",
@@ -653,20 +651,12 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::providers::offer_revision),
     )
     .dual_route(
-        "/providers/{provider}/offers/{offer}/qualification",
-        axum::routing::put(crate::providers::qualify_offer),
-    )
-    .dual_route(
         "/providers/{provider}/offers/{offer}/authorization",
         axum::routing::put(crate::providers::authorize_offer),
     )
     .dual_route(
         "/providers/{provider}/offers/{offer}/authorization/{authorization}",
         axum::routing::delete(crate::providers::revoke_offer_authorization),
-    )
-    .dual_route(
-        "/providers/{provider}/offers/{offer}/qualification/revoke",
-        axum::routing::post(crate::providers::revoke_offer_qualification),
     )
 }
 
@@ -697,6 +687,31 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
         "/session/memberships",
         axum::routing::post(crate::admin::claim_session_membership)
             .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/invitations",
+        axum::routing::post(super::invitations::accept_invitation)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/organizations/{organization}/invitations",
+        get(super::invitations::list_invitations)
+            .post(super::invitations::create_invitation)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/invitations/preview",
+        axum::routing::post(super::invitations::preview_invitation)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/invitations/{invitation}",
+        axum::routing::delete(super::invitations::cancel_invitation)
+            .layer(DefaultBodyLimit::max(1024))
             .layer(middleware::from_fn(password_response_headers)),
     )
     .dual_route(
@@ -1069,6 +1084,10 @@ fn media_and_inference_routes(app: Router<AppState>) -> Router<AppState> {
     .route("/v1/chat/completions", axum::routing::post(chat))
     .route("/v1/responses", axum::routing::post(responses))
     .route("/v1/embeddings", axum::routing::post(embeddings))
+    .route(
+        "/v1/decisions",
+        post(super::decisions::create).layer(DefaultBodyLimit::max(64 * 1024)),
+    )
 }
 
 fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
@@ -1185,7 +1204,9 @@ pub(crate) fn router(state: AppState) -> Router {
             )
             .route(
                 "/api/v1/workspaces/{workspace}/routing/{slug}",
-                get(super::workspace_review::pool).put(super::workspace_review::put_pool),
+                get(super::workspace_review::pool)
+                    .put(super::workspace_review::put_pool)
+                    .delete(super::workspace_review::delete_pool),
             )
             .route(
                 "/api/v1/workspaces/{workspace}/routing/{slug}/history",
@@ -1278,7 +1299,9 @@ pub(crate) fn router(state: AppState) -> Router {
             .route("/v1/routing/preview", post(super::workspace_pools::preview))
             .route(
                 "/v1/routing/{slug}",
-                get(super::workspace_pools::get).put(super::workspace_pools::put),
+                get(super::workspace_pools::get)
+                    .put(super::workspace_pools::put)
+                    .delete(super::workspace_pools::remove),
             )
             .route(
                 "/v1/routing/{slug}/selections",
@@ -1357,6 +1380,7 @@ pub(crate) fn router(state: AppState) -> Router {
         crate::request_source::capture,
     ))
     .layer(middleware::from_fn(request_id_correlation))
+    .layer(CompressionLayer::new().compress_when(NotForContentType::const_new("text/event-stream")))
     .with_state(state)
 }
 
@@ -1726,7 +1750,10 @@ async fn public_models(
         .map_err(ApiError::from_store)?;
     for route in state
         .store
-        .personal_vendor_routes(principal.scope().organization_id)
+        .accessible_vendor_routes(
+            principal.scope().organization_id,
+            state.operating_mode == crate::state::OperatingMode::Internal,
+        )
         .await
         .map_err(ApiError::from_store)?
     {
@@ -1824,12 +1851,29 @@ fn chat_tool_capabilities(model: &crate::config::ModelConfig) -> Value {
 ///                     "usage_window",
 ///                     "allowed_cidrs",
 ///                     "management_capabilities",
-///                     "invocation_allowed"
+///                     "invocation_allowed",
+///                     "invocation_protocols"
 ///                   ],
 ///                   "properties": {
 ///                     "invocation_allowed": {
 ///                       "type": "boolean",
 ///                       "description": "Current credential invocation authority, independent of discovery and resource management."
+///                     },
+///                     "invocation_protocols": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "string",
+///                         "enum": [
+///                           "chat",
+///                           "responses",
+///                           "messages",
+///                           "content",
+///                           "decisions",
+///                           "embeddings",
+///                           "video"
+///                         ]
+///                       },
+///                       "description": "Exact approved model interfaces. An interface outside this list is denied even when invocation_allowed is true."
 ///                     },
 ///                     "object": {
 ///                       "type": "string",
@@ -2323,7 +2367,10 @@ async fn admin_models(
         // Personal credentials do not incur a Niu customer tariff.
         for route in state
             .store
-            .personal_vendor_routes(organization_id)
+            .accessible_vendor_routes(
+                organization_id,
+                state.operating_mode == crate::state::OperatingMode::Internal,
+            )
             .await
             .map_err(ApiError::from_store)?
         {

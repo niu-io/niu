@@ -341,7 +341,7 @@ impl Messages {
                     output.extend_from_slice(
                         format!(
                             "event: {}\ndata: {}\n\n",
-                            safe["type"].as_str().unwrap(),
+                            safe["type"].as_str().unwrap_or("message"),
                             safe
                         )
                         .as_bytes(),
