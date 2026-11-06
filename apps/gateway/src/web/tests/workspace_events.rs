@@ -611,18 +611,19 @@ async fn incident_events_outbox_restarts_retries_fences_and_checks_authority(poo
     assert_eq!(events["data"].as_array().unwrap().len(), 1);
     assert_eq!(events["data"][0]["type"], "incident.opened");
     let reference = events["data"][0]["resource"]["slug"].as_str().unwrap();
-    assert_eq!(
-        send(
-            &app,
-            "GET",
-            &format!("/v1/incidents/{reference}"),
-            &reader.token,
-            Value::Null
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
+    let (status, detail) = send(
+        &app,
+        "GET",
+        &format!("/v1/incidents/{reference}"),
+        &reader.token,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["data"]["notification"]["state"], "queued");
+    assert_eq!(detail["data"]["notification"]["event"], "opened");
+    assert_eq!(detail["data"]["notification"]["subscribers"], 1);
+    assert_eq!(detail["data"]["notification"]["authorized"], 1);
     assert_eq!(
         send(
             &app,
@@ -674,6 +675,16 @@ async fn incident_events_outbox_restarts_retries_fences_and_checks_authority(poo
         .unwrap();
     assert_eq!(deliveries[0]["state"], "delivered");
     assert_eq!(deliveries[0]["attempts"], 3);
+    let (_, detail) = send(
+        &app,
+        "GET",
+        &format!("/v1/incidents/{reference}"),
+        &reader.token,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(detail["data"]["notification"]["state"], "delivered");
+    assert_eq!(detail["data"]["notification"]["delivered"], 1);
     let received = receiver.received.lock().unwrap().clone();
     assert_eq!(received.len(), 2);
     assert_eq!(received[0], received[1]);

@@ -33,3 +33,29 @@ No actual public webhook, signed wire acknowledgement, retry, lease-recovery del
 The gateway test module now contains an incident-specific scenario using the existing `cfg(test)` loopback transport. It specifies signed request verification, a failed response and retry, stable event and delivery identities, expired-lease recovery with stale-worker fencing, cross-workspace read denial and revocation between claim and send. Closing and reopening a separate database pool and reconstructing the storage/worker handle models restart at that boundary; it is not an operating-system process restart. The production sender still requires public HTTPS, resolves and pins public addresses, and does not use this test transport.
 
 The isolated PostgreSQL fixture command was executed. Under the active repository instruction, its outcome is disregarded and is not evidence of behavior. The existing actual-run observations above remain the evidence for publication and process restart; no real public delivery, signed receiver acknowledgement, retry or delivery after a lease failure has been verified. Authorization is checked before sending. Once a request has been dispatched, later revocation cannot recall it.
+
+## Incident notification state — 2026-11-06
+
+Tracking: `niu-ya50.1`; the parent remains open. This increment adds a truthful, inspectable notification projection over the existing incident bridge, workspace event stream and delivery table. It does not add a second delivery system, a public receiver or a scheduler.
+
+`GET /v1/incidents/{reference}` now includes `notification` for the current lifecycle event (`opened` while active, `resolved` after recovery): `state`, `event`, enabled incident subscribers, currently authorized subscribers, delivered/failed/cancelled/pending/sending counts and the last attempt time. `not_configured` means this exact workspace has no enabled subscription selecting that event; `authority_inactive` means a receiver exists but its authorizing delegation is no longer current; `queued` means publication or acknowledgement is still pending; `failed` is a terminal delivery outcome and `partial` means enabled receivers disagree. `GET /api/v1/workspaces/{workspace}/incidents` adds the same aggregate for currently active incidents, and the platform incident list adds per-incident workspace counts plus `coverage: {"request_observed": true, "proactive_probe": "not_configured"}`. The Admin incidents page shows the summary and an explicit statement that detection depends on observed requests; the workspace notice states when no external receiver is configured instead of implying a message was sent.
+
+The projection is derived, not optimistic: a subscription with no published event, no delivery row or an expired lease is not reported as delivered. A 2xx receiver response remains acknowledgement only. Authorization expiry and revocation remove delivery authority without reclassifying the incident or releasing financial reservations. No migration, delivery credential, URL validation rule or retry bound changed. The platform response does not expose internal incident numbers.
+
+Deterministic disposable-PostgreSQL coverage, run on 2026-11-06 with one fresh cluster per test:
+
+```sh
+for test in notification_state_moves_from_not_configured_to_queued_and_delivered \
+  terminal_delivery_failure_is_never_reported_as_delivered \
+  expired_lease_is_sending_and_can_be_recovered_after_expiry \
+  subscription_expiry_removes_delivery_authority_without_reclassifying_evidence \
+  foreign_workspace_cannot_read_notification_state_and_platform_sees_incomplete \
+  resolved_incident_reports_resolution_notification_state \
+  concurrent_claims_create_one_notification_attempt; do
+  python3 scripts/test-postgres.py "$test" --package niu-storage --test incident_notifications
+done
+```
+
+Each invocation reported `1 passed; 0 failed`. The scenarios assert not-configured/queued/delivered transitions, terminal failure never shown as delivered, `sending` plus lease-expiry recovery, expired-key authority loss, foreign-workspace non-disclosure and platform incomplete coverage, resolved-event selection and one winning claim under concurrency. The existing gateway scenario `incident_events_outbox_restarts_retries_fences_and_checks_authority` was rerun with assertions for `queued` before delivery and `delivered` after the signed fixture receiver acknowledged it; it passed. The platform authorization scenario now asserts the empty page includes truthful coverage. Dashboard incident tests (four) pass, including the absent-receiver notice and the incomplete platform summary; dashboard typecheck, lint, i18n, build and SDK/MCP typechecks pass; `pnpm check:api` and the generated documentation check pass; `cargo check -p niu-gateway` passes.
+
+Evidence limits: the fixture receiver is the existing `cfg(test)` loopback transport, not a public-HTTPS receiver. No external webhook, DNS validation branch, signed public acknowledgement, retry against a real destination, recipient processing or in-flight revocation was exercised. No browser was run for this increment because no controlled running gateway/dashboard stack or credentials were available; the rendered ordinary-owner, platform and narrow layouts remain unverified. Proactive upstream probing is not implemented and is explicitly reported as `not_configured`; an idle connection is not monitored until a request fails. Generic 5xx/transport candidate fallback is also not implemented: those attempts remain `may_have_executed`, so retrying them would be uncertain resubmission. Existing fallback remains the qualified OpenRouter authentication-rejection chain. No paid call, financial mutation or external notification was made.

@@ -117,8 +117,17 @@ impl Store {
         scope: TenantScope,
         reference: &str,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('reference',b.reference,'model',i.model_alias,'owner_funded',EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND p.organization_id=b.organization_id),'status',CASE WHEN i.resolved_at IS NULL THEN 'active' ELSE 'resolved' END,'recovered_at',i.resolved_at) FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.organization_id=$1 AND b.project_id=$2 AND b.reference=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(reference).fetch_optional(&self.pool).await?)
+        let Some(mut detail): Option<Value> = sqlx::query_scalar("SELECT jsonb_build_object('reference',b.reference,'model',i.model_alias,'owner_funded',EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND (p.organization_id=b.organization_id OR p.access_scope='internal')),'status',CASE WHEN i.resolved_at IS NULL THEN 'active' ELSE 'resolved' END,'recovered_at',i.resolved_at) FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.organization_id=$1 AND b.project_id=$2 AND b.reference=$3")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reference).fetch_optional(&self.pool).await? else {
+            return Ok(None);
+        };
+        if let Some(notification) = self
+            .workspace_incident_notification(scope, reference)
+            .await?
+        {
+            detail["notification"] = notification;
+        }
+        Ok(Some(detail))
     }
 
     pub(crate) async fn event_stream_head_in_tx(
@@ -290,7 +299,7 @@ impl Store {
             serde_json::to_value(&saved).map_err(|_| StoreError::InvalidObservation)?;
         if existing.is_none() {
             sqlx::query("INSERT INTO workspace_event_subscriptions(id,organization_id,project_id,slug,revision,configuration,secret_ciphertext,issuer_key_id,cursor) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(&configuration).bind(new_secret.unwrap()).bind(principal.key_id()).bind(cursor).execute(&mut *tx).await?;
+                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(&configuration).bind(new_secret.ok_or(sqlx::Error::RowNotFound)?).bind(principal.key_id()).bind(cursor).execute(&mut *tx).await?;
         } else {
             // A revision change cancels the old destination's pending work. The
             // destination/secret/enable change starts at the current head. A
@@ -355,7 +364,7 @@ pub struct EventDeliveryClaim {
 }
 // No secret projection: only presence of a current, scoped, explicitly granted
 // delegation determines whether a new delivery can be started.
-const EVENT_AUTHORITY: &str = "EXISTS(SELECT 1 FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=s.issuer_key_id AND c.capability='events:write' AND k.organization_id=s.organization_id AND k.project_id=s.project_id AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id))";
+pub(crate) const EVENT_AUTHORITY: &str = "EXISTS(SELECT 1 FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=s.issuer_key_id AND c.capability='events:write' AND k.organization_id=s.organization_id AND k.project_id=s.project_id AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id))";
 impl Store {
     pub async fn event_subscription_authorized(
         &self,
@@ -366,7 +375,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(slug).fetch_one(&self.pool).await?)
     }
     pub async fn event_delivery_candidates(&self) -> Result<Vec<Uuid>, StoreError> {
-        Ok(sqlx::query_scalar(&format!("SELECT s.id FROM workspace_event_subscriptions s WHERE (s.configuration->>'enabled')::boolean AND {EVENT_AUTHORITY} AND EXISTS(SELECT 1 FROM workspace_events e WHERE e.organization_id=s.organization_id AND e.project_id=s.project_id AND e.sequence>s.cursor AND ((e.target_subscription_id IS NULL AND (s.configuration->'event_types') ? e.event_type) OR e.target_subscription_id=s.id)) ORDER BY s.checked_at,s.id LIMIT 100"))
+        Ok(sqlx::query_scalar(&format!("SELECT s.id FROM workspace_event_subscriptions s WHERE s.configuration->>'enabled' = 'true' AND {EVENT_AUTHORITY} AND EXISTS(SELECT 1 FROM workspace_events e WHERE e.organization_id=s.organization_id AND e.project_id=s.project_id AND e.sequence>s.cursor AND ((e.target_subscription_id IS NULL AND (s.configuration->'event_types') ? e.event_type) OR e.target_subscription_id=s.id)) ORDER BY s.checked_at,s.id LIMIT 100"))
             .fetch_all(&self.pool).await?)
     }
     pub async fn claim_event_delivery(
@@ -374,7 +383,7 @@ impl Store {
         subscription: Uuid,
     ) -> Result<Option<EventDeliveryClaim>, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        let row = sqlx::query(&format!("SELECT s.* FROM workspace_event_subscriptions s WHERE s.id=$1 AND (s.configuration->>'enabled')::boolean AND {EVENT_AUTHORITY} FOR UPDATE OF s SKIP LOCKED"))
+        let row = sqlx::query(&format!("SELECT s.* FROM workspace_event_subscriptions s WHERE s.id=$1 AND s.configuration->>'enabled' = 'true' AND {EVENT_AUTHORITY} FOR UPDATE OF s SKIP LOCKED"))
             .bind(subscription).fetch_optional(&mut *tx).await?;
         let Some(row) = row else {
             return Ok(None);
@@ -454,7 +463,7 @@ impl Store {
         &self,
         claim: &EventDeliveryClaim,
     ) -> Result<bool, StoreError> {
-        Ok(sqlx::query_scalar(&format!("SELECT EXISTS(SELECT 1 FROM workspace_event_subscriptions s JOIN workspace_event_deliveries d ON d.subscription_id=s.id WHERE d.id=$1 AND d.lease_id=$2 AND d.state='sending' AND d.lease_until>clock_timestamp() AND s.revision=d.subscription_revision AND (s.configuration->>'enabled')::boolean AND {EVENT_AUTHORITY})"))
+        Ok(sqlx::query_scalar(&format!("SELECT EXISTS(SELECT 1 FROM workspace_event_subscriptions s JOIN workspace_event_deliveries d ON d.subscription_id=s.id WHERE d.id=$1 AND d.lease_id=$2 AND d.state='sending' AND d.lease_until>clock_timestamp() AND s.revision=d.subscription_revision AND s.configuration->>'enabled' = 'true' AND {EVENT_AUTHORITY})"))
             .bind(claim.id).bind(claim.lease).fetch_one(&self.pool).await?)
     }
     pub async fn finish_event_delivery(

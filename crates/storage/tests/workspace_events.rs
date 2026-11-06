@@ -125,6 +125,7 @@ async fn resource_events_are_atomic_scoped_and_subscriptions_require_current_del
         }],
         rules: vec![],
         default_action: RoutePoolDefaultAction::Candidates,
+        strategy: Default::default(),
     };
     let policy = store
         .set_workspace_model_pool(&principal, &policy)

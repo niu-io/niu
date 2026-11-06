@@ -33,7 +33,33 @@ async fn connection_incident_reads_require_platform_authority_and_disable_cachin
         })
         .await
         .unwrap();
+    let workspace_path = format!("/api/v1/workspaces/{}/incidents", scope.project_id);
     let app = router(state);
+    for (token, expected) in [
+        (None, StatusCode::UNAUTHORIZED),
+        (Some(owner.token.as_str()), StatusCode::OK),
+    ] {
+        let mut request = Request::builder().uri(&workspace_path);
+        if let Some(token) = token {
+            request = request.header("authorization", format!("Bearer {token}"));
+        }
+        let response = app
+            .clone()
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+        if expected == StatusCode::OK {
+            assert_eq!(response.headers()["cache-control"], "no-store");
+            let data: Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap())
+                    .unwrap();
+            assert_eq!(data["data"], json!([]));
+            assert_eq!(data["more"], false);
+            assert_eq!(data["notifications"]["state"], "none");
+            assert_eq!(data["notifications"]["incidents"], 0);
+        }
+    }
     let path = format!("/api/v1/vendors/{}/incidents", vendor.id);
     for path in [&path, "/api/v1/incidents"] {
         for (token, expected) in [
@@ -59,7 +85,10 @@ async fn connection_incident_reads_require_platform_authority_and_disable_cachin
                 let data: Value =
                     serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap())
                         .unwrap();
-                assert_eq!(data, json!({"data":[],"next_before":null}));
+                assert_eq!(
+                    data,
+                    json!({"data":[],"next_before":null,"coverage":{"request_observed":true,"proactive_probe":"not_configured"}})
+                );
             }
         }
     }

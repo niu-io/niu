@@ -54,7 +54,7 @@ it('retains the last active warning when a subsequent monitoring refresh fails',
   let calls = 0;
   vi.stubGlobal('fetch', vi.fn(async () => {
     if (calls++) throw new Error('Network unavailable');
-    return Response.json({ data: [incident], next_before: null });
+    return Response.json({ data: [incident], next_before: null, coverage: { request_observed: true, proactive_probe: 'not_configured' } });
   }));
   await act(async () => { render(<MemoryRouter><IncidentNotice token="fixture" /></MemoryRouter>); });
   expect(screen.getByText('Upstream connections need attention')).toBeTruthy();
