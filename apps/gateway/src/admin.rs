@@ -194,7 +194,7 @@ async fn authorize_operator_management(
         organization_id,
         project_id: operator.project_id,
     };
-    if authorization.permits_operator_scope(scope) {
+    if authorization.can_manage_platform() || authorization.permits_operator_scope(scope) {
         Ok(authorization)
     } else {
         Err(ApiError::not_found())
