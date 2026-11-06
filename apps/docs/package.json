@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/generate-agent-docs.mjs && astro dev --host 0.0.0.0",
-    "build": "node scripts/generate-agent-docs.mjs && node scripts/generate-api-docs.mjs --check && astro build",
+    "build": "node scripts/generate-agent-docs.mjs && node scripts/generate-api-docs.mjs --check && astro build && node scripts/build-search-index.mjs",
     "check": "node scripts/generate-agent-docs.mjs --check && astro check",
     "generate:api": "node scripts/generate-api-docs.mjs",
     "check:api": "node scripts/generate-api-docs.mjs --check",
@@ -24,6 +24,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "pagefind": "1.5.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "yaml": "2.9.1"
