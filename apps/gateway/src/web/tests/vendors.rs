@@ -583,7 +583,6 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
     );
 }
 
-
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool) {
@@ -652,11 +651,13 @@ async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool
     .await
     .unwrap();
     assert_eq!(audits, 3);
-    let model_enabled: bool = sqlx::query_scalar("SELECT enabled FROM vendor_models WHERE vendor_id=$1::uuid AND alias='retire-model'")
-        .bind(&id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let model_enabled: bool = sqlx::query_scalar(
+        "SELECT enabled FROM vendor_models WHERE vendor_id=$1::uuid AND alias='retire-model'",
+    )
+    .bind(&id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert!(!model_enabled);
     let other_enabled: bool = sqlx::query_scalar("SELECT enabled FROM vendors WHERE id=$1")
         .bind(other.id)
@@ -8950,10 +8951,22 @@ async fn legacy_provider_qualification_routes_are_removed(pool: PgPool) {
     let provider = Uuid::new_v4();
     let offer = Uuid::new_v4();
     for (method, path) in [
-        (Method::PUT, format!("/admin/v1/providers/{provider}/qualification")),
-        (Method::POST, format!("/admin/v1/providers/{provider}/qualification/revoke")),
-        (Method::PUT, format!("/admin/v1/providers/{provider}/offers/{offer}/qualification")),
-        (Method::POST, format!("/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke")),
+        (
+            Method::PUT,
+            format!("/admin/v1/providers/{provider}/qualification"),
+        ),
+        (
+            Method::POST,
+            format!("/admin/v1/providers/{provider}/qualification/revoke"),
+        ),
+        (
+            Method::PUT,
+            format!("/admin/v1/providers/{provider}/offers/{offer}/qualification"),
+        ),
+        (
+            Method::POST,
+            format!("/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke"),
+        ),
     ] {
         let (status, _) = call(&app, method, &path, ADMIN, json!({})).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{path}");

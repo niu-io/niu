@@ -770,13 +770,12 @@ impl Store {
     /// event is appended. In-flight attempts keep their pinned snapshot.
     pub async fn retire_vendor(&self, id: Uuid) -> Result<Option<VendorView>, StoreError> {
         let mut transaction = self.begin_route_write().await?;
-        let revision: Option<i64> = sqlx::query_scalar(
-            "SELECT revision FROM vendors WHERE id=$1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_vendor_write_error)?;
+        let revision: Option<i64> =
+            sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_vendor_write_error)?;
         let Some(revision) = revision else {
             self.commit_route_write(transaction).await?;
             return Ok(None);

@@ -119,13 +119,13 @@ pub use routing_strategy::{
 mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
-pub mod trigger_error;
 mod background_work;
 mod balance_policy_history;
 mod balance_reservations;
 mod financial_recovery;
 mod financial_transactions;
 mod supplier_configuration_usage;
+pub mod trigger_error;
 pub use financial_recovery::FinancialRecoveryFailure;
 mod gateway_retry;
 mod media_submissions;

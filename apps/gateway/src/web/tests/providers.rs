@@ -1,7 +1,7 @@
 use super::*;
 use axum::http::Method;
-use std::time::{SystemTime, UNIX_EPOCH};
 use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+use std::time::{SystemTime, UNIX_EPOCH};
 const ADMIN: &str = "niu-test-admin-token-that-is-long-1234";
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
@@ -238,7 +238,6 @@ async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
     assert_eq!(empty_preview.1["data"]["remaining_unpaid_nanos"], "0");
 }
 
-
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
@@ -315,11 +314,13 @@ async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
         )
         .await
         .unwrap();
-    sqlx::query("UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1")
-        .bind(attempt)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1",
+    )
+    .bind(attempt)
+    .execute(&pool)
+    .await
+    .unwrap();
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -337,7 +338,9 @@ async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
     let preview = call(
         &app,
         Method::GET,
-        &format!("/admin/v1/providers/{supplier}/settlements/preview?currency=USD&cutoff_ms={now_ms}"),
+        &format!(
+            "/admin/v1/providers/{supplier}/settlements/preview?currency=USD&cutoff_ms={now_ms}"
+        ),
         ADMIN,
         None,
     )
