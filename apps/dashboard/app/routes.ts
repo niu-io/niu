@@ -101,7 +101,6 @@ export default [
         index('features/overview/page.tsx', { id: 'workspace-overview' }),
         route('routing/:slug?', 'features/routing/page.tsx', { id: 'workspace-routing' }),
         redirectRoute('legacy-workspace-pools', 'pools/:slug?'),
-        route('events/:slug?', 'features/event-subscriptions/page.tsx', { id: 'workspace-events' }),
         route('evaluations/:slug?', 'features/evaluations/page.tsx', { id: 'workspace-evaluations' }),
         route('evaluations/:slug/runs/:run', 'features/evaluations/page.tsx', { id: 'workspace-evaluation-run' }),
         redirectRoute('legacy-workspace-models', 'models/*'),

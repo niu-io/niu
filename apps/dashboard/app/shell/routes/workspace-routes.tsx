@@ -48,15 +48,6 @@ export const workspaceRoute: RouteObject = {
       element: <WorkspaceSectionRedirect section="routing" />,
     },
     {
-      id: 'workspace-events',
-      path: 'events/:slug?',
-      lazy: bindLazy(routeImporters.eventSubscriptions, {
-        destination: 'Workspace',
-        navTo: 'events',
-        title: { en: 'Events', zh: '事件订阅' },
-      }),
-    },
-    {
       id: 'workspace-evaluations',
       path: 'evaluations/:slug?',
       lazy: bindLazy(routeImporters.evaluations, {

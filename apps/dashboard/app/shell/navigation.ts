@@ -1,4 +1,4 @@
-import { IconRoute, IconFlask, IconWebhook, IconPhoto, IconVideo, IconSettings, IconShieldLock } from "@tabler/icons-react";
+import { IconRoute, IconFlask, IconPhoto, IconVideo, IconSettings, IconShieldLock } from "@tabler/icons-react";
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconChartLine as ChartNoAxesCombined } from "@tabler/icons-react";
 import { IconCreditCard as CreditCard } from "@tabler/icons-react";
@@ -33,7 +33,6 @@ export const navigation: Array<NavItem> = [
   { destination: 'Models', to: '/models', label: 'Models', labelZh: '模型', icon: Boxes },
   { destination: 'Workspace', to: 'routing', label: 'Routing', labelZh: '模型路由', icon: IconRoute },
   { destination: 'Workspace', to: 'evaluations', label: 'Evaluations', labelZh: '评估', icon: IconFlask },
-  { destination: 'Workspace', to: 'events', label: 'Event subscriptions', labelZh: '事件订阅', icon: IconWebhook },
   { destination: 'Workspace', to: 'library', label: 'Library', labelZh: '素材库', icon: IconPhoto, hidden: true, parentTo: 'assets' },
   { destination: 'Workspace', to: 'video', label: 'Video setup', labelZh: '视频设置', icon: IconVideo, hidden: true, parentTo: 'assets' },
   { destination: 'Workspace', to: 'guardrails', label: 'Guardrails', labelZh: '安全护栏', icon: ShieldCheck },
