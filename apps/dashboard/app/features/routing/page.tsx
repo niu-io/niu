@@ -120,7 +120,7 @@ const ruleDescription = (
     .join(' · ') || translateUI('All requests');
 
 function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const customerPrice = pool.strategy?.mode === 'customer_price';
   return (
@@ -304,8 +304,7 @@ function RoutingView({
   models: Model[];
 }) {
   const { t } = useLocale();
-  const { format: uiF } = useUILocale();
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const availableModels = useMemo(
     () =>
       models.filter(

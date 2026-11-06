@@ -112,7 +112,6 @@ export default function ConnectAgent() {
   }
   const terminal = grant && grant.state !== 'pending';
   const canApprove = context.session?.kind === 'operator' && context.session.permissions.write;
-  const capabilityCount = grant?.capabilities?.length ?? 0;
   return <main className="min-h-screen bg-background px-5 py-12 sm:py-20">
     <section className="mx-auto w-full max-w-lg space-y-7" aria-labelledby="connect-title">
       <div className="flex items-center justify-between gap-3">
