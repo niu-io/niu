@@ -2,7 +2,7 @@
 title: Getting started
 description: Configure model access, create a workspace API key and make a request.
 ---
-
+<div data-lang="en">
 For agent-led setup, start with [Build with Niu](/docs/guides/personal-assistant/). This optional manual guide sends a first request with a workspace API key.
 
 ## Set up model access
@@ -65,3 +65,64 @@ use the [deployment guide](/docs/deployment/single-container/).
 - Configuring a route does not qualify its upstream capabilities or supply rights. File-managed deployments can configure routes in `config/niu.example.toml` instead of the dashboard.
 - Request and response payloads are retained for 24 hours by default. Disable capture per request with `x-niu-log-payloads: false` or turn off **Save payloads in Logs** in Chat settings. Expired or uncaptured content is unavailable; request metadata remains. Missing token usage, timing, or customer prices remain unknown.
 - Budgeted workspaces require a supported bounded reservation before dispatch; unpriced requests cannot bypass that requirement. See [model pricing](/docs/configuration/models/#optional-text-route-pricing). Upstream billing bounds still need qualification.
+</div>
+
+
+<div data-lang="zh" data-title-zh="快速开始">
+
+如需由 Agent 引导完成配置，请从[使用 Niu 构建](/docs/guides/personal-assistant/)开始。本指南是可选手动路径，用工作空间 API 密钥发送第一个请求。
+
+## 配置模型访问
+
+1. **打开控制台并选择工作空间。** 使用成员账户登录。本地开发时，使用启动器配置的账户。
+2. **创建 API 密钥。** 打开 **API 密钥 → 新建 API 密钥**，填写名称，选择允许访问的模型和到期时间，然后选择 **创建密钥**。创建密钥需要写权限；只读成员应向工作空间所有者或管理员申请应用访问权限。
+3. **复制密钥和基础 URL。** 密钥只显示一次，请保存在应用的机密存储中，之后无法再次读取。模型的授权、已启用路由、来源限制、限额以及适用的客户资金共同决定该密钥可以调用什么。
+
+如果你正在配置新的安装，请先[部署 Niu](/docs/deployment/single-container/)或运行 `pnpm dev`。平台管理员随后需要[连接模型供应商和模型路由](/docs/admin/suppliers/)，并配置适用的[客户价格](/docs/admin/pricing/)。仅拥有工作空间并不会获得平台管理权限。如果模型列表为空，请与管理员一起检查这些配置。
+
+## 发起请求
+
+输入你使用的 Niu 安装地址，然后设置工作空间密钥并发现可用模型。例如托管 Niu 使用 `https://niu.io`，staging 使用 `https://staging.niu.io`；自己电脑上的容器通常使用 `http://localhost:2555`，仓库开发环境使用 `http://127.0.0.1:2566`。如果你的部署地址不同，请使用实际地址。不要输入你不信任的地址：下一个请求会把工作空间密钥发送到该地址。
+
+运行以下命令，输入不带 `/v1` 的地址并按 Enter：
+
+```sh
+read -r NIU_ORIGIN; export NIU_ORIGIN
+```
+
+输入地址后，设置密钥并请求模型列表：
+
+```sh
+export NIU_API_KEY='your-issued-client-key'
+curl --fail-with-body "$NIU_ORIGIN/v1/models" \
+  -H "Authorization: Bearer $NIU_API_KEY"
+```
+
+选择一个支持 Chat completions 的模型 `id`。模型存在并不代表它支持所有协议或可选参数。把下面的 `your-model-alias` 替换为该 ID；示例配置中的 `fast` 别名并非每个安装都有。
+
+```sh
+export NIU_MODEL='your-model-alias'
+curl --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":64}"
+```
+
+兼容客户端的基础 URL 在容器中为 `http://localhost:2555/v1`，开发环境为 `http://127.0.0.1:2566/v1`。密钥对话框会显示当前安装的基础 URL。[API 教程](/docs/guides/api-quickstart/)介绍流式响应和错误处理。
+
+打开工作空间的**请求日志**，查看状态、耗时、上报的 Token，以及保留的请求和响应内容。**活动**显示用量；**额度与充值**显示客户费用和消费限额。捕获与保留设置见[请求日志](/docs/concepts/execution-observation/)。
+
+应用使用工作空间密钥进行认证。请把 Provider 凭证和安装管理员令牌保留在服务器端。编码 Agent 可以通过 [MCP 服务器](/docs/guides/mcp/)使用同一密钥。托管 Niu 的网关地址固定为 `https://niu.io/v1`。
+
+## 在本地运行 Niu
+
+仓库环境、依赖和构建命令请参阅[本地开发](/docs/guides/local-development/)。容器安装请使用[部署指南](/docs/deployment/single-container/)。
+
+## 当前限制
+
+- 容器安装使用管理员凭据完成初始设置，并可以签发受限成员会话。可选的[密码会话 API](/docs/reference/api/#operator-roles-and-sessions)支持已配置成员，并在配置的 HTTPS 源上恢复会话。自助注册和真实 HTTPS 浏览器验收仍未完成。
+- 配置路由不会自动验证上游能力或供应权利。文件式部署可以在 `config/niu.example.toml` 中配置路由，而不使用控制台。
+- 请求和响应内容默认保留 24 小时。可以通过请求头 `x-niu-log-payloads: false` 或聊天设置中的 **在日志中保存请求内容** 关闭捕获。过期或未捕获的内容不可读取；请求元数据仍保留。缺少 Token 用量、耗时或客户价格时，相关值保持未知。
+- 有预算的工作空间必须在调度前获得支持的有界预留；未定价请求不能绕过该要求。参见[模型定价](/docs/configuration/models/#optional-text-route-pricing)。上游计费边界仍需验收。
+
+</div>
