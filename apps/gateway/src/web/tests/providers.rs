@@ -1,5 +1,6 @@
 use super::*;
 use axum::http::Method;
+use std::time::{SystemTime, UNIX_EPOCH};
 use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
 const ADMIN: &str = "niu-test-admin-token-that-is-long-1234";
 
@@ -235,6 +236,145 @@ async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
     assert_eq!(empty_preview.1["data"]["entry_count"], 0);
     assert_eq!(empty_preview.1["data"]["amount_nanos"], "0");
     assert_eq!(empty_preview.1["data"]["remaining_unpaid_nanos"], "0");
+}
+
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let supplier = store
+        .create_provider_business("HTTP period provider")
+        .await
+        .unwrap();
+    let vendor = Uuid::new_v4();
+    sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'http period upstream','openai','https://example.com/v1',$2)")
+        .bind(vendor)
+        .bind(vec![1u8; 48])
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('http-period-model',$1,'qwen/http-period',$2)")
+        .bind(vendor)
+        .bind(json!({}))
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+        .bind(vendor)
+        .bind(supplier)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let revision = store
+        .publish_provider_offer(
+            supplier,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "http-period-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000000".into(),
+                completion_rate: "2000000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let offer: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='http-period-model'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    store
+        .enable_authorized_provider_offer(
+            supplier,
+            offer,
+            revision,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let operation = store
+        .create_operation(scope, "http-period-model")
+        .await
+        .unwrap();
+    let attempt = store
+        .prepare_attempt(scope, operation, "http-period-model", "route-v1")
+        .await
+        .unwrap();
+    store
+        .bind_provider_offer(
+            scope,
+            attempt,
+            "http-period-model",
+            "qwen/http-period",
+            Some("https://example.com/v1"),
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1")
+        .bind(attempt)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,created_at) VALUES($1,$2,$3,'USD',$4,1,1,to_timestamp($5::bigint / 1000.0))")
+        .bind(attempt)
+        .bind(supplier)
+        .bind(revision)
+        .bind(2_500_000_000i64)
+        .bind(now_ms - 86_400_000)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let app = router(state);
+    let preview = call(
+        &app,
+        Method::GET,
+        &format!("/admin/v1/providers/{supplier}/settlements/preview?currency=USD&cutoff_ms={now_ms}"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(preview.0, StatusCode::OK);
+    assert_eq!(preview.1["data"]["entry_count"], 1);
+    assert_eq!(preview.1["data"]["amount_nanos"], "2500000000");
+    let key = Uuid::new_v4();
+    let body = json!({
+        "idempotency_key": key,
+        "payment_reference": "http-period-payment",
+        "currency": "USD",
+        "cutoff_ms": now_ms
+    });
+    let first = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/providers/{supplier}/settlements"),
+        ADMIN,
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(first.0, StatusCode::OK);
+    assert_eq!(first.1["data"]["entry_count"], 1);
+    assert_eq!(first.1["data"]["amount_nanos"], "2500000000");
+    assert_eq!(first.1["data"]["remaining_unpaid_nanos"], "0");
+    let replay = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/providers/{supplier}/settlements"),
+        ADMIN,
+        Some(body),
+    )
+    .await;
+    assert_eq!(replay.0, StatusCode::OK);
+    assert_eq!(replay.1["data"]["id"], first.1["data"]["id"]);
+    assert_eq!(replay.1["data"]["amount_nanos"], "2500000000");
 }
 
 async fn call(
