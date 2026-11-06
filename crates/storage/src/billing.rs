@@ -599,6 +599,19 @@ SELECT jsonb_build_object(
         Ok(json!({"data":data,"next_after":next}))
     }
 
+    /// Current platform retail text rates for one alias, used to price shared routes.
+    pub async fn platform_retail_text_pricing(
+        &self,
+        alias: &str,
+    ) -> Result<Option<(String, i64, i64)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT h.currency,(r.schedule->>'prompt_rate')::bigint,(r.schedule->>'completion_rate')::bigint FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions r ON r.id=h.current_revision WHERE h.model_alias=$1 AND h.rate_kind='text'",
+        )
+        .bind(alias)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     /// Complete customer catalog prices; this compatibility map has no cursor.
     /// Never joins Provider offers or upstream costs.
     pub async fn customer_model_prices(

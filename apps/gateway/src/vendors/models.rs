@@ -720,10 +720,28 @@ pub(crate) async fn resolve_model(
             .ok_or_else(ApiError::unavailable)?;
         let api_key =
             open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
+        let mut model = stored_model(&route)?;
+        if model.pricing.is_none()
+            && let Some((currency, prompt, completion)) = state
+                .store
+                .platform_retail_text_pricing(alias)
+                .await
+                .map_err(ApiError::from_store)?
+        {
+            model.pricing = Some(crate::config::RoutePricing {
+                currency,
+                api_prompt_rate: prompt,
+                api_completion_rate: completion,
+                cash_prompt_rate: prompt,
+                cash_completion_rate: completion,
+                max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
+                max_output_tokens: 4_096,
+            });
+        }
         return Ok(ResolvedModel {
             route_generation: None,
             managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
-            model: stored_model(&route)?,
+            model,
             api_key,
             personal_route: None,
         });
@@ -899,6 +917,22 @@ async fn resolve_published(
     if personal {
         model.pricing = None;
         model.public_catalog = false;
+    } else if model.pricing.is_none()
+        && let Some((currency, prompt, completion)) = state
+            .store
+            .platform_retail_text_pricing(alias)
+            .await
+            .map_err(ApiError::from_store)?
+    {
+        model.pricing = Some(crate::config::RoutePricing {
+            currency,
+            api_prompt_rate: prompt,
+            api_completion_rate: completion,
+            cash_prompt_rate: prompt,
+            cash_completion_rate: completion,
+            max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
+            max_output_tokens: 4_096,
+        });
     }
     let mut managed = niu_storage::ManagedRouteSnapshot::from(&route);
     if let Some(pool) = pool {
