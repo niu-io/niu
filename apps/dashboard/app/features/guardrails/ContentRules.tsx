@@ -27,6 +27,7 @@ type Result = {
   enforcement: false;
   mode?: string;
   coverage?: string;
+  matches?: Array<{index:number;action:"block"|"redact";pattern?:string|null;preset?:string|null}>;
 };
 
 export default function ContentRules({
@@ -396,15 +397,18 @@ export default function ContentRules({
           </Alert>
         )}
         {result && (
-          <p role="status">
-            {result.outcome === "matched" ? uiT("Match observed · response unchanged") : result.outcome === "clear" ? uiT("No match observed · response unchanged") : result.outcome === "blocked"
-              ? uiT("Blocked")
-              : result.outcome === "indeterminate"
-                ? uiF("Not fully inspectable ({0})", [inspectionReason])
-                : result.redacted
-                  ? uiT("Allowed after redaction")
-                  : uiT("Allowed without redaction")}
-          </p>
+          <div role="status">
+            <p>
+              {result.outcome === "matched" ? uiT("Match observed · response unchanged") : result.outcome === "clear" ? uiT("No match observed · response unchanged") : result.outcome === "blocked"
+                ? uiT("Blocked")
+                : result.outcome === "indeterminate"
+                  ? uiF("Not fully inspectable ({0})", [inspectionReason])
+                  : result.redacted
+                    ? uiT("Allowed after redaction")
+                    : uiT("Allowed without redaction")}
+            </p>
+            {Boolean(result.matches?.length) && <div><p>{uiT("Matched rules")}</p><ul>{result.matches!.map(match => <li key={match.index}>{uiF("Rule {0} · {1}", [match.index, match.action === "block" ? uiT("Block") : uiT("Redact")])}{match.pattern ? uiF(" · pattern {0}", [match.pattern]) : match.preset ? uiF(" · preset {0}", [match.preset]) : ""}</li>)}</ul></div>}
+          </div>
         )}
       </section>
     </>

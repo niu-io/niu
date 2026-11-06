@@ -434,6 +434,40 @@ pub async fn key_history(
     ))
 }
 
+fn matched_synthetic_rules(
+    rules: &[crate::guardrails::input::RuleConfig],
+    protocol: crate::guardrails::input::Protocol,
+    body: &Value,
+    output: bool,
+) -> Vec<Value> {
+    use crate::guardrails::input::{CompiledInputPolicy, InspectionError};
+    rules
+        .iter()
+        .enumerate()
+        .filter_map(|(index, rule)| {
+            let policy = CompiledInputPolicy::compile(std::slice::from_ref(rule)).ok()?;
+            let inspected = if output {
+                policy.inspect_output(protocol, body)
+            } else {
+                policy.inspect(protocol, body)
+            };
+            let matched = match inspected {
+                Ok(transformed) => transformed != *body,
+                Err(InspectionError::Blocked) => true,
+                _ => false,
+            };
+            matched.then(|| {
+                json!({
+                    "index": index + 1,
+                    "action": rule.action,
+                    "pattern": rule.pattern,
+                    "preset": rule.preset,
+                })
+            })
+        })
+        .collect()
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InputPreview {
@@ -469,6 +503,9 @@ pub async fn input_preview(
             "At most 32 input rules are supported",
         ));
     }
+    let match_rules = input.rules.clone();
+    let match_request = input.request.clone();
+    let match_protocol = input.protocol;
     let result = crate::guardrails::input::run_bounded(INPUT_TEST_SLOTS.clone(), move || {
         let policy = CompiledInputPolicy::compile(&input.rules)
             .map_err(|_| ApiError::invalid_request("Invalid or oversized input rule"))?;
@@ -487,7 +524,7 @@ pub async fn input_preview(
     Ok((
         [("cache-control", "no-store")],
         Json(
-            json!({"outcome":outcome,"reason":reason,"redacted":changed,"synthetic":true,"enforcement":false}),
+            json!({"outcome":outcome,"reason":reason,"redacted":changed,"synthetic":true,"enforcement":false,"matches":matched_synthetic_rules(&match_rules, match_protocol, &match_request, false)}),
         ),
     ))
 }
@@ -534,6 +571,9 @@ pub async fn output_preview(
         ));
     }
     let mode = input.mode;
+    let match_rules = input.rules.clone();
+    let match_response = input.response.clone();
+    let match_protocol = input.protocol;
     let result = crate::guardrails::input::run_bounded(INPUT_TEST_SLOTS.clone(), move || {
         let policy = CompiledInputPolicy::compile(&input.rules)
             .map_err(|_| ApiError::invalid_request("Invalid or oversized output rule"))?;
@@ -561,7 +601,7 @@ pub async fn output_preview(
     Ok((
         [("cache-control", "no-store")],
         Json(
-            json!({"outcome":outcome,"reason":reason,"redacted":changed,"synthetic":true,"enforcement":false,"mode":mode,"coverage":"local_text"}),
+            json!({"outcome":outcome,"reason":reason,"redacted":changed,"synthetic":true,"enforcement":false,"mode":mode,"coverage":"local_text","matches":matched_synthetic_rules(&match_rules, match_protocol, &match_response, true)}),
         ),
     ))
 }
