@@ -96,7 +96,15 @@ No path, query, or header parameters are declared.
     "personal_organization_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+      "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+    },
+    "access_scope": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "internal"
+      ],
+      "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
     },
     "create_supplier": {
       "type": "boolean",
@@ -169,7 +177,17 @@ Content type: `application/json`.
         "owner_funded": {
           "type": "boolean",
           "readOnly": true,
-          "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+          "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+        },
+        "access_scope": {
+          "type": "string",
+          "enum": [
+            "commercial",
+            "personal",
+            "internal"
+          ],
+          "readOnly": true,
+          "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
         },
         "supplier": {
           "type": [

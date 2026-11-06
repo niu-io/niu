@@ -174,8 +174,20 @@ Location: **header**. **Required.** Original canonical nonnil request UUID.
         "action",
         "model",
         "group_id",
-        "url",
         "kind"
+      ],
+      "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+      "oneOf": [
+        {
+          "required": [
+            "url"
+          ]
+        },
+        {
+          "required": [
+            "workspace_asset_id"
+          ]
+        }
       ],
       "properties": {
         "action": {
@@ -193,6 +205,11 @@ Location: **header**. **Required.** Original canonical nonnil request UUID.
           "type": "string",
           "format": "uri",
           "writeOnly": true
+        },
+        "workspace_asset_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Active workspace material; resolved to a short-lived capability only at dispatch."
         },
         "name": {
           "type": "string"

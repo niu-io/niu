@@ -90,6 +90,17 @@ Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. 
 }
 ```
 
+### x-niu-routing-context
+
+Location: **header**. Optional. Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
+}
+```
+
 ## Request body
 
 ### application/json

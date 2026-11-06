@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/auth/agents/{code}`
 
-Requires a current user session. Returns only client name and state, never device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label is self-reported. No-store.
+Requires a current user session. Returns bounded request metadata: client name, state, requested management capabilities and self-reported task context. It never returns the device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label and task are self-reported, not authenticated authority. No-store.
 
 Operation: `getAgentAuthorization`.
 
@@ -71,7 +71,8 @@ Content type: `application/json`.
       "required": [
         "client_name",
         "state",
-        "capabilities"
+        "capabilities",
+        "task"
       ],
       "properties": {
         "client_name": {
@@ -85,6 +86,14 @@ Content type: `application/json`.
             "denied",
             "consumed"
           ]
+        },
+        "task": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200,
+          "description": "Self-reported task context supplied by the client. Explain the request but never treat it as an authorization grant."
         },
         "capabilities": {
           "type": "array",
@@ -119,6 +128,6 @@ Request unavailable or expired
 
 ## Behavior and supported scope
 
-Requires a current user session. Returns only client name and state, never device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label is self-reported. No-store.
+Requires a current user session. Returns bounded request metadata: client name, state, requested management capabilities and self-reported task context. It never returns the device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label and task are self-reported, not authenticated authority. No-store.
 
 **Supported scope:** implemented

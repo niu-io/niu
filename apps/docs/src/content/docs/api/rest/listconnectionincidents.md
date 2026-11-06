@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/incidents`
 
-Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.
+Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply. coverage.proactive_probe is not_configured: Niu opens incidents only from observed requests, not from idle-connection health probes, so this view cannot certify an unrequested connection as healthy.
 
 Operation: `listConnectionIncidents`.
 
@@ -76,9 +76,27 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "data",
-    "next_before"
+    "next_before",
+    "coverage"
   ],
   "properties": {
+    "coverage": {
+      "type": "object",
+      "required": [
+        "request_observed",
+        "proactive_probe"
+      ],
+      "properties": {
+        "request_observed": {
+          "type": "boolean",
+          "const": true
+        },
+        "proactive_probe": {
+          "type": "string",
+          "const": "not_configured"
+        }
+      }
+    },
     "next_before": {
       "type": [
         "string",
@@ -100,7 +118,8 @@ Content type: `application/json`.
           "observations",
           "recovered_at",
           "connection_name",
-          "provider"
+          "provider",
+          "notifications"
         ],
         "properties": {
           "reference": {
@@ -163,6 +182,65 @@ Content type: `application/json`.
                 "type": "string"
               }
             }
+          },
+          "notifications": {
+            "type": "object",
+            "required": [
+              "state",
+              "workspaces",
+              "delivered",
+              "failed",
+              "cancelled",
+              "queued",
+              "sending",
+              "not_configured",
+              "authority_inactive"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "delivered",
+                  "incomplete",
+                  "failed",
+                  "sending",
+                  "queued",
+                  "no_recipients"
+                ]
+              },
+              "workspaces": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "delivered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cancelled": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "queued": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sending": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "not_configured": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "authority_inactive": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
           }
         }
       }
@@ -189,6 +267,6 @@ Incident evidence unavailable
 
 ## Behavior and supported scope
 
-Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.
+Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply. coverage.proactive_probe is not_configured: Niu opens incidents only from observed requests, not from idle-connection health probes, so this view cannot certify an unrequested connection as healthy.
 
 **Supported scope:** implemented

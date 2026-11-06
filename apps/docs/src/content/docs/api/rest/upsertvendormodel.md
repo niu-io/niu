@@ -983,7 +983,7 @@ Content type: `application/json`.
         "owner_funded": {
           "type": "boolean",
           "readOnly": true,
-          "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+          "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
         },
         "capabilities": {
           "type": "object",

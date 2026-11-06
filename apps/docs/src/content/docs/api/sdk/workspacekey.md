@@ -16,6 +16,8 @@ export type WorkspaceKey = {
     allowed_models: string[];
     /** False for management-only keys, irrespective of their model scope. */
     invocation_allowed: boolean;
+    /** Exact approved model interfaces; absent on older deployments. */
+    invocation_protocols?: string[];
     /** Null means no automatic expiration. */
     expires_at_ms: number | null;
     /** Latest durable dispatch intent; null means no recorded dispatch, not no authentication. */

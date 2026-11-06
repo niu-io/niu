@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/routing/{reference}/preview`
 
-Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.
+Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.
 
 Operation: `previewPool`.
 
@@ -67,7 +67,9 @@ Location: **path**. **Required.** Unpadded base64url encoding of the exact ASCII
       "enum": [
         "chat",
         "responses",
-        "messages"
+        "messages",
+        "embeddings",
+        "generate_content"
       ]
     },
     "streaming": {
@@ -162,6 +164,6 @@ Pool not found
 
 ## Behavior and supported scope
 
-Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.
+Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.
 
 **Supported scope:** implemented

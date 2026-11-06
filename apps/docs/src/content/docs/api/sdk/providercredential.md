@@ -17,6 +17,7 @@ export type ProviderCredential = {
     revision: number;
     has_credential: boolean;
     owner_funded: boolean;
+    access_scope: 'commercial' | 'personal' | 'internal';
     supplier: {
         id: string;
         name: string;

@@ -26,14 +26,13 @@ export type MediaAssetOperationInput = {
     model: string;
     group_id: string;
     expected_revision?: string;
-} | {
+} | ({
     action: 'create_asset';
     model: string;
     group_id: string;
-    url: string;
     name?: string;
     kind: 'image' | 'video' | 'audio';
-} | {
+} & MediaAssetCreateSource) | {
     action: 'rename_asset';
     model: string;
     asset_id: string;

@@ -1,5 +1,5 @@
 ---
-title: "Assign a preserved workspace policy revision to an active key"
+title: "Pin a workspace policy revision or follow the active workspace policy"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail`
 
-Key restrictions intersect mandatory workspace restrictions and cannot weaken them. Revision zero creates an assignment; subsequent updates require its current assignment revision. An explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omission is rejected. Rotation preserves assigned policies; mandatory workspace restrictions remain enforced.
+Key restrictions intersect mandatory workspace restrictions and cannot weaken them. mode fixed pins policy_revision; mode active explicitly follows the workspace's current active policy and must not include policy_revision. Omission of mode keeps the historical fixed/clear behaviour for existing clients. Revision zero creates an assignment; subsequent updates require its current assignment revision. A fixed-mode explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omitting policy_revision without mode active is rejected. An active assignment also removes any pinned key layer. Rotation preserves the assignment mode and pinned revision; mandatory workspace restrictions remain enforced and later workspace edits need no key re-pin in active mode.
 
 Operation: `put--api-v1-organizations--organization--projects--project--keys--key--guardrail`.
 
@@ -82,16 +82,25 @@ Location: **path**. **Required.**
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "policy_revision",
     "expected_assignment_revision"
   ],
   "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "fixed",
+        "active"
+      ],
+      "default": "fixed",
+      "description": "fixed pins policy_revision. active follows the workspace's active policy and requires policy_revision to be absent or null. Omitted mode preserves fixed-or-clear compatibility."
+    },
     "policy_revision": {
       "type": [
         "integer",
         "null"
       ],
-      "minimum": 1
+      "minimum": 1,
+      "description": "Required with mode fixed to pin a saved revision, and when mode is omitted. An explicit null clears the key assignment. Must be absent or null with mode active; omission with mode active is allowed."
     },
     "expected_assignment_revision": {
       "type": "integer",
@@ -109,7 +118,7 @@ New assignment_revision.
 
 ### HTTP 400
 
-Invalid revision or unsupported policy.
+Invalid revision, incompatible mode and revision combination, unsupported policy, or missing fields.
 
 ### HTTP 401
 
@@ -129,8 +138,8 @@ Stale assignment revision or inactive, expired or foreign key.
 
 ### HTTP 422
 
-Missing required assignment fields or malformed JSON shape.
+Malformed JSON shape or unknown mode.
 
 ## Behavior and supported scope
 
-Key restrictions intersect mandatory workspace restrictions and cannot weaken them. Revision zero creates an assignment; subsequent updates require its current assignment revision. An explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omission is rejected. Rotation preserves assigned policies; mandatory workspace restrictions remain enforced.
+Key restrictions intersect mandatory workspace restrictions and cannot weaken them. mode fixed pins policy_revision; mode active explicitly follows the workspace's current active policy and must not include policy_revision. Omission of mode keeps the historical fixed/clear behaviour for existing clients. Revision zero creates an assignment; subsequent updates require its current assignment revision. A fixed-mode explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omitting policy_revision without mode active is rejected. An active assignment also removes any pinned key layer. Rotation preserves the assignment mode and pinned revision; mandatory workspace restrictions remain enforced and later workspace edits need no key re-pin in active mode.

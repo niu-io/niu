@@ -84,12 +84,29 @@ Content type: `application/json`.
         "usage_window",
         "allowed_cidrs",
         "management_capabilities",
-        "invocation_allowed"
+        "invocation_allowed",
+        "invocation_protocols"
       ],
       "properties": {
         "invocation_allowed": {
           "type": "boolean",
           "description": "Current credential invocation authority, independent of discovery and resource management."
+        },
+        "invocation_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "responses",
+              "messages",
+              "content",
+              "decisions",
+              "embeddings",
+              "video"
+            ]
+          },
+          "description": "Exact approved model interfaces. An interface outside this list is denied even when invocation_allowed is true."
         },
         "object": {
           "type": "string",

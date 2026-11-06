@@ -11,7 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ## REST specification
 
-[REST API specification](/docs/api/rest/) — 525 operations, including authentication, parameters, request bodies and response schemas from the bundled OpenAPI contract.
+[REST API specification](/docs/api/rest/) — 530 operations, including authentication, parameters, request bodies and response schemas from the bundled OpenAPI contract.
 
 [Download OpenAPI JSON](/docs/openapi/public.json).
 

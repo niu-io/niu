@@ -38,6 +38,12 @@ setWorkspaceReviewPool(workspace: string, slug: string, configuration: import('.
 }>;
 ```
 
+### deleteWorkspaceReviewPool
+
+```typescript
+deleteWorkspaceReviewPool(workspace: string, slug: string, revision: number, options?: RequestOptions): Promise<void>;
+```
+
 ### getWorkspaceReviewPoolHistory
 
 ```typescript
@@ -132,6 +138,45 @@ createOperatorIdentity(input: {
     session: null;
     token: null;
 }>;
+```
+
+### createMemberInvitation
+
+```typescript
+/** Create a one-time invitation and return its link secret exactly once. */
+createMemberInvitation(organizationId: string, input: MemberInvitationInput, options?: RequestOptions): Promise<CreatedMemberInvitation>;
+```
+
+### listMemberInvitations
+
+```typescript
+/** Owner-only invitation directory; never returns redemption secrets. */
+listMemberInvitations(organizationId: string, options?: RequestOptions): Promise<{
+    data: MemberInvitation[];
+}>;
+```
+
+### cancelMemberInvitation
+
+```typescript
+/** Cancel a pending invitation. Repeated cancellation is idempotent. */
+cancelMemberInvitation(invitationId: string, options?: RequestOptions): Promise<void>;
+```
+
+### previewMemberInvitation
+
+```typescript
+/** Inspect a signed-in recipient's invitation before acceptance. */
+previewMemberInvitation(token: string, options?: RequestOptions): Promise<{
+    data: MemberInvitationPreview;
+}>;
+```
+
+### acceptMemberInvitation
+
+```typescript
+/** Accept an invitation for the signed-in account and switch to its exact role/scope. */
+acceptMemberInvitation(token: string, options?: RequestOptions): Promise<AcceptedMemberInvitation>;
 ```
 
 ### listOperatorsPage
@@ -1119,13 +1164,7 @@ dashboardMedia(scope: TenantScope, keyId: string): {
         } & {
             group_id?: string;
         }, options?: RequestOptions) => Promise<MediaAssetPage<import("./media-assets.js").MediaAsset>>;
-        create: (input: {
-            model: string;
-            group_id: string;
-            url: string;
-            name?: string;
-            kind: "image" | "video" | "audio";
-        }, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        create: (input: import("./media-assets.js").MediaAssetCreateInput, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
         retrieve: (id: string, model: string, options?: RequestOptions) => Promise<{
             data: import("./media-assets.js").MediaAsset;
         }>;
@@ -1374,6 +1413,31 @@ listProviderEarnings(providerId: string, page?: LedgerHistoryQuery, options?: Re
 listSupplierEarnings(supplierId: string, page?: LedgerHistoryQuery, options?: RequestOptions): Promise<SupplierEarningPage>;
 ```
 
+### previewProviderSettlement
+
+```typescript
+/** Read-only aggregate preview of the unpaid earnings a period settlement would include. */
+previewProviderSettlement(providerId: string, page: {
+    currency: string;
+    cutoff_ms: number;
+    from_ms?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderSettlementPreview;
+}>;
+```
+
+### previewSupplierSettlement
+
+```typescript
+previewSupplierSettlement(supplierId: string, page: {
+    currency: string;
+    cutoff_ms: number;
+    from_ms?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderSettlementPreview;
+}>;
+```
+
 ### recordProviderSettlement
 
 ```typescript
@@ -1408,92 +1472,10 @@ listProviderSettlements(providerId: string, page?: ProviderSettlementQuery, opti
 listSupplierSettlements(supplierId: string, page?: SupplierSettlementQuery, options?: RequestOptions): Promise<SupplierSettlementPage>;
 ```
 
-### qualifyProvider
-
-```typescript
-/** Platform-administrator review. Does not activate offers or verify the underlying evidence. */
-qualifyProvider(providerId: string, input: ProviderQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### qualifySupplier
-
-```typescript
-qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### qualifyProviderOffer
-
-```typescript
-/** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
-qualifyProviderOffer(providerId: string, offerId: string, input: ProviderOfferQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### qualifySupplierOffer
-
-```typescript
-qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### revokeProviderQualification
-
-```typescript
-revokeProviderQualification(providerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
-### revokeSupplierQualification
-
-```typescript
-revokeSupplierQualification(supplierId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
-### revokeProviderOfferQualification
-
-```typescript
-revokeProviderOfferQualification(providerId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
-### revokeSupplierOfferQualification
-
-```typescript
-revokeSupplierOfferQualification(supplierId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
 ### setProviderOfferActive
 
 ```typescript
-/** Requires Provider owner/admin or installation access; activation still requires current qualification. */
+/** Requires Provider owner/admin or installation access; resuming still requires a current authorization. */
 setProviderOfferActive(providerId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{
     data: {
         active: boolean;
@@ -1632,11 +1614,7 @@ listPlatformCustomerAccounts(page?: {
     after?: string;
     limit?: number;
 }, options?: RequestOptions): Promise<{
-    data: {
-        organization_id: string;
-        organization_name: string;
-        accounts: CustomerBalance[];
-    }[];
+    data: PlatformCustomerAccount[];
     next_after: string | null;
 }>;
 ```
@@ -2335,6 +2313,7 @@ listSupplierMediaOfferModels(supplierId: string, page?: {
 publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
+        offer_id: string;
     };
 }>;
 ```
@@ -2345,6 +2324,7 @@ publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, op
 publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
+        offer_id: string;
     };
 }>;
 ```
@@ -2676,6 +2656,7 @@ listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{
         owner_funded: boolean;
     }[];
     more: boolean;
+    notifications: WorkspaceIncidentNotifications;
 }>;
 ```
 
@@ -2688,6 +2669,10 @@ listConnectionIncidents(page?: {
 }, options?: RequestOptions): Promise<{
     data: PlatformConnectionIncident[];
     next_before: string | null;
+    coverage: {
+        request_observed: true;
+        proactive_probe: 'not_configured';
+    };
 }>;
 ```
 
@@ -3114,6 +3099,7 @@ getKeyGuardrail(scope: TenantScope, keyId: string, options?: RequestOptions): Pr
     data: {
         assignment_revision: number;
         policy_revision: number | null;
+        mode: KeyGuardrailMode;
         policy: GuardrailPolicy | null;
     } | null;
 }>;
@@ -3127,6 +3113,15 @@ assignKeyGuardrail(scope: TenantScope, keyId: string, policyRevision: number, ex
 }>;
 ```
 
+### followActiveKeyGuardrail
+
+```typescript
+/** Follow the workspace's active policy; later activations apply without re-pinning this key. */
+followActiveKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{
+    assignment_revision: number;
+}>;
+```
+
 ### listKeyGuardrailHistory
 
 ```typescript
@@ -3134,6 +3129,7 @@ listKeyGuardrailHistory(scope: TenantScope, keyId: string, beforeAssignmentRevis
     data: Array<{
         assignment_revision: number;
         policy_revision: number | null;
+        mode: KeyGuardrailMode;
         policy_name: string | null;
         actor_name: string;
         created_at: string;

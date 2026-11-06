@@ -14,7 +14,11 @@ export type WorkspacePoolSelection = {
     created_at: string;
     operation_id: string | null;
     attempt_id: string | null;
+    /** Readable request reference for evidence navigation; null when unavailable. */
+    reference: string | null;
     /** Returned HTTP status, not terminal generation or quality acceptance. */
     response_status: number | null;
+    /** Bounded Auto decision evidence; null for non-Auto strategies. */
+    decision?: WorkspacePoolDecisionEvidence | null;
 };
 ```

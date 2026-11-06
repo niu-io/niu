@@ -19,5 +19,8 @@ export type WorkspacePoolPreviewContext = {
     embedding_base64?: boolean;
     estimated_input_tokens?: number;
     requested_output_tokens?: number;
+    /** Optional caller task context for Auto preview; preview never calls the decider. */
+    task?: string;
+    stage?: string;
 };
 ```

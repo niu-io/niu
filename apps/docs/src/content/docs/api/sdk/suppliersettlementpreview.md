@@ -1,6 +1,6 @@
 ---
-title: "SupplierQualificationInput"
-description: "Generated TypeScript declaration for SupplierQualificationInput"
+title: "SupplierSettlementPreview"
+description: "Generated TypeScript declaration for SupplierSettlementPreview"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
@@ -8,5 +8,5 @@ Generated from the checked-in source. Do not edit this reference by hand.
 [SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
-export type SupplierQualificationInput = ProviderQualificationInput;
+export type SupplierSettlementPreview = ProviderSettlementPreview;
 ```

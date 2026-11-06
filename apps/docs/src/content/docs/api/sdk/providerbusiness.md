@@ -21,6 +21,5 @@ export type ProviderBusiness = {
     enabled_model_routes?: number;
     internal_api_keys?: number;
     internal_model_routes?: number;
-    qualification_status: 'qualified' | 'unqualified';
 };
 ```

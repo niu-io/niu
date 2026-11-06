@@ -23,5 +23,7 @@ export type WorkspaceModelPool = {
         };
     }>;
     default_action?: 'candidates' | 'reject';
+    /** Omitted legacy configurations use version 1 priority/weight. */
+    strategy?: WorkspacePoolStrategy;
 };
 ```

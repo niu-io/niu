@@ -16,5 +16,8 @@ export type ProviderServiceDescriptor = {
     website: string;
     price_support: 'model_catalog' | 'native_ratios' | 'requires_qualification' | 'official_catalog_unqualified' | 'official_markdown' | 'official_page_json';
     price_source: string;
+    adapter_version: string;
+    capabilities: string[];
+    price_currency: string | null;
 };
 ```

@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/auth/agents/{code}`
 
-Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
+Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models, ttl_seconds and an explicit invocation_allowed value, and checks write access to that workspace. Approved invocation also records the exact model interfaces; omitted interface scope never defaults to a paid grant. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope, fixed model names, financial boundary and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
 
 Operation: `decideAgentAuthorization`.
 
@@ -96,7 +96,9 @@ Location: **header**. **Required.**
         "organization_id",
         "workspace_id",
         "allowed_models",
-        "ttl_seconds"
+        "ttl_seconds",
+        "invocation_allowed",
+        "invocation_protocols"
       ]
     }
   ],
@@ -128,8 +130,25 @@ Location: **header**. **Required.**
     },
     "invocation_allowed": {
       "type": "boolean",
-      "default": true,
-      "description": "Whether the issued credential may dispatch inference. False preserves separately granted discovery and management access. Omitted retains legacy invocation authority."
+      "description": "Required on approval. Whether the issued credential may dispatch inference at all. False preserves separately granted discovery and management access. There is no omitted default; an absent value is rejected."
+    },
+    "invocation_protocols": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "chat",
+          "responses",
+          "messages",
+          "content",
+          "embeddings",
+          "video"
+        ]
+      },
+      "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
     }
   }
 }
@@ -163,6 +182,6 @@ Request already decided or expired
 
 ## Behavior and supported scope
 
-Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
+Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models, ttl_seconds and an explicit invocation_allowed value, and checks write access to that workspace. Approved invocation also records the exact model interfaces; omitted interface scope never defaults to a paid grant. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope, fixed model names, financial boundary and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
 
 **Supported scope:** implemented

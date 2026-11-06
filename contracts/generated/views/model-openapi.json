@@ -1000,6 +1000,12 @@
                       ]
                     },
                     "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
+                  },
+                  "task": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Self-reported task context shown to the approver. It is not authority and is never used for backend permission checks."
                   }
                 }
               }
@@ -1023,7 +1029,7 @@
       "post": {
         "operationId": "exchangeAgentAuthorization",
         "summary": "Exchange an approved agent request for scoped access",
-        "description": "Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key and consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.",
+        "description": "Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key with the exact approved model names, invocation switch and model interfaces, then consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.",
         "security": [],
         "x-niu-implementation": "implemented",
         "responses": {
@@ -2919,8 +2925,20 @@
                 "required": [
                   "model",
                   "group_id",
-                  "url",
                   "kind"
+                ],
+                "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+                "oneOf": [
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "workspace_asset_id"
+                    ]
+                  }
                 ],
                 "properties": {
                   "model": {
@@ -2933,7 +2951,14 @@
                   "url": {
                     "type": "string",
                     "maxLength": 8192,
-                    "format": "uri"
+                    "format": "uri",
+                    "writeOnly": true,
+                    "description": "Public HTTPS source. Not retained in operation history."
+                  },
+                  "workspace_asset_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Active workspace material; the Gateway mints a short-lived public fetch capability only at dispatch."
                   },
                   "name": {
                     "type": "string",
@@ -6827,6 +6852,16 @@
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
             }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
           }
         ],
         "requestBody": {
@@ -7099,6 +7134,254 @@
         }
       }
     },
+    "/v1/decisions": {
+      "post": {
+        "x-niu-implementation": "implemented",
+        "operationId": "createDecision",
+        "summary": "Create one validated structured decision",
+        "description": "Explicit System 1 decision capability. Requires a concrete, workspace-visible Chat model granted to the calling key and explicitly declared structured-output support; workspace pools, Auto policies and codex aliases are rejected so routing cannot silently substitute a generated response for a decision. The caller supplies a bounded input and a closed, flat output schema of 1-16 string, boolean, integer or number properties. Exactly {\"abstain\":true} is an explicit abstention and is returned as a null decision; any other document must satisfy the schema exactly. Invalid, missing, timed-out or over-bound output is rejected with x-niu-decision-outcome/x-niu-decision-failure evidence and never falls back to another response type. The model is called once, without transport retry, through ordinary inference admission; key grants, workspace spending caps, billing, guardrails, rate/concurrency limits and cancellation still apply. Niu builds a bounded prompt from schema metadata and caller input only; it does not include Provider aliases, credentials, procurement prices, installation margins or other internal prompts, and it disables ordinary Logs payload capture for the nested call. The response may omit a decision when the model abstains; inspect evidence and the x-niu-attempt-id generation record for usage and authoritative customer charges. This is not calibrated probability evidence, task-quality evidence, a streaming API, idempotency or a guarantee of live model behavior.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model",
+                  "input",
+                  "output_schema"
+                ],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "One concrete workspace Chat model alias. pool/ and codex/ aliases are rejected."
+                  },
+                  "input": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "UTF-8 text; at most 16 KiB serialized."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Arbitrary JSON object; at most 16 KiB serialized."
+                      }
+                    ]
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "type",
+                      "properties",
+                      "required",
+                      "additionalProperties"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "object"
+                      },
+                      "properties": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "maxProperties": 16,
+                        "additionalProperties": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "string",
+                                "boolean",
+                                "integer",
+                                "number"
+                              ]
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "enum": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "minimum": {
+                              "type": "number"
+                            },
+                            "maximum": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      },
+                      "required": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 16,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "boolean",
+                        "const": false
+                      }
+                    }
+                  },
+                  "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 50,
+                    "maximum": 5000,
+                    "default": 2000
+                  },
+                  "max_output_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024,
+                    "default": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The model returned a schema-valid decision, or an explicit abstention. A null decision is an abstention, never a missing decision promoted to a label.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "decision",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "decision": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "Validated decision object, or null for an explicit abstention."
+                    },
+                    "evidence": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "outcome",
+                        "model",
+                        "calls",
+                        "latency_ms",
+                        "tokens_estimated",
+                        "timeout_ms",
+                        "max_output_tokens"
+                      ],
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "decided",
+                            "abstained"
+                          ]
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "calls": {
+                          "type": "integer",
+                          "const": 1
+                        },
+                        "input_tokens": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "output_tokens": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "tokens_estimated": {
+                          "type": "boolean"
+                        },
+                        "latency_ms": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "timeout_ms": {
+                          "type": "integer"
+                        },
+                        "max_output_tokens": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or unbounded request, pool/Auto alias, unsupported input shape, or invalid closed output_schema."
+          },
+          "401": {
+            "description": "Missing, expired or revoked credential"
+          },
+          "403": {
+            "description": "The key is not authorized to invoke models or the request is denied by policy"
+          },
+          "404": {
+            "description": "The model is not visible to the workspace or not granted to the key"
+          },
+          "501": {
+            "description": "The model does not declare the Chat and structured-output capabilities required for decisions"
+          },
+          "502": {
+            "description": "Malformed, missing or over-bound model output; the call may have incurred customer charges"
+          },
+          "504": {
+            "description": "The decision call exceeded timeout_ms; the call may have incurred charges or remain unresolved"
+          }
+        },
+        "tags": [
+          "Structured decisions"
+        ],
+        "x-niu-authority": {
+          "audience": "model",
+          "principals": [
+            "workspace_api_key",
+            "console_key_selection"
+          ],
+          "required_capability": "inference",
+          "scope": "workspace"
+        }
+      }
+    },
     "/v1/embeddings": {
       "post": {
         "operationId": "createEmbedding",
@@ -7148,6 +7431,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -7366,6 +7659,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -8049,6 +8352,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -8844,6 +9157,16 @@
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
             }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
           }
         ],
         "requestBody": {
@@ -9409,7 +9732,7 @@
       "get": {
         "operationId": "getWorkspaceIncidentEvent",
         "summary": "Reconcile an incident event in the current workspace",
-        "description": "Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state and recovery time. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.",
+        "description": "Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state, recovery time and the current lifecycle event's durable notification state for this exact workspace. notification reports not_configured, authority_inactive, queued, sending, delivered, failed or partial from enabled incident subscriptions and current delegation; a 2xx receiver acknowledgement is not processing or task success. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.",
         "security": [
           {
             "bearerAuth": []
@@ -9444,7 +9767,8 @@
                         "model",
                         "owner_funded",
                         "status",
-                        "recovered_at"
+                        "recovered_at",
+                        "notification"
                       ],
                       "properties": {
                         "reference": {
@@ -9469,6 +9793,77 @@
                             "null"
                           ],
                           "format": "date-time"
+                        },
+                        "notification": {
+                          "type": "object",
+                          "required": [
+                            "state",
+                            "event",
+                            "subscribers",
+                            "authorized",
+                            "delivered",
+                            "failed",
+                            "cancelled",
+                            "queued",
+                            "sending",
+                            "last_attempt_at"
+                          ],
+                          "properties": {
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "not_configured",
+                                "authority_inactive",
+                                "queued",
+                                "sending",
+                                "delivered",
+                                "failed",
+                                "partial"
+                              ]
+                            },
+                            "event": {
+                              "type": "string",
+                              "enum": [
+                                "opened",
+                                "resolved"
+                              ]
+                            },
+                            "subscribers": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "authorized": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "delivered": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "cancelled": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "queued": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "sending": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "last_attempt_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date-time"
+                            }
+                          }
                         }
                       }
                     }
@@ -10148,7 +10543,7 @@
         "x-niu-implementation": "implemented",
         "operationId": "previewWorkspacePool",
         "summary": "Validate a workspace model policy without dispatch",
-        "description": "Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters and priority/weight bands used by selection. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.",
+        "description": "Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters, versioned strategy and priority/weight bands used by selection. Context traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output and reasoning controls that the selected protocol cannot express are rejected explicitly instead of being silently dropped. In customer-price mode, only eligible candidates with a comparable customer selling price are ranked; missing or incomparable prices stay explicitly unknown and are never treated as free. The evaluation uses the strategy's explicit currency, unit, input-token and output-token assumptions and includes the selected whole-request context tier, request fee and minimum charge. Selection is deterministic: lower estimate, then higher priority, then higher weight, then alias order. When no candidate has a comparable price, selection falls back to priority/weight and reports why. In Auto mode, preview evaluates optional task/stage caller context against response-compatible paths without invoking the decider. It reports whether runtime would select from context, require the bounded decider, fall back or reject, plus the decider grant, comparable-price and input-bound checks. Preview calls are always zero and never dispatch inference or incur a decision charge. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. Provider procurement prices, offers and margins are never read. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate actual charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.",
         "security": [
           {
             "bearerAuth": []
@@ -10186,6 +10581,9 @@
                         "rule_count": {
                           "type": "integer"
                         },
+                        "strategy": {
+                          "type": "object"
+                        },
                         "simulation": {
                           "type": "object",
                           "properties": {
@@ -10213,6 +10611,53 @@
                                 "no_eligible_candidates",
                                 "candidates"
                               ]
+                            },
+                            "strategy": {
+                              "type": "object"
+                            },
+                            "selection_basis": {
+                              "type": "string",
+                              "enum": [
+                                "not_evaluated",
+                                "priority_weight",
+                                "priority_weight_fallback",
+                                "customer_price",
+                                "auto_context",
+                                "auto_decider_required",
+                                "auto_rejected"
+                              ]
+                            },
+                            "selected_path": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Auto path selected deterministically from caller context. Null when the runtime would require the decider, fall back or reject."
+                            },
+                            "selected_candidate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "fallback_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "price_evaluation": {
+                              "type": [
+                                "object",
+                                "null"
+                              ]
+                            },
+                            "decision": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "description": "Bounded Auto decision evidence from preview. Preview reports calls as zero and live_dispatch as false because it never invokes the decider."
                             },
                             "live_dispatch": {
                               "type": "boolean",
@@ -10253,6 +10698,18 @@
                                         "minimum": 0
                                       }
                                     }
+                                  },
+                                  "estimated_customer_charge_nanos": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "price_unknown_reason": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 }
                               }
@@ -10386,7 +10843,7 @@
         "x-niu-implementation": "implemented",
         "operationId": "setWorkspacePool",
         "summary": "Create or replace a workspace model policy",
-        "description": "Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. This operation does not invoke a model. Read back the saved revision. Restore a prior configuration using the current expected revision.",
+        "description": "Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. The optional versioned strategy must be version 1 priority/weight or customer-price, or version 2 Auto. Version 1 customer-price mode requires explicit currency, unit, input-token and output-token assumptions. Version 2 Auto requires 2-8 declared response-compatible paths that reference top-level candidates, and an optional decider with an explicit customer currency, timeout, single-call, token and customer-charge bounds. The decider model must be a visible Chat model authorized for the saving key. Auto paths never add model grants. This operation does not invoke a model or resolve prices. Read back the saved revision. Restore a prior configuration using the current expected revision.",
         "security": [
           {
             "bearerAuth": []
@@ -10556,7 +11013,7 @@
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspacePoolSelections",
         "summary": "Read the latest 100 workspace pool selections",
-        "description": "Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.",
+        "description": "Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Auto selections include bounded decision outcome, path, fallback reason, failure, calls, tokens, latency and estimated customer decision charge when available; missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.",
         "security": [
           {
             "bearerAuth": []
@@ -10620,6 +11077,19 @@
                               "null"
                             ],
                             "description": "Returned HTTP status, not terminal stream completion or task acceptance."
+                          },
+                          "reference": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decision": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "Bounded Auto decision outcome, path, fallback or failure reason, calls, tokens, latency and estimated customer decision charge. Null for non-Auto selections. No prompts, content, Provider identifiers or procurement prices."
                           }
                         }
                       }
@@ -10699,12 +11169,29 @@
                         "usage_window",
                         "allowed_cidrs",
                         "management_capabilities",
-                        "invocation_allowed"
+                        "invocation_allowed",
+                        "invocation_protocols"
                       ],
                       "properties": {
                         "invocation_allowed": {
                           "type": "boolean",
                           "description": "Current credential invocation authority, independent of discovery and resource management."
+                        },
+                        "invocation_protocols": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "chat",
+                              "responses",
+                              "messages",
+                              "content",
+                              "decisions",
+                              "embeddings",
+                              "video"
+                            ]
+                          },
+                          "description": "Exact approved model interfaces. An interface outside this list is denied even when invocation_allowed is true."
                         },
                         "object": {
                           "type": "string",
@@ -15142,6 +15629,212 @@
               "candidates",
               "reject"
             ]
+          },
+          "strategy": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Versioned selection strategy. Omitted legacy configurations use version 1 priority/weight. Version 1 supports priority/weight and customer price. Version 2 requires Auto with 2-8 declared response-compatible paths and an optional bounded decider. Auto evaluates caller routing context first and invokes the decider only when no context path matches. The decider may return only a declared, request-compatible path; unknown or incompatible decisions are failures, never silent substitutions. Missing or incomparable customer prices stay unknown and are never treated as free. Provider procurement rates never participate.",
+            "required": [
+              "version",
+              "mode"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "priority_weight",
+                  "customer_price",
+                  "auto"
+                ]
+              },
+              "customer_price": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Required exactly when version is 1 and mode is customer_price. Estimates an ordinary request in one explicit currency and unit. Estimates include the selected whole-request context tier, the request fee and the minimum charge; cached and reasoning discounts are never assumed. Ties use higher priority, then higher weight, then alias order.",
+                "required": [
+                  "currency",
+                  "unit",
+                  "input_tokens",
+                  "output_tokens"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "nanounits_per_million_tokens"
+                    ]
+                  },
+                  "input_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  "output_tokens": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                  }
+                }
+              },
+              "auto": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Required exactly when version is 2 and mode is auto. Paths reference top-level candidate aliases so Auto cannot expand the saved model inventory or the caller's grants. Caller context (task/stage) is evaluated before any decider call. The optional decider runs once, with the caller's key, grants and spending authority, under the declared timeout, token and customer-charge bounds. If the decider abstains, fails, times out, is cancelled or returns an unknown or response-incompatible path, the configured action either falls back to deterministic priority/weight or rejects the request before dispatch.",
+                "required": [
+                  "paths"
+                ],
+                "properties": {
+                  "paths": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "response_type",
+                        "candidates"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                          "maxLength": 64
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 280
+                        },
+                        "response_type": {
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "structured",
+                            "embedding"
+                          ]
+                        },
+                        "candidates": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 64,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "task": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                            "maxLength": 64
+                          }
+                        },
+                        "stage": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                            "maxLength": 64
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "decider": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional single-round semantic decider. The model must be a visible Chat model granted to the invoking key and have a comparable customer selling price in the declared currency and unit; otherwise no paid call is made and the configured failure action applies. max_calls is fixed at one. max_input_tokens bounds the constructed decision prompt by a character estimate, not exact tokenization. max_output_tokens bounds the decision completion. max_spend_nanos is a customer-charge ceiling verified from the current customer price before the call and from reported usage afterwards. A missing, foreign-currency or non-nanounit customer price leaves the bound unverifiable and prevents the call.",
+                    "required": [
+                      "model",
+                      "currency",
+                      "timeout_ms",
+                      "max_calls",
+                      "max_input_tokens",
+                      "max_output_tokens",
+                      "max_spend_nanos",
+                      "min_confidence"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "timeout_ms": {
+                        "type": "integer",
+                        "minimum": 50,
+                        "maximum": 5000
+                      },
+                      "max_calls": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1
+                      },
+                      "max_input_tokens": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096
+                      },
+                      "max_output_tokens": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      },
+                      "max_spend_nanos": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000
+                      },
+                      "min_confidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "on_abstain": {
+                        "type": "string",
+                        "enum": [
+                          "fallback",
+                          "reject"
+                        ]
+                      },
+                      "on_failure": {
+                        "type": "string",
+                        "enum": [
+                          "fallback",
+                          "reject"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -19638,8 +20331,20 @@
               "action",
               "model",
               "group_id",
-              "url",
               "kind"
+            ],
+            "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+            "oneOf": [
+              {
+                "required": [
+                  "url"
+                ]
+              },
+              {
+                "required": [
+                  "workspace_asset_id"
+                ]
+              }
             ],
             "properties": {
               "action": {
@@ -19657,6 +20362,11 @@
                 "type": "string",
                 "format": "uri",
                 "writeOnly": true
+              },
+              "workspace_asset_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Active workspace material; resolved to a short-lived capability only at dispatch."
               },
               "name": {
                 "type": "string"
@@ -22669,7 +23379,17 @@
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+            "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "commercial",
+              "personal",
+              "internal"
+            ],
+            "readOnly": true,
+            "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
           },
           "supplier": {
             "type": [
@@ -22743,7 +23463,15 @@
           "personal_organization_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+            "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "internal"
+            ],
+            "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
           },
           "create_supplier": {
             "type": "boolean",
@@ -22825,7 +23553,7 @@
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+            "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
           },
           "capabilities": {
             "$ref": "#/components/schemas/handler_operations_json_VendorCapabilities"
@@ -23470,6 +24198,255 @@
           }
         }
       },
+      "handler_operations_json_MemberInvitationToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 512,
+            "description": "One-time invitation secret."
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitation": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "organization_name",
+          "organization_slug",
+          "project_id",
+          "project_name",
+          "project_slug",
+          "role",
+          "recipient_email",
+          "recipient_name",
+          "status",
+          "delivery",
+          "created_at",
+          "expires_at",
+          "accepted_at",
+          "revoked_at",
+          "invited_by"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "project_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "recipient_email": {
+            "type": "string"
+          },
+          "recipient_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "expired",
+              "canceled",
+              "accepted"
+            ]
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "not_configured"
+            ],
+            "description": "No email provider is configured; the one-time link is the supported delivery."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accepted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "invited_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Inviting member name; null for installation administration."
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitationCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "Intended recipient email. Acceptance requires the signed-in account email to match."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "Optional member display name; defaults to the recipient account name."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Workspace scope; null grants organization-wide access and requires organization-wide authority."
+          },
+          "expires_in_seconds": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 2592000,
+            "default": 604800
+          }
+        }
+      },
+      "handler_operations_json_CreatedMemberInvitation": {
+        "type": "object",
+        "required": [
+          "invitation",
+          "token",
+          "accept_path",
+          "delivery"
+        ],
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+          },
+          "token": {
+            "type": "string",
+            "description": "Returned once; only the digest is stored."
+          },
+          "accept_path": {
+            "type": "string",
+            "description": "Relative dashboard path for the one-time link."
+          },
+          "delivery": {
+            "type": "object",
+            "required": [
+              "state",
+              "email_sent"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "not_configured"
+                ]
+              },
+              "email_sent": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitationPreview": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+          },
+          {
+            "type": "object",
+            "required": [
+              "caller_email",
+              "email_matches",
+              "already_accepted_by_caller"
+            ],
+            "properties": {
+              "caller_email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "email_matches": {
+                "type": "boolean"
+              },
+              "already_accepted_by_caller": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -23720,6 +24697,7 @@
           "name",
           "allowed_models",
           "invocation_allowed",
+          "invocation_protocols",
           "expires_at_ms",
           "last_used_at_ms",
           "revoked",
@@ -23748,6 +24726,22 @@
           "invocation_allowed": {
             "type": "boolean",
             "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+          },
+          "invocation_protocols": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "responses",
+                "messages",
+                "content",
+                "decisions",
+                "embeddings",
+                "video"
+              ]
+            },
+            "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
           },
           "expires_at_ms": {
             "type": [
@@ -23888,6 +24882,18 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 10000000
+              },
+              "task": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                "maxLength": 64,
+                "description": "Optional caller task context for Auto preview. It uses the same bounded normalization as x-niu-routing-context. Preview never invokes the decider."
+              },
+              "stage": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                "maxLength": 64,
+                "description": "Optional caller workflow-stage context for Auto preview."
               }
             }
           }

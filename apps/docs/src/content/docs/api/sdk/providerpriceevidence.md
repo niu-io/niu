@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type ProviderPriceEvidence = {
     normalization_version: number;
     source_digest: string | null;
+    source_version: string | null;
     conditions: Array<{
         id: string;
         description: string;
@@ -42,6 +43,18 @@ export type ProviderPriceEvidence = {
         cached_input_ratio: string | null;
         request_price: string | null;
         quota_type: number | null;
+        tiered_ratios: unknown | null;
     }>;
+    discounts: Array<{
+        model: string | null;
+        kind: string;
+        description: string;
+        source_rules: unknown | null;
+    }>;
+    ambiguities: Array<{
+        kind: string;
+        detail: string;
+    }>;
+    recovery: string | null;
 };
 ```

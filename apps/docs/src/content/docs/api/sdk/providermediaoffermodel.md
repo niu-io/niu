@@ -18,5 +18,13 @@ export type ProviderMediaOfferModel = {
     schema_revision: string;
     channel: string;
     offer_revision: string | null;
+    offer_id: string | null;
+    offer_active: boolean;
+    offer_qualified: boolean;
+    offer_current: boolean;
+    route_ready: boolean;
+    resolutions: string[];
+    reference_video: boolean;
+    meter: string | null;
 };
 ```

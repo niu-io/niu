@@ -2683,6 +2683,12 @@
                       ]
                     },
                     "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
+                  },
+                  "task": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Self-reported task context shown to the approver. It is not authority and is never used for backend permission checks."
                   }
                 }
               }
@@ -2706,7 +2712,7 @@
       "post": {
         "operationId": "exchangeAgentAuthorization",
         "summary": "Exchange an approved agent request for scoped access",
-        "description": "Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key and consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.",
+        "description": "Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key with the exact approved model names, invocation switch and model interfaces, then consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.",
         "security": [],
         "x-niu-implementation": "implemented",
         "responses": {
@@ -2804,7 +2810,7 @@
       "get": {
         "operationId": "getAgentAuthorization",
         "summary": "Inspect an authorization request after login",
-        "description": "Requires a current user session. Returns only client name and state, never device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label is self-reported. No-store.",
+        "description": "Requires a current user session. Returns bounded request metadata: client name, state, requested management capabilities and self-reported task context. It never returns the device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label and task are self-reported, not authenticated authority. No-store.",
         "security": [
           {
             "bearerAuth": []
@@ -2829,7 +2835,8 @@
                       "required": [
                         "client_name",
                         "state",
-                        "capabilities"
+                        "capabilities",
+                        "task"
                       ],
                       "properties": {
                         "client_name": {
@@ -2843,6 +2850,14 @@
                             "denied",
                             "consumed"
                           ]
+                        },
+                        "task": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 200,
+                          "description": "Self-reported task context supplied by the client. Explain the request but never treat it as an authorization grant."
                         },
                         "capabilities": {
                           "type": "array",
@@ -2902,7 +2917,7 @@
       "post": {
         "operationId": "decideAgentAuthorization",
         "summary": "Approve or decline an agent connection",
-        "description": "Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
+        "description": "Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models, ttl_seconds and an explicit invocation_allowed value, and checks write access to that workspace. Approved invocation also records the exact model interfaces; omitted interface scope never defaults to a paid grant. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope, fixed model names, financial boundary and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
         "security": [
           {
             "bearerAuth": []
@@ -2981,7 +2996,9 @@
                       "organization_id",
                       "workspace_id",
                       "allowed_models",
-                      "ttl_seconds"
+                      "ttl_seconds",
+                      "invocation_allowed",
+                      "invocation_protocols"
                     ]
                   }
                 ],
@@ -3013,8 +3030,25 @@
                   },
                   "invocation_allowed": {
                     "type": "boolean",
-                    "default": true,
-                    "description": "Whether the issued credential may dispatch inference. False preserves separately granted discovery and management access. Omitted retains legacy invocation authority."
+                    "description": "Required on approval. Whether the issued credential may dispatch inference at all. False preserves separately granted discovery and management access. There is no omitted default; an absent value is rejected."
+                  },
+                  "invocation_protocols": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "chat",
+                        "responses",
+                        "messages",
+                        "content",
+                        "embeddings",
+                        "video"
+                      ]
+                    },
+                    "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
                   }
                 }
               }
@@ -3858,7 +3892,7 @@
       "get": {
         "operationId": "getCustomerUnitBalance",
         "summary": "Read exact Credits quantities by original definition and provenance",
-        "description": "Organization-wide billing owner/admin or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.",
+        "description": "Organization-wide billing owner/admin, platform administration, or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.",
         "security": [
           {
             "bearerAuth": []
@@ -4191,7 +4225,7 @@
             "description": "Management read access required"
           },
           "404": {
-            "description": "Company absent or outside permitted billing scope"
+            "description": "Company absent or outside permitted billing or platform scope"
           },
           "503": {
             "description": "Storage unavailable"
@@ -7917,7 +7951,7 @@
           }
         ],
         "summary": "Dry-run routing preview for a model route pool",
-        "description": "Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.",
+        "description": "Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.",
         "parameters": [
           {
             "in": "path",
@@ -7945,7 +7979,9 @@
                     "enum": [
                       "chat",
                       "responses",
-                      "messages"
+                      "messages",
+                      "embeddings",
+                      "generate_content"
                     ]
                   },
                   "streaming": {
@@ -21997,8 +22033,8 @@
     "/api/v1/platform/customer-accounts": {
       "get": {
         "operationId": "listPlatformCustomerAccounts",
-        "summary": "Discover named customer accounts for platform financial administration",
-        "description": "Explicit platform administration only, independent of ordinary company membership. Named companies and their current currency balance summaries; companies without accounts have an empty accounts array. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.",
+        "summary": "Discover named customer accounts and Credits summaries for platform financial administration",
+        "description": "Explicit platform administration only, independent of ordinary company membership. Named companies, their current currency balance summaries, and a standard-unit Credits summary when issued lots exist; companies without accounts have an empty accounts array. The Credits summary exposes no atoms, lots or provenance. It is a display summary, not a spendable-capacity guarantee; the organization unit-balance endpoint remains authoritative for exact lot and expiry detail. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -22044,7 +22080,8 @@
                         "required": [
                           "organization_id",
                           "organization_name",
-                          "accounts"
+                          "accounts",
+                          "credits"
                         ],
                         "properties": {
                           "organization_id": {
@@ -22104,6 +22141,38 @@
                                 "posted_credit_exhausted": {
                                   "type": "boolean"
                                 }
+                              }
+                            }
+                          },
+                          "credits": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "Largest positive standard-unit Credits balance summary; the current definition breaks equal-amount ties. Null when the company has no issued Credits lots. Exact decimal string in standard units; no atoms, lots or provenance. additional_units counts other unit definitions with a positive balance.",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "display_precision",
+                              "available",
+                              "additional_units"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "available": {
+                                "type": "string",
+                                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+                              },
+                              "additional_units": {
+                                "type": "integer",
+                                "minimum": 0
                               }
                             }
                           }
@@ -25322,8 +25391,20 @@
                 "required": [
                   "model",
                   "group_id",
-                  "url",
                   "kind"
+                ],
+                "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+                "oneOf": [
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "workspace_asset_id"
+                    ]
+                  }
                 ],
                 "properties": {
                   "model": {
@@ -25336,7 +25417,14 @@
                   "url": {
                     "type": "string",
                     "maxLength": 8192,
-                    "format": "uri"
+                    "format": "uri",
+                    "writeOnly": true,
+                    "description": "Public HTTPS source. Not retained in operation history."
+                  },
+                  "workspace_asset_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Active workspace material; the Gateway mints a short-lived public fetch capability only at dispatch."
                   },
                   "name": {
                     "type": "string",
@@ -28602,539 +28690,6 @@
         }
       }
     },
-    "/api/v1/providers/{provider}/offers/{offer}/qualification/revoke": {
-      "post": {
-        "operationId": "revokeProviderOfferQualification",
-        "x-niu-implementation": "implemented",
-        "summary": "Revoke the current Provider offer qualification",
-        "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Provider, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "offer",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "reason_sha256"
-                ],
-                "properties": {
-                  "reason_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Qualification transaction committed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": [
-                        "qualification_status"
-                      ],
-                      "properties": {
-                        "qualification_status": {
-                          "type": "string",
-                          "enum": [
-                            "revoked"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-          },
-          "401": {
-            "description": "Missing or invalid administrator authentication."
-          },
-          "403": {
-            "description": "Authenticated principal lacks platform management permission."
-          },
-          "409": {
-            "description": "Missing resource or qualification/revision prerequisites no longer hold."
-          },
-          "415": {
-            "description": "Request is not JSON."
-          },
-          "422": {
-            "description": "JSON has missing, unknown or incorrectly typed fields."
-          },
-          "500": {
-            "description": "Unexpected internal persistence failure."
-          },
-          "503": {
-            "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-          }
-        },
-        "tags": [
-          "Providers"
-        ],
-        "x-niu-authority": {
-          "audience": "provider",
-          "principals": [
-            "provider_member",
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "provider_manage",
-          "scope": "provider"
-        }
-      }
-    },
-    "/api/v1/providers/{provider}/offers/{offer}/qualification": {
-      "put": {
-        "operationId": "qualifyProviderOffer",
-        "x-niu-implementation": "implemented",
-        "summary": "Record a Provider offer qualification review",
-        "description": "Platform administration required. Requires current Provider business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "offer",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "rate_revision",
-                  "model_identity_sha256",
-                  "protocol_matrix_sha256",
-                  "data_handling_sha256",
-                  "availability_sha256",
-                  "agreed_rates_sha256",
-                  "protocol_matrix_version",
-                  "valid_until_ms"
-                ],
-                "properties": {
-                  "rate_revision": {
-                    "type": "string",
-                    "format": "uuid",
-                    "description": "Must equal the current immutable offer rate revision."
-                  },
-                  "model_identity_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "protocol_matrix_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "data_handling_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "availability_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "agreed_rates_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "protocol_matrix_version": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100,
-                    "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved trimmed."
-                  },
-                  "valid_until_ms": {
-                    "type": "integer",
-                    "format": "int64",
-                    "maximum": 253402300799999,
-                    "description": "Unix epoch milliseconds; must be strictly later than server time."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Qualification transaction committed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": [
-                        "qualification_status"
-                      ],
-                      "properties": {
-                        "qualification_status": {
-                          "type": "string",
-                          "enum": [
-                            "qualified"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-          },
-          "401": {
-            "description": "Missing or invalid administrator authentication."
-          },
-          "403": {
-            "description": "Authenticated principal lacks platform management permission."
-          },
-          "409": {
-            "description": "Missing resource or qualification/revision prerequisites no longer hold."
-          },
-          "415": {
-            "description": "Request is not JSON."
-          },
-          "422": {
-            "description": "JSON has missing, unknown or incorrectly typed fields."
-          },
-          "500": {
-            "description": "Unexpected internal persistence failure."
-          },
-          "503": {
-            "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-          }
-        },
-        "tags": [
-          "Providers"
-        ],
-        "x-niu-authority": {
-          "audience": "provider",
-          "principals": [
-            "provider_member",
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "provider_manage",
-          "scope": "provider"
-        }
-      }
-    },
-    "/api/v1/providers/{provider}/qualification/revoke": {
-      "post": {
-        "operationId": "revokeProviderBusinessQualification",
-        "x-niu-implementation": "implemented",
-        "summary": "Revoke the current Provider business qualification",
-        "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Provider offers while clearing their current reviews atomically. Missing/deleted Provider or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "reason_sha256"
-                ],
-                "properties": {
-                  "reason_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Qualification transaction committed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": [
-                        "qualification_status"
-                      ],
-                      "properties": {
-                        "qualification_status": {
-                          "type": "string",
-                          "enum": [
-                            "revoked"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-          },
-          "401": {
-            "description": "Missing or invalid administrator authentication."
-          },
-          "403": {
-            "description": "Authenticated principal lacks platform management permission."
-          },
-          "409": {
-            "description": "Missing resource or qualification/revision prerequisites no longer hold."
-          },
-          "415": {
-            "description": "Request is not JSON."
-          },
-          "422": {
-            "description": "JSON has missing, unknown or incorrectly typed fields."
-          },
-          "500": {
-            "description": "Unexpected internal persistence failure."
-          },
-          "503": {
-            "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-          }
-        },
-        "tags": [
-          "Providers"
-        ],
-        "x-niu-authority": {
-          "audience": "provider",
-          "principals": [
-            "provider_member",
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "provider_manage",
-          "scope": "provider"
-        }
-      }
-    },
-    "/api/v1/providers/{provider}/qualification": {
-      "put": {
-        "operationId": "qualifyProviderBusiness",
-        "x-niu-implementation": "implemented",
-        "summary": "Record a Provider business qualification review",
-        "description": "Platform administration required; Provider membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Provider conflicts.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "supply_rights_sha256",
-                  "supply_capability_sha256",
-                  "data_handling_sha256",
-                  "valid_until_ms"
-                ],
-                "properties": {
-                  "supply_rights_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "supply_capability_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "data_handling_sha256": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$",
-                    "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-                  },
-                  "valid_until_ms": {
-                    "type": "integer",
-                    "format": "int64",
-                    "maximum": 253402300799999,
-                    "description": "Unix epoch milliseconds; must be strictly later than server time."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Qualification transaction committed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": [
-                        "qualification_status"
-                      ],
-                      "properties": {
-                        "qualification_status": {
-                          "type": "string",
-                          "enum": [
-                            "qualified"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-          },
-          "401": {
-            "description": "Missing or invalid administrator authentication."
-          },
-          "403": {
-            "description": "Authenticated principal lacks platform management permission."
-          },
-          "409": {
-            "description": "Missing resource or qualification/revision prerequisites no longer hold."
-          },
-          "415": {
-            "description": "Request is not JSON."
-          },
-          "422": {
-            "description": "JSON has missing, unknown or incorrectly typed fields."
-          },
-          "500": {
-            "description": "Unexpected internal persistence failure."
-          },
-          "503": {
-            "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-          }
-        },
-        "tags": [
-          "Providers"
-        ],
-        "x-niu-authority": {
-          "audience": "provider",
-          "principals": [
-            "provider_member",
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "provider_manage",
-          "scope": "provider"
-        }
-      }
-    },
     "/api/v1/auth/preferences": {
       "get": {
         "operationId": "getMemberPreferences",
@@ -29724,6 +29279,353 @@
           ],
           "required_capability": "read",
           "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/providers/{provider}/offers/{offer}/authorization": {
+      "put": {
+        "operationId": "authorizeProviderOffer",
+        "x-niu-implementation": "implemented",
+        "summary": "Authorize and enable the current Provider offer",
+        "description": "Platform administration required. Atomically authorizes and enables the exact current rate revision for the Provider-owned enabled route and saved credential. A stale revision or unavailable route returns 409. Repeating a successful request for the same current revision returns its existing authorization. This does not verify upstream access, create a workspace selling price, or grant customer access. Media liability requirements remain independent.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "rate_revision"
+                ],
+                "properties": {
+                  "rate_revision": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized and enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "active",
+                        "authorization_id"
+                      ],
+                      "properties": {
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "authorization_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Offer revision or route is unavailable"
+          }
+        },
+        "tags": [
+          "Providers"
+        ],
+        "x-niu-authority": {
+          "audience": "provider",
+          "principals": [
+            "provider_member",
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "provider_manage",
+          "scope": "provider"
+        }
+      }
+    },
+    "/api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}": {
+      "delete": {
+        "operationId": "revokeProviderOfferAuthorization",
+        "x-niu-implementation": "implemented",
+        "summary": "Revoke a Provider offer authorization",
+        "description": "Platform administration required. Revokes the specified authorization and pauses the offer if it is still current. Historical attempts and records remain unchanged. Repeating the same revocation is safe. This does not revoke a different current authorization.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorization revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "revoked"
+                      ],
+                      "properties": {
+                        "revoked": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Authorization does not match this Provider and offer"
+          }
+        },
+        "tags": [
+          "Providers"
+        ],
+        "x-niu-authority": {
+          "audience": "provider",
+          "principals": [
+            "provider_member",
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "provider_manage",
+          "scope": "provider"
+        }
+      }
+    },
+    "/api/v1/providers/{provider}/settlements/preview": {
+      "get": {
+        "operationId": "previewProviderPeriodSettlement",
+        "summary": "Preview an unpaid Provider balance through a cutoff",
+        "description": "Platform administration required. Read-only: creates no earning, payment, settlement entry or audit event and transfers no funds. Selects every unpaid earning of this Provider and currency created on or before cutoff_ms, optionally bounded below by from_ms (inclusive). Returns only aggregate count and exact amount plus the unpaid amount and count that would remain in that currency; never returns request IDs, customer, workspace, credential or customer-price detail. The write endpoint independently revalidates the same unpaid rows.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "description": "One currency without conversion."
+          },
+          {
+            "name": "from_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 253402300799999
+            },
+            "description": "Inclusive earning creation lower bound. Omit for all unpaid earnings through the cutoff."
+          },
+          {
+            "name": "cutoff_ms",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 253402300799999
+            },
+            "description": "Inclusive earning creation cutoff, Unix milliseconds."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregate unpaid selection and remaining balance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "currency",
+                        "from_ms",
+                        "cutoff_ms",
+                        "entry_count",
+                        "amount_nanos",
+                        "remaining_unpaid_nanos",
+                        "remaining_entry_count"
+                      ],
+                      "properties": {
+                        "currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        },
+                        "from_ms": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "cutoff_ms": {
+                          "type": "integer"
+                        },
+                        "entry_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "amount_nanos": {
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "remaining_unpaid_nanos": {
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "remaining_entry_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid currency, cutoff or period range."
+          },
+          "401": {
+            "description": "Invalid administrative credential."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "404": {
+            "description": "Provider not found or deleted."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Providers"
+        ],
+        "x-niu-authority": {
+          "audience": "provider",
+          "principals": [
+            "provider_member",
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "provider"
         }
       }
     },
@@ -31295,7 +31197,7 @@
       "get": {
         "operationId": "listConnectionIncidents",
         "summary": "Read platform upstream connection incidents",
-        "description": "Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply.",
+        "description": "Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply. coverage.proactive_probe is not_configured: Niu opens incidents only from observed requests, not from idle-connection health probes, so this view cannot certify an unrequested connection as healthy.",
         "security": [
           {
             "bearerAuth": []
@@ -31331,9 +31233,27 @@
                   "type": "object",
                   "required": [
                     "data",
-                    "next_before"
+                    "next_before",
+                    "coverage"
                   ],
                   "properties": {
+                    "coverage": {
+                      "type": "object",
+                      "required": [
+                        "request_observed",
+                        "proactive_probe"
+                      ],
+                      "properties": {
+                        "request_observed": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "proactive_probe": {
+                          "type": "string",
+                          "const": "not_configured"
+                        }
+                      }
+                    },
                     "next_before": {
                       "type": [
                         "string",
@@ -31355,7 +31275,8 @@
                           "observations",
                           "recovered_at",
                           "connection_name",
-                          "provider"
+                          "provider",
+                          "notifications"
                         ],
                         "properties": {
                           "reference": {
@@ -31416,6 +31337,65 @@
                               },
                               "slug": {
                                 "type": "string"
+                              }
+                            }
+                          },
+                          "notifications": {
+                            "type": "object",
+                            "required": [
+                              "state",
+                              "workspaces",
+                              "delivered",
+                              "failed",
+                              "cancelled",
+                              "queued",
+                              "sending",
+                              "not_configured",
+                              "authority_inactive"
+                            ],
+                            "properties": {
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "delivered",
+                                  "incomplete",
+                                  "failed",
+                                  "sending",
+                                  "queued",
+                                  "no_recipients"
+                                ]
+                              },
+                              "workspaces": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "delivered": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "failed": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "cancelled": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "queued": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sending": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "not_configured": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "authority_inactive": {
+                                "type": "integer",
+                                "minimum": 0
                               }
                             }
                           }
@@ -31731,7 +31711,7 @@
       "get": {
         "operationId": "listProviderOfferHistory",
         "summary": "List immutable Provider quote history",
-        "description": "Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.",
+        "description": "Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not authorize, activate or reprice offers. Internal identifiers are API references, not UI labels.",
         "security": [
           {
             "bearerAuth": []
@@ -35780,7 +35760,7 @@
       "get": {
         "operationId": "listCustomerMediaRateModels",
         "summary": "Read named qualified commercial video configuration choices",
-        "description": "Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.",
+        "description": "Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings and the billing unit derived from a validated output estimator. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.",
         "parameters": [
           {
             "name": "organization",
@@ -35847,7 +35827,8 @@
                           "schema_revision",
                           "channel",
                           "resolutions",
-                          "reference_video"
+                          "reference_video",
+                          "meter"
                         ],
                         "properties": {
                           "model_alias": {
@@ -35887,6 +35868,13 @@
                           },
                           "reference_video": {
                             "type": "boolean"
+                          },
+                          "meter": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Billing unit derived from the validated output estimator; null when the model has no configured output mapping."
                           }
                         }
                       }
@@ -36602,7 +36590,7 @@
       "get": {
         "operationId": "getProviderOfferRevision",
         "summary": "Read an immutable Provider procurement quote",
-        "description": "Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
+        "description": "Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, authorize or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
         "security": [
           {
             "bearerAuth": []
@@ -44031,7 +44019,7 @@
       ],
       "get": {
         "summary": "Read immutable key policy assignment history",
-        "description": "Returns at most 100 newest events with assignment/policy revisions, nullable policy name, readable actor name and creation time. Removal events have a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.",
+        "description": "Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.",
         "security": [
           {
             "adminBearerAuth": []
@@ -44115,7 +44103,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Data contains assignment_revision, policy_revision and policy, or null when no assignment exists in this workspace."
+            "description": "Data contains assignment_revision, policy_revision, mode and policy, or null when no assignment has ever existed in this workspace. mode is fixed or active; an active assignment has a null policy_revision and policy because the workspace's current policy applies directly."
           },
           "401": {
             "description": "Authentication required."
@@ -44138,8 +44126,8 @@
         }
       },
       "put": {
-        "summary": "Assign a preserved workspace policy revision to an active key",
-        "description": "Key restrictions intersect mandatory workspace restrictions and cannot weaken them. Revision zero creates an assignment; subsequent updates require its current assignment revision. An explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omission is rejected. Rotation preserves assigned policies; mandatory workspace restrictions remain enforced.",
+        "summary": "Pin a workspace policy revision or follow the active workspace policy",
+        "description": "Key restrictions intersect mandatory workspace restrictions and cannot weaken them. mode fixed pins policy_revision; mode active explicitly follows the workspace's current active policy and must not include policy_revision. Omission of mode keeps the historical fixed/clear behaviour for existing clients. Revision zero creates an assignment; subsequent updates require its current assignment revision. A fixed-mode explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omitting policy_revision without mode active is rejected. An active assignment also removes any pinned key layer. Rotation preserves the assignment mode and pinned revision; mandatory workspace restrictions remain enforced and later workspace edits need no key re-pin in active mode.",
         "security": [
           {
             "adminBearerAuth": []
@@ -44153,16 +44141,25 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "policy_revision",
                   "expected_assignment_revision"
                 ],
                 "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "fixed",
+                      "active"
+                    ],
+                    "default": "fixed",
+                    "description": "fixed pins policy_revision. active follows the workspace's active policy and requires policy_revision to be absent or null. Omitted mode preserves fixed-or-clear compatibility."
+                  },
                   "policy_revision": {
                     "type": [
                       "integer",
                       "null"
                     ],
-                    "minimum": 1
+                    "minimum": 1,
+                    "description": "Required with mode fixed to pin a saved revision, and when mode is omitted. An explicit null clears the key assignment. Must be absent or null with mode active; omission with mode active is allowed."
                   },
                   "expected_assignment_revision": {
                     "type": "integer",
@@ -44178,7 +44175,7 @@
             "description": "New assignment_revision."
           },
           "400": {
-            "description": "Invalid revision or unsupported policy."
+            "description": "Invalid revision, incompatible mode and revision combination, unsupported policy, or missing fields."
           },
           "401": {
             "description": "Authentication required."
@@ -44193,7 +44190,7 @@
             "description": "Stale assignment revision or inactive, expired or foreign key."
           },
           "422": {
-            "description": "Missing required assignment fields or malformed JSON shape."
+            "description": "Malformed JSON shape or unknown mode."
           }
         },
         "tags": [
@@ -48446,7 +48443,7 @@
       "get": {
         "operationId": "getProviderProfile",
         "summary": "Read Provider business profile",
-        "description": "Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.",
+        "description": "Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or review evidence. Internal identity is for routing, not display.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -48796,7 +48793,7 @@
       "post": {
         "operationId": "createProviderBusiness",
         "summary": "Create a Provider business identity",
-        "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.",
+        "description": "Requires platform administration. Creation grants no membership, commercial authorization, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.",
         "requestBody": {
           "required": true,
           "content": {
@@ -48908,7 +48905,7 @@
       "get": {
         "operationId": "listProviderBusinesses",
         "summary": "List active Provider business identities",
-        "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.",
+        "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Commercial authorization is explicit and never inferred from configuration counts.",
         "responses": {
           "200": {
             "description": "Active directory",
@@ -48931,7 +48928,6 @@
                           "api_keys",
                           "models",
                           "members",
-                          "qualification_status",
                           "slug"
                         ],
                         "properties": {
@@ -48985,14 +48981,6 @@
                           "enabled_model_routes": {
                             "type": "integer",
                             "minimum": 0
-                          },
-                          "qualification_status": {
-                            "type": "string",
-                            "description": "Legacy Provider evidence-review status only. An unqualified value does not rule out an explicitly authorized offer and does not measure live Provider access.",
-                            "enum": [
-                              "qualified",
-                              "unqualified"
-                            ]
                           },
                           "slug": {
                             "type": "string",
@@ -49401,7 +49389,7 @@
       "post": {
         "operationId": "publishSupplierMediaRate",
         "summary": "Publish confidential agreed Provider media purchase terms",
-        "description": "Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.",
+        "description": "Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current authorized offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.",
         "requestBody": {
           "required": true,
           "content": {
@@ -49451,7 +49439,7 @@
             "description": "Installation write permission required"
           },
           "409": {
-            "description": "Changed revision or mismatched/unqualified Provider route"
+            "description": "Changed revision or mismatched/unauthorized Provider route"
           },
           "413": {
             "description": "Body exceeds 128 KiB"
@@ -49491,8 +49479,8 @@
       ],
       "get": {
         "operationId": "listSupplierMediaOfferModels",
-        "summary": "List named draft media offer bindings",
-        "description": "Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or qualification. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.",
+        "summary": "List configured video models with draft offer status",
+        "description": "Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or authorization. Each record exposes the current offer status and exact configuration bindings so an authorized administrator can publish a purchase rate without a separate pinning step. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.",
         "parameters": [
           {
             "name": "after",
@@ -49516,7 +49504,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Draft configuration choices, not dispatch qualification",
+            "description": "Draft configuration choices, not dispatch authorization",
             "content": {
               "application/json": {
                 "schema": {
@@ -49551,7 +49539,15 @@
                           "model_revision",
                           "schema_revision",
                           "channel",
-                          "offer_revision"
+                          "offer_revision",
+                          "offer_id",
+                          "offer_active",
+                          "offer_qualified",
+                          "offer_current",
+                          "route_ready",
+                          "resolutions",
+                          "reference_video",
+                          "meter"
                         ],
                         "properties": {
                           "model_alias": {
@@ -49584,6 +49580,45 @@
                               "null"
                             ],
                             "format": "uuid"
+                          },
+                          "offer_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "offer_active": {
+                            "type": "boolean",
+                            "description": "The current offer record is active."
+                          },
+                          "offer_qualified": {
+                            "type": "boolean",
+                            "description": "The active offer revision currently satisfies the authorization or legacy review predicate."
+                          },
+                          "offer_current": {
+                            "type": "boolean",
+                            "description": "The current offer revision still matches this configuration binding."
+                          },
+                          "route_ready": {
+                            "type": "boolean",
+                            "description": "The credential and model route are enabled and a credential is saved. This does not verify upstream access."
+                          },
+                          "resolutions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "reference_video": {
+                            "type": "boolean"
+                          },
+                          "meter": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Output-estimator billing unit when configured; never inferred from a price."
                           }
                         }
                       }
@@ -49635,7 +49670,7 @@
       "post": {
         "operationId": "publishSupplierMediaOffer",
         "summary": "Save an inactive versioned media offer without text-token prices",
-        "description": "Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer qualification. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor reviewed digests establish live protocol qualification.",
+        "description": "Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer authorization. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor an administrator authorization establishes live protocol availability.",
         "requestBody": {
           "required": true,
           "content": {
@@ -49728,12 +49763,18 @@
                     "data": {
                       "type": "object",
                       "required": [
-                        "revision"
+                        "revision",
+                        "offer_id"
                       ],
                       "properties": {
                         "revision": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "offer_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Stable Provider offer identity for the returned revision. Enabling the returned revision uses this identity; it is not a display label."
                         }
                       }
                     }
@@ -49793,7 +49834,7 @@
       "get": {
         "operationId": "listSupplierMediaRateModels",
         "summary": "List current media pricing configuration choices",
-        "description": "Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.",
+        "description": "Installation read authority only. Named model and API-key choices include current authorized active offer bindings and syntactically validated media-schema constraints, including the billing unit derived from a validated output estimator. This does not establish dispatch availability or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.",
         "parameters": [
           {
             "name": "after",
@@ -49853,7 +49894,8 @@
                           "schema_revision",
                           "channel",
                           "resolutions",
-                          "reference_video"
+                          "reference_video",
+                          "meter"
                         ],
                         "properties": {
                           "model_alias": {
@@ -49889,6 +49931,13 @@
                           },
                           "reference_video": {
                             "type": "boolean"
+                          },
+                          "meter": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Billing unit derived from the validated output estimator; null when the model has no configured output mapping."
                           }
                         }
                       }
@@ -50041,7 +50090,7 @@
       "get": {
         "operationId": "listProviderOffersPage",
         "summary": "Page current Provider offers and rate revisions",
-        "description": "Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
+        "description": "Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unauthorized drafts; does not activate an offer or establish commercial authorization. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
         "security": [
           {
             "bearerAuth": []
@@ -50132,7 +50181,7 @@
                           },
                           "qualified": {
                             "type": "boolean",
-                            "description": "Compatibility field indicating current exact-revision commercial authorization or legacy qualification and required binding. It is not proof of an independent evidence review, live access, an active offer, or a customer selling price."
+                            "description": "Compatibility field indicating a current exact-revision commercial authorization or a current legacy evidence review and required route binding. It is not proof of live upstream access, an active offer, an agreed rate or a customer selling price."
                           },
                           "revision": {
                             "type": "string",
@@ -50303,7 +50352,7 @@
           }
         ],
         "summary": "Publish an immutable agreed Provider payout schedule",
-        "description": "Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.",
+        "description": "Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer; an administrator must explicitly authorize the new revision before dispatch eligibility returns. Procurement budgets and customer charges remain independent.",
         "parameters": [
           {
             "name": "provider",
@@ -51077,7 +51126,7 @@
       "post": {
         "operationId": "recordExternalProviderPayment",
         "summary": "Record an already completed external Provider payment",
-        "description": "Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.",
+        "description": "Platform administration required; Provider membership does not grant this write. Does not transfer funds or overpay. Send either attempt_ids (legacy request-level selection) or currency plus cutoff_ms (period settlement); from_ms is an optional inclusive lower bound. Period settlement selects every unpaid earning of that Provider and currency created on or before cutoff_ms, computes the exact total and ignores request-level identifiers supplied in that mode. The period response reports the recorded amount, entry count, and unpaid amount remaining in that currency; neither mode returns customer, request, credential or customer-price detail. Reuse the supplied idempotency key with the identical mode, reference and period bounds for retries; entry order is irrelevant. Changed replay, duplicate payment reference, unavailable selection, or a period with no positive unpaid earnings returns 409. No customer balance credit or Provider authorization is created.",
         "security": [
           {
             "bearerAuth": []
@@ -51099,43 +51148,88 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "idempotency_key",
-                  "payment_reference",
-                  "attempt_ids"
-                ],
-                "properties": {
-                  "idempotency_key": {
-                    "type": "string",
-                    "format": "uuid"
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "idempotency_key",
+                      "payment_reference",
+                      "attempt_ids"
+                    ],
+                    "properties": {
+                      "idempotency_key": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "payment_reference": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+                      },
+                      "attempt_ids": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1000,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "description": "Legacy internal selection IDs from platform earning history. New callers should use the period mode."
+                      }
+                    }
                   },
-                  "payment_reference": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200,
-                    "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
-                  },
-                  "attempt_ids": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 1000,
-                    "uniqueItems": true,
-                    "items": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "description": "Internal selection IDs from the platform earning history; never display IDs or require users to paste them."
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "idempotency_key",
+                      "payment_reference",
+                      "currency",
+                      "cutoff_ms"
+                    ],
+                    "properties": {
+                      "idempotency_key": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "payment_reference": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$",
+                        "description": "One currency without conversion."
+                      },
+                      "from_ms": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0,
+                        "maximum": 253402300799999,
+                        "description": "Optional inclusive earning creation lower bound. Omit to include all unpaid earnings through the cutoff."
+                      },
+                      "cutoff_ms": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0,
+                        "maximum": 253402300799999,
+                        "description": "Inclusive upper bound on earning creation time, Unix milliseconds."
+                      }
+                    }
                   }
-                }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Recorded or replayed settlement identity.",
+            "description": "Recorded or replayed settlement. Period settlement additionally reports amount, entry count and remaining unpaid balance.",
             "content": {
               "application/json": {
                 "schema": {
@@ -51153,6 +51247,26 @@
                         "id": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        },
+                        "amount_nanos": {
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "entry_count": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "remaining_unpaid_nanos": {
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "remaining_entry_count": {
+                          "type": "integer",
+                          "minimum": 0
                         }
                       }
                     }
@@ -51162,7 +51276,7 @@
             }
           },
           "400": {
-            "description": "Invalid reference, entry set, or currency mix."
+            "description": "Invalid reference, mixed mode fields, bad currency or cutoff, or amount overflow."
           },
           "401": {
             "description": "Invalid administrative credential."
@@ -51171,7 +51285,7 @@
             "description": "Platform administration required."
           },
           "409": {
-            "description": "Provider or earnings unavailable, changed replay, or duplicate payment reference."
+            "description": "Provider or earnings unavailable, changed replay, duplicate payment reference, or no unpaid earnings in the period."
           },
           "503": {
             "description": "Storage unavailable."
@@ -51458,6 +51572,16 @@
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
             }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
           }
         ],
         "requestBody": {
@@ -51730,6 +51854,254 @@
         }
       }
     },
+    "/v1/decisions": {
+      "post": {
+        "x-niu-implementation": "implemented",
+        "operationId": "createDecision",
+        "summary": "Create one validated structured decision",
+        "description": "Explicit System 1 decision capability. Requires a concrete, workspace-visible Chat model granted to the calling key and explicitly declared structured-output support; workspace pools, Auto policies and codex aliases are rejected so routing cannot silently substitute a generated response for a decision. The caller supplies a bounded input and a closed, flat output schema of 1-16 string, boolean, integer or number properties. Exactly {\"abstain\":true} is an explicit abstention and is returned as a null decision; any other document must satisfy the schema exactly. Invalid, missing, timed-out or over-bound output is rejected with x-niu-decision-outcome/x-niu-decision-failure evidence and never falls back to another response type. The model is called once, without transport retry, through ordinary inference admission; key grants, workspace spending caps, billing, guardrails, rate/concurrency limits and cancellation still apply. Niu builds a bounded prompt from schema metadata and caller input only; it does not include Provider aliases, credentials, procurement prices, installation margins or other internal prompts, and it disables ordinary Logs payload capture for the nested call. The response may omit a decision when the model abstains; inspect evidence and the x-niu-attempt-id generation record for usage and authoritative customer charges. This is not calibrated probability evidence, task-quality evidence, a streaming API, idempotency or a guarantee of live model behavior.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model",
+                  "input",
+                  "output_schema"
+                ],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "One concrete workspace Chat model alias. pool/ and codex/ aliases are rejected."
+                  },
+                  "input": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "UTF-8 text; at most 16 KiB serialized."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Arbitrary JSON object; at most 16 KiB serialized."
+                      }
+                    ]
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "type",
+                      "properties",
+                      "required",
+                      "additionalProperties"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "const": "object"
+                      },
+                      "properties": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "maxProperties": 16,
+                        "additionalProperties": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "string",
+                                "boolean",
+                                "integer",
+                                "number"
+                              ]
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "enum": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "minimum": {
+                              "type": "number"
+                            },
+                            "maximum": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      },
+                      "required": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 16,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "boolean",
+                        "const": false
+                      }
+                    }
+                  },
+                  "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 50,
+                    "maximum": 5000,
+                    "default": 2000
+                  },
+                  "max_output_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024,
+                    "default": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The model returned a schema-valid decision, or an explicit abstention. A null decision is an abstention, never a missing decision promoted to a label.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "decision",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "decision": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "Validated decision object, or null for an explicit abstention."
+                    },
+                    "evidence": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "outcome",
+                        "model",
+                        "calls",
+                        "latency_ms",
+                        "tokens_estimated",
+                        "timeout_ms",
+                        "max_output_tokens"
+                      ],
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "decided",
+                            "abstained"
+                          ]
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "calls": {
+                          "type": "integer",
+                          "const": 1
+                        },
+                        "input_tokens": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "output_tokens": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "tokens_estimated": {
+                          "type": "boolean"
+                        },
+                        "latency_ms": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "timeout_ms": {
+                          "type": "integer"
+                        },
+                        "max_output_tokens": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or unbounded request, pool/Auto alias, unsupported input shape, or invalid closed output_schema."
+          },
+          "401": {
+            "description": "Missing, expired or revoked credential"
+          },
+          "403": {
+            "description": "The key is not authorized to invoke models or the request is denied by policy"
+          },
+          "404": {
+            "description": "The model is not visible to the workspace or not granted to the key"
+          },
+          "501": {
+            "description": "The model does not declare the Chat and structured-output capabilities required for decisions"
+          },
+          "502": {
+            "description": "Malformed, missing or over-bound model output; the call may have incurred customer charges"
+          },
+          "504": {
+            "description": "The decision call exceeded timeout_ms; the call may have incurred charges or remain unresolved"
+          }
+        },
+        "tags": [
+          "Structured decisions"
+        ],
+        "x-niu-authority": {
+          "audience": "model",
+          "principals": [
+            "workspace_api_key",
+            "console_key_selection"
+          ],
+          "required_capability": "inference",
+          "scope": "workspace"
+        }
+      }
+    },
     "/v1/embeddings": {
       "post": {
         "operationId": "createEmbedding",
@@ -51779,6 +52151,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -51997,6 +52379,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -52680,6 +53072,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -53474,6 +53876,16 @@
               "type": "string",
               "maxLength": 200,
               "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+            }
+          },
+          {
+            "name": "x-niu-routing-context",
+            "in": "header",
+            "required": false,
+            "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
             }
           }
         ],
@@ -57433,7 +57845,7 @@
       "get": {
         "operationId": "listVendorModels",
         "summary": "List model bindings for one Provider API-key configuration",
-        "description": "Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
+        "description": "Management reads include route eligibility in available, an owner_funded flag and the effective access_scope. Owner-funded routes use their funding account and are excluded from shared commercial supply and customer tariffs; personal scope restricts them to that account, while internal scope shares them with every organization on an Internal-use installation. Only internal-scope routes honor their explicit public_catalog publication flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
         "security": [
           {
             "bearerAuth": []
@@ -59399,6 +59811,356 @@
         "tags": [
           "Authentication"
         ],
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/session/invitations": {
+      "post": {
+        "operationId": "acceptMemberInvitation",
+        "summary": "Accept a one-time member invitation",
+        "description": "Authenticated member session required; installation credentials are rejected. Atomically revalidates invitation state, expiry, version, email binding, inviter authority and target scope, then creates the exact invited member role/scope for the caller's account identity and switches the current session to it. No reusable operator access token is issued. The redemption secret is consumed exactly once. Replay by the same account identity returns the completed membership with replayed true; another identity is denied. Existing operator sessions and roles are not broadened. Returns the refreshed session plus accepted invitation metadata. Responses are not cached.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberInvitationToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted or reconciled; the refreshed session is scoped to the invited role and workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "invitation",
+                    "replayed"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "Refreshed session identity."
+                    },
+                    "invitation": {
+                      "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed invitation token."
+          },
+          "403": {
+            "description": "Signed-in account email does not match the invitation, or the inviter no longer has authority."
+          },
+          "404": {
+            "description": "Invitation is invalid, expired, canceled or already used by another identity."
+          },
+          "409": {
+            "description": "The account already belongs to the organization; change the existing member instead."
+          },
+          "413": {
+            "description": "Body exceeds the bounded request size."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}/invitations": {
+      "get": {
+        "operationId": "listMemberInvitations",
+        "summary": "List scoped member invitations",
+        "description": "Current organization Owner or installation administrator only. Returns at most 100 recent invitations visible in the caller's scope: project-scoped Owners see only their workspace's invitations, while organization-wide authority sees organization-wide and workspace invitations. Redemption secrets and token digests are never returned. Status is derived from acceptance, cancellation and current expiry.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped invitation metadata without secrets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Member management requires organization Owner authority."
+          },
+          "404": {
+            "description": "Organization is outside the caller's scope."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "organization"
+        }
+      },
+      "post": {
+        "operationId": "createMemberInvitation",
+        "summary": "Create a one-time member invitation",
+        "description": "Current organization Owner or installation administrator only. Creates a short-lived, purpose-bound invitation for one email, role and workspace/organization scope. The response returns the redemption token exactly once and stores only its SHA-256 digest. A new invitation for the same organization, workspace and email replaces any earlier pending invitation, invalidating its link. This installation has no configured email provider: delivery is `not_configured`, no email is sent, and the owner receives a copyable one-time link. The invitation cannot grant broader rights than the caller may assign, and an email that already has active access in the organization is rejected. No reusable access token or session is created. Responses are not cached.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberInvitationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation created; the redemption token is returned once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_CreatedMemberInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email, role, scope or expiry."
+          },
+          "403": {
+            "description": "Member management requires organization Owner authority."
+          },
+          "404": {
+            "description": "Organization or workspace is outside the caller's scope."
+          },
+          "409": {
+            "description": "The email already belongs to an active member of this organization."
+          },
+          "413": {
+            "description": "Body exceeds the bounded request size."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/invitations/preview": {
+      "post": {
+        "operationId": "previewMemberInvitation",
+        "summary": "Preview a signed-in recipient's invitation",
+        "description": "Authenticated member session required; installation credentials are rejected. Resolves one invitation secret supplied in the request body so it does not appear in a request path. Returns the inviting organization, workspace, role, intended email, expiry, lifecycle status and whether the current account email matches. The invitation token is never returned. Acceptance still requires an exact email match and a pending unexpired invitation.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberInvitationToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation metadata and the caller's binding state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/handler_operations_json_MemberInvitationPreview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed invitation token."
+          },
+          "403": {
+            "description": "Member session required."
+          },
+          "404": {
+            "description": "Invitation is invalid, expired, canceled or already used."
+          },
+          "413": {
+            "description": "Body exceeds the bounded request size."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/invitations/{invitation}": {
+      "delete": {
+        "operationId": "cancelMemberInvitation",
+        "summary": "Cancel a pending member invitation",
+        "description": "Current organization Owner or installation administrator with authority over the invitation's exact scope. Cancellation prevents further redemption and records an immutable lifecycle event. Repeated cancellation is idempotent. Accepted invitations cannot be canceled here because the resulting member must be managed in the member list. Foreign and organization-wide invitations outside a project-scoped caller's authority are concealed with 404.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "invitation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Invitation is canceled or was already canceled."
+          },
+          "400": {
+            "description": "Invalid invitation reference."
+          },
+          "403": {
+            "description": "Member management requires organization Owner authority."
+          },
+          "404": {
+            "description": "Invitation is outside the caller's scope."
+          },
+          "409": {
+            "description": "Invitation was already accepted; manage the member instead."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
         "x-niu-authority": {
           "audience": "console",
           "principals": [
@@ -65234,7 +65996,7 @@
       "get": {
         "operationId": "getWorkspaceIncidentEvent",
         "summary": "Reconcile an incident event in the current workspace",
-        "description": "Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state and recovery time. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.",
+        "description": "Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state, recovery time and the current lifecycle event's durable notification state for this exact workspace. notification reports not_configured, authority_inactive, queued, sending, delivered, failed or partial from enabled incident subscriptions and current delegation; a 2xx receiver acknowledgement is not processing or task success. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.",
         "security": [
           {
             "bearerAuth": []
@@ -65269,7 +66031,8 @@
                         "model",
                         "owner_funded",
                         "status",
-                        "recovered_at"
+                        "recovered_at",
+                        "notification"
                       ],
                       "properties": {
                         "reference": {
@@ -65294,6 +66057,77 @@
                             "null"
                           ],
                           "format": "date-time"
+                        },
+                        "notification": {
+                          "type": "object",
+                          "required": [
+                            "state",
+                            "event",
+                            "subscribers",
+                            "authorized",
+                            "delivered",
+                            "failed",
+                            "cancelled",
+                            "queued",
+                            "sending",
+                            "last_attempt_at"
+                          ],
+                          "properties": {
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "not_configured",
+                                "authority_inactive",
+                                "queued",
+                                "sending",
+                                "delivered",
+                                "failed",
+                                "partial"
+                              ]
+                            },
+                            "event": {
+                              "type": "string",
+                              "enum": [
+                                "opened",
+                                "resolved"
+                              ]
+                            },
+                            "subscribers": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "authorized": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "delivered": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "cancelled": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "queued": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "sending": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "last_attempt_at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date-time"
+                            }
+                          }
                         }
                       }
                     }
@@ -65973,7 +66807,7 @@
         "x-niu-implementation": "implemented",
         "operationId": "previewWorkspacePool",
         "summary": "Validate a workspace model policy without dispatch",
-        "description": "Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters and priority/weight bands used by selection. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.",
+        "description": "Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters, versioned strategy and priority/weight bands used by selection. Context traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output and reasoning controls that the selected protocol cannot express are rejected explicitly instead of being silently dropped. In customer-price mode, only eligible candidates with a comparable customer selling price are ranked; missing or incomparable prices stay explicitly unknown and are never treated as free. The evaluation uses the strategy's explicit currency, unit, input-token and output-token assumptions and includes the selected whole-request context tier, request fee and minimum charge. Selection is deterministic: lower estimate, then higher priority, then higher weight, then alias order. When no candidate has a comparable price, selection falls back to priority/weight and reports why. In Auto mode, preview evaluates optional task/stage caller context against response-compatible paths without invoking the decider. It reports whether runtime would select from context, require the bounded decider, fall back or reject, plus the decider grant, comparable-price and input-bound checks. Preview calls are always zero and never dispatch inference or incur a decision charge. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. Provider procurement prices, offers and margins are never read. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate actual charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.",
         "security": [
           {
             "bearerAuth": []
@@ -66011,6 +66845,9 @@
                         "rule_count": {
                           "type": "integer"
                         },
+                        "strategy": {
+                          "type": "object"
+                        },
                         "simulation": {
                           "type": "object",
                           "properties": {
@@ -66038,6 +66875,53 @@
                                 "no_eligible_candidates",
                                 "candidates"
                               ]
+                            },
+                            "strategy": {
+                              "type": "object"
+                            },
+                            "selection_basis": {
+                              "type": "string",
+                              "enum": [
+                                "not_evaluated",
+                                "priority_weight",
+                                "priority_weight_fallback",
+                                "customer_price",
+                                "auto_context",
+                                "auto_decider_required",
+                                "auto_rejected"
+                              ]
+                            },
+                            "selected_path": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Auto path selected deterministically from caller context. Null when the runtime would require the decider, fall back or reject."
+                            },
+                            "selected_candidate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "fallback_reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "price_evaluation": {
+                              "type": [
+                                "object",
+                                "null"
+                              ]
+                            },
+                            "decision": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "description": "Bounded Auto decision evidence from preview. Preview reports calls as zero and live_dispatch as false because it never invokes the decider."
                             },
                             "live_dispatch": {
                               "type": "boolean",
@@ -66078,6 +66962,18 @@
                                         "minimum": 0
                                       }
                                     }
+                                  },
+                                  "estimated_customer_charge_nanos": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "price_unknown_reason": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 }
                               }
@@ -66211,7 +67107,7 @@
         "x-niu-implementation": "implemented",
         "operationId": "setWorkspacePool",
         "summary": "Create or replace a workspace model policy",
-        "description": "Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. This operation does not invoke a model. Read back the saved revision. Restore a prior configuration using the current expected revision.",
+        "description": "Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. The optional versioned strategy must be version 1 priority/weight or customer-price, or version 2 Auto. Version 1 customer-price mode requires explicit currency, unit, input-token and output-token assumptions. Version 2 Auto requires 2-8 declared response-compatible paths that reference top-level candidates, and an optional decider with an explicit customer currency, timeout, single-call, token and customer-charge bounds. The decider model must be a visible Chat model authorized for the saving key. Auto paths never add model grants. This operation does not invoke a model or resolve prices. Read back the saved revision. Restore a prior configuration using the current expected revision.",
         "security": [
           {
             "bearerAuth": []
@@ -66381,7 +67277,7 @@
         "x-niu-implementation": "implemented",
         "operationId": "getWorkspacePoolSelections",
         "summary": "Read the latest 100 workspace pool selections",
-        "description": "Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.",
+        "description": "Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Auto selections include bounded decision outcome, path, fallback reason, failure, calls, tokens, latency and estimated customer decision charge when available; missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.",
         "security": [
           {
             "bearerAuth": []
@@ -66445,6 +67341,19 @@
                               "null"
                             ],
                             "description": "Returned HTTP status, not terminal stream completion or task acceptance."
+                          },
+                          "reference": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decision": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "Bounded Auto decision outcome, path, fallback or failure reason, calls, tokens, latency and estimated customer decision charge. Null for non-Auto selections. No prompts, content, Provider identifiers or procurement prices."
                           }
                         }
                       }
@@ -66524,12 +67433,29 @@
                         "usage_window",
                         "allowed_cidrs",
                         "management_capabilities",
-                        "invocation_allowed"
+                        "invocation_allowed",
+                        "invocation_protocols"
                       ],
                       "properties": {
                         "invocation_allowed": {
                           "type": "boolean",
                           "description": "Current credential invocation authority, independent of discovery and resource management."
+                        },
+                        "invocation_protocols": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "chat",
+                              "responses",
+                              "messages",
+                              "content",
+                              "decisions",
+                              "embeddings",
+                              "video"
+                            ]
+                          },
+                          "description": "Exact approved model interfaces. An interface outside this list is denied even when invocation_allowed is true."
                         },
                         "object": {
                           "type": "string",
@@ -67159,7 +68085,7 @@
       "get": {
         "operationId": "listWorkspaceIncidents",
         "summary": "Read active upstream incidents affecting this workspace",
-        "description": "Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. No upstream requests or mutations. Cache-Control no-store.",
+        "description": "Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. notifications states whether this exact workspace has an enabled, currently authorized incident receiver and whether the current lifecycle event is queued, sending, acknowledged, failed or not configured; an absent receiver is never reported as sent. No upstream requests or mutations. Cache-Control no-store.",
         "security": [
           {
             "bearerAuth": []
@@ -67185,7 +68111,8 @@
                   "type": "object",
                   "required": [
                     "data",
-                    "more"
+                    "more",
+                    "notifications"
                   ],
                   "properties": {
                     "data": {
@@ -67209,6 +68136,76 @@
                     },
                     "more": {
                       "type": "boolean"
+                    },
+                    "notifications": {
+                      "type": "object",
+                      "required": [
+                        "state",
+                        "incidents",
+                        "subscribers",
+                        "authorized",
+                        "delivered",
+                        "failed",
+                        "cancelled",
+                        "queued",
+                        "sending",
+                        "not_configured",
+                        "authority_inactive"
+                      ],
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "not_configured",
+                            "authority_inactive",
+                            "delivered",
+                            "failed",
+                            "sending",
+                            "queued"
+                          ]
+                        },
+                        "incidents": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "subscribers": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "authorized": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "delivered": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "cancelled": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "queued": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sending": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "not_configured": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "authority_inactive": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
                     }
                   }
                 }
@@ -72162,6 +73159,212 @@
               "candidates",
               "reject"
             ]
+          },
+          "strategy": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Versioned selection strategy. Omitted legacy configurations use version 1 priority/weight. Version 1 supports priority/weight and customer price. Version 2 requires Auto with 2-8 declared response-compatible paths and an optional bounded decider. Auto evaluates caller routing context first and invokes the decider only when no context path matches. The decider may return only a declared, request-compatible path; unknown or incompatible decisions are failures, never silent substitutions. Missing or incomparable customer prices stay unknown and are never treated as free. Provider procurement rates never participate.",
+            "required": [
+              "version",
+              "mode"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "priority_weight",
+                  "customer_price",
+                  "auto"
+                ]
+              },
+              "customer_price": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Required exactly when version is 1 and mode is customer_price. Estimates an ordinary request in one explicit currency and unit. Estimates include the selected whole-request context tier, the request fee and the minimum charge; cached and reasoning discounts are never assumed. Ties use higher priority, then higher weight, then alias order.",
+                "required": [
+                  "currency",
+                  "unit",
+                  "input_tokens",
+                  "output_tokens"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "nanounits_per_million_tokens"
+                    ]
+                  },
+                  "input_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  "output_tokens": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                  }
+                }
+              },
+              "auto": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Required exactly when version is 2 and mode is auto. Paths reference top-level candidate aliases so Auto cannot expand the saved model inventory or the caller's grants. Caller context (task/stage) is evaluated before any decider call. The optional decider runs once, with the caller's key, grants and spending authority, under the declared timeout, token and customer-charge bounds. If the decider abstains, fails, times out, is cancelled or returns an unknown or response-incompatible path, the configured action either falls back to deterministic priority/weight or rejects the request before dispatch.",
+                "required": [
+                  "paths"
+                ],
+                "properties": {
+                  "paths": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "response_type",
+                        "candidates"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                          "maxLength": 64
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 280
+                        },
+                        "response_type": {
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "structured",
+                            "embedding"
+                          ]
+                        },
+                        "candidates": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 64,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "task": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                            "maxLength": 64
+                          }
+                        },
+                        "stage": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                            "maxLength": 64
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "decider": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional single-round semantic decider. The model must be a visible Chat model granted to the invoking key and have a comparable customer selling price in the declared currency and unit; otherwise no paid call is made and the configured failure action applies. max_calls is fixed at one. max_input_tokens bounds the constructed decision prompt by a character estimate, not exact tokenization. max_output_tokens bounds the decision completion. max_spend_nanos is a customer-charge ceiling verified from the current customer price before the call and from reported usage afterwards. A missing, foreign-currency or non-nanounit customer price leaves the bound unverifiable and prevents the call.",
+                    "required": [
+                      "model",
+                      "currency",
+                      "timeout_ms",
+                      "max_calls",
+                      "max_input_tokens",
+                      "max_output_tokens",
+                      "max_spend_nanos",
+                      "min_confidence"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "timeout_ms": {
+                        "type": "integer",
+                        "minimum": 50,
+                        "maximum": 5000
+                      },
+                      "max_calls": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1
+                      },
+                      "max_input_tokens": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096
+                      },
+                      "max_output_tokens": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      },
+                      "max_spend_nanos": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000
+                      },
+                      "min_confidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "on_abstain": {
+                        "type": "string",
+                        "enum": [
+                          "fallback",
+                          "reject"
+                        ]
+                      },
+                      "on_failure": {
+                        "type": "string",
+                        "enum": [
+                          "fallback",
+                          "reject"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -76658,8 +77861,20 @@
               "action",
               "model",
               "group_id",
-              "url",
               "kind"
+            ],
+            "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+            "oneOf": [
+              {
+                "required": [
+                  "url"
+                ]
+              },
+              {
+                "required": [
+                  "workspace_asset_id"
+                ]
+              }
             ],
             "properties": {
               "action": {
@@ -76677,6 +77892,11 @@
                 "type": "string",
                 "format": "uri",
                 "writeOnly": true
+              },
+              "workspace_asset_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Active workspace material; resolved to a short-lived capability only at dispatch."
               },
               "name": {
                 "type": "string"
@@ -79689,7 +80909,17 @@
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+            "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "commercial",
+              "personal",
+              "internal"
+            ],
+            "readOnly": true,
+            "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
           },
           "supplier": {
             "type": [
@@ -79763,7 +80993,15 @@
           "personal_organization_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+            "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "internal"
+            ],
+            "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
           },
           "create_supplier": {
             "type": "boolean",
@@ -79845,7 +81083,7 @@
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+            "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
           },
           "capabilities": {
             "$ref": "#/components/schemas/handler_operations_json_VendorCapabilities"
@@ -80490,6 +81728,255 @@
           }
         }
       },
+      "handler_operations_json_MemberInvitationToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 512,
+            "description": "One-time invitation secret."
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitation": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "organization_name",
+          "organization_slug",
+          "project_id",
+          "project_name",
+          "project_slug",
+          "role",
+          "recipient_email",
+          "recipient_name",
+          "status",
+          "delivery",
+          "created_at",
+          "expires_at",
+          "accepted_at",
+          "revoked_at",
+          "invited_by"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "project_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "recipient_email": {
+            "type": "string"
+          },
+          "recipient_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "expired",
+              "canceled",
+              "accepted"
+            ]
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "not_configured"
+            ],
+            "description": "No email provider is configured; the one-time link is the supported delivery."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accepted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "invited_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Inviting member name; null for installation administration."
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitationCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "Intended recipient email. Acceptance requires the signed-in account email to match."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "Optional member display name; defaults to the recipient account name."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Workspace scope; null grants organization-wide access and requires organization-wide authority."
+          },
+          "expires_in_seconds": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 2592000,
+            "default": 604800
+          }
+        }
+      },
+      "handler_operations_json_CreatedMemberInvitation": {
+        "type": "object",
+        "required": [
+          "invitation",
+          "token",
+          "accept_path",
+          "delivery"
+        ],
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+          },
+          "token": {
+            "type": "string",
+            "description": "Returned once; only the digest is stored."
+          },
+          "accept_path": {
+            "type": "string",
+            "description": "Relative dashboard path for the one-time link."
+          },
+          "delivery": {
+            "type": "object",
+            "required": [
+              "state",
+              "email_sent"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "not_configured"
+                ]
+              },
+              "email_sent": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitationPreview": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+          },
+          {
+            "type": "object",
+            "required": [
+              "caller_email",
+              "email_matches",
+              "already_accepted_by_caller"
+            ],
+            "properties": {
+              "caller_email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "email_matches": {
+                "type": "boolean"
+              },
+              "already_accepted_by_caller": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -80740,6 +82227,7 @@
           "name",
           "allowed_models",
           "invocation_allowed",
+          "invocation_protocols",
           "expires_at_ms",
           "last_used_at_ms",
           "revoked",
@@ -80768,6 +82256,22 @@
           "invocation_allowed": {
             "type": "boolean",
             "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+          },
+          "invocation_protocols": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "responses",
+                "messages",
+                "content",
+                "decisions",
+                "embeddings",
+                "video"
+              ]
+            },
+            "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
           },
           "expires_at_ms": {
             "type": [
@@ -80908,6 +82412,18 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 10000000
+              },
+              "task": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                "maxLength": 64,
+                "description": "Optional caller task context for Auto preview. It uses the same bounded normalization as x-niu-routing-context. Preview never invokes the decider."
+              },
+              "stage": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                "maxLength": 64,
+                "description": "Optional caller workflow-stage context for Auto preview."
               }
             }
           }
@@ -81520,6 +83036,10 @@
       "description": "OpenAI-compatible Chat requests, including dashboard-key invocation."
     },
     {
+      "name": "Structured decisions",
+      "description": "Explicit System 1 decisions validated against a closed caller schema. Separate from Chat generation and Auto path selection."
+    },
+    {
       "name": "Responses",
       "description": "Responses API requests."
     },
@@ -81550,6 +83070,10 @@
     {
       "name": "Model routing",
       "description": "Published routing snapshots and candidate pools."
+    },
+    {
+      "name": "Member invitations",
+      "description": "Purpose-bound one-time invitations to join an organization or workspace. Acceptance requires an existing signed-in account with the intended email; no reusable member credential is issued."
     },
     {
       "name": "Authentication",
@@ -81649,6 +83173,7 @@
         "Workspace model routing",
         "Model discovery",
         "Chat completions",
+        "Structured decisions",
         "Responses",
         "Messages and GenerateContent",
         "Embeddings",
@@ -81667,6 +83192,7 @@
     {
       "name": "Authentication and access",
       "tags": [
+        "Member invitations",
         "Authentication",
         "Users and sessions",
         "API keys"

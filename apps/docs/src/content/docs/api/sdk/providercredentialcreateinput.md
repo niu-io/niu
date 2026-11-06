@@ -19,5 +19,7 @@ export type ProviderCredentialCreateInput = {
     supplier_id?: string;
     /** Explicit account paying upstream directly; saved atomically with this credential. */
     personal_organization_id?: string;
+    /** Explicit access: personal is restricted to the funding account; internal is shared with every organization while Internal use is active and rejected in Resale. Omit only for compatibility with an explicit funding account (personal) or Resale shared commercial supply. */
+    access_scope?: 'personal' | 'internal';
 };
 ```

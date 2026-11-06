@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /v1/incidents/{reference}`
 
-Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state and recovery time. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.
+Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state, recovery time and the current lifecycle event's durable notification state for this exact workspace. notification reports not_configured, authority_inactive, queued, sending, delivered, failed or partial from enabled incident subscriptions and current delegation; a 2xx receiver acknowledgement is not processing or task success. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.
 
 Operation: `getWorkspaceIncidentEvent`.
 
@@ -71,7 +71,8 @@ Content type: `application/json`.
         "model",
         "owner_funded",
         "status",
-        "recovered_at"
+        "recovered_at",
+        "notification"
       ],
       "properties": {
         "reference": {
@@ -96,6 +97,77 @@ Content type: `application/json`.
             "null"
           ],
           "format": "date-time"
+        },
+        "notification": {
+          "type": "object",
+          "required": [
+            "state",
+            "event",
+            "subscribers",
+            "authorized",
+            "delivered",
+            "failed",
+            "cancelled",
+            "queued",
+            "sending",
+            "last_attempt_at"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "not_configured",
+                "authority_inactive",
+                "queued",
+                "sending",
+                "delivered",
+                "failed",
+                "partial"
+              ]
+            },
+            "event": {
+              "type": "string",
+              "enum": [
+                "opened",
+                "resolved"
+              ]
+            },
+            "subscribers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "authorized": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "delivered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cancelled": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "queued": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sending": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "last_attempt_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
         }
       }
     }
@@ -125,6 +197,6 @@ Evidence unavailable
 
 ## Behavior and supported scope
 
-Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state and recovery time. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.
+Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state, recovery time and the current lifecycle event's durable notification state for this exact workspace. notification reports not_configured, authority_inactive, queued, sending, delivered, failed or partial from enabled incident subscriptions and current delegation; a 2xx receiver acknowledgement is not processing or task success. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.
 
 **Supported scope:** implemented

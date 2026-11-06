@@ -11,6 +11,9 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type ProviderSettlementInput = {
     idempotency_key: string;
     payment_reference: string;
-    attempt_ids: string[];
+    attempt_ids?: string[];
+    currency?: string;
+    from_ms?: number;
+    cutoff_ms?: number;
 };
 ```

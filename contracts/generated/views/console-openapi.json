@@ -15,7 +15,7 @@
       "get": {
         "operationId": "getAgentAuthorization",
         "summary": "Inspect an authorization request after login",
-        "description": "Requires a current user session. Returns only client name and state, never device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label is self-reported. No-store.",
+        "description": "Requires a current user session. Returns bounded request metadata: client name, state, requested management capabilities and self-reported task context. It never returns the device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label and task are self-reported, not authenticated authority. No-store.",
         "security": [
           {
             "bearerAuth": []
@@ -40,7 +40,8 @@
                       "required": [
                         "client_name",
                         "state",
-                        "capabilities"
+                        "capabilities",
+                        "task"
                       ],
                       "properties": {
                         "client_name": {
@@ -54,6 +55,14 @@
                             "denied",
                             "consumed"
                           ]
+                        },
+                        "task": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 200,
+                          "description": "Self-reported task context supplied by the client. Explain the request but never treat it as an authorization grant."
                         },
                         "capabilities": {
                           "type": "array",
@@ -113,7 +122,7 @@
       "post": {
         "operationId": "decideAgentAuthorization",
         "summary": "Approve or decline an agent connection",
-        "description": "Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models and ttl_seconds, and checks write access to that workspace. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
+        "description": "Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models, ttl_seconds and an explicit invocation_allowed value, and checks write access to that workspace. Approved invocation also records the exact model interfaces; omitted interface scope never defaults to a paid grant. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope, fixed model names, financial boundary and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
         "security": [
           {
             "bearerAuth": []
@@ -192,7 +201,9 @@
                       "organization_id",
                       "workspace_id",
                       "allowed_models",
-                      "ttl_seconds"
+                      "ttl_seconds",
+                      "invocation_allowed",
+                      "invocation_protocols"
                     ]
                   }
                 ],
@@ -224,8 +235,25 @@
                   },
                   "invocation_allowed": {
                     "type": "boolean",
-                    "default": true,
-                    "description": "Whether the issued credential may dispatch inference. False preserves separately granted discovery and management access. Omitted retains legacy invocation authority."
+                    "description": "Required on approval. Whether the issued credential may dispatch inference at all. False preserves separately granted discovery and management access. There is no omitted default; an absent value is rejected."
+                  },
+                  "invocation_protocols": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "chat",
+                        "responses",
+                        "messages",
+                        "content",
+                        "embeddings",
+                        "video"
+                      ]
+                    },
+                    "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
                   }
                 }
               }
@@ -4174,6 +4202,356 @@
         "tags": [
           "Authentication"
         ],
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/session/invitations": {
+      "post": {
+        "operationId": "acceptMemberInvitation",
+        "summary": "Accept a one-time member invitation",
+        "description": "Authenticated member session required; installation credentials are rejected. Atomically revalidates invitation state, expiry, version, email binding, inviter authority and target scope, then creates the exact invited member role/scope for the caller's account identity and switches the current session to it. No reusable operator access token is issued. The redemption secret is consumed exactly once. Replay by the same account identity returns the completed membership with replayed true; another identity is denied. Existing operator sessions and roles are not broadened. Returns the refreshed session plus accepted invitation metadata. Responses are not cached.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberInvitationToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted or reconciled; the refreshed session is scoped to the invited role and workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "invitation",
+                    "replayed"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "Refreshed session identity."
+                    },
+                    "invitation": {
+                      "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed invitation token."
+          },
+          "403": {
+            "description": "Signed-in account email does not match the invitation, or the inviter no longer has authority."
+          },
+          "404": {
+            "description": "Invitation is invalid, expired, canceled or already used by another identity."
+          },
+          "409": {
+            "description": "The account already belongs to the organization; change the existing member instead."
+          },
+          "413": {
+            "description": "Body exceeds the bounded request size."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}/invitations": {
+      "get": {
+        "operationId": "listMemberInvitations",
+        "summary": "List scoped member invitations",
+        "description": "Current organization Owner or installation administrator only. Returns at most 100 recent invitations visible in the caller's scope: project-scoped Owners see only their workspace's invitations, while organization-wide authority sees organization-wide and workspace invitations. Redemption secrets and token digests are never returned. Status is derived from acceptance, cancellation and current expiry.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped invitation metadata without secrets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Member management requires organization Owner authority."
+          },
+          "404": {
+            "description": "Organization is outside the caller's scope."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "organization"
+        }
+      },
+      "post": {
+        "operationId": "createMemberInvitation",
+        "summary": "Create a one-time member invitation",
+        "description": "Current organization Owner or installation administrator only. Creates a short-lived, purpose-bound invitation for one email, role and workspace/organization scope. The response returns the redemption token exactly once and stores only its SHA-256 digest. A new invitation for the same organization, workspace and email replaces any earlier pending invitation, invalidating its link. This installation has no configured email provider: delivery is `not_configured`, no email is sent, and the owner receives a copyable one-time link. The invitation cannot grant broader rights than the caller may assign, and an email that already has active access in the organization is rejected. No reusable access token or session is created. Responses are not cached.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberInvitationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation created; the redemption token is returned once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_CreatedMemberInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email, role, scope or expiry."
+          },
+          "403": {
+            "description": "Member management requires organization Owner authority."
+          },
+          "404": {
+            "description": "Organization or workspace is outside the caller's scope."
+          },
+          "409": {
+            "description": "The email already belongs to an active member of this organization."
+          },
+          "413": {
+            "description": "Body exceeds the bounded request size."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/invitations/preview": {
+      "post": {
+        "operationId": "previewMemberInvitation",
+        "summary": "Preview a signed-in recipient's invitation",
+        "description": "Authenticated member session required; installation credentials are rejected. Resolves one invitation secret supplied in the request body so it does not appear in a request path. Returns the inviting organization, workspace, role, intended email, expiry, lifecycle status and whether the current account email matches. The invitation token is never returned. Acceptance still requires an exact email match and a pending unexpired invitation.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberInvitationToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation metadata and the caller's binding state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/handler_operations_json_MemberInvitationPreview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed invitation token."
+          },
+          "403": {
+            "description": "Member session required."
+          },
+          "404": {
+            "description": "Invitation is invalid, expired, canceled or already used."
+          },
+          "413": {
+            "description": "Body exceeds the bounded request size."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "console",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
+    "/api/v1/invitations/{invitation}": {
+      "delete": {
+        "operationId": "cancelMemberInvitation",
+        "summary": "Cancel a pending member invitation",
+        "description": "Current organization Owner or installation administrator with authority over the invitation's exact scope. Cancellation prevents further redemption and records an immutable lifecycle event. Repeated cancellation is idempotent. Accepted invitations cannot be canceled here because the resulting member must be managed in the member list. Foreign and organization-wide invitations outside a project-scoped caller's authority are concealed with 404.",
+        "tags": [
+          "Member invitations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "invitation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Invitation is canceled or was already canceled."
+          },
+          "400": {
+            "description": "Invalid invitation reference."
+          },
+          "403": {
+            "description": "Member management requires organization Owner authority."
+          },
+          "404": {
+            "description": "Invitation is outside the caller's scope."
+          },
+          "409": {
+            "description": "Invitation was already accepted; manage the member instead."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
         "x-niu-authority": {
           "audience": "console",
           "principals": [
@@ -10912,6 +11290,212 @@
               "candidates",
               "reject"
             ]
+          },
+          "strategy": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Versioned selection strategy. Omitted legacy configurations use version 1 priority/weight. Version 1 supports priority/weight and customer price. Version 2 requires Auto with 2-8 declared response-compatible paths and an optional bounded decider. Auto evaluates caller routing context first and invokes the decider only when no context path matches. The decider may return only a declared, request-compatible path; unknown or incompatible decisions are failures, never silent substitutions. Missing or incomparable customer prices stay unknown and are never treated as free. Provider procurement rates never participate.",
+            "required": [
+              "version",
+              "mode"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "priority_weight",
+                  "customer_price",
+                  "auto"
+                ]
+              },
+              "customer_price": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Required exactly when version is 1 and mode is customer_price. Estimates an ordinary request in one explicit currency and unit. Estimates include the selected whole-request context tier, the request fee and the minimum charge; cached and reasoning discounts are never assumed. Ties use higher priority, then higher weight, then alias order.",
+                "required": [
+                  "currency",
+                  "unit",
+                  "input_tokens",
+                  "output_tokens"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "nanounits_per_million_tokens"
+                    ]
+                  },
+                  "input_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  "output_tokens": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                  }
+                }
+              },
+              "auto": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Required exactly when version is 2 and mode is auto. Paths reference top-level candidate aliases so Auto cannot expand the saved model inventory or the caller's grants. Caller context (task/stage) is evaluated before any decider call. The optional decider runs once, with the caller's key, grants and spending authority, under the declared timeout, token and customer-charge bounds. If the decider abstains, fails, times out, is cancelled or returns an unknown or response-incompatible path, the configured action either falls back to deterministic priority/weight or rejects the request before dispatch.",
+                "required": [
+                  "paths"
+                ],
+                "properties": {
+                  "paths": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "response_type",
+                        "candidates"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                          "maxLength": 64
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 280
+                        },
+                        "response_type": {
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "structured",
+                            "embedding"
+                          ]
+                        },
+                        "candidates": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 64,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "task": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                            "maxLength": 64
+                          }
+                        },
+                        "stage": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                            "maxLength": 64
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "decider": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional single-round semantic decider. The model must be a visible Chat model granted to the invoking key and have a comparable customer selling price in the declared currency and unit; otherwise no paid call is made and the configured failure action applies. max_calls is fixed at one. max_input_tokens bounds the constructed decision prompt by a character estimate, not exact tokenization. max_output_tokens bounds the decision completion. max_spend_nanos is a customer-charge ceiling verified from the current customer price before the call and from reported usage afterwards. A missing, foreign-currency or non-nanounit customer price leaves the bound unverifiable and prevents the call.",
+                    "required": [
+                      "model",
+                      "currency",
+                      "timeout_ms",
+                      "max_calls",
+                      "max_input_tokens",
+                      "max_output_tokens",
+                      "max_spend_nanos",
+                      "min_confidence"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "timeout_ms": {
+                        "type": "integer",
+                        "minimum": 50,
+                        "maximum": 5000
+                      },
+                      "max_calls": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1
+                      },
+                      "max_input_tokens": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096
+                      },
+                      "max_output_tokens": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      },
+                      "max_spend_nanos": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000
+                      },
+                      "min_confidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "on_abstain": {
+                        "type": "string",
+                        "enum": [
+                          "fallback",
+                          "reject"
+                        ]
+                      },
+                      "on_failure": {
+                        "type": "string",
+                        "enum": [
+                          "fallback",
+                          "reject"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -15408,8 +15992,20 @@
               "action",
               "model",
               "group_id",
-              "url",
               "kind"
+            ],
+            "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+            "oneOf": [
+              {
+                "required": [
+                  "url"
+                ]
+              },
+              {
+                "required": [
+                  "workspace_asset_id"
+                ]
+              }
             ],
             "properties": {
               "action": {
@@ -15427,6 +16023,11 @@
                 "type": "string",
                 "format": "uri",
                 "writeOnly": true
+              },
+              "workspace_asset_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Active workspace material; resolved to a short-lived capability only at dispatch."
               },
               "name": {
                 "type": "string"
@@ -18439,7 +19040,17 @@
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+            "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "commercial",
+              "personal",
+              "internal"
+            ],
+            "readOnly": true,
+            "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
           },
           "supplier": {
             "type": [
@@ -18513,7 +19124,15 @@
           "personal_organization_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Platform-administrator-selected account paying the Provider directly. Ownership is created atomically; routes remain private and do not require resale tariffs. Omission preserves shared creation."
+            "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "internal"
+            ],
+            "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
           },
           "create_supplier": {
             "type": "boolean",
@@ -18595,7 +19214,7 @@
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+            "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
           },
           "capabilities": {
             "$ref": "#/components/schemas/handler_operations_json_VendorCapabilities"
@@ -19240,6 +19859,255 @@
           }
         }
       },
+      "handler_operations_json_MemberInvitationToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 512,
+            "description": "One-time invitation secret."
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitation": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "organization_name",
+          "organization_slug",
+          "project_id",
+          "project_name",
+          "project_slug",
+          "role",
+          "recipient_email",
+          "recipient_name",
+          "status",
+          "delivery",
+          "created_at",
+          "expires_at",
+          "accepted_at",
+          "revoked_at",
+          "invited_by"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "organization_slug": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "project_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "recipient_email": {
+            "type": "string"
+          },
+          "recipient_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "expired",
+              "canceled",
+              "accepted"
+            ]
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "not_configured"
+            ],
+            "description": "No email provider is configured; the one-time link is the supported delivery."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accepted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "invited_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Inviting member name; null for installation administration."
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitationCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "Intended recipient email. Acceptance requires the signed-in account email to match."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "Optional member display name; defaults to the recipient account name."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Workspace scope; null grants organization-wide access and requires organization-wide authority."
+          },
+          "expires_in_seconds": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 2592000,
+            "default": 604800
+          }
+        }
+      },
+      "handler_operations_json_CreatedMemberInvitation": {
+        "type": "object",
+        "required": [
+          "invitation",
+          "token",
+          "accept_path",
+          "delivery"
+        ],
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+          },
+          "token": {
+            "type": "string",
+            "description": "Returned once; only the digest is stored."
+          },
+          "accept_path": {
+            "type": "string",
+            "description": "Relative dashboard path for the one-time link."
+          },
+          "delivery": {
+            "type": "object",
+            "required": [
+              "state",
+              "email_sent"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "not_configured"
+                ]
+              },
+              "email_sent": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "handler_operations_json_MemberInvitationPreview": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/handler_operations_json_MemberInvitation"
+          },
+          {
+            "type": "object",
+            "required": [
+              "caller_email",
+              "email_matches",
+              "already_accepted_by_caller"
+            ],
+            "properties": {
+              "caller_email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "email_matches": {
+                "type": "boolean"
+              },
+              "already_accepted_by_caller": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
       "handler_operations_json_WorkspaceDirectoryEntry": {
         "type": "object",
         "required": [
@@ -19490,6 +20358,7 @@
           "name",
           "allowed_models",
           "invocation_allowed",
+          "invocation_protocols",
           "expires_at_ms",
           "last_used_at_ms",
           "revoked",
@@ -19518,6 +20387,22 @@
           "invocation_allowed": {
             "type": "boolean",
             "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+          },
+          "invocation_protocols": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "responses",
+                "messages",
+                "content",
+                "decisions",
+                "embeddings",
+                "video"
+              ]
+            },
+            "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
           },
           "expires_at_ms": {
             "type": [
@@ -19658,6 +20543,18 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 10000000
+              },
+              "task": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                "maxLength": 64,
+                "description": "Optional caller task context for Auto preview. It uses the same bounded normalization as x-niu-routing-context. Preview never invokes the decider."
+              },
+              "stage": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                "maxLength": 64,
+                "description": "Optional caller workflow-stage context for Auto preview."
               }
             }
           }

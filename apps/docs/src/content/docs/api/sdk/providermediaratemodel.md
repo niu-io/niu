@@ -19,5 +19,7 @@ export type ProviderMediaRateModel = {
     channel: string;
     resolutions: string[];
     reference_video: boolean;
+    /** Billing unit derived from the model's validated output estimator; null when unavailable. */
+    meter: string | null;
 };
 ```
