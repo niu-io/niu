@@ -1,4 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { usePlatformCurrency } from '@/shell/platform-currency';
 import { formatUnitAtoms, money } from '@/lib/money';
 import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -7,7 +8,14 @@ import type { ProjectKey } from '../api';
 /** Read-only lifetime allowances. Editing lives in the single key settings surface. */
 export default function KeySpendingLimits({ projectKey }: { projectKey: ProjectKey }) {
   const { t: uiT } = useUILocale();
-  const rows = (projectKey.spending_limits ?? []).filter(row => row.limit_nanos !== null || BigInt(/^\d+$/.test(row.committed_nanos) ? row.committed_nanos : '0') > 0n);
+  const { currency: platformCurrency } = usePlatformCurrency();
+  const configuredRows = (projectKey.spending_limits ?? []).filter(row => row.limit_nanos !== null || BigInt(/^\d+$/.test(row.committed_nanos) ? row.committed_nanos : '0') > 0n);
+  // A key without an explicit limit is unlimited in the platform currency; it
+  // is not a key with no billing currency. Show that default instead of an
+  // empty state that contradicts the settings editor.
+  const rows = platformCurrency && !configuredRows.some(row => row.currency === platformCurrency)
+    ? [...configuredRows, { currency: platformCurrency, limit_nanos: null, committed_nanos: '0', remaining_nanos: null }]
+    : configuredRows;
   const unit = projectKey.unit_spending_limit ?? null;
   const showUnit = Boolean(unit && (unit.limit_atoms !== null || unit.unit !== null || BigInt(unit.committed_atoms) > 0n));
   const unitName = unit?.unit?.name ?? uiT("Credits");
