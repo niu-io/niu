@@ -102,11 +102,8 @@ export const workspaceRoute: RouteObject = {
     {
       id: 'workspace-video-provider',
       path: 'video/:provider/:section?',
-      lazy: bindLazy(routeImporters.providerMediaTools, {
-        destination: 'Workspace',
-        navTo: 'video',
-        title: { en: 'Video settings', zh: '视频设置' },
-      }),
+      loader: legacyPathRedirectLoader('../assets?tab=materials'),
+      element: <LegacyPathRedirect to="../assets?tab=materials" />,
     },
     {
       id: 'workspace-keys-new',
@@ -204,11 +201,8 @@ export const workspaceRoute: RouteObject = {
     {
       id: 'workspace-library',
       path: 'library',
-      lazy: bindLazy(routeImporters.library, {
-        destination: 'Workspace',
-        navTo: 'library',
-        title: { en: 'Library', zh: '素材库' },
-      }),
+      loader: legacyPathRedirectLoader('../assets'),
+      element: <LegacyPathRedirect to="../assets" />,
     },
     {
       id: 'workspace-executions',

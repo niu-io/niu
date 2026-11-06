@@ -161,12 +161,15 @@ export function resolveLegacyRedirectTarget(
     if (section === 'providers-admin' || section === 'vendors') {
       return `/admin/providers${suffix}`;
     }
-    if (section === 'provider-capabilities' || (section === 'video' && parts.length === 3)) {
+    if (section === 'provider-capabilities' || section === 'video') {
       const merged = new URLSearchParams('tab=materials');
       const incoming = new URLSearchParams(search);
       incoming.forEach((value, key) => merged.set(key, value));
       const queryStr = merged.toString();
       return `/workspaces/${encodeURIComponent(ws)}/assets${queryStr ? `?${queryStr}` : ''}${hash}`;
+    }
+    if (section === 'library') {
+      return `/workspaces/${encodeURIComponent(ws)}/assets${suffix}`;
     }
     if (section === 'models') {
       const query = new URLSearchParams(search);
