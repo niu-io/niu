@@ -58,7 +58,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
       {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="gap-2 px-2" aria-label={uiT("Account menu")}>{profile ? <Avatar className="size-6"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6" aria-hidden="true">{avatarInitial}</span>}<span className="max-w-24 truncate text-sm font-medium">{label}</span><ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
         {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
       </DropdownMenuTrigger>}
-        <DropdownMenuContent onEscapeKeyDown={event => event.stopPropagation()} className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
+        <DropdownMenuContent className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
           {mobile && <>
             {!supplierOnly && <>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><FolderKey />{t('Workspace', '工作空间')}</Link></DropdownMenuItem>
