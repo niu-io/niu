@@ -142,6 +142,15 @@ export const adminRoute: RouteObject = {
       }),
     },
     {
+      id: 'admin-incidents',
+      path: 'incidents',
+      lazy: bindLazy(routeImporters.incidents, {
+        destination: 'Administration',
+        navTo: '/admin/incidents',
+        title: { en: 'Connection incidents', zh: '连接事故' },
+      }),
+    },
+    {
       id: 'admin-branding',
       path: 'branding',
       lazy: bindLazy(routeImporters.branding, {

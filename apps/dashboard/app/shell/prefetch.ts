@@ -66,6 +66,7 @@ export const routeImporters = {
   customers: memoImport('customers', () => import('@/features/customers/page')),
   retailPricing: memoImport('retailPricing', () => import('@/features/retail-pricing/page')),
   auditLogs: memoImport('auditLogs', () => import('@/features/audit-logs/page')),
+  incidents: memoImport('incidents', () => import('@/features/incidents/page')),
   branding: memoImport('branding', () => import('@/features/branding/page')),
   payments: memoImport('payments', () => import('@/features/platform/page')),
   providers: memoImport('providers', () => import('@/features/providers/page')),
