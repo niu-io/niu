@@ -72,6 +72,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/admin/routing",
         "/admin/pools",
         "/admin/audit",
+        "/admin/incidents",
         "/admin/model-pools",
         "/admin/financial-reports",
         "/admin/account-balances",
