@@ -109,7 +109,7 @@ export function resolveLegacyRedirectTarget(
     if (parts.length === 1) return `/admin/providers${suffix}`;
     const sub = parts[1];
     if (sub === 'commercial' || sub === 'financial-reports') return `/admin/reports${suffix}`;
-    if (sub === 'customer-accounts' || sub === 'account-balances') return `/admin/balances${suffix}`;
+    if (sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') return `/admin/customers${suffix}`;
     if (sub === 'route-pools' || sub === 'model-pools' || sub === 'pools') return `/admin/routing${suffix}`;
     if (sub === 'payment-gateways') return `/admin/payments${suffix}`;
     if (sub === 'audit-logs') return `/admin/audit${suffix}`;

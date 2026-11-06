@@ -112,6 +112,14 @@ export default function LoginRoute() {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (mode === 'token') {
+      if (!accessToken.trim()) { setLocalError(t('Enter an access token.', '请输入访问令牌。')); return; }
+    } else {
+      const email = username.trim();
+      if (!email) { setLocalError(t('Enter your email address.', '请输入邮箱地址。')); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setLocalError(t('Enter a valid email address.', '请输入有效的邮箱地址。')); return; }
+      if (!password) { setLocalError(t('Enter your password.', '请输入密码。')); return; }
+    }
     void signIn(mode);
   };
 
@@ -153,10 +161,15 @@ export default function LoginRoute() {
           <h1>{t('Sign in', '登录')}</h1>
           <p className="dashboard-login-intro">{t('Sign in to manage workspaces, API keys, model routes, and billing.', '登录以管理工作空间、API 密钥、模型路由与计费。')}</p>
         </div>
-        <form className="dashboard-login-form" onSubmit={submit}>
+        <form className="dashboard-login-form" onSubmit={submit} noValidate>
           {returnTo.startsWith('/connect') && (
             <p className="dashboard-login-status" role="status">
               {t('Sign in to review and authorize your coding agent connection.', '请先登录以审核并授权您的 Coding Agent 连接。')}
+            </p>
+          )}
+          {returnTo.startsWith('/invite/') && (
+            <p className="dashboard-login-status" role="status">
+              {t('Sign in with the email this invitation was issued to. You will review the organization, workspace scope and role before accepting.', '请使用收到邀请的邮箱登录。接受前您将查看组织、工作空间范围与角色。')}
             </p>
           )}
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
@@ -178,6 +191,7 @@ export default function LoginRoute() {
                 disabled={submitting}
                 required
                 maxLength={256}
+                aria-describedby="login-error"
               />
               <p className="dashboard-login-hint">{t('Use the temporary access token your workspace owner shared with you.', '请使用工作空间所有者分享给您的临时访问令牌。')}</p>
             </div>
@@ -196,6 +210,7 @@ export default function LoginRoute() {
                   onChange={event => setUsername(event.target.value)}
                   value={username}
                   required
+                  aria-describedby="login-error"
                 />
               </div>
               <div className="dashboard-login-field">
@@ -209,12 +224,13 @@ export default function LoginRoute() {
                   type="password"
                   value={password}
                   required
+                  aria-describedby="login-error"
                 />
               </div>
             </>
           ))}
           {(localError || context.error) && (
-            <p className="dashboard-login-error" role="alert">{localError || context.error}</p>
+            <p id="login-error" className="dashboard-login-error" role="alert">{t(localError || context.error)}</p>
           )}
           {configurationFailed && (
             <div className="dashboard-login-unavailable">
@@ -245,6 +261,9 @@ export default function LoginRoute() {
           </Button>}
         </form>
         {memberLogin && mode === 'password' && !configurationFailed && <p className="dashboard-login-hint dashboard-login-access-help">{t('Need an account or forgot your password? Ask your organization owner or installation administrator for help.', '需要账号或忘记密码？请联系组织所有者或实例管理员获取帮助。')}</p>}
+        {!tokenLogin && !signInNotConfigured && !configurationFailed && (
+          <p className="dashboard-login-hint"><Link className="underline underline-offset-2" to="/installation">{t('Installation administration', '实例管理')}</Link></p>
+        )}
         {(showModeSwitch || demoLogin) && (
           <div className="dashboard-login-secondary">
             {mode === 'password' && tokenLogin && (

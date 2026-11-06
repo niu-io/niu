@@ -1,6 +1,8 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { Link } from 'react-router';
+import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { formatExactUnitAtoms, formatUnitAtoms, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
@@ -8,7 +10,6 @@ import { mediaQuantity, mediaQuantityInput } from '@/lib/media-price';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { request } from '@/features/providers/api';
+import { registeredRetailModelChoices, type RetailModelChoice } from './api';
 
 type UnitTextPrice = {
   prompt_rate: string;
@@ -75,6 +77,62 @@ type UnitPlatformConfig = {
   text_tariffs?: UnitTextTariffRecord[];
 };
 
+function UnitRate({ atoms, unitName, precision }: { atoms: string; unitName: string; precision: number }) {
+  const summary = formatUnitAtoms(atoms, unitName, precision);
+  const exact = formatExactUnitAtoms(atoms, unitName, precision);
+  return <>{summary}{exact !== summary && <span className="block text-xs text-muted-foreground">{exact}</span>}</>;
+}
+
+function quantityText(value: { numerator: string; denominator: string }) {
+  if (value.denominator !== '1') return mediaQuantityInput(value);
+  return value.numerator.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function DialogModelPicker({
+  id,
+  modelAlias,
+  onSelect,
+  choices,
+  loading,
+  error,
+  emptyCopy,
+  ariaLabel,
+}: {
+  id: string;
+  modelAlias: string;
+  onSelect: (choice: RetailModelChoice) => void;
+  choices: RetailModelChoice[];
+  loading: boolean;
+  error: string;
+  emptyCopy: ReactNode;
+  ariaLabel: string;
+}) {
+  const { t: uiT } = useUILocale();
+  const [query, setQuery] = useState('');
+  const visible = choices.filter(choice => choice.model_alias.toLowerCase().includes(query.trim().toLowerCase()));
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button id={id} type="button" variant="outline" className="w-full justify-between" disabled={loading || !!error} aria-label={ariaLabel}>
+            <span className="min-w-0 truncate">{modelAlias || (loading ? uiT("Loading registered models…") : uiT("Choose registered model"))}</span>
+            <ChevronDown className="size-4 shrink-0" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto">
+          <Input aria-label={uiT("Filter registered models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} />
+          <DropdownMenuRadioGroup value={modelAlias} onValueChange={value => { const choice = choices.find(item => item.model_alias === value); if (choice) onSelect(choice); }}>
+            {visible.map(choice => <DropdownMenuRadioItem key={choice.model_alias} value={choice.model_alias}>{choice.model_alias}</DropdownMenuRadioItem>)}
+          </DropdownMenuRadioGroup>
+          {!loading && !visible.length && <p className="p-2 text-sm text-muted-foreground">{uiT("No registered models match this filter.")}</p>}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {!loading && !error && !choices.length && <Alert><AlertDescription className="flex min-w-0 flex-wrap items-center gap-2"><span className="min-w-0">{emptyCopy}</span><Link className="font-medium text-primary underline underline-offset-4" to="/admin/providers" target="_blank" rel="noopener noreferrer">{uiT("Configure a Provider model (opens in a new tab)")}</Link></AlertDescription></Alert>}
+      {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
+    </>
+  );
+}
+
 export function BrandedUnitTariffsSection({ token, filter }: { token: string; filter: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const scope = token || 'public';
@@ -123,24 +181,15 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
   const unitName = config?.definition?.name ?? uiT("Niu Credits");
   const precision = config?.definition?.display_precision ?? 2;
   const query = filter.trim().toLowerCase();
-  const visibleText = (config?.text_tariffs ?? []).filter(t => t.model_alias.toLowerCase().includes(query));
+  const allText = config?.text_tariffs ?? [];
+  const visibleText = allText.filter(t => t.model_alias.toLowerCase().includes(query));
   const visibleMedia = mediaTariffs.filter(t => t.model_alias.toLowerCase().includes(query));
+  const hasTariffs = allText.length > 0 || mediaTariffs.length > 0;
 
   return (
-    <section className="space-y-4 rounded-lg bg-muted/30 p-4" aria-label={uiT("Branded Credits consumption tariffs")}>
+    <section className="space-y-4" aria-label={uiF("{0} consumption tariffs", [unitName])}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold">{uiT("Branded Credits consumption tariffs (")}{unitName})</h2>
-            {config && (
-              <Badge variant={config.billing_mode === 'credits' ? 'default' : 'outline'}>
-                {config.billing_mode === 'credits' ? uiT("Active in Credits mode") : uiT("Pre-configured (Currency mode active)")}
-              </Badge>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {uiT("Explicit atom-denominated model consumption tariffs independent of top-up conversion rates and Provider procurement costs.")}</p>
-        </div>
+        <p className="max-w-2xl text-sm text-muted-foreground">{uiF("Rates are charged in {0} when the installation bills in Branded Credits. Publishing a rate does not change the active billing mode.", [unitName])}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" disabled={loading} onClick={() => void load(true)}>
             {uiT("Refresh Credits tariffs")}</Button>
@@ -173,19 +222,22 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       )}
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center gap-2"><span>{error}</span><Button variant="outline" size="sm" disabled={loading} onClick={() => void load(true)}>{uiT("Retry Credits tariffs")}</Button></AlertDescription>
         </Alert>
       )}
       {loading && !config && <ListRowsSkeleton rows={2} label={uiT("Loading Credits tariffs…")} />}
-      {!loading && !config?.definition && (
-        <p className="text-xs text-muted-foreground">
-          {uiT("Publish a branded unit definition in Admin → Settings before publishing Credits consumption tariffs.")}</p>
+      {!loading && !error && !config?.definition && (
+        <Alert>
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span>{uiT("Publish a branded unit definition in Admin → Settings before publishing Credits consumption tariffs.")}</span>
+            <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {visibleText.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {uiT("Text model tariffs (per 1M tokens)")}</h3>
+          <h3 className="text-sm font-medium">{uiT("Text model tariffs (per 1M tokens)")}</h3>
           <Table aria-label={uiT("Branded Credits text tariffs")}>
             <TableHeader>
               <TableRow>
@@ -200,47 +252,16 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
             <TableBody>
               {visibleText.map(row => (
                 <TableRow key={row.model_alias}>
-                  <TableCell className="font-medium">
-                    <p>{row.model_alias}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {uiT("Tariff v")}{row.revision}{" "}{uiT("· Unit v")}{row.definition_revision}
-                    </p>
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    <p>{formatUnitAtoms(row.price.prompt_rate, unitName, precision)}</p>
-                    {formatExactUnitAtoms(row.price.prompt_rate, unitName, precision) !==
-                      formatUnitAtoms(row.price.prompt_rate, unitName, precision) && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatExactUnitAtoms(row.price.prompt_rate, unitName, precision)}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    <p>{formatUnitAtoms(row.price.completion_rate, unitName, precision)}</p>
-                    {formatExactUnitAtoms(row.price.completion_rate, unitName, precision) !==
-                      formatUnitAtoms(row.price.completion_rate, unitName, precision) && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatExactUnitAtoms(row.price.completion_rate, unitName, precision)}
-                      </p>
-                    )}
+                  <TableCell className="max-w-40 whitespace-normal font-medium"><p className="break-words">{row.model_alias}</p></TableCell>
+                  <TableCell className="tabular-nums"><UnitRate atoms={row.price.prompt_rate} unitName={unitName} precision={precision} /></TableCell>
+                  <TableCell className="tabular-nums"><UnitRate atoms={row.price.completion_rate} unitName={unitName} precision={precision} /></TableCell>
+                  <TableCell className="text-xs tabular-nums text-muted-foreground">
+                    <p>{uiT("Cached:")}{' '}{row.price.cached_prompt_rate != null ? formatUnitAtoms(row.price.cached_prompt_rate, unitName, precision) : uiT("Ordinary")}</p>
+                    <p>{uiT("Reasoning:")}{' '}{row.price.reasoning_completion_rate != null ? formatUnitAtoms(row.price.reasoning_completion_rate, unitName, precision) : uiT("Ordinary")}</p>
                   </TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    <p>
-                      {uiT("Cached:")}{' '}
-                      {row.price.cached_prompt_rate != null
-                        ? formatUnitAtoms(row.price.cached_prompt_rate, unitName, precision)
-                        : uiT("Ordinary")}
-                    </p>
-                    <p>
-                      {uiT("Reasoning:")}{' '}
-                      {row.price.reasoning_completion_rate != null
-                        ? formatUnitAtoms(row.price.reasoning_completion_rate, unitName, precision)
-                        : uiT("Ordinary")}
-                    </p>
-                  </TableCell>
-                  <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    <p>{uiT("Fee:")}{" "}{formatUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
-                    <p>{uiT("Min:")}{" "}{formatUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
+                    <p>{uiT("Fee:")}{' '}{formatUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
+                    <p>{uiT("Min:")}{' '}{formatUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -263,8 +284,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
 
       {visibleMedia.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {uiT("Media / video tariffs")}</h3>
+          <h3 className="text-sm font-medium">{uiT("Video tariffs")}</h3>
           <Table aria-label={uiT("Branded Credits media tariffs")}>
             <TableHeader>
               <TableRow>
@@ -277,29 +297,19 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
             <TableBody>
               {visibleMedia.map(row => (
                 <TableRow key={`${row.model_alias}:${row.channel}:${row.resolution}:${row.reference_video}`}>
-                  <TableCell className="font-medium">
-                    <p>{row.model_alias}</p>
+                  <TableCell className="max-w-56 whitespace-normal font-medium">
+                    <p className="break-words">{row.model_alias}</p>
                     <p className="text-xs text-muted-foreground">
-                      {row.channel} · {row.resolution} · {row.reference_video ? uiT("With reference video") : uiT("Standard")}{" "}{uiT("· Tariff v")}{row.revision}
+                      {row.channel} · {row.resolution} · {row.reference_video ? uiT("With reference video") : uiT("Standard")}
                     </p>
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    <p>
-                      {formatUnitAtoms(row.price.amount_atoms, unitName, precision)}{" "}{uiT("per")}{' '}
-                      {mediaQuantityInput(row.price.per_quantity)} {row.meter.replace(/_/g, ' ')}
-                    </p>
-                    {formatExactUnitAtoms(row.price.amount_atoms, unitName, precision) !==
-                      formatUnitAtoms(row.price.amount_atoms, unitName, precision) && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatExactUnitAtoms(row.price.amount_atoms, unitName, precision)}
-                      </p>
-                    )}
+                    <p>{formatUnitAtoms(row.price.amount_atoms, unitName, precision)}{' '}{uiT("per")}{' '}{quantityText(row.price.per_quantity)} {uiT("video tokens")}</p>
+                    {formatExactUnitAtoms(row.price.amount_atoms, unitName, precision) !== formatUnitAtoms(row.price.amount_atoms, unitName, precision) && <p className="text-xs text-muted-foreground">{formatExactUnitAtoms(row.price.amount_atoms, unitName, precision)}</p>}
                   </TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    <p>
-                      {uiT("Minimum:")}{" "}{mediaQuantityInput(row.price.minimum_quantity)} {row.meter.replace(/_/g, ' ')}
-                    </p>
-                    <p>{uiT("Rounding:")}{" "}{uiT(row.price.rounding)}</p>
+                    <p>{uiT("Minimum:")}{' '}{quantityText(row.price.minimum_quantity)} {uiT("video tokens")}</p>
+                    <p>{uiT("Rounding:")}{' '}{uiT(row.price.rounding)}</p>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -320,6 +330,10 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
         </div>
       )}
 
+      {!loading && !error && config?.definition && !visibleText.length && !visibleMedia.length && (
+        <Empty className="min-h-40"><EmptyHeader><EmptyDescription>{hasTariffs ? uiT("No Credits tariffs match this filter.") : uiT("No Credits tariffs have been published.")}</EmptyDescription></EmptyHeader></Empty>
+      )}
+
       {textEditor && config?.definition && (
         <UnitTextTariffDialog
           token={token}
@@ -328,7 +342,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
           onClose={() => setTextEditor(null)}
           onSaved={modelAlias => {
             setTextEditor(null);
-            setNotice(`Published ${unitName} text tariff for ${modelAlias}.`);
+            setNotice(uiF("Published {0} text tariff for {1}.", [unitName, modelAlias]));
             void load(true);
           }}
         />
@@ -342,7 +356,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
           onClose={() => setMediaEditor(null)}
           onSaved={modelAlias => {
             setMediaEditor(null);
-            setNotice(`Published ${unitName} media tariff for ${modelAlias}.`);
+            setNotice(uiF("Published {0} media tariff for {1}.", [unitName, modelAlias]));
             void load(true);
           }}
         />
@@ -367,37 +381,35 @@ function UnitTextTariffDialog({
   const { t: uiT, format: uiF } = useUILocale();
   const unitName = config.definition?.name ?? uiT("Niu Credits");
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
-  const [promptRate, setPromptRate] = useState(
-    initial ? unitAmountFromAtoms(initial.price.prompt_rate) : '15',
-  );
-  const [completionRate, setCompletionRate] = useState(
-    initial ? unitAmountFromAtoms(initial.price.completion_rate) : '30',
-  );
-  const [cachedRate, setCachedRate] = useState(
-    initial?.price.cached_prompt_rate != null ? unitAmountFromAtoms(initial.price.cached_prompt_rate) : '',
-  );
-  const [reasoningRate, setReasoningRate] = useState(
-    initial?.price.reasoning_completion_rate != null
-      ? unitAmountFromAtoms(initial.price.reasoning_completion_rate)
-      : '',
-  );
-  const [requestFee, setRequestFee] = useState(
-    initial ? unitAmountFromAtoms(initial.price.request_fee_atoms) : '0',
-  );
-  const [minimumCharge, setMinimumCharge] = useState(
-    initial ? unitAmountFromAtoms(initial.price.minimum_charge_atoms) : '0',
-  );
+  const [models, setModels] = useState<RetailModelChoice[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(() => !initial);
+  const [modelsError, setModelsError] = useState('');
+  const [promptRate, setPromptRate] = useState(initial ? unitAmountFromAtoms(initial.price.prompt_rate) : '');
+  const [completionRate, setCompletionRate] = useState(initial ? unitAmountFromAtoms(initial.price.completion_rate) : '');
+  const [cachedRate, setCachedRate] = useState(initial?.price.cached_prompt_rate != null ? unitAmountFromAtoms(initial.price.cached_prompt_rate) : '');
+  const [reasoningRate, setReasoningRate] = useState(initial?.price.reasoning_completion_rate != null ? unitAmountFromAtoms(initial.price.reasoning_completion_rate) : '');
+  const [requestFee, setRequestFee] = useState(initial ? unitAmountFromAtoms(initial.price.request_fee_atoms) : '0');
+  const [minimumCharge, setMinimumCharge] = useState(initial ? unitAmountFromAtoms(initial.price.minimum_charge_atoms) : '0');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initial) return;
+    const controller = new AbortController();
+    setModelsLoading(true); setModelsError('');
+    void registeredRetailModelChoices(token, controller.signal)
+      .then(choices => { if (!controller.signal.aborted) setModels(choices); })
+      .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : uiT('Registered models unavailable.')); })
+      .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
+    return () => controller.abort();
+  }, [token, initial]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (saving || !config.definition) return;
     const model = modelAlias.trim();
-    if (!model) {
-      setError('Enter a model alias.');
-      return;
-    }
+    if (!model) { setError(uiT("Choose a registered model.")); return; }
+    if (!promptRate.trim() || !completionRate.trim()) { setError(uiT("Enter input and output rates.")); return; }
     let price: UnitTextPrice;
     try {
       price = {
@@ -411,7 +423,7 @@ function UnitTextTariffDialog({
         context_tiers: initial?.price.context_tiers ?? [],
       };
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Enter valid nonnegative unit amounts (up to 9 decimal places).');
+      setError(cause instanceof Error ? cause.message : uiT('Enter valid nonnegative unit amounts (up to 9 decimal places).'));
       return;
     }
 
@@ -429,7 +441,7 @@ function UnitTextTariffDialog({
       });
       onSaved(model);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not publish Credits text tariff.');
+      setError(cause instanceof Error ? cause.message : uiT('Could not publish Credits text tariff.'));
     } finally {
       setSaving(false);
     }
@@ -440,95 +452,43 @@ function UnitTextTariffDialog({
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
-          <DialogDescription>
-            {uiT("Rates are specified in")}{" "}{unitName}{" "}{uiT("per 1,000,000 tokens (1")}{" "}{unitName}{" "}{uiT("= 1,000,000,000 exact atoms).")}</DialogDescription>
+          <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="space-y-1.5">
-            <Label htmlFor="unit-tariff-model">{uiT("Model alias")}</Label>
-            <Input
-              id="unit-tariff-model"
-              value={modelAlias}
-              disabled={saving || !!initial}
-              onChange={event => setModelAlias(event.target.value)}
-              placeholder="deepseek/deepseek-chat"
-            />
+            <Label htmlFor="unit-tariff-model">{uiT("Model")}</Label>
+            {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-tariff-model" modelAlias={modelAlias} onSelect={choice => { setModelAlias(choice.model_alias); setError(''); }} choices={models} loading={modelsLoading} error={modelsError} emptyCopy={uiT("No registered models are available for pricing.")} ariaLabel={uiT("Credits text tariff model")} />}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-prompt">{uiT("Input rate (")}{unitName}{" "}{uiT("/ 1M tokens)")}</Label>
-              <Input
-                id="unit-tariff-prompt"
-                inputMode="decimal"
-                value={promptRate}
-                disabled={saving}
-                onChange={event => setPromptRate(event.target.value)}
-              />
+              <Input id="unit-tariff-prompt" inputMode="decimal" value={promptRate} disabled={saving} onChange={event => setPromptRate(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-completion">{uiT("Output rate (")}{unitName}{" "}{uiT("/ 1M tokens)")}</Label>
-              <Input
-                id="unit-tariff-completion"
-                inputMode="decimal"
-                value={completionRate}
-                disabled={saving}
-                onChange={event => setCompletionRate(event.target.value)}
-              />
+              <Input id="unit-tariff-completion" inputMode="decimal" value={completionRate} disabled={saving} onChange={event => setCompletionRate(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-cached">{uiT("Cached input rate (optional)")}</Label>
-              <Input
-                id="unit-tariff-cached"
-                inputMode="decimal"
-                value={cachedRate}
-                disabled={saving}
-                placeholder={uiT("Uses ordinary input rate")}
-                onChange={event => setCachedRate(event.target.value)}
-              />
+              <Input id="unit-tariff-cached" inputMode="decimal" value={cachedRate} disabled={saving} placeholder={uiT("Uses ordinary input rate")} onChange={event => setCachedRate(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-reasoning">{uiT("Reasoning output rate (optional)")}</Label>
-              <Input
-                id="unit-tariff-reasoning"
-                inputMode="decimal"
-                value={reasoningRate}
-                disabled={saving}
-                placeholder={uiT("Uses ordinary output rate")}
-                onChange={event => setReasoningRate(event.target.value)}
-              />
+              <Input id="unit-tariff-reasoning" inputMode="decimal" value={reasoningRate} disabled={saving} placeholder={uiT("Uses ordinary output rate")} onChange={event => setReasoningRate(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-fee">{uiT("Fixed request fee (")}{unitName})</Label>
-              <Input
-                id="unit-tariff-fee"
-                inputMode="decimal"
-                value={requestFee}
-                disabled={saving}
-                onChange={event => setRequestFee(event.target.value)}
-              />
+              <Input id="unit-tariff-fee" inputMode="decimal" value={requestFee} disabled={saving} onChange={event => setRequestFee(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-min">{uiT("Minimum request charge (")}{unitName})</Label>
-              <Input
-                id="unit-tariff-min"
-                inputMode="decimal"
-                value={minimumCharge}
-                disabled={saving}
-                onChange={event => setMinimumCharge(event.target.value)}
-              />
+              <Input id="unit-tariff-min" inputMode="decimal" value={minimumCharge} disabled={saving} onChange={event => setMinimumCharge(event.target.value)} />
             </div>
           </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
-              {uiT("Cancel")}</Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? uiT("Publishing…") : uiF("Publish {0} text tariff", [unitName])}
-            </Button>
+          {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{uiT("Cancel")}</Button>
+            <Button type="submit" disabled={saving || !modelAlias.trim() || !promptRate.trim() || !completionRate.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
           </div>
         </form>
       </DialogContent>
@@ -551,40 +511,55 @@ function UnitMediaTariffDialog({
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const unitName = config.definition?.name ?? uiT("Niu Credits");
-  const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? 'seedance-2.0');
-  const [channel, setChannel] = useState(initial?.channel ?? 'default');
-  const [resolution, setResolution] = useState(initial?.resolution ?? '720p');
+  const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
+  const [models, setModels] = useState<RetailModelChoice[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(() => !initial);
+  const [modelsError, setModelsError] = useState('');
+  const [channel, setChannel] = useState(initial?.channel ?? '');
+  const [resolution, setResolution] = useState(initial?.resolution ?? '');
   const [referenceVideo, setReferenceVideo] = useState(initial?.reference_video ?? false);
-  const [amount, setAmount] = useState(initial ? unitAmountFromAtoms(initial.price.amount_atoms) : '15');
-  const [perQuantity, setPerQuantity] = useState(
-    initial ? mediaQuantityInput(initial.price.per_quantity) : '1000',
-  );
-  const [minimumQuantity, setMinimumQuantity] = useState(
-    initial ? mediaQuantityInput(initial.price.minimum_quantity) : '1',
-  );
+  const [amount, setAmount] = useState(initial ? unitAmountFromAtoms(initial.price.amount_atoms) : '');
+  const [perQuantity, setPerQuantity] = useState(initial ? mediaQuantityInput(initial.price.per_quantity) : '1000');
+  const [minimumQuantity, setMinimumQuantity] = useState(initial ? mediaQuantityInput(initial.price.minimum_quantity) : '1');
   const [rounding, setRounding] = useState<'Down' | 'Up' | 'HalfEven'>(initial?.price.rounding ?? 'Up');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initial) return;
+    const controller = new AbortController();
+    setModelsLoading(true); setModelsError('');
+    void registeredRetailModelChoices(token, controller.signal)
+      .then(choices => { if (!controller.signal.aborted) setModels(choices.filter(choice => choice.media?.meter === 'video_tokens')); })
+      .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : uiT('Registered models unavailable.')); })
+      .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
+    return () => controller.abort();
+  }, [token, initial]);
+
+  const chosenMedia = initial ? null : models.find(choice => choice.model_alias === modelAlias)?.media ?? null;
+  const resolutions = initial ? [resolution] : chosenMedia?.resolutions ?? [];
+  const showReference = initial ? initial.reference_video : chosenMedia?.reference_video === true;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (saving || !config.definition) return;
     const model = modelAlias.trim();
-    const ch = channel.trim();
-    const res = resolution.trim();
-    if (!model || !ch || !res) {
-      setError('Complete model alias, channel, and resolution.');
+    if (!model) { setError(uiT("Choose a registered model.")); return; }
+    if (!channel.trim() || !resolution.trim()) { setError(uiT("Choose a supported resolution.")); return; }
+    if (!initial && (!chosenMedia || chosenMedia.channel !== channel || !chosenMedia.resolutions.includes(resolution) || (referenceVideo && !chosenMedia.reference_video))) {
+      setError(uiT("Choose a supported media specification."));
       return;
     }
     let amountAtoms: string;
     let perQty: { numerator: string; denominator: string };
     let minQty: { numerator: string; denominator: string };
     try {
+      if (!amount.trim()) throw new Error('Enter a rate.');
       amountAtoms = unitAmountToAtoms(amount, true);
       perQty = mediaQuantity(perQuantity, false);
       minQty = mediaQuantity(minimumQuantity, true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Enter valid media tariff quantities.');
+      setError(cause instanceof Error ? cause.message : uiT('Enter valid media tariff quantities.'));
       return;
     }
 
@@ -601,8 +576,8 @@ function UnitMediaTariffDialog({
         price: {
           dimensions: {
             model,
-            channel: ch,
-            resolution: res,
+            channel: channel.trim(),
+            resolution: resolution.trim(),
             reference_video: referenceVideo,
           },
           meter: 'video_tokens',
@@ -614,7 +589,7 @@ function UnitMediaTariffDialog({
       });
       onSaved(model);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not publish Credits media tariff.');
+      setError(cause instanceof Error ? cause.message : uiT('Could not publish Credits media tariff.'));
     } finally {
       setSaving(false);
     }
@@ -625,96 +600,39 @@ function UnitMediaTariffDialog({
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} media tariff", [unitName]) : uiF("Publish {0} media tariff", [unitName])}</DialogTitle>
-          <DialogDescription>
-            {uiT("Set")}{" "}{unitName}{" "}{uiT("consumption rates for video generation by model, channel, resolution, and reference-video mode.")}</DialogDescription>
+          <DialogDescription>{uiF("Set {0} consumption rates for video generation. The selected registered model fixes its channel and supported resolutions.", [unitName])}</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-model">{uiT("Model alias")}</Label>
-              <Input
-                id="unit-media-model"
-                value={modelAlias}
-                disabled={saving || !!initial}
-                onChange={event => setModelAlias(event.target.value)}
-              />
+              <Label htmlFor="unit-media-model">{uiT("Model")}</Label>
+              {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-media-model" modelAlias={modelAlias} onSelect={choice => { const media = choice.media; if (!media) return; setModelAlias(choice.model_alias); setChannel(media.channel); setResolution(media.resolutions.length === 1 ? media.resolutions[0] : ''); setReferenceVideo(false); setError(''); }} choices={models} loading={modelsLoading} error={modelsError} emptyCopy={uiT("No registered models use video-token media pricing.")} ariaLabel={uiT("Credits media tariff model")} />}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-channel">{uiT("Channel")}</Label>
-              <Input
-                id="unit-media-channel"
-                value={channel}
-                disabled={saving || !!initial}
-                onChange={event => setChannel(event.target.value)}
-              />
+              <Label>{uiT("Channel")}</Label>
+              <p className="text-sm text-muted-foreground">{channel || uiT("Choose a model to set its channel.")}</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-resolution">{uiT("Resolution")}</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    id="unit-media-resolution"
-                    type="button"
-                    variant="outline"
-                    disabled={saving || !!initial}
-                    className="w-full justify-between"
-                  >
-                    <span>{resolution}</span>
-                    <ChevronDown className="size-4 shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuRadioGroup value={resolution} onValueChange={setResolution}>
-                    {['480p', '720p', '1080p'].map(r => (
-                      <DropdownMenuRadioItem key={r} value={r}>
-                        {r}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {initial ? <p>{resolution}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button id="unit-media-resolution" type="button" variant="outline" disabled={saving || !chosenMedia} aria-label={uiT("Media resolution")} className="w-full justify-between"><span className="min-w-0 truncate">{resolution || uiT("Choose resolution")}</span><ChevronDown className="size-4 shrink-0" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={resolution} onValueChange={setResolution}>{resolutions.map(r => <DropdownMenuRadioItem key={r} value={r}>{r}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
             </div>
             <div className="flex items-end pb-2">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="unit-media-ref"
-                  checked={referenceVideo}
-                  disabled={saving || !!initial}
-                  onCheckedChange={v => setReferenceVideo(v === true)}
-                />
-                <Label htmlFor="unit-media-ref">{uiT("With reference video")}</Label>
-              </div>
+              {showReference && <div className="flex items-center gap-2"><Checkbox id="unit-media-ref" checked={referenceVideo} disabled={saving || !!initial} onCheckedChange={v => setReferenceVideo(v === true)} /><Label htmlFor="unit-media-ref">{uiT("With reference video")}</Label></div>}
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-amount">{uiT("Rate (")}{unitName})</Label>
-              <Input
-                id="unit-media-amount"
-                inputMode="decimal"
-                value={amount}
-                disabled={saving}
-                onChange={event => setAmount(event.target.value)}
-              />
+              <Input id="unit-media-amount" inputMode="decimal" value={amount} disabled={saving} onChange={event => setAmount(event.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-per">{uiT("Per video tokens")}</Label>
-              <Input
-                id="unit-media-per"
-                value={perQuantity}
-                disabled={saving}
-                onChange={event => setPerQuantity(event.target.value)}
-              />
+              <Label htmlFor="unit-media-per">{uiT("Per quantity (video tokens)")}</Label>
+              <Input id="unit-media-per" value={perQuantity} disabled={saving} onChange={event => setPerQuantity(event.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-media-min">{uiT("Minimum video tokens")}</Label>
-              <Input
-                id="unit-media-min"
-                value={minimumQuantity}
-                disabled={saving}
-                onChange={event => setMinimumQuantity(event.target.value)}
-              />
+              <Label htmlFor="unit-media-min">{uiT("Minimum quantity (video tokens)")}</Label>
+              <Input id="unit-media-min" value={minimumQuantity} disabled={saving} onChange={event => setMinimumQuantity(event.target.value)} />
             </div>
           </div>
 
@@ -722,22 +640,13 @@ function UnitMediaTariffDialog({
             <Label htmlFor="unit-media-rounding">{uiT("Rounding")}</Label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  id="unit-media-rounding"
-                  type="button"
-                  variant="outline"
-                  disabled={saving}
-                  className="w-full sm:w-56 justify-between"
-                >
+                <Button id="unit-media-rounding" type="button" variant="outline" disabled={saving} className="w-full sm:w-56 justify-between">
                   <span>{uiT(rounding)}</span>
                   <ChevronDown className="size-4 shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup
-                  value={rounding}
-                  onValueChange={v => setRounding(v as 'Down' | 'Up' | 'HalfEven')}
-                >
+                <DropdownMenuRadioGroup value={rounding} onValueChange={v => setRounding(v as 'Down' | 'Up' | 'HalfEven')}>
                   <DropdownMenuRadioItem value="Up">{uiT("Up")}</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="HalfEven">{uiT("HalfEven")}</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="Down">{uiT("Down")}</DropdownMenuRadioItem>
@@ -748,15 +657,12 @@ function UnitMediaTariffDialog({
 
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{uiT(error)}</AlertDescription>
             </Alert>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
-              {uiT("Cancel")}</Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? uiT("Publishing…") : uiF("Publish {0} media tariff", [unitName])}
-            </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{uiT("Cancel")}</Button>
+            <Button type="submit" disabled={saving || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
           </div>
         </form>
       </DialogContent>

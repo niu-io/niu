@@ -1,7 +1,10 @@
 import { KeyRequestError, keyRequest, type IssuedProjectKey, type ProjectKey } from './api';
 
-// This is a disposable recovery hint, never key storage. The committed result
-// and credential state are always read from the server; no secret is cached.
+// A pending request identity is kept in memory for the current page so an
+// interrupted mutation can be retried with the same Idempotency-Key and the
+// original input. The browser-storage copy below is only a disposable
+// navigation hint: its absence, deletion or corruption must never gate key
+// creation or rotation, and no secret is ever stored.
 export type PendingKeyMutation = {
   version: 1;
   requestId: string;
@@ -18,33 +21,58 @@ export type KeyMutationOutcome =
 const prefix = 'niu:key-request:v1:';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function recoveryCacheKey(actor: string, workspace: string) {
+export function keyMutationHintKey(actor: string, workspace: string) {
   return prefix + encodeURIComponent(actor) + ':' + encodeURIComponent(workspace);
 }
 
-export function readPendingKeyMutation(cache: Storage, key: string): PendingKeyMutation | null {
-  const raw = cache.getItem(key);
-  if (raw === null) return null;
-  let value: PendingKeyMutation;
-  try { value = JSON.parse(raw) as PendingKeyMutation; }
-  catch { throw new Error('The saved key request cannot be read. Review your API keys before starting another request.'); }
-  if (!value || value.version !== 1 || !uuid.test(value.requestId) || typeof value.label !== 'string'
-    || (value.action !== 'create' && value.action !== 'rotate')
-    || (value.action === 'rotate' && typeof value.keyId !== 'string')
-    || (value.action === 'create' && (!value.body || typeof value.body !== 'object' || Array.isArray(value.body)))) {
-    throw new Error('The saved key request is invalid. Review your API keys before starting another request.');
-  }
-  return value;
+function hintCache(): Storage | null {
+  try { return typeof window === 'undefined' ? null : window.localStorage; }
+  catch { return null; }
 }
 
-export function savePendingKeyMutation(cache: Storage, key: string, pending: PendingKeyMutation) {
-  try { cache.setItem(key, JSON.stringify(pending)); }
-  catch { throw new Error('The request has not been sent. Browser storage is unavailable, so recovery after leaving this page cannot be preserved.'); }
+function validPending(value: unknown): value is PendingKeyMutation {
+  if (!value || typeof value !== 'object') return false;
+  const pending = value as Partial<PendingKeyMutation>;
+  return pending.version === 1 && typeof pending.requestId === 'string' && uuid.test(pending.requestId)
+    && typeof pending.label === 'string'
+    && (pending.action === 'create' || pending.action === 'rotate')
+    && (pending.action !== 'rotate' || typeof pending.keyId === 'string')
+    && (pending.action !== 'create' || Boolean(pending.body && typeof pending.body === 'object' && !Array.isArray(pending.body)));
 }
 
-export function forgetPendingKeyMutation(cache: Storage, key: string, requestId: string) {
-  // A stale response must not discard a newer recovery request.
-  if (readPendingKeyMutation(cache, key)?.requestId === requestId) cache.removeItem(key);
+/**
+ * Read the disposable recovery hint. Unavailable or corrupt browser storage is
+ * treated as no hint so key administration always remains usable.
+ */
+export function readKeyMutationHint(key: string): PendingKeyMutation | null {
+  const cache = hintCache();
+  if (!cache) return null;
+  try {
+    const raw = cache.getItem(key);
+    if (raw === null) return null;
+    const value: unknown = JSON.parse(raw);
+    return validPending(value) ? value : null;
+  } catch { return null; }
+}
+
+/** Persist a hint when possible. Failure is ignored and never blocks a request. */
+export function rememberKeyMutationHint(key: string, pending: PendingKeyMutation) {
+  const cache = hintCache();
+  if (!cache) return;
+  try { cache.setItem(key, JSON.stringify(pending)); } catch { /* disposable */ }
+}
+
+/** Remove only the matching hint so a newer request is not discarded. */
+export function forgetKeyMutationHint(key: string, requestId?: string) {
+  const cache = hintCache();
+  if (!cache) return;
+  try {
+    if (requestId === undefined) { cache.removeItem(key); return; }
+    const raw = cache.getItem(key);
+    if (raw === null) return;
+    const value: unknown = JSON.parse(raw);
+    if (validPending(value) && value.requestId === requestId) cache.removeItem(key);
+  } catch { /* disposable */ }
 }
 
 function projectKey(value: unknown): value is ProjectKey {

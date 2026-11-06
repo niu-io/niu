@@ -18,10 +18,11 @@ it.each([
   ['/generations?intent=saved-input', 'Video session'],
   ['/generations?job=saved-result', 'Video session'],
   ['/generations?new=video', 'Video session'],
+  ['/generations?intent=saved-input&session=composer-session&turn=composer-turn', 'Video session'],
   ['/generations?mode=video&session=chat', 'Chat session'],
-])('resolves %s by the session reference or new session type', (url, heading) => {
+])('resolves %s by the session reference or new session type', async (url, heading) => {
   render(<MemoryRouter initialEntries={[url]}><SidebarProvider><PlaygroundRoute /></SidebarProvider></MemoryRouter>);
-  expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
 });
 
 it('keeps the parent route sidebar and title region mounted while the session type changes', async () => {

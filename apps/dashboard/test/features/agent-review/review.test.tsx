@@ -433,7 +433,9 @@ test("workspace member can create a custom routed model directly from the empty 
   expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe(
     "fast-coding-pool",
   );
-  await user.type(screen.getByLabelText("Model alias"), "gpt-4.1-mini");
+  await user.click(screen.getByLabelText("Model alias"));
+  await user.type(screen.getByPlaceholderText("Search models…"), "gpt-4.1-mini");
+  await user.click(screen.getByRole("option", { name: /Use exact alias/ }));
   await user.click(
     screen.getAllByRole("button", { name: "Create custom model" }).at(-1)!,
   );

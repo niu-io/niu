@@ -1,7 +1,6 @@
 import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
-import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { amountFromNanos, amountToNanos, formatExactUnitAtoms, formatUnitAtoms, money, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
+import { amountFromNanos, amountToNanos, formatUnitAtoms, money, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -52,13 +51,13 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
       const cached = peekCachedGet<{ data: SpendingAccount[] }>(tok, path);
       return cached ? checked(cached) : null;
     } catch {
-      return null;
+      return null; // A corrupt cache entry is optional; the fetch below reports failures.
     }
   };
   const initialAccounts = readCachedAccounts(token, base);
   const [accounts, setAccounts] = useState<SpendingAccount[] | null>(() => initialAccounts);
   const [unitLimit, setUnitLimit] = useState<WorkspaceUnitLimit | null>(() => peekCachedGet<{ data: WorkspaceUnitLimit }>(token, unitBase)?.data ?? null);
-  const [unitHistory, setUnitHistory] = useState<UnitLimitHistoryEntry[]>(() => {
+  const [, setUnitHistory] = useState<UnitLimitHistoryEntry[]>(() => {
     const cached = peekCachedGet<{ data: UnitLimitHistoryEntry[] }>(token, `${unitBase}/history?limit=10`);
     return Array.isArray(cached?.data) ? cached.data : [];
   });
@@ -70,6 +69,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(() => !initialAccounts);
   const [error, setError] = useState(false);
+  const [unitReadError, setUnitReadError] = useState(false);
   const [editing, setEditing] = useState<SpendingAccount | null>(null);
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
@@ -99,7 +99,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     const force = lastTrigger.current.reload !== reload || lastTrigger.current.refresh !== refresh;
     lastTrigger.current = { reload, refresh };
     const generation = readGeneration.current;
-    setLoading(force || nextCached === null); setError(false);
+    setLoading(force || nextCached === null); setError(false); setUnitReadError(false);
     const creditsConfigured = platformBillingMode === 'credits' || Boolean(platformUnit);
     void cachedGet<{data: SpendingAccount[]}>(token, base, { signal: controller.signal, force })
       .then(result => {
@@ -117,14 +117,24 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
             setUnitLimit(result.data);
           }
         })
-        .catch(() => { /* Optional unit limit endpoint when credit units are unavailable. */ });
+        .catch(cause => {
+          if (controller.signal.aborted) return;
+          // 404 means branded credit units are not configured for this workspace.
+          if (cause instanceof VendorRequestError && cause.status === 404) return;
+          setUnitReadError(true);
+        });
       void cachedGet<{data: UnitLimitHistoryEntry[]}>(token, `${unitBase}/history?limit=10`, { signal: controller.signal, force })
         .then(result => {
           if (!controller.signal.aborted && generation === readGeneration.current && Array.isArray(result?.data)) {
             setUnitHistory(result.data);
           }
         })
-        .catch(() => { /* Optional unit limit history when credit units are unavailable. */ });
+        .catch(cause => {
+          if (controller.signal.aborted) return;
+          // 404 means branded credit units are not configured for this workspace.
+          if (cause instanceof VendorRequestError && cause.status === 404) return;
+          setUnitReadError(true);
+        });
     }
     return () => controller.abort();
   }, [token, base, unitBase, reload, refresh, platformBillingMode, platformUnit]);
@@ -191,20 +201,26 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     }
   }
   const activeUnit = unitLimit?.unit ?? (platformUnit ? { definition_revision: platformUnit.revision, name: platformUnit.name, display_precision: platformUnit.display_precision, atoms_per_unit: platformUnit.atoms_per_unit } : null);
+  const amountValid = (() => {
+    const value = amount.trim();
+    if (!value) return false;
+    try {
+      if (/^0+(?:\.0{1,9})?$/.test(value)) return true;
+      amountToNanos(value);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
   return <section aria-label={uiT("Workspace spending limits")} className="mt-8 space-y-4">
     <div><h2>{uiT("Spending limits")}</h2><p className="text-muted-foreground">{uiT("Lifetime limits include charges and reserved requests.")}</p></div>
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Spending limits unavailable")}</AlertTitle><AlertDescription>{uiT("Could not load this workspace’s spending limits.")}<Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry spending limits")}</Button></AlertDescription></Alert>}
+    {unitReadError && <Alert variant="destructive"><AlertTitle>{uiT("Credits spending limit unavailable")}</AlertTitle><AlertDescription>{uiT("Could not refresh the Credits spending limit. The last loaded value is still shown.")}<Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry Credits limit")}</Button></AlertDescription></Alert>}
     {unitLimit && (activeUnit || platformBillingMode === 'credits' || unitLimit.limit_atoms !== null || BigInt(unitLimit.committed_atoms || '0') > 0n) && (() => {
       const unitName = activeUnit?.name ?? uiT("Credits");
       const prec = activeUnit?.display_precision ?? 2;
       return <div className="space-y-3 py-2" aria-label={uiT("Workspace Credits spending limit")}>
-        {unitLimit.credits_admission_blocked_by_monetary_limit && (
-          <Alert variant="destructive">
-            <AlertTitle>{uiT("Credits admission blocked by preserved monetary limit")}</AlertTitle>
-            <AlertDescription>
-              {uiT("This workspace has a preserved monetary spending limit without an explicit")}{" "}{unitName}{" "}{uiT("spending policy. Configure a")}{" "}{unitName}{" "}{uiT("limit or explicitly allow unlimited")}{" "}{unitName}{" "}{uiT("spending to admit Credits requests.")}</AlertDescription>
-          </Alert>
-        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-medium">{unitName}</h3>
@@ -213,16 +229,13 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
                 ? uiF("No workspace {0} limit set ({1} committed).", [unitName, formatUnitAtoms(unitLimit.committed_atoms, unitName, prec)])
                 : uiF("{0} committed of {1}{2}", [formatUnitAtoms(unitLimit.committed_atoms, unitName, prec), formatUnitAtoms(unitLimit.limit_atoms, unitName, prec), unitLimit.remaining_atoms !== null ? uiF(" · {0} remaining", [formatUnitAtoms(unitLimit.remaining_atoms, unitName, prec)]) : ''])}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {uiT("Exact committed:")}{" "}{formatExactUnitAtoms(unitLimit.committed_atoms, unitName, prec)}{unitLimit.limit_atoms !== null && `${uiT(" · Exact limit:", " · 精确限额：")} ${formatExactUnitAtoms(unitLimit.limit_atoms, unitName, prec)}`}
-            </p>
           </div>
           {canConfigure && !editingUnit && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled={unitSaving || loading} onClick={() => { setEditingUnit(true); setUnitAmount(unitLimit.limit_atoms === null ? '' : unitAmountFromAtoms(unitLimit.limit_atoms, prec)); setUnitSaveError(''); setUnitSaved(false); }}>
                 {unitLimit.limit_atoms === null ? uiF("Set {0} limit", [unitName]) : uiF("Edit {0} limit", [unitName])}
               </Button>
-              {(unitLimit.limit_atoms !== null || unitLimit.credits_admission_blocked_by_monetary_limit) && (
+              {unitLimit.limit_atoms !== null && (
                 <Button variant="ghost" size="sm" disabled={unitSaving || loading} onClick={() => void saveUnitLimit(null)}>
                   {uiT("Set unlimited")}</Button>
               )}
@@ -236,7 +249,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
               <Input autoFocus id="workspace-unit-spending-amount" inputMode="decimal" value={unitAmount} disabled={unitSaving} onChange={event => setUnitAmount(event.target.value)} required />
               <p className="text-sm text-muted-foreground">{uiT("No periodic reset. A zero limit blocks new paid requests in")}{" "}{unitName}.</p>
             </div>
-            {unitSaveError && <p role="alert" className="text-sm text-destructive">{unitSaveError}</p>}
+            {unitSaveError && <p role="alert" className="text-sm text-destructive">{uiT(unitSaveError)}</p>}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={unitSaving || !unitAmount.trim()}>{unitSaving ? uiT("Saving…") : uiT("Save Credits limit")}</Button>
               <Button type="button" variant="ghost" disabled={unitSaving} onClick={() => setEditingUnit(false)}>{uiT("Cancel")}</Button>
@@ -244,18 +257,6 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
           </form>
         )}
         {unitSaved && <p role="status" className="text-sm text-muted-foreground">{unitName}{" "}{uiT("spending limit saved.")}</p>}
-        {unitHistory.length > 0 && (
-          <details className="text-xs text-muted-foreground">
-            <summary className="cursor-pointer font-medium">{uiT("Policy revision history (")}{unitHistory.length})</summary>
-            <ul className="mt-2 space-y-1">
-              {unitHistory.map(item => (
-                <li key={item.revision}>
-                  {uiT("Revision")}{" "}{item.revision}: {item.limit_atoms === null ? uiT("Unlimited") : formatExactUnitAtoms(item.limit_atoms, unitName, prec)} · {item.actor_name} · {new Date(item.recorded_at).toLocaleString(readUILocale(), { timeZone: 'UTC' })} UTC
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
       </div>;
     })()}
     {!platformCurrency && <p className="text-sm text-muted-foreground">{uiT("Spending limits will be available after the platform currency is configured in Admin.")}</p>}
@@ -267,9 +268,9 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
         {canConfigure && account.currency === platformCurrency && editing?.currency !== account.currency && <Button ref={element => { if (element && cancelFocusCurrency.current === account.currency) { cancelFocusCurrency.current = null; element.focus(); } }} variant="outline" size="sm" disabled={saving || loading || reloadRequired} aria-label={uiF("{0} {1} spending limit", [account.limit_nanos === null ? uiT("Add") : uiT("Edit"), account.currency])} onClick={() => edit(account)}>{account.limit_nanos === null ? uiT("Add limit") : uiT("Edit limit")}</Button>}
       </div>
       {canConfigure && account.currency === platformCurrency && editing?.currency === account.currency && <form onSubmit={save} className="space-y-3 max-w-lg">
-        <div className="space-y-2"><Label htmlFor="workspace-spending-amount">{uiT("Lifetime limit (")}{account.currency})</Label><Input autoFocus id="workspace-spending-amount" inputMode="decimal" value={amount} disabled={saving || reloadRequired} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-spending-help" required/><p id="workspace-spending-help" className="text-sm text-muted-foreground">{uiT("No periodic reset. A zero limit blocks new paid requests.")}</p></div>
-        {saveError && <p role="alert" className="text-sm text-destructive">{saveError}</p>}
-        <div className="flex flex-wrap gap-2">{reloadRequired ? <Button type="button" disabled={loading} onClick={() => {setEditing(null);setReload(value => value + 1);}}>{uiT("Reload limits")}</Button> : <Button type="submit" disabled={saving || loading || !amount.trim()}>{saving ? uiT("Saving…") : uiT("Save limit")}</Button>}<Button type="button" variant="ghost" disabled={saving || reloadRequired} onClick={() => { cancelFocusCurrency.current = account.currency; setEditing(null); }}>{uiT("Cancel")}</Button></div>
+        <div className="space-y-2"><Label htmlFor="workspace-spending-amount">{uiT("Lifetime limit (")}{account.currency})</Label><Input autoFocus id="workspace-spending-amount" inputMode="decimal" value={amount} disabled={saving || reloadRequired} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-spending-help" aria-invalid={Boolean(amount.trim()) && !amountValid} required/><p id="workspace-spending-help" className="text-sm text-muted-foreground">{uiT("No periodic reset. A zero limit blocks new paid requests.")}</p>{Boolean(amount.trim()) && !amountValid && <p role="alert" className="text-sm text-destructive">{uiT("Enter a valid amount with up to 9 decimal places.")}</p>}</div>
+        {saveError && <p role="alert" className="text-sm text-destructive">{uiT(saveError)}</p>}
+        <div className="flex flex-wrap gap-2">{reloadRequired ? <Button type="button" disabled={loading} onClick={() => {setEditing(null);setReload(value => value + 1);}}>{uiT("Reload limits")}</Button> : <Button type="submit" disabled={saving || loading || !amountValid}>{saving ? uiT("Saving…") : uiT("Save limit")}</Button>}<Button type="button" variant="ghost" disabled={saving || reloadRequired} onClick={() => { cancelFocusCurrency.current = account.currency; setEditing(null); }}>{uiT("Cancel")}</Button></div>
       </form>}
     </div>)}
     {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Spending limit saved.")}</p>}

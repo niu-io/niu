@@ -56,6 +56,14 @@ async function setWorkspaceKey(user: ReturnType<typeof userEvent.setup>, key = '
   await user.click(screen.getByRole('button', { name: 'Done' }));
 }
 
+async function addComparisonModel(user: ReturnType<typeof userEvent.setup>, model = 'strong') {
+  await screen.findByRole('button', { name: 'Edit comparison models (1 selected)' });
+  await user.click(screen.getByRole('button', { name: 'Choose models', exact: true }));
+  await user.click(await screen.findByRole('button', { name: new RegExp(model) }));
+  await user.click(screen.getByRole('button', { name: 'Close dialog', exact: true }));
+  await screen.findByRole('button', { name: 'Edit comparison models (2 selected)' });
+}
+
 function renderPlayground(models = ['fast', 'strong', 'balanced', 'unused', 'spare']) {
   return render(<SidebarProvider><MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
     <Routes><Route path="/workspaces/:workspace/playground" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /><Route path="/generations/:session?" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /></Routes>
@@ -174,7 +182,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     const user = userEvent.setup();
     renderPlayground();
-    await screen.findByRole('button', {name:'Edit comparison models (2 selected)'});
+    await addComparisonModel(user);
     await user.click(screen.getByRole('button', {name:'Choose models',exact:true}));
     await user.click(screen.getByRole('button', {name:'balanced',exact:true}));
     await user.click(screen.getByRole('button', {name:'unused',exact:true}));
@@ -194,6 +202,20 @@ describe('Global Chat', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Close', exact: true }));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Archived sessions', exact: true })));
     expect(screen.queryByRole('dialog', { name: 'Archived sessions' })).toBeNull();
+  });
+
+  it('keeps the composer editable when the saved draft cannot be loaded', async () => {
+    const fallback = vi.fn(async () => jsonResponse({data: []}));
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/chats/draft')
+      ? Promise.resolve(new Response(null, {status: 503}))
+      : fallback(input, init)));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    const prompt = await screen.findByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    expect(await screen.findByText('Could not load your saved draft.')).toBeTruthy();
+    await user.type(prompt, 'Still editable');
+    expect(prompt.value).toBe('Still editable');
   });
 
   it('lets settings close after a draft conflict without discarding local edits',async()=>{
@@ -358,6 +380,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     const view = renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await setWorkspaceKey(user);
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('First turn');
@@ -491,6 +514,7 @@ describe('Global Chat', () => {
       return jsonResponse({data:[]});
     }));
     const user=userEvent.setup();const view=renderPlayground(['fast','strong']);
+    await addComparisonModel(user);
     await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button',{name:'API key: Default'});
     await user.click(screen.getByRole('button',{name:/Car wash/i}));
@@ -499,6 +523,230 @@ describe('Global Chat', () => {
     view.unmount();
     await act(async()=>{finish(jsonResponse({saved:true}));});
     expect(calls.some(url=>url.endsWith('/chat/completions'))).toBe(false);
+  });
+
+  it('stops during draft persistence without creating a session or dispatching', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string}>}}> = [];
+    const dispatches: string[] = [];
+    let releaseDraft!: (response: Response) => void;
+    let draftWriteStarted = false;
+    let draftPayload: unknown;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') {
+          draftWriteStarted = true;
+          draftPayload = JSON.parse(String(init.body)).payload;
+          return new Promise<Response>(resolve => { releaseDraft = resolve; });
+        }
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-persisted'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) { dispatches.push(url); return new Promise<Response>(() => {}); }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop before sending');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(draftWriteStarted).toBe(true));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    // Stop is effective while the draft write is still in flight.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send to 1 model' })).toBeTruthy());
+    await act(async () => {
+      releaseDraft(jsonResponse({data:{revision:1,payload:draftPayload}}));
+    });
+    await waitFor(() => expect(chatWrites).toHaveLength(0));
+    expect(dispatches).toHaveLength(0);
+    expect(screen.getByLabelText('Prompt for all selected models')).toHaveProperty('value', 'Stop before sending');
+    expect(chatWrites).toHaveLength(0);
+  });
+
+  it('stops while the session is being persisted without dispatching or creating a second session', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string;content:string}>}}> = [];
+    const dispatches: string[] = [];
+    const savedChats = new Map<string, unknown>();
+    let releaseFirstSave!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') return Promise.resolve(jsonResponse({data:{revision:1,payload:JSON.parse(String(init.body)).payload}}));
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        savedChats.set(url, JSON.parse(String(init.body)));
+        if (chatWrites.length === 1) return new Promise<Response>(resolve => { releaseFirstSave = resolve; });
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-persisted'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[...savedChats.values()]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) { dispatches.push(url); return Promise.resolve(streamResponse('fast', 4, 'attempt-should-not-exist')); }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    const view = renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop during persistence');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(chatWrites).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    await act(async () => { releaseFirstSave(jsonResponse({saved:true,reference:'chat-persisted'})); });
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(dispatches).toHaveLength(0);
+    expect(new Set(chatWrites.map(write => write.url)).size).toBe(1);
+    expect(chatWrites[1].body.id).toBe(chatWrites[0].body.id);
+    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(await screen.findByText('Cancelled')).toBeTruthy();
+    expect(await screen.findByText('Cancelled before any output arrived.')).toBeTruthy();
+    expect(screen.getByLabelText('Prompt for all selected models')).toHaveProperty('value', '');
+    // Reload shows one truthfully cancelled saved session, never a connecting duplicate.
+    view.unmount();
+    renderPlayground(['fast']);
+    await waitFor(() => expect(screen.getAllByText('Cancelled')).toHaveLength(1));
+    expect(screen.queryByText('Connecting')).toBeNull();
+    expect(savedChats.size).toBe(1);
+  });
+
+  it('stops while clearing the composer draft after the session was saved and still terminalizes it', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string}>}}> = [];
+    const dispatches: string[] = [];
+    let releaseClearedDraft!: (response: Response) => void;
+    let clearedDraftStarted = false;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') {
+          const body = JSON.parse(String(init.body));
+          if ((body.payload as {prompt?:string})?.prompt === '') {
+            clearedDraftStarted = true;
+            return new Promise<Response>(resolve => { releaseClearedDraft = resolve; });
+          }
+          return Promise.resolve(jsonResponse({data:{revision:1,payload:body.payload}}));
+        }
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-cleared'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) { dispatches.push(url); return new Promise<Response>(() => {}); }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop while clearing draft');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(clearedDraftStarted).toBe(true));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    // The terminal save must not wait for a stuck draft clear.
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(chatWrites[1].body.id).toBe(chatWrites[0].body.id);
+    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(dispatches).toHaveLength(0);
+    await act(async () => { releaseClearedDraft(jsonResponse({data:{revision:2,payload:{sessionId:chatWrites[0].body.id,prompt:'',models:['fast'],attachments:[],settings:{systemPrompt:'',maxTokens:4096,temperature:0.7,logPayloads:true}}}})); });
+  });
+
+  it('aborts the live dispatch and persists exactly one cancelled session on stop', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string;content:string}>}}> = [];
+    const dispatches: Array<{url:string;signal?:AbortSignal}> = [];
+    let releaseStream!: (error: unknown) => void;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') return Promise.resolve(jsonResponse({data:{revision:1,payload:JSON.parse(String(init.body)).payload}}));
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-streaming'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) {
+        dispatches.push({url,signal:init?.signal ?? undefined});
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Partial"}}]}\n\n'));
+            releaseStream = error => controller.error(error);
+          },
+        });
+        init?.signal?.addEventListener('abort', () => releaseStream(new DOMException('Aborted','AbortError')), { once: true });
+        return Promise.resolve(new Response(body,{headers:{'content-type':'text/event-stream','x-niu-attempt-id':'attempt-stream'}}));
+      }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop during streaming');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(dispatches).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    await waitFor(() => expect(dispatches[0].signal?.aborted).toBe(true));
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(dispatches).toHaveLength(1);
+    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
+    expect(chatWrites[0].body.results.every(result => result.phase === 'connecting')).toBe(true);
+    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(await screen.findByText('Cancelled')).toBeTruthy();
+  });
+
+  it('rejects a synchronous double submission before startup persistence begins', async () => {
+    const chatWrites: Array<{url:string;body:{id:string}}> = [];
+    let releaseSave!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') return Promise.resolve(jsonResponse({data:{revision:1,payload:JSON.parse(String(init.body)).payload}}));
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        if (chatWrites.length === 1) return new Promise<Response>(resolve => { releaseSave = resolve; });
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-double'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) return Promise.resolve(streamResponse('fast', 4, 'attempt-double'));
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Send exactly once');
+    const form = prompt.closest('form')!;
+    // Two submits in the same task: the second must be rejected synchronously,
+    // before React can flush the running state, startup persistence or dispatch.
+    act(() => {
+      form.dispatchEvent(new Event('submit', {bubbles:true, cancelable:true}));
+      form.dispatchEvent(new Event('submit', {bubbles:true, cancelable:true}));
+    });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    expect(chatWrites).toHaveLength(1);
+    await act(async () => { releaseSave(jsonResponse({saved:true,reference:'chat-double'})); });
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(new Set(chatWrites.map(write => write.url)).size).toBe(1);
+    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
   });
 
   it('does not send inference when durable session creation fails', async () => {
@@ -511,6 +759,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
@@ -656,6 +905,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     const view = renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
@@ -729,10 +979,9 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: /API key: Choose API key/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Chat settings' })).toBeTruthy();
     expect(screen.queryByText('Parameters')).toBeNull();
-    await user.hover(screen.getByRole('button', {name:'Edit comparison models (2 selected)'}));
-    expect(await screen.findByText('fast')).toBeTruthy();
-    expect(screen.getByText('strong')).toBeTruthy();
-    await user.unhover(screen.getByRole('button', {name:'Edit comparison models (2 selected)'}));
+    const modelTrigger = screen.getByRole('button', {name:'Edit comparison models (1 selected)'});
+    expect(within(modelTrigger).getByText('fast')).toBeTruthy();
+    await addComparisonModel(user);
     expect(screen.getByRole('button', { name: /Car wash/i })).toBeTruthy();
     expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(5);
     expect(screen.queryByRole('tablist',{name:'Generation type'})).toBeNull();
@@ -825,6 +1074,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'Stop this comparison.');
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
@@ -886,6 +1136,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     const { container } = renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await setWorkspaceKey(user);
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('Test independent routes.');
@@ -923,6 +1174,7 @@ describe('Global Chat', () => {
       <Link to="/workspaces/workspace-b/playground">Switch workspace</Link>
       <Routes><Route path="/workspaces/:workspace/playground" element={<WorkspacePlayground />} /></Routes>
     </MemoryRouter></SidebarProvider>);
+    await addComparisonModel(user);
     await setWorkspaceKey(user);
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('Only for workspace A.');
@@ -1168,6 +1420,7 @@ it('does not carry saved-workspace billing claims over to a manually supplied ke
     : jsonResponse({data:[]})));
   const user = userEvent.setup();
   renderPlayground(['fast', 'strong']);
+  await addComparisonModel(user);
   await screen.findByRole('button', {name:'API key: Default'});
   expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider API keys');
   expect(screen.getByLabelText('Usage billing').closest('.playground-composer-surface')).toBeNull();

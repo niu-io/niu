@@ -38,6 +38,7 @@ describe('workspace slugs', () => {
     render(<WorkspaceCreateDialog context={{organization:{id:'org',name:'Company'},createWorkspace} as unknown as DashboardContext} open onOpenChange={onOpenChange}/>);
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Workspace name'), '产品 实验');
+    await user.click(within(dialog).getByRole('button', {name: 'Edit slug'}));
     const slug = within(dialog).getByLabelText('Slug') as HTMLInputElement;
     expect(slug.value).toBe('chan-pin-shi-yan');
     await user.clear(slug); await user.type(slug, 'research');
@@ -56,7 +57,6 @@ describe('workspace slugs', () => {
     const createWorkspace = vi.fn().mockResolvedValue({});
     render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
     await user.type(screen.getByLabelText('Workspace name'), 'Budget test');
-    expect((screen.getByLabelText('Reset') as HTMLInputElement).value).toBe('Never (lifetime)');
     expect(screen.getByLabelText('Spending limit ($)').getAttribute('placeholder')).toBe('No limit');
     expect(screen.getByText(/zero blocks new paid requests/)).toBeTruthy();
     await user.type(screen.getByLabelText('Spending limit ($)'), '0');

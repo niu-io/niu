@@ -52,8 +52,8 @@ describe('WorkspaceKeyConnection', () => {
 
     render(<WorkspaceKeyConnection onChange={onChange} description="Same-origin inference APIs only" />);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'API test workspace' }).textContent).toContain('Staging Sandbox'));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'API test key' }).textContent).toContain('Staging Active Key'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^API test workspace/ }).textContent).toContain('Staging Sandbox'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^API test key/ }).textContent).toContain('Staging Active Key'));
     expect(screen.getByText('Connected')).toBeTruthy();
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       keyId: '00000000-0000-4000-8000-000000000201',
@@ -64,23 +64,23 @@ describe('WorkspaceKeyConnection', () => {
     // Disconnect inline without unmounting workspaces
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Disconnect reference/i }));
-    expect(screen.getByRole('button', { name: 'API test key' }).textContent).toContain('Choose API key');
+    expect(screen.getByRole('button', { name: /^API test key/ }).textContent).toContain('Choose API key');
     expect(screen.queryByText('Connected')).toBeNull();
     expect(onChange).toHaveBeenLastCalledWith(null);
 
     // Refresh while disconnected keeps the reference disconnected
     await user.click(screen.getByRole('button', { name: /Refresh access/i }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'API test workspace' }).textContent).toContain('Staging Sandbox'));
-    expect(screen.getByRole('button', { name: 'API test key' }).textContent).toContain('Choose API key');
+    await waitFor(() => expect(screen.getByRole('button', { name: /^API test workspace/ }).textContent).toContain('Staging Sandbox'));
+    expect(screen.getByRole('button', { name: /^API test key/ }).textContent).toContain('Choose API key');
     expect(onChange).toHaveBeenLastCalledWith(null);
 
     // Switching workspace reconnects to the new workspace's first active key
-    await user.click(screen.getByRole('button', { name: 'API test workspace' }));
+    await user.click(screen.getByRole('button', { name: /^API test workspace/ }));
     const prodOption = await screen.findByRole('menuitemradio', { name: /Production Gateway/i });
     expect(prodOption.textContent).not.toContain('Created');
     await user.click(prodOption);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'API test key' }).textContent).toContain('Production Primary Key'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^API test key/ }).textContent).toContain('Production Primary Key'));
     expect(screen.getByText('Connected')).toBeTruthy();
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       keyId: '00000000-0000-4000-8000-000000000301',

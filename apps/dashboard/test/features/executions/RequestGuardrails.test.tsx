@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import RequestGuardrails from '../../../app/features/executions/components/RequestGuardrails';
 const decision = { stage: 'dispatch', outcome: 'allowed', coverage: 'model_provider_access', workspace_policy_name: 'Saved restriction', workspace_revision: 4, key_policy_name: null, key_policy_revision: null, input_inspection: { outcome: 'redacted', elapsed_ms: 1 }, output_inspection: { outcome: 'blocked', reason: 'pattern_denial', elapsed_ms: 2 } };
-function view(endpoint = '/scoped/requests/attempt/guardrails') { return <MemoryRouter><RequestGuardrails token="reader" endpoint={endpoint} historyPath="/workspaces/demo/guardrails/history" /></MemoryRouter>; }
+function view(endpoint = '/scoped/requests/attempt/guardrails') { return <MemoryRouter><RequestGuardrails token="reader" endpoint={endpoint} historyPath="/workspaces/demo/guardrails?tab=history" /></MemoryRouter>; }
 describe('request Guardrails diagnosis', () => {
   it('separates allowed dispatch from blocked output and preserves charge semantics', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: decision }))); render(view());
@@ -12,7 +12,7 @@ describe('request Guardrails diagnosis', () => {
     expect(screen.getByText('Redacted')).not.toBeNull();
     expect(screen.getByText('Saved restriction · Version 4')).not.toBeNull();
     expect(screen.getByText(/The output was withheld/)).not.toBeNull();
-    expect(screen.getByRole('link', { name: 'Inspect saved policy versions' }).getAttribute('href')).toBe('/workspaces/demo/guardrails/history');
+    expect(screen.getByRole('link', { name: 'Inspect saved policy versions' }).getAttribute('href')).toBe('/workspaces/demo/guardrails?tab=history');
     expect(screen.queryByText('pattern_denial')).toBeNull();
   });
   it('does not infer historical protection when attribution is absent', async () => {

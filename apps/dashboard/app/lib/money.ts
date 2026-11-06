@@ -113,6 +113,35 @@ export function formatUnitAtoms(
 }
 
 /**
+ * Customer-facing summary formatter. Rounds to the configured display precision
+ * (display only; stored atoms and arithmetic never change). Positive values that
+ * would round to zero keep the existing `< 0.01 <Unit>` safeguard.
+ */
+export function formatDisplayUnitAtoms(
+  atoms: bigint | string | null | undefined,
+  unitName: string,
+  displayPrecision = 2,
+): string {
+  const label = unitName?.trim() || 'Credits';
+  const prec = clampDisplayPrecision(displayPrecision);
+  const val = typeof atoms === 'bigint' ? atoms : BigInt(atoms || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const quantumAtoms = 10n ** BigInt(9 - prec);
+  if (abs > 0n && abs < quantumAtoms) {
+    const quantumStr = prec === 0 ? '1' : `0.${'0'.repeat(prec - 1)}1`;
+    return `${negative ? '-' : ''}< ${quantumStr} ${label}`;
+  }
+  const rounded = quantumAtoms > 1n ? (abs + quantumAtoms / 2n) / quantumAtoms * quantumAtoms : abs;
+  const whole = rounded / NANOS_PER_UNIT;
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const rawFrac = (rounded % NANOS_PER_UNIT).toString().padStart(9, '0').replace(/0+$/, '');
+  const frac = rawFrac.length < prec ? rawFrac.padEnd(prec, '0') : rawFrac;
+  const numberPart = frac ? `${wholeFormatted}.${frac}` : wholeFormatted;
+  return `${negative && abs > 0n ? '-' : ''}${numberPart} ${label}`;
+}
+
+/**
  * Exact decimal + atom formatter for details, statements, tooltips, and audit modals.
  * Never truncates sub-quantum precision.
  */
@@ -161,4 +190,18 @@ export function unitAmountFromAtoms(atoms: string, displayPrecision = 2): string
       ? rawFrac.padEnd(prec, '0')
       : rawFrac;
   return frac ? `${whole}.${frac}` : `${whole}`;
+}
+
+/**
+ * Standard-unit decimal text from an API summary (for example `"69.00"`).
+ * Groups the whole number without converting to Number, so large balances and
+ * sub-quantum values stay exact.
+ */
+export function formatUnitAmountText(amount: string, unitName: string): string {
+  const label = unitName?.trim() || 'Credits';
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(amount.trim());
+  if (!match) return `${amount} ${label}`;
+  const whole = match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const fraction = match[3] ? `.${match[3]}` : '';
+  return `${match[1]}${whole}${fraction} ${label}`;
 }

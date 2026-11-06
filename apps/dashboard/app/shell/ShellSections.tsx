@@ -28,6 +28,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -288,6 +289,7 @@ export function ShellSidebar({
   const { t } = useLocale();
   const uiT = (en: string) => t(en, en);
   const location = useLocation();
+  const { setOpenMobile } = useSidebar();
   return (
     <Sidebar
       ref={sidebarRef}
@@ -308,6 +310,15 @@ export function ShellSidebar({
       className="niu-workspace-sidebar"
       mobileClassName="niu-workspace-sidebar-mobile"
       mobileContentProps={{
+        onEscapeKeyDown: event => {
+          event.preventDefault();
+          setOpenMobile(false);
+        },
+        onKeyDownCapture: event => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          setOpenMobile(false);
+        },
         onCloseAutoFocus: event => {
           if (toggleRef.current?.isConnected) {
             event.preventDefault();
@@ -429,6 +440,7 @@ export function AdminProviderTabs({
             ['models', t('Models', '模型')],
             ['usage', t('Usage', '调用量')],
             ['settlements', t('Settlements', '结算账单')],
+            ['members', t('Members', '成员')],
             ['settings', t('Settings', '设置')],
           ]
             .filter(([value]) => operatingMode !== 'internal' || !['settlements'].includes(value))

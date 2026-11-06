@@ -44,6 +44,7 @@ export type ProjectKey = {
   name: string;
   allowed_models: string[];
   invocation_allowed?: boolean;
+  invocation_protocols?: string[];
   expires_at_ms: number | null;
   last_used_at_ms?: number | null;
   revoked: boolean;

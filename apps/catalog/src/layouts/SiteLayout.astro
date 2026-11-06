@@ -9,10 +9,11 @@ import SiteFooter from "../components/SiteFooter.astro";
 
 interface Props {
   title: string;
+  titleZh?: string;
   description: string;
 }
 
-const { title, description } = Astro.props;
+const { title, titleZh = title, description } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const socialImage = new URL("/catalog-assets/brand/niu-social-en-dark.png", Astro.site);
 ---
@@ -32,12 +33,27 @@ const socialImage = new URL("/catalog-assets/brand/niu-social-en-dark.png", Astr
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={socialImage} />
     <meta name="twitter:card" content="summary_large_image" />
-    <title>{title}</title>
+    <title data-en={title} data-zh={titleZh}>{title}</title>
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <a class="skip-link" href="#main" data-en="Skip to content" data-zh="跳转到主内容">Skip to content</a>
     <SiteHeader />
     <slot />
     <SiteFooter />
+    <script is:inline>
+      (() => {
+        const title = document.querySelector('title[data-en][data-zh]');
+        const sync = () => {
+          const zh = document.documentElement.dataset.locale === 'zh-CN' || document.documentElement.lang === 'zh-CN';
+          if (title) title.textContent = title.getAttribute(zh ? 'data-zh' : 'data-en') || '';
+          document.querySelectorAll('[data-en][data-zh]').forEach(element => {
+            element.textContent = element.getAttribute(zh ? 'data-zh' : 'data-en') || '';
+          });
+        };
+        sync();
+        window.addEventListener('niu-locale-change', sync);
+        window.addEventListener('storage', sync);
+      })();
+    </script>
   </body>
 </html>

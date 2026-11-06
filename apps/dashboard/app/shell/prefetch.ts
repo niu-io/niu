@@ -60,17 +60,18 @@ export const routeImporters = {
   connect: memoImport('connect', () => import('@/features/connect/page')),
   login: memoImport('login', () => import('@/features/login/page')),
   installation: memoImport('installation', () => import('@/features/login/installation-page')),
-  providerBusiness: memoImport('providerBusiness', () => import('@/features/provider-business/page')),
+  invite: memoImport('invite', () => import('@/features/invitations/accept-page')),
   commercialPosition: memoImport('commercialPosition', () => import('@/features/commercial-position/page')),
   platformSettings: memoImport('platformSettings', () => import('@/features/platform-settings/page')),
   customers: memoImport('customers', () => import('@/features/customers/page')),
-  customerAccounts: memoImport('customerAccounts', () => import('@/features/customer-accounts/page')),
   retailPricing: memoImport('retailPricing', () => import('@/features/retail-pricing/page')),
   auditLogs: memoImport('auditLogs', () => import('@/features/audit-logs/page')),
   branding: memoImport('branding', () => import('@/features/branding/page')),
   payments: memoImport('payments', () => import('@/features/platform/page')),
   providers: memoImport('providers', () => import('@/features/providers/page')),
-  agentReview: memoImport('agentReview', () => import('@/features/agent-review/page')),
+  routing: memoImport('routing', () => import('@/features/routing/page')),
+  evaluations: memoImport('evaluations', () => import('@/features/evaluations/page')),
+  eventSubscriptions: memoImport('eventSubscriptions', () => import('@/features/event-subscriptions/page')),
   routePools: memoImport('routePools', () => import('@/features/route-pools/page')),
   help: memoImport('help', () => import('@/features/help/page')),
   models: memoImport('models', () => import('@/features/models/page')),
@@ -84,9 +85,7 @@ export const routeImporters = {
   keysNew: memoImport('keysNew', () => import('@/features/keys/new-page')),
   keyDetail: memoImport('keyDetail', () => import('@/features/keys/detail-page')),
   keys: memoImport('keys', () => import('@/features/keys/page')),
-  organization: memoImport('organization', () => import('@/features/organization/page')),
   workspaceSettings: memoImport('workspaceSettings', () => import('@/features/workspace/settings-page')),
-  operators: memoImport('operators', () => import('@/features/operators/page')),
   guardrails: memoImport('guardrails', () => import('@/features/guardrails/page')),
   billing: memoImport('billing', () => import('@/features/billing/page')),
   workspaceUsage: memoImport('workspaceUsage', () => import('@/features/activity/page')),
@@ -125,6 +124,7 @@ export function preloadRouteChunk(pathname: string): void {
 
   if (parts[0] === 'login') { void routeImporters.login(); return; }
   if (parts[0] === 'installation') { void routeImporters.installation(); return; }
+  if (parts[0] === 'invite') { void routeImporters.invite(); return; }
   if (parts[0] === 'connect') { void routeImporters.connect(); return; }
   if (parts[0] === 'help') { void routeImporters.help(); return; }
   if (parts[0] === 'models') { void routeImporters.models(); return; }
@@ -136,16 +136,15 @@ export function preloadRouteChunk(pathname: string): void {
     return;
   }
   if (parts[0] === 'providers' || parts[0] === 'suppliers') {
-    void routeImporters.providerBusiness();
+    void routeImporters.providers();
     return;
   }
   if (parts[0] === 'admin') {
     const sub = parts[1] ?? 'providers';
     if (sub === 'providers' || sub === 'suppliers') void routeImporters.providers();
     else if (sub === 'routing' || sub === 'pools' || sub === 'route-pools' || sub === 'model-pools') void routeImporters.routePools();
-    else if (sub === 'customers') void routeImporters.customers();
+    else if (sub === 'customers' || sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') void routeImporters.customers();
     else if (sub === 'reports' || sub === 'commercial' || sub === 'financial-reports') void routeImporters.commercialPosition();
-    else if (sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') void routeImporters.customerAccounts();
     else if (sub === 'pricing') void routeImporters.retailPricing();
     else if (sub === 'payments' || sub === 'payment-gateways') void routeImporters.payments();
     else if (sub === 'branding') void routeImporters.branding();
@@ -157,7 +156,9 @@ export function preloadRouteChunk(pathname: string): void {
     if (parts.length === 1) { void routeImporters.workspaces(); return; }
     const section = parts[2] ?? '';
     if (!section) void routeImporters.overview();
-    else if (section === 'routing' || section === 'events' || section === 'evaluations') void routeImporters.agentReview();
+    else if (section === 'routing') void routeImporters.routing();
+    else if (section === 'events') void routeImporters.eventSubscriptions();
+    else if (section === 'evaluations') void routeImporters.evaluations();
     else if (section === 'keys') {
       if (parts[3] === 'new') void routeImporters.keysNew();
       else if (parts[3]) void routeImporters.keyDetail();
@@ -166,8 +167,7 @@ export function preloadRouteChunk(pathname: string): void {
     else if (section === 'executions') void routeImporters.executions();
     else if (section === 'billing' || section === 'costs') void routeImporters.billing();
     else if (section === 'guardrails') void routeImporters.guardrails();
-    else if (section === 'users') void routeImporters.operators();
-    else if (section === 'organization') void routeImporters.organization();
+    else if (section === 'users' || section === 'organization') void routeImporters.accountSettings();
     else if (section === 'settings') void routeImporters.workspaceSettings();
     else if (section === 'assets') void routeImporters.assets();
     else if (section === 'library') void routeImporters.library();
@@ -210,6 +210,13 @@ export function prefetchRouteData(
     } else if ((section === 'billing' || section === 'payments') && orgId) {
       prefetchGet(token, `/api/v1/organizations/${orgId}/billing/balance`);
       prefetchGet(token, `/api/v1/organizations/${orgId}/billing/transactions`);
+    } else if (section === 'members') {
+      prefetchGet(token, '/api/v1/organizations');
+      prefetchGet(token, '/api/v1/operators?limit=1000');
+      if (orgId) prefetchGet(token, `/api/v1/organizations/${orgId}/projects`);
+    } else if (section === 'organization') {
+      prefetchGet(token, '/api/v1/organizations');
+      prefetchGet(token, '/api/v1/workspaces', { persist: true });
     }
     if (parts[0] === 'settings') return;
   }
@@ -245,12 +252,10 @@ export function prefetchRouteData(
     if (sub === 'providers') {
       prefetchGet(token, '/api/v1/providers', { persist: true });
       prefetchGet(token, '/api/v1/vendors');
-    } else if (sub === 'customers') {
-      prefetchGet(token, '/api/v1/companies?limit=50');
+    } else if (sub === 'customers' || sub === 'balances') {
+      prefetchGet(token, '/api/v1/platform/customer-accounts?limit=50');
     } else if (sub === 'routing') {
       prefetchGet(token, '/api/v1/routing/index?limit=50');
-    } else if (sub === 'balances') {
-      prefetchGet(token, '/api/v1/platform/customer-accounts?limit=50');
     } else if (sub === 'pricing') {
       prefetchGet(token, '/api/v1/pricing/standard-prices?limit=50');
       prefetchGet(token, '/api/v1/platform/units');

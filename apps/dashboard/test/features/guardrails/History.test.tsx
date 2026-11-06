@@ -279,11 +279,11 @@ it('opens an exact recorded revision outside the loaded history page without gra
   const path=String(input);paths.push(path);
   return Response.json(path.endsWith('/revisions/1')?{data:{revision:1,policy:{name:'Historical screening',models:{mode:'inherit'},providers:{mode:'inherit'}}}}:{data:[row(3)],next_cursor:2});
  }));
- render(<MemoryRouter initialEntries={['/workspaces/example/guardrails/history?revision=1&from=blocked']}><Routes><Route path="/workspaces/:workspace/guardrails/history" element={<GuardrailHistory token="reader" endpoint="/scope/guardrails" canWrite={false}/>}/></Routes></MemoryRouter>);
+ render(<MemoryRouter initialEntries={['/workspaces/example/guardrails?tab=history&revision=1&from=blocked']}><Routes><Route path="/workspaces/:workspace/guardrails" element={<GuardrailHistory token="reader" endpoint="/scope/guardrails" canWrite={false}/>}/></Routes></MemoryRouter>);
  expect(await screen.findByRole('heading',{name:'Historical screening'})).toBeTruthy();
  expect(paths).toContain('/scope/guardrails/revisions/1');
  expect(screen.queryByRole('button',{name:'Restore this version'})).toBeNull();
- expect(screen.getByRole('link',{name:'Return to blocked requests'}).getAttribute('href')).toBe('/workspaces/example/guardrails/denials');
+ expect(screen.getByRole('link',{name:'Return to blocked requests'}).getAttribute('href')).toBe('/workspaces/example/guardrails?tab=blocked');
  await userEvent.click(screen.getAllByRole('button',{name:'Close',exact:true})[0]);
  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
 });

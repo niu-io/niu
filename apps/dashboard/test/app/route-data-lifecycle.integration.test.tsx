@@ -127,9 +127,10 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(observedContexts[0]?.session?.operator?.id).toBe('op-1');
     expect(observedContexts[0]?.activeWorkspace?.slug).toBe('alpha');
 
-    // Opening ?settings=account modal or changing #hash must NOT re-run the page route loader
+    // Hash-only changes must NOT re-run the page route loader. The former
+    // ?settings= modal was replaced by a canonical Settings route navigation.
     await act(async () => {
-      await router.navigate('/workspaces/alpha/probe?settings=account#details');
+      await router.navigate('/workspaces/alpha/probe#details');
     });
     expect(loaderRuns).toBe(1);
 
@@ -338,7 +339,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     consoleSpy.mockRestore();
   });
 
-  it('preserves ErrorBoundary, HydrateFallback, clientAction, and handle in bindLazy and rejects dual loader + clientLoader (niu-wnr.6)', async () => {
+  it('preserves ErrorBoundary, HydrateFallback, clientAction/action, and handle in bindLazy and rejects dual loader + clientLoader (niu-wnr.6, niu-wnr.8)', async () => {
     const DummyComponent = () => null;
     const DummyBoundary = () => null;
     const DummyHydrate = () => null;
@@ -360,6 +361,9 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(resolved.ErrorBoundary).toBe(DummyBoundary);
     expect(resolved.HydrateFallback).toBe(DummyHydrate);
     expect(resolved.clientAction).toBe(dummyClientAction);
+    // Data Mode has no server action; bindLazy must expose clientAction to the
+    // action slot so fetcher submissions work outside framework mode.
+    expect(resolved.action).toBe(dummyClientAction);
     expect(resolved.handle).toEqual({
       destination: 'Workspace',
       navTo: 'routing',

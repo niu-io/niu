@@ -7,13 +7,14 @@ import { ChevronDown } from 'lucide-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import { formatExactUnitAtoms, formatUnitAtoms } from '@/lib/money';
+import { formatUnitAtoms } from '@/lib/money';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,9 +100,9 @@ const BLOCKER_LABELS: Record<string, string> = {
 function formatRuleRate(rule: PurchaseRule, unitName: string, precision: number): string {
   try {
     const atomsForOneCurrency = (BigInt(rule.numerator) * 1000000000n) / BigInt(rule.denominator);
-    return formatLocalizedMessage('{0} per 1 {1} (exact ratio {2}:{3})', [formatUnitAtoms(atomsForOneCurrency.toString(), unitName, precision), rule.payment_currency, rule.numerator, rule.denominator], readLocale());
+    return formatLocalizedMessage('{0} = 1 {1}', [formatUnitAtoms(atomsForOneCurrency.toString(), unitName, precision), rule.payment_currency], readLocale());
   } catch {
-    return `${rule.numerator}:${rule.denominator} (${rule.payment_currency})`;
+    return `${rule.numerator}:${rule.denominator} ${rule.payment_currency}`;
   }
 }
 
@@ -113,6 +114,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
   const [config, setConfig] = useState<UnitConfiguration | null>(() => initialConfig);
   const [preview, setPreview] = useState<ModeSnapshot | null>(null);
   const [savedPreview, setSavedPreview] = useState<SavedModePreview | null>(null);
+  const [confirmMode, setConfirmMode] = useState(false);
   const [targetMode, setTargetMode] = useState<'currency' | 'credits'>(() =>
     initialConfig?.billing_mode === 'credits' ? 'currency' : 'credits',
   );
@@ -256,8 +258,9 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
       });
       setSavedPreview(resp.data);
       setPreview(resp.data.snapshot);
+      setConfirmMode(true);
       setNotice(
-        `Saved 15-minute compatibility snapshot for switching to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'} mode.`,
+        `Compatibility snapshot ready for switching to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'} mode.`,
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save billing-mode preview.');
@@ -278,6 +281,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         idempotency_key: crypto.randomUUID(),
       });
       setSavedPreview(null);
+      setConfirmMode(false);
       setNotice(
         `Switched installation billing mode to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'}.`,
       );
@@ -299,7 +303,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         <div>
           <h2 className="text-lg font-semibold">{uiT("Branded Credits & billing mode")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {uiT("Configure versioned branded consumption units (1 unit = 1,000,000,000 exact atoms), payment conversion rules, and guarded installation billing-mode transitions.")}</p>
+            {uiT("Configure branded consumption units, payment conversion rules, and guarded installation billing-mode transitions.")}</p>
         </div>
         <div className="flex items-center gap-2">
           {config && (
@@ -319,7 +323,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
       )}
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{uiT(error)}</AlertDescription>
         </Alert>
       )}
       {loading && !config && <FormSectionSkeleton fields={2} label={uiT("Loading branded unit configuration…")} />}
@@ -330,7 +334,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             <div>
               <h3 className="text-sm font-semibold">{uiT("1. Branded unit definition")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Current revision:")}{" "}{config.definition ? uiF("v{0} ({1}, {2} decimals, {3} per unit)", [config.definition.revision, config.definition.name, config.definition.display_precision, formatExactUnitAtoms(config.definition.atoms_per_unit, config.definition.name)]) : uiT("Not published")}
+                {uiT("Current revision:")}{" "}{config.definition ? uiF("v{0} ({1}, {2} decimals)", [config.definition.revision, config.definition.name, config.definition.display_precision]) : uiT("Not published")}
               </p>
             </div>
             <form className="space-y-3" onSubmit={event => void handlePublishDefinition(event)}>
@@ -381,13 +385,13 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             <div>
               <h3 className="text-sm font-semibold">{uiT("2. Purchase conversion rule")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Defines how top-up payments in settlement currency convert into issued")}{" "}{defName}{" "}{uiT("atoms at checkout.")}</p>
+                {uiT("Defines how top-up payments in settlement currency convert into issued")}{" "}{defName}{" "}{uiT("Credits at checkout.")}</p>
             </div>
             {config.purchase_rules.length > 0 ? (
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {config.purchase_rules.map(rule => (
                   <li key={rule.revision}>
-                    <span className="font-medium text-foreground">{rule.payment_currency}</span>{" "}{uiT("(rule v")}{rule.revision}{uiT(", unit v")}{rule.definition_revision}):{' '}
+                    <span className="font-medium text-foreground">{rule.payment_currency}</span>{": "}
                     {formatRuleRate(rule, defName, defPrecision)}
                   </li>
                 ))}
@@ -458,27 +462,11 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button
-                variant="outline"
                 size="sm"
-                disabled={preparingMode || loading}
+                disabled={preparingMode || loading || publishingMode}
                 onClick={() => void handleSaveModePreview()}
               >
-                {preparingMode ? uiT("Saving preview…") : uiT("Save 15-minute preview")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={
-                  publishingMode ||
-                  !savedPreview ||
-                  savedPreview.expected_revision !== config.revision ||
-                  !savedPreview.snapshot.blockers_empty ||
-                  !savedPreview.snapshot.change_required
-                }
-                onClick={() => void handlePublishModeSwitch()}
-              >
-                {publishingMode
-                  ? uiT("Switching mode…")
-                  : uiF("Switch to {0}", [targetMode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")])}
+                {preparingMode ? uiT("Preparing switch…") : uiT("Switch billing mode")}
               </Button>
             </div>
           </div>
@@ -544,6 +532,26 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
           )}
         </div>
       )}
+      <Dialog open={confirmMode} onOpenChange={open => { if (!open && !publishingMode) setConfirmMode(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{uiT("Confirm billing mode switch")}</DialogTitle>
+            <DialogDescription>{uiT("Review the compatibility snapshot, then confirm the installation-wide switch. The snapshot expires after 15 minutes.")}</DialogDescription>
+          </DialogHeader>
+          {savedPreview && <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
+            <p className="font-medium">
+              {savedPreview.source_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")} → {savedPreview.target_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")}
+            </p>
+            <p className="text-muted-foreground">{uiT("Expires")} {new Date(savedPreview.expires_at).toLocaleString(readUILocale())}</p>
+            <p className="text-muted-foreground">{savedPreview.snapshot.blockers_empty ? uiT("No compatibility blockers detected at snapshot time.") : uiF("{0} blocker categories prevented activation.", [savedPreview.snapshot.blockers.length])}</p>
+          </div>}
+          {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
+          <DialogFooter>
+            <Button variant="outline" disabled={publishingMode} onClick={() => setConfirmMode(false)}>{uiT("Cancel")}</Button>
+            <Button disabled={publishingMode || !savedPreview || !config || savedPreview.expected_revision !== config.revision || !savedPreview.snapshot.blockers_empty || !savedPreview.snapshot.change_required} onClick={() => void handlePublishModeSwitch()}>{publishingMode ? uiT("Switching mode…") : uiT("Confirm switch")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

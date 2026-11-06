@@ -1,12 +1,10 @@
-import { useState } from 'react';
-import { Button } from '../../app/components/ui/button';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, Link } from 'react-router';
 import { SidebarProvider } from '../../app/components/ui/sidebar';
 import AccountMenu from '../../app/shell/AccountMenu';
-import SettingsPage, { SettingsDialog, SettingsNavigation, settingsReturnDestination } from '../../app/features/account/settings-page';
+import SettingsPage, { SettingsNavigation } from '../../app/features/account/settings-page';
 import type { DashboardContext } from '../../app/shell/dashboard-context';
 let current: DashboardContext;
 vi.mock('../../app/shell/dashboard-context',()=>({useDashboardContext:()=>current}));
@@ -14,7 +12,7 @@ const organization={id:'11111111-1111-4111-8111-111111111111',name:'Example comp
 function context(projectId:string|null=null):DashboardContext {
  return {token:'fixture',organization,organizations:[organization],workspace:null,workspaces:[],workspaceLoading:false,session:{kind:'operator',operator:{id:'member',role:'owner',project_id:projectId},permissions:{read:true,write:true,manage_operators:true}},signOut:vi.fn(),selectOrganization:vi.fn()} as unknown as DashboardContext;
 }
-function view(path='/settings/appearance') {return <MemoryRouter initialEntries={[path]}><SidebarProvider><SettingsNavigation context={current}/></SidebarProvider><Link to="/settings/account">Account section</Link><Link to="/settings/appearance">Appearance section</Link><Link to="/settings/billing">Billing section</Link><Routes><Route path="/settings/:section" element={<SettingsPage/>}/></Routes></MemoryRouter>;}
+function view(path='/settings/appearance') {return <MemoryRouter initialEntries={[path]}><SidebarProvider><SettingsNavigation context={current}/></SidebarProvider><Link to="/settings/account">Account section</Link><Link to="/settings/appearance">Appearance section</Link><Link to="/settings/billing">Billing section</Link><Routes><Route path="/settings/:section?" element={<SettingsPage/>}/></Routes></MemoryRouter>;}
 function mockRequests() {const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input)==='/api/v1/auth/profile'?Response.json({data:{name:'Member',email:null,avatar_data_url:null,revision:0}}):Response.json({password_login:false,data:[]}));vi.stubGlobal('fetch',fetcher);return fetcher;}
 describe('global settings routes',()=>{
  it('shows members from other workspaces when organization settings opens from a selected workspace',async()=>{
@@ -47,26 +45,6 @@ describe('global settings routes',()=>{
   expect(screen.getByRole('alert').textContent).toContain('Could not load your billing account');
   expect(screen.queryByText(/Only company owners and administrators can manage shared credits/)).toBeNull();
  });
- it('returns focus to the visible navigation trigger when Settings closes',async()=>{
-  current=context();mockRequests();
-  function Fixture(){const [open,setOpen]=useState(true);return <MemoryRouter><Button aria-label="Account menu" ref={node=>{if(node)node.getClientRects=()=>[] as unknown as DOMRectList;}}>Account</Button><Button className="sidebar-toggle" aria-label="Expand workspace navigation" ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Navigation</Button>{open&&<SettingsDialog context={current} section="appearance" onClose={()=>setOpen(false)}/>}</MemoryRouter>;}
-  render(<Fixture/>);await userEvent.setup().keyboard('{Escape}');
-  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Expand workspace navigation'})));
- });
- it('returns to the task control that opened Settings before using the account-menu fallback',async()=>{
-  current=context();mockRequests();
-  function Fixture(){const [open,setOpen]=useState(false);return <MemoryRouter><Button aria-label="Account menu" ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Account</Button><Button onClick={()=>setOpen(true)} ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Manage credits</Button>{open&&<SettingsDialog context={current} section="appearance" onClose={()=>setOpen(false)}/>}</MemoryRouter>;}
-  render(<Fixture/>);const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Manage credits'}));await user.keyboard('{Escape}');await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Manage credits'})));
- });
- it('accepts only local product destinations for closing Settings',()=>{
-  expect(settingsReturnDestination('/chat?workspace=demo#reply','/workspaces/default')).toBe('/chat?workspace=demo#reply');
-  for(const value of ['//evil.invalid','https://evil.invalid','/settings/account','/login','/installation','/\\evil.invalid']) expect(settingsReturnDestination(value,'/workspaces/default')).toBe('/workspaces/default');
- });
- it('closes to the originating product route with its query and hash',async()=>{
-  current=context();mockRequests();render(<MemoryRouter initialEntries={[{pathname:'/settings/appearance',state:{settingsReturnTo:'/chat?workspace=demo#reply'}}]}><Routes><Route path="/settings/:section" element={<SettingsPage/>}/><Route path="/chat" element={<p>Chat restored</p>}/></Routes></MemoryRouter>);
-  await userEvent.setup().click(screen.getByRole('button',{name:'Close',exact:true}));
-  expect(await screen.findByText('Chat restored')).toBeTruthy();
- });
  it('shows the signed-in account identity rather than its permission role',async()=>{
   current=context();current.session!.profile={name:'Demo',email:'demo@niu.io',avatar_data_url:null,revision:0};
   render(<MemoryRouter><SidebarProvider><AccountMenu context={current} workspacePath="/workspaces/default"/></SidebarProvider></MemoryRouter>);
@@ -77,10 +55,10 @@ describe('global settings routes',()=>{
   expect(screen.queryByText('Platform administrator',{exact:true})).toBeNull();
  });
 
- it('links to Settings over the current product page',async()=>{
+ it('links to canonical Settings over the current product page',async()=>{
   current=context();mockRequests();render(<MemoryRouter><SidebarProvider><AccountMenu context={current} workspacePath="/workspaces/default"/></SidebarProvider><Routes><Route path="/settings/:section" element={<SettingsPage/>}/><Route path="/" element={null}/></Routes></MemoryRouter>);
   const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Account menu'}));
-  expect(screen.getByRole('menuitem',{name:'Settings',exact:true}).getAttribute('href')).toBe('/?settings=account');
+  expect(screen.getByRole('menuitem',{name:'Settings',exact:true}).getAttribute('href')).toBe('/settings/account');
   expect(screen.getByRole('menuitem',{name:'Settings',exact:true})).toBeTruthy();
  });
  it('opens usable appearance settings for installation administrators',async()=>{

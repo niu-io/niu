@@ -2,7 +2,10 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
+import { Button } from '@/components/ui/button';
+import { IconSearch } from '@tabler/icons-react';
 import { useLocale } from '../../shell/locale';
+import { readTheme } from '@/shell/theme';
 
 const AgentDocument = lazy(() => import('./AgentDocument'));
 
@@ -44,6 +47,16 @@ function DocumentationPage() {
   useEffect(() => {
     const contentWindow = frame.current?.contentWindow;
     if (!contentWindow) return;
+    const post = () => {
+      try { contentWindow.postMessage({ type: 'niu-docs-theme', theme: readTheme() }, window.location.origin); } catch { /* Ignore while iframe is loading. */ }
+    };
+    post();
+    window.addEventListener('niu-theme-change', post);
+    return () => window.removeEventListener('niu-theme-change', post);
+  }, []);
+  useEffect(() => {
+    const contentWindow = frame.current?.contentWindow;
+    if (!contentWindow) return;
     try {
       contentWindow.postMessage({ type: 'niu-docs-locale', locale }, window.location.origin);
     } catch {
@@ -68,5 +81,13 @@ function DocumentationPage() {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [dashboardBase, docsBase, navigate]);
-  return <iframe ref={frame} className="help-frame" title={uiT("Docs")} src={initialFramePath.current} />;
+  const openSearch = () => {
+    const contentWindow = frame.current?.contentWindow;
+    if (!contentWindow) return;
+    const url = new URL(contentWindow.location.href);
+    url.searchParams.set('embed', 'help');
+    url.searchParams.set('search', '1');
+    contentWindow.location.assign(url.toString());
+  };
+  return <><iframe ref={frame} className="help-frame" title={uiT("Docs")} src={initialFramePath.current} /><Button type="button" className="help-search-fab" size="icon" aria-label={uiT("Search documentation")} title={uiT("Search documentation")} onClick={openSearch}><IconSearch size={18} /></Button></>;
 }

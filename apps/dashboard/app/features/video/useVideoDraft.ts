@@ -63,8 +63,8 @@ export function useVideoDraft({client,scope,identity,contextIdentity,enabled,can
           }catch(error){
             failed=true;
             if(valid())setState({identity,ready:true,saving:false,error:error instanceof NiuAPIError&&error.status===409
-              ? 'This Video draft changed in another tab. Your input is still here. Load the saved draft before continuing.'
-              : 'Could not confirm your saved Video draft. Your input is still here. Load the saved draft before continuing.',conflict:true,confirmed,revision});
+              ? 'This Video draft changed in another tab. Your input is still here; it will not update the saved draft unless you load it.'
+              : 'Could not confirm your saved Video draft. Your input is still here; generation can continue without updating it.',conflict:true,confirmed,revision});
             return null;
           }finally{controller.signal.removeEventListener('abort',abort);if(write.current===pending)write.current=null;}
         }
@@ -81,7 +81,7 @@ export function useVideoDraft({client,scope,identity,contextIdentity,enabled,can
       onRestore.current(saved.payload);
       confirmed=saved.payload===null?'':serialized(saved.payload);
       ready=true;setState({identity,ready:true,saving:false,error:'',conflict:false,confirmed,revision});
-    }).catch(()=>{if(valid())setState({...initial,identity,error:'Could not load your saved Video draft. Your input is still here.'});});
+    }).catch(()=>{if(valid())setState({...initial,identity,error:'Could not load your saved Video draft. Your input is still here; generation can continue without a saved draft.'});});
     return()=>{controller.abort();write.current?.abort();control.current=null;};
   // Scope belongs to identity; value/restore are live refs, not load dependencies.
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -52,8 +52,11 @@ export function identifyProvider(value?: string): ProviderIdentity | undefined {
   return providers[index];
 }
 type ModelIdentityInput = { id: string; upstream_model?: string };
+// These businesses distribute or route model access. Their brand identifies a
+// Provider, never the upstream model developer.
+const distributorIds = new Set(['fastrouter', 'openrouter', 'babelark', 'qiniu']);
 // Route namespaces describe access or transport, not model authorship.
-const routingNamespaces = new Set(['byok', 'fastrouter', 'openrouter', 'babelark', 'qiniu']);
+const routingNamespaces = new Set(['byok', ...distributorIds]);
 export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | undefined {
   for (const source of [model.upstream_model, model.id]) {
     if (!source?.trim()) continue;
@@ -62,7 +65,7 @@ export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | un
     const candidate = parts.join('/');
     if (routingNamespaces.has(candidate)) continue;
     const known = identifyProvider(candidate);
-    if (known) return known;
+    if (known && !distributorIds.has(known.id)) return known;
   }
   // An arbitrary alias prefix is not evidence of a model developer.
   return undefined;

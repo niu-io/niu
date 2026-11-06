@@ -354,7 +354,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       {error && (
         <Alert variant="destructive">
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>{error}</span>
+            <span>{uiT(error)}</span>
             <Button variant="outline" size="sm" disabled={loading} onClick={() => void loadPools(failedCursor)}>
               {t('Retry pools', '重试')}
             </Button>
@@ -1927,7 +1927,7 @@ function RoutePoolPreviewDialog({
 
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{uiT(error)}</AlertDescription>
             </Alert>
           )}
 
@@ -2097,7 +2097,7 @@ function RoutePoolAuditDialog({
 
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{uiT(error)}</AlertDescription>
           </Alert>
         )}
 
@@ -2346,7 +2346,7 @@ function RoutePoolHistoryDialog({
         {error && (
           <Alert variant="destructive">
             <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-              <span>{error}</span>
+              <span>{uiT(error)}</span>
               <Button variant="outline" size="sm" disabled={loading} onClick={() => void loadHistory()}>
                 {t('Retry', '重试')}
               </Button>

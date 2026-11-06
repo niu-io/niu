@@ -34,6 +34,7 @@ export type ProviderConnection = {
   revision: number;
   has_credential: boolean;
   owner_funded?: boolean;
+  access_scope?: 'commercial' | 'personal' | 'internal';
   provider?: { id: string; name: string } | null;
   supplier?: { id: string; name: string } | null;
 };

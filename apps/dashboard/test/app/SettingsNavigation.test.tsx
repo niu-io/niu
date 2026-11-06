@@ -1,59 +1,128 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider } from 'react-router';
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import SettingsPage, { SettingsNavigation } from '../../app/features/account/settings-page';
 import { SidebarProvider } from '../../app/components/ui/sidebar';
 import type { DashboardContext } from '../../app/shell/dashboard-context';
 
-function mount() {
+function context(kind: 'installation' | 'operator' = 'installation'): DashboardContext {
+  return {
+    token: 'fixture',
+    session: kind === 'operator'
+      ? { kind, operator: { id: 'member', role: 'owner', project_id: null, organization_id: 'org' }, permissions: { read: true, write: true, manage_operators: true } }
+      : { kind, operator: null, permissions: { read: true, write: true, manage_operators: true } },
+    appearance: { ready: true },
+    organization: kind === 'operator' ? { id: 'org', name: 'Example company' } : null,
+  } as unknown as DashboardContext;
+}
+
+function mount(path: string, session = context()) {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
-  const context = { token: 'fixture', session: {kind:'installation',operator:null,permissions:{read:true,write:true,manage_operators:true}}, appearance:{ready:true}, organization:null } as unknown as DashboardContext;
-  const router = createMemoryRouter([{ element: <SidebarProvider><SettingsNavigation context={context}/><Outlet context={context}/></SidebarProvider>, children: [
-    {path:'/settings/:section?',Component:SettingsPage},
-    {path:'/admin/providers/models',element:<p>Provider models</p>},
-    {path:'/workspaces/default',element:<p>Workspace</p>},
-  ]}], {initialEntries:[{pathname:'/settings/appearance',state:null}]});
-  render(<RouterProvider router={router}/>);
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const requestPath = String(input);
+    if (requestPath === '/api/v1/auth/profile') {
+      return Response.json({ data: { name: 'Member', email: null, avatar_data_url: null, revision: 0 } });
+    }
+    if (requestPath.endsWith('/billing/balance') || requestPath.endsWith('/billing/transactions')) {
+      return Response.json({ data: [] });
+    }
+    return Response.json({ data: [] });
+  }));
+  const router = createMemoryRouter(
+    [
+      {
+        element: (
+          <SidebarProvider>
+            <SettingsNavigation context={session} />
+            <Outlet context={session} />
+          </SidebarProvider>
+        ),
+        children: [
+          { path: '/settings/:section?', Component: SettingsPage },
+          { path: '/workspaces/default', element: <p>Workspace</p> },
+        ],
+      },
+    ],
+    { initialEntries: [path] },
+  );
+  render(<RouterProvider router={router} />);
   return router;
 }
 
-it('renders routed Settings in a dialog and switches sections', async () => {
-  const router = mount();
-  const dialog = screen.getByRole('dialog',{name:'Settings'});
-  expect(dialog).toBeTruthy();
-  const sidebarContainer = dialog.querySelector('.settings-dialog-navigation');
-  expect(sidebarContainer?.className).not.toContain('bg-muted');
-  expect(sidebarContainer?.className).toContain('group-data-[side=left]:border-r');
-  await userEvent.click(screen.getByRole('button', {name:'Toggle Settings navigation'}));
-  expect(screen.getByRole('dialog', {name:'Settings'}).querySelector('[data-collapsible="icon"]')).toBeTruthy();
-  await userEvent.click(screen.getByRole('button', {name:'Toggle Settings navigation'}));
-  expect(screen.getByRole('navigation', { name: 'Settings navigation' })).toBeTruthy();
-  await userEvent.click(screen.getByRole('link',{name:'Credits'}));
-  expect(router.state.location.pathname).toBe('/settings/billing');
-  await userEvent.click(screen.getByRole('link',{name:'Appearance'}));
-  expect(router.state.location.pathname).toBe('/settings/appearance');
-  expect(screen.getByRole('button', { name: 'Color mode' })).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'Account', exact: true })).toBeNull();
-  expect(screen.queryByRole('link', { name: 'Workspaces', exact: true })).toBeNull();
-  await userEvent.click(screen.getByRole('link', {name:'About',exact:true}));
-  expect(screen.getByRole('region', {name:'About Niu'})).toBeTruthy();
-  expect(screen.getByText(import.meta.env.VITE_NIU_VERSION ? `Version ${import.meta.env.VITE_NIU_VERSION}` : 'Development build')).toBeTruthy();
-  if (import.meta.env.VITE_NIU_RELEASE_DATE) expect(screen.getByText(import.meta.env.VITE_NIU_RELEASE_DATE)).toBeTruthy();
-  else expect(screen.queryByText('Release date')).toBeNull();
-  expect(screen.getByRole('link', {name:'Third-party notices'})).toBeTruthy();
+describe('settings routes', () => {
+  it('renders Settings as a page inside the existing shell instead of a modal', async () => {
+    const router = mount('/settings/appearance');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Settings navigation' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Color mode' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/settings/appearance');
+    expect(screen.getByRole('link', { name: 'Credits' }).getAttribute('href')).toBe('/settings/billing');
+    await userEvent.click(screen.getByRole('link', { name: 'About', exact: true }));
+    expect(router.state.location.pathname).toBe('/settings/about');
+    expect(screen.getByRole('region', { name: 'About Niu' })).toBeTruthy();
+  });
+
+  it('defaults /settings to the personal account section for operators', async () => {
+    const router = mount('/settings', context('operator'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/account'));
+    expect(screen.getByRole('navigation', { name: 'Settings navigation' })).toBeTruthy();
+  });
+
+  it('defaults /settings to appearance for installation administrators', async () => {
+    const router = mount('/settings', context('installation'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
+    expect(screen.queryByRole('link', { name: 'Account', exact: true })).toBeNull();
+  });
+
+  it('redirects legacy Payments bookmarks directly to the canonical Billing section', async () => {
+    const router = mount('/settings/payments?view=history#balance');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/billing'));
+    expect(router.state.location.search).toBe('?view=history');
+    expect(router.state.location.hash).toBe('#balance');
+    expect(screen.queryByRole('link', { name: 'Payments' })).toBeNull();
+  });
+
+  it('redirects unknown sections to the usable default', async () => {
+    const router = mount('/settings/unknown');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
+  });
+
+  it('marks only the selected canonical section as current', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/account']}>
+        <SidebarProvider>
+          <SettingsNavigation context={context('operator')} />
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'Account' }).getAttribute('aria-current')).toBe('page');
+    for (const name of ['Organization', 'Members', 'Appearance', 'Credits', 'About']) {
+      expect(screen.getByRole('link', { name }).hasAttribute('aria-current')).toBe(false);
+    }
+  });
+
+  it('links organization and members to their canonical Settings homes', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/organization']}>
+        <SidebarProvider>
+          <SettingsNavigation context={context('operator')} />
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'Organization' }).getAttribute('href')).toBe('/settings/organization');
+    expect(screen.getByRole('link', { name: 'Organization' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('link', { name: 'Members' }).getAttribute('href')).toBe('/settings/members');
+  });
+
+  it('keeps the legacy Payments path selected on Billing navigation', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/payments']}>
+        <SidebarProvider>
+          <SettingsNavigation context={context('installation')} />
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'Credits' }).getAttribute('aria-current')).toBe('page');
+  });
 });
-
- it('marks only the selected query-based Settings section as current', () => {
-  const context = {session:{kind:'operator',operator:{project_id:null,role:'owner'}}} as unknown as DashboardContext;
-  render(<MemoryRouter initialEntries={['/workspaces/default?settings=account']}><SidebarProvider><SettingsNavigation context={context} section="account" href={section=>`/workspaces/default?settings=${section}`}/></SidebarProvider></MemoryRouter>);
-  expect(screen.getByRole('link', {name:'Account'}).getAttribute('aria-current')).toBe('page');
-  for (const name of ['Appearance','Credits','About']) expect(screen.getByRole('link',{name}).hasAttribute('aria-current')).toBe(false);
- });
-
- it('keeps legacy Payments bookmarks in the single Billing navigation home', () => {
-  const context = {session:{kind:'installation'}} as unknown as DashboardContext;
-  render(<MemoryRouter initialEntries={['/settings/payments']}><SidebarProvider><SettingsNavigation context={context}/></SidebarProvider></MemoryRouter>);
-  expect(screen.getByRole('link',{name:'Credits'}).getAttribute('aria-current')).toBe('page');
-  expect(screen.queryByRole('link',{name:'Payments'})).toBeNull();
- });

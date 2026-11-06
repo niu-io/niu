@@ -1,7 +1,7 @@
 import {render,screen} from '@testing-library/react';
 import {describe,it,expect,vi} from 'vitest';
 import {MemoryRouter} from 'react-router';
-import {OrganizationSettings} from '../../app/features/organization/page';
+import {OrganizationSettings} from '../../app/features/organization/settings-section';
 import type {DashboardContext} from '../../app/shell/dashboard-context';
 
 function context(kind:'installation'|'operator', organization='company-a', platformAdmin=false) {

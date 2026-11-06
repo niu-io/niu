@@ -1,5 +1,7 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { FormSectionSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
 import { resolveProvider } from '@/shell/provider-route';
@@ -32,9 +34,20 @@ export default function ProvidersRoute() {
   const location = useLocation();
   if (!activeProviderId) return <ProviderList />;
   if (context.providerDirectory && !resolveProvider(activeProviderId, context.providerDirectory)) {
-    return context.providerDirectoryLoading
-      ? <WorkspaceShellSkeleton label={uiT("Loading Provider…")} />
-      : <p role="status">{uiT("Provider unavailable.")}</p>;
+    if (context.providerDirectoryLoading) {
+      return <WorkspaceShellSkeleton label={uiT("Loading Provider…")} />;
+    }
+    if (context.providerDirectoryError) {
+      // An empty directory after a failed request does not prove the Provider is
+      // gone. Keep the route recoverable instead of reporting a false 404.
+      return <Alert variant="destructive">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+          <span>{uiT("The Provider directory could not be loaded. Retry before opening this Provider.")}</span>
+          {context.reloadProviderDirectory && <Button variant="outline" size="sm" onClick={context.reloadProviderDirectory}>{uiT("Retry Provider directory")}</Button>}
+        </AlertDescription>
+      </Alert>;
+    }
+    return <p role="status">{uiT("Provider unavailable.")}</p>;
   }
   if (search.get("properties") === "supplier" || search.get("properties") === "provider") {
     const query = new URLSearchParams(search);
@@ -51,7 +64,7 @@ export default function ProvidersRoute() {
   if (section !== "keys") return <ProviderAdministration />;
   return <ConnectGate>
     {({ token, session, refreshWorkspace }) => session
-      ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" />
+      ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" providerSlug={activeProviderId} />
       : <section className="panel vendor-loading"><FormSectionSkeleton fields={2} label={uiT("Checking session permissions…")} /></section>}
   </ConnectGate>;
 }

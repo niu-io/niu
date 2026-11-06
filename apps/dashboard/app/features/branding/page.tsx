@@ -2,12 +2,12 @@ import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { IconChevronDown, IconLanguage, IconPalette } from '@tabler/icons-react';
+import { IconChevronDown, IconPalette } from '@tabler/icons-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { brandingTokens, defaultBranding, parseBranding, previewPalette, useBranding, type BrandingConfiguration, type BrandingSettings, type BrandingToken } from '@/shell/branding';
-import { useLocale, type Locale } from '@/shell/ui-locale';
+import { useLocale } from '@/shell/ui-locale';
 import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ const copy = (value: BrandingSettings): BrandingSettings => ({ ...value, light: 
 
 export default function BrandingPage() {
   const { t: uiT } = useUILocale();
-  const { locale, setLocale, isZh, t } = useLocale();
+  const { isZh, t } = useLocale();
   const { token } = useDashboardContext();
   const scope = token || 'public';
   const branding = useBranding();
@@ -50,7 +50,7 @@ export default function BrandingPage() {
   const initialBranding = (() => {
     const raw = peekQuery<unknown>(scope, '/api/v1/platform/branding');
     if (raw === undefined) return null;
-    try { return parseBranding(raw); } catch { return null; }
+    try { return parseBranding(raw); } catch { return null; } // Cached branding is optional; the network read below reports failures.
   })();
   const [saved, setSaved] = useState<BrandingConfiguration | null>(() => initialBranding);
   const [draft, setDraft] = useState<BrandingSettings>(() => initialBranding ? copy(initialBranding.settings) : copy(defaultBranding));
@@ -125,8 +125,7 @@ export default function BrandingPage() {
         </TabsContent>
         <TabsContent value="theme" className="space-y-7 pt-6">
           <div className="flex flex-wrap items-start justify-between gap-3"><div><Label>{t('Default appearance', '默认外观模式')}</Label><p className="mt-1 text-sm text-muted-foreground">{t('Applies before sign-in and to members without a saved preference.', '适用于未登录界面以及尚未保存个人外观偏好的成员。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={busy} aria-label={uiT("Default appearance")}>{defaultAppearanceLabel}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={draft.default_appearance} onValueChange={value => setDraft({ ...draft, default_appearance: value as BrandingSettings['default_appearance'] })}>{(['system', 'light', 'dark'] as const).map(value => <DropdownMenuRadioItem key={value} value={value}>{value === 'light' ? t('Light', '浅色') : value === 'dark' ? t('Dark', '深色') : t('System', '跟随系统')}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><Label>{t('Interface language', '界面语言')}</Label><p className="mt-1 text-sm text-muted-foreground">{t('Choose the display language for this browser across dashboard, catalog, and documentation.', '选择当前浏览器在控制台、模型目录与文档中的显示语言。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-label={uiT("Interface language")}><IconLanguage />{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}><DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem><DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-          <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-medium">{t('Colors', '配色方案')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('Leave blank to inherit Niu. Text pairs need at least 4.5:1 contrast.', '留空则继承 Niu 默认配色。文本与背景需满足至少 4.5:1 的对比度。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-label={uiT("Edit color palette")}>{palette === 'light' ? t('Light', '浅色') : t('Dark', '深色')}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={palette} onValueChange={value => setPalette(value as 'light' | 'dark')}><DropdownMenuRadioItem value="light">{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t('Dark', '深色')}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div><div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">{brandingTokens.map(key => <div className="space-y-2" key={key}><Label htmlFor={'color-' + key}>{isZh ? labelsZh[key] : translateUI(labelsEn[key])}</Label><Input id={'color-' + key} placeholder={t('Default', '默认')} maxLength={7} pattern="#[0-9a-fA-F]{6}" disabled={busy} value={draft[palette][key] ?? ''} onChange={event => { const colors = { ...draft[palette] }; if (event.target.value) colors[key] = event.target.value; else delete colors[key]; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /></div>)}</div></div>
+          <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-medium">{t('Colors', '配色方案')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('Leave blank to inherit Niu. Text pairs need at least 4.5:1 contrast.', '留空则继承 Niu 默认配色。文本与背景需满足至少 4.5:1 的对比度。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-label={uiT("Edit color palette")}>{palette === 'light' ? t('Light', '浅色') : t('Dark', '深色')}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={palette} onValueChange={value => setPalette(value as 'light' | 'dark')}><DropdownMenuRadioItem value="light">{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t('Dark', '深色')}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div><div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">{brandingTokens.map(key => <div className="space-y-2" key={key}><Label htmlFor={'color-' + key}>{isZh ? labelsZh[key] : translateUI(labelsEn[key])}</Label><div className="flex items-center gap-2"><Input type="color" aria-label={isZh ? labelsZh[key] : translateUI(labelsEn[key])} className="h-9 w-12 shrink-0 p-1" disabled={busy} value={draft[palette][key] ?? '#000000'} onChange={event => { const colors = { ...draft[palette] }; colors[key] = event.target.value; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /><Input id={'color-' + key} placeholder={t('Default', '默认')} maxLength={7} pattern="#[0-9a-fA-F]{6}" disabled={busy} value={draft[palette][key] ?? ''} onChange={event => { const colors = { ...draft[palette] }; if (event.target.value) colors[key] = event.target.value; else delete colors[key]; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /></div></div>)}</div></div>
         </TabsContent>
       </Tabs>
       {(error || reloadNeeded) && <div role="alert" className="mt-5 space-y-2"><p className="text-destructive">{error || t('These settings changed. Reload before saving.', '这些设置已在其他位置发生变更，请重新加载后再保存。')}</p>{reloadNeeded && <Button type="button" variant="outline" disabled={busy} onClick={() => { setError(''); setNotice(''); setAttempt(value => value + 1); }}>{t('Reload saved settings', '重新加载已保存设置')}</Button>}</div>}

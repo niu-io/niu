@@ -1,5 +1,4 @@
 import { IconRoute, IconFlask, IconWebhook, IconPhoto, IconVideo, IconSettings, IconShieldLock } from "@tabler/icons-react";
-import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconChartLine as ChartNoAxesCombined } from "@tabler/icons-react";
 import { IconCreditCard as CreditCard } from "@tabler/icons-react";
@@ -8,11 +7,10 @@ import { IconLayoutDashboard as LayoutDashboard } from "@tabler/icons-react";
 import { IconList as Logs } from "@tabler/icons-react";
 import { IconSparkles } from "@tabler/icons-react";
 import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
-import { IconUsers as UsersRound } from "@tabler/icons-react";
 import { IconPlugConnected as ProviderConnection } from "@tabler/icons-react";
 import type { TablerIcon } from "@tabler/icons-react";
 
-export type Destination = 'Organization' | 'Global' | 'Workspace' | 'Models' | 'Administration' | 'Providers' | 'Settings';
+export type Destination = 'Global' | 'Workspace' | 'Models' | 'Administration' | 'Providers' | 'Settings';
 
 export type NavItem = {
   to: string;
@@ -26,7 +24,6 @@ export type NavItem = {
 
 export const navigation: Array<NavItem> = [
   { destination: 'Settings', to: '/settings', label: 'Settings', labelZh: '设置', icon: IconSettings },
-  { destination: 'Organization', to: 'organization', label: 'Organization settings', labelZh: '组织设置', icon: Building2 },
   { destination: 'Global', to: '/activity', label: 'Activity', labelZh: '活动', icon: ChartNoAxesCombined },
   { destination: 'Global', to: '/generations', label: 'Generations', labelZh: '生成对话', icon: IconSparkles },
   { destination: 'Workspace', to: '.', label: 'Overview', labelZh: '概览', icon: LayoutDashboard },
@@ -44,6 +41,5 @@ export const navigation: Array<NavItem> = [
   { destination: 'Workspace', to: 'billing', label: 'Billing', labelZh: '计费', icon: CreditCard, hidden: true, parentTo: 'settings' },
   { destination: 'Administration', to: '/admin', label: 'Admin', labelZh: '管理后台', icon: IconShieldLock },
   { destination: 'Providers', to: '/providers', label: 'Providers', labelZh: '模型供应商', icon: ProviderConnection },
-  { destination: 'Workspace', to: 'users', label: 'Users', labelZh: '成员', icon: UsersRound, hidden: true, parentTo: 'settings' },
   { destination: 'Workspace', to: 'settings', label: 'Settings', labelZh: '设置', icon: IconSettings },
 ];

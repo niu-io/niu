@@ -4,9 +4,18 @@ import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import ConnectAgent from '@/features/connect/page';
 
+const { signOut } = vi.hoisted(() => ({ signOut: vi.fn() }));
 vi.mock('@/shell/dashboard-context', () => ({
-  useDashboardContext: () => ({ token: 'test', workspaces: [{ id: 'workspace-one', organization_id: 'organization-one', name: 'Team workspace' }, {id: 'workspace-two', organization_id: 'organization-two', name: 'Other workspace'}], session: { kind: 'operator', permissions: { write: true } } }),
+  useDashboardContext: () => ({ token: 'test', signOut, workspaces: [{ id: 'workspace-one', organization_id: 'organization-one', name: 'Team workspace' }, {id: 'workspace-two', organization_id: 'organization-two', name: 'Other workspace'}], session: { kind: 'operator', permissions: { write: true } } }),
 }));
+
+it('offers a signed-in user a safe sign-out path', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({data: {client_name: 'Test agent', state: 'pending', capabilities: []}})));
+  render(<MemoryRouter initialEntries={['/connect?code=ABCDEF123456']}><ConnectAgent /></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+  expect(signOut).toHaveBeenCalled();
+});
 
 it.each([false, true])('persists explicit invocation authority %s after workspace and consent review', async invocation => {
   let decision: Record<string, unknown> | undefined;
@@ -145,4 +154,44 @@ it('reports a service failure without claiming the request expired', async () =>
   expect(screen.queryByText(/unavailable or expired/)).toBeNull();
   expect(screen.getByRole('button', { name: 'Reload request' })).toBeTruthy();
   await waitFor(() => expect(screen.getByLabelText('Verification code')).toBeTruthy());
+});
+
+it('keeps task, interfaces and spending policy behind advanced options and submits narrowed interfaces', async () => {
+  let decision: Record<string, unknown> | undefined;
+  vi.stubGlobal('fetch', vi.fn(async (path: string, options?: RequestInit) => {
+    if (options?.method === 'POST') { decision = JSON.parse(String(options.body)); return new Response(null, { status: 204 }); }
+    if (path.startsWith('/api/v1/models?')) return Response.json({data: [{id:'fast'}, {id:'careful'}]});
+    return Response.json({data: {
+      client_name: 'Test agent',
+      state: 'pending',
+      capabilities: ['pools:read'],
+      task: 'Review the current routing policy',
+    }});
+  }));
+  render(<MemoryRouter initialEntries={['/connect?code=ABCDEF123456']}><ConnectAgent /></MemoryRouter>);
+  await screen.findByText('Test agent');
+  expect(screen.queryByText('Review the current routing policy')).toBeNull();
+  expect(screen.queryByText('Spending basis')).toBeNull();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Choose a workspace' }));
+  await user.click(screen.getByRole('menuitemradio', { name: 'Team workspace' }));
+  await user.click(screen.getByRole('checkbox', { name: 'Allow model calls' }));
+  await user.click(await screen.findByRole('button', { name: 'Allowed models' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Select all current models' }));
+  await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('button', { name: 'Advanced options' }));
+  expect(await screen.findByText('Review the current routing policy')).toBeTruthy();
+  expect(screen.getByText('Spending basis')).toBeTruthy();
+  expect(screen.getByText(/Owner-funded upstream Provider expense is not capped/)).toBeTruthy();
+  expect(screen.getByText(/fixed at approval/)).toBeTruthy();
+  await user.click(screen.getByRole('checkbox', { name: 'Embeddings' }));
+  expect(screen.getByRole('checkbox', { name: 'I recognize this request and approve this access.' }).getAttribute('data-state')).toBe('unchecked');
+  await user.click(screen.getByRole('checkbox', { name: 'I recognize this request and approve this access.' }));
+  await user.click(screen.getByRole('button', { name: 'Authorize agent' }));
+  await screen.findByText('Authorization approved');
+  expect(decision).toMatchObject({
+    invocation_allowed: true,
+    allowed_models: ['careful', 'fast'],
+    invocation_protocols: ['chat', 'responses', 'messages', 'content', 'decisions', 'video'],
+  });
 });

@@ -90,6 +90,31 @@ it('preserves developer filters when their group is collapsed with the keyboard'
 });
 
 
+it('does not turn an imported distributor into a model developer', () => {
+  const imported = [
+    { id:'babelark/third-party-model', provider:'babelark', catalog:{name:'Third-party model', output_modalities:['text']} },
+    { id:'babelark/deepseek-chat', provider:'babelark', catalog:{name:'DeepSeek Chat', output_modalities:['text']} },
+  ];
+  const view = render(<MemoryRouter><SidebarProvider><ModelTable models={imported}/></SidebarProvider></MemoryRouter>);
+  const developerFilters = screen.getByRole('region',{name:'Inferred developer filters'});
+  expect(within(developerFilters).queryByRole('checkbox',{name:'BabelArk',exact:true})).toBeNull();
+  expect(within(developerFilters).getByRole('checkbox',{name:'DeepSeek',exact:true})).toBeTruthy();
+  const providerFilters = screen.getByRole('region',{name:'Provider filters'});
+  expect(within(providerFilters).getByRole('checkbox',{name:'BabelArk',exact:true})).toBeTruthy();
+  const thirdParty = screen.getByRole('link',{name:'Third-party model'}).closest('article')!;
+  expect(within(thirdParty).queryByText(/Likely developer/)).toBeNull();
+  expect(within(thirdParty).getByText('via BabelArk')).toBeTruthy();
+  const direct = screen.getByRole('link',{name:'DeepSeek Chat'}).closest('article')!;
+  expect(within(direct).getByText('Likely developer: DeepSeek')).toBeTruthy();
+  expect(within(direct).getByText('via BabelArk')).toBeTruthy();
+  view.unmount();
+  render(<MemoryRouter initialEntries={['/models/babelark/third-party-model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={imported}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  expect(screen.getByRole('complementary',{name:'babelark/third-party-model route details'})).toBeTruthy();
+  expect(screen.queryByText('Developer (inferred)')).toBeNull();
+  expect(screen.getByText('Provider')).toBeTruthy();
+  expect(screen.getByText('BabelArk')).toBeTruthy();
+});
+
 it('does not carry late clipboard feedback into another model page', async () => {
   const user=userEvent.setup();
   let rejectCopy!: (reason:Error)=>void;
@@ -218,19 +243,18 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
 
 // Refs #104: absent metadata is not a Chat capability assertion.
 it.each([
-  [undefined, false, false, '/models'],
-  [[], false, false, '/models'],
-  [['text'], true, false, '/models'],
-  [['video'], false, true, '/video/models'],
-  [['text', 'video'], true, true, '/video/models'],
-  [['audio'], false, false, '/models'],
+  [undefined, false, false, '/chat/completions'],
+  [[], false, false, '/chat/completions'],
+  [['text'], true, false, '/chat/completions'],
+  [['video'], false, true, '/video/jobs'],
+  [['text', 'video'], true, true, '/video/jobs'],
+  [['audio'], false, false, '/chat/completions'],
 ])('offers only documented generation handoffs for outputs %s', (outputs, chat, video, endpoint) => {
   const model={id:'example/model', public_catalog:true, catalog:{output_modalities:outputs}};
   render(<MemoryRouter initialEntries={['/models/example/model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]} /></SidebarProvider>} /></Routes></MemoryRouter>);
   expect(!!screen.queryByRole('link',{name:'Open Generations'})).toBe(chat);
   expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
   expect(document.querySelector('pre')?.textContent).toContain(endpoint);
-  if(!chat && !video) expect(document.querySelector('pre')?.textContent).not.toContain('/chat/completions');
 });
 
 it('links an unknown-capability model to Chat while stating that support is unverified', () => {
@@ -265,7 +289,9 @@ it('offers the current Video workflow when catalog text metadata is stale',()=>{
  render(<MemoryRouter initialEntries={['/models/example/stale']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
  expect(screen.queryByRole('link',{name:'Open Generations'})).toBeNull();
  expect(screen.getByRole('link',{name:'Try in Video'}).getAttribute('href')).toContain('new=video');
- expect(document.querySelector('pre')?.textContent).toContain('/video/models');
+ expect(document.querySelector('pre')?.textContent).toContain('/video/jobs');
+ expect(document.querySelector('pre')?.textContent).toContain('"model":"example/stale"');
+ expect(screen.getByRole('link',{name:'All models'}).getAttribute('href')).toBe('/models');
  expect(screen.queryByText('Text output')).toBeNull();
 });
 

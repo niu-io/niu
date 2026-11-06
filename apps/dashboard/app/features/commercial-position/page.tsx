@@ -18,7 +18,7 @@ import {
 } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useBranding } from '@/shell/branding';
-import { request } from '@/features/providers/api';
+import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -477,11 +477,14 @@ function CommercialStatement({ token }: { token: string }) {
   const [priorSummary, setPriorSummary] = useState<CustomerFinancialSummary | null>(() => initialPrior?.summary ?? null);
   const [modelFilter, setModelFilter] = useState<'active' | 'all'>('active');
   const [error, setError] = useState('');
+  const [priorError, setPriorError] = useState(false);
+  const [priorAttempt, setPriorAttempt] = useState(0);
   const [loading, setLoading] = useState(() => Boolean(currency) && !initialCurr);
 
   useEffect(() => {
     const controller = new AbortController();
     setError('');
+    setPriorError(false);
     if (!currency) {
       setPosition(null);
       setSummary(null);
@@ -523,7 +526,14 @@ function CommercialStatement({ token }: { token: string }) {
       priorBundleKey,
       signal => fetchPeriodBundle(token, currency, { from: interval.priorFrom, until: interval.priorUntil }, signal),
       { signal: controller.signal, force, awaitRevalidate: true, freshMs: 30_000 },
-    ).catch(() => null);
+    ).catch(reason => {
+      if (controller.signal.aborted) return null;
+      // A missing prior snapshot is a valid empty comparison. Other failures
+      // keep the last loaded comparison and are surfaced below.
+      if (reason instanceof VendorRequestError && reason.status === 404) return null;
+      setPriorError(true);
+      return null;
+    });
 
     void Promise.all([currentPromise, priorPromise])
       .then(([curr, prior]) => {
@@ -545,7 +555,7 @@ function CommercialStatement({ token }: { token: string }) {
       });
 
     return () => controller.abort();
-  }, [scope, token, currency, currentBundleKey, priorBundleKey, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, asOf, refresh]);
+  }, [scope, token, currency, currentBundleKey, priorBundleKey, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, asOf, refresh, priorAttempt]);
 
   function updateParams(patch: Record<string, string | null>) {
     setSearch(current => {
@@ -910,9 +920,19 @@ function CommercialStatement({ token }: { token: string }) {
       {error && (
         <Alert variant="destructive">
           <AlertDescription className="flex items-center justify-between gap-3">
-            <span>{error}</span>
+            <span>{uiT(error)}</span>
           <Button variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>
               {uiT("Retry")}</Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {priorError && (
+        <Alert>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{uiT("The comparison period could not be loaded. Current period totals are unchanged.")}</span>
+            <Button variant="outline" size="sm" onClick={() => setPriorAttempt(value => value + 1)}>
+              {uiT("Retry comparison")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -1309,11 +1329,6 @@ function CommercialStatement({ token }: { token: string }) {
                     const rowRefunds =
                       row.customer_refunds_nanos !== null ? BigInt(row.customer_refunds_nanos) : 0n;
                     const unresolved = BigInt(row.unresolved_attempts || '0');
-                    const matched = BigInt(row.matched_attempts || '0');
-                    const revenueUncovered = BigInt(row.revenue_uncovered_attempts || '0');
-                    const cashUncovered = BigInt(row.cash_source_uncovered_attempts || '0');
-                    const costRecorded = BigInt(row.upstream_cost_recorded_attempts || '0');
-                    const costKnown = BigInt(row.cost_known_attempts || '0');
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
@@ -1326,10 +1341,6 @@ function CommercialStatement({ token }: { token: string }) {
                             >
                               {row.supplier_name}
                             </Link>
-                            <span>·</span>
-                            <span>
-                              {matched.toString()}{" "}{uiT("matched")}{unresolved > 0n ? uiF(" · {0} unresolved", [unresolved.toString()]) : ''}
-                            </span>
                           </div>
                         </TableCell>
 
@@ -1384,16 +1395,12 @@ function CommercialStatement({ token }: { token: string }) {
                           <div>
                             {rowNetRev === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
-                                {unresolved > 0n ? uiT("Pending") : revenueUncovered > 0n ? uiT("Unavailable") : '—'}
+                                {unresolved > 0n ? uiT("Pending") : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowNetRev, row.currency)
                             )}
                           </div>
-                          {revenueUncovered > 0n && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {revenueUncovered.toString()}{" "}{uiT("revenue uncovered")}</div>
-                          )}
                           {rowNetRev !== null && priorNetRev !== null && (
                             <div className="mt-0.5">
                               {formatDeltaBadge(uiT, rowNetRev, priorNetRev, row.currency)}
@@ -1405,34 +1412,24 @@ function CommercialStatement({ token }: { token: string }) {
                           <div>
                             {rowCashApplied === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
-                                {unresolved > 0n ? uiT("Pending") : cashUncovered > 0n ? uiT("Unavailable") : '—'}
+                                {unresolved > 0n ? uiT("Pending") : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowCashApplied, row.currency)
                             )}
                           </div>
-                          {(cashUncovered > 0n || rowCashApplied !== null) && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {cashUncovered.toString()}{" "}{uiT("uncovered cash")}{' '}
-                              {cashUncovered === 1n ? uiT("request") : uiT("requests")}
-                            </div>
-                          )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUnpaidCredit === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
-                                {unresolved > 0n ? uiT("Pending") : cashUncovered > 0n ? uiT("Unavailable") : '—'}
+                                {unresolved > 0n ? uiT("Pending") : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowUnpaidCredit, row.currency)
                             )}
                           </div>
-                          {cashUncovered > 0n && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {cashUncovered.toString()}{" "}{uiT("cash uncovered")}</div>
-                          )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
@@ -1467,11 +1464,6 @@ function CommercialStatement({ token }: { token: string }) {
                               formatFinancialMoney(rowUpstreamCost, row.currency)
                             )}
                           </div>
-                          {(costRecorded > 0n || matched > 0n) && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {costRecorded.toString()}{" "}{uiT("recorded ·")}{" "}{costKnown.toString()}/{matched.toString()}{' '}
-                              {uiT("matched covered")}</div>
-                          )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">

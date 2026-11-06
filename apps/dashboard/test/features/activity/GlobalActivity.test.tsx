@@ -25,6 +25,13 @@ describe('Global Activity',()=>{
   expect(totals.charges.get('CNY')).toBe(5n);
   expect(totals.unresolved).toBe(2);
  });
+ it('aggregates customer unit charges alongside currency charges',()=>{
+  const withUnits={...summary('7','USD'),customer_unit_charges:[{unit_name:'Credits',display_precision:2,net_atoms:'12300000000'}]};
+  const totals=activityTotals([{page:{summary:withUnits}}]);
+  expect(totals.charges.get('USD')).toBe(7n);
+  expect(totals.units.get('Credits')?.amount).toBe(12300000000n);
+  expect(totals.units.get('Credits')?.precision).toBe(2);
+ });
  it('loads all authorized organizations and switches workspace scope',async()=>{
   mockData();open();const user=userEvent.setup();
   expect(await screen.findByRole('link',{name:'Research'})).toBeTruthy();

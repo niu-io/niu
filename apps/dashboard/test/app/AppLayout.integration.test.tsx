@@ -57,6 +57,26 @@ describe('dashboard route layout', () => {
     expect(router.state.location.pathname).toBe('/login');
     expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
   });
+  it('renders Settings in the existing app shell without a nested modal sidebar', async () => {
+    mockHealth();
+    const router = renderAt('/settings/appearance');
+    const settingsNavigation = await screen.findByRole('navigation', { name: 'Settings navigation' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(settingsNavigation).getByRole('link', { name: 'Appearance' }).getAttribute('aria-current')).toBe('page');
+    expect(await screen.findByRole('button', { name: 'Color mode' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Appearance', level: 1 })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/settings/appearance');
+  });
+  it('redirects a legacy ?settings route to canonical Settings and keeps its scope', async () => {
+    mockHealth();
+    const router = renderAt('/workspaces/default?filter=active&settings=appearance#details');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
+    expect(router.state.location.search).toBe('?filter=active');
+    expect(router.state.location.hash).toBe('#details');
+    expect(router.state.location.state?.settingsReturnTo).toBe('/workspaces/default?filter=active#details');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Color mode' })).toBeTruthy();
+  });
   it('preserves the verified identity when focus revalidation has a network failure', async () => {
     mockHealth();
     const originalFetch = globalThis.fetch;
@@ -220,37 +240,32 @@ describe('dashboard route layout', () => {
     expect(scopedRequests).toContain('production');
   });
 
-  it('keeps the workspace mounted while global Settings opens and closes', async () => {
+  it('navigates from a workspace to global Settings in the app shell', async () => {
     mockHealth();
     const router = renderAt('/workspaces/production?period=month#activity');
     await screen.findByRole('heading', {name:'Overview',level:1});
-    const underlying = screen.getByRole('heading',{name:'Overview',level:1});
     await userEvent.click(screen.getByRole('button',{name:'Account menu'}));
     await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
-    const dialog = await screen.findByRole('dialog',{name:'Settings'});
-    expect(underlying.isConnected).toBe(true);
-    expect(router.state.location.pathname).toBe('/workspaces/production');
-    expect(router.state.location.search).toBe('?period=month&settings=appearance');
-    expect(router.state.location.hash).toBe('#activity');
-    await userEvent.click(within(dialog).getByRole('link',{name:'About',exact:true}));
-    expect(await within(dialog).findByRole('region',{name:'About Niu'})).toBeTruthy();
-    expect(router.state.location.search).toBe('?period=month&settings=about');
-    expect(router.state.location.hash).toBe('#activity');
-    await userEvent.click(within(dialog).getByRole('button',{name:'Close',exact:true}));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(underlying.isConnected).toBe(true);
-    expect(router.state.location.search).toBe('?period=month');
-    expect(router.state.location.hash).toBe('#activity');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await screen.findByRole('navigation',{name:'Settings navigation'})).toBeTruthy();
+    expect(router.state.location.state?.settingsReturnTo).toBe('/workspaces/production?period=month#activity');
+    await userEvent.click(screen.getByRole('link',{name:'About',exact:true}));
+    expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/settings/about');
     expect(screen.getByRole('link',{name:'Workspace',exact:true}).getAttribute('href')).toBe('/workspaces/production');
   });
 
-  it('opens direct Settings URLs as a dialog without a Settings rail entry',async()=>{
-    mockHealth();renderAt('/settings/appearance');
-    const dialog=await screen.findByRole('dialog',{name:'Settings'});
-    expect(within(dialog).getByRole('button',{name:'Color mode'})).toBeTruthy();
+  it('opens direct Settings URLs in the app shell without a Settings rail entry',async()=>{
+    mockHealth();const router=renderAt('/settings/appearance');
+    const settingsNavigation=await screen.findByRole('navigation',{name:'Settings navigation'});
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(settingsNavigation).getByRole('link',{name:'Appearance'}).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button',{name:'Color mode'})).toBeTruthy();
     expect(screen.queryByRole('link',{name:'Settings',exact:true})).toBeNull();
-    await userEvent.click(within(dialog).getByRole('link',{name:'About',exact:true}));
-    expect(await within(dialog).findByRole('region',{name:'About Niu'})).toBeTruthy();
+    await userEvent.click(within(settingsNavigation).getByRole('link',{name:'About',exact:true}));
+    expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/settings/about');
   });
 
   it('does not highlight Workspace when Documentation is selected', async () => {
@@ -324,7 +339,7 @@ describe('dashboard route layout', () => {
       expect(link.getAttribute('href')).toBe(`/workspaces/default/${path}`);
       await user.click(link);
       await waitFor(() => expect(router.state.location.pathname).toBe(`/workspaces/default/${path}`));
-      expect(link.getAttribute('data-active')).toBe('true');
+      await waitFor(() => expect(link.getAttribute('data-active')).toBe('true'));
     }
   });
 
@@ -357,29 +372,40 @@ describe('dashboard route layout', () => {
   });
 
 
-  it('keeps Guardrails History under Guardrails without treating Policy as its parent', async () => {
+  it('keeps Guardrails tabs on one workspace page without section breadcrumbs', async () => {
     mockHealth();
-    renderAt('/workspaces/production/guardrails/history');
-    await screen.findByRole('heading', {name: 'History', exact: true});
-    expect(document.title).toBe('History · Niu');
-    const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
-    await userEvent.click(breadcrumb.getByRole('button', {name: 'Show parent pages'}));
-    expect(screen.getByRole('menuitem', {name: 'Guardrails', exact: true})).toBeTruthy();
-    expect(screen.queryByRole('menuitem', {name: 'Policy', exact: true})).toBeNull();
-  });
-
-  it('switches workspace pages through the breadcrumb without changing workspace', async () => {
-    mockHealth();
-    const router = renderAt('/workspaces/production/settings');
-    await screen.findByRole('heading', {name: 'Settings', exact: true});
+    const router = renderAt('/workspaces/production/guardrails?tab=history');
+    await screen.findByRole('tab', {name: 'History', exact: true});
+    expect(router.state.location.pathname).toBe('/workspaces/production/guardrails');
+    expect(document.title).toBe('Guardrails · Niu');
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
     expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true})).getAttribute('href')).toBe('/workspaces/production');
-    await userEvent.click(breadcrumb.getByRole('button', {name: 'Switch workspace page'}));
-    expect(screen.getByRole('menuitemradio', {name: 'Settings', exact: true}).getAttribute('aria-checked')).toBe('true');
-    expect(screen.queryByRole('menuitemradio', {name: 'Video setup', exact: true})).toBeNull();
-    expect(screen.queryByRole('menuitemradio', {name: 'Billing', exact: true})).toBeNull();
-    await userEvent.click(screen.getByRole('menuitemradio', {name: 'Logs', exact: true}));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/executions'));
+    expect(breadcrumb.queryByRole('button', {name: 'Show parent pages'})).toBeNull();
+  });
+
+  it('redirects legacy Guardrails section URLs to the canonical tab and anchor', async () => {
+    mockHealth();
+    const router = renderAt('/workspaces/production/guardrails/policy#input');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/guardrails'));
+    expect(router.state.location.search).toBe('?tab=policy');
+    expect(router.state.location.hash).toBe('#input');
+    await screen.findByRole('tab', {name: /^Policy/});
+  });
+
+  it('resolves the canonical Guardrails page and the legacy redirect route separately', () => {
+    expect(matchRoutes(appRoutes, '/workspaces/acme/guardrails')?.at(-1)?.route.id).toBe('workspace-guardrails');
+    expect(matchRoutes(appRoutes, '/workspaces/acme/guardrails/policy')?.at(-1)?.route.id).toBe('workspace-guardrails-legacy');
+    expect(matchRoutes(appRoutes, '/workspaces/acme/guardrails/history')?.at(-1)?.route.id).toBe('workspace-guardrails-legacy');
+  });
+
+  it('renders the current page title as plain text without a duplicate page switcher', async () => {
+    mockHealth();
+    renderAt('/workspaces/production/settings');
+    const heading = await screen.findByRole('heading', {name: 'Settings', exact: true});
+    expect(heading.closest('button')).toBeNull();
+    expect(screen.queryByRole('button', {name: 'Switch workspace page'})).toBeNull();
+    const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
+    expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true})).getAttribute('href')).toBe('/workspaces/production');
   });
 
   it('preserves the current section when switching workspaces in both directions', async () => {
@@ -806,6 +832,7 @@ describe('dashboard route layout', () => {
       } });
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
+      if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
       if (path.split('?')[0] === '/api/v1/operators') return json({ data: [] });
       if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
       return json({ data: [] });
@@ -815,7 +842,7 @@ describe('dashboard route layout', () => {
     renderAt('/workspaces/default/users', true);
     await signIn(user);
 
-    expect(await screen.findByText('No users yet')).toBeTruthy();
+    expect(await screen.findByText('No members yet')).toBeTruthy();
     expect(calls.find(call=>call.path === '/healthz')).toEqual({ path: '/healthz', authorization: undefined });
     expect(calls.find(call => call.path === '/api/v1/session')).toEqual({
       path: '/api/v1/session',
@@ -846,6 +873,7 @@ describe('dashboard route layout', () => {
       }
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
+      if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
       if (path.split('?')[0] === '/api/v1/operators') return json({ data: [{
         id: 'owner-1', name: 'Current owner', role: 'owner', organization_id: 'org-1', project_id: null, revoked: false,
       }] });
@@ -921,8 +949,8 @@ describe('dashboard route layout', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button',{name:'Account menu'}));
     await user.click(await screen.findByRole('menuitemradio',{name:'Platform administrator'}));
-    await screen.findByRole('navigation',{name:'Admin navigation'});
-    expect(router.state.location.pathname).toBe('/admin/providers');
+    await screen.findByRole('link',{name:'Admin'});
+    expect(router.state.location.pathname).toBe('/workspaces/default');
     await user.click(screen.getByRole('button',{name:'Account menu'}));
     await user.click(await screen.findByRole('menuitemradio',{name:'User',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/workspaces\//));
@@ -957,9 +985,7 @@ describe('dashboard route layout', () => {
 
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
     expect(await screen.findByRole('link', { name: 'Return to overview' })).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Switch workspace page' }));
-    const menu = await screen.findByRole('menu');
-    expect(within(menu).getByRole('menuitemradio', { name: 'Overview' }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Switch workspace page' })).toBeNull();
   });
 });
 
@@ -975,29 +1001,16 @@ it.each(['routing', 'evaluations', 'events'].flatMap(section => [false, true].ma
   expect(screen.getByRole('button', {name: 'Refresh', exact: true})).toBeTruthy();
 });
 
-it('blocks paid workspace tools until payment setup is ready and preserves the administrator remedy', async () => {
+it('keeps workspace configuration reachable before payment setup is ready', async () => {
+  // The whole-page setup gate was removed in 79ad3c5c; see
+  // docs/ux/unfunded-workspace-review-2026-11-04.md. Configuration and saved
+  // history stay available before funding; paid execution is gated separately.
   mockHealth();
-  const original=globalThis.fetch;
-  let ready=false;
-  let unavailable=false;
-  vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input).split('?')[0]==='/api/v1/payments/readiness'
-    ? Promise.resolve(unavailable ? new Response('',{status:503}) : Response.json({data:{ready,reason:ready?null:'payment_setup_required'}})) : original(input,init)));
+  const original = globalThis.fetch;
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input).split('?')[0] === '/api/v1/payments/readiness'
+    ? Promise.resolve(Response.json({data: {ready: false, reason: 'payment_setup_required'}})) : original(input, init)));
   renderAt('/workspaces/default/keys');
-  await screen.findByRole('heading',{name:'Service setup required'});
-  expect(screen.getByRole('link',{name:'Configure payment gateways'}).getAttribute('href')).toBe('/admin/payments');
-  expect(screen.queryByRole('button',{name:'Create API key'})).toBeNull();
-  ready=true;
-  await userEvent.click(screen.getByRole('button',{name:'Check again'}));
-  await waitFor(()=>expect(screen.queryByRole('region',{name:'Service setup'})).toBeNull());
-  unavailable=true;
-  act(()=>window.dispatchEvent(new Event('focus')));
-  await screen.findByRole('heading',{name:'Could not verify service setup'});
-  expect(screen.getByText('We couldn’t check service setup. Your work is preserved. Check your connection and try again.')).toBeTruthy();
-  expect(screen.queryByRole('link',{name:'Configure payment gateways'})).toBeNull();
-  expect(document.getElementById('dashboard-page-actions')?.hidden).toBe(true);
-  unavailable=false;
-  await userEvent.click(screen.getByRole('button',{name:'Check again'}));
-  await waitFor(()=>expect(screen.queryByRole('region',{name:'Service setup'})).toBeNull());
-  expect(document.getElementById('dashboard-page-actions')?.hidden).toBe(false);
-
+  expect(await screen.findByRole('heading', {name: 'API keys'})).toBeTruthy();
+  expect(screen.queryByRole('region', {name: 'Service setup'})).toBeNull();
+  expect(await screen.findByRole('button', {name: 'New API key'})).toBeTruthy();
 });

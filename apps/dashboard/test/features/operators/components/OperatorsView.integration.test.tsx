@@ -22,6 +22,7 @@ function session(id: string, operatorId: string) {
   return {
     id,
     operator_id: operatorId,
+    created_at: '2026-01-01T00:00:00Z',
     expires_at_unix: 2_000_000_000,
     revoked: false,
   };
@@ -47,6 +48,7 @@ function stubOperatorApi(options: {
   const calls: Array<{ path: string; method: string; body?: unknown }> = [];
   const sessions = new Map<string, ReturnType<typeof session>[]>();
   const operators = [...(options.existing ?? [])];
+  const invitations: Array<Record<string, unknown>> = [];
   let issuedCount = 0;
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const path = String(input);
@@ -98,6 +100,44 @@ function stubOperatorApi(options: {
       }
       return jsonResponse({ data: [], next_cursor: null });
     }
+    if (path === '/api/v1/organizations/org-1/invitations' && method === 'GET') {
+      return jsonResponse({ data: invitations });
+    }
+    if (path === '/api/v1/organizations/org-1/invitations' && method === 'POST') {
+      const input = body as { email: string; name?: string; role: string; project_id: string | null; expires_in_seconds: number };
+      const created = {
+        id: 'invitation-' + (invitations.length + 1),
+        organization_id: organization.id,
+        organization_name: organization.name,
+        organization_slug: 'niu-labs',
+        project_id: input.project_id,
+        project_name: input.project_id ? project.name : null,
+        project_slug: input.project_id ? 'production' : null,
+        role: input.role,
+        recipient_email: input.email,
+        recipient_name: input.name ?? null,
+        status: 'pending',
+        delivery: 'not_configured',
+        created_at: '2026-11-05T00:00:00Z',
+        expires_at: '2026-11-12T00:00:00Z',
+        accepted_at: null,
+        revoked_at: null,
+        invited_by: 'Owner',
+      };
+      invitations.unshift(created);
+      return jsonResponse({
+        invitation: created,
+        token: 'niu_invite_once_only_secret',
+        accept_path: '/invite/niu_invite_once_only_secret',
+        delivery: { state: 'not_configured', email_sent: false },
+      }, 201);
+    }
+    if (path.startsWith('/api/v1/invitations/') && method === 'DELETE') {
+      const id = path.split('/').pop();
+      const target = invitations.find(item => item.id === id);
+      if (target) target.status = 'canceled';
+      return new Response(null, { status: 204 });
+    }
     if (path === '/api/v1/operators' && method === 'POST') {
       const created = {
         ...operator('operator-new', String((body as { name: string }).name)),
@@ -120,7 +160,7 @@ function stubOperatorApi(options: {
     return jsonResponse({ error: { message: 'Not found: ' + method + ' ' + path } }, 404);
   });
   vi.stubGlobal('fetch', fetchMock);
-  return { calls, fetchMock };
+  return { calls, fetchMock, invitations };
 }
 
 describe('operator administration workflow', () => {
@@ -143,62 +183,70 @@ describe('operator administration workflow', () => {
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
   });
 
-  it('preserves the entered operator name after creation fails', async () => {
+  it('preserves the entered invite email after creation fails and never creates a temporary-token user', async () => {
     const api=stubOperatorApi();
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/api/v1/operators' && init?.method==='POST'
-      ? jsonResponse({error:{message:'Creation unavailable'}},503)
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/api/v1/organizations/org-1/invitations' && init?.method==='POST'
+      ? jsonResponse({error:{message:'Invitation unavailable'}},503)
       : api.fetchMock(input,init)));
     const user=userEvent.setup();
     render(<OperatorsView token="owner-token" session={ownerSession} initialOrganization={organization.id} initialWorkspace={project.id}/>);
-    await waitFor(()=>expect(screen.getByRole('button',{name:'Add user'}).hasAttribute('disabled')).toBe(false));
-    await user.click(screen.getByRole('button',{name:'Add user'}));
-    await user.type(screen.getByLabelText('Name'),'Workspace reviewer');
-    await user.click(screen.getByRole('button',{name:'Create user'}));
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Invite member'}).hasAttribute('disabled')).toBe(false));
+    await user.click(screen.getByRole('button',{name:'Invite member'}));
+    await user.type(screen.getByLabelText('Email'),'reviewer@example.test');
+    await user.click(screen.getByRole('button',{name:'Create invitation'}));
     await screen.findByRole('alert');
-    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Workspace reviewer');
-    expect((screen.getByRole('button',{name:'Create user'}) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('reviewer@example.test');
+    expect((screen.getByRole('button',{name:'Create invitation'}) as HTMLButtonElement).disabled).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/operators' && call.method === 'POST')).toBe(false);
   });
 
-  it('uses the opened workspace for new operator access without requiring scope reselection', async () => {
+  it('uses the opened workspace for invitation scope and shows a copyable one-time link without claiming email delivery', async () => {
     const api = stubOperatorApi();
     const user = userEvent.setup();
     render(<OperatorsView token="owner-token" session={ownerSession} initialOrganization={organization.id} initialWorkspace={project.id} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add user' }).hasAttribute('disabled')).toBe(false));
-    await user.click(screen.getByRole('button', { name: 'Add user' }));
-    await user.type(screen.getByLabelText('Name'), 'Workspace reviewer');
-    await user.click(screen.getByRole('button', { name: 'Create user' }));
-    await screen.findByRole('heading', { name: 'Workspace reviewer' });
-    expect(api.calls.find(call => call.path === '/api/v1/operators' && call.method === 'POST')?.body).toMatchObject({ organization_id: organization.id, project_id: project.id });
-  });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Invite member' }).hasAttribute('disabled')).toBe(false));
+    await user.click(screen.getByRole('button', { name: 'Invite member' }));
+    await user.type(screen.getByLabelText('Email'), 'reviewer@example.test');
+    await user.click(screen.getByRole('button', { name: 'Create invitation' }));
 
-  it('creates an operator within the selected scope, shows its secret once, and confirms revocation', async () => {
-    const api = stubOperatorApi();
-    const user = userEvent.setup();
-    render(<OperatorsView token="owner-token" session={ownerSession} initialOrganization={organization.id} initialWorkspace={project.id} />);
-
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add user' }).hasAttribute('disabled')).toBe(false));
-    await user.click(screen.getByRole('button', { name: 'Add user' }));
-    await user.type(screen.getByLabelText('Name'), 'Production reviewer');
-    await user.click(screen.getByRole('button', { name: 'Create user' }));
-
-    expect(await screen.findByRole('heading', { name: 'Production reviewer' })).toBeTruthy();
-    expect((screen.getByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_new_operator_token');
-    const createCall = api.calls.find(call => call.path === '/api/v1/operators' && call.method === 'POST');
+    expect(await screen.findByRole('heading', { name: 'Invitation link ready' })).toBeTruthy();
+    const link = (screen.getByLabelText('One-time invitation link') as HTMLInputElement).value;
+    expect(link).toBe(window.location.origin + '/invite/niu_invite_once_only_secret');
+    expect(screen.getByText('No email was sent')).toBeTruthy();
+    expect(screen.getByText(/Email delivery is not configured/)).toBeTruthy();
+    expect(screen.queryByText(/invitation sent/i)).toBeNull();
+    expect(screen.getAllByText(/2026/).length).toBeGreaterThan(0);
+    const createCall = api.calls.find(call => call.path === '/api/v1/organizations/org-1/invitations' && call.method === 'POST');
     expect(createCall?.body).toEqual({
-      organization_id: organization.id,
-      project_id: project.id,
-      name: 'Production reviewer',
+      email: 'reviewer@example.test',
       role: 'viewer',
-      expires_in_seconds: 30 * 86400,
+      project_id: project.id,
+      expires_in_seconds: 7 * 86400,
     });
+    expect(api.calls.some(call => call.path === '/api/v1/operators' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path.includes('/sessions') && call.method === 'POST')).toBe(false);
+  });
 
-    await user.click(screen.getByRole('button', { name: 'Revoke access' }));
-    expect(await screen.findByRole('button', { name: 'Confirm revoke user access' })).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-new' && call.method === 'DELETE')).toBe(false);
-    await user.click(screen.getByRole('button', { name: 'Confirm revoke user access' }));
+  it('lists a pending invitation and cancels it after confirmation', async () => {
+    const api = stubOperatorApi();
+    const user = userEvent.setup();
+    render(<OperatorsView token="owner-token" session={ownerSession} initialOrganization={organization.id} initialWorkspace={project.id} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Invite member' }).hasAttribute('disabled')).toBe(false));
+    await user.click(screen.getByRole('button', { name: 'Invite member' }));
+    await user.type(screen.getByLabelText('Email'), 'pending@example.test');
+    await user.click(screen.getByRole('button', { name: 'Create invitation' }));
+    await screen.findByRole('heading', { name: 'Invitation link ready' });
+    await user.click(screen.getByRole('button', { name: 'Done — hide link' }));
 
-    expect(await screen.findByText('Access revoked')).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-new' && call.method === 'DELETE')).toBe(true);
+    expect(await screen.findByRole('heading', { name: 'Pending invitations' })).toBeTruthy();
+    expect(screen.getByText('pending@example.test')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Actions for pending@example.test' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Cancel invitation' }));
+    expect(screen.getByRole('heading', { name: /Cancel invitation for/ })).toBeTruthy();
+    expect(api.calls.some(call => call.method === 'DELETE')).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Cancel invitation', exact: true }));
+    await waitFor(() => expect(screen.queryByText('pending@example.test')).toBeNull());
+    expect(api.calls.some(call => call.path === '/api/v1/invitations/invitation-1' && call.method === 'DELETE')).toBe(true);
   });
 
   it('issues sessions only for the selected operator and clears one-time credentials when selection changes', async () => {

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useLocation, useNavigate, useParams, type Location } from 'react-router';
 import { ApiRequestError, request } from '@/lib/api-client';
+import { acceptMemberInvitation } from '@/features/operators/api';
 import { fetchQuery, isAbortError, peekQuery, primeQuery } from '@/lib/query-cache';
 import type {
   AdminSession,
@@ -441,7 +442,25 @@ export function useWorkspaceController({
       }
       setSelectedOrganizationId(next.id);
       const firstWorkspace = workspaces.find(item => item.organization_id === next.id);
-      if (firstWorkspace) {
+      // Settings is a scoped product area, not a workspace destination. Keep
+      // the user on the same Settings section and express the organization
+      // explicitly instead of navigating into the new organization's first
+      // workspace. Member workspace scope remains an explicit query choice.
+      const stayOnSettings = () => {
+        const nextSearch = new URLSearchParams(location.search);
+        nextSearch.delete('workspace');
+        nextSearch.set('organization', next.slug || next.id);
+        const search = nextSearch.toString();
+        navigate(
+          { pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash },
+          { replace: true },
+        );
+      };
+      if (settingsArea) {
+        setWorkspace(firstWorkspace ?? null);
+        setWorkspaceError(null);
+        stayOnSettings();
+      } else if (firstWorkspace) {
         selectWorkspace(firstWorkspace);
       } else {
         setWorkspace(null);
@@ -465,6 +484,10 @@ export function useWorkspaceController({
       syncAuthorityImmediate,
       resetModels,
       setSession,
+      settingsArea,
+      location.pathname,
+      location.search,
+      location.hash,
     ],
   );
   const selectOrganizationRef = useRef(selectOrganization);
@@ -522,27 +545,24 @@ export function useWorkspaceController({
     [organizations, selectWorkspace, token],
   );
 
-  const renameWorkspace = useCallback(
-    async (target: Workspace, name: string) => {
-      const revision = connectionRevision.current;
-      const result = await request<{ id: string; name: string }>(
-        token,
-        `/api/v1/organizations/${target.organization_id}/projects/${target.id}`,
-        'PATCH',
-        { name: name.trim() },
-      );
-      if (result.id !== target.id || typeof result.name !== 'string' || !result.name.trim()) {
-        throw new Error('Could not confirm the workspace name. Reload before retrying.');
-      }
-      const renamed = { ...target, name: result.name };
-      if (revision !== connectionRevision.current) return renamed;
+  /**
+   * Apply a rename that a route action has already confirmed with the API.
+   * Keep the confirmed result application separate from the mutation so the
+   * fetcher remains the only network path and stale results can be ignored by
+   * workspace id.
+   */
+  const applyWorkspaceRename = useCallback(
+    (workspaceId: string, name: string) => {
       const current = workspaceNavigation.current;
-      const updated = current.workspaces.map(item => (item.id === target.id ? renamed : item));
+      const target = current.workspaces.find(item => item.id === workspaceId);
+      if (!target) return;
+      const renamed = { ...target, name };
+      const updated = current.workspaces.map(item => (item.id === workspaceId ? renamed : item));
       primeQuery(token, '/api/v1/workspaces', { data: updated }, { persist: true });
-      setWorkspaces(previous => previous.map(item => (item.id === target.id ? renamed : item)));
-      setWorkspace(prev => (prev?.id === target.id ? renamed : prev));
+      setWorkspaces(previous => previous.map(item => (item.id === workspaceId ? renamed : item)));
+      setWorkspace(prev => (prev?.id === workspaceId ? renamed : prev));
       setWorkspaceError(null);
-      if (current.routeWorkspace?.id === target.id) {
+      if (current.routeWorkspace?.id === workspaceId) {
         const nested = current.location.pathname.split('/').filter(Boolean).slice(2).join('/');
         navigate(
           {
@@ -553,9 +573,8 @@ export function useWorkspaceController({
           { replace: true },
         );
       }
-      return renamed;
     },
-    [token, navigate, connectionRevision],
+    [token, navigate],
   );
 
   const deleteWorkspace = useCallback(
@@ -703,7 +722,7 @@ export function useWorkspaceController({
       setWorkspaceLoadRevision(value => value + 1);
       navigate(
         {
-          pathname: '/workspaces/default/organization',
+          pathname: '/settings/organization',
           search: createdOrg.slug ? `?organization=${encodeURIComponent(createdOrg.slug)}` : '',
         },
         { replace: true },
@@ -813,6 +832,45 @@ export function useWorkspaceController({
       return nextSession;
     },
     [token, isZh, t, navigate, abortModels, syncAuthorityImmediate, resetModels, setSession],
+  );
+
+  const acceptInvitation = useCallback(
+    async (invitationToken: string): Promise<AdminSession> => {
+      const accepted = await acceptMemberInvitation(token, invitationToken.trim());
+      const nextSession = accepted.data;
+      const nextPrincipalKey = buildSessionPrincipalKey(token, nextSession);
+      const nextAuthorityKey = buildSessionAuthorityKey(token, nextSession);
+      abortModels();
+      syncAuthorityImmediate(nextAuthorityKey);
+      setSelectedOrgState({
+        principalKey: nextPrincipalKey,
+        id: nextSession.operator?.organization_id ?? null,
+      });
+      setWorkspacesLoadedFor('');
+      setOrganizations([]);
+      setWorkspaces([]);
+      setWorkspace(null);
+      setWorkspaceError(null);
+      setWorkspaceLoading(true);
+      resetModels(true);
+      setSession(nextSession);
+      setWorkspaceLoadRevision(value => value + 1);
+      try {
+        window.localStorage.removeItem('niu.active-workspace');
+        window.localStorage.setItem(
+          'niu.auth.org-switch',
+          `${nextSession.operator?.organization_id ?? ''}:${Date.now()}`,
+        );
+      } catch {
+        /* Storage is optional. */
+      }
+      const destination = accepted.invitation.project_slug
+        ? `/workspaces/${encodeURIComponent(accepted.invitation.project_slug)}/`
+        : '/workspaces/default/';
+      navigate(destination, { replace: true });
+      return nextSession;
+    },
+    [token, navigate, abortModels, syncAuthorityImmediate, resetModels, setSession],
   );
 
   useEffect(() => {
@@ -1011,10 +1069,20 @@ export function useWorkspaceController({
   const getWorkspaceNavigation = useCallback(() => workspaceNavigation.current, []);
   const getWorkspaceError = useCallback(() => workspaceError, [workspaceError]);
 
+  // Global product areas keep the selected workspace as context. Resolve the
+  // organization from that workspace when no explicit organization choice was
+  // made, so leaving a workspace route for Settings does not silently change
+  // the organization being viewed.
+  const workspaceOrganizationId = usesSelectedWorkspace ? selectedWorkspace?.organization_id : undefined;
   const activeOrganization =
     organizations.find(
       item =>
-        item.id === (routeWorkspace?.organization_id ?? selectedOrganizationId ?? session?.operator?.organization_id),
+        item.id === (
+          routeWorkspace?.organization_id ??
+          selectedOrganizationId ??
+          workspaceOrganizationId ??
+          session?.operator?.organization_id
+        ),
     ) ??
     organizations[0] ??
     null;
@@ -1028,6 +1096,7 @@ export function useWorkspaceController({
     createOrganization,
     renameOrganization,
     joinOrganization,
+    acceptInvitation,
     workspaces,
     workspace: activeContextWorkspace,
     effectiveActiveWorkspace,
@@ -1039,7 +1108,7 @@ export function useWorkspaceController({
     workspaceError: effectiveWorkspaceError,
     selectWorkspace,
     createWorkspace,
-    renameWorkspace,
+    applyWorkspaceRename,
     deleteWorkspace,
     chatKeys,
     rememberChatKey,

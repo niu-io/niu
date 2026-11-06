@@ -4,6 +4,7 @@ import { generationCapability } from '../generation-capabilities';
 import '../models.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconCpu as Boxes } from "@tabler/icons-react";
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
@@ -53,15 +54,14 @@ function isVideoModel(model: Model) {
 }
 
 function requestExample(baseUrl: string, model: Model) {
-  if (isVideoModel(model)) {
-    return [
-      `curl "${baseUrl}/video/models"`,
-      '  -H "Authorization: Bearer $NIU_API_KEY"',
-    ].join(` ${String.fromCharCode(92)}\n`);
-  }
+  const body = isVideoModel(model)
+    ? {model:model.id,prompt:'A calm mountain lake at sunrise'}
+    : {model:model.id,messages:[{role:'user',content:'Hello'}],max_tokens:64};
   return [
-    `curl "${baseUrl}/models"`,
+    `curl "${baseUrl}${isVideoModel(model) ? '/video/jobs' : '/chat/completions'}"`,
     '  -H "Authorization: Bearer $NIU_API_KEY"',
+    '  -H "Content-Type: application/json"',
+    `  -d '${JSON.stringify(body)}'`,
   ].join(` ${String.fromCharCode(92)}\n`);
 }
 
@@ -228,13 +228,14 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
             {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">{uiT("Upstream-funded · no Niu charge")}</p>}
-            <div className="models-card-meta">{modelDeveloper(model) && <span>{uiT("Likely developer:")}{" "}{modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{canTryUnverifiedChat(model) && <Link to={generationHref(model, 'chat')}>{uiT("Try in Chat · support unverified")}</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
+            <div className="models-card-meta">{modelDeveloper(model) && <span>{uiT("Likely developer:")}{" "}{modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat(readUILocale(), { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{canTryUnverifiedChat(model) && <Link to={generationHref(model, 'chat')}>{uiT("Try in Chat · support unverified")}</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{visible.length}{" "}{uiT("of")}{" "}{filtered.length}</span></div>}
       </section>
     </div>}
     {selected ? <aside className="model-route-detail" aria-label={uiF("{0} route details", [selected.id])}>
+      <Button asChild variant="ghost" size="sm" className="mb-2 w-fit px-0"><Link to={catalogPath + catalogSearch}><ArrowLeft size={15} />{uiT("All models")}</Link></Button>
       <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><div className="model-route-title"><h2>{selected.catalog?.name || selected.id}</h2>{selected.catalog?.name && selected.catalog.name !== selected.id && <p className="model-developer-label">{selected.id}</p>}</div></div>
       {selected.catalog?.description && <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
@@ -265,10 +266,10 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
       </div>
       {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
-      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Discover supported video parameters") : uiT("Check access with your API key")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
-      {copyError && <p role="alert" className="error-text">{copyError}</p>}
+      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
+      {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
       <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
-      <p className="model-route-example-note">{uiT("Create a workspace API key and set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("before running this command. Find")}{" "}<code>{selected.id}</code>{" "}{uiT("in the authorized response.")}{isVideoModel(selected) ? <>{" "}{uiT("Use its configured parameter schema. Video input varies by model; this read does not generate a video or estimate a charge.")}</> : <>{" "}{uiT("This read does not generate content. Catalog descriptions and text output do not establish Chat support; use the")}{" "}<Link to="/help/api/">{uiT("API reference")}</Link>{" "}{uiT("for the protocol enabled on your route.")}</>}</p>
+      <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p>
       <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("Model unavailable")}</EmptyTitle><EmptyDescription>{uiT("This model is no longer in the catalog.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>{uiT("Browse models")}</Link></Button></EmptyContent></Empty> : null}
   </div>;

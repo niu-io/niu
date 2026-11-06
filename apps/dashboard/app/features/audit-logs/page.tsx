@@ -9,6 +9,7 @@ import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
@@ -21,10 +22,10 @@ function actionName(action: string) {
     session_revoked: 'Session revoked', operator_created: 'Account created', operator_revoked: 'Account revoked',
     role_changed: 'Role changed', password_changed: 'Password changed', branding_updated: 'Branding updated',
     payment_gateway_updated: 'Payment gateway updated', platform_access_granted: 'Platform access granted',
-    platform_access_revoked: 'Platform access revoked', vendor_created: 'API configuration created',
-    vendor_updated: 'API configuration updated', vendor_seeded: 'API configuration imported',
-    vendor_model_created: 'Model binding created', vendor_model_updated: 'Model binding updated',
-    vendor_model_seeded: 'Model binding imported', provider_created: 'Provider created', supplier_associated: 'Provider associated', provider_associated: 'Provider associated',
+    platform_access_revoked: 'Platform access revoked', vendor_created: 'Provider connection created',
+    vendor_updated: 'Provider connection updated', vendor_seeded: 'Provider connection imported',
+    vendor_model_created: 'Model route created', vendor_model_updated: 'Model route updated',
+    vendor_model_seeded: 'Model route imported', provider_created: 'Provider created', supplier_associated: 'Provider associated', provider_associated: 'Provider associated',
   };
   return translateUI(names[action] ?? 'Other action');
 }
@@ -39,7 +40,7 @@ export default function AuditLogsPage() {
 }
 
 function AuditLogs({ token }: { token: string }) {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT } = useUILocale();
   const scope = token || 'public';
   const [category, setCategory] = useState<PlatformAuditCategory | 'all'>('all');
   const initialPage = peekQuery<PlatformAuditPage>(scope, '/api/v1/platform/audit-events?limit=50');
@@ -48,6 +49,7 @@ function AuditLogs({ token }: { token: string }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(() => !initialPage);
   const [revision, setRevision] = useState(0);
+  const [query, setQuery] = useState('');
   const pending = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -97,6 +99,8 @@ function AuditLogs({ token }: { token: string }) {
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
+  const needle = query.trim().toLowerCase();
+  const visibleRows = rows?.filter(event => !needle || [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle));
   return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
     <p className="text-sm text-muted-foreground">{uiT("Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -106,14 +110,17 @@ function AuditLogs({ token }: { token: string }) {
           {Object.entries(categories).map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
-      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
+      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+        <Input value={query} onChange={event => setQuery(event.target.value)} placeholder={uiT("Search events")} aria-label={uiT("Search audit events")} className="max-w-sm" />
+        <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
+      </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : rows.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
+    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{query.trim() ? uiT("No audit events match this search.") : uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map(event => <TableRow key={event.id}>
+      <TableBody>{(visibleRows ?? []).map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{event.created_at.replace('T', ' ').replace(/\.\d+Z$/, '')}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}{event.revision !== null ? ' · '+uiF('Revision {0}',[event.revision]) : ''}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
       </TableRow>)}</TableBody>

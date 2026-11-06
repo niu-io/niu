@@ -29,7 +29,7 @@ const reasons: Record<string, string> = {
 };
 const policyLabel = (name: string | null, revision: number | null) => revision ? formatLocalizedMessage('{0} · Version {1}', [name || translateUI('Saved policy'), revision], readLocale()) : translateUI('None');
 const policyEvidence = (name: string | null, revision: number | null) => revision && Number.isSafeInteger(revision) && revision > 0
-  ? <Link className="underline underline-offset-4" to={`../history?revision=${revision}&from=blocked`} relative="path">{policyLabel(name, revision)}</Link>
+  ? <Link className="underline underline-offset-4" to={`?tab=history&revision=${revision}&from=blocked`}>{policyLabel(name, revision)}</Link>
   : 'No saved policy evidence';
 const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 
@@ -85,7 +85,7 @@ export default function GuardrailDenials({ token, endpoint }: { token: string; e
   }, [token, prepPath, dispatchPath, reload]);
   return <div className="guardrails-page">
     <PageHeader title={uiT("Blocked requests")} action={<>
-      <Button asChild variant="outline" className="header-icon-action"><Link to="../../executions" relative="path" aria-label={uiT("Open Logs")} title={uiT("Open Logs")}><IconListDetails aria-hidden="true" /><span>{uiT("Open Logs")}</span></Link></Button>
+      <Button asChild variant="outline" className="header-icon-action"><Link to="../executions" relative="path" aria-label={uiT("Open Logs")} title={uiT("Open Logs")}><IconListDetails aria-hidden="true" /><span>{uiT("Open Logs")}</span></Link></Button>
       <Button variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh")} title={uiT("Refresh")} aria-disabled={loading} onClick={() => {if (!loading) setReload(value => value + 1);}}><IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span></Button>
     </>} />
     

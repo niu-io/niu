@@ -4,6 +4,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import KeysView from '../../../../app/features/keys/components/KeysView';
+import { keyMutationHintKey } from '../../../../app/features/keys/mutation-recovery';
 
 const expectedBaseUrl = () => `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/+$/, '')}/v1`;
 
@@ -89,10 +90,10 @@ it('does not present a runnable request example before the workspace has a model
   await user.type(screen.getByLabelText('Name'), 'Default demo key');
   await user.click(screen.getByRole('button', { name: 'Create key' }));
 
-  expect(await screen.findByText('Request example unavailable')).toBeTruthy();
+  expect(await screen.findByText('Check access with your API key')).toBeTruthy();
+  expect(screen.getByText(/curl .*\/models/)).toBeTruthy();
+  expect(document.body.textContent).not.toContain('/chat/completions');
   expect(screen.queryByRole('link', { name: 'Connect provider' })).toBeNull();
-  expect(screen.getByText('Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Copy example' })).toBeNull();
   expect(document.body.textContent).not.toContain('your-model');
 });
 
@@ -212,106 +213,223 @@ it('ignores a late creation response after leaving key administration', async ()
   expect(rememberChatKey).not.toHaveBeenCalled();
 });
 
+
 const recoveryKey = {id:'recovered-key',slug:'production-agent',name:'Production agent',allowed_models:['fast'],expires_at_ms:null,revoked:false,expired:false};
+const hintKey = keyMutationHintKey('installation','org-1:project-1');
+const staleRequestId = '11111111-1111-4111-8111-111111111111';
 function recoveryView(canWrite=true) {
  return <MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast']} canWrite={canWrite} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>;
 }
 
-it('reconciles response loss after navigation and explicitly revokes the undisclosed key before new creation',async()=>{
- let posts=0,revoked=false;
- vi.stubGlobal('fetch',vi.fn(async(input,init)=>{
-  if(init?.method==='POST'){posts++;return Response.json({error:{message:'Response unavailable'}},{status:503});}
-  if(init?.method==='DELETE'){revoked=true;return new Response(null,{status:204});}
-  if(String(input).includes('/requests/'))return Response.json({data:{action:'create',key:{...recoveryKey,revoked}}});
-  return Response.json({data:posts?[{...recoveryKey,revoked}]:[]});
+it('creates a key with a corrupt stale marker and no recovery lockout',async()=>{
+ localStorage.setItem(hintKey,'this is not json');
+ const fetch=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'
+  ? Response.json({id:'new-key',token:'fresh-secret'},{status:201})
+  : Response.json({data:[]}));
+ vi.stubGlobal('fetch',fetch);
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('No API keys yet');
+ expect(screen.queryByText('Previous key request')).toBeNull();
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Fresh key');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
+ expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('fresh-secret');
+});
+
+it('shows a stale marker as a non-blocking notice and still creates a new key',async()=>{
+ localStorage.setItem(hintKey,JSON.stringify({version:1,requestId:staleRequestId,action:'create',label:'Old key',body:{name:'Old key',ttl_seconds:null}}));
+ const fetch=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'
+  ? Response.json({id:'new-key',token:'fresh-secret'},{status:201})
+  : Response.json({data:[]}));
+ vi.stubGlobal('fetch',fetch);
+ const user=userEvent.setup();render(recoveryView());
+ expect(await screen.findByText('Previous key request')).toBeTruthy();
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Fresh key');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
+ const post=fetch.mock.calls.find(call=>call[1]?.method==='POST');
+ expect(new Headers(post?.[1]?.headers).get('idempotency-key')).not.toBe(staleRequestId);
+ expect(JSON.parse(String(post?.[1]?.body))).toEqual({name:'Fresh key',ttl_seconds:30*86400});
+});
+
+it('creates a key when browser storage is unavailable',async()=>{
+ vi.spyOn(window.localStorage,'getItem').mockImplementation(()=>{throw new Error('denied');});
+ vi.spyOn(window.localStorage,'setItem').mockImplementation(()=>{throw new Error('denied');});
+ vi.stubGlobal('fetch',vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'
+  ? Response.json({id:'new-key',token:'fresh-secret'},{status:201})
+  : Response.json({data:[]})));
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('No API keys yet');
+ expect(screen.queryByText('Previous key request')).toBeNull();
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Fresh key');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
+ expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('fresh-secret');
+});
+
+it('rotates a key with a corrupt stale marker and no recovery lockout',async()=>{
+ localStorage.setItem(hintKey,'broken');
+ vi.stubGlobal('fetch',vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'
+  ? Response.json({id:'replacement-key',token:'replacement-secret',secret_available:true},{status:201})
+  : Response.json({data:[recoveryKey]})));
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('Production agent');
+ expect(screen.queryByText('Previous key request')).toBeNull();
+ await user.click(screen.getByRole('button',{name:'Actions for Production agent'}));
+ await user.click(screen.getByRole('menuitem',{name:'Rotate'}));
+ await user.click(screen.getByRole('button',{name:'Rotate key'}));
+ expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
+ expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('replacement-secret');
+});
+
+it('rotates a key with a stale marker without opening a recovery wizard',async()=>{
+ localStorage.setItem(hintKey,JSON.stringify({version:1,requestId:staleRequestId,action:'rotate',label:'Production agent',keyId:'recovered-key'}));
+ const fetch=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'
+  ? Response.json({id:'replacement-key',token:'replacement-secret',secret_available:true},{status:201})
+  : Response.json({data:[recoveryKey]}));
+ vi.stubGlobal('fetch',fetch);
+ const user=userEvent.setup();render(recoveryView());
+ expect(await screen.findByText('Previous key request')).toBeTruthy();
+ await user.click(screen.getByRole('button',{name:'Actions for Production agent'}));
+ await user.click(screen.getByRole('menuitem',{name:'Rotate'}));
+ await user.click(screen.getByRole('button',{name:'Rotate key'}));
+ expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
+ expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('replacement-secret');
+ const post=fetch.mock.calls.find(call=>call[1]?.method==='POST');
+ expect(String(post?.[0])).toBe('/api/v1/workspaces/project-1/keys/recovered-key/rotate');
+ expect(new Headers(post?.[1]?.headers).get('idempotency-key')).not.toBe(staleRequestId);
+});
+
+it('offers a non-blocking retry that reuses the in-flight request identity',async()=>{
+ const submissions:RequestInit[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{
+  if(init?.method==='POST'){submissions.push(init);if(submissions.length===1)throw new TypeError('Connection lost');return Response.json({id:'key',token:'replacement-secret',secret_available:true});}
+  return Response.json({data:[]});
  }));
- const user=userEvent.setup();const first=render(recoveryView());
+ const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
  await user.click(screen.getByRole('button',{name:'New API key'}));
  await user.type(screen.getByLabelText('Name'),'Production agent');
  await user.click(screen.getByRole('button',{name:'Create key'}));
- await screen.findByRole('heading',{name:'Review key request'});
- expect(screen.queryByRole('button',{name:'Create key'})).toBeNull();
- first.unmount();render(recoveryView());
- await screen.findByText('Key request needs review');
- await user.click(screen.getByRole('button',{name:'New API key'}));
- await screen.findByRole('heading',{name:'Review key request'});
- await user.click(screen.getByRole('button',{name:'Check saved result'}));
- await screen.findByText(/The key was created/);
- expect(screen.queryByLabelText('API key')).toBeNull();
- expect(posts).toBe(1);
- await user.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Revoke key'}));
- await screen.findByText('Revoked');
- expect(revoked).toBe(true);
- expect(screen.queryByText('Key request needs review')).toBeNull();
- expect(posts).toBe(1);
- await user.click(screen.getByRole('button',{name:'New API key'}));
- await screen.findByLabelText('Name');
-});
-
-it('retries a pre-commit network failure with identical request identity and input',async()=>{
- const submissions:RequestInit[]=[];
- vi.stubGlobal('fetch',vi.fn(async(_input,init)=>{
-  if(init?.method==='POST'){submissions.push(init);if(submissions.length===1)throw new TypeError('Connection lost');return Response.json({id:'key',token:'replacement-secret',secret_available:true});}
-  return Response.json({data:[]});
- }));
- const user=userEvent.setup();render(recoveryView());await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));await user.type(screen.getByLabelText('Name'),'Production agent');await user.click(screen.getByRole('button',{name:'Create key'}));
- await screen.findByRole('heading',{name:'Review key request'});
- await user.click(screen.getByRole('button',{name:'Retry same request'}));
- await screen.findByRole('heading',{name:'Save your API key'});
+ const retry=await screen.findByRole('button',{name:'Retry request'});
+ expect((retry as HTMLButtonElement).disabled).toBe(false);
+ expect(screen.queryByRole('dialog')).toBeNull();
+ await user.click(retry);
+ expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
+ expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('replacement-secret');
  expect(submissions).toHaveLength(2);
  expect(new Headers(submissions[0].headers).get('idempotency-key')).toBe(new Headers(submissions[1].headers).get('idempotency-key'));
  expect(submissions[0].body).toBe(submissions[1].body);
 });
 
-it('explains committed rotation and prevents another rotation after the secret response is lost',async()=>{
+it('reconciles a committed create without forcing revocation and still allows another key',async()=>{
+ let posts=0;
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+  if(init?.method==='POST'){posts++;return Response.json({error:{message:'Response unavailable'}},{status:503});}
+  if(String(input).includes('/requests/'))return Response.json({data:{action:'create',key:recoveryKey}});
+  return Response.json({data:posts?[recoveryKey]:[]});
+ }));
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('No API keys yet');
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Production agent');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ await user.click(await screen.findByRole('button',{name:'Check status'}));
+ expect(await screen.findByText(/The request completed, but its secret cannot be shown again/)).toBeTruthy();
+ expect(screen.queryByRole('button',{name:'Revoke key'})).toBeNull();
+ expect(posts).toBe(1);
+ await user.click(screen.getByRole('button',{name:'Dismiss'}));
+ expect(screen.queryByText('Previous key request')).toBeNull();
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ expect(await screen.findByLabelText('Name')).toBeTruthy();
+});
+
+it('explains committed rotation and offers rotation instead of forced revocation',async()=>{
  let rotations=0;
- vi.stubGlobal('fetch',vi.fn(async(input,init)=>{
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   if(init?.method==='POST'){rotations++;throw new TypeError('Response lost');}
-  if(String(input).includes('/requests/'))return Response.json({data:{action:'rotate',key:{...recoveryKey,id:'replacement'}}});
+  if(String(input).includes('/requests/'))return Response.json({data:{action:'rotate',key:{...recoveryKey,id:'replacement-key'}}});
   return Response.json({data:[recoveryKey]});
  }));
- const user=userEvent.setup();render(recoveryView());await screen.findByText('Production agent');
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('Production agent');
  await user.click(screen.getByRole('button',{name:'Actions for Production agent'}));
  await user.click(screen.getByRole('menuitem',{name:'Rotate'}));
  await user.click(screen.getByRole('button',{name:'Rotate key'}));
- await screen.findByRole('heading',{name:'Review key request'});
- await user.click(screen.getByRole('button',{name:'Check saved result'}));
- await screen.findByText(/Rotation completed. The old secret no longer works/);
- expect(screen.queryByRole('button',{name:'Retry same request'})).toBeNull();
+ await user.click(await screen.findByRole('button',{name:'Check status'}));
+ expect(await screen.findByText(/The request completed, but its secret cannot be shown again/)).toBeTruthy();
+ expect(screen.queryByRole('button',{name:'Revoke key'})).toBeNull();
  expect(rotations).toBe(1);
+ await user.click(screen.getByRole('button',{name:'Rotate to get a new secret'}));
+ expect(await screen.findByRole('dialog',{name:'Rotate API key'})).toBeTruthy();
+ await user.click(screen.getByRole('button',{name:'Cancel'}));
 });
 
-it('retains pending recovery while role loss aborts the response and hides the secret',async()=>{
+it('keeps a server conflict visible without silently creating another request',async()=>{
+ let posts=0;const ids:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{
+  if(init?.method==='POST'){posts++;ids.push(new Headers(init.headers).get('idempotency-key')??'');return Response.json({error:{message:'Key request conflict'}},{status:409});}
+  return Response.json({data:[]});
+ }));
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('No API keys yet');
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Production agent');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ expect(await screen.findByText('Key request conflict')).toBeTruthy();
+ expect(posts).toBe(1);
+ expect(screen.queryByRole('heading',{name:'Save your API key'})).toBeNull();
+ await user.click(await screen.findByRole('button',{name:'Retry request'}));
+ await screen.findByRole('button',{name:'Retry request'});
+ expect(posts).toBe(2);
+ expect(ids[0]).toBe(ids[1]);
+ expect(screen.queryByRole('heading',{name:'Save your API key'})).toBeNull();
+ await user.click(screen.getByRole('button',{name:'Dismiss'}));
+ expect(screen.queryByText('Previous key request')).toBeNull();
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ expect(await screen.findByLabelText('Name')).toBeTruthy();
+});
+
+it('aborts a pending response after role loss and does not reveal its secret',async()=>{
  let finish!:(response:Response)=>void;let signal:AbortSignal|undefined;
- vi.stubGlobal('fetch',vi.fn(async(_input,init)=>{
+ vi.stubGlobal('fetch',vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{
   if(init?.method==='POST'){signal=init.signal as AbortSignal;return new Promise<Response>(resolve=>{finish=resolve;});}
   return Response.json({data:[]});
  }));
- const user=userEvent.setup();const view=render(recoveryView());await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));await user.type(screen.getByLabelText('Name'),'Production agent');await user.click(screen.getByRole('button',{name:'Create key'}));
- view.rerender(recoveryView(false));expect(signal?.aborted).toBe(true);
+ const user=userEvent.setup();const view=render(recoveryView());
+ await screen.findByText('No API keys yet');
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Production agent');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ view.rerender(recoveryView(false));
+ expect(signal?.aborted).toBe(true);
  await act(async()=>{finish(Response.json({id:'key',token:'must-not-appear'}));});
  expect(screen.queryByRole('heading',{name:'Save your API key'})).toBeNull();
  expect(document.body.textContent).not.toContain('must-not-appear');
- expect(await screen.findByText(/Write access is required to recover/)).toBeTruthy();
- expect(screen.queryByRole('button',{name:'Review request'})).toBeNull();
+ expect(await screen.findByText('Write access is required to check this request.')).toBeTruthy();
 });
 
-it('shows a confirmed retry rejection after closing recovery and permits a corrected new request',async()=>{
+it('shows a confirmed retry rejection as a non-blocking notice',async()=>{
  let posts=0;
- vi.stubGlobal('fetch',vi.fn(async(_input,init)=>{
+ vi.stubGlobal('fetch',vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{
   if(init?.method==='POST'){posts++;if(posts===1)throw new TypeError('Response lost');return Response.json({error:{message:'The selected model is no longer available'}},{status:400});}
   return Response.json({data:[]});
  }));
- const user=userEvent.setup();render(recoveryView());await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));await user.type(screen.getByLabelText('Name'),'Production agent');await user.click(screen.getByRole('button',{name:'Create key'}));
- await screen.findByRole('heading',{name:'Review key request'});
- await user.click(screen.getByRole('button',{name:'Retry same request'}));
+ const user=userEvent.setup();render(recoveryView());
+ await screen.findByText('No API keys yet');
+ await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.type(screen.getByLabelText('Name'),'Production agent');
+ await user.click(screen.getByRole('button',{name:'Create key'}));
+ await user.click(await screen.findByRole('button',{name:'Retry request'}));
  expect(await screen.findByText('The selected model is no longer available')).toBeTruthy();
- expect(screen.queryByText('Key request needs review')).toBeNull();
+ expect(screen.queryByRole('heading',{name:'Save your API key'})).toBeNull();
+ expect(screen.queryByText('Previous key request')).toBeTruthy();
+ expect(posts).toBe(2);
+ await user.click(screen.getByRole('button',{name:'Dismiss'}));
+ expect(screen.queryByText('Previous key request')).toBeNull();
  await user.click(screen.getByRole('button',{name:'New API key'}));
  expect(await screen.findByLabelText('Name')).toBeTruthy();
- expect(posts).toBe(2);
 });

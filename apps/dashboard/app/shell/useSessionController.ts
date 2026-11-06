@@ -450,8 +450,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
         const next = ((await response.json()) as { data: AdminSession }).data;
         if (revision !== connectionRevision.current) return false;
         setSession(next);
-        if (role === 'admin') navigate('/admin/providers');
-        else if (/^\/(admin|providers|suppliers)(\/|$)/.test(location.pathname)) {
+        if (role !== 'admin' && /^\/(admin|providers|suppliers)(\/|$)/.test(location.pathname)) {
           const current = callbacksRef.current?.getWorkspaceNavigation();
           navigate(
             current?.workspace

@@ -58,10 +58,14 @@ export function BrandingProvider({children}:{children:ReactNode}) {
       controller?.abort(); const current = new AbortController(); controller=current;
       try {
         const response = await fetch('/v1/branding',{cache:'no-store',signal:current.signal});
-        if (!response.ok) return;
+        if (!response.ok) return; // Keep the last good display settings; see the catch below.
         const saved = parseBranding(await response.json());
         if (!current.signal.aborted) setConfiguration(saved);
-      } catch { /* Retain the last good display settings; authentication is independent. */ }
+      } catch {
+        // Display-only preferences keep the last good settings. Authentication
+        // is independent, the next focus retries, and Admin Branding reports its
+        // own load failure, so this background refresh needs no global error UI.
+      }
     }
     void load(); window.addEventListener('focus',load);
     return ()=>{controller?.abort();window.removeEventListener('focus',load);};

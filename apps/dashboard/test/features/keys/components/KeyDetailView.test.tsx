@@ -112,3 +112,51 @@ it('redirects an old key ID bookmark to its stable slug and edits by the API ID'
   expect(fetcher.mock.calls.find(([,init])=>init?.method==='PATCH')?.[0]).toBe(`/api/v1/workspaces/demo/keys/${record.id}`);
   expect(router.state.location.pathname).toBe('/workspaces/demo/keys/production');
 });
+it('rotates the key from the detail page and shows the replacement secret once', async () => {
+  const record={id:'saved',slug:'saved',revision:1,name:'Application key',allowed_models:['*'],expires_at_ms:Date.now()+86400000,revoked:false,expired:false};
+  const fetcher=vi.fn(async (input:RequestInfo|URL,init?:RequestInit) => String(input).endsWith('/rotate') && init?.method==='POST'
+    ? Response.json({id:'saved',token:'new-secret-value',secret_available:true,key:record})
+    : Response.json({data:[record]}));
+  vi.stubGlobal('fetch',fetcher);
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'Rotate key'}));
+  await user.click(screen.getByRole('button',{name:'Confirm rotate'}));
+  const secret=await screen.findByLabelText('API key secret') as HTMLInputElement;
+  expect(secret.value).toBe('new-secret-value');
+  expect(fetcher.mock.calls.some(([input,init])=>String(input).endsWith('/rotate')&&init?.method==='POST')).toBe(true);
+});
+
+it('consolidates key policies into one editor and one history surface', async () => {
+  const record={id:'saved',slug:'application',revision:2,name:'Application key',allowed_models:['*'],expires_at_ms:null,revoked:false,expired:false,request_rate_limit:{requests_per_minute:10,revision:'1'},concurrency_limit:{max_concurrent_requests:2,active_requests:0,revision:'1'},token_rate_limit:{tokens_per_minute:null,revision:null,snapshot_at:'2026-11-05T00:00:00Z',known_tokens:'0',reserved_tokens:'0',unbounded_requests:0,committed_tokens:null},ip_policy:{allowed_cidrs:null,revision:'1'},spending_limits:[]};
+  vi.stubGlobal('fetch',vi.fn(async (input:RequestInfo|URL)=>{
+    const path=String(input);
+    if(path.endsWith('/guardrail'))return Response.json({data:{assignment_revision:1,policy_revision:null,mode:'active',policy:null}});
+    if(path.endsWith('/guardrails/history'))return Response.json({data:[],next_cursor:null});
+    return Response.json({data:[record]});
+  }));
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/application']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite canConfigureSpending initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  const user=userEvent.setup();
+  await screen.findByRole('heading',{name:'Application key'});
+  expect(screen.queryByRole('button',{name:'Edit requests per minute'})).toBeNull();
+  expect(screen.queryByRole('button',{name:'Source IP access history'})).toBeNull();
+  expect(screen.getAllByRole('button',{name:'History'})).toHaveLength(1);
+  await user.click(screen.getByRole('button',{name:'Edit key'}));
+  expect(screen.getByRole('heading',{name:'Limits'})).toBeTruthy();
+  expect(screen.getByRole('heading',{name:'Source IP access'})).toBeTruthy();
+  expect(screen.getByRole('heading',{name:'Spending limits'})).toBeTruthy();
+  expect(screen.getByRole('heading',{name:'Guardrails'})).toBeTruthy();
+  expect(screen.getAllByRole('button',{name:'Save changes'})).toHaveLength(1);
+  expect(screen.queryByRole('button',{name:'Edit requests per minute'})).toBeNull();
+});
+
+it('shows the exact approved model interfaces or management-only state', async () => {
+  const base={id:'saved',name:'Agent key',allowed_models:['fast'],expires_at_ms:Date.now()+86400000,revoked:false,expired:false};
+  vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[{...base,invocation_allowed:true,invocation_protocols:['chat','embeddings']}]})));
+  const first=render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite={false} initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  await screen.findByText('Allowed for Chat completions, Embeddings');
+  first.unmount();
+  vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[{...base,invocation_allowed:false}]})));
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test-2" models={['fast']} canWrite={false} initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  await screen.findByText('Blocked (management only)');
+});

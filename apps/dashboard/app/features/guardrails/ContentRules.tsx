@@ -37,6 +37,7 @@ export default function ContentRules({
   disabled,
   token,
   endpoint,
+  showHeading = true,
 }: {
   stage: "input" | "output";
   outputMode?: "buffered_full" | "observe_only";
@@ -45,6 +46,7 @@ export default function ContentRules({
   disabled: boolean;
   token: string;
   endpoint: string;
+  showHeading?: boolean;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const [sample, setSample] = useState("");
@@ -167,9 +169,11 @@ export default function ContentRules({
           : uiT("inspection incomplete");
   return (
     <>
-      <h2 className="guardrails-history-title">
-        {stage === "input" ? uiT("Input rules") : uiT("Output rules")}
-      </h2>
+      {showHeading && (
+        <h2 className="guardrails-history-title">
+          {stage === "input" ? uiT("Input rules") : uiT("Output rules")}
+        </h2>
+      )}
       <Alert>
         <AlertDescription>
           {stage === "input"
@@ -215,9 +219,9 @@ export default function ContentRules({
                     <Button
                       variant="outline"
                       disabled={disabled || (stage === "output" && outputMode === "observe_only")}
-                      aria-label={uiF("{0} action", [preset.label])}
+                      aria-label={uiF("{0} action", [uiT(preset.label)])}
                     >
-                      {stage === "output" && outputMode === "observe_only" ? uiT("Observe") : actions[action]}
+                      {stage === "output" && outputMode === "observe_only" ? uiT("Observe") : uiT(actions[action])}
                       <ChevronDown />
                     </Button>
                   </DropdownMenuTrigger>
@@ -239,7 +243,7 @@ export default function ContentRules({
                     >
                       {Object.entries(actions).map(([value, label]) => (
                         <DropdownMenuRadioItem key={value} value={value}>
-                          {label}
+                          {uiT(label)}
                         </DropdownMenuRadioItem>
                       ))}
                     </DropdownMenuRadioGroup>
@@ -305,7 +309,7 @@ export default function ContentRules({
                     disabled={disabled || (stage === "output" && outputMode === "observe_only")}
                     aria-label={uiF("Pattern {0} action", [number + 1])}
                   >
-                    {stage === "output" && outputMode === "observe_only" ? uiT("Observe") : actions[rule.action]}
+                    {stage === "output" && outputMode === "observe_only" ? uiT("Observe") : uiT(actions[rule.action])}
                     <ChevronDown />
                   </Button>
                 </DropdownMenuTrigger>
@@ -316,7 +320,7 @@ export default function ContentRules({
                   >
                     {Object.entries(actions).map(([value, label]) => (
                       <DropdownMenuRadioItem key={value} value={value}>
-                        {label}
+                        {uiT(label)}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
@@ -335,7 +339,7 @@ export default function ContentRules({
             </div>
           </div>
         ))}
-        {invalid && <p role="alert">{invalid}</p>}
+        {invalid && <p role="alert">{uiT(invalid)}</p>}
       </section>
       <section className="guardrails-section guardrails-content-section">
         <h3>{uiT("Test your patterns")}</h3>
@@ -388,7 +392,7 @@ export default function ContentRules({
         {!rules.length && <p className="guardrails-muted">{uiT("Select a pattern above to enable testing.")}</p>}
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{uiT(error)}</AlertDescription>
           </Alert>
         )}
         {result && (

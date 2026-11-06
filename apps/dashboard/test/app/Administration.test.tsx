@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import Administration from '../../app/shell/Administration';
 import type { AdminSession, DashboardContext } from '../../app/shell/dashboard-context';
 import { Outlet } from 'react-router';
 
 const administrator: AdminSession = { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } };
-function mount(session: AdminSession | null, initialEntry = '/admin/providers') {
-  const context = { session } as DashboardContext;
+function mount(session: AdminSession | null, initialEntry = '/admin/providers', roleSwitch?: DashboardContext['roleSwitch']) {
+  const context = { session, roleSwitch } as DashboardContext;
   const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [{ path: '/admin', Component: Administration, children: [{ path: 'providers', element: <p>Provider directory loaded</p> }, { path: 'providers/:provider/:section?', element: <p>Provider configuration loaded</p> }] }] }], { initialEntries: [initialEntry] });
   render(<RouterProvider router={router} />);
   return router;
@@ -64,4 +64,22 @@ it.each([
     expect(screen.queryByText('Provider directory loaded')).toBeNull();
     expect(screen.getByText('Administrator access required')).toBeTruthy();
   }
+});
+
+it('offers administrator mode when the account has the grant but the session is in user mode', () => {
+  const customerOwner = {
+    kind: 'operator',
+    operator: { id: 'op-owner', role: 'owner', organization_id: 'org-1', project_id: null },
+    permissions: { read: true, write: true, manage_operators: true, platform_admin: false },
+  } as AdminSession;
+  mount(customerOwner, '/admin/providers', {
+    available: ['user', 'admin'],
+    active: 'user',
+    saving: false,
+    error: '',
+    setRole: vi.fn(async () => true),
+  });
+  expect(screen.getByText(/assigned, but this session is in User mode/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Switch to administrator mode' })).toBeTruthy();
+  expect(screen.queryByText('Provider directory loaded')).toBeNull();
 });

@@ -10,7 +10,7 @@ import { TableSkeleton } from '@/components/PageSkeletons';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { request } from '@/features/providers/api';
 
-type Change = { assignment_revision: number; policy_revision: number | null; policy_name: string | null; actor_name: string; created_at: string };
+type Change = { assignment_revision: number; policy_revision: number | null; mode?: 'fixed' | 'active'; policy_name: string | null; actor_name: string; created_at: string };
 type Page = { data: Change[]; next_cursor: number | null };
 const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 
@@ -51,7 +51,7 @@ export default function KeyGuardrailHistory({ token, endpoint }: { token: string
         {rows.length > 0 && <Table className="min-w-[520px] table-fixed">
           <TableHeader><TableRow><TableHead>{uiT("Policy change")}</TableHead><TableHead>{uiT("Changed by")}</TableHead><TableHead>{uiT("Date")}</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map(row => <TableRow key={row.assignment_revision}>
-            <TableCell className="whitespace-normal break-words">{row.policy_revision === null ? uiT("Key policy removed") : uiF("{0} · Version {1}", [row.policy_name || uiT("Saved policy"), row.policy_revision])}</TableCell>
+            <TableCell className="whitespace-normal break-words">{row.mode === 'active' ? uiT("Follows workspace policy") : row.policy_revision === null ? uiT("Key policy removed") : uiF("{0} · Version {1}", [row.policy_name || uiT("Saved policy"), row.policy_revision])}</TableCell>
             <TableCell className="whitespace-normal break-words">{row.actor_name || uiT("Name unavailable")}</TableCell>
             <TableCell className="whitespace-normal break-words">{date(row.created_at)}</TableCell>
           </TableRow>)}</TableBody>

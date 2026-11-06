@@ -11,11 +11,11 @@ export type ProviderSetup = {
 export type SupplierSetup = ProviderSetup;
 
 /** Supply readiness requires approved, active offers, not merely configured routes. */
-export function providerAvailability(provider: ProviderSetup & { qualification_status?: string }) {
+export function providerAvailability(provider: ProviderSetup) {
   if (provider.internal_api_keys && provider.internal_api_keys === provider.api_keys) return {
     label: provider.internal_model_routes ? 'Models configured' : 'API key saved',
     detail: 'Internal use. Upstream fees are paid directly; no commercial approval is required.',
-    usable: false, action: provider.internal_model_routes ? 'Manage models' : 'Import models', section: provider.internal_model_routes ? 'models' : 'keys',
+    usable: false, action: provider.internal_model_routes ? 'Manage models' : 'Import models', section: 'models',
   };
   if (provider.ready_offers == null) return { label: 'Status unavailable', detail: 'Readiness data is missing. Refresh the list to try again.', usable: false, action: 'Refresh status', section: 'refresh' };
   if (provider.ready_offers > 0) return {

@@ -13,7 +13,7 @@ export default function ConnectPrompt() {
     <div className="empty-icon"><KeyRound size={18} /></div>
     <div>
       <strong>{t('Sign in to continue', '请登录以继续')}</strong>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{t(error)}</p>}
       <Button asChild><Link to="/login" state={{ from }}>{t('Sign in', '登录')}</Link></Button>
     </div>
   </div>;

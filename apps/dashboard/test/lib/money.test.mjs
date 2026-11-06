@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountFromNanos, amountToNanos, formatFinancialMoney, formatRateMoney, money } from '../../app/lib/money.ts';
+import { amountFromNanos, amountToNanos, formatDisplayUnitAtoms, formatFinancialMoney, formatRateMoney, money } from '../../app/lib/money.ts';
 
 describe('money formatting', () => {
   it('retains nanounits beyond Number precision', () => {
@@ -33,5 +33,15 @@ describe('cash amount input', () => {
     for (const value of ['0', '0.000000000', '1e3', '1.0000000001', '9223372036.854775808']) {
       expect(() => amountToNanos(value)).toThrow();
     }
+  });
+});
+
+describe('customer-facing unit display', () => {
+  it('rounds only the displayed charge and preserves the sub-quantum warning', () => {
+    expect(formatDisplayUnitAtoms('10123456789', 'Credits')).toBe('10.12 Credits');
+    expect(formatDisplayUnitAtoms('10000000000', 'Credits')).toBe('10.00 Credits');
+    expect(formatDisplayUnitAtoms('1', 'Credits')).toBe('< 0.01 Credits');
+    expect(formatDisplayUnitAtoms('1234567890', 'Credits', 0)).toBe('1 Credits');
+    expect(formatDisplayUnitAtoms('-10123456789', 'Credits')).toBe('-10.12 Credits');
   });
 });

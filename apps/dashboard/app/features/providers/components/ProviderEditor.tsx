@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { request, defaultApiBase, providerAdapterApiLabels, type ProviderConnection, type ProviderAdapter, type ProviderConnectionWrite } from '../api';
+import IntegrationSettings from './IntegrationSettings';
 
 export type ProviderConnectionCreate = { name: string; adapter: ProviderAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string };
 export type VendorCreate = ProviderConnectionCreate;
@@ -25,7 +26,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
   onCreate: (input: ProviderConnectionCreate) => Promise<void>;
   onSave: (input: ProviderConnectionWrite) => Promise<void>;
 }) {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT } = useUILocale();
   const activeConnection = connection ?? vendor ?? null;
   const defaultProviderId = initialProviderId ?? initialSupplierId ?? '';
   const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
@@ -103,7 +104,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
       <div className="vendor-editor-title-copy">
         <p className="eyebrow">{activeConnection ? uiT("API KEY") : uiT("NEW API KEY")}</p>
         <h2 id="vendor-editor-title">{title}</h2>
-        <p>{activeConnection ? uiF("Revision {0} · {1}", [activeConnection.revision, activeConnection.has_credential ? uiT("Credential stored") : uiT("No credential stored")]) : uiT("Save the upstream key, then choose the models it supplies.")}</p>
+        <p>{activeConnection ? activeConnection.has_credential ? uiT("Credential stored") : uiT("No credential stored") : uiT("Save the upstream key, then choose the models it supplies.")}</p>
       </div>
       {activeConnection && <span className={'vendor-status-badge' + (activeConnection.enabled ? ' is-enabled' : '')}>{activeConnection.enabled ? uiT("Enabled") : uiT("Disabled")}</span>}
     </div>
@@ -167,5 +168,6 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         </Button>
       </div>
     </form>
+    {activeConnection && <IntegrationSettings token={token} resource="vendors" id={activeConnection.id} />}
   </section>;
 }

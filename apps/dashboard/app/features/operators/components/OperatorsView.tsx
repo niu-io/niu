@@ -9,10 +9,29 @@ import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import type { AdminSession } from '@/shell/dashboard-context';
-import { AdminRequestError, cachedGet, listOperators, peekCachedGet, request, type IssuedSession, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
-import OperatorCreateForm, { type NewOperator } from './OperatorCreateForm';
+import {
+  AdminRequestError,
+  cachedGet,
+  cancelMemberInvitation,
+  createMemberInvitation,
+  listMemberInvitations,
+  listOperators,
+  peekCachedGet,
+  request,
+  type CreatedMemberInvitation,
+  type IssuedSession,
+  type MemberInvitation,
+  type NamedResource,
+  type NewMemberInvitation,
+  type Operator,
+  type OperatorAuditEvent,
+  type OperatorSession,
+} from '../api';
+import InvitationLinkPanel from './InvitationLinkPanel';
+import InviteMemberForm from './InviteMemberForm';
 import OperatorDirectory from './OperatorDirectory';
 import OperatorDetails from './OperatorDetails';
+import PendingInvitations from './PendingInvitations';
 import type { ConfirmTarget, CredentialView } from './operator-types';
 
 type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void>; initialOrganization?: string; initialWorkspace?: string; embedded?: boolean };
@@ -49,7 +68,10 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const [error, setError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const createButtonRef = useRef<HTMLButtonElement>(null);
-  const createNameRef = useRef<HTMLInputElement>(null);
+  const createEmailRef = useRef<HTMLInputElement>(null);
+  const [invitations, setInvitations] = useState<MemberInvitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [issuedInvitation, setIssuedInvitation] = useState<CreatedMemberInvitation | null>(null);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [credential, setCredential] = useState<CredentialView | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget>(null);
@@ -64,6 +86,11 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     if (project && item.project_id && item.project_id !== project) return false;
     return true;
   }), [operators, organization, project]);
+  const pendingInvitations = useMemo(() => invitations.filter(item => {
+    if (item.status !== 'pending') return false;
+    if (project && item.project_id && item.project_id !== project) return false;
+    return true;
+  }), [invitations, project]);
   const [revokeTarget, setRevokeTarget] = useState<Operator | null>(null);
 
   const roleController = useRef<AbortController | null>(null);
@@ -269,6 +296,37 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     return () => controller.abort();
   }, [canManage, lockedProject, organization, refreshWorkspace, token]);
 
+  const loadInvitations = useCallback(async (signal?: AbortSignal) => {
+    if (!organization) {
+      setInvitations([]);
+      return;
+    }
+    const result = await listMemberInvitations(token, organization, signal);
+    setInvitations(result.data);
+  }, [organization, token]);
+
+  useEffect(() => {
+    if (!canManage || !organization) {
+      setInvitations([]);
+      setInvitationsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setInvitationsLoading(true);
+    setInvitations([]);
+    void loadInvitations(controller.signal)
+      .catch(reason => {
+        if (!controller.signal.aborted) {
+          setError(reason instanceof Error ? reason.message : 'Could not load invitations.');
+          if (reason instanceof AdminRequestError && reason.status === 401) void refreshWorkspace?.();
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setInvitationsLoading(false);
+      });
+    return () => controller.abort();
+  }, [canManage, loadInvitations, organization, refreshWorkspace]);
+
   useEffect(() => {
     if (!canManage || !selectedOperatorId) {
       setSessions([]);
@@ -337,28 +395,44 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     }
   }
 
-  function onCreateOperator(newOperator: NewOperator) {
-    const targetProject = lockedProject || (newOperator.projectId !== undefined ? (newOperator.projectId || '') : project);
+  function onCreateInvitation(invitation: NewMemberInvitation) {
+    const targetProject = lockedProject || invitation.projectId;
     if (!organization || (lockedProject && !targetProject)) return;
     void perform(async () => {
-      const result = await request<{ operator: Operator } & IssuedSession>(
-        token,
-        '/api/v1/operators',
-        'POST',
-        {
-          organization_id: organization,
-          project_id: targetProject || null,
-          name: newOperator.name,
-          role: newOperator.role,
-          expires_in_seconds: newOperator.expiresInSeconds,
-        },
-      );
-      setOperators(previous => [result.operator, ...previous.filter(item => item.id !== result.operator.id)]);
-      setSelectedOperatorId(result.operator.id);
-      setSessions([result.session]);
-      setCredential({ operatorId: result.operator.id, token: result.token, session: result.session });
-      setCreateOpen(false);
-      setConfirmTarget(null);
+      const result = await createMemberInvitation(token, organization, {
+        ...invitation,
+        projectId: targetProject || null,
+      });
+      setInvitations(previous => [result.invitation, ...previous.filter(item => item.id !== result.invitation.id)]);
+      setIssuedInvitation(result);
+      setCreateOpen(true);
+    });
+  }
+
+  function onCancelInvitation(invitation: MemberInvitation) {
+    void perform(async () => {
+      await cancelMemberInvitation(token, invitation.id);
+      setInvitations(previous => previous.map(item => item.id === invitation.id
+        ? { ...item, status: 'canceled' as const, revoked_at: new Date().toISOString() }
+        : item));
+    });
+  }
+
+  function onReplaceInvitation(invitation: MemberInvitation) {
+    if (!organization) return;
+    void perform(async () => {
+      const result = await createMemberInvitation(token, organization, {
+        email: invitation.recipient_email,
+        name: invitation.recipient_name,
+        role: invitation.role,
+        projectId: invitation.project_id,
+        expiresInSeconds: 7 * 86_400,
+      });
+      setInvitations(previous => [result.invitation, ...previous.map(item => item.id === invitation.id
+        ? { ...item, status: 'canceled' as const, revoked_at: new Date().toISOString() }
+        : item)]);
+      setIssuedInvitation(result);
+      setCreateOpen(true);
     });
   }
 
@@ -423,7 +497,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
 
   const actions = <div className="operator-page-actions">
     <Button type="button" variant="ghost" className="header-icon-action" aria-label={uiT("Refresh users")} title={uiT("Refresh users")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} /><span>{uiT("Refresh")}</span></Button>
-    <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Add user")} title={uiT("Add user")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => setCreateOpen(true)}><Plus size={16} /><span>{uiT("Add user")}</span></Button>
+    <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
   </div>;
 
   return <>
@@ -451,15 +525,24 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
           }
         }}
         onRevoke={setRevokeTarget}
-        onAdd={() => setCreateOpen(true)}
+        onAdd={() => { setIssuedInvitation(null); setCreateOpen(true); }}
       />
     </div>
+    {organization && (
+      <PendingInvitations
+        invitations={pendingInvitations}
+        loading={invitationsLoading}
+        busy={busy}
+        onCancel={onCancelInvitation}
+        onReplace={onReplaceInvitation}
+      />
+    )}
     <Dialog open={Boolean(selectedOperator)} onOpenChange={open => { if (!open && !busy) { setOpenedRoleContext(''); setRoleRefreshError(''); setSelectedOperatorId(''); setCredential(null); setConfirmTarget(null); } }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { if (detailTriggerRef.current?.isConnected) { event.preventDefault(); detailTriggerRef.current.focus(); } }}>
         <DialogHeader><DialogTitle>{uiT("User access")}</DialogTitle><DialogDescription>{uiT("Access sessions for")}{" "}{selectedOperator?.name}{uiT(". Revoke a session to end that connection.")}</DialogDescription></DialogHeader>
-      {selectedOperator && canChangeRole && openedRoleContext !== roleContext
+      {selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id
         ? (roleOpenError
-          ? <div className="space-y-3"><p role="alert">{roleOpenError}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>
+          ? <div className="space-y-3"><p role="alert">{uiT(roleOpenError)}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>
           : <FormSectionSkeleton fields={2} label={uiT("Loading the saved role…")} />)
         : selectedOperator && <OperatorDetails
         key={[session.kind, session.operator?.id ?? '', organization, project, selectedOperator.id].join(':')}
@@ -501,19 +584,30 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         <DialogHeader><DialogTitle>{uiT("Revoke access for")}{" "}{revokeTarget?.name}?</DialogTitle><DialogDescription>{revokeTarget?.project_id
           ? uiT("This user will lose access to this workspace. All of their access sessions will end immediately.")
           : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.")}</DialogDescription></DialogHeader>
+        {revokeTarget && (revokeTarget.role === 'owner' || (session.kind === 'operator' && revokeTarget.id === session.operator?.id)) && <p role="status" className="text-sm text-muted-foreground">
+          {session.kind === 'operator' && revokeTarget.id === session.operator?.id ? uiT("This is your current account. Revoking your own access ends all your sessions immediately.") : null}
+          {revokeTarget.role === 'owner' ? <>{(session.kind === 'operator' && revokeTarget.id === session.operator?.id) ? ' ' : null}{uiT("The server prevents removing the final owner. Transfer ownership before revoking the last owner.")}</> : null}
+        </p>}
         <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setRevokeTarget(null)}>{uiT("Cancel")}</Button><Button variant="destructive" disabled={busy} onClick={() => { if (revokeTarget) onRevokeOperator(revokeTarget); }}>{uiT("Revoke access")}</Button></div>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}
       </DialogContent>
     </Dialog>
-    <Dialog open={createOpen} onOpenChange={open => { if (!open && !busy) setCreateOpen(false); }}>
-      <DialogContent className="niu-modal operator-dialog" showCloseButton={false} onOpenAutoFocus={event => {if (createNameRef.current && !createNameRef.current.disabled) {event.preventDefault();createNameRef.current.focus();}}} onCloseAutoFocus={event => {if (createButtonRef.current) {event.preventDefault();createButtonRef.current.focus();}}}>
+    <Dialog open={createOpen} onOpenChange={open => { if (!open && !busy) { setIssuedInvitation(null); setCreateOpen(false); } }}>
+      <DialogContent className="niu-modal operator-dialog" showCloseButton={false} onOpenAutoFocus={event => { if (issuedInvitation) return; if (createEmailRef.current && !createEmailRef.current.disabled) {event.preventDefault();createEmailRef.current.focus();} }} onCloseAutoFocus={event => {if (createButtonRef.current) {event.preventDefault();createButtonRef.current.focus();}}}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{uiT("Add a user")}</DialogTitle><DialogDescription>{uiT("Choose a role for this person. Save their temporary access token after adding them; no email invitation is sent.")}</DialogDescription></div>
+          <div>
+            <DialogTitle>{issuedInvitation ? uiT("Invitation created", "邀请已创建") : uiT("Invite member", "邀请成员")}</DialogTitle>
+            <DialogDescription>{issuedInvitation
+              ? uiT("Copy the one-time link now. No email was sent.", "请立即复制一次性链接。系统未发送邮件。")
+              : uiT("Invite someone to this scope. The recipient signs in with the invited email and accepts once; no password or access token is shared.", "邀请成员加入此范围。对方使用被邀请的邮箱登录并确认接受，无需分享密码或访问令牌。")}</DialogDescription>
+          </div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
-      <OperatorCreateForm nameInputRef={createNameRef} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateOperator} />
-      {error && <p className="error-text operator-dialog-error" role="alert">{error}</p>}
-    </DialogContent>
+        {issuedInvitation
+          ? <InvitationLinkPanel created={issuedInvitation} onDismiss={() => { setIssuedInvitation(null); setCreateOpen(false); }} />
+          : <InviteMemberForm emailInputRef={createEmailRef} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateInvitation} />}
+        {error && <p className="error-text operator-dialog-error" role="alert">{uiT(error)}</p>}
+      </DialogContent>
     </Dialog>
   </>;
 }

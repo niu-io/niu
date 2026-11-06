@@ -158,11 +158,11 @@ it('requires a current estimate, invalidates it when input changes and submits o
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
   await user.clear(screen.getByLabelText('Duration (seconds)'));await user.type(screen.getByLabelText('Duration (seconds)'),'7');
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
-  expect(screen.queryByRole('button',{name:'Generate video'})).toBeNull();
+  expect(screen.getByRole('button',{name:'Generate video'})).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
   await screen.findByText('Estimated ¥1.00');
   await user.type(screen.getByLabelText('Prompt'),' sunrise');
-  expect(screen.queryByRole('button',{name:'Generate video'})).toBeNull();
+  expect(screen.getByRole('button',{name:'Generate video'})).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
   await screen.findByText('Estimated ¥1.00');
   await user.dblClick(screen.getByRole('button',{name:'Generate video'}));
@@ -180,6 +180,153 @@ it('requires a current estimate, invalidates it when input changes and submits o
   expect(saves[0].body).toMatchObject({key_id:key,request:{model:model.id,duration:7,frames_per_second:24,content:[{type:'text',text:'A mountain sunrise'}]}});
   expect(document.body.textContent).not.toContain(job);
   expect(document.body.textContent).not.toContain(key);
+});
+it('generates from Enter with the same one-click path',async()=>{
+  const calls=mockFetch();mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
+  await user.type(screen.getByLabelText('Prompt'),'A mountain');
+  await user.keyboard('{Enter}');
+  await screen.findByText('Queued');
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
+});
+it('estimates in the background after the prompt settles',async()=>{
+  const calls=mockFetch();mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
+  await user.type(screen.getByLabelText('Prompt'),'A mountain');
+  expect(await screen.findByText('Estimated ¥1.00')).toBeTruthy();
+  expect(calls.filter(call=>call.path.endsWith('/estimate'))).toHaveLength(1);
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(0);
+});
+it('generates from the first primary click by estimating and then submitting once',async()=>{
+  const calls=mockFetch();mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
+  await user.type(screen.getByLabelText('Prompt'),'A mountain');
+  expect(screen.queryByRole('button',{name:'Save request'})).toBeNull();
+  await user.click(screen.getByRole('button',{name:'Generate video'}));
+  await screen.findByText('Queued');
+  expect(calls.filter(call=>call.path.endsWith('/estimate'))).toHaveLength(1);
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
+});
+it.each([
+  ['cannot be loaded','load',503],
+  ['changes in another tab','save',409],
+  ['cannot be saved','save',503],
+] as const)('keeps the Video composer usable when the saved draft %s and still dispatches one generation',async(_case,mode,status)=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  let draftWrites=0;
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const path=String(input);
+    if(path.endsWith('/video/draft')){
+      if(mode==='load')return Response.json({error:{message:'Draft read unavailable'}},{status});
+      if(init?.method==='PUT'){draftWrites+=1;return Response.json({error:{message:'Draft write unavailable'}},{status});}
+    }
+    return delegate(input,init);
+  }));
+  mount();const user=userEvent.setup();
+  const prompt=await screen.findByLabelText('Prompt');
+  await waitFor(()=>expect(prompt.hasAttribute('disabled')).toBe(false));
+  await screen.findByRole('button',{name:'Video model'});
+  if(mode==='load')expect(await screen.findByText(/Could not load your saved Video draft/)).toBeTruthy();
+  await user.type(prompt,'A mountain');
+  if(mode==='save'){
+    expect(await screen.findByText(status===409?/changed in another tab/:/Could not confirm your saved Video draft/)).toBeTruthy();
+    expect(draftWrites).toBeGreaterThan(0);
+    // The failed write must not lock the composer or discard later edits.
+    await user.type(prompt,' sunrise');
+    expect((prompt as HTMLTextAreaElement).value).toBe('A mountain sunrise');
+    expect(prompt.hasAttribute('disabled')).toBe(false);
+  }
+  expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(false);
+  await user.click(screen.getByRole('button',{name:'Generate video'}));
+  await screen.findByText('Queued');
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
+});
+it('loads keys and models while the saved Video draft is slow and dispatches once',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;let draftStarted=false;
+  let releaseDraft!:(response:Response)=>void;
+  const pendingDraft=new Promise<Response>(resolve=>{releaseDraft=resolve;});
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    if(String(input).endsWith('/video/draft') && (init?.method??'GET')==='GET'){draftStarted=true;return pendingDraft;}
+    return delegate(input,init);
+  }));
+  mount();const user=userEvent.setup();
+  const prompt=await screen.findByLabelText('Prompt');
+  await waitFor(()=>expect(draftStarted).toBe(true));
+  // Key and catalog bootstrap no longer waits for the saved draft.
+  await waitFor(()=>expect(calls.some(call=>call.path.endsWith('/keys'))).toBe(true));
+  expect(prompt.hasAttribute('disabled')).toBe(false);
+  await screen.findByRole('button',{name:'Video model'});
+  expect(calls.some(call=>call.path.endsWith('/models'))).toBe(true);
+  await user.type(prompt,'A mountain');
+  await user.click(screen.getByRole('button',{name:'Generate video'}));
+  await screen.findByText('Queued');
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
+  // A late read after dispatch cannot rewrite the submitted composer or resubmit.
+  await act(async()=>{releaseDraft(Response.json({data:{revision:1,content_state:'retained',expires_at_ms:'1800000000000',payload:{keyId:key,sessionId:null,model:model.id,prompt:'Saved draft prompt',controls:{duration:9},references:[]}}}));await pendingDraft;});
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
+  expect(screen.queryByText('Saved draft prompt')).toBeNull();
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
+});
+it('keeps a typed prompt and explicitly chosen model when a slow draft restore arrives',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  const otherModel:VideoModel={...model,id:'Other video model'};
+  let releaseDraft!:(response:Response)=>void;
+  const pendingDraft=new Promise<Response>(resolve=>{releaseDraft=resolve;});
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    if(String(input).endsWith('/video/draft') && (init?.method??'GET')==='GET')return pendingDraft;
+    if(String(input).endsWith('/models'))return Response.json({object:'list',data:[model,otherModel]});
+    return delegate(input,init);
+  }));
+  mount();const user=userEvent.setup();
+  const prompt=await screen.findByLabelText('Prompt');
+  await user.type(prompt,'Typed before the draft settled');
+  await user.click(await screen.findByRole('button',{name:'Video model'}));
+  await user.click(await screen.findByRole('menuitemradio',{name:'Other video model'}));
+  expect(screen.getByRole('button',{name:'Video model'}).textContent).toContain('Other video model');
+  await act(async()=>{releaseDraft(Response.json({data:{revision:1,content_state:'retained',expires_at_ms:'1800000000000',payload:{keyId:key,sessionId:null,model:model.id,prompt:'Saved draft prompt',controls:{duration:9},references:[]}}}));await pendingDraft;});
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Typed before the draft settled');
+  expect(screen.getByRole('button',{name:'Video model'}).textContent).toContain('Other video model');
+  // The saved controls belong to the saved model and must not replace the chosen one.
+  await user.click(screen.getByRole('button',{name:'Additional settings'}));
+  expect((screen.getByLabelText('Duration (seconds)') as HTMLInputElement).value).toBe('5');
+  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toBe(false);
+});
+it('restores a normal saved Video draft that arrives after the catalog loads',async()=>{
+  mockFetch();const delegate=globalThis.fetch;
+  const otherModel:VideoModel={...model,id:'Other video model'};
+  let releaseDraft!:(response:Response)=>void;
+  const pendingDraft=new Promise<Response>(resolve=>{releaseDraft=resolve;});
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    if(String(input).endsWith('/video/draft') && (init?.method??'GET')==='GET')return pendingDraft;
+    if(String(input).endsWith('/models'))return Response.json({object:'list',data:[model,otherModel]});
+    return delegate(input,init);
+  }));
+  mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
+  expect(screen.getByRole('button',{name:'Video model'}).textContent).toContain(model.id);
+  await act(async()=>{releaseDraft(Response.json({data:{revision:1,content_state:'retained',expires_at_ms:'1800000000000',payload:{keyId:key,sessionId:null,model:'Other video model',prompt:'Restored draft prompt',controls:{duration:9},references:[]}}}));await pendingDraft;});
+  expect(((await screen.findByLabelText('Prompt')) as HTMLTextAreaElement).value).toBe('Restored draft prompt');
+  expect(screen.getByRole('button',{name:'Video model'}).textContent).toContain('Other video model');
+  await user.click(screen.getByRole('button',{name:'Additional settings'}));
+  expect((screen.getByLabelText('Duration (seconds)') as HTMLInputElement).value).toBe('9');
+});
+it('autosaves edits typed while a slow saved Video draft read was pending',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  let draftStarted=false;
+  let releaseDraft!:(response:Response)=>void;
+  const pendingDraft=new Promise<Response>(resolve=>{releaseDraft=resolve;});
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    if(String(input).endsWith('/video/draft') && (init?.method??'GET')==='GET'){draftStarted=true;return pendingDraft;}
+    return delegate(input,init);
+  }));
+  mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
+  await user.type(screen.getByLabelText('Prompt'),'Kept while loading');
+  await waitFor(()=>expect(draftStarted).toBe(true));
+  await act(async()=>{releaseDraft(Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}}));await pendingDraft;});
+  await waitFor(()=>expect(calls.some(call=>call.path.endsWith('/video/draft') && (call.body as {payload?:{prompt?:string}}|null)?.payload?.prompt==='Kept while loading')).toBe(true));
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Kept while loading');
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).hasAttribute('disabled')).toBe(false);
 });
 it('does not automatically retry a lost paid submission response',async()=>{
   const calls=mockFetch(async()=>{throw new TypeError('Network unavailable');});mount();const user=userEvent.setup();
@@ -712,3 +859,37 @@ it('shows source IP policy guidance and key-switching remedies when the selected
   expect(screen.getByRole('button',{name:'Video API key'}).textContent).toContain('Demo API key');
 });
 
+
+it('keeps typing and model choice available while an image uploads, then waits before generating with the image',async()=>{
+ const savedModel:VideoModel={...model,input_types:['text','image_url'],maximum_content_items:2,
+  workspace_asset:{media_kind:'image',requires_consent:true,requires_current_inspection:false,maximum_items:1,requires_text:true},
+  image_url:{maximum_items:1,maximum_bytes:4096,https:false,data_mime_types:['image/png'],roles:['first_frame'],role_required:false,requires_text:true}};
+ const calls=mockFetch(undefined,undefined,savedModel);const fallback=globalThis.fetch;
+ const asset={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',name:'frame.png',media_kind:'image' as const,content_type:'image/png',content_sha256:'a'.repeat(64),byte_length:4,revision:'1',created_at_ms:0,updated_at_ms:0};
+ let resolveUpload!:(response:Response)=>void;const upload=new Promise<Response>(resolve=>{resolveUpload=resolve;});
+ vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:upload-wait');
+ vi.spyOn(URL,'revokeObjectURL').mockImplementation(()=>{});
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
+  if(path.includes('/assets?')&&init?.method==='POST')return upload;
+  if(path.endsWith(`/assets/${asset.id}/content`))return new Response(new Uint8Array([137,80,78,71]));
+  if(path.endsWith(`/assets/${asset.id}`))return Response.json({data:asset});
+  return fallback(path,init);
+ }));
+ mount(true,`/generations?mode=video&key=${key}`);const user=userEvent.setup();
+ await screen.findByRole('button',{name:'Video model'});
+ await user.type(screen.getByLabelText('Prompt'),'Animate this frame');
+ await user.upload(screen.getByLabelText('Upload saved video reference images'),new File(['image'],'frame.png',{type:'image/png'}));
+ await screen.findByText('Saving image 1 of 1…');
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Video model'}).hasAttribute('disabled')).toBe(false));
+ await user.type(screen.getByLabelText('Prompt'),' now');
+ expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toContain('now');
+ await user.click(screen.getByRole('button',{name:'Generate video'}));
+ await screen.findByText('Waiting for image upload to finish…');
+ expect(calls.some(call=>call.path.endsWith('/jobs') || call.path.endsWith('/submit'))).toBe(false);
+ resolveUpload(Response.json({data:asset}));
+ await screen.findByRole('button',{name:'Role for frame.png'});
+ await waitFor(()=>expect(calls.some(call=>call.path.endsWith('/submit'))).toBe(true));
+ const saves=calls.filter(call=>call.path.includes('/video/intents/')&&(call.body as {request?:{content?:unknown[]}})?.request);
+ expect(saves).toHaveLength(1);
+ expect((saves[0].body as {request:{content:unknown[]}}).request.content).toContainEqual({type:'workspace_asset',workspace_asset:{asset_id:asset.id,consent_to_process:true},role:'first_frame'});
+});

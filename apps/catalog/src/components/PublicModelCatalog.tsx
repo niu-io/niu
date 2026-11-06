@@ -173,17 +173,17 @@ export default function PublicModelCatalog() {
     <h1>{t('Models', '模型目录')}</h1>
     <p className="catalog-lede">
       {t(
-        'Explore models published on this gateway. Filter by name, developer, input or output modality, or supported API.',
-        '浏览此网关公开发布的模型。支持按名称、开发商、输入/输出模态或支持的 API 协议筛选。',
+        'Explore models published on this gateway. Filter by name, inferred developer, input or output modality, or supported API. Developer labels are inferred from model identifiers and are not verified.',
+        '浏览此网关公开发布的模型。支持按名称、推测的开发商、输入/输出模态或支持的 API 协议筛选。开发商标签根据模型标识符推测，未经核实。',
       )}
     </p>
-    <section className="catalog-browser" aria-label="Published models">
+    <section className="catalog-browser" aria-label={t('Published models', '已发布模型')}>
       <div className="catalog-toolbar">
         <div className="catalog-filter"><IconSearch size={17} aria-hidden="true" />
-          <Input type="search" aria-label="Filter models" placeholder={t('Filter by name, developer, modality or API…', '按模型名称、开发商、模态或 API 协议筛选…')} value={query}
+          <Input type="search" aria-label={t('Filter models', '筛选模型')} placeholder={t('Filter by name, inferred developer, modality or API…', '按模型名称、推测的开发商、模态或 API 协议筛选…')} value={query}
             onChange={event => setQuery(event.target.value)} disabled={state === 'loading'} />
         </div>
-        <Button variant="outline" className="catalog-refresh-button" aria-label="Refresh" disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" /><span>{t('Refresh', '刷新')}</span></Button>
+        <Button variant="outline" className="catalog-refresh-button" aria-label={t('Refresh', '刷新')} disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" /><span>{t('Refresh', '刷新')}</span></Button>
         {filtered && <Button variant="ghost" onClick={clearFilters}>{t('Clear filters', '清除筛选')}</Button>}
       </div>
       {state === 'ready' && categories.length > 0 && <Tabs value={activeCategory} onValueChange={setCategory} className="catalog-categories">
@@ -226,7 +226,7 @@ export default function PublicModelCatalog() {
       {state === 'ready' && models.length > 0 && matches.length === 0 && <div className="catalog-empty">
         <span className="catalog-empty-icon"><IconSearchOff size={20} aria-hidden="true" /></span>
         <p className="catalog-empty-title">{t('No models match this filter', '没有符合当前筛选条件的模型')}</p>
-        <p>{t('Try a different name, developer or modality.', '请尝试其他名称、开发商或模态。')}</p>
+        <p>{t('Try a different name, inferred developer or modality.', '请尝试其他名称、推测的开发商或模态。')}</p>
         <Button variant="outline" onClick={clearFilters}>{t('Clear filter', '清除筛选')}</Button>
       </div>}
       {state === 'ready' && matches.length > 0 && <div className="catalog-model-list">{matches.map(model => {
@@ -251,7 +251,7 @@ export default function PublicModelCatalog() {
             </div>
             <div className="catalog-model-alias-row">
               <code className="catalog-model-alias">{model.id}</code>
-              <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`Copy model ID ${model.id}`} onClick={() => void copyModelId(model.id)}>
+              <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`${t('Copy model ID', '复制模型 ID')} ${model.id}`} onClick={() => void copyModelId(model.id)}>
                 {copied ? <IconCheck size={14} aria-hidden="true" /> : <IconCopy size={14} aria-hidden="true" />}
                 <span>{copied ? t('Copied', '已复制') : t('Copy ID', '复制 ID')}</span>
               </Button>
@@ -267,9 +267,9 @@ export default function PublicModelCatalog() {
               {streaming && chip('streaming', 'streaming', t('Streaming', '流式输出'), IconBolt)}
             </div>
             <div className="catalog-model-footer">
-              {developer.id !== 'other' && <span>{isZh ? `推测开发商：${developer.name}` : `Likely developer: ${developer.name}`}</span>}
+              {developer.id !== 'other' && <span title={isZh ? '根据模型标识符推测，未经核实。' : 'Inferred from the model identifier; not verified.'}>{isZh ? `推测开发商：${developer.name}` : `Developer (inferred): ${developer.name}`}</span>}
               {output && <span title={isZh ? `最大输出 ${output.full} Token` : `${output.full} max output tokens`}>{isZh ? `最大输出 ${output.short}` : `${output.short} max output`}</span>}
-              {guides.length > 0 && <nav className="catalog-model-guides" aria-label={`${name} API documentation`}>{guides.map(({ label, slug }) => <a key={slug} href={`/docs/api/rest/${slug}/`}>{label} API</a>)}</nav>}
+              {guides.length > 0 && <nav className="catalog-model-guides" aria-label={`${name} ${t('API documentation', 'API 文档')}`}>{guides.map(({ label, slug }) => <a key={slug} href={`/docs/api/rest/${slug}/`}>{label} API</a>)}</nav>}
             </div>
           </div>
         </article>;

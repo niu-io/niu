@@ -135,8 +135,8 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
       {!authority&&availability&&<p>{uiT("A retained workspace copy or access to the original task is needed to restore this video.")}</p>}
       {!availability&&error&&<Button variant="secondary" onClick={()=>{setError('');setMetadataRevision(value=>value+1);}}>{uiT("Try again")}</Button>}</>}
     </div>}
-    {error&&<p role="alert" className="video-error">{error}</p>}
-    {saveError&&<p role="alert" className="video-error">{saveError}</p>}
+    {error&&<p role="alert" className="video-error">{uiT(error)}</p>}
+    {saveError&&<p role="alert" className="video-error">{uiT(saveError)}</p>}
     <div className="video-artifact-toolbar">
       {preview&&<Button asChild variant="ghost" size="sm"><a href={preview.url} download={`${preview.kind==='video'?'video':'last-frame'}.${extension}`}><Download/>{uiT("Download")}</a></Button>}
       {canLoad('last_frame')&&<Button variant="ghost" size="sm" disabled={busy} onClick={()=>void load(preview?.kind==='last_frame'?'video':'last_frame')}>{preview?.kind==='last_frame'?'Video':uiT("Last frame")}</Button>}

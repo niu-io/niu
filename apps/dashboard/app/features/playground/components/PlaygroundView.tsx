@@ -194,6 +194,12 @@ function tokenCount(value: unknown) {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
+/** Resolves when the submission is stopped; keeps startup waits interruptible. */
+function abortSignalPromise(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise(resolve => signal.addEventListener('abort', () => resolve(), { once: true }));
+}
+
 async function runModel(
   model: string,
   apiKey: string,
@@ -369,7 +375,7 @@ function comparisonDraft(item: SavedComparison): ChatDraft {
     attachments: [],
     settings: {
       systemPrompt: item.settings?.systemPrompt ?? '',
-      maxTokens: item.settings?.maxTokens ?? 512,
+      maxTokens: item.settings?.maxTokens ?? 4096,
       temperature: item.settings?.temperature ?? 0.7,
       logPayloads: item.settings?.logPayloads ?? true,
     },
@@ -428,7 +434,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [selectedModels, setSelectedModels] = useState<string[]>(() => {
     if (initialDraftPayload) return initialDraftPayload.models;
     if (initialSelection) return initialSelection.results.map(result => result.model);
-    return modelAliases.filter(model => !unverifiedModels.includes(model)).slice(0, 2);
+    return modelAliases.filter(model => !unverifiedModels.includes(model)).slice(0, 1);
   });
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
@@ -472,7 +478,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }
     if (attachmentInput.current) attachmentInput.current.value = '';
   }
-  const [maxTokens, setMaxTokens] = useState(() => initialDraftPayload?.settings.maxTokens ?? initialSelection?.settings?.maxTokens ?? 512);
+  const [maxTokens, setMaxTokens] = useState(() => initialDraftPayload?.settings.maxTokens ?? initialSelection?.settings?.maxTokens ?? 4096);
   const [temperature, setTemperature] = useState(() => initialDraftPayload?.settings.temperature ?? initialSelection?.settings?.temperature ?? 0.7);
   const [logPayloads, setLogPayloads] = useState(() => initialDraftPayload?.settings.logPayloads ?? initialSelection?.settings?.logPayloads ?? true);
   const [selectedKeyId, setSelectedKeyId] = useState('');
@@ -862,7 +868,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   useEffect(() => {
     if (modelsLoading || modelsError) return;
     setSelectedModels(current => {
-      if (!customizedModels.current) return usableModels.filter(model => !unverifiedModels.includes(model)).slice(0, 2);
+      if (!customizedModels.current) return usableModels.filter(model => !unverifiedModels.includes(model)).slice(0, 1);
       const available = current.filter(model => usableModels.includes(model));
       return available;
     });
@@ -909,7 +915,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     setPrompt('');
     setAttachments([]);
     setSystemPrompt(item.settings?.systemPrompt ?? '');
-    setMaxTokens(item.settings?.maxTokens ?? 512);
+    setMaxTokens(item.settings?.maxTokens ?? 4096);
     setTemperature(item.settings?.temperature ?? 0.7);
     setLogPayloads(item.settings?.logPayloads ?? true);
     customizedModels.current = true;
@@ -960,7 +966,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
   async function compare(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (comparisonController.current || running || settingsSaving || historyLoading || !draft.ready || draft.error
+    if (comparisonController.current || running || settingsSaving || historyLoading
       || modelsLoading || modelsError
       || (selectedKey && !managedKey) || session?.permissions.write === false
       || !selectedModels.every(model => usableModels.includes(model))) return;
@@ -997,8 +1003,12 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     let persistenceStarted = false;
     setRunning(true);
     try {
-      const draftSaved = await draft.flush();
-      if (generation !== comparisonGeneration.current || !draftSaved) return;
+      // Stop must take effect while the composer draft is still saving, and a
+      // stopped submission must not create a saved conversation for a prompt
+      // that was never dispatched.
+      await Promise.race([draft.flush(), abortSignalPromise(controller.signal)]);
+      if (generation !== comparisonGeneration.current) return;
+      if (controller.signal.aborted) return;
       // Keep one identity through startup, cancellation and final persistence.
       // Aborting a save itself would leave its commit outcome unknown.
       persistenceStarted = true;
@@ -1015,8 +1025,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         const targetPath = `/generations/${encodeURIComponent(saved.reference)}`;
         if (location.pathname !== targetPath) navigate(targetPath, { replace: true });
       }
-      const clearedDraft = await draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
-      if (!clearedDraft || generation !== comparisonGeneration.current || controller.signal.aborted) return;
+      await Promise.race([
+        draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}}),
+        abortSignalPromise(controller.signal),
+      ]);
+      if (generation !== comparisonGeneration.current || controller.signal.aborted) return;
       const updateResult = (next: ComparisonResult) => {
         saved.results = saved.results.map(result => result.model === next.model ? next : result);
         saved.turns = [...previousTurns, { ...currentTurn, results: saved.results }];
@@ -1113,7 +1126,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }
   }
 
-  const canSubmit = Boolean(organization && workspaceId && draft.ready && !draft.error && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
+  const canSubmit = Boolean(organization && workspaceId && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
   const activeComparison = history.find(item => item.id === activeComparisonId);
   const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (manualKey ? uiT("Workspace key added") : uiT("Choose API key"));
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);
@@ -1125,8 +1138,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
-          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
-              <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
+          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
+              <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? uiT("Exporting…") : uiT("Export")}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />{uiT("Delete")}</DropdownMenuItem></DropdownMenuContent>
               </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />
 
@@ -1136,7 +1149,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">
           {error && !results && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
           {selectedModels.some(model => unverifiedModels.includes(model)) && <Alert role="status"><AlertDescription>{uiT("Chat support is unverified for")}{" "}{selectedModels.filter(model => unverifiedModels.includes(model)).join(', ')}{uiT(". Confirm support with your platform administrator before sending.")}</AlertDescription></Alert>}
-          {modelsError && <div role="alert" className="playground-chat-error">{modelsError}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>{uiT("Retry model catalog")}</Button>}</div>}
+          {modelsError && <div role="alert" className="playground-chat-error">{uiT(modelsError)}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>{uiT("Retry model catalog")}</Button>}</div>}
           {!initialScope
             ? <div className="playground-chat-empty"><FlaskConical size={26} /><h2>{uiT("Add an API key")}</h2><p>{uiT("Use an API key to authorize generations and track usage.")}</p><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage API keys")}</Link></Button></div>
             : !results && !prompt.trim()
@@ -1161,8 +1174,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
                     <div className="playground-results-heading"><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
-                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{result.model}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : generationOutcome(result.finishReason).label}</Badge></div>
-                      {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{generationOutcome(result.finishReason).detail}</p>}
+                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{result.model}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></div>
+                      {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{uiT(generationOutcome(result.finishReason).detail)}</p>}
                       {result.phase === 'failed' && <p className="playground-response-error">{result.error && uiT(result.error)}</p>}
                       {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
                       <div className="playground-result-footer">
@@ -1187,7 +1200,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                             {index > 0 && <TableHead scope="col" className="playground-delta-heading" aria-label={'Difference for ' + result.model + ' versus baseline'}>{uiT("Δ vs baseline")}</TableHead>}
                           </Fragment>)}
                         </TableRow></TableHeader><TableBody>{comparisonMetrics.map(metric => <TableRow key={metric.key}>
-                          <TableHead scope="row">{metric.label}</TableHead>
+                          <TableHead scope="row">{uiT(metric.label)}</TableHead>
                           {turn.results.map((result, index) => <Fragment key={result.model}>
                             <TableCell className={index === 0 ? 'playground-baseline-column' : undefined}>{metricValue(result, metric.key)}</TableCell>
                             {index > 0 && <TableCell className="playground-delta-cell">{turn.results[0] ? metricDifference(turn.results[0], result, metric.key) : uiT("Not comparable")}</TableCell>}
@@ -1199,44 +1212,46 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 </div>)}</>}
           {notice && <p className="playground-result-notice" role="status">{notice}</p>}
           {!historyLoading && !historyError && !draft.ready && !draft.error && <p role="status" className="playground-result-notice">{uiT("Loading draft…")}</p>}
-          {draft.error && <div role="alert" className="playground-chat-error">{draft.error}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
+          {draft.error && <div role="alert" className="playground-chat-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
         </div>
 
         {initialScope && modelAliases.length >= minComparisonModels && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}><form ref={composerRef} onSubmit={compare} className="playground-composer" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }}>
           <PopoverAnchor asChild><div className="playground-composer-surface">
             <Label htmlFor="playground-user-prompt" className="sr-only">{uiT("Prompt for all selected models")}</Label>
-            <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={running || settingsSaving || !draft.ready} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
+            <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={running || settingsSaving} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 if (canSubmit) event.currentTarget.form?.requestSubmit();
               }
             }} placeholder={uiT("Message models…")} />
-            {attachments.length > 0 && <div className="flex flex-wrap gap-2 py-2">{attachments.map((file, index) => <div key={index} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">{file.type === 'image' && <img src={file.content} alt="" className="size-8 rounded object-cover" />}<span>{file.name}</span><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Remove {0}", [file.name])} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))}><X size={14}/></Button></div>)}</div>}
+            {attachments.length > 0 && <div className="flex flex-wrap gap-2 py-2">{attachments.map((file, index) => <div key={index} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">{file.type === 'image' && <img src={file.content} alt="" className="size-8 rounded object-cover" />}<span>{file.name}</span><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving} aria-label={uiF("Remove {0}", [file.name])} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))}><X size={14}/></Button></div>)}</div>}
             <div className="playground-composer-actions">
               <Input ref={attachmentInput} type="file" className="hidden" aria-label={uiT("Upload chat attachments")} multiple accept="image/png,image/jpeg,image/webp,text/*,.md,.json,.csv,.py,.ts,.js" onChange={event => void addAttachments(event.target.files)} />
-              <Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiT("Attach files")} onClick={() => attachmentInput.current?.click()}><Paperclip size={18}/></Button>
+              <Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving} aria-label={uiT("Attach files")} onClick={() => attachmentInput.current?.click()}><Paperclip size={18}/></Button>
               <div className="flex min-w-0 flex-1 items-center gap-1">
                 <HoverCard open={modelDetailsOpen && !modelPickerOpen} onOpenChange={(open) => setModelDetailsOpen(open && !modelPickerOpen)} openDelay={150} closeDelay={250}>
                   <HoverCardTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-9 gap-2 px-2" disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Edit comparison models ({0} selected)", [selectedModels.length])} onClick={openModelPicker}>
+                    <Button type="button" variant="ghost" className="h-9 gap-2 px-2" disabled={running || settingsSaving} aria-label={uiF("Edit comparison models ({0} selected)", [selectedModels.length])} onClick={openModelPicker}>
                       <span className="flex items-center -space-x-2" aria-hidden="true">{selectedModels.map(model => <span key={model} className="rounded-full border-2 border-background bg-background"><ProviderLogo provider={modelIdentity({id: model})} size="small" /></span>)}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">{selectedModels.length}</span>
+                      {selectedModels.length === 1
+                        ? <span className="max-w-[14rem] truncate text-xs font-medium">{selectedModels[0]}</span>
+                        : <span className="text-xs tabular-nums text-muted-foreground">{selectedModels.length}</span>}
                     </Button>
                   </HoverCardTrigger>
                   <HoverCardContent side="top" align="start" sideOffset={12} collisionPadding={12} className="w-[min(24rem,calc(100vw-2rem))] space-y-3">
-                    <div className="flex items-center justify-between"><strong className="text-sm">{uiT("Comparison models")}</strong><Button type="button" variant="ghost" size="sm" disabled={running || settingsSaving || !draft.ready} onClick={openModelPicker}>{uiT("Edit")}</Button></div>
+                    <div className="flex items-center justify-between"><strong className="text-sm">{uiT("Comparison models")}</strong><Button type="button" variant="ghost" size="sm" disabled={running || settingsSaving} onClick={openModelPicker}>{uiT("Edit")}</Button></div>
                     <div className="space-y-2">{selectedModels.map(model => <div key={model} className="flex items-center gap-3">
                       <ProviderLogo provider={modelIdentity({id: model})} size="small" />
                       <Link className="min-w-0 flex-1 break-words text-sm hover:underline" to={`${workspaceRoot}/models/${model.split('/').map(encodeURIComponent).join('/')}`}>{model}</Link>
-                      <Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Remove {0}", [model])} onClick={() => toggleModel(model)}><X size={14} /></Button>
+                      <Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving} aria-label={uiF("Remove {0}", [model])} onClick={() => toggleModel(model)}><X size={14} /></Button>
                     </div>)}</div>
-                    <Button type="button" variant="outline" size="sm" disabled={running || settingsSaving || !draft.ready} onClick={openModelPicker}><Plus size={14} />{uiT("Add models")}</Button>
+                    <Button type="button" variant="outline" size="sm" disabled={running || settingsSaving} onClick={openModelPicker}><Plus size={14} />{uiT("Add models")}</Button>
                   </HoverCardContent>
                 </HoverCard>
                 <Button ref={modelPickerFallback} type="button" variant="ghost" size="icon" aria-label={uiT("Choose models")} title={uiT("Choose models")} onClick={openModelPicker} disabled={running || modelAliases.length === 0}><Plus size={18} /></Button>
               </div>
 
-                <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiT("Chat settings")} title={uiT("Chat settings")}><Settings2 size={18} /></Button></PopoverTrigger>
+                <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving} aria-label={uiT("Chat settings")} title={uiT("Chat settings")}><Settings2 size={18} /></Button></PopoverTrigger>
               {running
                 ? <Button type="button" size="icon" className="rounded-full" aria-label={uiT("Stop generating")} onClick={cancelComparison}><Square size={14} /></Button>
                 : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit}><ArrowUp size={19} /></Button>}
@@ -1249,13 +1264,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         </form>
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
-                  {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{settingsSaveError}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
+                  {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
                   <div className="flex items-center justify-between gap-3"><h2 id="chat-settings-title" className="text-sm font-semibold">{uiT("Chat settings")}</h2><Button type="button" variant="ghost" size="icon" aria-label={uiT("Close chat settings")} disabled={settingsSaving} onClick={() => void closeChatSettings()}><X size={16} /></Button></div>
-        <div className="flex items-start gap-3"><Checkbox id="chat-log-payloads" checked={logPayloads} disabled={running || settingsSaving || !draft.ready} onCheckedChange={value => setLogPayloads(value === true)} /><div className="space-y-1"><Label htmlFor="chat-log-payloads">{uiT("Save payloads in Logs")}</Label><p className="text-sm text-muted-foreground">{uiT("Keep request and response content in this workspace for 24 hours. Applies to new requests only.")}</p></div></div>
+        <div className="flex items-start gap-3"><Checkbox id="chat-log-payloads" checked={logPayloads} disabled={running || settingsSaving} onCheckedChange={value => setLogPayloads(value === true)} /><div className="space-y-1"><Label htmlFor="chat-log-payloads">{uiT("Save payloads in Logs")}</Label><p className="text-sm text-muted-foreground">{uiT("Keep request and response content in this workspace for 24 hours. Applies to new requests only.")}</p></div></div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-2"><Label htmlFor="playground-max-tokens">{uiT("Max output tokens")}</Label><Input id="playground-max-tokens" type="number" min="1" step="1" disabled={running || settingsSaving || !draft.ready} value={Number.isNaN(maxTokens) ? '' : maxTokens} aria-invalid={!Number.isSafeInteger(maxTokens) || maxTokens <= 0} onChange={event => setMaxTokens(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isSafeInteger(maxTokens) || maxTokens <= 0) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a positive whole number.")}</p>}</div>
-        <div className="space-y-2"><Label htmlFor="playground-temperature">{uiT("Temperature")}</Label><Input id="playground-temperature" type="number" min="0" max="2" step="0.1" disabled={running || settingsSaving || !draft.ready} value={Number.isNaN(temperature) ? '' : temperature} aria-invalid={!Number.isFinite(temperature) || temperature < 0 || temperature > 2} onChange={event => setTemperature(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isFinite(temperature) || temperature < 0 || temperature > 2) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a temperature from 0 to 2.")}</p>}</div>
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="playground-system-prompt">{uiT("System instructions")}</Label><Textarea id="playground-system-prompt" rows={4} maxLength={12000} disabled={running || settingsSaving || !draft.ready} value={systemPrompt} onChange={event => setSystemPrompt(event.target.value)} placeholder={uiT("Optional")} /></div>
+        <div className="space-y-2"><Label htmlFor="playground-max-tokens">{uiT("Max output tokens")}</Label><Input id="playground-max-tokens" type="number" min="1" step="1" disabled={running || settingsSaving} value={Number.isNaN(maxTokens) ? '' : maxTokens} aria-invalid={!Number.isSafeInteger(maxTokens) || maxTokens <= 0} onChange={event => setMaxTokens(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isSafeInteger(maxTokens) || maxTokens <= 0) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a positive whole number.")}</p>}</div>
+        <div className="space-y-2"><Label htmlFor="playground-temperature">{uiT("Temperature")}</Label><Input id="playground-temperature" type="number" min="0" max="2" step="0.1" disabled={running || settingsSaving} value={Number.isNaN(temperature) ? '' : temperature} aria-invalid={!Number.isFinite(temperature) || temperature < 0 || temperature > 2} onChange={event => setTemperature(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isFinite(temperature) || temperature < 0 || temperature > 2) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a temperature from 0 to 2.")}</p>}</div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="playground-system-prompt">{uiT("System instructions")}</Label><Textarea id="playground-system-prompt" rows={4} maxLength={12000} disabled={running || settingsSaving} value={systemPrompt} onChange={event => setSystemPrompt(event.target.value)} placeholder={uiT("Optional")} /></div>
 
       </div>
                 </PopoverContent>
@@ -1266,7 +1281,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Archived sessions")}</DialogTitle><DialogDescription>{uiT("Restore a Chat or Video session to Generations history.")}</DialogDescription></DialogHeader>
         <h3 className="text-sm font-medium">{uiT("Chats")}</h3>
-        {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{archiveError}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}
+        {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{uiT(archiveError)}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}
         {archiveLoading ? <TableSkeleton columns={2} rows={3} label={uiT("Loading archived chats…")} /> : archivedChats.length === 0 ? (archiveError ? null : <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No archived chats")}</EmptyDescription></EmptyHeader></Empty>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>Chat</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={uiF("Restore {0}", [sessionTitle(item)])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
         <VideoArchivedSessions context={dashboard} open={archiveOpen} disabled={running||archiveBusy}/>
       </DialogContent>
@@ -1274,7 +1289,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
     <Dialog open={Boolean(deletingChat)} onOpenChange={open => { if (!open && !deleting) setDeletingChat(null); }}>
       <DialogContent className="sm:max-w-sm" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Delete chat?")}</DialogTitle><DialogDescription>{uiT("This removes the saved conversation. Request logs and billing records are kept.")}</DialogDescription></DialogHeader>
-        {deleteError && <p role="alert">{deleteError}</p>}
+        {deleteError && <p role="alert">{uiT(deleteError)}</p>}
         <div className="flex justify-end gap-2"><Button variant="ghost" disabled={deleting} onClick={() => setDeletingChat(null)}>{uiT("Cancel")}</Button><Button variant="destructive" disabled={deleting} onClick={async () => {
           if (!deletingChat || deleting) return;
           const item = deletingChat, endpoint = historyEndpoint, identity = historyIdentity;
@@ -1313,7 +1328,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           finally { setRenaming(false); }
         }}>
           <Input aria-label={uiT("Chat title")} value={chatTitle} onChange={event => setChatTitle(event.target.value)} maxLength={120} autoFocus />
-          {renameError && <p role="alert">{renameError}</p>}
+          {renameError && <p role="alert">{uiT(renameError)}</p>}
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={renaming} onClick={() => setRenamingChat(null)}>{uiT("Cancel")}</Button><Button type="submit" disabled={renaming || !chatTitle.trim()}>{renaming ? uiT("Saving…") : uiT("Save")}</Button></div>
         </form>
       </DialogContent>
@@ -1329,7 +1344,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         <label className="model-search"><span className="sr-only">{uiT("Search models")}</span><Input autoFocus value={modelQuery} onChange={event => setModelQuery(event.target.value)} placeholder={uiT("Search model routes")} /></label>
         <Tabs value={activeModelCategory?.id} onValueChange={value => { setModelCategory(value); setModelQuery(''); }}>
           <TabsList className="playground-model-categories" aria-label={uiT("Model categories")}>
-            {modelCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-model-category">{category.label}<span>{category.models.length}</span></TabsTrigger>)}
+            {modelCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-model-category">{uiT(category.label)}<span>{category.models.length}</span></TabsTrigger>)}
           </TabsList>
         </Tabs>
         <div className="playground-model-picker-list">{filteredModelAliases.map(model => {
@@ -1347,14 +1362,14 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{uiT("API key")}</DialogTitle><DialogDescription>{uiT("Select an API key for this generation. Its workspace supplies billing and limits.")}</DialogDescription></DialogHeader>
         <div className="space-y-4">
-          {availableKeys.error && <p role="alert" className="text-sm text-destructive">{availableKeys.error}</p>}
-          {keyLoadError && <p role="alert" className="text-sm text-destructive">{keyLoadError}</p>}
+          {availableKeys.error && <p role="alert" className="text-sm text-destructive">{uiT(availableKeys.error)}</p>}
+          {keyLoadError && <p role="alert" className="text-sm text-destructive">{uiT(keyLoadError)}</p>}
           {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && !manualKeyRequested && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("No active API key is available. Create one for this workspace, then return to your chat. Its limits and the workspace billing policy apply.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}{noAvailableKeys && <Button type="button" variant="ghost" onClick={() => setManualKeyRequested(true)}>{uiT("Use an existing key secret")}</Button>}</div>}{(!noAvailableKeys || manualKeyRequested) && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? (manualKeyRequested ? uiT("Use another key") : uiT("Select API key"))}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={manualKeyRequested ? 'manual' : selectedKeyId === 'manual' ? '' : selectedKeyId} onValueChange={value => {manualKeySelection.current=value==='manual';setManualKeyRequested(value==='manual');const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? (manualKeyRequested ? uiT("Use another key") : uiT("Select API key"))}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={manualKeyRequested ? 'manual' : selectedKeyId === 'manual' ? '' : selectedKeyId} onValueChange={value => {manualKeySelection.current=value==='manual';setManualKeyRequested(value==='manual');const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
               {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">{uiT("Use another key")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </div>
-          {!selectedKey && !managedKey && manualKeyRequested && <div className="space-y-2"><Label htmlFor="playground-existing-key">{uiT("Key secret")}</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving || !draft.ready} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder={uiT("Paste your API key")} /><p className="text-sm text-muted-foreground">{uiT("Paste a workspace API key to use it in this chat.")}</p></div>}
+          {!selectedKey && !managedKey && manualKeyRequested && <div className="space-y-2"><Label htmlFor="playground-existing-key">{uiT("Key secret")}</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder={uiT("Paste your API key")} /><p className="text-sm text-muted-foreground">{uiT("Paste a workspace API key to use it in this chat.")}</p></div>}
           {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">{uiT("This key does not allow any available models.")}</p>}
           </>}</>}
         </div>

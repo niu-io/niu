@@ -144,16 +144,67 @@ export function auditTypedDisplay(program, dashboardRoot = root) {
  return results;
 }
 
+/** Display fields declared by application `.ts` helpers must be translated where rendered. */
+export function auditTsDisplayLabels(program, dashboardRoot = root) {
+ const checker = program.getTypeChecker();
+ const results = [];
+ const translatedCalls = new Set(['t', 'uiT', 'format', 'uiF', 'translateUI', 'formatLocalizedMessage']);
+ const displayFields = new Set(['label', 'detail', 'title', 'message', 'help']);
+ function translatedByAncestor(node) {
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+   if (ts.isCallExpression(ancestor) && ts.isIdentifier(ancestor.expression) && translatedCalls.has(ancestor.expression.text)) return true;
+   if (ts.isJsxExpression(ancestor)) return false;
+  }
+  return false;
+ }
+ function renderedInJsx(node) {
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+   if (ts.isJsxAttribute(ancestor) && !attributes.has(ancestor.name.getText())) return false;
+   if (ts.isConditionalExpression(ancestor) && node.pos >= ancestor.condition.pos && node.end <= ancestor.condition.end) return false;
+   if (ts.isPrefixUnaryExpression(ancestor) && ancestor.operator === ts.SyntaxKind.ExclamationToken) return false;
+   if (ts.isBinaryExpression(ancestor) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken].includes(ancestor.operatorToken.kind) && node.pos >= ancestor.left.pos && node.end <= ancestor.left.end) return false;
+   if (ts.isBinaryExpression(ancestor) && ancestor.operatorToken.kind >= ts.SyntaxKind.FirstComparisonOperator && ancestor.operatorToken.kind <= ts.SyntaxKind.LastComparisonOperator) return false;
+   if (ts.isJsxExpression(ancestor)) { const holder = ancestor.parent; if (ts.isJsxAttribute(holder) && !attributes.has(holder.name.getText())) return false; return true; }
+   if (ts.isFunctionLike(ancestor) || ts.isSourceFile(ancestor)) return false;
+  }
+  return false;
+ }
+ for (const sf of program.getSourceFiles()) {
+  const relative = path.relative(dashboardRoot, sf.fileName).split(path.sep).join('/');
+  if (!relative.startsWith('app/') || relative.includes('/ui/') || !relative.endsWith('.tsx')) continue;
+  function visit(node) {
+   if (ts.isPropertyAccessExpression(node) && displayFields.has(node.name.text) && !translatedByAncestor(node) && renderedInJsx(node)) {
+    const type = checker.getTypeAtLocation(node.expression);
+    const property = type.getProperty(node.name.text);
+    const declaration = property?.valueDeclaration ?? property?.declarations?.[0];
+    const declarationFile = declaration?.getSourceFile();
+    const declarationRelative = declarationFile ? path.relative(dashboardRoot, declarationFile.fileName).split(path.sep).join('/') : '';
+    if (declarationFile && declarationRelative.startsWith('app/') && declarationRelative.endsWith('.ts') && !declarationRelative.endsWith('.tsx')) {
+     const propertyType = checker.getTypeOfSymbolAtLocation(property, node);
+     const types = propertyType.isUnion() ? propertyType.types : [propertyType];
+     if (types.some(t => t.flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))) {
+      const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+      results.push({file: relative, line: pos.line + 1, column: pos.character + 1, kind: 'untranslated-display-label', text: node.getText(sf)});
+     }
+    }
+   }
+   ts.forEachChild(node, visit);
+  }
+  visit(sf);
+ }
+ return results;
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile);
  if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'));
  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root);
  const program = ts.createProgram(parsed.fileNames, parsed.options, ts.createCompilerHost(parsed.options, true));
- const findings = [...files(path.join(root, 'app')).flatMap(file => auditSource(fs.readFileSync(file, 'utf8'), file)), ...auditTypedDisplay(program)];
+ const findings = [...files(path.join(root, 'app')).flatMap(file => auditSource(fs.readFileSync(file, 'utf8'), file)), ...auditTypedDisplay(program), ...auditTsDisplayLabels(program)];
  if (process.argv.includes('--json')) process.stdout.write(JSON.stringify(findings, null, 2) + '\n');
  else {
   for (const x of findings) console.error(`${x.file}:${x.line}:${x.column} ${x.kind}: ${x.text}`);
-  console.log(`i18n: ${findings.length} findings. Full dashboard TSX audit; no baseline waivers.`);
+  console.log(`i18n: ${findings.length} findings. Full dashboard TSX and helper-label audit; no baseline waivers.`);
  }
  process.exitCode = findings.length ? 1 : 0;
 }

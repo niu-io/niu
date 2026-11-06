@@ -3,7 +3,7 @@ import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoade
 import ConnectGate from '@/shell/ConnectGate';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import type { RouteHandle } from '@/shell/router-context';
-import { workspaceKeyPath } from './api';
+import { workspaceKeyPath, type ProjectKey } from './api';
 import KeyDetailView from './components/KeyDetailView';
 
 export const handle: RouteHandle = {
@@ -21,7 +21,7 @@ export function clientLoader(args: LoaderFunctionArgs) {
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function KeyDetailRoute() {
-  useOptionalRouteLoaderData();
+  const loaderSnapshot = useOptionalRouteLoaderData<{ data: ProjectKey[] }>();
   const { workspace } = useDashboardContext();
   return <ConnectGate>
     {({ token, models, session }) => <KeyDetailView
@@ -31,6 +31,7 @@ export default function KeyDetailRoute() {
       canWrite={session?.permissions.write === true}
       canConfigureSpending={session?.kind === 'installation' || session?.operator?.role === 'owner'}
       initialScope={workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null}
+      initialData={loaderSnapshot?.status === 'ready' && loaderSnapshot.workspaceId === (workspace?.id ?? null) ? loaderSnapshot.data : undefined}
     />}
   </ConnectGate>;
 }

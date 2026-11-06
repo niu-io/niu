@@ -18,7 +18,7 @@ async function open(session: AdminSession | null, roleSwitch?: DashboardContext[
     signOut: vi.fn(), selectOrganization: vi.fn(), workspaceLoading: false, workspaceError: null,
   } as unknown as DashboardContext;
   render(<MemoryRouter><AccountMenu context={context} workspacePath="/workspaces/demo" mobile /></MemoryRouter>);
-  await userEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 }
 
 it('offers explicit Admin mode without exposing administrator navigation in User mode', async () => {

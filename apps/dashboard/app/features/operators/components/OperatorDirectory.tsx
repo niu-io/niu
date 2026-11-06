@@ -48,24 +48,24 @@ export default function OperatorDirectory({ operators, organizations, projects, 
     const text = [operator.name, roleLabel(operator.role, uiT), displayScope(operator, organizations, projects), operator.revoked ? 'Revoked' : 'Active'].join(' ').toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });
-  return <section aria-label={uiT("Workspace users")} className="operator-directory space-y-4">
+  return <section aria-label={uiT("Workspace members", "工作空间成员")} className="operator-directory space-y-4">
     {operators.length > 0 && <Popover><PopoverTrigger asChild><Button ref={searchTriggerRef} type="button" variant="ghost" size="icon" aria-label={uiT("Search users")} title={uiT("Search users")} className={search ? "text-primary bg-accent" : undefined}><IconSearch size={17}/></Button></PopoverTrigger><PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus ref={searchInput} type="search" aria-label={uiT("Search users")} placeholder={uiT("Search users…")} value={search} onChange={event => setSearch(event.target.value)} />{search && <Button variant="ghost" size="sm" onClick={()=>setSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>}
     {loading
-      ? <TableSkeleton columns={4} rows={5} label={uiT("Loading users…")} />
+      ? <TableSkeleton columns={5} rows={5} label={uiT("Loading users…")} />
       : operators.length === 0
-        ? <Empty className="operator-directory-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No users yet")}</EmptyTitle><EmptyDescription>{uiT("Add a user and choose their role in this workspace.")}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" disabled={disabled} onClick={onAdd}>{uiT("Add first user")}</Button></EmptyContent></Empty>
+        ? <Empty className="operator-directory-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No members yet", "还没有成员")}</EmptyTitle><EmptyDescription>{uiT("Invite someone by email and choose their role and workspace access.", "通过邮箱邀请成员，并选择其角色与工作空间访问范围。")}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" disabled={disabled} onClick={onAdd}>{uiT("Invite first member", "邀请第一位成员")}</Button></EmptyContent></Empty>
         : matches.length === 0
           ? <Empty className="operator-directory-empty" role="status"><EmptyHeader><EmptyMedia variant="icon"><IconSearch aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching users")}</EmptyTitle><EmptyDescription>{uiT("Try another name, role, or status.")}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => { setSearch(''); searchTriggerRef.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty>
           : <Table>
-            <TableHeader><TableRow><TableHead>{uiT("User", "成员")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-12"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{uiT("User", "成员")}</TableHead><TableHead>{uiT("Workspace")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-12"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
             <TableBody>{matches.map(operator => <TableRow key={operator.id}>
               <TableCell className="whitespace-normal">
                 <Button type="button" variant="link" className="h-auto max-w-full p-0 text-left whitespace-normal break-words" disabled={disabled} onClick={event => onSelect(operator.id, event.currentTarget)}>{operator.name}</Button>
-                <p className="text-xs text-muted-foreground">{operator.project_id
-                  ? workspaceDisplayName(projects.find(item => item.id === operator.project_id)?.name ?? uiT('Workspace'))
-                  : uiT('All workspaces')}</p>
                 <p className="text-xs text-muted-foreground sm:hidden">{operator.revoked ? uiT("Revoked") : uiT("Active")}</p>
               </TableCell>
+              <TableCell className="whitespace-normal">{operator.project_id
+                ? workspaceDisplayName(projects.find(item => item.id === operator.project_id)?.name ?? uiT('Workspace'))
+                : uiT('All workspaces')}</TableCell>
               <TableCell>{roleLabel(operator.role, uiT)}</TableCell>
               <TableCell className="hidden sm:table-cell"><Badge variant={operator.revoked ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={operator.revoked ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{operator.revoked ? uiT("Revoked") : uiT("Active")}</Badge></TableCell>
               <TableCell>

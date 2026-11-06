@@ -17,9 +17,9 @@ export default function RequestTiming({ timing, outputTokens }: { timing: Reques
   const first = timing.first_output_ms;
   const headers = timing.headers_ms ?? total;
   const rows = [
-    ...(dispatch == null ? [] : [{ label: 'Preparation', start: 0, end: dispatch, tone: 'bg-muted-foreground/40' }]),
-    { label: first == null ? 'Response wait' : 'First output wait', start: dispatch ?? 0, end: first ?? headers, tone: 'bg-emerald-500' },
-    ...(timing.headers_ms == null ? [] : [{ label: first == null ? 'Response delivery' : 'Output stream', start: first ?? headers, end: total, tone: 'bg-primary' }]),
+    ...(dispatch == null ? [] : [{ label: uiT('Preparation'), start: 0, end: dispatch, tone: 'bg-muted-foreground/40' }]),
+    { label: first == null ? uiT('Response wait') : uiT('First output wait'), start: dispatch ?? 0, end: first ?? headers, tone: 'bg-emerald-500' },
+    ...(timing.headers_ms == null ? [] : [{ label: first == null ? uiT('Response delivery') : uiT('Output stream'), start: first ?? headers, end: total, tone: 'bg-primary' }]),
   ];
   const format = (ms: number) => ms < 1000 ? `${ms.toLocaleString(readUILocale())} ms` : `${(ms / 1000).toFixed(2)} s`;
   const outputDuration = first == null ? null : total - first;

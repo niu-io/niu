@@ -1,0 +1,173 @@
+import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
+import { IconArrowLeft, IconRefresh } from '@tabler/icons-react';
+import PageHeader from '@/components/PageHeader';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { readLocale as readUILocale, useLocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
+
+export function safeText(value: string) {
+  return value.replace(
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+    '[internal reference]',
+  );
+}
+
+export const stamp = (value: string) =>
+  new Date(value).toLocaleString(readUILocale());
+
+/**
+ * Builds the agent handoff prompt shared by the workspace review modules.
+ * Keep deployment, workspace and authorization wording aligned with the
+ * empty states in Routing, Evaluations and Event subscriptions.
+ */
+export function agentHandoffPrompt(routeWorkspace: string, task: string) {
+  const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+  return `Use Niu to ${task}. Use the Niu deployment at ${window.location.origin}${base} and workspace ${window.location.origin}${base}/workspaces/${encodeURIComponent(routeWorkspace)}. Read https://niu.io/docs/agents.md and inspect the selected workspace grants first. Verify the deployment and workspace during authorization.`;
+}
+
+export function CopyAgentPrompt({
+  prompt,
+  onError,
+}: {
+  prompt: string;
+  onError: (message: string) => void;
+}) {
+  const { t: uiT } = useUILocale();
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      variant="outline"
+      onClick={() => {
+        void navigator.clipboard
+          .writeText(prompt)
+          .then(() => setCopied(true))
+          .catch(() =>
+            onError('Clipboard unavailable. Read the agent workflow in Docs.'),
+          );
+      }}
+    >
+      {copied ? uiT('Copied') : uiT('Copy agent prompt')}
+    </Button>
+  );
+}
+
+export function ReviewEmptyState({
+  title,
+  description,
+  actions,
+  prompt,
+  onError,
+}: {
+  title: string;
+  description: ReactNode;
+  actions?: ReactNode;
+  prompt: string;
+  onError: (message: string) => void;
+}) {
+  const { t: uiT } = useUILocale();
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyTitle role="heading" aria-level={2}>
+          {title}
+        </EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="flex-row flex-wrap justify-center">
+        {actions}
+        <CopyAgentPrompt prompt={prompt} onError={onError} />
+        <Button variant="link" asChild>
+          <a href="/docs/install.md">{uiT('Connect your agent')}</a>
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+}
+
+export function ReviewPageShell({
+  title,
+  actions,
+  back,
+  heading,
+  description,
+  error,
+  loading,
+  onRefresh,
+  onRetry,
+  children,
+}: {
+  title: string;
+  actions?: ReactNode;
+  back?: { to: string; label: string };
+  heading?: string;
+  description: ReactNode;
+  error: string;
+  loading: boolean;
+  onRefresh: () => void;
+  onRetry: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useLocale();
+  const { t: uiT } = useUILocale();
+  return (
+    <section className="empty-region min-w-0 space-y-5" aria-label={title}>
+      <PageHeader
+        title={title}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {actions}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={loading}
+              onClick={onRefresh}
+            >
+              <IconRefresh size={16} />
+              {t('Refresh', '刷新')}
+            </Button>
+          </div>
+        }
+      />
+      {back && (
+        <Button variant="ghost" size="sm" asChild>
+          <Link to={back.to}>
+            <IconArrowLeft size={16} />
+            {back.label}
+          </Link>
+        </Button>
+      )}
+      <div>
+        {heading && (
+          <h1 className="text-xl font-semibold break-words">{heading}</h1>
+        )}
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {uiT(error)}{' '}
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              {uiT('Retry')}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {loading ? (
+        <p role="status" className="py-8 text-muted-foreground">
+          {uiT('Loading workspace evidence…')}
+        </p>
+      ) : (
+        !error && children
+      )}
+    </section>
+  );
+}

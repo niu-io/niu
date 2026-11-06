@@ -9,7 +9,6 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import { WorkspaceCreateDialog } from '@/shell/WorkspaceSwitcher';
 import { useLocale } from '@/shell/ui-locale';
-import PageHeader from '@/components/PageHeader';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,25 +22,22 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
   const canCreate = Boolean(context.session?.permissions.write && (context.session.kind === 'installation' || context.session.operator?.project_id === null));
   const date = (value: number) => new Intl.DateTimeFormat(locale, {month: 'short', day: 'numeric', year: 'numeric'}).format(value);
   return <>
-    <PageHeader
-      title={t('Workspaces', '工作空间')}
-      action={(canCreate || context.openCreateOrganization) ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {context.openCreateOrganization ? (
-            <Button variant="outline" onClick={context.openCreateOrganization}>
-              <IconBuildings aria-hidden="true" />
-              <span>{t('Create organization', '创建组织')}</span>
-            </Button>
-          ) : null}
-          {canCreate ? (
-            <Button className="header-icon-action" aria-label={uiT("Create workspace")} title={t('Create workspace', '创建工作空间')} onClick={() => setCreating(true)}>
-              <IconPlus aria-hidden="true"/>
-              <span>{t('Create workspace', '创建工作空间')}</span>
-            </Button>
-          ) : null}
-        </div>
-      ) : undefined}
-    />
+    {(canCreate || context.openCreateOrganization) && (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {context.openCreateOrganization ? (
+          <Button variant="outline" onClick={context.openCreateOrganization}>
+            <IconBuildings aria-hidden="true" />
+            <span>{t('Create organization', '创建组织')}</span>
+          </Button>
+        ) : null}
+        {canCreate ? (
+          <Button className="header-icon-action" aria-label={uiT("Create workspace")} title={t('Create workspace', '创建工作空间')} onClick={() => setCreating(true)}>
+            <IconPlus aria-hidden="true"/>
+            <span>{t('Create workspace', '创建工作空间')}</span>
+          </Button>
+        ) : null}
+      </div>
+    )}
     {context.workspaceLoading ? <TableSkeleton columns={5} rows={4} label={t('Loading workspaces…', '正在加载工作空间…')} />
       : context.workspaceError ? <div role="alert" className="grid justify-items-start gap-3"><p>{t('Could not load your workspaces.', '无法加载您的工作空间。')}</p><Button variant="secondary" onClick={context.reloadWorkspaces}>{t('Try again', '重试')}</Button></div>
       : context.workspaces.length === 0 ? <Empty><EmptyHeader><EmptyTitle>{t('No workspaces available.', '暂无可用工作空间。')}</EmptyTitle></EmptyHeader></Empty>

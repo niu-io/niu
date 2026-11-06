@@ -19,7 +19,7 @@ export default function ApiReference({
   token?: string;
 } = {}) {
   const { t: uiT } = useUILocale();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const navigate = useNavigate();
   const context = useDashboardContext() as DashboardContext | undefined;
   const sessionToken = propToken ?? context?.token;
@@ -44,6 +44,7 @@ export default function ApiReference({
     showSidebar: true,
     showDeveloperTools: 'never',
     modelsSectionLabel: t('Schemas', '数据结构 (Schemas)'),
+    localization: { locale: locale === 'zh-CN' ? 'zh-CN' : 'en' },
     defaultOpenAllTags: false,
     hideClientButton: true,
     persistAuth: false,
@@ -64,7 +65,7 @@ export default function ApiReference({
     telemetry: false,
     agent: {disabled:true},
     defaultHttpClient: {targetKey:'shell', clientKey:'curl'},
-  }), [mode, t]);
+  }), [mode, t, locale]);
   return <div className="niu-api-documentation" onClick={event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = (event.target as Element).closest<HTMLAnchorElement>('a[href]');

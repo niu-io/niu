@@ -1,25 +1,25 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router';
 import AccountProfile from './AccountProfile';
 import PasswordSettings from './PasswordSettings';
 import AccountBilling from '@/features/billing/AccountBilling';
 import OperatorsView from '@/features/operators/components/OperatorsView';
-import { Sidebar, SidebarProvider, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from '@/components/ui/sidebar';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { OrganizationSettings } from '@/features/organization/settings-section';
+import { resolveWorkspacePathSegment, workspaceDisplayName } from '@/shell/workspace-route';
+import { SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
 import { useLocale, type Locale } from '@/shell/ui-locale';
-import { useEffect } from 'react';
-import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle, IconLanguage, IconUsers } from '@tabler/icons-react';
+import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle, IconLanguage, IconUsers, IconBuildings } from '@tabler/icons-react';
 import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
+import { settingsHref } from './settings-routes';
 
-function SettingsContent({context, section}: {context: DashboardContext; section: string | undefined}) {
+export function SettingsContent({context, section}: {context: DashboardContext; section: string | undefined}) {
   const { t: uiT } = useUILocale();
   // Legacy Payments bookmarks resolve to the same account funding home.
   if (section === 'payments') section = 'billing';
@@ -32,30 +32,52 @@ function SettingsContent({context, section}: {context: DashboardContext; section
   const [theme, setTheme] = useState<Theme>(readTheme);
   useEffect(() => subscribeTheme(() => setTheme(readTheme())), []);
   useEffect(() => setProfileState({identity,value:context.session?.profile ?? null}), [identity,context.session?.profile]);
-  if (!section || !['account', 'appearance', 'billing', 'payments', 'members', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
+  if (!section || !['organization', 'account', 'appearance', 'billing', 'payments', 'members', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
   if (section === 'account' && context.session?.kind !== 'operator') return <Navigate state={location.state} to="/settings/appearance" replace />;
+  const requestedWorkspace = section === 'members' ? new URLSearchParams(location.search).get('workspace') : null;
+  const scopedWorkspace = requestedWorkspace ? resolveWorkspacePathSegment(requestedWorkspace, context.workspaces) : undefined;
   const personal = context.session?.kind === 'operator';
   const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   const themeLabel = theme === 'light' ? t('Light', '浅色') : theme === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
-  return <div className={`settings-page w-full min-w-0 space-y-8${section === 'payments' ? ' settings-payments-page' : ''}`}>
+  return <div className="settings-page w-full min-w-0 space-y-8">
+    {section === 'organization' && <OrganizationSettings key={context.organization?.id} context={context} />}
     {personal ? <div hidden={section !== 'account'}>
       <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
       <PasswordSettings key={'password-' + identity} token={context.token} hasPassword={Boolean(profile?.email)} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
     </div> : null}
-    {section === 'members' && <section aria-label={t('Organization members', '组织成员管理')} className="space-y-6">
+    {section === 'members' && <section aria-label={scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Organization members', '组织成员管理')} className="space-y-6">
       <header className="space-y-2">
-        <h2 className="text-base font-semibold">{t('Members', '成员管理')}</h2>
-        <p className="text-sm text-muted-foreground">{t('Manage organization members, roles, and workspace access.', '管理组织成员、角色与工作空间访问权限。')}</p>
+        <h2 className="text-base font-semibold">{scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Members', '成员管理')}</h2>
+        <p className="text-sm text-muted-foreground">{scopedWorkspace
+          ? t(
+            'Members with access to {0}. Organization-wide access is shown as All workspaces.',
+            '可访问{0}的成员。组织范围访问权限显示为“全部工作空间”。',
+          ).replace('{0}', workspaceDisplayName(scopedWorkspace.name))
+          : t('Manage organization members, roles, and workspace access.', '管理组织成员、角色与工作空间访问权限。')}</p>
       </header>
-      {context.session ? (
-        <OperatorsView
-          embedded
-          key={`${context.token}:${context.organization?.id}`}
-          initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
-          token={context.token}
-          session={context.session}
-          refreshWorkspace={context.refreshWorkspace}
-        />
+      {requestedWorkspace && !scopedWorkspace ? (
+        context.workspaceLoading
+          ? <MetricStripSkeleton count={2} label={t('Loading workspace members…', '正在加载工作空间成员…')} />
+          : <div role="alert" className="space-y-3">
+              <p>{t('This workspace membership scope is unavailable. Choose organization-wide members instead.', '此工作空间成员范围不可用，请改为查看组织范围成员。')}</p>
+              <Button asChild variant="secondary"><Link to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
+            </div>
+      ) : context.session ? (
+        <>
+          {scopedWorkspace && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
+            <p className="text-sm text-muted-foreground">{t('Showing members with access to this workspace.', '仅显示可访问此工作空间的成员。')}</p>
+            <Button asChild variant="ghost" size="sm"><Link to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
+          </div>}
+          <OperatorsView
+            embedded
+            key={`${context.token}:${context.organization?.id}:${scopedWorkspace?.id ?? 'organization'}`}
+            initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
+            initialWorkspace={scopedWorkspace?.id}
+            token={context.token}
+            session={context.session}
+            refreshWorkspace={context.refreshWorkspace}
+          />
+        </>
       ) : (
         <MetricStripSkeleton count={2} label={t('Loading organization members…', '正在加载组织成员…')} />
       )}
@@ -116,7 +138,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
 }
 
 
-export function SettingsNavigation({ context, section, href }: { context: DashboardContext; section?: string; href?: (section:string)=>string }) {
+export function SettingsNavigation({ context, section }: { context: DashboardContext; section?: string }) {
   const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const location = useLocation();
@@ -124,61 +146,21 @@ export function SettingsNavigation({ context, section, href }: { context: Dashbo
   const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   const canManageMembers = Boolean(context.organization && context.session?.permissions?.manage_operators);
   const entries = [
+    ...(context.organization ? [{path:'organization',label:t('Organization', '组织'),icon:IconBuildings}] : []),
+    ...(canManageMembers ? [{path:'members',label:t('Members', '成员管理'),icon:IconUsers}] : []),
+    ...(canViewBilling ? [{path:'billing',label:t('Credits', '额度与充值'),icon:IconCreditCard}] : []),
     ...(personal ? [{path:'account',label:t('Account', '账户'),icon:IconUserCircle}] : []),
     {path:'appearance',label:t('Appearance', '外观'),icon:IconPalette},
-    ...(canViewBilling ? [{path:'billing',label:t('Credits', '额度与充值'),icon:IconCreditCard}] : []),
-    ...(canManageMembers ? [{path:'members',label:t('Members', '成员管理'),icon:IconUsers}] : []),
     {path:'about',label:t('About', '关于'),icon:IconInfoCircle},
   ];
   return <>
-    <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row group-data-[collapsible=icon]:sr-only">{t('Settings', '设置')}</h2></SidebarHeader>
+    <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{t('Settings', '设置')}</h2></SidebarHeader>
     <SidebarContent className="px-3 pb-3"><nav aria-label={uiT("Settings navigation")}><SidebarMenu>
       {entries.map(item => {
         const selectedSection = section ?? location.pathname.split('/')[2];
         const selected = (selectedSection === 'payments' ? 'billing' : selectedSection) === item.path;
-        return <SidebarMenuItem key={item.path}><SidebarMenuButton asChild tooltip={item.label} isActive={selected}><Link aria-current={selected ? 'page' : undefined} state={location.state} to={href ? href(item.path) : '/settings/'+item.path}><item.icon aria-hidden="true"/><span>{item.label}</span></Link></SidebarMenuButton></SidebarMenuItem>;
+        return <SidebarMenuItem key={item.path}><SidebarMenuButton asChild tooltip={item.label} isActive={selected}><Link aria-current={selected ? 'page' : undefined} state={location.state} to={settingsHref(item.path)}><item.icon aria-hidden="true"/><span>{item.label}</span></Link></SidebarMenuButton></SidebarMenuItem>;
       })}
     </SidebarMenu></nav></SidebarContent>
   </>;
-}
-
-export function settingsReturnDestination(value: unknown, fallback: string): string {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return fallback;
-  const destination = new URL(value, 'https://niu.invalid');
-  if (destination.origin !== 'https://niu.invalid' || /^\/(settings|login|installation)(\/|$)/.test(destination.pathname)) return fallback;
-  return destination.pathname + destination.search + destination.hash;
-}
-
-export function settingsHref(pathname: string, search: string, hash: string, section: string): string {
-  const query = new URLSearchParams(search);
-  query.set('settings', section);
-  return pathname + '?' + query.toString() + hash;
-}
-
-export function SettingsDialog({context, section, onClose, href}: {context:DashboardContext; section:string|undefined; onClose:()=>void; href?:(section:string)=>string}) {
-  const { t: uiT } = useUILocale();
-  const { t } = useLocale();
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [section]);
-  const isMobile = useIsMobile();
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-    <DialogContent onOpenAutoFocus={event => { event.preventDefault(); headingRef.current?.focus(); }} onCloseAutoFocus={event => {
-      // Prefer the actual task entry point; menu items may unmount, so retain
-      // the persistent account/navigation triggers as fallbacks.
-      const destination = [openerRef.current, ...Array.from(document.querySelectorAll<HTMLElement>('[aria-label="Account menu"], [aria-label="Open navigation menu"], .sidebar-toggle'))]
-        .find((element): element is HTMLElement => !!element && element !== document.body && element.isConnected && element.getClientRects().length > 0 && !element.closest('[role="dialog"]'));
-      if (destination) { event.preventDefault(); destination.focus(); }
-    }} aria-describedby="settings-description" className="settings-dialog !max-w-5xl !w-[calc(100%-2rem)] !p-0 !gap-0 overflow-hidden h-[min(760px,85dvh)]">
-      <DialogTitle ref={headingRef} tabIndex={-1} className="sr-only">{t('Settings', '设置')}</DialogTitle>
-      <DialogDescription id="settings-description" className="sr-only">{t('Account preferences and company billing.', '账户偏好与组织计费设置。')}</DialogDescription>
-      <SidebarProvider style={{'--sidebar-width': '200px'} as React.CSSProperties} className="!min-h-0 h-full overflow-hidden">
-        <Sidebar collapsible={isMobile ? "none" : "icon"} className="settings-dialog-navigation shrink-0">
-          <SettingsNavigation context={context} section={section} href={href}/>
-        </Sidebar>
-        <div ref={contentRef} role="region" aria-label={uiT("Settings content")} tabIndex={0} className="settings-dialog-content min-w-0 flex-1 overflow-y-auto p-6 pt-12 sm:p-10 sm:pt-12 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2">{!isMobile && <SidebarTrigger aria-label={uiT("Toggle Settings navigation")} className="absolute top-3 left-[calc(var(--sidebar-width)+12px)] settings-navigation-trigger"/>}<SettingsContent context={context} section={section}/></div>
-      </SidebarProvider>
-    </DialogContent>
-  </Dialog>;
 }

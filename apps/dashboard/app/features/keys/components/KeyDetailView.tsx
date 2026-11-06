@@ -1,35 +1,47 @@
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
 import { IconBan as Ban } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
+import { IconRefresh as RotateCw } from "@tabler/icons-react";
+import { IconCopy as Copy } from "@tabler/icons-react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
-import { cachedKeyGet, keyRequest, KeyRequestError, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
+import { cachedKeyGet, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import KeyGuardrails from './KeyGuardrails';
+import KeyHistoryDialog from './KeyHistoryDialog';
 import KeyLimits from './KeyLimits';
+import KeySettingsEditor from './KeySettingsEditor';
 import KeySourceAccess from './KeySourceAccess';
 import KeySpendingLimits from './KeySpendingLimits';
 
 type Scope = { organizationId: string; projectId: string };
 
-export default function KeyDetailView({ token, models, canWrite, canConfigureSpending, initialScope }: {
+export default function KeyDetailView({ token, models, canWrite, canConfigureSpending, initialScope, initialData }: {
   token: string;
   models: string[];
   canWrite: boolean;
   canConfigureSpending: boolean;
   initialScope: Scope | null;
+  initialData?: { data: ProjectKey[] };
 }) {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT } = useUILocale();
+  const protocolLabel = (protocol: string) => ({
+    chat: uiT('Chat completions'),
+    responses: uiT('Responses'),
+    messages: uiT('Messages'),
+    content: uiT('GenerateContent'),
+    decisions: uiT('Structured decisions'),
+    embeddings: uiT('Embeddings'),
+    video: uiT('Video'),
+  } as Record<string, string>)[protocol] ?? protocol;
   const { keyId = '' } = useParams();
   const [capacityRequest,setCapacityRequest]=useState<{attemptId:string;nonce:number;opener:HTMLElement|null}|null>(null);
   useEffect(()=>setCapacityRequest(null),[keyId,token]);
@@ -39,7 +51,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
   const adminCollectionPath = initialScope ? projectKeyPath(initialScope.organizationId, initialScope.projectId) : '';
   const scopeIdentity = JSON.stringify([token, collectionPath]);
-  const initialCachedKeys = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) : undefined;
+  const initialCachedKeys = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) ?? initialData : undefined;
   const [keys, setKeys] = useState<ProjectKey[]>(() => initialCachedKeys?.data ?? []);
   const [loadedScope, setLoadedScope] = useState(() => (initialCachedKeys ? scopeIdentity : ''));
   const revokeController = useRef<AbortController | null>(null);
@@ -48,9 +60,14 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const [loadFailed, setLoadFailed] = useState(false);
   const [revision, setRevision] = useState(0);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [rotatedSecret, setRotatedSecret] = useState('');
+  const [rotateError, setRotateError] = useState('');
   const [revoking, setRevoking] = useState(false);
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(false);
+  const [guardrailRefresh, setGuardrailRefresh] = useState(0);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const restoreEditFocus = useRef(false);
   useEffect(() => {
@@ -59,22 +76,11 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       editButtonRef.current?.focus();
     }
   }, [editing]);
-  const [draftName, setDraftName] = useState('');
-  const [draftModels, setDraftModels] = useState<string[]>([]);
-  const [draftRpm, setDraftRpm] = useState('');
-  const [draftConcurrent, setDraftConcurrent] = useState('');
-  const [draftTpm, setDraftTpm] = useState('');
-  const [draftCidrs, setDraftCidrs] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [conflict, setConflict] = useState(false);
-  const [limitsRefresh, setLimitsRefresh] = useState(0);
-  const [sourceRefresh, setSourceRefresh] = useState(0);
-  const saveController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setConfirmRevoke(false);setNotice('');setRevoking(false);
-    setEditing(false);setSaving(false);setConflict(false);
-    return () => { revokeController.current?.abort();saveController.current?.abort(); };
+    setEditing(false);
+    return () => { revokeController.current?.abort(); };
   }, [token, collectionPath, keyId]);
 
   useEffect(() => {
@@ -109,104 +115,17 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const getKeyRpm = (item?: ProjectKey) => item?.request_rate_limit?.requests_per_minute ?? item?.requests_per_minute ?? null;
   const getKeyConc = (item?: ProjectKey) => item?.concurrency_limit?.max_concurrent_requests ?? item?.max_concurrent_requests ?? null;
   const getKeyTpm = (item?: ProjectKey) => item?.token_rate_limit?.tokens_per_minute ?? item?.tokens_per_minute ?? null;
-  const getKeyCidrs = (item?: ProjectKey) => (item?.ip_policy ? item.ip_policy.allowed_cidrs : item?.allowed_cidrs) ?? null;
 
   function startEdit() {
     if (!key) return;
-    const rpm = getKeyRpm(key);
-    const conc = getKeyConc(key);
-    const tpm = getKeyTpm(key);
-    const cidrs = getKeyCidrs(key);
-    setDraftName(key.name);
-    setDraftModels(key.allowed_models);
-    setDraftRpm(rpm !== null ? String(rpm) : '');
-    setDraftConcurrent(conc !== null ? String(conc) : '');
-    setDraftTpm(tpm !== null ? String(tpm) : '');
-    setDraftCidrs(cidrs?.join('\n') ?? '');
     setEditing(true);
-    setConflict(false);
     setError('');
     setNotice('');
   }
 
-  const initialRpm = getKeyRpm(key) !== null ? String(getKeyRpm(key)) : '';
-  const initialConcurrent = getKeyConc(key) !== null ? String(getKeyConc(key)) : '';
-  const initialTpm = getKeyTpm(key) !== null ? String(getKeyTpm(key)) : '';
-  const initialCidrs = getKeyCidrs(key)?.join('\n') ?? '';
-  const rpmChanged = draftRpm.trim() !== initialRpm;
-  const concurrentChanged = draftConcurrent.trim() !== initialConcurrent;
-  const tpmChanged = draftTpm.trim() !== initialTpm;
-  const cidrsChanged = draftCidrs.trim() !== initialCidrs.trim();
-  const changed = key && (
-    draftName.trim() !== key.name
-    || JSON.stringify([...draftModels].sort()) !== JSON.stringify([...key.allowed_models].sort())
-    || rpmChanged
-    || concurrentChanged
-    || tpmChanged
-    || cidrsChanged
-  );
-
-  async function saveMetadata() {
-    if (!key?.revision || !canWrite || !changed || saving || conflict || !draftName.trim() || !draftModels.length) return;
-    const body: Record<string, unknown> = {
-      name: draftName.trim(),
-      allowed_models: draftModels,
-      expected_revision: key.revision,
-    };
-    if (rpmChanged) {
-      if (draftRpm.trim() && !/^\d+$/.test(draftRpm.trim())) {
-        setError('Requests per minute must be a whole number.');
-        return;
-      }
-      body.request_rate_limit = { requests_per_minute: draftRpm.trim() ? Number(draftRpm.trim()) : null };
-    }
-    if (concurrentChanged) {
-      if (draftConcurrent.trim() && !/^\d+$/.test(draftConcurrent.trim())) {
-        setError('Concurrent requests must be a whole number.');
-        return;
-      }
-      body.concurrency_limit = { max_concurrent_requests: draftConcurrent.trim() ? Number(draftConcurrent.trim()) : null };
-    }
-    if (tpmChanged) {
-      if (draftTpm.trim() && !/^\d+$/.test(draftTpm.trim())) {
-        setError('Tokens per minute must be a whole number.');
-        return;
-      }
-      body.token_rate_limit = { tokens_per_minute: draftTpm.trim() ? Number(draftTpm.trim()) : null };
-    }
-    if (cidrsChanged) {
-      const entries = draftCidrs.split('\n').map(value => value.trim()).filter(Boolean);
-      body.ip_policy = { allowed_cidrs: entries.length ? entries : null };
-    }
-
-    const controller = new AbortController(); saveController.current = controller;
-    setSaving(true);setError('');
-    try {
-      const result = await keyRequest<ProjectKey & {revision:number}>(token, `${collectionPath}/${encodeURIComponent(key.id)}`, 'PATCH', body, controller.signal);
-      if (controller.signal.aborted) return;
-      setKeys(current => current.map(item => item.id === key.id ? {
-        ...item,
-        ...result,
-        name: draftName.trim(),
-        allowed_models: draftModels,
-        revision: result.revision ?? (key.revision ? key.revision + 1 : 1),
-      } : item));
-      setEditing(false);setNotice('API key updated.');
-      if (rpmChanged || concurrentChanged || tpmChanged) {
-        setLimitsRefresh(value => value + 1);
-      }
-      if (cidrsChanged) {
-        setSourceRefresh(value => value + 1);
-      }
-      if (rpmChanged || concurrentChanged || tpmChanged || cidrsChanged) {
-        setRevision(value => value + 1);
-      }
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        const stale = cause instanceof KeyRequestError && cause.status === 409;
-        setConflict(stale);setError(stale ? 'This key changed. Reload it before editing again.' : cause instanceof Error ? cause.message : 'Could not update this key.');
-      }
-    } finally { if (!controller.signal.aborted) setSaving(false); }
+  function updateKey(updated: ProjectKey) {
+    if (!key) return;
+    setKeys(current => current.map(item => item.id === key.id ? { ...item, ...updated } : item));
   }
 
   async function revoke() {
@@ -228,6 +147,27 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     }
   }
 
+  async function rotate() {
+    if (!canWrite || !adminCollectionPath || !key || rotating) return;
+    setRotating(true);
+    setRotateError('');
+    try {
+      const result = await keyRequest<{token?: string; secret_available?: boolean}>(token, `${adminCollectionPath}/${encodeURIComponent(key.id)}/rotate`, 'POST');
+      if (!result.token) throw new Error('The replacement secret was not returned. Reload the key before retrying.');
+      setRotatedSecret(result.token);
+      setConfirmRotate(false);
+      setNotice('Key rotated. The previous secret no longer works.');
+      setRevision(value => value + 1);
+    } catch (cause) {
+      setRotateError(cause instanceof Error ? cause.message : 'Could not rotate this key.');
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  const describeLimit = (value: number | null) => value === null ? uiT("Unlimited") : value === 0 ? uiT("0 · New requests blocked") : value.toLocaleString(readUILocale());
+  const keyPath = key && adminCollectionPath ? `${adminCollectionPath}/${encodeURIComponent(key.id)}` : '';
+
   return <>
     {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{error}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
     {notice && <p role="status" className="key-revoke-notice"><Check size={15} />{notice}</p>}
@@ -236,35 +176,59 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     {key && <>
       <section className="panel key-detail-card" aria-label={uiT("API key details")}>
         <div className="key-detail-heading"><div><span className="key-detail-icon"><KeyRound size={18} /></span><div><h2>{key.name}</h2></div></div><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></div>
-        {editing && <form className="grid gap-4 py-4" onSubmit={event => {event.preventDefault();void saveMetadata();}}>
-          <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-name">{uiT("Name")}</Label><Input id="key-edit-name" value={draftName} maxLength={200} disabled={saving || conflict} onChange={event => setDraftName(event.target.value)} autoFocus /></div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label>{uiT("Model access")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" className="justify-between" disabled={saving || conflict} aria-label={uiT("Model access")}>{draftModels.includes('*') ? uiT("All configured models") : uiF("{0} model{1} selected", [draftModels.length, draftModels.length === 1 ? '' : 's'])}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto" align="start"><DropdownMenuCheckboxItem checked={draftModels.includes('*')} onSelect={event => event.preventDefault()} onCheckedChange={checked => setDraftModels(checked ? ['*'] : [])}>{uiT("All configured models")}</DropdownMenuCheckboxItem><DropdownMenuSeparator />{[...new Set([...models, ...draftModels.filter(model => model !== '*')])].sort().map(model => <DropdownMenuCheckboxItem key={model} checked={draftModels.includes(model)} onSelect={event => event.preventDefault()} onCheckedChange={checked => setDraftModels(current => checked ? [...current.filter(value => value !== '*'), model] : current.filter(value => value !== model))}>{model}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-rpm">{uiT("Requests per minute")}</Label><Input id="key-edit-rpm" inputMode="numeric" placeholder={uiT("Unlimited")} value={draftRpm} disabled={saving || conflict} onChange={event => setDraftRpm(event.target.value)} /></div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-concurrent">{uiT("Concurrent requests")}</Label><Input id="key-edit-concurrent" inputMode="numeric" placeholder={uiT("Unlimited")} value={draftConcurrent} disabled={saving || conflict} onChange={event => setDraftConcurrent(event.target.value)} /></div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-tpm">{uiT("Tokens per minute")}</Label><Input id="key-edit-tpm" inputMode="numeric" placeholder={uiT("Unlimited")} value={draftTpm} disabled={saving || conflict} onChange={event => setDraftTpm(event.target.value)} /></div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-start"><Label htmlFor="key-edit-cidrs" className="pt-2">{uiT("Allowed IPs or CIDRs")}</Label><Textarea id="key-edit-cidrs" rows={2} placeholder={uiT("Unlimited (one IP or CIDR per line)")} className="font-mono text-xs" value={draftCidrs} disabled={saving || conflict} onChange={event => setDraftCidrs(event.target.value)} /></div>
-          <div className="flex flex-wrap justify-end gap-2">{conflict ? <Button type="button" onClick={() => {setEditing(false);setConflict(false);setRevision(value => value+1);}}>{uiT("Reload key")}</Button> : <Button type="submit" disabled={saving || !changed || !draftName.trim() || !draftModels.length}>{saving ? uiT("Saving…") : uiT("Save changes")}</Button>}<Button type="button" variant="ghost" disabled={saving} onClick={() => {restoreEditFocus.current=true;setEditing(false);setConflict(false);setError('');}}>{uiT("Cancel")}</Button></div>
-        </form>}
-        <dl className="key-detail-facts"><div><dt>{uiT("Allowed models")}</dt><dd>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.length ? key.allowed_models.join(', ') : uiT("None")}</dd></div><div><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.expires_at_ms))}</dd></div><div><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div></dl>
-        {canWrite && !key.revoked && !editing && <div className="key-revoke-actions">
-          {!editing && !key.expired && key.revision && <Button ref={editButtonRef} type="button" variant="outline" onClick={startEdit}>{uiT("Edit key")}</Button>}
-          {!confirmRevoke
-            ? <Button type="button" variant="outline" onClick={() => setConfirmRevoke(true)}><Ban size={15} />{uiT("Revoke key")}</Button>
-            : <div role="group" aria-label={uiT("Confirm API key revocation")}><span>{uiT("Revoke this key now?")}</span><Button type="button" variant="destructive" disabled={revoking} onClick={() => void revoke()}>{revoking ? uiT("Revoking…") : uiT("Confirm revoke")}</Button><Button type="button" variant="outline" disabled={revoking} onClick={() => setConfirmRevoke(false)}>{uiT("Keep key")}</Button></div>}
+        {editing && initialScope && keyPath && <KeySettingsEditor
+          token={token}
+          projectKey={key}
+          models={models}
+          canWrite={canWrite}
+          canConfigureSpending={canConfigureSpending}
+          metadataPath={`${collectionPath}/${encodeURIComponent(key.id)}`}
+          guardrailPath={`${keyPath}/guardrail`}
+          workspaceGuardrailsPath={`${adminCollectionPath.replace(/\/keys$/, '')}/guardrails`}
+          unitLimitPath={`${keyPath}/units/limit`}
+          onKeyChanged={updateKey}
+          onSaved={updated => {
+            updateKey(updated);
+            setEditing(false);
+            setNotice('Key settings saved.');
+            setGuardrailRefresh(value => value + 1);
+          }}
+          onReload={() => { setEditing(false); setGuardrailRefresh(value => value + 1); setRevision(value => value + 1); }}
+          onCancel={() => { restoreEditFocus.current = true; setEditing(false); setError(''); }}
+        />}
+        {!editing && <dl className="key-detail-facts">
+          <div><dt>{uiT("Allowed models")}</dt><dd>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.length ? key.allowed_models.join(', ') : uiT("None")}</dd></div>
+          <div><dt>{uiT("Model calls")}</dt><dd>{key.invocation_allowed === false ? uiT("Blocked (management only)") : key.invocation_allowed === true ? (key.invocation_protocols?.length ? `${uiT("Allowed for")} ${key.invocation_protocols.map(protocolLabel).join(', ')}` : uiT("Allowed; interface scope not reported")) : uiT("Not reported")}</dd></div>
+          <div><dt>{uiT("Limits")}</dt><dd><span className="block">{uiT("Requests per minute")}: {describeLimit(getKeyRpm(key))}</span><span className="block">{uiT("Concurrent requests")}: {describeLimit(getKeyConc(key))}</span><span className="block">{uiT("Tokens per minute")}: {describeLimit(getKeyTpm(key))}</span></dd></div>
+          <div><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.expires_at_ms))}</dd></div>
+          <div><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div>
+        </dl>}
+        {!editing && <div className="key-revoke-actions">
+          {initialScope && canWrite && !key.revoked && !key.expired && key.revision && <Button ref={editButtonRef} type="button" variant="outline" onClick={startEdit}>{uiT("Edit key")}</Button>}
+          {initialScope && keyPath && <KeyHistoryDialog token={token} projectKey={key} keyPath={keyPath} />}
+          {canWrite && !key.revoked && <>
+            {!confirmRotate
+              ? <Button type="button" variant="outline" onClick={() => {setConfirmRotate(true);setRotateError('');}}><RotateCw size={15} />{uiT("Rotate key")}</Button>
+              : <div role="group" aria-label={uiT("Confirm API key rotation")}><span>{uiT("Rotate this key now? The current secret stops working.")}</span><Button type="button" variant="destructive" disabled={rotating} onClick={() => void rotate()}>{rotating ? uiT("Rotating…") : uiT("Confirm rotate")}</Button><Button type="button" variant="outline" disabled={rotating} onClick={() => setConfirmRotate(false)}>{uiT("Keep key")}</Button></div>}
+            {rotateError && <p role="alert" className="key-page-error">{uiT(rotateError)}</p>}
+            {!confirmRevoke
+              ? <Button type="button" variant="outline" onClick={() => setConfirmRevoke(true)}><Ban size={15} />{uiT("Revoke key")}</Button>
+              : <div role="group" aria-label={uiT("Confirm API key revocation")}><span>{uiT("Revoke this key now?")}</span><Button type="button" variant="destructive" disabled={revoking} onClick={() => void revoke()}>{revoking ? uiT("Revoking…") : uiT("Confirm revoke")}</Button><Button type="button" variant="outline" disabled={revoking} onClick={() => setConfirmRevoke(false)}>{uiT("Keep key")}</Button></div>}
+          </>}
         </div>}
       </section>
-      {initialScope && <KeyGuardrails
-        key={`${token}:${key.id}:guardrails`}
+      {initialScope && keyPath && <KeyGuardrails
+        key={`${token}:${key.id}:guardrails:${guardrailRefresh}`}
         token={token}
-        endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/guardrail`}
+        endpoint={`${keyPath}/guardrail`}
         workspaceEndpoint={`${adminCollectionPath.replace(/\/keys$/, '')}/guardrails`}
         root={root}
-        canWrite={canWrite}
+        canWrite={false}
         active={!key.revoked && !key.expired}
       />}
-      {initialScope && <KeyLimits onInspectRequest={(attemptId,opener)=>setCapacityRequest({attemptId,opener,nonce:Date.now()})} key={`${token}:${key.id}:limits`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} refreshNonce={limitsRefresh} onUpdated={() => setRevision(value => value + 1)} />}
-      {initialScope && <KeySourceAccess key={`${token}:${key.id}:source`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/ip-policy`} canWrite={canWrite} active={!key.revoked && !key.expired} refreshNonce={sourceRefresh} onUpdated={() => setRevision(value => value + 1)} />}
-      {initialScope && <KeySpendingLimits key={`${token}:${key.id}:spending`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/spending-limit`} canWrite={canConfigureSpending} active={!key.revoked && !key.expired} />}
+      {initialScope && keyPath && <KeyLimits key={`${token}:${key.id}:usage`} token={token} projectKey={key} keyPath={keyPath} onInspectRequest={(attemptId,opener)=>setCapacityRequest({attemptId,opener,nonce:Date.now()})} />}
+      {initialScope && <KeySourceAccess key={`${token}:${key.id}:source`} projectKey={key} />}
+      {initialScope && <KeySpendingLimits key={`${token}:${key.id}:spending`} projectKey={key} />}
       {initialScope && <GatewayActivity
         key={`${token}:${key.id}`}
         compact
@@ -277,5 +241,12 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         onExternalRequestClose={()=>setCapacityRequest(null)}
       />}
     </>}
+    <Dialog open={Boolean(rotatedSecret)} onOpenChange={open => { if (!open) setRotatedSecret(''); }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{uiT("Save the replacement API key")}</DialogTitle><DialogDescription>{uiT("This secret is shown once. The previous secret no longer works.")}</DialogDescription></DialogHeader>
+        <div className="grid gap-2"><Label htmlFor="rotated-key-secret">{uiT("API key secret")}</Label><Input id="rotated-key-secret" readOnly value={rotatedSecret} className="font-mono text-xs" /></div>
+        <DialogFooter><Button variant="outline" onClick={() => setRotatedSecret('')}>{uiT("Close")}</Button><Button onClick={() => void navigator.clipboard.writeText(rotatedSecret)}><Copy size={15} />{uiT("Copy secret")}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   </>;
 }

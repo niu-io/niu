@@ -9,6 +9,7 @@ import type { Workspace } from '@/shell/dashboard-context';
 import { resolveWorkspacePathSegment, workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
+import { formatUnitAtoms } from '@/lib/money';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
@@ -17,7 +18,19 @@ import { money } from '@/lib/money';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { IconActivity, IconChevronDown, IconCoins, IconRefresh, IconRoute } from '@tabler/icons-react';
 
-type Summary = { request_count: number; usage_count: number; prompt_tokens: string; completion_tokens: string; customer_charges: Array<{currency: string; amount_nanos: string}>; unresolved_customer_charge_count: number; unpriced_request_count: number };
+type UnitCharge = { definition_revision?: string; unit_name?: string; name?: string; display_precision: number; net_atoms: string };
+type Summary = { request_count: number; usage_count: number; prompt_tokens: string; completion_tokens: string; customer_charges: Array<{currency: string; amount_nanos: string}>; customer_unit_charges?: UnitCharge[]; unresolved_customer_charge_count: number; unpriced_request_count: number };
+function unitCharges(summary: Summary) {
+  const totals = new Map<string, {name: string; precision: number; amount: bigint}>();
+  for (const item of summary.customer_unit_charges ?? []) {
+    const name = item.unit_name ?? item.name ?? 'Credits';
+    const key = item.definition_revision ?? name;
+    const current = totals.get(key) ?? {name, precision: item.display_precision, amount: 0n};
+    current.amount += BigInt(item.net_atoms || '0');
+    totals.set(key, current);
+  }
+  return totals;
+}
 type Request = { attempt_id: string; reference?: string; created_at: string; model: string; execution: string; prompt_tokens: string | null; completion_tokens: string | null; customer_charge_status: string; customer_charge_currency: string | null; customer_charge_nanos: string | null };
 type Page = {data: Request[]; summary: Summary; next_cursor: string | null};
 type WorkspacePage = {workspace: Workspace; page: Page; cursors?: string[]};
@@ -25,13 +38,15 @@ type WorkspacePage = {workspace: Workspace; page: Page; cursors?: string[]};
 export function activityTotals(pages: Array<{page: {summary: Summary}}>) {
   let requests = 0, reported = 0, tokens = 0n, unresolved = 0;
   const charges = new Map<string, bigint>();
+  const units = new Map<string, {name: string; precision: number; amount: bigint}>();
   for (const {page: {summary}} of pages) {
     requests += summary.request_count; reported += summary.usage_count;
     tokens += BigInt(summary.prompt_tokens) + BigInt(summary.completion_tokens);
     unresolved += (summary.unresolved_customer_charge_count ?? 0) + (summary.unpriced_request_count ?? 0);
     for (const charge of summary.customer_charges ?? []) charges.set(charge.currency, (charges.get(charge.currency) ?? 0n) + BigInt(charge.amount_nanos));
+    for (const [key, charge] of unitCharges(summary)) { const current = units.get(key) ?? charge; current.amount = (units.get(key)?.amount ?? 0n) + charge.amount; units.set(key, current); }
   }
-  return {requests, reported, tokens, unresolved, charges};
+  return {requests, reported, tokens, unresolved, charges, units};
 }
 
 async function read<T>(url: string, token: string, signal: AbortSignal): Promise<T> {
@@ -88,7 +103,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
       try {
         hydrated.push({ workspace, page: checkedRequestPage(page) });
       } catch {
-        return [];
+        return []; // A corrupt cache entry is ignored; the fetch below replaces it or reports the failure.
       }
     }
     return hydrated;
@@ -177,9 +192,9 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
         <section aria-label={uiT("All workspace totals")} className="gateway-activity-summary global-activity-summary">
           <article className="panel"><span><IconActivity size={16} aria-hidden="true" />{uiT("Requests")}</span><strong>{totals.requests.toLocaleString(readUILocale())}</strong><small>{uiT("All time")}</small></article>
           <article className="panel"><span><IconRoute size={16} aria-hidden="true" />{uiT("Token volume")}</span><strong>{totals.requests > 0 && totals.reported === 0 ? uiT("Unknown") : totals.tokens.toLocaleString(readUILocale())}</strong><small>{totals.reported.toLocaleString(readUILocale())}{" "}{uiT("reported ·")}{" "}{(totals.requests - totals.reported).toLocaleString(readUILocale())}{" "}{uiT("unknown")}</small></article>
-          <article className="panel"><span><IconCoins size={16} aria-hidden="true" />{uiT("Customer charges")}</span><strong>{[...totals.charges].map(([currency,amount])=>money(amount.toString(),currency)).join(' · ') || uiT("No settled charges")}</strong>{totals.unresolved > 0 && <small>{totals.unresolved.toLocaleString(readUILocale())}{" "}{uiT("requests with unresolved or unpriced charges")}</small>}</article>
+          <article className="panel"><span><IconCoins size={16} aria-hidden="true" />{uiT("Customer charges")}</span><strong>{[...[...totals.charges].map(([currency,amount])=>money(amount.toString(),currency)), ...[...totals.units.values()].map(unit=>formatUnitAtoms(unit.amount.toString(),unit.name,unit.precision))].join(' · ') || uiT("No settled charges")}</strong>{totals.unresolved > 0 && <small>{totals.unresolved.toLocaleString(readUILocale())}{" "}{uiT("requests with unresolved or unpriced charges")}</small>}</article>
         </section>
-        <section aria-label={uiT("Activity by workspace")} className="min-w-0"><h2 className="mb-3 text-lg font-semibold">{uiT("Usage by workspace")}</h2><Table><TableHeader><TableRow><TableHead>{uiT("Workspace")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead className="hidden sm:table-cell">Tokens</TableHead><TableHead className="hidden md:table-cell">{uiT("Customer charges")}</TableHead></TableRow></TableHeader><TableBody>{pages.map(({workspace,page})=><TableRow key={workspace.id}><TableCell><Link className="font-medium hover:underline" to={`/activity?workspace=${encodeURIComponent(scopeSegment(workspace, workspaces))}`}>{name(workspace)}</Link>{workspace.organization_name && <p className="text-xs text-muted-foreground">{workspace.organization_name}</p>}</TableCell><TableCell>{page.summary.request_count.toLocaleString(readUILocale())}</TableCell><TableCell className="hidden sm:table-cell">{page.summary.request_count > 0 && page.summary.usage_count === 0 ? uiT("Unknown") : (BigInt(page.summary.prompt_tokens)+BigInt(page.summary.completion_tokens)).toLocaleString(readUILocale())}<p className="mt-1 text-xs text-muted-foreground">{page.summary.usage_count.toLocaleString(readUILocale())}{" "}{uiT("reported ·")}{" "}{(page.summary.request_count-page.summary.usage_count).toLocaleString(readUILocale())}{" "}{uiT("unknown")}</p></TableCell><TableCell className="hidden md:table-cell">{page.summary.customer_charges.map(charge=>money(charge.amount_nanos,charge.currency)).join(' · ') || uiT("No settled charges")}</TableCell></TableRow>)}</TableBody></Table></section>
+        <section aria-label={uiT("Activity by workspace")} className="min-w-0"><h2 className="mb-3 text-lg font-semibold">{uiT("Usage by workspace")}</h2><Table><TableHeader><TableRow><TableHead>{uiT("Workspace")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead className="hidden sm:table-cell">Tokens</TableHead><TableHead className="hidden md:table-cell">{uiT("Customer charges")}</TableHead></TableRow></TableHeader><TableBody>{pages.map(({workspace,page})=><TableRow key={workspace.id}><TableCell><Link className="font-medium hover:underline" to={`/activity?workspace=${encodeURIComponent(scopeSegment(workspace, workspaces))}`}>{name(workspace)}</Link>{workspace.organization_name && <p className="text-xs text-muted-foreground">{workspace.organization_name}</p>}</TableCell><TableCell>{page.summary.request_count.toLocaleString(readUILocale())}</TableCell><TableCell className="hidden sm:table-cell">{page.summary.request_count > 0 && page.summary.usage_count === 0 ? uiT("Unknown") : (BigInt(page.summary.prompt_tokens)+BigInt(page.summary.completion_tokens)).toLocaleString(readUILocale())}<p className="mt-1 text-xs text-muted-foreground">{page.summary.usage_count.toLocaleString(readUILocale())}{" "}{uiT("reported ·")}{" "}{(page.summary.request_count-page.summary.usage_count).toLocaleString(readUILocale())}{" "}{uiT("unknown")}</p></TableCell><TableCell className="hidden md:table-cell">{[...page.summary.customer_charges.map(charge=>money(charge.amount_nanos,charge.currency)), ...[...unitCharges(page.summary).values()].map(unit=>formatUnitAtoms(unit.amount.toString(),unit.name,unit.precision))].join(' · ') || uiT("No settled charges")}</TableCell></TableRow>)}</TableBody></Table></section>
       </> : <section aria-label={uiT("Requests across workspaces")} className="min-w-0"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">{uiT("Requests")}</h2><span className="text-sm text-muted-foreground">{rows.length.toLocaleString(readUILocale())}{" "}{uiT("loaded · newest first · all time")}</span></div><Table><TableHeader><TableRow><TableHead className="hidden sm:table-cell">{uiT("Time")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Workspace")}</TableHead><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead className="hidden md:table-cell">Tokens</TableHead><TableHead className="hidden md:table-cell">{uiT("Customer charge")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(({workspace,request})=><TableRow key={`${workspace.id}:${request.attempt_id}`} tabIndex={0} className="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]" aria-label={uiF("Open {0} request in {1} at {2}", [request.model, name(workspace), new Date(request.created_at).toLocaleString(readUILocale())])} onClick={event => {if (!(event.target as HTMLElement).closest('a, button')) navigate(`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`);}} onKeyDown={event => {if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {event.preventDefault(); navigate(`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`);}}}><TableCell className="hidden whitespace-nowrap sm:table-cell">{new Date(request.created_at).toLocaleString(readUILocale())}</TableCell><TableCell className="hidden sm:table-cell">{name(workspace)}</TableCell><TableCell className="max-w-52 whitespace-normal break-words"><Link className="font-medium hover:underline" aria-label={uiF("Open {0} request in {1} at {2}", [request.model, name(workspace), new Date(request.created_at).toLocaleString(readUILocale())])} to={`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`}>{request.model}</Link><p className="mt-1 text-xs text-muted-foreground sm:hidden">{name(workspace)} · {new Date(request.created_at).toLocaleString(readUILocale())}</p></TableCell><TableCell><span className={`gateway-table-status ${request.execution === 'confirmed_completed' ? 'is-complete' : request.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`}>{({confirmed_completed:'Completed',confirmed_not_executed:'Not executed',may_have_executed:'Unresolved',not_sent:'Not sent',output_withheld:'Output withheld',delivery_failed:'Delivery failed'} as Record<string,string>)[request.execution] ?? uiT("Unknown")}</span><p className="mt-1 text-xs text-muted-foreground md:hidden">{chargeLabel(request)}</p></TableCell><TableCell className="hidden md:table-cell">{request.prompt_tokens !== null && request.completion_tokens !== null ? (BigInt(request.prompt_tokens)+BigInt(request.completion_tokens)).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell className="hidden md:table-cell">{chargeLabel(request)}</TableCell></TableRow>)}</TableBody></Table>{!rows.length && <p className="py-6 text-sm text-muted-foreground">{uiT("No requests recorded by Niu.")}</p>}{pages.some(item=>item.page.next_cursor) && <Button className="mt-4" variant="outline" disabled={older} onClick={()=>void loadOlder()}>{older ? uiT("Loading…") : uiT("Load older requests")}</Button>}</section>}
     </>}
   </div>;

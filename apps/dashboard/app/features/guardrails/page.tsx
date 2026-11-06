@@ -1,21 +1,12 @@
 import { translateUI } from '@/shell/ui-locale';
-import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams, type LoaderFunctionArgs } from "react-router";
+import { useLocation, useNavigate, useSearchParams, type LoaderFunctionArgs } from "react-router";
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from "@/lib/route-data";
-import { IconHistory, IconShieldOff } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import ContentRules from "./ContentRules";
 import ExternalDetectors, { type DetectorBinding } from "./ExternalDetectors";
 import { contentRulesError, type ContentRule } from "./rules";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
 import GuardrailHistory from "./History";
 import GuardrailDenials from "./Denials";
 import ConnectGate from "@/shell/ConnectGate";
@@ -27,13 +18,11 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +49,7 @@ type Policy = {
   [field: string]: unknown;
 };
 type Head = { revision: number; policy: Policy };
+type GuardrailsTab = "policy" | "blocked" | "history";
 const labels = {
   inherit: "No additional restriction",
   allow_all: "Allow all",
@@ -72,11 +62,6 @@ const emptyPolicy = (): Policy => ({
   models: { mode: "inherit" },
   providers: { mode: "inherit" },
 });
-const describe = (rule: Rule) =>
-  rule.mode === "allow_list"
-    ? formatLocalizedMessage('{0} allowed', [rule.values?.length ?? 0], readLocale())
-    : translateUI(labels[rule.mode]);
-
 function validateHead(raw: unknown): Head | null {
   if (raw === null) return null;
   if (
@@ -102,14 +87,23 @@ function readCachedHead(token: string, endpoint: string): { data: Head | null } 
   try {
     return { data: validateHead(cached.data) };
   } catch {
-    return undefined;
+    return undefined; // A corrupt cache entry is optional; the network read below reports failures.
   }
 }
 
+function requestedTab(value: string | null): GuardrailsTab {
+  if (value === "history") return "history";
+  if (value === "blocked" || value === "denials") return "blocked";
+  return "policy";
+}
+
 function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const { workspace, models } = useDashboardContext();
-  const { section } = useParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = requestedTab(searchParams.get("tab"));
   const endpoint = workspace
     ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/guardrails`
     : "";
@@ -175,14 +169,40 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       });
     return () => controller.abort();
   }, [endpoint, token, reload]);
+  useEffect(() => {
+    if (tab !== "policy" || !loaded || !location.hash) return;
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView?.({ block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tab, loaded, location.hash]);
   const changed =
     JSON.stringify(draft) !== JSON.stringify(head?.policy ?? emptyPolicy());
   function update(field: "models" | "providers", rule: Rule) {
     setSaved(false);
     setDraft((current) => ({ ...current, [field]: rule }));
   }
+  function selectTab(next: string) {
+    const query = new URLSearchParams(searchParams);
+    query.set("tab", next);
+    if (next !== "history") {
+      query.delete("revision");
+      query.delete("from");
+    }
+    navigate({
+      pathname: location.pathname,
+      search: `?${query.toString()}`,
+      hash: "",
+    });
+  }
   async function save() {
     if (!endpoint || !canWrite || saving || loading || !loaded || conflicted) return;
+    if ((draft.models.mode === 'allow_list' && !draft.models.values?.length) || (draft.providers.mode === 'allow_list' && !draft.providers.values?.length)) {
+      setError('Choose at least one model or Provider when using an allow-selected restriction.');
+      return;
+    }
     setSaving(true);
     setError("");
     setSaved(false);
@@ -214,220 +234,40 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     contentRulesError(draft.output?.rules ?? []) ||
     (draft.output && !draft.output.rules.length ? "Add an output rule or remove output inspection." : "");
   const invalidSections = [
-    { label: 'Name and access', route: 'access', error: !draft.name.trim() ? 'Enter a policy name.' : '' },
-    { label: 'Input rules', route: 'input', error: contentRulesError(draft.input_rules ?? []) },
-    { label: 'Output rules', route: 'output', error: contentRulesError(draft.output?.rules ?? []) || (draft.output && !draft.output.rules.length ? 'Add an output rule or remove output inspection.' : '') },
+    { label: uiT('Policy name'), anchor: 'policy-name', error: !draft.name.trim() ? uiT('Enter a policy name.') : '' },
+    { label: uiT('Input rules'), anchor: 'input', error: contentRulesError(draft.input_rules ?? []) },
+    { label: uiT('Output rules'), anchor: 'output', error: contentRulesError(draft.output?.rules ?? []) || (draft.output && !draft.output.rules.length ? uiT('Add an output rule or remove output inspection.') : '') },
   ].filter(item => item.error);
-
-  const pendingSections = [
-    {label:'Name and access',route:'access',changed:draft.name !== original.name || JSON.stringify(draft.models) !== JSON.stringify(original.models) || JSON.stringify(draft.providers) !== JSON.stringify(original.providers)},
-    {label:'Input rules',route:'input',changed:JSON.stringify(draft.input_rules ?? []) !== JSON.stringify(original.input_rules ?? [])},
-    {label:'External input checks',route:'detectors',changed:JSON.stringify(draft.input_detectors ?? []) !== JSON.stringify(original.input_detectors ?? [])},
-    {label:'Output rules',route:'output',changed:JSON.stringify(draft.output) !== JSON.stringify(original.output)},
-  ].filter(item=>item.changed);
   const pendingNotice = loaded && changed && <Alert className="mb-4" role="region" aria-label={uiT("Unsaved policy changes")}><AlertDescription>
-    <p>{uiT("Unsaved workspace policy changes. Saving applies all changed sections:")}</p>
-    <ul className="my-2 list-disc pl-5">{pendingSections.map(item=><li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">{uiT("Review")}{" "}{item.label}</Link></li>)}</ul>
-    {draft.name !== original.name && <p>{uiT("Policy name:")}{" "}{draft.name || uiT("Name required")}</p>}
-    {invalidSections.length > 0 && <div className="my-2 text-destructive"><p>{uiT("Resolve these changes before saving:")}</p><ul className="list-disc pl-5">{invalidSections.map(item => <li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">{item.label}</Link>: {item.error}</li>)}</ul></div>}
+    <p>{uiT("Unsaved workspace policy changes. Saving applies every change on this page.")}</p>
+    {invalidSections.length > 0 && <div className="my-2 text-destructive"><p>{uiT("Resolve these changes before saving:")}</p><ul className="list-disc pl-5">{invalidSections.map(item => <li key={item.anchor}><a className="underline underline-offset-4" href={`#${item.anchor}`}>{item.label}</a>: {uiT(item.error)}</li>)}</ul></div>}
     <Button variant="outline" size="sm" disabled={saving} onClick={()=>{setDraft(original);setError('');setSaved(false);}}>{uiT("Discard all changes")}</Button>
   </AlertDescription></Alert>;
+  function modeHelp(mode: Rule["mode"], kind: "models" | "providers"): string {
+    if (mode === "allow_list") {
+      return kind === "models"
+        ? uiT("Only selected models are allowed. Key grants still apply; a request must satisfy both.")
+        : uiT("Only selected Providers are allowed. Key grants still apply; a request must satisfy both.");
+    }
+    if (mode === "deny_all") {
+      return kind === "models"
+        ? uiT("All model requests are blocked regardless of key grants.")
+        : uiT("All Provider requests are blocked regardless of key grants.");
+    }
+    return kind === "models"
+      ? uiT("Key grants still apply. This policy adds no model restriction.")
+      : uiT("Key grants still apply. This policy adds no Provider restriction.");
+  }
+
   if (!workspace) return null;
-  if (section === "denials")
-    return <>{pendingNotice}<GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} /></>;
-  if (section === "history")
-    return (
-      <>{pendingNotice}{changed && <p className="mb-4 text-sm text-muted-foreground">{uiT("Save or discard your draft before restoring another policy version.")}</p>}<GuardrailHistory token={token} endpoint={endpoint} canWrite={canWrite && !changed} onRestored={()=>{setSaved(false);setReload(value=>value+1);}} /></>
-    );
-  if (section && !["access", "policy", "input", "output", "detectors"].includes(section))
-    return <p>{uiT("This Guardrails section is unavailable.")}</p>;
-  if (loading && !loaded) return <FormSectionSkeleton fields={4} label={uiT("Loading Guardrails…")} />;
-  if (!loaded)
-    return (
-      <div className="guardrails-page">
-        <PageHeader title={uiT("Guardrails")} />
-        <Alert variant="destructive">
-          <AlertDescription>
-            {error || uiT("Could not load Guardrails.")}{" "}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setReload((value) => value + 1)}
-            >
-              {uiT("Reload")}</Button>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
   const disabledSave =
     conflicted ||
     !canWrite ||
     saving ||
+    !loaded ||
     !changed ||
     !draft.name.trim() ||
     Boolean(invalidRules);
-  if (section === "policy")
-    return (
-      <div className="guardrails-page">
-        <PageHeader
-          title={uiT("Workspace policy")}
-          action={
-            <Button asChild variant="outline" className="header-icon-action">
-              <Link to="../history" relative="path" aria-label={uiT("History")} title={uiT("History")}>
-                <IconHistory aria-hidden="true" /><span>{uiT("History")}</span>
-              </Link>
-            </Button>
-          }
-        />
-        
-        <h2 className="guardrails-history-title">
-          {head?.policy.name ?? uiT("Workspace default")}
-        </h2>
-        <p className="guardrails-intro">
-          {uiT("This policy applies to every workspace API key.")}</p>
-        {pendingNotice}
-        <div className="guardrails-policy-sections">
-          <Link to="../access" relative="path">
-            <Card>
-              <CardHeader>
-                <CardTitle>{uiT("Model & Provider Access")}</CardTitle>
-                <CardDescription>
-                  {uiT("Control which models and API services are available.")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Badge variant="secondary">
-                  {head &&
-                  [head.policy.models, head.policy.providers].some(
-                    (rule) =>
-                      rule.mode === "allow_list" || rule.mode === "deny_all",
-                  )
-                    ? uiT("Configured")
-                    : uiT("No restrictions")}
-                </Badge>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link to="../input" relative="path">
-            <Card>
-              <CardHeader>
-                <CardTitle>{uiT("Input rules")}</CardTitle>
-                <CardDescription>
-                  {uiT("Block or redact matching text before sending a request.")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Badge variant="secondary">
-                  {head?.policy.input_rules?.length
-                    ? uiT("Configured")
-                    : uiT("Not configured")}
-                </Badge>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link to="../detectors" relative="path">
-            <Card><CardHeader><CardTitle>{uiT("External input checks")}</CardTitle><CardDescription>{uiT("Review processing conditions and require a configured detector.")}</CardDescription></CardHeader><CardContent><Badge variant="secondary">{head?.policy.input_detectors?.length ? uiT("Configured") : uiT("Not configured")}</Badge></CardContent></Card>
-          </Link>
-          <Link to="../output" relative="path">
-            <Card>
-              <CardHeader>
-                <CardTitle>{uiT("Output rules")}</CardTitle>
-                <CardDescription>
-                  {head?.policy.output?.mode === "observe_only"
-                    ? uiT("Record rule matches without blocking or changing responses.")
-                    : uiT("Inspect complete generated text before delivery.")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Badge variant="secondary">
-                  {head?.policy.output
-                    ? head.policy.output.mode === "observe_only"
-                      ? uiT("Observe only")
-                      : uiT("Enforced")
-                    : uiT("Not configured")}
-                </Badge>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-      </div>
-    );
-  if (section === "detectors") return <div className="guardrails-page">
-    <PageHeader title={uiT("External input checks")} action={<Button disabled={disabledSave} onClick={() => void save()}>{saving ? uiT("Saving…") : uiT("Save all changes")}</Button>} />
-    
-    {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" size="sm" disabled={saving} onClick={() => setReload(value => value + 1)}>{uiT("Reload")}</Button></AlertDescription></Alert>}
-    {pendingNotice}
-    {saved && <p role="status">{uiT("Policy saved.")}</p>}
-    
-    <ExternalDetectors key={`${token}:${endpoint}`} token={token} endpoint={endpoint} bindings={draft.input_detectors ?? []} disabled={!canWrite || saving} onChange={bindings => { setSaved(false); setDraft(current => { const next = { ...current }; if (bindings.length) next.input_detectors = bindings; else delete next.input_detectors; return next; }); }} />
-  </div>;
-  if (section === "input" || section === "output")
-    return (
-      <div className="guardrails-page">
-        <PageHeader
-          title={section === "input" ? uiT("Input rules") : uiT("Output rules")}
-          action={
-            <Button disabled={disabledSave} onClick={() => void save()}>
-              {saving ? uiT("Saving…") : uiT("Save all changes")}
-            </Button>
-          }
-        />
-        
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {error}{" "}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={saving}
-                onClick={() => setReload((value) => value + 1)}
-              >
-                {uiT("Reload")}</Button>
-            </AlertDescription>
-          </Alert>
-        )}
-        {pendingNotice}
-    {saved && <p role="status">{uiT("Policy saved.")}</p>}
-        {section === "output" && <div className="mb-6 grid justify-items-start gap-2">
-          <Label htmlFor="guardrail-output-mode">{uiT("Output inspection mode")}</Label>
-          <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button id="guardrail-output-mode" variant="outline" aria-label={uiT("Output inspection mode")} disabled={!canWrite || saving}>{draft.output?.mode === "observe_only" ? uiT("Observe only") : uiT("Enforce · buffered output")}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draft.output?.mode ?? "buffered_full"} onValueChange={(mode) => {
-            setSaved(false);
-            setDraft(current => ({ ...current, output: { mode: mode as "buffered_full" | "observe_only", rules: current.output?.rules ?? [] } }));
-          }}>
-            <DropdownMenuRadioItem value="buffered_full">{uiT("Enforce · buffered output")}</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="observe_only">{uiT("Observe only")}</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup></DropdownMenuContent>
-        </DropdownMenu></div>}
-        <ContentRules
-          key={section}
-          stage={section}
-          outputMode={draft.output?.mode ?? "buffered_full"}
-          rules={
-            (section === "input" ? draft.input_rules : draft.output?.rules) ??
-            []
-          }
-          disabled={!canWrite || saving}
-          token={token}
-          endpoint={endpoint}
-          onChange={(rules) => {
-            setSaved(false);
-            setDraft((current) => {
-              const next = { ...current };
-              if (section === "input") {
-                if (rules.length) next.input_rules = rules;
-                else delete next.input_rules;
-              } else {
-                if (rules.length)
-                  next.output = { mode: current.output?.mode ?? "buffered_full", rules };
-                else delete next.output;
-              }
-              return next;
-            });
-          }}
-        />
-      </div>
-    );
   const modelChoices = [
     ...new Set([
       ...models.map((model) => model.id),
@@ -442,33 +282,33 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       ...(draft.providers.values ?? []),
     ]),
   ].sort();
-  const filterChoices =
-    section === "access"
-      ? modelChoices.filter((model) =>
-          model.toLowerCase().includes(search.toLowerCase()),
-        )
-      : [];
-  return (
-    <div className="guardrails-page">
-      <PageHeader
-        title={section ? uiT("Model & Provider Access") : uiT("Guardrails")}
-        action={
-          !section ? (
-            <><Button asChild variant="outline" className="header-icon-action"><Link to="denials" aria-label={uiT("Blocked requests")} title={uiT("Blocked requests")}><IconShieldOff aria-hidden="true" /><span>{uiT("Blocked requests")}</span></Link></Button><Button asChild variant="outline" className="header-icon-action"><Link to="history" aria-label={uiT("History")} title={uiT("History")}><IconHistory aria-hidden="true" /><span>{uiT("History")}</span></Link></Button></>
-          ) : (
-            <Button disabled={disabledSave} onClick={() => void save()}>
-              {saving ? uiT("Saving…") : uiT("Save all changes")}
-            </Button>
-          )
-        }
-      />
+  const filterChoices = modelChoices.filter((model) =>
+    model.toLowerCase().includes(search.toLowerCase()),
+  );
+  const policyContent = loading && !loaded ? (
+    <FormSectionSkeleton fields={4} label={uiT("Loading Guardrails…")} />
+  ) : !loaded ? (
+    <Alert variant="destructive">
+      <AlertDescription>
+        {error || uiT("Could not load Guardrails.")}{" "}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setReload((value) => value + 1)}
+        >
+          {uiT("Reload")}</Button>
+      </AlertDescription>
+    </Alert>
+  ) : (
+    <>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>
-            {error}{" "}
+            {uiT(error)}{" "}
             <Button
               variant="outline"
               size="sm"
+              disabled={saving}
               onClick={() => setReload((value) => value + 1)}
             >
               {uiT("Reload")}</Button>
@@ -476,94 +316,51 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         </Alert>
       )}
       {pendingNotice}
-    {saved && <p role="status">{uiT("Policy saved.")}</p>}
+      {saved && <p role="status">{uiT("Policy saved.")}</p>}
       {invalidRules && (
         <Alert variant="destructive">
           <AlertDescription>
             {uiT("Complete your input and output patterns before saving.")}</AlertDescription>
         </Alert>
       )}
-      {!section ? (
-        <>
-          <p className="guardrails-intro">
-            {uiT("Workspace policies apply to every API key. Key permissions remain enforced.")}</p>
-          <Table className="guardrails-policy-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead>{uiT("Name")}</TableHead>
-                <TableHead>{uiT("Status")}</TableHead>
-                <TableHead className="guardrails-policy-metadata">{uiT("Policies")}</TableHead>
-                <TableHead className="guardrails-policy-metadata">{uiT("API keys")}</TableHead>
-                <TableHead className="guardrails-policy-metadata">
-                  <span className="sr-only">{uiT("Actions")}</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell>
-                  <Link to="policy" className="guardrails-policy-link">
-                    {head?.policy.name ?? uiT("Workspace default")}
-                  </Link>
-                  <p className="guardrails-muted">
-                    {uiT("Default policy for this workspace")}</p>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">
-                    {head ? uiT("Active") : uiT("Not configured")}
-                  </Badge>
-                </TableCell>
-                <TableCell className="guardrails-policy-metadata">
-                  {head ? (
-                    <>
-                      <p>{uiT("Models:")}{" "}{describe(head.policy.models)}</p>
-                      <p>{uiT("Providers:")}{" "}{describe(head.policy.providers)}</p>
-                    </>
-                  ) : (
-                    uiT("No restrictions")
-                  )}
-                  {Boolean(head?.policy.input_rules?.length) && (
-                    <p>{uiT("Input rules")}</p>
-                  )}
-                  {Boolean(head?.policy.input_detectors?.length) && <p>{uiT("Required external input checks")}</p>}
-                  {head?.policy.output && <p>{head.policy.output.mode === "observe_only" ? uiT("Output observation rules") : uiT("Buffered output rules")}</p>}
-                </TableCell>
-                <TableCell className="guardrails-policy-metadata">{uiT("All")}</TableCell>
-                <TableCell className="guardrails-policy-metadata">
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="policy">{canWrite ? uiT("Configure") : uiT("View")}</Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </>
-      ) : (
-        <>
-          
-          <p className="guardrails-intro">
-            {uiT("Control which models and API providers can be used by workspace keys.")}</p>
-          <section className="guardrails-section">
-            <Label htmlFor="guardrail-name">{uiT("Policy name")}</Label>
-            <Input
-              id="guardrail-name"
-              value={draft.name}
-              maxLength={200}
-              disabled={!canWrite || saving}
-              onChange={(event) => {
-                setSaved(false);
-                setDraft((current) => ({
-                  ...current,
-                  name: event.target.value,
-                }));
-              }}
-            />
-          </section>
-          <section
-            className="guardrails-section"
-            aria-labelledby="guardrail-models-title"
-          >
-            <h2 id="guardrail-models-title">{uiT("Models")}</h2>
+      <div className="guardrails-policy-summary">
+        <div>
+          <h2>{uiT("Workspace policy")}</h2>
+          <p className="guardrails-muted">{uiT("This policy applies to every workspace API key.")}</p>
+        </div>
+        <Badge variant="secondary">
+          {head ? uiF("{0} · Version {1}", [uiT("Active"), head.revision]) : uiT("Not configured")}
+        </Badge>
+      </div>
+      <section id="policy-name" className="guardrails-section scroll-mt-24">
+        <Label htmlFor="guardrail-name">{uiT("Policy name")}</Label>
+        <Input
+          id="guardrail-name"
+          value={draft.name}
+          maxLength={200}
+          disabled={!canWrite || saving}
+          aria-invalid={!draft.name.trim()}
+          aria-describedby={!draft.name.trim() ? "guardrail-name-error" : undefined}
+          onChange={(event) => {
+            setSaved(false);
+            setDraft((current) => ({
+              ...current,
+              name: event.target.value,
+            }));
+          }}
+        />
+        {!draft.name.trim() && <p id="guardrail-name-error" role="alert" className="text-sm text-destructive">{uiT("Enter a policy name.")}</p>}
+      </section>
+      <section
+        id="access"
+        className="guardrails-section guardrails-access-section guardrails-content-section scroll-mt-24"
+        aria-labelledby="guardrail-access-title"
+      >
+        <h2 id="guardrail-access-title">{uiT("Model & Provider Access")}</h2>
+        <p className="guardrails-muted">{uiT("Control which models and API providers can be used by workspace keys.")}</p>
+        <div className="guardrails-access-grid">
+          <div>
+            <h3>{uiT("Models")}</h3>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -587,14 +384,15 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                     })
                   }
                 >
-                  {Object.entries(labels).map(([mode, label]) => (
+                  {Object.entries(labels).filter(([mode]) => mode !== 'allow_all').map(([mode, label]) => (
                     <DropdownMenuRadioItem key={mode} value={mode}>
-                      {label}
+                      {translateUI(label)}
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+            <p className="text-sm text-muted-foreground">{modeHelp(draft.models.mode, "models")}</p>
             {draft.models.mode === "allow_list" && (
               <>
                 <DropdownMenu>
@@ -650,12 +448,9 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 </p>
               </>
             )}
-          </section>
-          <section
-            className="guardrails-section"
-            aria-labelledby="guardrail-providers-title"
-          >
-            <h2 id="guardrail-providers-title">{uiT("Providers")}</h2>
+          </div>
+          <div>
+            <h3>{uiT("Providers")}</h3>
             <p className="guardrails-muted">
               {uiT("Limit the API services used for requests.")}</p>
             <DropdownMenu>
@@ -681,14 +476,15 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                     })
                   }
                 >
-                  {Object.entries(labels).map(([mode, label]) => (
+                  {Object.entries(labels).filter(([mode]) => mode !== 'allow_all').map(([mode, label]) => (
                     <DropdownMenuRadioItem key={mode} value={mode}>
-                      {label}
+                      {translateUI(label)}
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+            <p className="text-sm text-muted-foreground">{modeHelp(draft.providers.mode, "providers")}</p>
             {draft.providers.mode === "allow_list" && (
               <>
                 <DropdownMenu>
@@ -719,8 +515,10 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                       </DropdownMenuCheckboxItem>
                     ))}
                     {!providerChoices.length && (
-                      <p className="guardrails-muted">
-                        {uiT("No configured providers.")}</p>
+                      <div className="guardrails-muted space-y-1 px-2 py-1">
+                        <p>{uiT("No Provider is available to this workspace's policy yet.")}</p>
+                        <p>{uiT("This can mean no Provider is connected, no model route is eligible, or your role cannot see platform supply. Ask an installation administrator to confirm the workspace route and Provider access.")}</p>
+                      </div>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -731,9 +529,146 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 </p>
               </>
             )}
-          </section>
-        </>
+          </div>
+        </div>
+      </section>
+      <section
+        id="input"
+        className="guardrails-section guardrails-content-section scroll-mt-24"
+        aria-labelledby="guardrail-input-title"
+      >
+        <h2 id="guardrail-input-title">{uiT("Input rules")}</h2>
+        <p className="guardrails-muted">{uiT("Block or redact matching text before sending a request.")}</p>
+        <ContentRules
+          showHeading={false}
+          stage="input"
+          rules={draft.input_rules ?? []}
+          disabled={!canWrite || saving}
+          token={token}
+          endpoint={endpoint}
+          onChange={(rules) => {
+            setSaved(false);
+            setDraft((current) => {
+              const next = { ...current };
+              if (rules.length) next.input_rules = rules;
+              else delete next.input_rules;
+              return next;
+            });
+          }}
+        />
+      </section>
+      <section
+        id="output"
+        className="guardrails-section guardrails-content-section scroll-mt-24"
+        aria-labelledby="guardrail-output-title"
+      >
+        <h2 id="guardrail-output-title">{uiT("Output rules")}</h2>
+        <p className="guardrails-muted">
+          {draft.output?.mode === "observe_only"
+            ? uiT("Record rule matches without blocking or changing responses.")
+            : uiT("Inspect complete generated text before delivery.")}
+        </p>
+        <div className="grid justify-items-start gap-2">
+          <Label htmlFor="guardrail-output-mode">{uiT("Output inspection mode")}</Label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button id="guardrail-output-mode" variant="outline" aria-label={uiT("Output inspection mode")} disabled={!canWrite || saving}>{draft.output?.mode === "observe_only" ? uiT("Observe only") : uiT("Enforce · buffered output")}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draft.output?.mode ?? "buffered_full"} onValueChange={(mode) => {
+              setSaved(false);
+              setDraft(current => ({ ...current, output: { mode: mode as "buffered_full" | "observe_only", rules: current.output?.rules ?? [] } }));
+            }}>
+              <DropdownMenuRadioItem value="buffered_full">{uiT("Enforce · buffered output")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="observe_only">{uiT("Observe only")}</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <ContentRules
+          showHeading={false}
+          stage="output"
+          outputMode={draft.output?.mode ?? "buffered_full"}
+          rules={draft.output?.rules ?? []}
+          disabled={!canWrite || saving}
+          token={token}
+          endpoint={endpoint}
+          onChange={(rules) => {
+            setSaved(false);
+            setDraft((current) => {
+              const next = { ...current };
+              if (rules.length)
+                next.output = { mode: current.output?.mode ?? "buffered_full", rules };
+              else delete next.output;
+              return next;
+            });
+          }}
+        />
+      </section>
+      <section
+        id="detectors"
+        className="guardrails-section guardrails-content-section scroll-mt-24"
+        aria-labelledby="guardrail-detectors-title"
+      >
+        <h2 id="guardrail-detectors-title">{uiT("External input checks")}</h2>
+        <p className="guardrails-muted">{uiT("Review processing conditions and require a configured detector.")}</p>
+        <ExternalDetectors
+          key={`${token}:${endpoint}`}
+          token={token}
+          endpoint={endpoint}
+          bindings={draft.input_detectors ?? []}
+          disabled={!canWrite || saving}
+          onChange={bindings => {
+            setSaved(false);
+            setDraft(current => {
+              const next = { ...current };
+              if (bindings.length) next.input_detectors = bindings;
+              else delete next.input_detectors;
+              return next;
+            });
+          }}
+        />
+      </section>
+    </>
+  );
+
+  return (
+    <div className="guardrails-page">
+      {tab === "policy" && loaded && (
+        <PageHeader
+          title={uiT("Guardrails")}
+          action={
+            <Button disabled={disabledSave} onClick={() => void save()} aria-label={uiT("Save all changes")}>
+              <span className="hidden sm:inline">{saving ? uiT("Saving…") : uiT("Save all changes")}</span>
+              <span className="sm:hidden">{saving ? uiT("Saving…") : uiT("Save")}</span>
+            </Button>
+          }
+        />
       )}
+      <Tabs value={tab} onValueChange={selectTab} className="gap-4">
+        <TabsList variant="line" aria-label={uiT("Guardrails")}>
+          <TabsTrigger
+            value="policy"
+            aria-label={loaded && changed ? `${uiT("Policy")}, ${uiT("Unsaved changes")}` : uiT("Policy")}
+          >
+            {uiT("Policy")}
+            {loaded && changed && (
+              <>
+                <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
+                <span className="sr-only">{uiT("Unsaved changes")}</span>
+              </>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="blocked">{uiT("Blocked requests")}</TabsTrigger>
+          <TabsTrigger value="history">{uiT("History")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="policy" className="space-y-4">
+          {policyContent}
+        </TabsContent>
+        <TabsContent value="blocked">
+          <GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} />
+        </TabsContent>
+        <TabsContent value="history" className="space-y-4">
+          {changed && <p className="text-sm text-muted-foreground">{uiT("Save or discard your draft before restoring another policy version.")}</p>}
+          <GuardrailHistory token={token} endpoint={endpoint} canWrite={canWrite && !changed} onRestored={()=>{setSaved(false);setReload(value=>value+1);}} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "react-router dev --host 0.0.0.0",
     "build": "pnpm check:i18n:new && pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b && react-router build",
-    "check": "pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b --pretty false",
-    "lint": "pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b --pretty false && node scripts/check-hygiene.mjs",
+    "check": "pnpm --dir ../../sdks/javascript build && react-router typegen && tsc -b --pretty false && pnpm lint",
+    "lint": "node scripts/check-hygiene.mjs && node scripts/check-module-size.mjs && node scripts/lint.mjs && node scripts/check-css-usage.mjs",
+    "lint:update-baseline": "node scripts/lint.mjs --update-baseline",
     "test": "vitest run",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:i18n:new": "node scripts/check-i18n.mjs --new",
@@ -34,6 +35,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.5",
     "@react-router/dev": "8.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.3",

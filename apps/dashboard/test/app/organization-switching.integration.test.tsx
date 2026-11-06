@@ -42,11 +42,11 @@ describe('organization switching', () => {
     await screen.findByRole('heading', { name: 'API keys' });
     await waitFor(() => expect(requests.some(item => item.path === '/api/v1/models?organization_id=org-2&project_id=project-2')).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Manage organizations' }));
-    await screen.findByRole('heading', { name: 'Organization settings' });
-    expect(screen.getByText('Research', { exact: true })).toBeTruthy();
+    await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
+    await screen.findByRole('heading', { name: 'Organization', level: 1 });
+    expect(await screen.findByText('Research', { exact: true })).toBeTruthy();
     expect(screen.queryByText('Acme', { exact: true })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Users for Shared name' }).getAttribute('href')).toBe('/workspaces/shared-name-project2/users');
+    expect(screen.getByRole('link', { name: 'Users for Shared name' }).getAttribute('href')).toBe('/settings/members?workspace=shared-name-project2');
     await user.click(screen.getByRole('link', { name: 'Shared name', exact: true }));
     await screen.findByRole('heading', { name: 'Overview' });
     await user.click(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'API keys', exact: true }));
@@ -69,15 +69,15 @@ describe('organization switching', () => {
     expect(screen.queryByRole('menuitemradio')).toBeNull();
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Manage organizations' }));
-    await screen.findByRole('heading', { name: 'Organization settings' });
-    await user.click(screen.getByRole('button', { name: 'Create workspace' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
+    await screen.findByRole('heading', { name: 'Organization', level: 1 });
+    await user.click(await screen.findByRole('button', { name: 'Create workspace' }));
     const dialog = await screen.findByRole('dialog', { name: 'Create workspace' });
     expect(within(dialog).getByText(/In New organization/)).toBeTruthy();
     await user.type(within(dialog).getByLabelText('Workspace name'), 'First workspace');
     await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
     await waitFor(() => expect(requests.some(item => item.body === JSON.stringify({ name: 'First workspace', slug: 'first-workspace', organization_id: 'org-3' }))).toBe(true));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/first-workspace/organization'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/first-workspace'));
   });
 
   it('creates an organization from the account menu, switches operator sessions by slug, renames, claims memberships, and handles revoked access', async () => {
@@ -203,13 +203,12 @@ describe('organization switching', () => {
     // Self-service organization creation is available from organization settings.
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     expect(screen.queryByRole('menuitem', { name: 'Create organization' })).toBeNull();
-    await user.click(screen.getByRole('menuitem', { name: 'Manage organizations' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
     await user.click(await screen.findByRole('button', { name: 'Create organization' }));
     const createDialog = await screen.findByRole('dialog', { name: 'Create organization' });
     expect(within(createDialog).getByText(/New organizations start with 0 credits/)).toBeTruthy();
     await user.type(within(createDialog).getByLabelText('Organization name'), 'Studio Alpha');
     expect((within(createDialog).getByLabelText('Slug') as HTMLInputElement).value).toBe('studio-alpha');
-    await user.clear(within(createDialog).getByLabelText(/Initial workspace/));
     await user.click(within(createDialog).getByRole('button', { name: 'Create organization' }));
 
     await waitFor(() => {
@@ -218,10 +217,10 @@ describe('organization switching', () => {
       expect(createReq?.headers.get('idempotency-key')).toBeTruthy();
       expect(createReq?.body).toEqual({ name: 'Studio Alpha', slug: 'studio-alpha' });
     });
-    await screen.findByRole('heading', { name: 'Organization settings' });
+    await screen.findByRole('heading', { name: 'Organization', level: 1 });
     expect(router.state.location.search).toContain('organization=studio-alpha');
     expect(await screen.findByText('Studio Alpha', { exact: true })).toBeTruthy();
-    expect(screen.getByText('studio-alpha', { exact: true })).toBeTruthy();
+    expect(await screen.findByText('studio-alpha', { exact: true })).toBeTruthy();
 
     // Rename the organization in Organization settings
     const renameInput = screen.getByLabelText('Update organization name');

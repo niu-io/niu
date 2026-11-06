@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -37,9 +37,21 @@ it('recovers catalog failures using the saved private connection, without saving
   await user.click(screen.getByRole('button',{name:'Retry model import'}));
   await screen.findByRole('link',{name:'View models'});
   const writes=vi.mocked(request).mock.calls.filter(([,path,method])=>path==='/api/v1/vendors'&&method==='POST');
-  expect(writes).toHaveLength(1);expect(writes[0][3]).toMatchObject({personal_organization_id:'account',api_key:'private-key',adapter:'openai',api_base:'https://api.deepseek.com'});
+  expect(writes).toHaveLength(1);expect(writes[0][3]).toMatchObject({personal_organization_id:'account',access_scope:'internal',api_key:'private-key',adapter:'openai',api_base:'https://api.deepseek.com'});
   expect(refreshWorkspace).toHaveBeenCalledOnce();
 });
+it('allows an explicit private scope instead of silently binding to every internal workspace', async () => {
+  vi.mocked(request).mockImplementation(async (_token,path) => path.endsWith('/supplier') ? {data:{id:'private-owner'}} : path.endsWith('/integration') ? {data:{effective_type:'deepseek',revision:0}} : path.endsWith('/import') ? {data:{imported:1,discovered:1}} : {data:{id:'private-key',revision:1}});
+  const {user}=show();
+  await user.type(screen.getByLabelText('Provider API key'),'private-key');
+  await user.click(screen.getByRole('button',{name:/All internal workspaces/}));
+  await user.click(await screen.findByRole('menuitemradio',{name:'Only Personal account'}));
+  expect(screen.getByRole('button',{name:/Only Personal account/})).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Connect and import models'}));
+  await screen.findByRole('link',{name:'View models'});
+  expect(vi.mocked(request).mock.calls[0][3]).toMatchObject({access_scope:'personal',personal_organization_id:'account'});
+});
+
 it('blocks blind replay after uncertain key creation and clears the secret', async () => {
   vi.mocked(request).mockRejectedValue(new TypeError('Network failure'));
   const {user}=show();await user.type(screen.getByLabelText('Provider API key'),'private-key');
@@ -58,4 +70,29 @@ it('discovers commercial models without presenting them as ready to sell', async
   expect(screen.getByRole('status').textContent).toContain('New commercial models are disabled');
   expect(vi.mocked(request).mock.calls.filter(([,path])=>path.endsWith('/import'))).toHaveLength(1);
   expect(vi.mocked(request).mock.calls[0][3]).not.toHaveProperty('personal_organization_id');
+});
+
+it('keeps a saved resale connection recoverable when discovery has no catalog', async () => {
+  mode.value='resale';
+  let imports=0;
+  vi.mocked(request).mockImplementation(async (_token,path) => {
+    if(path==='/api/v1/vendors')return {data:{id:'saved-resale-key',revision:1}};
+    if(path.endsWith('/supplier'))return {data:{id:'resale-provider'}};
+    if(path.endsWith('/integration'))return {data:{effective_type:'deepseek',revision:0}};
+    if(path.endsWith('/import')){imports+=1;throw new ProviderRequestError('Catalog unavailable.',502);}
+    throw new Error('Unexpected request');
+  });
+  const {user,onSaved}=show();await user.type(screen.getByLabelText('Provider API key'),'resale-private-key');
+  await user.click(screen.getByRole('button',{name:'Connect and import models'}));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent','Catalog unavailable.');
+  expect(screen.queryByLabelText('Provider API key')).toBeNull();
+  expect(screen.getByRole('button',{name:'Retry model import'})).toBeTruthy();
+  expect(onSaved).toHaveBeenCalledOnce();
+  await user.click(screen.getByRole('button',{name:'Retry model import'}));
+  await waitFor(()=>expect(imports).toBe(2));
+  const creates=vi.mocked(request).mock.calls.filter(([,path,method])=>path==='/api/v1/vendors'&&method==='POST');
+  expect(creates).toHaveLength(1);
+  expect(creates[0][3]).toMatchObject({api_key:'resale-private-key'});
+  expect(creates[0][3]).not.toHaveProperty('personal_organization_id');
+  expect(creates[0][3]).not.toHaveProperty('access_scope');
 });

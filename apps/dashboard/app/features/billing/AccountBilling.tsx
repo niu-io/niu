@@ -12,15 +12,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { money, amountToNanos, formatExactUnitAtoms, formatUnitAtoms } from '@/lib/money';
+import { money, amountToNanos, formatUnitAtoms } from '@/lib/money';
 import { FormSectionSkeleton, MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { cachedGet, markCachedStale, peekCachedGet, request, VendorRequestError } from '@/features/providers/api';
 import TopupFunding, { type UnitBalanceSnapshot } from './TopupFunding';
-const provenanceLabels: Record<'purchased' | 'promotional' | 'simulated', string> = {
-  purchased: 'Purchased',
-  promotional: 'Promotional',
-  simulated: 'Simulated',
-};
 type Balance = {
   currency: string; balance_nanos: string; available_nanos: string; reserved_nanos: string;
   credit_limit_nanos: string; policy_revision: string; warning_threshold_nanos: string | null; low_balance: boolean;
@@ -55,7 +50,7 @@ function checkedTransactions(result:{data:BalanceTransaction[];next_cursor?:stri
 }
 
 export default function AccountBilling({token, organization, canConfigure = false, section = 'all'}: {token: string; organization: string; canConfigure?: boolean; section?: 'all' | 'billing' | 'payments'}) {
- const { t, format: uiF } = useLocale();
+ const { t } = useLocale();
  const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit}=usePlatformCurrency();
  const accessGeneration = useRef({token,organization,value:0});
  if (accessGeneration.current.token !== token || accessGeneration.current.organization !== organization) {
@@ -70,7 +65,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
    const cached = peekCachedGet<{data: Balance[]}>(tok, path);
    return cached ? checkedAccounts(cached) : null;
   } catch {
-   return null;
+   return null; // A corrupt cache entry is optional; the fetch below reports failures.
   }
  };
  const readCachedTransactions = (tok: string, path: string) => {
@@ -78,7 +73,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
    const cached = peekCachedGet<{data: BalanceTransaction[]; next_cursor?: string | null}>(tok, path);
    return cached ? checkedTransactions(cached) : null;
   } catch {
-   return null;
+   return null; // A corrupt cache entry is optional; the fetch below reports failures.
   }
  };
  const initialAccounts = readCachedAccounts(token, balancePath);
@@ -90,6 +85,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
  });
  const [transactions,setTransactions] = useState<BalanceTransaction[] | null>(() => initialTx?.data ?? null);
  const [accountError,setAccountError] = useState('');
+ const [unitSnapshotError,setUnitSnapshotError] = useState(false);
  const [transactionError,setTransactionError] = useState('');
  const [transactionFailure,setTransactionFailure] = useState<'latest' | 'older' | null>(null);
  const [transactionsLoading,setTransactionsLoading] = useState(() => showTransactions && !initialTx);
@@ -169,14 +165,19 @@ export default function AccountBilling({token, organization, canConfigure = fals
   }
   const force = lastRevision.current !== revision;
   lastRevision.current = revision;
-  setAccountError(''); setTransactionError(''); setTransactionFailure(null); setTransactionsLoading(showTransactions);
+  setAccountError(''); setUnitSnapshotError(false); setTransactionError(''); setTransactionFailure(null); setTransactionsLoading(showTransactions);
   setRefreshing(true);
   const creditsConfigured = platformBillingMode === 'credits' || Boolean(platformUnit);
-  void cachedGet<{data: Balance[]}>(token, balancePath, { signal: controller.signal, force }).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(e => {markCachedStale(token, balancePath); if (!controller.signal.aborted) setAccountError(e.message);}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});
+  void cachedGet<{data: Balance[]}>(token, balancePath, { signal: controller.signal, force }).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(() => {markCachedStale(token, balancePath); if (!controller.signal.aborted) setAccountError('Could not load account balance. Try again.');}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});
   if (creditsConfigured) {
-   void cachedGet<{data: UnitBalanceSnapshot}>(token, unitsPath, { signal: controller.signal, force }).then(r => {if (!controller.signal.aborted && r?.data && Array.isArray(r.data.balances)) setUnitSnapshot(r.data);}).catch(() => { /* Optional credit-unit snapshot when currency mode applies. */ });
+   void cachedGet<{data: UnitBalanceSnapshot}>(token, unitsPath, { signal: controller.signal, force }).then(r => {if (!controller.signal.aborted && r?.data && Array.isArray(r.data.balances)) setUnitSnapshot(r.data);}).catch(cause => {
+    if (controller.signal.aborted) return;
+    // 404 means branded credit units are not configured for this organization.
+    if (cause instanceof VendorRequestError && cause.status === 404) return;
+    setUnitSnapshotError(true);
+   });
   }
-  if (showTransactions) void cachedGet<{data: BalanceTransaction[]; next_cursor?: string | null}>(token, txPath, { signal: controller.signal, force }).then(r => {if (!controller.signal.aborted) {const result=checkedTransactions(r);setTransactions(result.data);setNextCursor(result.next_cursor ?? null);}}).catch(e => {markCachedStale(token, txPath); if (!controller.signal.aborted) {setTransactionError(e.message);setTransactionFailure('latest');}}).finally(() => {if (!controller.signal.aborted) setTransactionsLoading(false);});
+  if (showTransactions) void cachedGet<{data: BalanceTransaction[]; next_cursor?: string | null}>(token, txPath, { signal: controller.signal, force }).then(r => {if (!controller.signal.aborted) {const result=checkedTransactions(r);setTransactions(result.data);setNextCursor(result.next_cursor ?? null);}}).catch(() => {markCachedStale(token, txPath); if (!controller.signal.aborted) {setTransactionError('Could not load transactions. Try again.');setTransactionFailure('latest');}}).finally(() => {if (!controller.signal.aborted) setTransactionsLoading(false);});
   return () => {controller.abort();olderController.current?.abort();};
  }, [token,organization,balancePath,unitsPath,txPath,revision,showTransactions,platformBillingMode,platformUnit]);
  const loadOlder = async () => {
@@ -199,6 +200,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
         {companyAccess && section !== 'payments' && <section aria-label={t("Account balance")} className="billing-account-section">
           <div className="flex items-center justify-between gap-3"><h2>{t("Available credits")}</h2><Button variant="ghost" size="icon" aria-label={t("Refresh account balance")} title={t("Refresh account balance")} disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
           {accountError && <Alert variant="destructive"><AlertTitle>{t("Account balance unavailable")}</AlertTitle><AlertDescription>{t(accountError)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("Retry account balance")}</Button></AlertDescription></Alert>}
+          {unitSnapshotError && <Alert><AlertTitle>{t("Credits balance unavailable")}</AlertTitle><AlertDescription>{t("Could not refresh the branded Credits balance. The last loaded values are still shown.")}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("Retry Credits balance")}</Button></AlertDescription></Alert>}
           {(unitSnapshot?.billing_mode === 'credits' || platformBillingMode === 'credits' || (Array.isArray(unitSnapshot?.balances) && unitSnapshot.balances.length > 0)) && (() => {
             const groups = Array.isArray(unitSnapshot?.balances) ? unitSnapshot.balances : [];
             const def = unitSnapshot?.definition ?? platformUnit ?? (groups[0] ? { revision: groups[0].definition_revision, name: groups[0].name, display_precision: groups[0].display_precision, atoms_per_unit: '1000000000' } : null);
@@ -219,7 +221,6 @@ export default function AccountBilling({token, organization, canConfigure = fals
               </div>
               <div>
                 <strong className="billing-available">{formatUnitAtoms(totalAvailable, unitName, prec)}</strong>
-                <p className="text-xs text-muted-foreground mt-1">{t("Exact available:")} {formatExactUnitAtoms(totalAvailable, unitName, prec)} ({totalAvailable.toString()} {t("atoms)")}</p>
               </div>
               <dl className="billing-account-details">
                 <div><dt>{t("Net issued")}</dt><dd>{formatUnitAtoms(totalIssued, unitName, prec)}</dd></div>
@@ -228,50 +229,9 @@ export default function AccountBilling({token, organization, canConfigure = fals
                 {totalRestored > 0n && <div><dt>{t("Restored / refunded")}</dt><dd>{formatUnitAtoms(totalRestored, unitName, prec)}</dd></div>}
                 {totalExpired > 0n && <div><dt>{t("Expired")}</dt><dd>{formatUnitAtoms(totalExpired, unitName, prec)}</dd></div>}
               </dl>
-              {groups.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">{t("Lots by definition & provenance")}</h3>
-                  <Table aria-label={t("Credits lots by provenance")} className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("Unit & provenance")}</TableHead>
-                        <TableHead className="text-right">{t("Available")}</TableHead>
-                        <TableHead className="text-right">{t("Held / Consumed")}</TableHead>
-                        <TableHead className="text-right">{t("Restored / Expired")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groups.map(group => (
-                        <TableRow key={`${group.definition_revision}:${group.provenance}`}>
-                          <TableCell>
-                            <div className="font-medium">{group.name} <span className="text-xs text-muted-foreground">(v{group.definition_revision})</span></div>
-                            <Badge variant="outline" className="mt-0.5">{t(provenanceLabels[group.provenance] ?? group.provenance)}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums font-medium" title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(group.available_atoms, group.name, group.display_precision), group.available_atoms])}>
-                            {formatUnitAtoms(group.available_atoms, group.name, group.display_precision)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                            <div>{t("Held:")} {formatUnitAtoms(group.held_atoms, group.name, group.display_precision)}</div>
-                            <div title={uiF("{0} ({1} atoms)", [formatExactUnitAtoms(group.charged_atoms, group.name, group.display_precision), group.charged_atoms])}>
-                              {t("Consumed:")} {formatUnitAtoms(group.charged_atoms, group.name, group.display_precision)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                            <div>{t("Restored:")} {formatUnitAtoms(group.restored_atoms, group.name, group.display_precision)}</div>
-                            <div>{t("Expired:")} {formatUnitAtoms(group.expired_atoms, group.name, group.display_precision)}</div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {t("Consumption order: Promotional and Simulated lots with the earliest expiration date are consumed first, followed by non-expiring Promotional and Simulated lots, and Purchased lots last (FIFO by issuance).")}
-              </p>
             </div>;
           })()}
-          {accounts?.map(account => <div className="billing-account" key={account.currency}>
+          {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && accounts?.map(account => <div className="billing-account" key={account.currency}>
             <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend") : t("Recorded balance (original currency)")}</span>
             <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
             {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">

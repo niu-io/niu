@@ -36,6 +36,26 @@ describe('model developer and provider boundaries', () => {
     }
     expect(modelDeveloper({id:'openai/private',upstream_model:'anthropic/claude-sonnet-4'})?.id).toBe('anthropic');
   });
+  it('never treats a model distributor or router brand as the model developer', () => {
+    for(const id of ['openrouter-private','fastrouter-pro','babelark-labs','qiniu-edge','openrouter/vendor/custom','babelark/third-party-model']) {
+      expect(modelDeveloper({id})).toBeUndefined();
+      expect(modelIdentity({id}).id).toBe('other');
+    }
+    expect(modelDeveloper({id:'babelark/deepseek-chat'})?.id).toBe('deepseek');
+    expect(modelDeveloper({id:'qiniu/gemini-2.5-pro'})?.id).toBe('google');
+  });
+  it('keeps direct developer models and named Provider attribution separate', () => {
+    expect(modelDeveloper({id:'claude-sonnet-4'})?.id).toBe('anthropic');
+    expect(modelDeveloper({id:'gpt-4.1-mini'})?.id).toBe('openai');
+    expect(modelDeveloper({id:'gemini-2.5-pro'})?.id).toBe('google');
+    const imported = {id:'babelark/deepseek-v3', provider:'babelark'};
+    expect(modelDeveloper(imported)?.id).toBe('deepseek');
+    expect(modelProviderName(imported)).toBe('BabelArk');
+    expect(modelProviderName({id:'babelark/third-party-model', provider:'babelark'})).toBe('BabelArk');
+    expect(modelDeveloper({id:'babelark/third-party-model', provider:'babelark'})).toBeUndefined();
+    expect(modelDeveloper({id:'third-party-model', provider:'babelark'})).toBeUndefined();
+    expect(modelDeveloper({id:'claude-sonnet-4', provider:'babelark'})?.id).toBe('anthropic');
+  });
   it('keeps access mode and identifiers out of provider names', () => {
     expect(modelProviderName({provider:'byok'})).toBeUndefined();
     expect(modelProviderName({provider:' BYOK '})).toBeUndefined();

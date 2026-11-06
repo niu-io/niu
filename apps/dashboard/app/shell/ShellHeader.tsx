@@ -1,6 +1,6 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { RefObject } from 'react';
-import { NavLink, useNavigate } from 'react-router';
+import { NavLink } from 'react-router';
 import {
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
   IconLayoutSidebarLeftExpand as PanelLeftOpen,
@@ -109,12 +109,9 @@ export default function ShellHeader({
   logo,
   activeWorkspacePath,
   activePath,
-  isGuardrailEditor,
   workspace,
   workspaces,
   selectWorkspace,
-  activeNavigation,
-  scopedNavigation,
   adminSupplierId,
   adminSupplierName,
   platform,
@@ -137,7 +134,6 @@ export default function ShellHeader({
   logo: string;
   activeWorkspacePath: string;
   activePath: string;
-  isGuardrailEditor: boolean;
   workspace: Workspace | null;
   workspaces: Workspace[];
   selectWorkspace: (next: Workspace) => void;
@@ -151,8 +147,7 @@ export default function ShellHeader({
   title: string;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const { isZh, t } = useLocale();
-  const navigate = useNavigate();
+  const { t } = useLocale();
 
   return (
     <header className="dashboard-page-header">
@@ -177,7 +172,7 @@ export default function ShellHeader({
             <BreadcrumbItem className="min-w-0 gap-0">
               <BreadcrumbLink asChild>
                 <ProductRailLink
-                  className={`truncate ${activePath.startsWith('guardrails/') ? 'max-w-12' : 'max-w-16'} sm:max-w-64`}
+                  className="max-w-20 shrink-0 truncate sm:max-w-64"
                   to={activeWorkspacePath}
                 >
                   {workspace ? workspaceDisplayName(workspace.name) : t('Workspace', '工作空间')}
@@ -230,87 +225,8 @@ export default function ShellHeader({
                 <BreadcrumbSeparator>/</BreadcrumbSeparator>
               </>
             )}
-            {activePath.startsWith('guardrails/') && (
-              <>
-                <BreadcrumbItem className="hidden sm:inline-flex">
-                  <BreadcrumbLink asChild>
-                    <ProductRailLink to={`${activeWorkspacePath}/guardrails`}>
-                      {t('Guardrails', '安全护栏')}
-                    </ProductRailLink>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator>
-              </>
-            )}
-            {isGuardrailEditor && (
-              <>
-                <BreadcrumbItem className="hidden sm:inline-flex">
-                  <BreadcrumbLink asChild>
-                    <ProductRailLink to={`${activeWorkspacePath}/guardrails/policy`}>
-                      {t('Policy', '策略')}
-                    </ProductRailLink>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator>
-              </>
-            )}
-            {activePath.startsWith('guardrails/') && (
-              <>
-                <BreadcrumbItem className="sm:hidden">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-6" aria-label={uiT("Show parent pages")}>
-                        …
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem asChild>
-                        <ProductRailLink to={`${activeWorkspacePath}/guardrails`}>
-                          {t('Guardrails', '安全护栏')}
-                        </ProductRailLink>
-                      </DropdownMenuItem>
-                      {isGuardrailEditor && (
-                        <DropdownMenuItem asChild>
-                          <ProductRailLink to={`${activeWorkspacePath}/guardrails/policy`}>
-                            {t('Policy', '策略')}
-                          </ProductRailLink>
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator>
-              </>
-            )}
             <BreadcrumbItem className="min-w-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="h-auto min-w-0 max-w-full gap-1 px-1 py-1"
-                    aria-label={uiT("Switch workspace page")}
-                  >
-                    <h1 className="dashboard-route-title">{title}</h1>
-                    <ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuRadioGroup
-                    value={activeNavigation?.parentTo ?? activeNavigation?.to ?? ''}
-                    onValueChange={value =>
-                      navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)
-                    }
-                  >
-                    {scopedNavigation
-                      .filter(item => item.destination === 'Workspace' && !item.hidden)
-                      .map(item => (
-                        <DropdownMenuRadioItem key={item.to} value={item.to}>
-                          {isZh ? item.labelZh : item.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <h1 className="dashboard-route-title">{title}</h1>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -358,9 +274,7 @@ export default function ShellHeader({
                     ? t('Providers', '模型供应商')
                     : platform
                       ? t('Platform', '平台')
-                      : destination === 'Organization'
-                        ? t('Organization', '组织')
-                        : t('Workspace', '工作空间')}
+                      : t('Workspace', '工作空间')}
               </span>
               <span className="crumb-divider" aria-hidden="true">
                 /

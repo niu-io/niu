@@ -23,20 +23,20 @@ const expiryChoices = [
 ];
 
 function roleLabel(role: Operator['role']) {
-  return role[0].toUpperCase() + role.slice(1);
+  return translateUI(role[0].toUpperCase() + role.slice(1));
 }
 
 function displayScope(operator: Operator, organizations: NamedResource[], projects: NamedResource[]) {
-  const organization = organizations.find(item => item.id === operator.organization_id)?.name ?? 'Organization';
-  if (!operator.project_id) return organization + ' · all workspaces';
-  const workspace = projects.find(item => item.id === operator.project_id)?.name ?? 'Workspace';
+  const organization = organizations.find(item => item.id === operator.organization_id)?.name ?? translateUI('Organization');
+  if (!operator.project_id) return organization + ' · ' + translateUI('all workspaces');
+  const workspace = projects.find(item => item.id === operator.project_id)?.name ?? translateUI('Workspace');
   return organization + ' · ' + workspaceDisplayName(workspace);
 }
 
 function expiryState(session: OperatorSession) {
-  if (session.revoked) return 'Revoked';
-  if (session.expires_at_unix * 1000 <= Date.now()) return 'Expired';
-  return 'Active';
+  if (session.revoked) return translateUI('Revoked');
+  if (session.expires_at_unix * 1000 <= Date.now()) return translateUI('Expired');
+  return translateUI('Active');
 }
 
 function activityLabel(action: string) {
@@ -114,6 +114,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
   }
   const [expiryDays, setExpiryDays] = useState(30);
   const [expandedHistoryFor, setExpandedHistoryFor] = useState<string | null>(null);
+  const [tokenCopy, setTokenCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
   if (!operator) return <section className="operator-detail" aria-labelledby="operator-detail-title">
     <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">{uiT("Select a user")}</h2><p>{uiT("Review their role, create an access token, or revoke their access.")}</p></div>
   </section>;
@@ -144,22 +145,30 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         {(roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
       </div>
       {!operator.project_id && draftRole !== 'viewer' && draftRole !== operator.role && <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>}
-      {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{roleRefreshError}</p>}
+      {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{uiT(roleRefreshError)}</p>}
       {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{roleMessage || uiT("The saved role changed. Reload it before saving again.")}</p>}
     </div>}
     {credential?.operatorId === operator.id && <section className="operator-credential" aria-labelledby="operator-credential-title" role="status">
       <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">{uiT("Save this user’s access token")}</h3><p>{uiT("Shown once · expires")}{" "}{formatExpiry(credential.session.expires_at_unix)}{uiT(". Share it securely with this user. It grants dashboard and management API access, not model API access. Existing Niu users can link this organization in Organization settings → Join an organization.", "。请安全地分享给该用户。它授予控制台与管理 API 权限，而非模型 API 权限。已有 Niu 账户的用户可在“组织设置 → 加入组织”中绑定该组织。")}</p></div></div>
       <Label htmlFor="new-operator-token">{uiT("Access token")}<Input id="new-operator-token" className="mono operator-token-input" readOnly value={credential.token} onFocus={event => event.target.select()} /></Label>
-      <Button type="button" variant="outline" onClick={onDismissCredential}>{uiT("Done — hide token")}</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={() => {
+          void navigator.clipboard?.writeText(credential.token)
+            .then(() => setTokenCopy('copied'))
+            .catch(() => setTokenCopy('failed'));
+        }}>{tokenCopy === 'copied' ? uiT("Copied") : uiT("Copy token")}</Button>
+        <Button type="button" variant="outline" onClick={onDismissCredential}>{uiT("Done — hide token")}</Button>
+        {tokenCopy === 'failed' && <span role="alert" className="text-sm text-destructive">{uiT("Copy failed. Select the token and copy it manually.")}</span>}
+      </div>
     </section>}
     <div className="flex flex-col gap-3 py-4">
       <div><h3 className="text-sm font-medium">{uiT("Access sessions")}</h3><p className="mt-1 text-sm text-muted-foreground">{uiT("Revoking a session leaves this user’s other sessions active.")}</p></div>
       {operator.revoked
         ? <span className="operator-revoked-note">{uiT("User access revoked")}</span>
         : <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Label className="grid gap-2" htmlFor="new-session-expiry">{uiT("Expires in")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>{expiryChoices.find(item => item.days === expiryDays)?.label}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <Label className="grid gap-2" htmlFor="new-session-expiry">{uiT("Expires in")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>{uiT(expiryChoices.find(item => item.days === expiryDays)?.label ?? "")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
-                {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{item.label}</DropdownMenuRadioItem>)}
+                {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{uiT(item.label)}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup></DropdownMenuContent>
             </DropdownMenu>
           </Label>
@@ -172,12 +181,12 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         : sessions.length === 0
           ? <div className="operator-session-empty">{uiT("This user has no access sessions. Create an access token to let them connect.")}</div>
           : <>{activeSessions.length === 0 && <div className="operator-session-empty">{uiT("No active sessions.", "没有有效的访问会话。")}</div>}{pastSessions.length > 0 && <Button type="button" variant="ghost" size="sm" aria-expanded={historyExpanded} onClick={() => setExpandedHistoryFor(historyExpanded ? null : operator.id)}>{historyExpanded ? uiT("Hide past sessions", "隐藏历史会话") : uiT("Show past sessions", "显示历史会话")} ({pastSessions.length})<ChevronDown aria-hidden="true" className={historyExpanded ? 'rotate-180' : ''} /></Button>}{visibleSessions.length > 0 && <div className="table-wrap"><Table>
-            <TableHeader><TableRow><TableHead>{uiT("Session")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Expires")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-28"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{uiT("Created")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Expires")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-28"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
             <TableBody>{visibleSessions.map(item => {
               const state = expiryState(item);
               const confirming = confirmTarget?.kind === 'session' && confirmTarget.id === item.id;
               return <TableRow key={item.id}>
-                <TableCell>{uiT("Access session")}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></dd></div></dl></TableCell>
+                <TableCell>{new Date(item.created_at).toLocaleString(readUILocale())}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Created")}</dt><dd>{new Date(item.created_at).toLocaleString(readUILocale())}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></dd></div></dl></TableCell>
                 <TableCell className="hidden sm:table-cell">{formatExpiry(item.expires_at_unix)}</TableCell>
                 <TableCell className="hidden sm:table-cell"><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></TableCell>
                 <TableCell>{state === 'Active' && !operator.revoked

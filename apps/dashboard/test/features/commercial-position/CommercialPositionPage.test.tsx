@@ -1,7 +1,7 @@
 const currencyState=vi.hoisted(()=>({currency:'USD',ready:true,error:'',reload:()=>{}}));
 vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
 import { expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import CommercialPositionPage from '../../../app/features/commercial-position/page';
@@ -161,8 +161,7 @@ it('renders a structured financial statement with period comparisons, active mod
   expect(within(unitTable).getByText('Recorded upstream cost')).toBeTruthy();
   expect(within(unitTable).getByText('deepseek/deepseek-v4.1-flash')).toBeTruthy();
   expect(within(unitTable).getByText('In $0.003 · Out $2.40 / 1M')).toBeTruthy();
-  expect(within(unitTable).getByText('0 uncovered cash requests')).toBeTruthy();
-  expect(within(unitTable).getByText('3 recorded · 3/3 matched covered')).toBeTruthy();
+  expect(within(unitTable).queryByText(/0 uncovered cash|uncovered cash|matched covered|revenue uncovered/)).toBeNull();
   expect(within(unitTable).queryByText('anthropic/claude-fable-5')).toBeNull();
 
   await user.click(screen.getByRole('button', { name: 'All configured (2)' }));
@@ -204,4 +203,40 @@ it('localizes generated report periods and missing amounts in Chinese', async()=
   expect(await screen.findAllByText('最近 7 天')).not.toHaveLength(0);
   expect(screen.queryByText('Last 7 days')).toBeNull();expect(screen.queryByText('Prior 7 days')).toBeNull();view.unmount();
  } finally {saveLocale('en');vi.unstubAllGlobals();}
+});
+
+it('keeps current-period totals visible when the comparison period fails and retries only the comparison', async () => {
+  let currentFrom = '';
+  let priorFailures = 0;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    const from = url.searchParams.get('from') ?? '';
+    if (!currentFrom) currentFrom = from;
+    if (from < currentFrom && priorFailures === 0) {
+      priorFailures += 1;
+      return Response.json({error:{message:'Comparison unavailable'}},{status:503});
+    }
+    return Response.json(url.pathname.includes('/commercial-position') ? samplePosition : sampleSummary);
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const user = userEvent.setup();
+
+  render(
+    <MemoryRouter initialEntries={['/admin/reports']}>
+      <CommercialPositionPage />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('The comparison period could not be loaded. Current period totals are unchanged.')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
+  const priorRequests = () => fetchMock.mock.calls.filter(([input]) => {
+    const from = new URL(String(input), 'http://localhost').searchParams.get('from') ?? '';
+    return from < currentFrom;
+  });
+  expect(priorRequests()).toHaveLength(2);
+
+  await user.click(screen.getByRole('button', { name: 'Retry comparison' }));
+  await waitFor(() => expect(screen.queryByText('The comparison period could not be loaded. Current period totals are unchanged.')).toBeNull());
+  expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
+  expect(priorRequests()).toHaveLength(4);
 });

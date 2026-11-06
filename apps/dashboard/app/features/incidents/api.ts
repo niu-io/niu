@@ -1,7 +1,7 @@
 import type { PlatformConnectionIncident } from '@niu-io/sdk/admin';
 import { request } from '@/lib/api-client';
 
-export type IncidentPage = { data: PlatformConnectionIncident[]; next_before: string | null };
+export type IncidentPage = { data: PlatformConnectionIncident[]; next_before: string | null; coverage: { request_observed: true; proactive_probe: 'not_configured' } };
 
 export async function loadIncidents(token: string, status: 'active' | 'resolved', signal: AbortSignal, before?: string): Promise<IncidentPage> {
   const query = new URLSearchParams({ status });
@@ -17,8 +17,11 @@ export async function loadIncidents(token: string, status: 'active' | 'resolved'
     || !/^[1-9][0-9]*$/.test(item.observations)
     || (item.status === 'active' ? item.recovered_at !== null : !date(item.recovered_at))
     || (item.provider !== null && (!item.provider || typeof item.provider.name !== 'string'
-      || typeof item.provider.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.provider.slug))))
-    || (page.next_before !== null && !/^incident-[1-9][0-9]*$/.test(page.next_before))) {
+      || typeof item.provider.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.provider.slug)))
+    || !item.notifications || !['delivered', 'incomplete', 'failed', 'sending', 'queued', 'no_recipients'].includes(item.notifications.state)
+    || !['workspaces', 'delivered', 'failed', 'cancelled', 'queued', 'sending', 'not_configured', 'authority_inactive'].every(key => typeof (item.notifications as unknown as Record<string, unknown>)[key] === 'number' && Number.isInteger((item.notifications as unknown as Record<string, unknown>)[key]) && ((item.notifications as unknown as Record<string, unknown>)[key] as number) >= 0))
+    || (page.next_before !== null && !/^incident-[1-9][0-9]*$/.test(page.next_before))
+    || !page.coverage || page.coverage.request_observed !== true || page.coverage.proactive_probe !== 'not_configured') {
     throw new Error('Connection incident evidence could not be read.');
   }
   return page;

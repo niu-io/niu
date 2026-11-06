@@ -1,6 +1,5 @@
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Links, Meta, Outlet, RouterProvider, Scripts, ScrollRestoration } from 'react-router';
-import { createDashboardRouter } from './router-tree';
 import { BrandingProvider } from './shell/branding';
 import { applyLocale, readLocale } from './shell/locale';
 import { PlatformCurrencyProvider } from './shell/platform-currency';
@@ -10,16 +9,16 @@ import RouterPending from './shell/RouterPending';
 import { applyTheme, readTheme } from './shell/theme';
 import './styles.css';
 
-let browserRouter: ReturnType<typeof createDashboardRouter> | undefined;
-
-function getBrowserRouter() {
-  if (!browserRouter) {
-    applyTheme(readTheme());
-    applyLocale(readLocale());
-    browserRouter = createDashboardRouter();
-  }
-  return browserRouter;
-}
+const StandaloneRouter = lazy(async () => {
+  const { createDashboardRouter } = await import('./router-tree');
+  return {
+    default: function StandaloneRouter() {
+      applyTheme(readTheme());
+      applyLocale(readLocale());
+      return <RouterProvider router={createDashboardRouter()} useTransitions />;
+    },
+  };
+});
 
 function isFrameworkModeRuntime(): boolean {
   if (typeof window === 'undefined') return true;
@@ -28,7 +27,7 @@ function isFrameworkModeRuntime(): boolean {
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -79,7 +78,9 @@ export default function DashboardRoot() {
   return (
     <PlatformCurrencyProvider>
       <BrandingProvider>
-        <RouterProvider router={getBrowserRouter()} useTransitions />
+        <Suspense fallback={<RouterPending />}>
+          <StandaloneRouter />
+        </Suspense>
       </BrandingProvider>
     </PlatformCurrencyProvider>
   );

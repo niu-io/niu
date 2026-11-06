@@ -1,0 +1,49 @@
+{
+  "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
+  "exceptions": {
+    "app/shell/locale-messages.ts": {
+      "lines": 4637,
+      "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
+    },
+    "app/features/route-pools/page.tsx": {
+      "lines": 2415,
+      "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
+    },
+    "app/features/routing/page.tsx": {
+      "lines": 1928,
+      "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives."
+    },
+    "app/features/commercial-position/page.tsx": {
+      "lines": 1588,
+      "reason": "Financial report page owns filters, chart series and table sections. Split report state from JSX under niu-4rp.15."
+    },
+    "app/features/playground/components/PlaygroundView.tsx": {
+      "lines": 1380,
+      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15."
+    },
+    "app/shell/useWorkspaceController.ts": {
+      "lines": 1127,
+      "reason": "Application-shell workspace controller. Session, workspace directory and recovery state are interdependent; split only with parity tests for shell recovery."
+    },
+    "app/features/customers/unit-accounts.tsx": {
+      "lines": 1027,
+      "reason": "Customer unit-account editor. Split pending alongside the customer-account form extraction."
+    },
+    "app/features/provider-business/admin.tsx": {
+      "lines": 1017,
+      "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15."
+    },
+    "app/features/executions/components/GatewayActivity.tsx": {
+      "lines": 1010,
+      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15."
+    },
+    "app/lib/query-cache.ts": {
+      "lines": 1004,
+      "reason": "Shared cache core owns authority isolation, request generations and invalidation. Splitting would scatter a single consistency contract; keep as one reviewed module."
+    },
+    "app/features/evaluations/page.tsx": {
+      "lines": 954,
+      "reason": "Evaluation run page. Split pending with the evaluation components under niu-4rp.15."
+    }
+  }
+}

@@ -59,6 +59,7 @@
 .video-references > button { justify-self:start; }
 .video-reference { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; }
 .video-reference img { width:40px; height:40px; object-fit:cover; border-radius:var(--radius); }
+.video-reference-preview { display:grid; place-items:center; width:40px; height:40px; flex-shrink:0; overflow:hidden; border-radius:var(--radius); background:var(--muted); color:var(--muted-foreground); }
 .video-reference-name { min-width:0; flex:1; overflow-wrap:anywhere; font-size:13px; }
 .video-reference > button { flex-shrink:0; }
 

@@ -16,7 +16,6 @@ import {
   IconRoute,
   IconSelector as ChevronsUpDown,
   IconUsers as Users,
-  IconWallet,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -113,7 +112,6 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         { to: '/admin/routing', label: 'Routing', labelZh: '模型路由', end: false },
         { to: '/admin/customers', label: 'Customers', labelZh: '客户管理', end: false },
         { to: '/admin/reports', label: 'Financial reports', labelZh: '财务报表', end: false },
-        { to: '/admin/balances', label: 'Account balances', labelZh: '账户余额', end: false },
         { to: '/admin/pricing', label: 'Pricing', labelZh: '定价配置', end: false },
         { to: '/admin/payments', label: 'Payment gateways', labelZh: '支付网关', end: false },
         { to: '/admin/branding', label: 'Branding', labelZh: '品牌定制', end: false },
@@ -122,7 +120,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         { to: '/admin/settings', label: 'Settings', labelZh: '实例设置', end: false },
       ];
   const visibleEntries = context.session?.operating_mode === 'internal'
-    ? entries.filter(item => !['/admin/reports','/admin/balances','/admin/pricing','/admin/payments'].includes(item.to) && !item.to.endsWith('/settlements'))
+    ? entries.filter(item => !['/admin/reports','/admin/pricing','/admin/payments'].includes(item.to) && !item.to.endsWith('/settlements'))
     : entries;
 
   return (
@@ -195,7 +193,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
                 {error && (
                   <>
                     <div className="workspace-switcher-error" role="alert">
-                      {error}
+                      {uiT(error)}
                     </div>
                     <DropdownMenuItem
                       onSelect={event => {
@@ -253,9 +251,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
                         ? RailSuppliers
                         : item.label === 'Routing' || item.label === 'Model pools'
                           ? IconRoute
-                          : item.label === 'Account balances'
-                            ? IconWallet
-                            : item.label === 'Payment gateways'
+                          : item.label === 'Payment gateways'
                               ? CreditCard
                               : item.label === 'Branding'
                                 ? IconPalette

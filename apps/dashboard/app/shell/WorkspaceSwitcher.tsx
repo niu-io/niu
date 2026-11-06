@@ -94,6 +94,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
+  const [slugOpen, setSlugOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
   const openerRef = useRef<HTMLElement | null>(null);
@@ -104,6 +105,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
     setName('');
     setSlug('');
     setSlugEdited(false);
+    setSlugOpen(false);
     setCreateError('');
   }, [open]);
 
@@ -130,7 +132,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
   return <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
     <DialogContent onOpenAutoFocus={() => { openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => {
       const opener = openerRef.current;
-      const target = opener?.isConnected && opener.getClientRects().length && !opener.closest('[role="dialog"]') ? opener : ['[aria-label="Create workspace"]', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
+      const target = opener?.isConnected && opener.getClientRects().length && !opener.closest('[role="dialog"]') ? opener : ['[aria-label="Create workspace"]', '.workspace-switcher-trigger', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
     }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
@@ -139,18 +141,16 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
       </DialogHeader>
       <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
-        <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{t(`Used in /workspaces/${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}</p></div>
+        {slugOpen ? <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{t(`Used in /workspaces/${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}</p></div>
+          : <div className="flex flex-wrap items-center justify-between gap-2"><p className="break-words text-sm text-muted-foreground">{t('URL slug', '路径标识')}: {slug || '<slug>'}</p><Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setSlugOpen(true)}>{t('Edit slug', '编辑路径')}</Button></div>}
         {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
         {canSetLimit && <section className="grid gap-3" aria-labelledby="workspace-budget-title">
           <div><h3 id="workspace-budget-title" className="text-sm font-medium">{t('Budget', '预算')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></h3><p id="workspace-budget-help" className="mt-2 text-sm text-muted-foreground">{t('Limit customer spending in this workspace. Leave blank for no workspace limit; zero blocks new paid requests. The organization’s shared balance and other limits still apply.', '限制此工作空间的客户消费。留空表示工作空间不限额；填写零会阻止新的付费请求。组织共享余额和其他限额仍然适用。')}</p></div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-            <div className="grid gap-2"><Label htmlFor="workspace-limit">{t('Spending limit', '消费限额')}{currency ? ` (${currencySymbol(currency)})` : ''}</Label><Input id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-budget-help" /></div>
-            <div className="grid gap-2"><Label htmlFor="workspace-reset">{t('Reset', '重置周期')}</Label><Input id="workspace-reset" value={t('Never (lifetime)', '从不（终身有效）')} readOnly /></div>
-          </div>
-          {currencyError && <p className="text-sm text-muted-foreground">{currencyError}</p>}
+          <div className="grid gap-2"><Label htmlFor="workspace-limit">{t('Spending limit', '消费限额')}{currency ? ` (${currencySymbol(currency)})` : ''}</Label><Input id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-budget-help" /></div>
+          {currencyError && <p className="text-sm text-muted-foreground">{uiT(currencyError)}</p>}
           {!currency && !currencyError && <p className="text-sm text-muted-foreground" role="status">{t('Loading platform currency…', '正在加载平台币种…')}</p>}
         </section>}
-        {createError && <p className="error-text" role="alert">{createError}</p>}
+        {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}
         <div className="workspace-create-actions"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button><Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? t('Creating…', '创建中…') : t('Create workspace', '创建工作空间')}</Button></div>
       </form>
     </DialogContent>
@@ -266,21 +266,11 @@ export function OrganizationCreateDialog({ context, open, onOpenChange }: {
           </p>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="organization-initial-workspace">{t('Initial workspace', '初始工作空间')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></Label>
-          <Input
-            id="organization-initial-workspace"
-            maxLength={200}
-            disabled={saving}
-            value={initialWorkspace}
-            onChange={event => setInitialWorkspace(event.target.value)}
-            placeholder={t('Default', '默认')}
-            aria-describedby="organization-prereq-help"
-          />
           <p id="organization-prereq-help" className="text-sm text-muted-foreground">
             {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度与充值”中充值或完成支付配置。')}
           </p>
         </div>
-        {createError && <p className="error-text" role="alert">{createError}</p>}
+        {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}
         <div className="workspace-create-actions">
           <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button>
           <Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? t('Creating…', '创建中…') : t('Create organization', '创建组织')}</Button>

@@ -1,9 +1,9 @@
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { Link, useLocation, type LoaderFunctionArgs } from 'react-router';
+import { Link, type LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
-import { settingsHref } from '@/features/account/settings-shell';
+import { settingsHref } from '@/features/account/settings-routes';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '@niu-io/sdk/admin';
 import { useSearchParams } from 'react-router';
@@ -138,13 +138,12 @@ export default function BillingRoute() {
   const { t: uiT, format: uiF } = useUILocale();
   useOptionalRouteLoaderData();
   const { token, workspace, session, organization } = useDashboardContext();
-  const location = useLocation();
   const internal = session?.operating_mode === 'internal';
   const canFund = session?.kind === 'installation' || (session?.operator?.organization_id === workspace?.organization_id && session?.operator?.project_id === null && ['owner','admin'].includes(session.operator.role));
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
   const organizationName = workspace.organization_name?.trim() || (organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
-  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>{!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : canFund ? <Button asChild variant="outline"><Link to={settingsHref(location.pathname,location.search,location.hash,'billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p>)}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} /></>;
+  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>{!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : canFund ? <Button asChild variant="outline"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p>)}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} /></>;
 }
 
 function BillingView({ token, organization, project, canConfigure }: { token: string; organization: string; project: string; canConfigure: boolean }) {
@@ -165,7 +164,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
       const cached = peekCachedGet<InvoicePage>(token, invoicesPath);
       return cached ? checkedInvoices(cached) : null;
     } catch {
-      return null;
+      return null; // A corrupt cache entry is optional; the fetch below reports failures.
     }
   })();
   const [data, setData] = useState<Billing | null>(() => initialBilling);
@@ -281,10 +280,12 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
   }
 
   return <>
-    <PageHeader title={uiT("Usage statements")} action={<Button variant="outline" aria-label={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>} />
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !data ? <WorkspaceShellSkeleton label={uiT("Loading billing…")} /> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
-      <TabsList variant="line" aria-label={uiT("Billing sections")}><TabsTrigger value="balance">{uiT("Spending")}</TabsTrigger><TabsTrigger value="statements">{uiT("Statements")}</TabsTrigger><TabsTrigger value="rates">{uiT("Rates")}</TabsTrigger></TabsList>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <TabsList variant="line" aria-label={uiT("Billing sections")}><TabsTrigger value="balance">{uiT("Spending")}</TabsTrigger><TabsTrigger value="statements">{uiT("Statements")}</TabsTrigger><TabsTrigger value="rates">{uiT("Rates")}</TabsTrigger></TabsList>
+        <Button variant="outline" aria-label={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>
+      </div>
       <TabsContent value="balance" className="billing-balance-content">
         <section aria-label={uiT("Workspace spending")}>
           <h2>{uiT("Workspace spending")}</h2>
@@ -334,7 +335,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                         <TableCell>{new Date(charge.charged_at).toLocaleString(readUILocale(), { timeZone: 'UTC' })}</TableCell>
                         <TableCell className="font-mono text-xs">{charge.reference}</TableCell>
                         <TableCell>{charge.model_alias}</TableCell>
-                        <TableCell>{charge.request_kind === 'video' ? 'Video' : uiT("Inference")}</TableCell>
+                        <TableCell>{charge.request_kind === 'video' ? uiT("Video") : uiT("Inference")}</TableCell>
                         <TableCell className="text-right tabular-nums" title={formatExactUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}>
                           {formatUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}
                         </TableCell>
@@ -462,7 +463,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">{uiT("Token rates per million · fees per request")}</p>}</div>
           {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
-          {data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Customer model rates")} style={{minWidth:"70rem",tableLayout:"auto"}}>
+          {data.billing_mode !== 'credits' && data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Customer model rates")} style={{minWidth:"70rem",tableLayout:"auto"}}>
             <TableHeader><TableRow><TableHead style={{width:"18rem"}}>{uiT("Model")}</TableHead><TableHead>{uiT("Input")}</TableHead><TableHead>{uiT("Cache read")}</TableHead><TableHead>{uiT("Cache write")}</TableHead><TableHead>{uiT("Output")}</TableHead><TableHead>{uiT("Reasoning")}</TableHead><TableHead>{uiT("Fixed fee / request")}</TableHead><TableHead>{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>

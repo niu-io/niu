@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { ChevronsUpDown, Check } from 'lucide-react';
+import { ChevronsUpDown, Check, ChevronDown } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { request } from '@/lib/api-client';
 
-type Grant = { client_name: string; state: string; capabilities?: string[] };
+type Grant = { client_name: string; state: string; capabilities?: string[]; task?: string | null };
+const ALL_PROTOCOLS = ['chat', 'responses', 'messages', 'content', 'decisions', 'embeddings', 'video'];
 class RequestLoadError extends Error {}
 export default function ConnectAgent() {
   const context = useDashboardContext();
@@ -23,6 +25,8 @@ export default function ConnectAgent() {
   const [workspaceId, setWorkspaceId] = useState('');
   const [consent, setConsent] = useState(false);
   const [invocationAllowed, setInvocationAllowed] = useState(false);
+  const [invocationProtocols, setInvocationProtocols] = useState<string[]>(ALL_PROTOCOLS);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<{scope: string; status: 'loading' | 'ready' | 'error'; models: string[]}>({scope: '', status: 'loading', models: []});
   const [modelRetry, setModelRetry] = useState(0);
@@ -41,14 +45,23 @@ export default function ConnectAgent() {
     'evaluations:write': t('Record workspace evaluation evidence', '记录工作空间评估证据'),
   };
   const unsupported = Boolean(grant?.capabilities?.some(capability => !capabilityLabels[capability]));
+  const protocolLabels: Record<string, string> = {
+    chat: t('Chat completions', 'Chat 补全'),
+    responses: t('Responses', 'Responses'),
+    messages: t('Messages', 'Messages'),
+    content: t('GenerateContent', 'GenerateContent'),
+    decisions: t('Structured decisions', '结构化决策'),
+    embeddings: t('Embeddings', 'Embeddings'),
+    video: t('Video', '视频'),
+  };
   const workspace = context.workspaces.find(item => item.id === workspaceId);
   const modelScope = `${context.token}:${code}:${workspace?.organization_id ?? ''}:${workspaceId}`;
-  const invocationReady = !invocationAllowed || (catalog.scope === modelScope && catalog.status === 'ready'
+  const invocationReady = !invocationAllowed || (invocationProtocols.length > 0 && catalog.scope === modelScope && catalog.status === 'ready'
     && selectedModels.length > 0 && selectedModels.every(model => catalog.models.includes(model)));
   const headers = { authorization: `Bearer ${context.token}`, 'content-type': 'application/json' };
   useEffect(() => {
     const controller = new AbortController();
-    setGrant(null); setError(''); setLoading(true); setConsent(false); setInvocationAllowed(false); setSelectedModels([]);
+    setGrant(null); setError(''); setLoading(true); setConsent(false); setInvocationAllowed(false); setSelectedModels([]); setInvocationProtocols(ALL_PROTOCOLS); setAdvancedOpen(false);
     if (!validCode) { setError(t('Open the verification link supplied by your agent.', '请打开 Agent 提供的验证链接。')); setLoading(false); return; }
     void fetch(`/api/v1/auth/agents/${code}`, { headers: { authorization: `Bearer ${context.token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new RequestLoadError(response.status === 401 ? t('Sign in again to review this connection.', '请重新登录以审核连接。') : response.status === 404 ? t('This request is unavailable or expired. Ask your agent to start again.', '请求不可用或已过期，请让 Agent 重新发起。') : t('Could not load the request. Try again.', '无法加载请求，请重试。')); return response.json(); })
@@ -73,6 +86,14 @@ export default function ConnectAgent() {
       .catch(() => { if (!controller.signal.aborted) setCatalog({scope: modelScope, status: 'error', models: []}); });
     return () => controller.abort();
   }, [invocationAllowed, modelScope, workspace?.id, workspace?.organization_id, context.token, modelRetry]);
+  // A single available workspace is the common case. Preselecting it keeps the
+  // ordinary connection review to the paid-invocation decision, while a
+  // multi-workspace account still requires an explicit scope choice.
+  useEffect(() => {
+    if (grant?.state === 'pending' && !workspaceId && context.workspaces.length === 1) {
+      setWorkspaceId(context.workspaces[0].id);
+    }
+  }, [grant?.state, workspaceId, context.workspaces]);
   function submitManualCode(event: FormEvent) {
     event.preventDefault();
     const cleaned = manualCode.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
@@ -83,7 +104,7 @@ export default function ConnectAgent() {
     if (pending || !grant || (approve && (!workspace || !consent || unsupported || !invocationReady))) return;
     setPending(true); setError('');
     try {
-      const response = await fetch(`/api/v1/auth/agents/${code}`, { method: 'POST', headers, body: JSON.stringify(approve && workspace ? { approve: true, organization_id: workspace.organization_id, workspace_id: workspace.id, allowed_models: invocationAllowed ? selectedModels : ['*'], ttl_seconds: 3600, invocation_allowed: invocationAllowed } : { approve: false }) });
+      const response = await fetch(`/api/v1/auth/agents/${code}`, { method: 'POST', headers, body: JSON.stringify(approve && workspace ? { approve: true, organization_id: workspace.organization_id, workspace_id: workspace.id, allowed_models: invocationAllowed ? selectedModels : ['*'], ttl_seconds: 3600, invocation_allowed: invocationAllowed, invocation_protocols: invocationAllowed ? invocationProtocols : ALL_PROTOCOLS } : { approve: false }) });
       if (!response.ok) throw new Error(t('The decision was not confirmed. Reload the request before trying again.', '未能确认操作结果，请重新加载请求后再试。'));
       setGrant({ ...grant, state: approve ? 'approved' : 'denied' });
     } catch (cause) { setError(cause instanceof Error ? cause.message : t('Could not save your decision.', '无法保存决定。')); }
@@ -91,15 +112,19 @@ export default function ConnectAgent() {
   }
   const terminal = grant && grant.state !== 'pending';
   const canApprove = context.session?.kind === 'operator' && context.session.permissions.write;
+  const capabilityCount = grant?.capabilities?.length ?? 0;
   return <main className="min-h-screen bg-background px-5 py-12 sm:py-20">
     <section className="mx-auto w-full max-w-lg space-y-7" aria-labelledby="connect-title">
-      <a href="/" className="text-xl font-semibold">Niu</a>
+      <div className="flex items-center justify-between gap-3">
+        <a href="/" className="text-xl font-semibold">Niu</a>
+        {context.session && <Button variant="ghost" size="sm" onClick={() => void context.signOut()}>{t('Sign out', '退出登录')}</Button>}
+      </div>
       <header className="space-y-3"><h1 id="connect-title" className="text-2xl font-semibold">{t('Connect your agent', '连接你的 Agent')}</h1>
         <p className="text-sm text-muted-foreground">{t('Review the request from your coding agent. Your account password stays in Niu.', '审核 coding agent 的请求。账户密码仅用于登录 Niu。')}</p></header>
       {loading && <FormSectionSkeleton fields={2} label={t('Loading connection request…', '正在加载连接请求…')} />}
       {error && (
         <div role="alert" className="space-y-4 text-sm">
-          <p>{error}</p>
+          <p>{t(error)}</p>
           {!grant && (
             <form onSubmit={submitManualCode} className="space-y-3">
               <div className="space-y-1.5">
@@ -134,7 +159,7 @@ export default function ConnectAgent() {
         <div className="space-y-2 text-sm">
           <div className="flex items-start gap-3"><Checkbox id="agent-invocation" checked={invocationAllowed} disabled={pending || !workspace || !canApprove} onCheckedChange={value => { setInvocationAllowed(value === true); setConsent(false); }} /><Label htmlFor="agent-invocation">{t('Allow model calls', '允许调用模型')}</Label></div>
           <p className="text-muted-foreground">{invocationAllowed
-            ? t('Only selected models can be called. New models require a new authorization. Calls may incur charges under existing workspace limits; this approval does not set a separate trial budget.', '仅允许调用所选模型。新增模型需要重新授权。调用可能产生费用，受现有工作空间限额约束；本次授权不设置独立试用预算。')
+            ? t('Only selected models can be called. New models require a new authorization. Calls may incur charges under existing workspace and key limits; this approval does not set a separate trial budget.', '仅允许调用所选模型。新增模型需要重新授权。调用可能产生费用，受现有工作空间和密钥限额约束；本次授权不设置独立试用预算。')
             : t('Model calls are blocked. Your agent can use the discovery and management access approved here.', '模型调用将被禁止。Agent 可以使用本次批准的发现与管理权限。')}</p>
           {invocationAllowed && <div className="space-y-2">
             {catalog.scope !== modelScope || catalog.status === 'loading' ? <p role="status">{t('Loading workspace models…', '正在加载工作空间模型…')}</p>
@@ -161,7 +186,51 @@ export default function ConnectAgent() {
               </>}
           </div>}
         </div>
-        {Boolean(grant.capabilities?.length) && <div className="space-y-2 text-sm"><h2 className="font-medium">{t('Additional management access', '额外管理权限')}</h2><ul className="list-disc space-y-1 pl-5">{grant.capabilities?.map(capability => <li key={capability}>{capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')}</li>)}</ul></div>}
+        <div className="space-y-1 text-sm">
+          <h2 className="font-medium">{t('Spending boundary', '费用边界')}</h2>
+          <p className="text-muted-foreground">{invocationAllowed
+            ? t('Model calls use existing workspace and key spending limits. This connection does not add a separate trial budget or cap owner-funded Provider expense.', '模型调用受现有工作空间和密钥限额约束。本次连接不新增独立试用预算，也不限制由所有者承担的上游费用。')
+            : t('No model calls are authorized, so this connection cannot create inference charges.', '未授权模型调用，因此此连接不会产生推理费用。')}</p>
+        </div>
+        {Boolean(grant.capabilities?.length) && <p className="text-sm text-muted-foreground">{t(`${capabilityCount} workspace management ${capabilityCount === 1 ? 'operation is' : 'operations are'} also requested. Review the details under Advanced options before approving.`, `此请求还申请 ${capabilityCount} 项工作空间管理操作。批准前请在高级选项中审核。`)}</p>}
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="-ml-2" aria-expanded={advancedOpen}>
+              <ChevronDown size={16} className={advancedOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              {advancedOpen ? t('Hide advanced options', '隐藏高级选项') : t('Advanced options', '高级选项')}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 rounded-md border bg-muted/30 p-4 text-sm">
+            <div className="space-y-1">
+              <h2 className="font-medium">{t('Requested task', '请求任务')}</h2>
+              <p className="text-muted-foreground">{grant.task || t('No task description was supplied by the client.', '客户端未提供任务说明。')}</p>
+            </div>
+            {Boolean(grant.capabilities?.length) && <div className="space-y-2">
+              <h2 className="font-medium">{t('Additional management access', '额外管理权限')}</h2>
+              <ul className="list-disc space-y-1 pl-5">{grant.capabilities?.map(capability => <li key={capability}>{capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')}</li>)}</ul>
+            </div>}
+            {invocationAllowed && <div className="space-y-2">
+              <h2 className="font-medium">{t('Model interfaces', '模型接口')}</h2>
+              <p className="text-muted-foreground">{t('Unchecked interfaces are denied even when model calls are allowed.', '即使允许模型调用，未勾选的接口也会被拒绝。')}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {ALL_PROTOCOLS.map(protocol => <div key={protocol} className="flex items-center gap-2">
+                  <Checkbox id={`agent-protocol-${protocol}`} checked={invocationProtocols.includes(protocol)} disabled={pending} onCheckedChange={value => { setInvocationProtocols(current => value === true ? [...current, protocol] : current.filter(item => item !== protocol)); setConsent(false); }} />
+                  <Label htmlFor={`agent-protocol-${protocol}`} className="font-normal">{protocolLabels[protocol]}</Label>
+                </div>)}
+              </div>
+              {invocationProtocols.length === 0 && <p role="alert">{t('Select at least one interface, or turn off model calls.', '请至少选择一个接口，或关闭模型调用。')}</p>}
+            </div>}
+            <div className="space-y-1">
+              <h2 className="font-medium">{t('Spending basis', '计费基础')}</h2>
+              <p className="text-muted-foreground">{t('Customer charges are enforced against existing workspace and key spending limits. Owner-funded upstream Provider expense is not capped by this approval, and no such cap is claimed.', '客户费用受现有工作空间和密钥支出限额约束。本次授权不限制由所有者承担的上游 Provider 费用，也不作此声明。')}</p>
+            </div>
+            <div className="space-y-1">
+              <h2 className="font-medium">{t('Expansion policy', '扩展规则')}</h2>
+              <p className="text-muted-foreground">{t('Allowed model names, model interfaces and management operations are fixed at approval. New models, interfaces or operations require a new authorization from a current workspace owner.', '允许的模型名称、模型接口和管理操作在批准时固定。新增模型、接口或操作需要当前工作空间所有者重新授权。')}</p>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+        {invocationAllowed && invocationProtocols.length === 0 && <p role="alert" className="text-sm">{t('Select at least one model interface under Advanced options, or turn off model calls.', '请在高级选项中至少选择一个模型接口，或关闭模型调用。')}</p>}
         <div className="flex items-start gap-3"><Checkbox id="agent-consent" checked={consent} disabled={pending || !workspace || !canApprove || unsupported || !invocationReady} onCheckedChange={value => setConsent(value === true)} /><Label htmlFor="agent-consent" className="text-sm leading-5">{t('I recognize this request and approve this access.', '我确认此请求由我发起，并批准上述访问。')}</Label></div>
         <div className="flex gap-3"><Button disabled={!canApprove || !workspace || !consent || pending || Boolean(error) || unsupported || !invocationReady} onClick={() => void decide(true)}>{pending ? t('Saving…', '正在保存…') : t('Authorize agent', '授权 Agent')}</Button><Button variant="outline" disabled={!canApprove || pending || Boolean(error)} onClick={() => void decide(false)}>{t('Decline', '拒绝')}</Button></div>
       </>}

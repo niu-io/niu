@@ -1,0 +1,72 @@
+/* Developer payment mode must not imply that inference is free. */
+.mock-payment-warning { width: auto; margin: 16px clamp(16px, 3cqw, 32px) 0; border-color: color-mix(in srgb, var(--warning) 24%, var(--border)); background: color-mix(in srgb, var(--warning) 7%, var(--background)); color: var(--foreground); }
+.mock-payment-warning [data-slot="alert-description"] { color: var(--foreground); }
+
+/* Lifecycle badges: a status dot distinguishes active keys and users from revoked or expired ones. */
+.lifecycle-badge { gap: 6px; }
+.lifecycle-badge .status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--muted-foreground); }
+.lifecycle-badge[data-tone="active"] { border-color: color-mix(in srgb, var(--success) 28%, var(--border)); color: var(--success); background: color-mix(in srgb, var(--success) 7%, transparent); }
+.lifecycle-badge[data-tone="active"] .status-dot { background: var(--success); }
+
+/* Workspace billing: group spending and limits as quiet solid-tone sections. */
+.billing-content .billing-balance-content { gap: 16px; }
+.billing-content .billing-balance-content > section { margin-top: 0; padding: 20px 22px; border-radius: var(--radius-panel); background: var(--card); }
+.billing-content .billing-balance-content > section h2 { margin: 0 0 4px; font-size: 15px; font-weight: 620; letter-spacing: -.01em; }
+.billing-content .billing-balance-content > section p { font-size: 14px; }
+.billing-content .billing-spending { margin-top: 14px; font-size: 28px; letter-spacing: -.03em; }
+.billing-content .billing-spending-empty { margin-top: 14px; color: var(--foreground); font-weight: 560; }
+
+/* Overview: the recent-requests heading shares the chart section's edge and type scale. */
+.gateway-task-feed.is-compact .gateway-task-feed-heading { padding-inline: 0; }
+.gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 14px; font-weight: 600; letter-spacing: normal; }
+.gateway-task-feed.is-compact .gateway-feed-actions { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+.gateway-task-feed.is-compact .gateway-feed-actions a { font-size: 14px; }
+.gateway-task-feed.is-compact > .gateway-first-use { max-width: 100%; }
+.gateway-first-use .gateway-first-use-steps { max-width: 900px; }
+@media (max-width: 640px) { .gateway-task-feed.is-compact .gateway-task-feed-heading { flex-wrap: wrap; row-gap: 6px; }}
+.keys-scope-line > span[role="status"] { color: var(--muted-foreground); font-size: 14px; }
+
+/* Global activity totals reuse the workspace metric strip with three measures. */
+.global-activity-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 8px; }
+@media (max-width: 640px) { .global-activity-summary { grid-template-columns: minmax(0, 1fr); }}
+.guardrails-intro { font-size: 14px; }
+
+/* The full brand lockup and language control share one mobile header row. */
+@media (max-width: 30rem) {
+  .dashboard-login-brand .dashboard-login-product { display:none; }
+  .dashboard-login-topbar { gap: 4px; }
+  .dashboard-login-nav [data-slot="button"] { padding-inline: 5px; }}
+
+.gateway-route-content > div > .empty-state { width: 100%; }
+.generations-history [data-slot="empty"] { min-height: 160px; }
+.provider-empty-state { flex: 1; }
+
+.operator-detail:has(> .operator-detail-empty) { display: flex; flex-direction: column; }
+
+/* Compact list and diagnostic placeholders center within their bounded regions. */
+.model-no-results, .workspace-switcher-empty, .operator-activity-empty, .provider-inline-empty, .activity-model-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.model-no-results, .operator-activity-empty { min-height: 96px; }
+.workspace-switcher-empty { min-height: 80px; }
+.provider-inline-empty { min-height: 160px; }
+.activity-model-empty { min-height: 192px; }
+
+.operator-activity-empty { padding-block: 12px; }
+
+/* Narrow viewports compress the mock-payment notice to a one-line disclosure. */
+.mock-payment-compact { display: none; }
+@media (max-width: 580px) {
+  .mock-payment-warning { padding-block: 0.5rem; }
+  .mock-payment-warning .mock-payment-full { display: none; }
+  .mock-payment-warning .mock-payment-compact { display: block; }
+  .mock-payment-warning .mock-payment-compact summary { cursor: pointer; font-size: 0.8125rem; }
+  .mock-payment-warning .mock-payment-compact p { margin-top: 0.375rem; }
+  .mock-payment-warning [data-slot="alert-title"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+
+.help-search-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}

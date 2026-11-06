@@ -61,6 +61,9 @@ export type DashboardContext = {
   updateProfile?: (profile: MemberProfile) => void;
   providerDirectory?: {id: string; slug?: string; name: string}[];
   providerDirectoryLoading?: boolean;
+  /** Set when the shared provider directory request failed; cached entries remain in providerDirectory. */
+  providerDirectoryError?: string;
+  reloadProviderDirectory?: () => void;
   organizations: Organization[];
   organization: Organization | null;
   selectOrganization: (organization: Organization) => void | Promise<void>;
@@ -69,6 +72,8 @@ export type DashboardContext = {
   createOrganization?: (name: string, slug?: string, initialWorkspaceName?: string, idempotencyKey?: string) => Promise<Organization>;
   renameOrganization?: (target: Organization, name: string) => Promise<Organization>;
   joinOrganization?: (inviteToken: string) => Promise<AdminSession>;
+  /** Redeem a purpose-bound one-time invitation for the signed-in account. */
+  acceptInvitation?: (invitationToken: string) => Promise<AdminSession>;
   openCreateOrganization?: () => void;
   workspaces: Workspace[];
   workspace: Workspace | null;
@@ -77,7 +82,8 @@ export type DashboardContext = {
   workspaceError: WorkspaceProblem | null;
   selectWorkspace: (workspace: Workspace) => void;
   createWorkspace: (name: string, organizationId?: string, slug?: string, spendingLimit?: {currency: string; limit_nanos: string}) => Promise<Workspace>;
-  renameWorkspace: (workspace: Workspace, name: string) => Promise<Workspace>;
+  /** Apply a rename confirmed by the workspace settings route action. */
+  applyWorkspaceRename: (workspaceId: string, name: string) => void;
   deleteWorkspace: (workspace: Workspace) => Promise<void>;
   chatKeys: SessionChatKey[];
   rememberChatKey: (key: SessionChatKey) => void;

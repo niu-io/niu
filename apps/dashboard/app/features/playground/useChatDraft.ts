@@ -97,6 +97,7 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
       return active;
     };
     control.current={flush,retry:()=>{failed=false;void flush();}};
+    const initialValue=JSON.stringify(current.current);
     setState({ready:false,saving:false,error:'',conflict:false});
     const prefetchKey=`${token}:${endpoint}`;
     const prefetched=prefetchedDrafts.get(prefetchKey);
@@ -107,10 +108,15 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
       .then(saved=>{
         if (!valid()) return;
         revision=saved.revision;
+        const localChanged=JSON.stringify(current.current)!==initialValue;
         if(saved.payload) {
-          confirmed=JSON.stringify(saved.payload);
-          const restored=onRestore.current(saved.payload);
-          if (token && endpoint) primeQuery(token, endpoint, { revision: saved.revision, payload: restored ?? saved.payload });
+          confirmed=localChanged?'':JSON.stringify(saved.payload);
+          if (!localChanged) {
+            const restored=onRestore.current(saved.payload);
+            if (token && endpoint) primeQuery(token, endpoint, { revision: saved.revision, payload: restored ?? saved.payload });
+          } else if (token && endpoint) {
+            primeQuery(token, endpoint, { revision: saved.revision, payload: current.current });
+          }
         } else {
           confirmed=JSON.stringify(current.current);
           if (token && endpoint) primeQuery(token, endpoint, { revision: saved.revision, payload: current.current });

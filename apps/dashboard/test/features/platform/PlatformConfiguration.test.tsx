@@ -150,16 +150,17 @@ it('shows the missing payment step, refreshes current evidence, and clears stale
  const card=await screen.findByRole('article',{name:'Stripe'});
  expect(card.textContent).toContain('Needs attention');
  expect(card.textContent).toContain('Not verified');
- expect(screen.getByRole('link',{name:'Credits'}).getAttribute('href')).toBe('/?settings=billing');
+ expect(card.textContent).toContain('Payment notifications are not verified yet.');
+ expect(screen.queryByRole('link',{name:'Credits'})).toBeNull();
  callback=true;
  await userEvent.click(screen.getByRole('button',{name:'Refresh verification'}));
  await waitFor(()=>expect(card.textContent).toContain('Payment delivery is verified for the current configuration.'));
  expect(card.textContent).not.toContain('Needs attention');
  unavailable=true;
  await userEvent.click(screen.getByRole('button',{name:'Refresh verification'}));
- await screen.findByText('Verification status could not be refreshed. Try again.');
- expect(card.textContent).toContain('Verification status is unavailable');
- expect(card.textContent).not.toContain('Payment delivery is verified');
+ await screen.findByText('Verification status could not be refreshed. The last known status is still shown. Try again.');
+ expect(card.textContent).toContain('Payment delivery is verified for the current configuration.');
+ expect(card.textContent).not.toContain('Verification status is unavailable');
  expect(api.request.mock.calls.some(call=>call[2]==='POST')).toBe(false);
 });
 

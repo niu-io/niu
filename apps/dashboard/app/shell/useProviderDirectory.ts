@@ -19,6 +19,7 @@ export function useProviderDirectory(
   const {
     data: fetchedProviders,
     loading: providerQueryLoading,
+    error: providerQueryError,
     reload: reloadProviders,
   } = useCachedQuery<{ data: ProviderIdentity[] }>(
     token,
@@ -47,6 +48,10 @@ export function useProviderDirectory(
   }, [session, platformManager, fetchedProviders]);
 
   const providerDirectoryLoading = Boolean(enabled && providerQueryLoading);
+  // The directory is also loaded by ProviderNav, which renders this query's
+  // error and retry. Expose the failure so a provider detail route does not
+  // mistake an empty directory for a missing Provider.
+  const providerDirectoryError = enabled ? providerQueryError : '';
   const adminSupplierName = resolveProvider(adminSupplierId, authorizedProviders)?.name ?? '';
 
   useEffect(() => {
@@ -62,6 +67,8 @@ export function useProviderDirectory(
   return {
     authorizedProviders,
     providerDirectoryLoading,
+    providerDirectoryError,
+    reloadProviderDirectory: reloadProviders,
     adminSupplierName,
   };
 }

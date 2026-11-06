@@ -66,7 +66,7 @@ export default function InstallationRoute() {
               onChange={event => context.setDraftToken(event.target.value)}
             />
           </div>
-          {context.error && <p className="dashboard-login-error" role="alert">{context.error}</p>}
+          {context.error && <p className="dashboard-login-error" role="alert">{t(context.error)}</p>}
           {context.token && context.session?.kind === 'operator' && <p className="dashboard-login-error" role="alert">{t('An installation administrator credential is required.', '需要提供实例管理员凭证。')}</p>}
           <Button type="submit" className="dashboard-login-submit">{t('Continue', '继续')}</Button>
         </form>

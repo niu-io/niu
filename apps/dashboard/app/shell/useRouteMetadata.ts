@@ -3,7 +3,7 @@ import { useLocation, useMatches } from 'react-router';
 import { canManagePlatform, type AdminSession } from './dashboard-context';
 import { navigation, type NavItem } from './navigation';
 import type { RouteHandle } from './router-context';
-import { translateUI, useLocale } from './ui-locale';
+import { useLocale } from './ui-locale';
 
 const EMPTY_MATCHES: ReturnType<typeof useMatches> = [];
 
@@ -67,8 +67,13 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     location.pathname === '/models' ||
     location.pathname.startsWith('/models/');
   const loginArea = location.pathname === '/login' || location.pathname === '/installation';
+  const inviteArea = location.pathname === '/invite' || location.pathname.startsWith('/invite/');
   const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
+
+  const searchParams = new URLSearchParams(location.search);
+  const videoSessionRoute = isGlobalChat && (location.pathname.startsWith('/generations/video-') || searchParams.has('video-session'));
+  const videoComposerRoute = isGlobalChat && !videoSessionRoute && (searchParams.get('new') === 'video' || searchParams.has('job'));
 
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'
@@ -78,7 +83,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     () =>
       navigation.filter(item =>
         location.pathname.startsWith('/workspaces/')
-          ? item.destination === 'Workspace' || item.destination === 'Organization'
+          ? item.destination === 'Workspace'
           : item.destination !== 'Workspace',
       ),
     [location.pathname],
@@ -99,40 +104,18 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     );
   }, [leafHandle?.navTo, scopedNavigation, activePath]);
 
-  const guardrailTitles: Record<string, string> = isZh
-    ? {
-        policy: '策略',
-        input: '输入规则',
-        output: '输出规则',
-        access: '模型访问',
-        detectors: '外部检测',
-        history: '变更历史',
-        denials: '拦截记录',
-      }
-    : {
-        policy: translateUI('Policy'),
-        input: translateUI('Input rules'),
-        output: translateUI('Output rules'),
-        access: translateUI('Model access'),
-        detectors: translateUI('External checks'),
-        history: translateUI('History'),
-        denials: translateUI('Blocked requests'),
-      };
-
-  const isGuardrailEditor = [
-    'guardrails/input',
-    'guardrails/output',
-    'guardrails/access',
-    'guardrails/detectors',
-  ].includes(activePath);
-
   const title =
-    location.pathname === '/connect'
+    videoSessionRoute
+      ? `${t('Video session', '视频会话')} · ${t('Generations', '生成对话')}`
+      : videoComposerRoute
+        ? `${t('Video', '视频')} · ${t('Generations', '生成对话')}`
+        : location.pathname === '/connect'
       ? t('Connect your agent', '连接你的 Agent')
       : workspaceDirectoryArea
         ? t('Workspaces', '工作空间')
         : settingsArea
           ? ({
+              organization: t('Organization', '组织'),
               account: t('Account', '账户'),
               appearance: t('Appearance', '外观'),
               billing: t('Credits', '额度与充值'),
@@ -140,7 +123,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
               members: t('Members', '成员管理'),
               about: t('About', '关于'),
             }[location.pathname.split('/')[2] ?? 'account'] ?? t('Settings', '设置'))
-          : loginArea
+          : inviteArea
+            ? t('Accept invitation', '接受邀请')
+            : loginArea
             ? location.pathname === '/installation'
               ? t('Installation administration', '实例管理')
               : t('Sign in', '登录')
@@ -150,7 +135,6 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                 ? ({
                     customers: t('Customers', '客户管理'),
                     reports: t('Financial reports', '财务报表'),
-                    balances: t('Account balances', '账户余额'),
                     oauth: t('OAuth providers', 'OAuth 服务商'),
                     payments: t('Payment gateways', '支付网关'),
                     pricing: t('Pricing', '定价配置'),
@@ -176,9 +160,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                   ? t('New API key', '新建 API 密钥')
                   : activePath.startsWith('keys/')
                     ? t('API key', 'API 密钥')
-                    : activePath.startsWith('guardrails/')
-                      ? guardrailTitles[activePath.split('/')[1]] ?? t('Guardrails', '安全护栏')
-                      : activeNavigation
+                    : activeNavigation
                         ? isZh
                           ? activeNavigation.labelZh
                           : activeNavigation.label
@@ -210,12 +192,12 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     workspaceDirectoryArea,
     usesSelectedWorkspace,
     loginArea,
+    inviteArea,
     helpArea,
     activityArea,
     activePath,
     scopedNavigation,
     activeNavigation,
-    isGuardrailEditor,
     title,
     destination,
     platform,

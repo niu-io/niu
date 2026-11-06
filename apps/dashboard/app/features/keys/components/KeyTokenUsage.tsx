@@ -25,7 +25,7 @@ function readCachedUsage(token: string, usagePath: string): KeyTokenUsageWindow 
     const cached = peekQuery<{ data: KeyTokenUsageWindow }>(token || 'public', usagePath)?.data;
     return cached ? checked(cached) : null;
   } catch {
-    return null;
+    return null; // A corrupt cache entry is optional; the fetch below reports failures.
   }
 }
 

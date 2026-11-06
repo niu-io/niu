@@ -73,8 +73,16 @@ it('retains history data and scroll position when the mobile drawer closes and r
   expect(screen.queryByRole('button', { name: 'Search sessions' })).toBeNull();
 });
 
+function readDashboardStyles() {
+  const entry = resolve(import.meta.dirname, '../../../app/styles.css');
+  return readFileSync(entry, 'utf8').replace(
+    /^@import\s+['"](\.\/styles\/[^'"]+)['"];$/gm,
+    (_, relativePath: string) => readFileSync(resolve(entry, '..', relativePath), 'utf8'),
+  );
+}
+
 it('fills the full page canvas across Chat and Video session views without management gutters', () => {
-  const stylesCss = readFileSync(resolve(import.meta.dirname, '../../../app/styles.css'), 'utf8');
+  const stylesCss = readDashboardStyles();
   const generationsCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/generations/generations.css'), 'utf8');
   const videoCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/video/video.css'), 'utf8');
 

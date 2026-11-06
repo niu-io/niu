@@ -20,7 +20,7 @@ export type ProviderWorkspaceSectionSpec = {
   moduleId: string;
   labelEn: string;
   labelZh: string;
-  isAvailable: (context: { modules: NativeProviderModule[]; hasHistory: boolean }) => boolean;
+  isAvailable: (context: { modules: NativeProviderModule[] }) => boolean;
   render: (props: ProviderWorkspaceSectionRenderProps) => ReactNode;
 };
 
@@ -108,8 +108,8 @@ const PROVIDER_MODULE_REGISTRY: ReadonlyMap<string, ProviderModuleRegistration> 
           moduleId: 'volcengine',
           labelEn: 'Provider materials',
           labelZh: '上游素材组',
-          isAvailable: ({ modules, hasHistory }) =>
-            modules.some(m => m.materials?.groups || m.materials?.assets) || hasHistory,
+          isAvailable: ({ modules }) =>
+            modules.some(m => m.materials?.groups || m.materials?.assets),
           render: props => <VolcengineMaterialsSection {...props} />,
         },
         {
@@ -169,9 +169,8 @@ export function useWorkspaceProviderAssetSections(
   selection: NativeMaterialsContext,
   requestedTab?: string | null,
 ) {
-  const data = useMaterials(undefined, undefined, selection);
+  const data = useMaterials(undefined, undefined, selection, { discoveryOnly: true });
   const discoveredModules = data.contextChoices.map(choice => choice.module);
-  const hasHistory = Object.values(data.historyModels).some(models => models.length > 0);
 
   const sections: ProviderWorkspaceSectionSpec[] = [];
   for (const registration of PROVIDER_MODULE_REGISTRY.values()) {
@@ -180,10 +179,7 @@ export function useWorkspaceProviderAssetSections(
       const explicitlyRequested = requestedTab === section.id;
       if (
         explicitlyRequested ||
-        section.isAvailable({
-          modules: moduleMatches,
-          hasHistory,
-        })
+        section.isAvailable({ modules: moduleMatches })
       ) {
         sections.push(section);
       }

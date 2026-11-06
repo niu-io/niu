@@ -41,6 +41,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug}:{token:str
   const client=useMemo(()=>new NiuAdminClient({baseURL:`${window.location.origin}/api/v1`,adminToken:token}),[token]);
   const [kind,setKind]=useState<keyof typeof kinds>('all'), [query,setQuery]=useState('');
   const cacheKey=`library:${scope.organizationId}:${scope.projectId}:${kind}`;
+  // Cached pages are optional hydration; a failed refresh is surfaced below.
   const initialPage=(()=>{try{const c=peekQuery<WorkspaceAssetPage>(token||'public',cacheKey);return c?checkedPage(c):null;}catch{return null;}})();
   const [assets,setAssets]=useState<WorkspaceAsset[]>(()=>initialPage?.data??[]);
   const [cursor,setCursor]=useState<string|null>(()=>initialPage?.next_cursor??null), [loading,setLoading]=useState(()=>!initialPage), [loadingMore,setLoadingMore]=useState(false), [error,setError]=useState(''), [moreError,setMoreError]=useState(''), [notice,setNotice]=useState(''), [revision,setRevision]=useState(0);
@@ -55,6 +56,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug}:{token:str
   useEffect(()=>{
     const request=new AbortController(); moreRequest.current?.abort();
     const force=lastRevision.current!==revision; lastRevision.current=revision;
+    // A corrupt cache entry is ignored; the fetch below replaces it or reports the failure.
     const cached=!force?(()=>{try{const c=peekQuery<WorkspaceAssetPage>(token||'public',cacheKey);return c?checkedPage(c):null;}catch{return null;}})():null;
     if(cached){setAssets(cached.data);setCursor(cached.next_cursor);}
     else if(force){setAssets([]);setCursor(null);}
@@ -143,7 +145,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug}:{token:str
     <div className="flex flex-wrap items-center gap-2">
       <Input ref={uploadInput} type="file" className="hidden" aria-label={uiT("Upload workspace reference image", "上传工作空间参考图")} accept="image/png,image/jpeg,image/webp" multiple onChange={event=>void uploadFiles(event.target.files)} disabled={!canWrite||uploading||busy}/>
       <Popover><PopoverTrigger asChild><Button ref={searchButton} variant={query?'secondary':'outline'} size="icon" aria-label={query?uiF("Search library: {0}", [query]):uiT("Search library")}><IconSearch size={18}/></Button></PopoverTrigger><PopoverContent align="start"><Label htmlFor="library-search">{uiT("Search loaded files")}</Label><Input id="library-search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={uiT("File name…")}/></PopoverContent></Popover>
-      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{translateUI(kinds[kind])}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={kind} onValueChange={value=>setKind(value as keyof typeof kinds)}>{Object.entries(kinds).map(([value,label])=><DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{translateUI(kinds[kind])}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={kind} onValueChange={value=>setKind(value as keyof typeof kinds)}>{Object.entries(kinds).map(([value,label])=><DropdownMenuRadioItem key={value} value={value}>{translateUI(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
       <Button variant="outline" disabled={loading} onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh")}</Button>
       {canWrite&&<Button variant="outline" disabled={uploading||busy} onClick={()=>uploadInput.current?.click()}><IconUpload size={16}/>{uploading?uiT("Saving image…"):uiT("Attach image")}</Button>}
       {query&&<Button className="min-w-0 max-w-full" variant="ghost" onClick={()=>setQuery('')}>{uiT("Clear search:")}{" "}<span className="truncate">{query}</span></Button>}

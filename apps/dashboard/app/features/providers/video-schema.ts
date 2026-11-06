@@ -15,7 +15,7 @@ export type VideoSchema = {
   required_controls: VideoControlName[]; exclusive_controls: [VideoControlName, VideoControlName][]; callbacks_qualified: boolean;
 };
 export const videoControls = {
-  duration: { label: 'Duration', kind: 'integer' },
+  duration: { label: 'Video duration', kind: 'integer' },
   resolution: { label: 'Resolution', kind: 'choice' },
   ratio: { label: 'Aspect ratio', kind: 'choice' },
   seed: { label: 'Seed', kind: 'integer' },

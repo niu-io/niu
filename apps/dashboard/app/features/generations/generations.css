@@ -57,3 +57,9 @@
 /* Route-owned chrome uses the same notice and inset rhythm as management pages. */
 .generations-session { container-type: inline-size; }
 .generations-session > .mock-payment-warning { margin-bottom: 16px; }
+
+/* Opening a saved turn keeps the readable fragment target visible. */
+.video-session-turn { scroll-margin-top: 12px; border-radius: var(--radius); }
+.video-session-turn.video-turn-target { animation: generation-turn-arrival 1.4s ease-out; }
+@keyframes generation-turn-arrival { from { background: var(--accent); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .video-session-turn.video-turn-target { animation: none; } }

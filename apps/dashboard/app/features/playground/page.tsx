@@ -11,6 +11,7 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import { useModelPopularity } from '@/shell/useModelPopularity';
 import PlaygroundView from './components/PlaygroundView';
 import VideoSessionView from '../generations/VideoSessionView';
+import LegacyVideoLink from '../generations/LegacyVideoLink';
 
 export default function PlaygroundRoute() {
   const { t: uiT } = useUILocale();
@@ -38,6 +39,11 @@ export default function PlaygroundRoute() {
     search.get('video-session') ??
     (pathSession && /^video-[1-9][0-9]{0,18}$/.test(pathSession) ? pathSession : null);
   if(savedVideoSession)return <VideoSessionView key={`${token}:${workspace?.id??''}:${savedVideoSession}`} context={context} id={savedVideoSession}/>;
+  // Old result deep links resolve to the session that owns them. The composer
+  // owns its session/turn hints until submission, and explicit continuation
+  // carries compose=1, so both keep the editable surface.
+  const legacyVideoLink = Boolean(search.get('intent') || search.get('job')) && search.get('compose') !== '1' && !search.get('session') && !search.get('turn');
+  if(legacyVideoLink)return <LegacyVideoLink key={`${token}:${workspace?.id??''}:${search.get('intent')??''}:${search.get('job')??''}`} context={context} fallback={<VideoView key={`${token}:${workspace?.id??''}`} context={context}/>} />;
   const hasChatSession = Boolean((pathSession && !savedVideoSession) || search.get('session'));
   const requestedModel=search.get('model');
   const requested=requestedModel ? models.find(model=>model.id===requestedModel) : undefined;

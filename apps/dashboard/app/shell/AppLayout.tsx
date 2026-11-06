@@ -8,13 +8,13 @@ import {
   type FocusEvent,
   type PointerEvent,
 } from 'react';
-import { Outlet, useNavigate, useRevalidator } from 'react-router';
+import { Navigate, Outlet, useNavigate, useRevalidator } from 'react-router';
 import { TriangleAlert, X } from 'lucide-react';
 import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { SettingsDialog, settingsHref } from '@/features/account/settings-shell';
+import { legacySettingsTarget } from '@/features/account/settings-routes';
 import { reconcileActiveRouteLoad } from '@/lib/route-data';
 import { subscribeMutations } from '@/lib/query-cache';
 import AccountMenu from './AccountMenu';
@@ -126,23 +126,24 @@ export default function AppLayout() {
     workspaceDirectoryArea,
     usesSelectedWorkspace,
     loginArea,
+    inviteArea,
     helpArea,
     activityArea,
     activePath,
     scopedNavigation,
     activeNavigation,
-    isGuardrailEditor,
     title,
     destination,
     platform,
   } = routeMeta;
 
-  const { authorizedProviders, providerDirectoryLoading, adminSupplierName } = useProviderDirectory(
-    token,
-    session,
-    supplierArea,
-    adminSupplierId,
-  );
+  const {
+    authorizedProviders,
+    providerDirectoryLoading,
+    providerDirectoryError,
+    reloadProviderDirectory,
+    adminSupplierName,
+  } = useProviderDirectory(token, session, supplierArea, adminSupplierId);
 
   const modelResetBridgeRef = useRef<{
     resetModels: (loading: boolean) => void;
@@ -179,6 +180,7 @@ export default function AppLayout() {
     createOrganization,
     renameOrganization,
     joinOrganization,
+    acceptInvitation,
     workspaces,
     workspace: activeContextWorkspace,
     effectiveActiveWorkspace,
@@ -188,7 +190,7 @@ export default function AppLayout() {
     workspaceError: effectiveWorkspaceError,
     selectWorkspace,
     createWorkspace,
-    renameWorkspace,
+    applyWorkspaceRename,
     deleteWorkspace,
     chatKeys,
     rememberChatKey,
@@ -355,10 +357,21 @@ export default function AppLayout() {
               {t('Mock payments enabled · Real model costs', '模拟支付已开启 · 实际产生模型费用')}
             </AlertTitle>
             <AlertDescription>
-              {t(
-                'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
-                '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
-              )}
+              <p className="mock-payment-full">
+                {t(
+                  'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
+                  '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
+                )}
+              </p>
+              <details className="mock-payment-compact">
+                <summary>{t('Details', '详情')}</summary>
+                <p>
+                  {t(
+                    'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
+                    '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
+                  )}
+                </p>
+              </details>
             </AlertDescription>
             <Button
               variant="ghost"
@@ -382,6 +395,8 @@ export default function AppLayout() {
       updateProfile,
       providerDirectory: authorizedProviders,
       providerDirectoryLoading,
+      providerDirectoryError,
+      reloadProviderDirectory,
       organizations,
       organization,
       selectOrganization,
@@ -390,6 +405,7 @@ export default function AppLayout() {
       createOrganization,
       renameOrganization,
       joinOrganization,
+      acceptInvitation,
       openCreateOrganization,
       workspaces,
       workspace: activeContextWorkspace,
@@ -398,7 +414,7 @@ export default function AppLayout() {
       workspaceError: effectiveWorkspaceError,
       selectWorkspace,
       createWorkspace,
-      renameWorkspace,
+      applyWorkspaceRename,
       deleteWorkspace,
       chatKeys,
       rememberChatKey,
@@ -429,6 +445,8 @@ export default function AppLayout() {
       updateProfile,
       authorizedProviders,
       providerDirectoryLoading,
+      providerDirectoryError,
+      reloadProviderDirectory,
       organizations,
       organization,
       selectOrganization,
@@ -437,6 +455,7 @@ export default function AppLayout() {
       createOrganization,
       renameOrganization,
       joinOrganization,
+      acceptInvitation,
       openCreateOrganization,
       workspaces,
       activeContextWorkspace,
@@ -445,7 +464,7 @@ export default function AppLayout() {
       effectiveWorkspaceError,
       selectWorkspace,
       createWorkspace,
-      renameWorkspace,
+      applyWorkspaceRename,
       deleteWorkspace,
       chatKeys,
       rememberChatKey,
@@ -480,8 +499,7 @@ export default function AppLayout() {
   const hasSidebar =
     !helpArea &&
     (!adminArea || isInstallation) &&
-    !settingsArea &&
-    (activityArea || supplierManagement || destination === 'Workspace');
+    (activityArea || settingsArea || supplierManagement || destination === 'Workspace');
   const modelFiltersAvailable =
     destination === 'Models' &&
     !activePath.startsWith('models/') &&
@@ -490,6 +508,22 @@ export default function AppLayout() {
     !effectiveWorkspaceError &&
     (models.length > 0 || (!modelsLoading && !modelsError));
   const showWorkspaceAreas = !supplierArea || isInstallation || Boolean(session?.operator);
+  const legacySettings = useMemo(
+    () =>
+      settingsArea
+        ? null
+        : legacySettingsTarget(location.pathname, location.search, location.hash, session),
+    [settingsArea, location.pathname, location.search, location.hash, session?.kind],
+  );
+  // Navigate compares its state prop by identity. Keep it stable so a render
+  // that happens before the redirect commits cannot enqueue the same
+  // navigation repeatedly.
+  const legacySettingsState = useMemo(() => {
+    if (!legacySettings) return null;
+    return location.state && typeof location.state === 'object'
+      ? { ...location.state, settingsReturnTo: legacySettings.returnTo }
+      : { settingsReturnTo: legacySettings.returnTo };
+  }, [legacySettings?.returnTo, location.state]);
 
   const [lastGenerationsHref, setLastGenerationsHref] = useState('/generations');
   useEffect(() => {
@@ -594,7 +628,11 @@ export default function AppLayout() {
     );
   }
   if (location.pathname === '/connect' && token) return <Outlet context={context} />;
-  if (loginArea) return <div className="dashboard-login-shell"><Outlet context={context} /></div>;
+  if (loginArea || (inviteArea && token)) return <div className="dashboard-login-shell"><Outlet context={context} /></div>;
+
+  if (legacySettings) {
+    return <Navigate replace state={legacySettingsState ?? undefined} to={legacySettings.to} />;
+  }
 
   return (
     <SidebarProvider
@@ -614,23 +652,6 @@ export default function AppLayout() {
       <a className="dashboard-skip" href="#dashboard-content">
         {t('Skip to content', '跳转到主内容')}
       </a>
-      {!settingsArea &&
-        ['account', 'appearance', 'billing', 'payments', 'members', 'about'].includes(
-          new URLSearchParams(location.search).get('settings') ?? '',
-        ) && (
-          <SettingsDialog
-            context={context}
-            section={new URLSearchParams(location.search).get('settings') ?? undefined}
-            href={section => settingsHref(location.pathname, location.search, location.hash, section)}
-            onClose={() => {
-              const query = new URLSearchParams(location.search);
-              query.delete('settings');
-              navigate(location.pathname + (query.size ? '?' + query.toString() : '') + location.hash, {
-                replace: true,
-              });
-            }}
-          />
-        )}
       <WorkspaceCreateDialog
         context={context}
         open={workspaceCreateOpen}
@@ -684,7 +705,7 @@ export default function AppLayout() {
             <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile />
           </nav>
         )}
-        {!settingsArea && !isGlobalChat && !helpArea && (
+        {!isGlobalChat && !helpArea && (
           <ShellHeader
             toggleRef={toggleRef}
             hasSidebar={hasSidebar}
@@ -701,7 +722,6 @@ export default function AppLayout() {
             logo={logo}
             activeWorkspacePath={activeWorkspacePath}
             activePath={activePath}
-            isGuardrailEditor={isGuardrailEditor}
             workspace={effectiveActiveWorkspace}
             workspaces={workspaces}
             selectWorkspace={selectWorkspace}

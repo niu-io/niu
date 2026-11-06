@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconActivity as Activity } from "@tabler/icons-react";
 import { IconFilter as ListFilter } from "@tabler/icons-react";
 import { IconChevronUp as ChevronUp } from "@tabler/icons-react";
@@ -35,7 +35,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
-import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
+import { formatUnitAtoms, money } from '@/lib/money';
 
 type TaskEvidence = {
   execution_id: string;
@@ -270,17 +270,17 @@ function localDayStart(value: string) {
 function statusLabel(value: string) {
   switch (value) {
     case 'not_sent': return translateUI('Not sent');
-    case 'may_have_executed': return translateUI('Uncertain');
+    case 'may_have_executed': return translateUI('Needs verification');
     case 'confirmed_completed': return translateUI('Completed');
     case 'confirmed_not_executed': return translateUI('Not executed');
-    case 'output_withheld': return translateUI('Output withheld');
-    case 'delivery_failed': return translateUI('Failed delivery');
+    case 'output_withheld': return translateUI('Blocked by policy');
+    case 'delivery_failed': return translateUI('Delivery failed');
     default: return value;
   }
 }
 
 function requestStatus(item: GatewayRequest) {
-  if (item.output_guardrail_outcome === 'blocked' || item.output_guardrail_outcome === 'indeterminate') return translateUI('Output withheld');
+  if (item.output_guardrail_outcome === 'blocked' || item.output_guardrail_outcome === 'indeterminate') return translateUI('Blocked by policy');
   if (item.timing?.http_status != null && item.timing.http_status >= 400) return formatLocalizedMessage('Failed · HTTP {0}', [item.timing.http_status], readLocale());
   return item.output_guardrail_outcome === 'redacted' ? `${statusLabel(item.execution)} · ${translateUI('Redacted')}` : statusLabel(item.execution);
 }
@@ -346,7 +346,7 @@ export function taskOutcome(evidence: TaskEvidence | null) {
   return 'Unverified';
 }
 
-export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, showBreakdowns = false, preferredModelAlias, preferredKeyId, preferredKeySlug, workspaceRoute, externalRequest, onExternalRequestClose }: { workspaceRoute?: string; token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; showBreakdowns?: boolean; preferredModelAlias?: string; preferredKeyId?: string; preferredKeySlug?: string; externalRequest?: {attemptId:string;nonce:number;opener:HTMLElement|null}|null; onExternalRequestClose?:()=>void }) {
+export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, preferredModelAlias, preferredKeyId, preferredKeySlug, workspaceRoute, emptyState, externalRequest, onExternalRequestClose }: { workspaceRoute?: string; token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; preferredModelAlias?: string; preferredKeyId?: string; preferredKeySlug?: string; emptyState?: ReactNode; externalRequest?: {attemptId:string;nonce:number;opener:HTMLElement|null}|null; onExternalRequestClose?:()=>void }) {
   const { t: uiT, format: uiF } = useUILocale();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -547,6 +547,9 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   }
   const invalidDateRange = Boolean(filters.from && filters.to && filters.from > filters.to);
   const hasActivityFilters = Boolean(filterQuery({...filters, keyId: preferredKeyId ? '' : filters.keyId}));
+  // Only the workspace-level compact preview offers first-use onboarding.
+  const workspaceEmpty = compact && !statisticsOnly && !preferredKeyId && !requestedKey && !hasActivityFilters && !loading && !error && summary?.request_count === 0;
+  const showFirstUse = Boolean(workspaceEmpty && emptyState);
   const exportController = useRef<AbortController | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
@@ -759,6 +762,8 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     unpriced_request_count: 0, owner_funded_request_count: 0, customer_charges: [], usage_by_model: [], usage_by_key: [],
   };
   const hasCustomerChargeData = Boolean(summary?.customer_charges);
+  const filteredKey = keys.find(item => item.id === filters.keyId);
+  const inactiveKey = Boolean(filteredKey && (filteredKey.revoked || filteredKey.expired));
   const hasModelUsageData = Boolean(summary?.usage_by_model);
   const aggregateTokens = (BigInt(aggregate.prompt_tokens) + BigInt(aggregate.completion_tokens)).toLocaleString(readUILocale());
   const categories = summary?.token_categories;
@@ -783,6 +788,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const customerTotals = customerChargeTotals(aggregate);
   const chargeCoverage = [
     aggregate.owner_funded_request_count ? uiF("{0} with own API keys", [aggregate.owner_funded_request_count]) : '',
+    aggregate.owner_funded_request_count ? uiT("Provider charges may still apply") : '',
     aggregate.unresolved_customer_charge_count ? uiF("{0} unresolved", [aggregate.unresolved_customer_charge_count]) : '',
     aggregate.unpriced_request_count ? uiF("{0} without a customer rate", [aggregate.unpriced_request_count]) : '',
   ].filter(Boolean).join(' · ');
@@ -829,6 +835,18 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     return () => controller.abort();
   }, [linkedIdentity, linkedRevision, loading, error, requests, organization, project, token]);
 
+  function failureNextStep(failure: { kind: string; upstream_http_status?: number | null }): string {
+    if (failure.kind === 'upstream_http_error' && failure.upstream_http_status === 429) {
+      return uiT("The Provider rejected the request with HTTP 429, typically a rate limit. Check the Provider's limits and current routing; Niu does not retry automatically.");
+    }
+    if (failure.kind === 'upstream_account_restricted' || failure.kind === 'upstream_region_unavailable') {
+      return uiT("The Provider account or region does not allow this service. Contact the Provider before retrying.");
+    }
+    if (failure.kind === 'upstream_timeout' || failure.kind === 'upstream_connection_error' || failure.kind === 'upstream_transport_error') {
+      return uiT("The upstream call did not complete. Check Provider status and routing before sending another request; the recorded outcome may be uncertain.");
+    }
+    return uiT("Review the recorded upstream status and routing. Do not infer a cause that the recorded evidence does not support.");
+  }
   return <>
     {linkedLoading && <p role="status">{uiT("Loading linked request…")}</p>}
     {linkedError && <div role="alert" className="page-error"><span>{linkedError}</span><Button variant="outline" size="sm" onClick={()=>setLinkedRevision(value=>value+1)}>{uiT("Retry linked request")}</Button></div>}
@@ -837,7 +855,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     {!project && <section className="panel empty-state"><strong>{uiT("Choose a workspace")}</strong><span>{uiT("Select or create a workspace to view its activity.")}</span></section>}
     {project && <>
       {!compact && <PageHeader title={statisticsOnly ? uiT("Activity") : uiT("Logs")} action={<>
-        <Button asChild variant="outline" className="header-icon-action"><Link to={`${workspaceRoot}/guardrails/denials`} aria-label={uiT("Blocked requests")} title={uiT("Blocked requests")}><ShieldBan size={16} /><span>{uiT("Blocked requests")}</span></Link></Button>
+        <Button asChild variant="outline" className="header-icon-action"><Link to={`${workspaceRoot}/guardrails?tab=blocked`} aria-label={uiT("Blocked requests")} title={uiT("Blocked requests")}><ShieldBan size={16} /><span>{uiT("Blocked requests")}</span></Link></Button>
         <Button variant="ghost" size="icon" disabled={loading} onClick={() => setRevision(value => value + 1)} aria-label={uiT("Refresh requests")} title={uiT("Refresh requests")}><RefreshCw size={16} /></Button>
       </>} />}
       {!compact && <section className="request-toolbar" aria-label={uiT("Filter request activity")}>
@@ -846,10 +864,10 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           <DropdownMenu open={filterMenuOpen} onOpenChange={open => { setFilterMenuOpen(open); if (!open) setMobileFilterField(null); }}><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={uiT("Filter requests")} title={uiT("Filter requests")}><ListFilter size={16} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" collisionPadding={16} className={isMobile ? "w-72 max-w-[calc(100vw-32px)]" : "w-52"}>
               {([
-                ['model', 'Model', [...new Set([...models, ...requests.map(item => item.model)])].map(value => ({ value, label: value }))],
-                ['keyId', 'API key', keys.map(key => ({ value: key.id, label: key.name }))],
-                ['status', 'Status', ['confirmed_completed', 'output_withheld', 'delivery_failed', 'recorded_failure', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
-                ['httpStatus', 'HTTP status', [...new Set(['unknown', ...(summary?.delivery_statuses ?? []).map(item => item.http_status === null ? 'unknown' : String(item.http_status)), ...(filters.httpStatus ? [filters.httpStatus] : [])])].map(value => ({value, label: value === 'unknown' ? 'Unknown' : `HTTP ${value}`}))],
+                ['model', uiT('Model'), [...new Set([...models, ...requests.map(item => item.model)])].map(value => ({ value, label: value }))],
+                ['keyId', uiT('API key'), keys.map(key => ({ value: key.id, label: key.name }))],
+                ['status', uiT('Status'), ['confirmed_completed', 'output_withheld', 'delivery_failed', 'recorded_failure', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
+                ['httpStatus', uiT('HTTP status'), [...new Set(['unknown', ...(summary?.delivery_statuses ?? []).map(item => item.http_status === null ? 'unknown' : String(item.http_status)), ...(filters.httpStatus ? [filters.httpStatus] : [])])].map(value => ({value, label: value === 'unknown' ? 'Unknown' : `HTTP ${value}`}))],
               ] as Array<[keyof ActivityFilters, string, Array<{value: string; label: string}>]>).map(([field, label, options]) => isMobile ? mobileFilterField === null ? <DropdownMenuItem key={field} onSelect={event => { event.preventDefault(); setMobileFilterField(field); }}>{label}</DropdownMenuItem> : mobileFilterField === field ? <div key={field}>
                 <DropdownMenuItem onSelect={event => { event.preventDefault(); setMobileFilterField(null); }}>{uiT("← Filters")}</DropdownMenuItem>
                 <DropdownMenuSeparator /><DropdownMenuLabel>{label}</DropdownMenuLabel>
@@ -857,11 +875,12 @@ export default function GatewayActivity({ token, models, initialScope, compact =
                   <DropdownMenuRadioItem value="__all__">{uiT("All")}</DropdownMenuRadioItem>
                   {options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
+                {field === 'status' && <p className="px-2 py-1 text-xs text-muted-foreground">{uiT("Status combines execution and delivery. Open a request to see its exact HTTP result.")}</p>}
               </div> : null : <DropdownMenuSub key={field}>
                 <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
                 <DropdownMenuPortal><DropdownMenuSubContent className="max-h-80 overflow-y-auto"><DropdownMenuRadioGroup value={filters[field] || '__all__'} onValueChange={value => { updateFilter(field, value === '__all__' ? '' : value); setFilterMenuOpen(false); }}>
                   <DropdownMenuRadioItem value="__all__">{uiT("All")}</DropdownMenuRadioItem>{options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}</DropdownMenuRadioItem>)}
-                </DropdownMenuRadioGroup></DropdownMenuSubContent></DropdownMenuPortal>
+                </DropdownMenuRadioGroup>{field === 'status' && <p className="px-2 py-1 text-xs text-muted-foreground">{uiT("Status combines execution and delivery. Open a request to see its exact HTTP result.")}</p>}</DropdownMenuSubContent></DropdownMenuPortal>
               </DropdownMenuSub>)}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -878,21 +897,21 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           </DropdownMenu>}
         </div>
         {(filters.model || filters.keyId || filters.status || filters.httpStatus || filters.operationId) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus', 'operationId'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'operationId' ? uiT("Related requests") : field === 'keyId' ? keys.find(key => key.id === filters.keyId)?.name ?? uiT("API key") : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? uiT("Unknown delivery status") : `HTTP ${filters.httpStatus}` : filters.model}<X size={12} /><span className="sr-only">{uiT("Remove filter")}</span></Button>)}</div>}
-        {keyFilterError && <p role="alert">{keyFilterError}</p>}
+        {keyFilterError && <p role="alert">{uiT(keyFilterError)}</p>}
         {exporting && <p role="status">{uiT("Preparing export…")}</p>}
-        {exportError && <p role="alert">{exportError}</p>}
+        {exportError && <p role="alert">{uiT(exportError)}</p>}
       </section>}
 
-      {(statisticsOnly || compact) && !error && <section className="gateway-activity-summary" aria-label={compact && !activityFilterQuery ? uiT("Workspace request totals") : uiT("Filtered request totals")} aria-busy={loading}>
+      {!showFirstUse && (statisticsOnly || compact) && !error && <section className="gateway-activity-summary" aria-label={compact && !activityFilterQuery ? uiT("Workspace request totals") : uiT("Filtered request totals")} aria-busy={loading}>
         <article className="panel"><span><Activity size={16} />{compact ? uiT("Requests") : uiT("Matching requests")}</span><strong>{summary ? aggregate.request_count.toLocaleString(readUILocale()) : '—'}</strong><small>{summary ? statisticsOnly ? uiT("Across matching requests") : uiF("{0} · {1} recent shown", [filters.from || filters.to ? uiF("{0} – {1}", [filters.from || uiT("Start"), filters.to || uiT("Now")]) : uiT("All time"), requests.length.toLocaleString(readUILocale())]) : uiT("Range total unavailable")}</small></article>
         <article className="panel"><span><Workflow size={16} /><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto gap-1 p-0 text-xs font-normal" aria-label={uiT("Token metric")}>{uiT(tokenMetrics.find(([value]) => value === tokenMetric)?.[1] ?? "Token usage")}<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16}><DropdownMenuRadioGroup value={tokenMetric} onValueChange={setTokenMetric}>{tokenMetrics.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></span><strong>{tokenDisplay}</strong><small>{tokenCoverage}</small></article>
         <article className="panel"><span><Timer size={16} /><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto gap-1 p-0 text-xs font-normal" aria-label={uiT("Latency metric")}>{uiT(latencyMetrics.find(([value]) => value === latencyMetric)?.[1] ?? "Average latency")}<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16}><DropdownMenuRadioGroup value={latencyMetric} onValueChange={setLatencyMetric}>{latencyMetrics.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></span><strong>{latencyValue == null ? '—' : uiF("{0} ms", [latencyValue.toLocaleString(readUILocale())])}</strong><small>{latencySamples == null ? uiT("Timing data unavailable") : `${latencySamples.toLocaleString(readUILocale())} ${latencySamples === 1 ? uiT("complete gateway timing") : uiT("complete gateway timings")}`}</small></article>
         <article className="panel"><span><Coins size={16} />{uiT("Customer charges")}</span><strong>{!summary ? '—' : !hasCustomerChargeData ? uiT("Unavailable") : customerTotals.length ? customerTotals.join(' · ') : aggregate.unresolved_customer_charge_count ? uiT("Unresolved") : aggregate.unpriced_request_count ? uiT("No rate") : aggregate.owner_funded_request_count ? uiT("Own API key") : '—'}</strong><small>{!summary ? uiT("Range total unavailable") : !hasCustomerChargeData ? uiT("Charge data unavailable for this gateway response") : chargeCoverage || uiT("Settled customer charges only")}</small></article>
       </section>}
 
-      {(statisticsOnly || compact) && !error && <ActivityCharts buckets={summary?.request_histogram} models={aggregate.usage_by_model} compact={compact} loading={loading}/> }
+      {!showFirstUse && (statisticsOnly || compact) && !error && <ActivityCharts buckets={summary?.request_histogram} models={aggregate.usage_by_model} compact={compact} loading={loading}/> }
 
-      {(statisticsOnly || showBreakdowns) && !error && <section className="panel activity-model-breakdown activity-charge-breakdown" aria-labelledby="charge-breakdown-title">
+      {statisticsOnly && !error && <section className="panel activity-model-breakdown activity-charge-breakdown" aria-labelledby="charge-breakdown-title">
         <div className="panel-heading"><div><h2 id="charge-breakdown-title">{uiT("Customer charge breakdown")}</h2><p>{uiT("Settled charges and coverage across matching requests.")}</p></div>
           <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Group customer charges")}>{chargeByKey ? uiT("API key") : uiT("Model")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={16}><DropdownMenuRadioGroup value={chargeByKey ? 'key' : 'model'} onValueChange={setChargeGroup}><DropdownMenuRadioItem value="model">{uiT("Model")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="key">{uiT("API key")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
         </div>
@@ -906,7 +925,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         </TableRow>)}</TableBody></ShadcnTable>{groupedCharges.length > 10 && <div className="flex items-center justify-between gap-3 p-4 text-sm"><span className="text-muted-foreground">{allChargeGroups ? groupedCharges.length : 10}{" "}{uiT("of")}{" "}{groupedCharges.length} {chargeByKey ? uiT("API keys") : uiT("models")}</span><Button variant="ghost" size="sm" aria-expanded={allChargeGroups} onClick={() => setAllChargeGroups(value => !value)}>{allChargeGroups ? uiT("Show fewer") : uiT("Show all")}</Button></div>}{!groupedCharges.length && <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{hasActivityFilters ? uiT("No matching requests") : uiT("No requests yet")}</EmptyTitle></EmptyHeader></Empty>}</div>}
       </section>}
 
-      {(statisticsOnly || showBreakdowns) && !error && <section className="panel activity-key-breakdown" aria-labelledby="activity-key-title">
+      {statisticsOnly && !error && <section className="panel activity-key-breakdown" aria-labelledby="activity-key-title">
         <div className="panel-heading"><div><h2 id="activity-key-title">{uiT("Top API keys")}</h2><p>{uiT("Workspace keys ranked by reported token volume for this date range.")}</p></div><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("Investigate requests")}</Link></div>
         {loading && !summary ? <ListRowsSkeleton rows={3} label={uiT("Loading API key usage…")} /> : aggregate.usage_by_key.length ? <div className="activity-key-usage-list">
           {aggregate.usage_by_key.map((item, index) => {
@@ -920,25 +939,26 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         </div> : <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{hasActivityFilters ? uiT("No matching API key activity") : uiT("No API key activity yet")}</EmptyTitle><EmptyDescription>{hasActivityFilters ? uiT("No workspace key activity matches these filters.") : uiT("Requests attributed to a workspace key appear here.")}</EmptyDescription></EmptyHeader></Empty>}
       </section>}
 
-      {(statisticsOnly || showBreakdowns) && !error && Boolean(summary?.delivery_statuses?.length) && <section className="panel activity-model-breakdown" aria-labelledby="delivery-status-title">
+      {statisticsOnly && !error && Boolean(summary?.delivery_statuses?.length) && <section className="panel activity-model-breakdown" aria-labelledby="delivery-status-title">
         <div className="panel-heading"><div><h2 id="delivery-status-title">{uiT("Delivery status")}</h2><p>{uiT("Recorded HTTP responses across matching requests. Missing status remains unknown.")}</p></div></div>
         <div className="activity-model-table-wrap"><ShadcnTable><TableHeader><TableRow><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Requests")}</TableHead></TableRow></TableHeader><TableBody>{summary?.delivery_statuses?.map(item => <TableRow key={item.http_status ?? 'unknown'}><TableHead scope="row"><Link to={requestEvidenceHref(workspaceRoot, {...filters, httpStatus: item.http_status === null ? 'unknown' : String(item.http_status)})}>{item.http_status === null ? uiT("Unknown") : `HTTP ${item.http_status}`}</Link></TableHead><TableCell>{item.request_count.toLocaleString(readUILocale())}</TableCell></TableRow>)}</TableBody></ShadcnTable></div>
       </section>}
 
-      {(statisticsOnly || showBreakdowns) && !error && <section className="panel activity-model-breakdown">
+      {statisticsOnly && !error && <section className="panel activity-model-breakdown">
         <div className="panel-heading"><div><h2>{uiT("Model usage")}</h2><p>{uiT("Ranked by reported token volume.")}</p></div><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("Investigate requests")}</Link></div>
         {loading && !summary ? <TableSkeleton columns={6} rows={4} label={uiT("Loading model activity…")} /> : !hasModelUsageData ? <p className="activity-model-empty">{uiT("Model usage data is unavailable for this gateway response.")}</p> : aggregate.usage_by_model.length ? <div className="activity-model-table-wrap"><ShadcnTable><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input tokens")}</TableHead><TableHead>{uiT("Output tokens")}</TableHead><TableHead>{uiT("Usage coverage")}</TableHead><TableHead><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{aggregate.usage_by_model.map(item => <TableRow key={item.model_alias}><TableHead scope="row">{item.model_alias}</TableHead><TableCell>{item.request_count.toLocaleString(readUILocale())}</TableCell><TableCell>{item.usage_count ? BigInt(item.prompt_tokens).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell>{item.usage_count ? BigInt(item.completion_tokens).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell>{item.unknown_usage_count ? uiF("{0} reported · {1} unknown", [item.usage_count, item.unknown_usage_count]) : uiF("{0} reported", [item.usage_count])}</TableCell><TableCell><Button asChild variant="ghost" size="icon"><Link aria-label={uiF("View requests for {0}", [item.model_alias])} to={requestEvidenceHref(workspaceRoot, { ...filters, model: item.model_alias })} title={uiT("View requests")}><ArrowUpRight className="size-4" aria-hidden="true" /><span className="sr-only">{uiT("View requests")}</span></Link></Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div> : <Empty className="min-h-60"><EmptyHeader><EmptyTitle>{hasActivityFilters ? uiT("No matching model activity") : uiT("No model activity yet")}</EmptyTitle><EmptyDescription>{hasActivityFilters ? uiT("Adjust or clear the filters to see more activity.") : uiT("Calls sent through Chat or your application appear here.")}</EmptyDescription></EmptyHeader><EmptyContent>{hasActivityFilters ? <Button variant="outline" onClick={() => setFilters({from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: ''})}>{uiT("Clear filters")}</Button> : <Button asChild variant="outline"><Link to={newChatHref}>{uiT("Open Chat")}</Link></Button>}</EmptyContent></Empty>}
         <div className="activity-stat-links"><Link to={`${workspaceRoot}/billing`}>{uiT("View billing")}</Link></div>
       </section>}
 
       {!statisticsOnly && <section className={`gateway-task-feed panel${compact ? ' is-compact' : ''}`} aria-labelledby="gateway-task-feed-title" aria-busy={loading}>
-        <div className="gateway-task-feed-heading" hidden={!compact}><div><h2 id="gateway-task-feed-title">{compact ? uiT("Recent requests") : uiT("Requests")}</h2></div><div className="gateway-feed-actions">{compact && <Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("View all requests")}</Link>}{!compact && <Badge variant="outline">{requests.length.toLocaleString(readUILocale())}{" "}{uiT("requests")}</Badge>}</div></div>
+        <div className="gateway-task-feed-heading" hidden={!compact}><div><h2 id="gateway-task-feed-title">{compact ? showFirstUse ? uiT("Get started") : uiT("Recent requests") : uiT("Requests")}</h2></div><div className="gateway-feed-actions">{compact && <><Link to={requestEvidenceHref(workspaceRoot, filters).replace(`${workspaceRoot}/executions`, `${workspaceRoot}/usage`)}>{uiT("View activity")}</Link><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("View all requests")}</Link></>}{!compact && <Badge variant="outline">{requests.length.toLocaleString(readUILocale())}{" "}{uiT("requests")}</Badge>}</div></div>
+        {loading && requests.length > 0 && <p role="status" className="px-4 pb-3 text-sm text-muted-foreground">{uiT("Updating results for the current filters. The rows below are from the previous result.")}</p>}
         {!compact && !loading && histogram && <section className="request-histogram" aria-label={uiT("Request volume")}>
           <div className="request-histogram-heading"><span>{uiT("Request volume")}</span><Button variant="ghost" size="icon" aria-label={histogramOpen ? uiT("Hide request histogram") : uiT("Show request histogram")} onClick={() => setHistogramOpen(value => !value)}>{histogramOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</Button></div>
           {histogramOpen && <><svg viewBox="0 0 960 90" preserveAspectRatio="none" role="img" aria-label={uiT("Requests over time")}>{histogram.buckets.map((bucket, index) => { const span = Math.max(1, histogram.end - histogram.start); const x = (bucket.start - histogram.start) / span * 956 + 4; const width = Math.max(2, (bucket.end - bucket.start) / span * 956 - 6); const barHeight = bucket.count > 0 ? Math.max(4, bucket.count / histogram.max * 78) : 1.5; return <rect key={index} x={x} y={88 - barHeight} width={width} height={barHeight} rx="2" fill="currentColor" opacity={bucket.count > 0 ? (width > 48 ? 0.18 : 0.85) : 0.16} stroke={bucket.count > 0 && width > 48 ? "currentColor" : undefined} strokeWidth={bucket.count > 0 && width > 48 ? 1.5 : undefined}><title>{timestamp(new Date(bucket.start).toISOString())}: {bucket.count}{" "}{uiT("requests")}</title></rect>; })}</svg><div className="request-histogram-axis"><span>{timestamp(new Date(histogram.start).toISOString())}</span><span>{timestamp(new Date(histogram.end).toISOString())}</span></div></>}
         </section>}
         {loading && requests.length === 0 && <TableSkeleton columns={compact ? 4 : 7} rows={compact ? 4 : 6} label={uiT("Loading requests…")} />}
-        {!loading && !error && requests.length === 0 && <Empty className="gateway-task-empty"><EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true"/></EmptyMedia><EmptyTitle role="heading" aria-level={3}>{hasActivityFilters ? uiT("No matching requests") : uiT("No requests yet")}</EmptyTitle><EmptyDescription>{hasActivityFilters ? uiT("Adjust or clear the filters to see more activity.") : uiT("Calls sent through Chat or your application appear here.")}</EmptyDescription></EmptyHeader>{(hasActivityFilters || !compact) && <EmptyContent>{hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: '' })}>{uiT("Clear filters")}</Button> : <Button asChild variant="outline"><Link to={newChatHref}>{uiT("Open Chat")}</Link></Button>}</EmptyContent>}</Empty>}
+        {!loading && !error && requests.length === 0 && (showFirstUse ? emptyState : <Empty className="gateway-task-empty"><EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true"/></EmptyMedia><EmptyTitle role="heading" aria-level={3}>{inactiveKey ? uiT("No requests recorded for this key") : hasActivityFilters ? uiT("No matching requests") : uiT("No requests yet")}</EmptyTitle><EmptyDescription>{inactiveKey ? uiT("This key is revoked or expired, so it cannot start new requests. Requests appear here only if it was used while active.") : hasActivityFilters ? uiT("Adjust or clear the filters to see more activity.") : uiT("Calls sent through Chat or your application appear here.")}</EmptyDescription></EmptyHeader>{(hasActivityFilters || !compact) && <EmptyContent>{hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: '' })}>{uiT("Clear filters")}</Button> : <Button asChild variant="outline"><Link to={newChatHref}>{uiT("Open Chat")}</Link></Button>}</EmptyContent>}</Empty>)}
         {!error && requests.length > 0 && <div className="gateway-request-table-wrap"><ShadcnTable className={`gateway-request-table${compact ? ` is-compact${isMobile ? ' is-mobile-summary' : ''}` : ` has-column-controls${isMobile && shownColumns.has('status') && [...shownColumns].every(column => column === 'status' || column === 'charge') ? ' is-mobile-diagnosis' : ''}`}`}><TableHeader><TableRow>{shownColumns.has('time') && <TableHead>{uiT("Time")}</TableHead>}<TableHead>{uiT("Model")}</TableHead>{requestColumns.filter(([name]) => name !== 'time' && shownColumns.has(name)).map(([name, label]) => <TableHead key={name} className={`request-column-${name}`}>{uiT(label)}</TableHead>)}{!compact && <TableHead className="request-column-controls"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={uiT("Table settings")} title={uiT("Table settings")}><Settings2 size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuLabel>{uiT("Columns")}</DropdownMenuLabel><DropdownMenuCheckboxItem checked disabled>{uiT("Model")}</DropdownMenuCheckboxItem>{requestColumns.map(([name, label]) => <DropdownMenuCheckboxItem key={name} checked={shownColumns.has(name)} onCheckedChange={checked => toggleColumn(name, checked)} onSelect={event => event.preventDefault()}>{uiT(label)}</DropdownMenuCheckboxItem>)}<DropdownMenuSeparator /><DropdownMenuItem disabled={columnParameter === null} onSelect={resetColumns}>{uiT("Reset columns")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableHead>}</TableRow></TableHeader><TableBody>{requests.map(item => <TableRow id={`gateway-attempt-${item.attempt_id}`} aria-label={`${item.model.split('/').slice(-1)[0]} · ${timestamp(item.created_at)} · ${requestStatus(item)}`} tabIndex={0} onClick={event => openRequest(item.attempt_id, event.currentTarget)} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openRequest(item.attempt_id, event.currentTarget); } }} key={item.attempt_id}>
           {shownColumns.has('time') && <TableCell>{timestamp(item.created_at)}</TableCell>}<TableHead scope="row"><Button variant="link" className="h-auto p-0 text-left font-normal gap-2 max-w-full whitespace-nowrap" onClick={() => openRequest(item.attempt_id)}><ProviderLogo provider={modelIdentity({ id: item.model })} size="small" />{item.model.split('/').slice(-1)[0]}</Button>{isMobile && !shownColumns.has('time') && <small className="request-summary-time">{timestamp(item.created_at)}</small>}{item.provider_model && item.provider_model !== item.model && <small>{uiT("Provider ·")}{" "}{item.provider_model}</small>}</TableHead>{shownColumns.has('status') && <TableCell className="request-column-status"><span className={`gateway-table-status ${(['blocked', 'indeterminate'].includes(item.output_guardrail_outcome ?? '') || (item.timing?.http_status ?? 0) >= 400) ? 'is-failed' : item.execution === 'confirmed_completed' ? 'is-complete' : item.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`}>{requestStatus(item)}</span></TableCell>}{shownColumns.has('latency') && <TableCell>{requestLatency(item)}<small className="block text-muted-foreground">{requestDurationLabel(item)}</small></TableCell>}{shownColumns.has('input') && <TableCell>{item.prompt_tokens == null ? uiT("Unknown") : BigInt(item.prompt_tokens).toLocaleString(readUILocale())}</TableCell>}{shownColumns.has('output') && <TableCell>{item.completion_tokens == null ? uiT("Unknown") : BigInt(item.completion_tokens).toLocaleString(readUILocale())}</TableCell>}{shownColumns.has('charge') && <TableCell className="request-column-charge">{requestCharge(item)}</TableCell>}{shownColumns.has('key') && <TableCell>{item.key_name ?? uiT("Unknown")}</TableCell>}{!compact && <TableCell />}
         </TableRow>)}</TableBody></ShadcnTable></div>}
@@ -958,7 +978,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         {selectedRequest && <div ref={detailSheet} role="region" tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2" aria-label={uiT("Request detail content")}>
           <div className="request-detail-metrics">
             <div><span>{requestDurationLabel(selectedRequest)}</span><strong>{requestLatency(selectedRequest)}</strong></div>
-            <div><span>{uiT("Customer charge")}</span><strong>{requestCharge(selectedRequest)}</strong>{selectedRequest.customer_unit_charge != null && <small className="text-xs text-muted-foreground">{uiT("Exact:")}{" "}{formatExactUnitAtoms(selectedRequest.customer_unit_charge.net_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)} ({BigInt(selectedRequest.customer_unit_charge.net_atoms).toLocaleString(readUILocale())}{" "}{uiT("atoms)")}{BigInt(selectedRequest.customer_unit_charge.restored_atoms) > 0n ? uiF(" · Refunded {0}", [formatUnitAtoms(selectedRequest.customer_unit_charge.restored_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)]) : ''}</small>}</div>
+            <div><span>{uiT("Customer charge")}</span><strong>{requestCharge(selectedRequest)}</strong>{selectedRequest.customer_unit_charge != null && BigInt(selectedRequest.customer_unit_charge.restored_atoms) > 0n && <small className="text-xs text-muted-foreground">{uiF("Refunded {0}", [formatUnitAtoms(selectedRequest.customer_unit_charge.restored_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)])}</small>}</div>
             {selectedRequest.request_kind !== 'video' && <>
             <div><span>{uiT("Input tokens")}</span><strong className="break-all">{selectedRequest.prompt_tokens == null ? '—' : BigInt(selectedRequest.prompt_tokens).toLocaleString(readUILocale())}</strong><small className="text-xs text-muted-foreground">{uiT("Cached:")}{" "}{selectedRequest.cached_input_tokens == null ? uiT("Unknown") : BigInt(selectedRequest.cached_input_tokens).toLocaleString(readUILocale())}</small></div>
             <div><span>{uiT("Output tokens")}</span><strong className="break-all">{selectedRequest.completion_tokens == null ? '—' : BigInt(selectedRequest.completion_tokens).toLocaleString(readUILocale())}</strong><small className="text-xs text-muted-foreground">{uiT("Reasoning:")}{" "}{selectedRequest.reasoning_output_tokens == null ? uiT("Unknown") : BigInt(selectedRequest.reasoning_output_tokens).toLocaleString(readUILocale())}</small></div>
@@ -971,9 +991,9 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             key={`${token}:${organization}:${project}:${selectedRequest.attempt_id}`}
             token={token}
             endpoint={`/api/v1/organizations/${organization}/projects/${project}/requests/${selectedRequest.attempt_id}/guardrails`}
-            historyPath={`${workspaceRoot}/guardrails/history`}
+            historyPath={`${workspaceRoot}/guardrails?tab=history`}
           />
-          <div className="gateway-request-detail"><h3 className="mb-3 text-sm font-medium">{uiT("Overview")}</h3><dl>{admissionDenial && <div><dt>{uiT("Failure reason")}</dt><dd>{admissionDenial.kind === 'key_request_rate_exceeded' ? uiT("API key request rate limit reached") : uiT("API key request rate is zero")}<span className="block">{uiT("Gateway HTTP 429")}</span></dd></div>}{selectedRequest.failure && <div><dt>{uiT("Failure reason")}</dt><dd>{uiT(failureDescriptions[selectedRequest.failure.kind] ?? "Not reported")}{Number.isInteger(selectedRequest.failure.upstream_http_status) && selectedRequest.failure.upstream_http_status! >= 100 && selectedRequest.failure.upstream_http_status! <= 599 && <span className="block">{uiT("Upstream HTTP")}{" "}{selectedRequest.failure.upstream_http_status}</span>}</dd></div>}<div><dt>{uiT("Provider model")}</dt><dd>{selectedRequest.provider_model ?? uiT("Unknown")}</dd></div><div><dt>{uiT("Provider status")}</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div>{selectedRequest.request_kind !== 'video' && <div><dt>{uiT("Finish reason")}</dt><dd>{selectedRequest.finish_reasons?.length ? selectedRequest.finish_reasons.map(choice => <span className="block" key={choice.index}>{selectedRequest.finish_reasons!.length > 1 ? uiF("Choice {0}: ", [choice.index + 1]) : ''}{{stop: 'Stopped', length: 'Token limit reached', tool_calls: 'Tool calls', content_filter: 'Content filter', function_call: 'Function call'}[choice.reason] ?? uiT("Unknown")}</span>) : uiT("Not reported")}</dd></div>}{selectedRequest.timing?.http_status != null && <div><dt>{uiT("Delivery status")}</dt><dd>HTTP {selectedRequest.timing.http_status}</dd></div>}<div><dt>{uiT("Time")}</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>{requestedKeyName ? uiT("Requested API key") : uiT("API key")}</dt><dd>{selectedRequest.key_name ?? requestedKeyName ?? uiT("Unknown")}</dd></div></dl></div>
+          <div className="gateway-request-detail"><h3 className="mb-3 text-sm font-medium">{uiT("Overview")}</h3><dl>{admissionDenial && <div><dt>{uiT("Failure reason")}</dt><dd>{admissionDenial.kind === 'key_request_rate_exceeded' ? uiT("API key request rate limit reached") : uiT("API key request rate is zero")}<span className="block">{uiT("Gateway HTTP 429")}</span></dd></div>}{selectedRequest.failure && <div><dt>{uiT("Failure reason")}</dt><dd>{uiT(failureDescriptions[selectedRequest.failure.kind] ?? "Not reported")}{Number.isInteger(selectedRequest.failure.upstream_http_status) && selectedRequest.failure.upstream_http_status! >= 100 && selectedRequest.failure.upstream_http_status! <= 599 && <span className="block">{uiT("Upstream HTTP")}{" "}{selectedRequest.failure.upstream_http_status}</span>}</dd></div>}<div><dt>{uiT("Provider model")}</dt><dd>{selectedRequest.provider_model ?? uiT("Unknown")}</dd></div><div><dt>{uiT("Provider status")}</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div>{selectedRequest.request_kind !== 'video' && <div><dt>{uiT("Finish reason")}</dt><dd>{selectedRequest.finish_reasons?.length ? selectedRequest.finish_reasons.map(choice => <span className="block" key={choice.index}>{selectedRequest.finish_reasons!.length > 1 ? uiF("Choice {0}: ", [choice.index + 1]) : ''}{{stop: 'Stopped', length: 'Token limit reached', tool_calls: 'Tool calls', content_filter: 'Content filter', function_call: 'Function call'}[choice.reason] ?? uiT("Unknown")}</span>) : uiT("Not reported")}</dd></div>}{selectedRequest.timing?.http_status != null && <div><dt>{uiT("Delivery status")}</dt><dd>HTTP {selectedRequest.timing.http_status}</dd></div>}<div><dt>{uiT("Time")}</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>{requestedKeyName ? uiT("Requested API key") : uiT("API key")}</dt><dd>{selectedRequest.key_name ?? requestedKeyName ?? uiT("Unknown")}</dd></div></dl>{selectedRequest.failure && <div className="mt-4 space-y-2"><h4 className="text-sm font-medium">{uiT("Next steps")}</h4><p className="text-sm text-muted-foreground">{failureNextStep(selectedRequest.failure)}</p><div className="flex flex-wrap gap-2"><Button asChild variant="outline" size="sm"><Link to={`${workspaceRoot}/executions?modelAlias=${encodeURIComponent(selectedRequest.model)}`}>{uiT("View requests for this model")}</Link></Button><Button asChild variant="outline" size="sm"><Link to={`${workspaceRoot}/routing`}>{uiT("Review routing")}</Link></Button></div></div>}</div>
 
           {payloadLoading || payloadOwner !== payloadIdentity ? <FormSectionSkeleton fields={3} label={uiT("Loading request content…")} /> : payloadError ? <div className="grid justify-items-start gap-3"><p role="alert">{payloadError}</p><Button variant="outline" size="sm" onClick={() => setPayloadRevision(value => value + 1)}>{uiT("Retry request content")}</Button></div> : payload ? <div className="space-y-4">
             <RequestContent key={selectedRequest.attempt_id} payload={payload} />

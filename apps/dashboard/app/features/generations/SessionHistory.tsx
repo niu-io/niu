@@ -12,206 +12,170 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
 import type { DashboardContext } from '@/shell/dashboard-context';
-import { workspacePathSegment } from '@/shell/workspace-route';
 import { cachedKeyGet } from '@/features/keys/api';
 import type { VideoJobHistory } from '@niu-io/sdk';
 import { NiuAdminClient, type GenerationTask, type TenantScope } from '@niu-io/sdk/admin';
-import { videoIntentHistory, type VideoIntentHistoryRow } from '@/features/video/intent-history';
 import type { VideoGenerationsSessionSummary } from '@niu-io/sdk/generations-sessions';
 
 type Chat = {id:string;reference?:string;title?:string;prompt:string;createdAt:number};
-type Video = VideoJobHistory['data'][number] & {reference?:string;keyId?:string;workspaceId?:string;sessionId?:string|null};
-type VideoCursor = {scope:TenantScope;before:string};
+type Video = VideoJobHistory['data'][number] & {reference?:string;keyId?:string;sessionId?:string|null};
 type SavedVideoSession = VideoGenerationsSessionSummary & {scope:TenantScope};
-type HistorySnapshot = {chats:Array<Chat & {workspaceId:string}>; videos:Video[]; intents:VideoIntentHistoryRow[]; sessions:SavedVideoSession[]; unavailable:string[]; sessionCursors:VideoCursor[]; intentCursors:Array<{scope:VideoIntentHistoryRow['scope'];before:string}>; cursors:VideoCursor[]};
-function savedVideo(task:GenerationTask,workspaceId:string):Video {
-  return {id:task.id,reference:task.reference,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),workspaceId,sessionId:task.session_id};
+type HistorySnapshot = {chats:Chat[]; videos:Video[]; sessions:SavedVideoSession[]; sessionBefore:string|null; videoBefore:string|null; sessionsFailed:boolean};
+type HistoryEntry =
+  | {type:'video-session';id:string;reference?:string;session:SavedVideoSession;title:string;created:number;href:string}
+  | {type:'chat';id:string;reference?:string;title:string;created:number;href:string}
+  | {type:'video';id:string;reference?:string;title:string;created:number;href:string};
+type SavedInput = {id:string;revision:number;title:string};
+function savedVideo(task:GenerationTask):Video {
+  return {id:task.id,reference:task.reference,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),sessionId:task.session_id};
 }
-export default function SessionHistory({context,chats, activeChat, onChat, chatActions, videos, videoKeyId, currentKeys, activeVideo, activeIntent, activeVideoSession, onIntentDeleted, pending=false, failed=false, disabled=false, listTarget, focusFallback}: {
+/** History is always the active workspace. Switching the workspace is an explicit shell action. */
+export default function SessionHistory({context,chats, activeChat, onChat, chatActions, videos, currentKeys, activeVideo, activeVideoSession, pending=false, failed=false, disabled=false, listTarget, focusFallback}: {
   focusFallback?: RefObject<HTMLButtonElement|null>; listTarget?: HTMLElement | null; context:DashboardContext; chats?:Chat[]; activeChat?:string|null; onChat?:(id:string)=>void; chatActions?:(id:string)=>ReactNode;
-  currentKeys?:Array<{id:string;slug?:string;revoked:boolean;expired:boolean}>;videoKeyId?:string;videos?:Video[]; activeVideo?:string;activeIntent?:string;activeVideoSession?:string;onIntentDeleted?:(id:string)=>void; disabled?:boolean;pending?:boolean;failed?:boolean;
+  currentKeys?:Array<{id:string;slug?:string;revoked:boolean;expired:boolean}>;videos?:Video[]; activeVideo?:string;activeVideoSession?:string; disabled?:boolean;pending?:boolean;failed?:boolean;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const {token,workspace}=context;
   const {isMobile,setOpenMobile}=useSidebar();
-  const identity=useRef('');
   const generation=useRef(0);
   const metadataIdentity=JSON.stringify([token,workspace?.id,context.session?.permissions.write]);
   const metadataScope=useRef(metadataIdentity);metadataScope.current=metadataIdentity;
   const pagination=useRef<AbortController|null>(null);
-  const availableWorkspaces=context.workspaces?.length ? context.workspaces : workspace ? [workspace] : [];
-  const workspaceListScope=availableWorkspaces.map(item=>`${item.organization_id}:${item.id}`).join(',');
-  const scopeIdentity=JSON.stringify([token,workspaceListScope,currentKeys,videoKeyId]);
+  const scopeKey=workspace ? `${workspace.organization_id}:${workspace.id}` : '';
+  const scopeIdentity=JSON.stringify([token,scopeKey]);
+  const identity=useRef(scopeIdentity);
   if(identity.current!==scopeIdentity){identity.current=scopeIdentity;generation.current+=1;}
-  const historyKey='/api/v1/generation-history?workspaces='+encodeURIComponent(workspaceListScope);
-  const cached=token ? peekQuery<HistorySnapshot>(token,historyKey,{persist:true}) : undefined;
-  const [savedChats,setSavedChats]=useState<Array<Chat & {workspaceId:string}>>(cached?.chats??[]);
+  const historyKey='/api/v1/generation-history?v=2&workspace='+encodeURIComponent(scopeKey);
+  const cached=token&&scopeKey ? peekQuery<HistorySnapshot>(token,historyKey,{persist:true}) : undefined;
+  const [savedChats,setSavedChats]=useState<Chat[]>(cached?.chats??[]);
   const [savedVideos,setSavedVideos]=useState<Video[]>(cached?.videos??[]);
-  const [savedIntents,setSavedIntents]=useState<VideoIntentHistoryRow[]>(cached?.intents??[]);
   const [savedSessions,setSavedSessions]=useState<SavedVideoSession[]>(cached?.sessions??[]);
-  const [unavailableSessionWorkspaces,setUnavailableSessionWorkspaces]=useState<Set<string>>(new Set(cached?.unavailable));
-  const [sessionCursors,setSessionCursors]=useState<VideoCursor[]>(cached?.sessionCursors??[]);
+  const [sessionsFailed,setSessionsFailed]=useState(Boolean(cached?.sessionsFailed));
+  const [sessionBefore,setSessionBefore]=useState<string|null>(cached?.sessionBefore??null);
+  const [videoBefore,setVideoBefore]=useState<string|null>(cached?.videoBefore??null);
   const [editingSession,setEditingSession]=useState<SavedVideoSession|null>(null);
   const [sessionTitle,setSessionTitle]=useState('');
   const [sessionBusy,setSessionBusy]=useState(false);
   const [sessionError,setSessionError]=useState('');
-  const [intentCursors,setIntentCursors]=useState<Array<{scope:VideoIntentHistoryRow['scope'];before:string}>>(cached?.intentCursors??[]);
-  const [deleting,setDeleting]=useState<VideoIntentHistoryRow|null>(null);
+  const [deletingSession,setDeletingSession]=useState<{session:SavedVideoSession;inputs:SavedInput[];loading:boolean}|null>(null);
   const [deleteBusy,setDeleteBusy]=useState(false);
   const [deleteError,setDeleteError]=useState('');
   const actionButtons=useRef(new Map<string,HTMLButtonElement>());
-  const deleteOpener=useRef<HTMLButtonElement|null>(null);
+  const menuOpener=useRef<HTMLButtonElement|null>(null);
   const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(false);
   const [revision,setRevision]=useState(0);
   useEffect(()=>{const refresh=()=>setRevision(value=>value+1);window.addEventListener('niu:video-intent-saved',refresh);window.addEventListener('niu:video-session-changed',refresh);return()=>{window.removeEventListener('niu:video-intent-saved',refresh);window.removeEventListener('niu:video-session-changed',refresh);};},[]);
   useEffect(()=>{setEditingSession(null);setSessionError('');setSessionBusy(false);},[token,workspace?.id]);
-  const [cursors,setCursors]=useState<VideoCursor[]>(cached?.cursors??[]);
-  const loadedScope=useRef(JSON.stringify([token,workspaceListScope]));
+  useEffect(()=>{setDeletingSession(null);setDeleteError('');setDeleteBusy(false);},[token,workspace?.id]);
+  const loadedScope=useRef(JSON.stringify([token,scopeKey]));
   useEffect(()=>{
     const controller=new AbortController();
-    const nextScope=JSON.stringify([token,workspaceListScope]);
-    const previous=token ? peekQuery<HistorySnapshot>(token,historyKey,{persist:true}) : undefined;
-    if(loadedScope.current!==nextScope){loadedScope.current=nextScope;setSavedChats(previous?.chats??[]);setSavedVideos(previous?.videos??[]);setSavedIntents(previous?.intents??[]);setSavedSessions(previous?.sessions??[]);}
-    setSessionCursors([]);setIntentCursors([]);setCursors([]);setError('');setLoading(false);setDeleting(null);setDeleteError('');
-    if(!workspaceListScope || !token)return;
+    const nextScope=JSON.stringify([token,scopeKey]);
+    const previous=token&&scopeKey ? peekQuery<HistorySnapshot>(token,historyKey,{persist:true}) : undefined;
+    if(loadedScope.current!==nextScope){
+      loadedScope.current=nextScope;
+      setSavedChats(previous?.chats??[]);setSavedVideos(previous?.videos??[]);setSavedSessions(previous?.sessions??[]);
+      setSessionsFailed(Boolean(previous?.sessionsFailed));setSessionBefore(previous?.sessionBefore??null);setVideoBefore(previous?.videoBefore??null);
+    }
+    setError('');setLoading(false);setDeletingSession(null);setDeleteError('');
+    if(!workspace || !scopeKey || !token || !client)return;
     setLoading(true);
-    let failedRead=false;
-    const read=async<T,>(path:string):Promise<T|null>=>{
-      try{return await cachedKeyGet<T>(token,path,{signal:controller.signal,persist:true});}
-      catch {failedRead=true;return null;}
-    };
-    void (async()=>{
-      const available=context.workspaces?.length ? context.workspaces : workspace ? [workspace] : [];
-      const queue=[...available];
-      const chatRows:Array<Chat & {workspaceId:string}>=[];
-      const videoRows:Video[]=[];
-      const sessionRows:SavedVideoSession[]=[];
-      const sessionFailures=new Set<string>();
-      const nextSessions:VideoCursor[]=[];
-      const intentRows:VideoIntentHistoryRow[]=[];
-      const nextIntents:Array<{scope:VideoIntentHistoryRow['scope'];before:string}>=[];
-      const next:VideoCursor[]=[];
-      const pending=Array.from({length:Math.min(4,queue.length)},async()=>{
-        while(queue.length && !controller.signal.aborted){
-          const item=queue.shift()!;
-          const currentScope=`/api/v1/organizations/${item.organization_id}/projects/${item.id}`;
-          const tenant={organizationId:item.organization_id,projectId:item.id};
-          await Promise.all([ (async()=>{
-          try{
-            const page=await client!.generations(tenant).sessions.list({limit:25},{signal:controller.signal});
-            sessionRows.push(...page.data.map(session=>({...session,scope:tenant})));
-            if(page.has_more&&page.next_before)nextSessions.push({scope:tenant,before:page.next_before});
-          }catch{if(!controller.signal.aborted){failedRead=true;sessionFailures.add(item.id);}}
-          })(), (async()=>{
-          try{
-            const page=await videoIntentHistory(client!,tenant,{limit:25},{signal:controller.signal});
-            intentRows.push(...page.data);
-            if(page.incomplete)failedRead=true;
-            if(page.has_more&&page.next_before)nextIntents.push({scope:tenant,before:page.next_before});
-          }catch{if(!controller.signal.aborted)failedRead=true;}
-          })(), (async()=>{
-          {
-            const page=await read<{data:Chat[]}>(`${currentScope}/chats`);
-            if(page)chatRows.push(...page.data.map(chat=>({...chat,workspaceId:item.id})));
-          }
-          })(), (async()=>{
-          try {
-            const page=await client!.generations(tenant).tasks.list({kind:'video',limit:25},{signal:controller.signal});
-            videoRows.push(...page.data.map(task=>savedVideo(task,item.id)));
-            if(page.has_more&&page.next_cursor)next.push({scope:tenant,before:page.next_cursor});
-          }catch{if(!controller.signal.aborted)failedRead=true;}
-          })() ]);
-        }
-      });
-      const outcomes=await Promise.allSettled(pending);
-      if(!controller.signal.aborted){
-        const incomplete=failedRead||outcomes.some(item=>item.status==='rejected');
-        const retain=<T,>(fresh:T[],old:T[]|undefined)=>incomplete&&!fresh.length ? old??fresh : fresh;
-        const snapshot:HistorySnapshot={chats:retain(chatRows,previous?.chats),videos:retain(videoRows,previous?.videos),intents:retain(intentRows,previous?.intents),sessions:retain(sessionRows,previous?.sessions),unavailable:[...sessionFailures],sessionCursors:nextSessions,intentCursors:nextIntents,cursors:next};
-        setUnavailableSessionWorkspaces(sessionFailures);setSavedSessions(snapshot.sessions);setSessionCursors(nextSessions);setSavedChats(snapshot.chats);setSavedVideos(snapshot.videos);setSavedIntents(snapshot.intents);setIntentCursors(nextIntents);setCursors(next);
-        if(!incomplete)primeQuery(token,historyKey,snapshot,{persist:true});
-      }
-      if(!controller.signal.aborted && (failedRead||outcomes.some(item=>item.status==='rejected')))setError('Some sessions could not be loaded.');
-    })().finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    const tenant={organizationId:workspace.organization_id,projectId:workspace.id};
+    let chatsFailed=false;
+    let sessionFailures=false;
+    let videosFailed=false;
+    let sessionRows:SavedVideoSession[]=[];
+    let nextSessionBefore:string|null=null;
+    let videoRows:Video[]=[];
+    let nextVideoBefore:string|null=null;
+    const chatRows:Chat[]=[];
+    void Promise.allSettled([
+      (async()=>{
+        try{const page=await cachedKeyGet<{data:Chat[]}>(token,`/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/chats`,{signal:controller.signal,persist:true});chatRows.push(...page.data);}
+        catch{if(!controller.signal.aborted)chatsFailed=true;}
+      })(),
+      (async()=>{
+        try{
+          const page=await client.generations(tenant).sessions.list({limit:25},{signal:controller.signal});
+          sessionRows=page.data.map(session=>({...session,scope:tenant}));
+          nextSessionBefore=page.has_more ? page.next_before : null;
+        }catch{if(!controller.signal.aborted)sessionFailures=true;}
+      })(),
+      (async()=>{
+        try{
+          const page=await client.generations(tenant).tasks.list({kind:'video',limit:25},{signal:controller.signal});
+          videoRows=page.data.map(savedVideo);
+          nextVideoBefore=page.has_more ? page.next_cursor : null;
+        }catch{if(!controller.signal.aborted)videosFailed=true;}
+      })(),
+    ]).then(()=>{
+      if(controller.signal.aborted)return;
+      const incomplete=chatsFailed||sessionFailures||videosFailed;
+      const snapshot:HistorySnapshot={
+        chats:chatsFailed&&!chatRows.length ? previous?.chats??[] : chatRows,
+        videos:videosFailed&&!videoRows.length ? previous?.videos??[] : videoRows,
+        sessions:sessionFailures&&!sessionRows.length ? previous?.sessions??[] : sessionRows,
+        sessionBefore:sessionFailures ? previous?.sessionBefore??null : nextSessionBefore,
+        videoBefore:videosFailed ? previous?.videoBefore??null : nextVideoBefore,
+        sessionsFailed:sessionFailures&&!sessionRows.length,
+      };
+      setSavedChats(snapshot.chats);setSavedVideos(snapshot.videos);setSavedSessions(snapshot.sessions);
+      setSessionsFailed(snapshot.sessionsFailed);setSessionBefore(snapshot.sessionBefore);setVideoBefore(snapshot.videoBefore);
+      if(!incomplete)primeQuery(token,historyKey,snapshot,{persist:true});
+      else setError('Some sessions could not be loaded.');
+    }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>{controller.abort();pagination.current?.abort();pagination.current=null;generation.current+=1;};
-  },[token,workspaceListScope,revision]);
+  },[token,scopeKey,revision]);
   const entries=useMemo(()=>{
-    const knownWorkspaces=context.workspaces?.length ? context.workspaces : workspace ? [workspace] : [];
-    const workspaceSegment=(id?:string)=>{
-      if(!id)return '';
-      const found=knownWorkspaces.find(item=>item.id===id);
-      if(!found)return id;
-      if(!found.slug && !found.route_slug && found.name.length<=1)return found.id;
-      return workspacePathSegment(found,knownWorkspaces);
-    };
-    const merged=new Map(savedVideos.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.workspaceId??'')).map(item=>[item.id,item]));
-    for(const item of videos??[])if(!item.sessionId||unavailableSessionWorkspaces.has(workspace?.id??''))merged.set(item.id,{...item,reference:item.reference??merged.get(item.id)?.reference,workspaceId:workspace?.id});
-    const legacyIntents=savedIntents.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.scope.projectId));
-    const intentsByJob=new Map(legacyIntents.filter(item=>item.jobId).map(item=>[item.jobId,item]));
-    // Saved intents carry their original key association on the server.
-    // Do not copy a redundant credential reference into cross-workspace links.
-    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(workspaceSegment(item.scope.projectId))}&intent=${encodeURIComponent(item.reference??item.id)}`;
+    const merged=new Map(savedVideos.filter(item=>!item.sessionId||sessionsFailed).map(item=>[item.id,item]));
+    for(const item of videos??[])if(!item.sessionId||sessionsFailed)merged.set(item.id,{...item,reference:item.reference??merged.get(item.id)?.reference});
     const keyQuery=(item:Video)=>{
-      const slug=item.workspaceId===workspace?.id ? currentKeys?.find(key=>key.id===item.keyId)?.slug : undefined;
+      const slug=currentKeys?.find(key=>key.id===item.keyId)?.slug;
       return slug ? `&key=${encodeURIComponent(slug)}` : '';
     };
-    const crossWorkspaceQuery=(id?:string)=>
-      id && workspace?.id && id!==workspace.id
-        ? `?workspace=${encodeURIComponent(workspaceSegment(id))}`
-        : '';
-    const sessionHref=(referenceOrId:string,wsId?:string)=>
-      `/generations/${encodeURIComponent(referenceOrId)}${crossWorkspaceQuery(wsId)}`;
-    return [
-      ...savedSessions.map(session=>({id:session.id,reference:session.reference,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:session.reference || /^video-[1-9][0-9]{0,18}$/.test(session.id) ? sessionHref(session.reference??session.id,session.workspace_id) : `/generations?workspace=${encodeURIComponent(workspaceSegment(session.workspace_id))}&video-session=${encodeURIComponent(session.id)}`})),
-      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,reference:item.reference,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:sessionHref(item.reference??item.id,item.workspaceId)})),
-      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,reference:item.reference,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}${keyQuery(item)}&job=${encodeURIComponent(item.reference??item.id)}`};}),
-      ...legacyIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,reference:item.reference,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
-    ].sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
-  },[chats,savedChats,savedVideos,savedIntents,savedSessions,unavailableSessionWorkspaces,videos,workspace,context.workspaces,currentKeys,pending]);
+    const rows:HistoryEntry[]=[
+      ...savedSessions.map(session=>({type:'video-session' as const,id:session.id,reference:session.reference,session,title:session.title,created:Date.parse(session.updated_at),href:session.reference || /^video-[1-9][0-9]{0,18}$/.test(session.id) ? `/generations/${encodeURIComponent(session.reference??session.id)}` : `/generations?video-session=${encodeURIComponent(session.id)}`})),
+      ...[...new Map([...savedChats,...(chats??[])].map(item=>[item.id,item])).values()].map(item=>({type:'chat' as const,id:item.id,reference:item.reference,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations/${encodeURIComponent(item.reference??item.id)}`})),
+      ...[...merged.values()].map(item=>{
+        // Session-bound results belong to the session surface, which renders
+        // the turn in place. Standalone jobs keep the legacy result link.
+        const sessionReference=!sessionsFailed&&item.sessionId ? savedSessions.find(session=>session.id===item.sessionId)?.reference : undefined;
+        const readableReference=item.reference&&/^run-[1-9][0-9]{0,18}$/.test(item.reference) ? item.reference : undefined;
+        return {type:'video' as const,id:item.id,reference:item.reference,title:`Video · ${item.model}`,created:Number(item.created_at_ms),href:sessionReference ? `/generations/${encodeURIComponent(sessionReference)}${readableReference?`#${encodeURIComponent(readableReference)}`:''}` : `/generations?job=${encodeURIComponent(item.reference??item.id)}${keyQuery(item)}`};
+      }),
+    ];
+    return rows.sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
+  },[chats,savedChats,savedVideos,savedSessions,sessionsFailed,videos,currentKeys]);
   async function more(){
-    if(loading||(!cursors.length&&!intentCursors.length&&!sessionCursors.length)||pagination.current)return;setLoading(true);setError('');
+    if(loading||(!sessionBefore&&!videoBefore)||pagination.current||!workspace||!client)return;setLoading(true);setError('');
     const request=new AbortController();pagination.current=request;
     const currentGeneration=generation.current;
+    const tenant={organizationId:workspace.organization_id,projectId:workspace.id};
     try{
-      const next:VideoCursor[]=[];const rows:Video[]=[];
-      const nextSessions:VideoCursor[]=[];const sessionRows:SavedVideoSession[]=[];
-      for(const cursor of sessionCursors){
-        const page=await client!.generations(cursor.scope).sessions.list({limit:25,before:cursor.before},{signal:request.signal});
-        if(page.has_more&&(!page.next_before||page.next_before===cursor.before))throw new Error('Video session history did not advance.');
-        sessionRows.push(...page.data.map(session=>({...session,scope:cursor.scope})));
-        if(page.has_more&&page.next_before)nextSessions.push({...cursor,before:page.next_before});
-      }
-      const nextIntents:Array<{scope:VideoIntentHistoryRow['scope'];before:string}>=[];const intentRows:VideoIntentHistoryRow[]=[];let incomplete=false;
-      for(const cursor of intentCursors){
-        const page=await videoIntentHistory(client!,cursor.scope,{limit:25,before:cursor.before},{signal:request.signal});
-        intentRows.push(...page.data);if(page.incomplete)incomplete=true;
-        if(page.has_more&&page.next_before)nextIntents.push({...cursor,before:page.next_before});
-      }
-      // Sequential page reads bound both concurrency and retained response memory.
-      for(const cursor of cursors){
-        if(request.signal.aborted)return;
-        const page=await client!.generations(cursor.scope).tasks.list({kind:'video',limit:25,cursor:cursor.before},{signal:request.signal});
-        rows.push(...page.data.map(task=>savedVideo(task,cursor.scope.projectId)));
-        if(page.has_more&&page.next_cursor)next.push({...cursor,before:page.next_cursor});
-      }
+      const sessionCursor=sessionBefore;
+      const videoCursor=videoBefore;
+      const [sessionPage,videoPage]=await Promise.all([
+        sessionCursor ? client.generations(tenant).sessions.list({limit:25,before:sessionCursor},{signal:request.signal}) : Promise.resolve(null),
+        videoCursor ? client.generations(tenant).tasks.list({kind:'video',limit:25,cursor:videoCursor},{signal:request.signal}) : Promise.resolve(null),
+      ]);
       if(request.signal.aborted||currentGeneration!==generation.current)return;
-      if(incomplete)setError('Some saved inputs could not be read.');
-      setSavedSessions(current=>[...new Map([...current,...sessionRows].map(item=>[`${item.scope.projectId}:${item.id}`,item])).values()]);setSessionCursors(nextSessions);
-      setSavedVideos(current=>[...current,...rows]);setSavedIntents(current=>[...new Map([...current,...intentRows].map(item=>[`${item.scope.projectId}:${item.id}`,item])).values()]);setIntentCursors(nextIntents);setCursors(next);
-    }catch{if(!request.signal.aborted&&currentGeneration===generation.current)setError('Could not load more sessions.');}finally{if(pagination.current===request)pagination.current=null;if(!request.signal.aborted&&currentGeneration===generation.current)setLoading(false);}
-  }
-  async function eraseInput(){
-    if(!deleting || deleteBusy || !client)return;
-    const target=deleting;const currentGeneration=generation.current;
-    setDeleteBusy(true);setDeleteError('');
-    try{
-      await client.deleteVideoIntent(target.scope,target.id,target.revision);
-      if(currentGeneration!==generation.current)return;
-      setSavedIntents(current=>current.filter(item=>item.id!==target.id || item.scope.projectId!==target.scope.projectId));setDeleting(null);onIntentDeleted?.(target.id);
-    }catch(error){if(currentGeneration===generation.current)setDeleteError(error instanceof Error ? error.message:'The saved input could not be deleted.');}
-    finally{setDeleteBusy(false);}
+      if(sessionPage){
+        if(sessionPage.has_more&&(!sessionPage.next_before||sessionPage.next_before===sessionCursor))throw new Error('Video session history did not advance.');
+        const rows=sessionPage.data.map(session=>({...session,scope:tenant}));
+        setSavedSessions(current=>[...new Map([...current,...rows].map(item=>[item.id,item])).values()]);
+        setSessionBefore(sessionPage.has_more ? sessionPage.next_before : null);
+        setSessionsFailed(false);
+      }
+      if(videoPage){
+        if(videoPage.has_more&&(!videoPage.next_cursor||videoPage.next_cursor===videoCursor))throw new Error('Video job history did not advance.');
+        const rows=videoPage.data.map(savedVideo);
+        setSavedVideos(current=>[...new Map([...current,...rows].map(item=>[item.id,item])).values()]);
+        setVideoBefore(videoPage.has_more ? videoPage.next_cursor : null);
+      }
+    }catch{if(!request.signal.aborted&&currentGeneration===generation.current)setError('Could not load more sessions.');}
+    finally{if(pagination.current===request)pagination.current=null;if(!request.signal.aborted&&currentGeneration===generation.current)setLoading(false);}
   }
   async function updateSession(item:SavedVideoSession,title:string,archived:boolean){
     if(!client||sessionBusy||disabled||!context.session?.permissions.write)return;
@@ -243,23 +207,61 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     }catch{if(currentScope===metadataScope.current)setSessionError('The saved session could not be reloaded. Check access before trying again.');}
     finally{if(currentScope===metadataScope.current)setSessionBusy(false);}
   }
+  async function prepareDeleteSavedInput(item:SavedVideoSession){
+    if(!client||deleteBusy||disabled||!context.session?.permissions.write)return;
+    const currentScope=metadataScope.current;
+    menuOpener.current=actionButtons.current.get(`session:${item.id}`)??null;
+    setDeletingSession({session:item,inputs:[],loading:true});setDeleteError('');
+    try{
+      // Read turns only when the user explicitly asks to delete saved input; listing never hydrates them.
+      const value=await client.generations(item.scope).sessions.retrieve(item.id);
+      if(currentScope!==metadataScope.current)return;
+      const inputs=value.data.turns.flatMap(turn=>{
+        const intent=turn.intent;
+        if(!intent||intent.content_state!=='retained')return [];
+        const revisionNumber=Number(intent.revision);
+        if(!Number.isSafeInteger(revisionNumber)||revisionNumber<1)return [];
+        const title=turn.instruction?.prompt.trim().split('\n')[0]?.slice(0,120)||'Saved video request';
+        return [{id:intent.id,revision:revisionNumber,title}];
+      });
+      setDeletingSession(current=>current&&current.session.id===item.id ? {...current,inputs,loading:false}:current);
+    }catch(error){
+      if(currentScope!==metadataScope.current)return;
+      setDeletingSession(null);
+      setError(error instanceof Error ? error.message : 'The saved input could not be loaded.');
+    }
+  }
+  async function deleteSavedInput(){
+    if(!deletingSession||deletingSession.loading||!deletingSession.inputs.length||deleteBusy||!client)return;
+    const target=deletingSession;const currentScope=metadataScope.current;
+    setDeleteBusy(true);setDeleteError('');
+    try{
+      for(const input of target.inputs)await client.deleteVideoIntent(target.session.scope,input.id,input.revision);
+      if(currentScope!==metadataScope.current)return;
+      setDeletingSession(null);
+      window.dispatchEvent(new Event('niu:video-intent-saved'));
+    }catch(error){if(currentScope===metadataScope.current)setDeleteError(error instanceof Error ? error.message : 'The saved input could not be deleted.');}
+    finally{if(currentScope===metadataScope.current)setDeleteBusy(false);}
+  }
   const content = <>
-    {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Retry sessions")}</Button></div>}
+    {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Retry sessions")}</Button></div>}
     <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=><SidebarMenuItem key={`${item.type}:${item.id}`}>
-      <SidebarMenuButton asChild isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference) || Boolean(item.intent&&(activeIntent===item.intent.id || (item.intent.reference&&activeIntent===item.intent.reference))))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&item.workspaceId===workspace?.id&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{item.title}</span></Link></SidebarMenuButton>
-      {item.type==='chat'&&item.workspaceId===workspace?.id&&chatActions&&chatActions(item.id)}
-      {item.type==='video'&&item.intent&&item.workspaceId===workspace?.id&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(item.intent!.id,element);else actionButtons.current.delete(item.intent!.id);}} showOnHover disabled={disabled||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{deleteOpener.current=actionButtons.current.get(item.intent!.id)??null;setDeleting(item.intent!);setDeleteError('');}}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
-      {item.type==='video-session'&&item.workspaceId===workspace?.id&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{deleteOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
+      <SidebarMenuButton asChild isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{uiT(item.title)}</span></Link></SidebarMenuButton>
+      {item.type==='chat'&&chatActions&&chatActions(item.id)}
+      {item.type==='video-session'&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{menuOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void prepareDeleteSavedInput(item.session)}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>)}</SidebarMenu>
     {!entries.length&&!loading&&!pending&&!error&&!failed&&<Empty className="p-3 md:p-3"><EmptyHeader><EmptyDescription>{uiT("No sessions yet")}</EmptyDescription></EmptyHeader></Empty>}
     {(loading||pending)&&!entries.length&&<SidebarMenu role="status" aria-busy="true" aria-label={uiT("Loading sessions…")}>
       {Array.from({length:4},(_,index)=><SidebarMenuItem key={index}><SidebarMenuSkeleton showIcon/></SidebarMenuItem>)}
     </SidebarMenu>}
-    {(cursors.length>0||intentCursors.length>0||sessionCursors.length>0)&&<Button variant="ghost" disabled={loading||disabled} onClick={()=>void more()}>{uiT("Load more sessions")}</Button>}
+    {(sessionBefore||videoBefore)&&<Button variant="ghost" disabled={loading||disabled} onClick={()=>void more()}>{uiT("Load more sessions")}</Button>}
   </>;
   const dialogs=<>
-    <Dialog open={Boolean(editingSession)} onOpenChange={open=>{if(!open&&!sessionBusy)setEditingSession(null);}}><DialogContent showCloseButton={!sessionBusy} onCloseAutoFocus={event=>{const target=deleteOpener.current?.isConnected?deleteOpener.current:focusFallback?.current;if(target?.isConnected){event.preventDefault();target.focus();}}}><DialogHeader><DialogTitle>{uiT("Rename Video session")}</DialogTitle><DialogDescription>{uiT("Change the title shown in Generations history.")}</DialogDescription></DialogHeader><form onSubmit={event=>{event.preventDefault();if(editingSession)void updateSession(editingSession,sessionTitle,editingSession.archived);}}><Label htmlFor="video-session-title">{uiT("Title")}</Label><Input id="video-session-title" value={sessionTitle} onChange={event=>setSessionTitle(event.target.value)} maxLength={200} disabled={sessionBusy}/>{sessionError&&<div className="mt-3"><p role="alert" className="text-sm text-destructive">{sessionError}</p><Button type="button" variant="ghost" disabled={sessionBusy} onClick={()=>void reloadEditingSession()}>{uiT("Reload session")}</Button></div>}<DialogFooter className="mt-4"><Button type="button" variant="outline" disabled={sessionBusy} onClick={()=>setEditingSession(null)}>{uiT("Cancel")}</Button><Button type="submit" disabled={sessionBusy||!sessionTitle.trim()}>{sessionBusy?uiT("Saving…"):uiT("Save")}</Button></DialogFooter></form></DialogContent></Dialog>
-    <Dialog open={Boolean(deleting)} onOpenChange={open=>{if(!open&&!deleteBusy)setDeleting(null);}}><DialogContent showCloseButton={!deleteBusy} onCloseAutoFocus={event=>{const target=deleteOpener.current?.isConnected ? deleteOpener.current:focusFallback?.current;if(target?.isConnected){event.preventDefault();target.focus();}}}><DialogHeader><DialogTitle>{uiT("Delete saved video input")}</DialogTitle><DialogDescription>{uiT("This permanently removes the saved prompt and settings. It does not cancel the generation, delete its result, or refund charges.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{deleting?.title}</p>{deleteError&&<p role="alert" className="text-sm text-destructive">{deleteError}</p>}<DialogFooter><Button variant="outline" onClick={()=>setDeleting(null)} disabled={deleteBusy}>{uiT("Cancel")}</Button><Button variant="destructive" onClick={()=>void eraseInput()} disabled={deleteBusy}>{deleteBusy?uiT("Deleting…"):uiT("Delete input")}</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={Boolean(editingSession)} onOpenChange={open=>{if(!open&&!sessionBusy)setEditingSession(null);}}><DialogContent showCloseButton={!sessionBusy} onCloseAutoFocus={event=>{const target=menuOpener.current?.isConnected?menuOpener.current:focusFallback?.current;if(target?.isConnected){event.preventDefault();target.focus();}}}><DialogHeader><DialogTitle>{uiT("Rename Video session")}</DialogTitle><DialogDescription>{uiT("Change the title shown in Generations history.")}</DialogDescription></DialogHeader><form onSubmit={event=>{event.preventDefault();if(editingSession)void updateSession(editingSession,sessionTitle,editingSession.archived);}}><Label htmlFor="video-session-title">{uiT("Title")}</Label><Input id="video-session-title" value={sessionTitle} onChange={event=>setSessionTitle(event.target.value)} maxLength={200} disabled={sessionBusy}/>{sessionError&&<div className="mt-3"><p role="alert" className="text-sm text-destructive">{uiT(sessionError)}</p><Button type="button" variant="ghost" disabled={sessionBusy} onClick={()=>void reloadEditingSession()}>{uiT("Reload session")}</Button></div>}<DialogFooter className="mt-4"><Button type="button" variant="outline" disabled={sessionBusy} onClick={()=>setEditingSession(null)}>{uiT("Cancel")}</Button><Button type="submit" disabled={sessionBusy||!sessionTitle.trim()}>{sessionBusy?uiT("Saving…"):uiT("Save")}</Button></DialogFooter></form></DialogContent></Dialog>
+    <Dialog open={Boolean(deletingSession)} onOpenChange={open=>{if(!open&&!deleteBusy)setDeletingSession(null);}}><DialogContent showCloseButton={!deleteBusy} onCloseAutoFocus={event=>{const target=menuOpener.current?.isConnected?menuOpener.current:focusFallback?.current;if(target?.isConnected){event.preventDefault();target.focus();}}}><DialogHeader><DialogTitle>{uiT("Delete saved video inputs")}</DialogTitle><DialogDescription>{uiT("This permanently removes the saved prompts and settings in this session. It does not cancel generations, delete results, or refund charges.")}</DialogDescription></DialogHeader>
+      {deletingSession?.loading ? <p role="status">{uiT("Loading saved inputs…")}</p> : deletingSession&&deletingSession.inputs.length>0 ? <ul className="list-inside list-disc space-y-1 text-sm">{deletingSession.inputs.map(input=><li className="break-words" key={input.id}>{input.title}</li>)}</ul> : <p className="text-sm">{uiT("No retained saved input remains in this session.")}</p>}
+      {deleteError&&<p role="alert" className="text-sm text-destructive">{uiT(deleteError)}</p>}
+      <DialogFooter><Button variant="outline" onClick={()=>setDeletingSession(null)} disabled={deleteBusy}>{uiT("Cancel")}</Button><Button variant="destructive" onClick={()=>void deleteSavedInput()} disabled={deleteBusy||Boolean(deletingSession?.loading)||!deletingSession?.inputs.length}>{deleteBusy?uiT("Deleting…"):uiT("Delete input")}</Button></DialogFooter></DialogContent></Dialog>
   </>;
   return <>
     {listTarget ? createPortal(content, listTarget) : listTarget === undefined ? content : null}

@@ -5,6 +5,52 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import AccountBilling from "../../../app/features/billing/AccountBilling";
 
+it('renders account balance and top-up surfaces in Chinese', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
+    const view = render(<AccountBilling token="test" organization="org" section="billing" />);
+    expect(await screen.findByRole('region', {name: '账户余额'})).toBeTruthy();
+    expect(screen.getByText('可用额度')).toBeTruthy();
+    expect(await screen.findByText('暂无交易记录。')).toBeTruthy();
+    view.rerender(<AccountBilling token="test" organization="org" section="payments" />);
+    expect(await screen.findByRole('region', {name: '账户充值'})).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
+it('localizes account balance and transaction failures', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({}, {status: 503})));
+    render(<AccountBilling token="test" organization="org" section="billing" />);
+    expect(await screen.findByText('账户余额暂不可用')).toBeTruthy();
+    expect(screen.getByText('无法加载账户余额，请重试。')).toBeTruthy();
+    expect(await screen.findByText('交易记录暂不可用')).toBeTruthy();
+    expect(screen.getByText('无法加载交易记录，请重试。')).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
+it('renders the low-balance warning dialog in Chinese', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
+    render(<AccountBilling token="test" organization="org" section="billing" canConfigure />);
+    await screen.findByRole('region', {name: '账户余额'});
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', {name: /设置 CNY 余额提醒/}));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('余额不足提醒')).toBeTruthy();
+    expect(within(dialog).getByLabelText('启用提醒')).toBeTruthy();
+    expect(within(dialog).getByRole('button', {name: '保存'})).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
 it('separates balance reporting from payment actions in global Settings', async () => {
   vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'USD',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
   const view = render(<AccountBilling token="test" organization="org" section="billing" />);
