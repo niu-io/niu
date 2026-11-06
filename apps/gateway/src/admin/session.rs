@@ -49,6 +49,14 @@ pub async fn current_session(
                 .map_err(ApiError::from_store)?,
         ),
     };
+    let provider_memberships = match &authorization {
+        AdminAuthorization::Operator(principal) => state
+            .store
+            .provider_memberships(principal.id)
+            .await
+            .map_err(ApiError::from_store)?,
+        AdminAuthorization::Installation => Vec::new(),
+    };
     let active_role = if authorization.can_manage_platform() {
         "admin"
     } else {
@@ -62,7 +70,7 @@ pub async fn current_session(
     Ok(Json(json!({"data": {
         "kind": kind,
         "operating_mode": state.operating_mode,
-        "provider_memberships": [],
+        "provider_memberships": provider_memberships,
         "roles": { "available": available_roles, "active": active_role, "switchable": admin_mode_available },
         "profile": profile,
         "admin_mode": { "available": admin_mode_available, "enabled": admin_mode_available && authorization.can_manage_platform() },
