@@ -300,29 +300,40 @@ pub async fn capture(
         failed: false,
         truncated: false,
     };
-    let stream = futures_util::stream::unfold(
-        (body.into_data_stream(), capture),
-        |(mut stream, mut capture)| async move {
-            match stream.next().await {
-                Some(chunk) => {
-                    if let Ok(bytes) = &chunk {
-                        let remaining = LIMIT - capture.bytes.len();
-                        capture
-                            .bytes
-                            .extend_from_slice(&bytes[..remaining.min(bytes.len())]);
-                        capture.truncated |= bytes.len() > remaining;
-                    }
-                    capture.failed |= chunk.is_err();
-                    Some((chunk, (stream, capture)))
+    let mut stream = body.into_data_stream();
+    let mut capture = Some(capture);
+    let mut done = false;
+    let stream = futures_util::stream::poll_fn(move |cx| {
+        if done {
+            return std::task::Poll::Ready(None);
+        }
+        match futures_util::Stream::poll_next(std::pin::Pin::new(&mut stream), cx) {
+            std::task::Poll::Ready(Some(chunk)) => {
+                let Some(state) = capture.as_mut() else {
+                    done = true;
+                    return std::task::Poll::Ready(None);
+                };
+                if let Ok(bytes) = &chunk {
+                    let remaining = LIMIT - state.bytes.len();
+                    state
+                        .bytes
+                        .extend_from_slice(&bytes[..remaining.min(bytes.len())]);
+                    state.truncated |= bytes.len() > remaining;
                 }
-                None => {
-                    capture.complete = !capture.failed;
-                    drop(capture);
-                    None
-                }
+                state.failed |= chunk.is_err();
+                std::task::Poll::Ready(Some(chunk))
             }
-        },
-    );
+            std::task::Poll::Ready(None) => {
+                if let Some(mut state) = capture.take() {
+                    state.complete = !state.failed;
+                    drop(state);
+                }
+                done = true;
+                std::task::Poll::Ready(None)
+            }
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    });
     Response::from_parts(parts, Body::from_stream(stream))
 }
 

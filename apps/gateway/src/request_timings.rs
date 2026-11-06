@@ -170,21 +170,30 @@ pub async fn collect(
     }
     finish.status = Some(response.status().as_u16() as i32);
     let (parts, body) = response.into_parts();
-    let stream = futures_util::stream::unfold(
-        (body.into_data_stream(), finish),
-        |(mut stream, mut finish)| async move {
-            match stream.next().await {
-                Some(chunk) => {
-                    finish.failed |= chunk.is_err();
-                    Some((chunk, (stream, finish)))
+    let mut stream = body.into_data_stream();
+    let mut finish = Some(finish);
+    let mut done = false;
+    let stream = futures_util::stream::poll_fn(move |cx| {
+        if done {
+            return std::task::Poll::Ready(None);
+        }
+        match futures_util::Stream::poll_next(std::pin::Pin::new(&mut stream), cx) {
+            std::task::Poll::Ready(Some(chunk)) => {
+                if let Some(state) = finish.as_mut() {
+                    state.failed |= chunk.is_err();
                 }
-                None => {
-                    finish.complete = !finish.failed;
-                    drop(finish);
-                    None
-                }
+                std::task::Poll::Ready(Some(chunk))
             }
-        },
-    );
+            std::task::Poll::Ready(None) => {
+                if let Some(mut state) = finish.take() {
+                    state.complete = !state.failed;
+                    drop(state);
+                }
+                done = true;
+                std::task::Poll::Ready(None)
+            }
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    });
     Response::from_parts(parts, Body::from_stream(stream))
 }
