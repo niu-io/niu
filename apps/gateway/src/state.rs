@@ -214,6 +214,11 @@ fn resolve_demo_account_password(raw: Option<&str>) -> Result<String, Box<dyn st
     let password = raw
         .filter(|value| !value.trim().is_empty())
         .ok_or("NIU_DEMO_ACCOUNT_ENABLED requires an explicit NIU_DEMO_ACCOUNT_PASSWORD")?;
+    if password.eq_ignore_ascii_case("Hello123") {
+        return Err(
+            "NIU_DEMO_ACCOUNT_PASSWORD must not use the well-known development password".into(),
+        );
+    }
     Ok(password.to_owned())
 }
 
@@ -1012,6 +1017,8 @@ mod tests {
         assert!(super::resolve_demo_account_password(None).is_err());
         assert!(super::resolve_demo_account_password(Some("")).is_err());
         assert!(super::resolve_demo_account_password(Some("   ")).is_err());
+        assert!(super::resolve_demo_account_password(Some("Hello123")).is_err());
+        assert!(super::resolve_demo_account_password(Some("hello123")).is_err());
         assert_eq!(
             super::resolve_demo_account_password(Some("explicit-demo-password-15chars")).unwrap(),
             "explicit-demo-password-15chars"

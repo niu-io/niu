@@ -14,7 +14,7 @@ The dashboard signs in with a persisted member account using the normal password
 and browser-session APIs. The default account email is `demo@niu.io`; its generated
 password is stored in the private state directory's `dev-password` file. To seed
 the requested demo credential, set `NIU_DEV_USERNAME=demo@niu.io` and
-`NIU_DEV_PASSWORD=Hello123` in the ignored repository-root `.env` file before the
+`NIU_DEV_PASSWORD=<a non-default password>` in the ignored repository-root `.env` file before the
 first launch. This seed-only password exception does not change the production
 password policy. Startup preserves existing passwords, profile edits, roles,
 and revoked accounts rather than resetting them from `.env`.
