@@ -71,6 +71,10 @@ export default defineConfig(({ command, mode }) => {
       ws: basePrefix ? { path: '__hmr' } : undefined,
       proxy: gatewayProxy,
     },
+    // React Router's SPA prerender connects to Vite's local preview server.
+    // Use an explicit loopback address so the listener and build client agree
+    // in container environments with different localhost resolution behavior.
+    preview: { host: '127.0.0.1' },
     test: {
       pool: 'threads',
       maxWorkers: 2,
