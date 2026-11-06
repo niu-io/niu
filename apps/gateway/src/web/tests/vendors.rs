@@ -8843,3 +8843,21 @@ async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool
     assert_eq!(store.vendor_models(id).await.unwrap().len(), 2);
     server.abort();
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn legacy_provider_qualification_routes_are_removed(pool: PgPool) {
+    let state = test_state(None, pool);
+    let app = router(state);
+    let provider = Uuid::new_v4();
+    let offer = Uuid::new_v4();
+    for (method, path) in [
+        (Method::PUT, format!("/admin/v1/providers/{provider}/qualification")),
+        (Method::POST, format!("/admin/v1/providers/{provider}/qualification/revoke")),
+        (Method::PUT, format!("/admin/v1/providers/{provider}/offers/{offer}/qualification")),
+        (Method::POST, format!("/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke")),
+    ] {
+        let (status, _) = call(&app, method, &path, ADMIN, json!({})).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
+    }
+}
