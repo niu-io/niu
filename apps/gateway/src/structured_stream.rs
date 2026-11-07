@@ -77,11 +77,17 @@ impl ToolCall {
             if id.len() > 200 || id.chars().any(char::is_control) {
                 return false;
             }
-            if self.id.is_empty() {
-                self.id.push_str(id);
-                *bytes = bytes.saturating_add(id.len());
-            } else if self.id != id {
-                return false;
+            // Some OpenAI-compatible streams repeat an empty id on every
+            // tool-call delta after the real id was emitted. Empty fragments
+            // carry no identity; retain the first non-empty id and do not
+            // treat later empty fragments as a conflicting call.
+            if !id.is_empty() {
+                if self.id.is_empty() {
+                    self.id.push_str(id);
+                    *bytes = bytes.saturating_add(id.len());
+                } else if self.id != id {
+                    return false;
+                }
             }
         }
         if let Some(function) = delta.get("function").filter(|v| !v.is_null()) {
@@ -352,6 +358,41 @@ mod tests {
                     "tool_calls": [{
                         "index": 0,
                         "function": {"name": "a", "arguments": "}"}
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }]
+        }));
+        assert!(stream.valid());
+    }
+
+    #[test]
+    fn empty_tool_call_id_fragments_do_not_invalidate_the_stream() {
+        let request = json!({
+            "tools": [{"type": "function", "function": {"name": "get_weather"}}]
+        });
+        let mut stream = StructuredStream::text().with_tools(&request);
+        stream.observe(&json!({
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_weather", "arguments": ""}
+                    }]
+                }
+            }]
+        }));
+        stream.observe(&json!({
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "",
+                        "function": {"arguments": "{\"city\":\"Paris\"}"}
                     }]
                 },
                 "finish_reason": "tool_calls"
