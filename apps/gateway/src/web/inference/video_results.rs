@@ -210,6 +210,11 @@ async fn retrieve_authorized_media(
             Duration::from_secs(60),
         )
         .await
+    } else if route.channel == niu_media::babelark_video::REVISION {
+        if kind != MediaResultKind::Video {
+            return Err(ApiError::not_found());
+        }
+        niu_media::babelark_video::fetch_result(&url, maximum_bytes, Duration::from_secs(60)).await
     } else {
         niu_media::result::fetch_result(
             &url,

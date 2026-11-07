@@ -178,6 +178,9 @@ pub async fn submit_job(
     let body = if protocol_revision == crate::openrouter::REVISION {
         crate::openrouter::submission_body(request)
             .map_err(|_| SubmissionError::InvalidConfiguration)?
+    } else if protocol_revision == crate::babelark_video::REVISION {
+        crate::babelark_video::submission_body(request)
+            .map_err(|_| SubmissionError::InvalidConfiguration)?
     } else {
         request.body().clone()
     };
@@ -213,11 +216,15 @@ pub async fn submit_job(
         if object.get("error").is_some_and(|v| !v.is_null()) {
             return Err(SubmissionError::Uncertain);
         }
-        let job = object
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .filter(|v| valid_name(v))
-            .ok_or(SubmissionError::Uncertain)?;
+        let job = if protocol_revision == crate::babelark_video::REVISION {
+            crate::babelark_video::receipt(&value).ok_or(SubmissionError::Uncertain)?
+        } else {
+            object
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .filter(|v| valid_name(v))
+                .ok_or(SubmissionError::Uncertain)?
+        };
         Ok(SubmissionReceipt {
             upstream_job: job.into(),
             protocol_revision: protocol_revision.into(),

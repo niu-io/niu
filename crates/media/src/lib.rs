@@ -14,6 +14,7 @@ pub mod fastrouter_actions;
 pub mod fastrouter_domain;
 pub mod image_detector;
 pub mod image_input;
+pub mod babelark_video;
 pub mod image_inspection;
 pub mod media_detector;
 pub mod media_inspection;
