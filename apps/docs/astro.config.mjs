@@ -20,8 +20,11 @@ export default defineConfig({
         src: '../../branding/assets/niu-mark.png',
         alt: '',
       },
-      favicon: '/favicon.ico',
-      head: [{ tag: 'meta', attrs: { property: 'og:image', content: 'https://niu.io/docs/niu-social-en-dark.png' } }],
+      favicon: '/niu-mark-32.png',
+      head: [
+        { tag: 'meta', attrs: { property: 'og:image', content: 'https://niu.io/docs/niu-social-en-dark.png' } },
+        { tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/docs/apple-touch-icon.png' } },
+      ],
       social: [
         {
           icon: 'github',
