@@ -449,10 +449,14 @@ impl Store {
         after: Option<Uuid>,
     ) -> Result<Vec<(Uuid, Vec<u8>)>, StoreError> {
         // Startup validation must include disabled and model-less Suppliers.
+        // A retired credential is persisted as an empty bytea, not ciphertext;
+        // never ask the cipher to decrypt that deliberate tombstone.
         // Keep ciphertext bounded and internal; never expose it through APIs.
         Ok(sqlx::query_as(
             "SELECT id,credential_ciphertext FROM vendors
-             WHERE credential_ciphertext IS NOT NULL AND ($1::uuid IS NULL OR id>$1)
+             WHERE credential_ciphertext IS NOT NULL
+               AND octet_length(credential_ciphertext)>0
+               AND ($1::uuid IS NULL OR id>$1)
              ORDER BY id LIMIT 100",
         )
         .bind(after)
