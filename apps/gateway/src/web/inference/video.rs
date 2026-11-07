@@ -1940,8 +1940,17 @@ pub(super) async fn create_as(
             "contents/generations/tasks"
         }
     );
-    let timeout =
-        std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60));
+    let timeout = std::time::Duration::from_secs(
+        state
+            .config
+            .server
+            .request_timeout_seconds
+            .min(if schema.channel == niu_media::babelark_video::REVISION {
+                300
+            } else {
+                60
+            }),
+    );
     // Verify endpoint policy before committing dispatch intent. Transport repeats
     // this check; if it later fails, intent remains conservatively unresolved.
     crate::upstream::client_for_endpoint(&endpoint, timeout)
