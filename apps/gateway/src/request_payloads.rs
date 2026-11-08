@@ -8,7 +8,6 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use futures_util::StreamExt;
 use serde_json::Value;
 use std::error::Error as _;
 use uuid::Uuid;

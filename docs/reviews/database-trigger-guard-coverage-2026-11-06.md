@@ -6,7 +6,7 @@ open. This record is the verification companion to
 
 ## Scope and source
 
-- Worktree: `/Users/ticos/Niu/niu-handoff-v0.3-20261104` (v0.3 handoff).
+- Worktree: the v0.3 handoff worktree.
 - Effective schema: all embedded migrations `0001` through `0429` applied in
   order to a disposable PostgreSQL 17 database.
 - Inventory: **412 triggers, 218 public functions, 331 tables** after the one

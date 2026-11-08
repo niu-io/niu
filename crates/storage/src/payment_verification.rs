@@ -54,7 +54,7 @@ fn digest_from_hex(value: &str) -> Option<[u8; 32]> {
         return None;
     }
     let mut digest = [0u8; 32];
-    for (index, chunk) in value.as_bytes().chunks_exact(2).enumerate() {
+    for (index, chunk) in value.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         digest[index] = (nibble(chunk[0])? << 4) | nibble(chunk[1])?;
     }
     Some(digest)

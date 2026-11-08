@@ -289,7 +289,7 @@ async fn management_grant_retains_discovery_but_refuses_dispatch_and_rotation_ex
                 enabled: true,
                 revision: 0,
             },
-            Some(&vec![7u8; 48]),
+            Some(&[7u8; 48]),
         )
         .await
         .unwrap();
