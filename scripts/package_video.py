@@ -1,11 +1,12 @@
-"""Synthetic video setup for isolated package tests, never live supply verification."""
+"""Synthetic video setup for isolated package tests, never live supply qualification."""
+import time
 import uuid
 import urllib.error
 from urllib.parse import urlsplit
 
 
 def configure_video(request, organization, endpoint, credential, offer_lookup):
-    """Use real management APIs; authorization describes this synthetic fixture only."""
+    """Use real management APIs; qualification hashes describe synthetic fixtures only."""
     organization = str(uuid.UUID(organization))
     upstream = urlsplit(endpoint)
     if upstream.scheme != 'http' or upstream.hostname not in ('127.0.0.1', 'localhost') or upstream.username or upstream.password or upstream.query or upstream.fragment:
@@ -40,8 +41,21 @@ def configure_video(request, organization, endpoint, credential, offer_lookup):
         'model_revision':model['revision'],'schema_revision':schema['revision'],'expected_revision':None})
     assert published['data']['revision'] == revision, 'video offer revision changed unexpectedly'
     offer = str(uuid.UUID(offer_lookup(supplier)))
-    admin('PUT', f'/admin/v1/providers/{supplier}/offers/{offer}/authorization', {
-        'rate_revision':revision})
+    expiry = int(time.time() * 1000) + 3600000
+    admin('PUT', f'/admin/v1/providers/{supplier}/qualification', {
+        'supply_rights_sha256':'a'*64,'supply_capability_sha256':'b'*64,
+        'data_handling_sha256':'c'*64,'valid_until_ms':expiry})
+    admin('PUT', f'/admin/v1/providers/{supplier}/offers/{offer}/qualification', {
+        'rate_revision':revision,'model_identity_sha256':'d'*64,'protocol_matrix_sha256':'e'*64,
+        'protocol_matrix_version':'synthetic-package-video-v1','data_handling_sha256':'f'*64,
+        'availability_sha256':'1'*64,'agreed_rates_sha256':'2'*64,'valid_until_ms':expiry})
+    actor = admin('POST', '/admin/v1/operators', {'organization_id':organization,'project_id':None,
+        'name':'Package synthetic Supplier manager','role':'owner','expires_in_seconds':86400})
+    actor_id = str(uuid.UUID(actor['operator']['id']))
+    admin('PUT', f'/admin/v1/providers/{supplier}/members/{actor_id}', {'role':'manager','active':True})
+    status, _, _ = request('PATCH', f'/admin/v1/providers/{supplier}/offers/{offer}',
+        bearer_token=actor['token'],payload={'active':True})
+    assert status == 200, 'synthetic media offer activation failed'
     rational = lambda amount: {'numerator':str(amount),'denominator':'1'}
     tariff = {'revision':'package-video-selling-tariff','dimensions':{'model':'package-video',
         'channel':'ark-direct-v1','resolution':'720p','reference_video':False},'meter':'video_tokens',
