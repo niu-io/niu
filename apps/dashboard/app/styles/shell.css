@@ -38,7 +38,7 @@
 .breadcrumbs { display: flex; min-width: 0; align-items: center; font-size: 14px; gap: 12px; }
 .breadcrumbs > span:first-child { color: var(--muted-foreground); white-space: nowrap; }
 .breadcrumbs .crumb-divider { color: var(--border); }
-.breadcrumbs .dashboard-route-title { font-size: inherit; font-weight: 600; line-height: inherit; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumbs .dashboard-route-title { font-size: 18px; font-weight: 640; letter-spacing: -.02em; line-height: 1.2; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-route-title a { color: inherit; text-decoration: none; }
 .dashboard-route-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding: 24px clamp(24px, 2.4vw, 44px) 72px; }

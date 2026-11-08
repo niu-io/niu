@@ -1874,6 +1874,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Preview and download": "预览与下载",
   "Delete workspace copy": "删除工作空间副本",
   "files loaded": "个文件已加载",
+  "1 file loaded": "已加载 1 个文件",
+  "{0} files loaded": "已加载 {0} 个文件",
   "· Saved": "· 已保存",
   "Retry preview": "重试加载预览",
   "View original generation": "查看原始生成",

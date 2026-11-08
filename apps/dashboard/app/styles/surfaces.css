@@ -341,7 +341,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
   .dashboard-page-actions .page-heading-action > a { width: auto; }}
 .gateway-task-feed:not(.is-compact) { margin-top: 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; overflow: hidden; }
 .gateway-task-feed:not(.is-compact) .gateway-task-feed-heading { padding: 12px 14px; min-height: 0; }
-.gateway-task-feed:not(.is-compact) .gateway-task-feed-heading h2 { font-size: 14px; font-weight: 600; }
+.gateway-task-feed:not(.is-compact) .gateway-task-feed-heading h2 { font-size: 16px; font-weight: 640; letter-spacing: -.015em; }
 .gateway-request-table { min-width: 760px; }
 .gateway-request-table th, .gateway-request-table td { padding: 11px 12px; font-size: 13px; }
 .gateway-request-table thead th { font-size: 12px; font-weight: 500; background: var(--muted); }
