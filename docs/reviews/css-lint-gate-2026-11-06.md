@@ -1,9 +1,7 @@
 # Dashboard CSS and lint gate verification — 2026-11-06
 
-Bead: `niu-4rp.14` (dashboard consistency debt). This record covers the handoff worktree at
-`/Users/ticos/Niu/niu-handoff-v0.3-20261104`, branch
-`codex/v0.3-handoff-receive-20261104`, HEAD `a57b1dc5`, plus the pre-existing handoff working
-tree. No product commit, push, or history rewrite was performed, and the Bead was not closed.
+Bead: `niu-4rp.14` (dashboard consistency debt). This record covers the v0.3 handoff worktree at HEAD `a57b1dc5`, plus the pre-existing
+handoff working tree. No product commit, push, or history rewrite was performed, and the Bead was not closed.
 
 ## Outcome
 
