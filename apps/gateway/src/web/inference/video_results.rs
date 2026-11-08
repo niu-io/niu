@@ -250,8 +250,15 @@ async fn retrieve_authorized_media(
         )
         .await
     };
-    if kind == MediaResultKind::Video
-        && babelark_result
+    tracing::info!(
+        target: "niu.video_result",
+        kind = kind.as_str(),
+        babelark_result,
+        bytes = media.as_ref().map(|media| media.bytes.len()).unwrap_or(0),
+        has_moov = media.as_ref().ok().is_some_and(|media| media.bytes.windows(4).any(|window| window == b"moov")),
+        "video result payload"
+    );
+    if babelark_result
         && let Ok(media) = &media
         && !media.bytes.windows(4).any(|window| window == b"moov")
     {
