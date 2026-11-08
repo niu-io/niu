@@ -13,7 +13,6 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Try in Chat": "在对话中试用",
   "Support unverified": "支持情况未验证",
   "Developer": "开发者",
-  "Developer:": "开发者：",
   "Route configured · Provider access not verified": "路由已配置 · 尚未验证供应商访问权限",
   "Route status unknown": "路由状态未知",
   "No Providers yet. Choose one below to connect.": "还没有模型供应商。请选择下方的供应商进行连接。",
