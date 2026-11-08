@@ -57,9 +57,10 @@ Promotion of `release/<minor>` into `main` requires all of the following:
 If staging fails, fix on `release/<minor>` and retest. `main` stays on the last
 accepted release until the gate passes.
 
-## Current line
+## Current line (2026-11-08)
 
-- `release/0.3` at `2e8df756` is the accepted 0.3 candidate and carries tag
-  `v0.3.0`.
-- `main` has not been promoted to 0.3 yet; it remains the previous production
-  state until the staging gate passes.
+- `release/0.3` is the 0.3 integration line. Tag `v0.3.0` identifies the
+  published 0.3 candidate at `2e8df756`; the branch later advanced with this
+  policy commit.
+- `main` has not been promoted to 0.3 and remains the previous production state
+  until the staging gate passes.
