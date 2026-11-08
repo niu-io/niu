@@ -130,3 +130,65 @@ impl Store {
         Ok(Some(data))
     }
 }
+
+impl Store {
+    /// Persist a bounded, already validated result copy. The gateway encrypts
+    /// the bytes; storage never sees a Provider URL or plaintext media.
+    pub async fn save_media_result_blob(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        kind: MediaResultKind,
+        content_type: &str,
+        byte_length: usize,
+        ciphertext: &[u8],
+    ) -> Result<bool, StoreError> {
+        if content_type.is_empty()
+            || content_type.len() > 128
+            || byte_length == 0
+            || byte_length > 64 * 1024 * 1024
+            || ciphertext.is_empty()
+        {
+            return Err(StoreError::InvalidUsage);
+        }
+        let result = sqlx::query(
+            "INSERT INTO media_result_blobs(organization_id,project_id,attempt_id,kind,content_type,byte_length,ciphertext) \
+             VALUES($1,$2,$3,$4,$5,$6,$7) \
+             ON CONFLICT(attempt_id,kind) DO UPDATE SET content_type=EXCLUDED.content_type,byte_length=EXCLUDED.byte_length,ciphertext=EXCLUDED.ciphertext \
+             WHERE media_result_blobs.organization_id=EXCLUDED.organization_id AND media_result_blobs.project_id=EXCLUDED.project_id",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .bind(kind.as_str())
+        .bind(content_type)
+        .bind(byte_length as i64)
+        .bind(ciphertext)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn media_result_blob(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        kind: MediaResultKind,
+    ) -> Result<Option<(String, usize, Vec<u8>)>, StoreError> {
+        let row: Option<(String, i64, Vec<u8>)> = sqlx::query_as(
+            "SELECT content_type,byte_length,ciphertext FROM media_result_blobs \
+             WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND kind=$4",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .bind(kind.as_str())
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.and_then(|(content_type, length, ciphertext)| {
+            usize::try_from(length)
+                .ok()
+                .map(|length| (content_type, length, ciphertext))
+        }))
+    }
+}

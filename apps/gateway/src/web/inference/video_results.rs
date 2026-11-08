@@ -242,6 +242,25 @@ async fn retrieve_authorized_media(
             delivery_permit,
         ));
     }
+    if kind == MediaResultKind::Video
+        && let Some((_content_type, byte_length, ciphertext)) = state
+            .store
+            .media_result_blob(scope, id, kind)
+            .await
+            .map_err(ApiError::from_store)?
+        && let Ok(bytes) = cipher.open_media_result_blob(scope, id, kind, &ciphertext)
+        && bytes.len() == byte_length
+        && bytes.windows(4).any(|window| window == b"moov")
+    {
+        cache_result(scope, id, kind, "video/mp4", &bytes);
+        return Ok((
+            niu_media::result::ResultMedia {
+                content_type: "video/mp4",
+                bytes,
+            },
+            delivery_permit,
+        ));
+    }
     let route = state
         .store
         .media_recovery_route(scope, id)
@@ -324,6 +343,21 @@ async fn retrieve_authorized_media(
         && let Ok(media) = &media
     {
         cache_result(scope, id, kind, media.content_type, &media.bytes);
+        if let Ok(ciphertext) =
+            cipher.seal_media_result_blob(scope, id, kind, &media.bytes)
+        {
+            let _ = state
+                .store
+                .save_media_result_blob(
+                    scope,
+                    id,
+                    kind,
+                    media.content_type,
+                    media.bytes.len(),
+                    &ciphertext,
+                )
+                .await;
+        }
     }
     let upstream_http_status = match &media {
         Err(niu_media::result::ResultError::HttpStatus(status)) => Some(i32::from(*status)),

@@ -291,6 +291,45 @@ impl CredentialCipher {
         self.open_with_aad(&Self::media_aad(scope, job, kind), value)
             .map_err(|_| "media result could not be decrypted")
     }
+    pub(crate) fn seal_media_result_blob(
+        &self,
+        scope: niu_storage::TenantScope,
+        job: Uuid,
+        kind: niu_storage::MediaResultKind,
+        bytes: &[u8],
+    ) -> Result<Vec<u8>, &'static str> {
+        use base64::Engine;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+        self.seal_with_aad(&Self::media_blob_aad(scope, job, kind), &encoded)
+    }
+    pub(crate) fn open_media_result_blob(
+        &self,
+        scope: niu_storage::TenantScope,
+        job: Uuid,
+        kind: niu_storage::MediaResultKind,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, &'static str> {
+        use base64::Engine;
+        let encoded = self
+            .open_with_aad(&Self::media_blob_aad(scope, job, kind), ciphertext)
+            .map_err(|_| "media result copy could not be decrypted")?;
+        base64::engine::general_purpose::STANDARD
+            .decode(encoded.as_bytes())
+            .map_err(|_| "media result copy could not be decrypted")
+    }
+    fn media_blob_aad(
+        scope: niu_storage::TenantScope,
+        job: Uuid,
+        kind: niu_storage::MediaResultKind,
+    ) -> Vec<u8> {
+        let mut aad = b"niu.media-result-blob.v1".to_vec();
+        aad.extend_from_slice(scope.organization_id.as_bytes());
+        aad.extend_from_slice(scope.project_id.as_bytes());
+        aad.extend_from_slice(job.as_bytes());
+        aad.extend_from_slice(kind.as_str().as_bytes());
+        aad
+    }
+
     fn media_aad(
         scope: niu_storage::TenantScope,
         job: Uuid,
