@@ -194,6 +194,8 @@ async fn retrieve_authorized_media(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
     let clock = super::video::TransportClock::start();
+    let babelark_result = route.channel == niu_media::babelark_video::REVISION
+        || route.api_base.to_ascii_lowercase().contains("babelark");
     let media = if route.channel == niu_media::openrouter::REVISION {
         if kind != MediaResultKind::Video || route.adapter != "openrouter" {
             return Err(ApiError::not_found());
@@ -210,7 +212,7 @@ async fn retrieve_authorized_media(
             Duration::from_secs(60),
         )
         .await
-    } else if route.channel == niu_media::babelark_video::REVISION {
+    } else if babelark_result {
         if kind != MediaResultKind::Video {
             return Err(ApiError::not_found());
         }
@@ -241,7 +243,7 @@ async fn retrieve_authorized_media(
         .await
     };
     if kind == MediaResultKind::Video
-        && route.channel == niu_media::babelark_video::REVISION
+        && babelark_result
         && let Ok(media) = &media
         && !media.bytes.windows(4).any(|window| window == b"moov")
     {
