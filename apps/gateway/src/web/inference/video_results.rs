@@ -196,6 +196,14 @@ async fn retrieve_authorized_media(
     let clock = super::video::TransportClock::start();
     let babelark_result = route.channel == niu_media::babelark_video::REVISION
         || route.api_base.to_ascii_lowercase().contains("babelark");
+    tracing::info!(
+        target: "niu.video_result",
+        channel = %route.channel,
+        adapter = %route.adapter,
+        api_base = %route.api_base,
+        babelark_result,
+        "video result route"
+    );
     let media = if route.channel == niu_media::openrouter::REVISION {
         if kind != MediaResultKind::Video || route.adapter != "openrouter" {
             return Err(ApiError::not_found());
