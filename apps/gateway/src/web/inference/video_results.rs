@@ -414,14 +414,6 @@ async fn retrieve_authorized(
     };
     let length = media.bytes.len();
     let shared_bytes = memory::into_bytes(media.bytes, delivery_permit);
-    let chunks = futures_util::stream::unfold((shared_bytes, 0), |(bytes, offset)| async move {
-        if offset == bytes.len() {
-            return None;
-        }
-        let end = (offset + memory::CHUNK_BYTES).min(bytes.len());
-        let chunk = bytes.slice(offset..end);
-        Some((Ok::<_, std::convert::Infallible>(chunk), (bytes, end)))
-    });
     let mut response = (
         [
             (header::CONTENT_TYPE, media.content_type),
@@ -429,7 +421,7 @@ async fn retrieve_authorized(
             (header::CACHE_CONTROL, "private, no-store"),
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
         ],
-        Body::from_stream(chunks),
+        Body::from(shared_bytes),
     )
         .into_response();
     response
