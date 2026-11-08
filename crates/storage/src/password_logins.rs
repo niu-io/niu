@@ -122,6 +122,32 @@ impl Store {
         Ok(())
     }
 
+    /// Explicit staging grant for the built-in demo identity. Never inferred from
+    /// the email during ordinary provisioning, and never applied to another account.
+    pub async fn grant_demo_platform_administration(&self) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let operator: Option<Uuid> = sqlx::query_scalar(
+            "SELECT o.id FROM admin_operators o \
+             JOIN member_password_credentials c ON c.operator_id=o.id \
+             WHERE c.email='demo@niu.io' AND o.revoked_at IS NULL AND NOT o.platform_admin \
+             FOR UPDATE OF o",
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(operator) = operator {
+            sqlx::query("UPDATE admin_operators SET platform_admin=true WHERE id=$1")
+                .bind(operator)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("INSERT INTO platform_admin_events(operator_id,granted,actor_kind) VALUES($1,true,'installation')")
+                .bind(operator)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// Revoke only the active session identified by this bearer credential.
     /// Revocation and its metadata-only audit record commit together.
     pub async fn revoke_current_member_session(&self, token: &str) -> Result<(), StoreError> {

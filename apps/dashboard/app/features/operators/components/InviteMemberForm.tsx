@@ -22,7 +22,7 @@ const expiryChoices = [
 ];
 
 const roleChoices: Array<{ value: OperatorRole; label: string }> = [
-  { value: 'viewer', label: 'Viewer · read workspace data' },
+  { value: 'viewer', label: 'Can view' },
   { value: 'admin', label: 'Admin · change workspace data' },
   { value: 'owner', label: 'Owner · manage users and access' },
 ];
@@ -67,7 +67,7 @@ export default function InviteMemberForm({
           uiT('Selected workspace', '当前工作空间'),
       )
     : uiT('All workspaces · organization-wide', '全部工作空间 · 组织级');
-  const roleLabel = roleChoices.find(item => item.value === role)?.label ?? 'Viewer · read workspace data';
+  const roleLabel = roleChoices.find(item => item.value === role)?.label ?? 'Can view';
   const expiryLabel = expiryChoices.find(item => item.days === expiryDays)?.label ?? '7 days';
 
   return (
@@ -221,12 +221,6 @@ export default function InviteMemberForm({
           )}
         </p>
         <div className="operator-create-footer">
-          <p>
-            {uiT(
-              'Niu creates a one-time invitation. This installation has no email provider, so you copy the link and share it with the recipient.',
-              'Niu 会创建一次性邀请。此实例未配置邮件服务，请复制链接并发送给收件人。',
-            )}
-          </p>
           <Button type="submit" disabled={disabled || !validEmail}>
             <MailPlus size={15} aria-hidden="true" />
             {disabled ? uiT('Creating…', '正在创建…') : uiT('Create invitation', '创建邀请')}

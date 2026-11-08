@@ -1471,9 +1471,10 @@ a[data-slot='button'][data-variant='outline']:hover {
    toolbar rather than a second public-site masthead. Keep search reachable. */
 :root[data-docs-embedded] {
   --sl-sidebar-width: 16rem;
-  --sl-nav-height: 3.5rem;
+  --sl-nav-height: 0px;
 }
-:root[data-docs-embedded] .header { border-bottom: 0; }
+:root[data-docs-embedded] .header { position: relative; height: auto; border-bottom: 0; }
+:root[data-docs-embedded] .main-frame { padding-top: 0; }
 :root[data-docs-embedded] .docs-embedded-name { font-size: 14px; font-weight: 600; }
 :root[data-docs-embedded] .sidebar-content { padding-top: 12px; }
 .sidebar-content ul ul { border-inline-start: 0; padding-inline-start: 0; margin-inline-start: 0; }

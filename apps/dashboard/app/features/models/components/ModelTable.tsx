@@ -14,7 +14,7 @@ import { IconFilter as Search } from "@tabler/icons-react";
 import { Link, useParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
+import { Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
 import { modelIdentity, modelDeveloper, modelProviderName } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -27,6 +27,22 @@ import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilit
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import type { Model } from '@/shell/dashboard-context';
+
+const catalogWords: Record<string, string> = { deepseek: 'DeepSeek', qwen: 'Qwen', kimi: 'Kimi', glm: 'GLM', wan: 'Wan', seedance: 'Seedance', gemma: 'Gemma', mistral: 'Mistral', conatus: 'Conatus', moonshot: 'Moonshot' };
+
+function catalogTitle(model: Model) {
+  const name = model.catalog?.name?.trim();
+  if (name && name !== model.id && !name.includes('/')) return name;
+  const slug = model.id.split('/').pop() || model.id;
+  return slug.split(/[-_]/).filter(Boolean).map(part => catalogWords[part.toLowerCase()] ?? part.replace(/^v(\d)/i, 'V$1').replace(/^[a-z]/, char => char.toUpperCase())).join(' ');
+}
+
+function ModelFilterButton() {
+  const { t: uiT } = useUILocale();
+  const { isMobile, toggleSidebar } = useSidebar();
+  if (!isMobile) return null;
+  return <Button type="button" variant="outline" className="shrink-0" aria-controls="model-filters" onClick={toggleSidebar}>{uiT("Filters")}</Button>;
+}
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useModelPopularity } from '@/shell/useModelPopularity';
@@ -194,7 +210,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
               </Label>)}</div>
             </CollapsibleContent>
           </Collapsible>)}
-          <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer (inferred)")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
+          <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
           <p className="text-xs text-muted-foreground">{uiT("Inferred from model identifiers; not verified.")}</p><div className="models-filter-options">
             {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelIdentity(model).id === identity.id).length}</span></Label>)}
           </div>
@@ -208,6 +224,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
       <section className="models-results" aria-label={uiT("Model catalog")}>
         {header}
         <div className="models-toolbar">
+          <ModelFilterButton />
           <div className="flex min-w-0 w-full max-w-sm items-center gap-2"><Search size={17} className="shrink-0"/><Input aria-label={uiT("Filter model routes")} ref={searchInputRef} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} placeholder={uiT("Filter by model name…")} /></div>
           <div className="models-sort-menu"><DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={uiT("Sort models")} type="button" variant="outline" className="w-full justify-between font-normal">{sort === 'name' ? uiT("Name: A–Z") : uiT("Default order")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={sort} onValueChange={setSort}>
@@ -218,17 +235,17 @@ export default function ModelTable({ models, header }: { models: Model[]; header
 
         {(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
           {capabilityGroups.flatMap(group => group.options.filter(([value]) => capabilities[group.id].includes(value)).map(([value, label]) => <Button key={`${group.id}-${value}`} variant="secondary" size="sm" aria-label={uiF("Remove {0} {1} filter", [label, group.id])} onClick={() => toggleCapability(group.id, value)}>{group.id === 'features' ? uiT(label) : `${uiT(group.id === 'input' ? 'Input' : 'Output')}: ${uiT(label)}`}<X size={12} aria-hidden="true" /></Button>))}
-          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={uiF("Remove {0} developer filter", [author.name])} onClick={() => chooseAuthor(author.id)}>{uiT("Inferred developer:")}{" "}{author.name}<X size={12} aria-hidden="true" /></Button>)}
+          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={uiF("Remove {0} developer filter", [author.name])} onClick={() => chooseAuthor(author.id)}>{uiT("Developer:")}{" "}{author.name}<X size={12} aria-hidden="true" /></Button>)}
           {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={uiF("Remove {0} provider filter", [provider])} onClick={() => { setProvidersSelected(current => current.filter(value => value !== provider)); setLimit(20); }}>{uiT("Provider:")}{" "}{provider}<X size={12} aria-hidden="true" /></Button>)}
         </div>}
         <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={() => { setAuthorsSelected([]); setProvidersSelected([]); setCapabilities(emptyCapabilities()); setQuery(''); setLimit(20); searchInputRef.current?.focus(); }}>{uiT("Clear filters")}</Button>}</div>
         {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader></Empty> : <div className="models-cards">
           {visible.map(model => <article className="models-card" key={model.id}>
-            <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{model.catalog?.name || model.id}</Link></div>
+            <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0"><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{catalogTitle(model)}</Link>{catalogTitle(model) !== model.id && <p className="truncate text-xs text-muted-foreground">{model.id}</p>}</div></div>
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
             {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">{uiT("Upstream-funded · no Niu charge")}</p>}
-            <div className="models-card-meta">{modelDeveloper(model) && <span>{uiT("Likely developer:")}{" "}{modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat(readUILocale(), { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{canTryUnverifiedChat(model) && <Link to={generationHref(model, 'chat')}>{uiT("Try in Chat · support unverified")}</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
+            <div className="models-card-meta">{modelDeveloper(model) && <span>{uiT("Developer:")}{" "}{modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat(readUILocale(), { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{canTryUnverifiedChat(model) && <><Link to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link><span>{uiT("Support unverified")}</span></>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{visible.length}{" "}{uiT("of")}{" "}{filtered.length}</span></div>}
@@ -236,7 +253,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     </div>}
     {selected ? <aside className="model-route-detail" aria-label={uiF("{0} route details", [selected.id])}>
       <Button asChild variant="ghost" size="sm" className="mb-2 w-fit px-0"><Link to={catalogPath + catalogSearch}><ArrowLeft size={15} />{uiT("All models")}</Link></Button>
-      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><div className="model-route-title"><h2>{selected.catalog?.name || selected.id}</h2>{selected.catalog?.name && selected.catalog.name !== selected.id && <p className="model-developer-label">{selected.id}</p>}</div></div>
+      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><div className="model-route-title"><h2>{catalogTitle(selected)}</h2>{catalogTitle(selected) !== selected.id && <p className="model-developer-label">{selected.id}</p>}</div></div>
       {selected.catalog?.description && <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
@@ -257,14 +274,15 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         {!!selected.catalog?.input_modalities?.length && <div><dt>{uiT("Input modalities")}</dt><dd>{selected.catalog.input_modalities.join(', ')}</dd></div>}
         {!!capabilityValues(selected,'output').length && <div><dt>{uiT("Output modalities")}</dt><dd>{capabilityValues(selected,'output').join(', ')}</dd></div>}
 
-        {modelDeveloper(selected) && <div><dt>{uiT("Developer (inferred)")}</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
+        {modelDeveloper(selected) && <div><dt>{uiT("Developer")}</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
         {modelProviderName(selected) && <div><dt>Provider</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
       <div className="model-route-cta">
-        {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat · support unverified")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild><Link to="/help/api/">{uiT("View API reference")}</Link></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
+        {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild><Link to="/help/api/">{uiT("View API reference")}</Link></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
         <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
       </div>
+      {canTryUnverifiedChat(selected) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
       {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
       <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
       {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}

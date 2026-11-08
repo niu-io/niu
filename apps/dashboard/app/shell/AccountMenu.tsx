@@ -91,7 +91,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(roles.error)}</DropdownMenuLabel>}
           {!supplierOnly && token && organizations.length > 0 && <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching organization…', '正在切换组织…') : organizations.length === 1 ? t('Current organization', '当前组织') : t('Switch organization', '切换组织')}</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching workspace…', '正在切换工作空间…') : t('Workspaces', '工作空间')}</DropdownMenuLabel>
             <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Organization")} value={organization?.id ?? ''} onValueChange={id => {
               const next = organizations.find(item => item.id === id);
               if (next) selectOrganization(next);

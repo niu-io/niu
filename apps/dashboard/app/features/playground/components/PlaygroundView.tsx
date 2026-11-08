@@ -111,7 +111,7 @@ const promptCategories = [
 ] as const;
 
 const promptExamples = [
-  { id: 'car-wash', category: 'reasoning', title: 'Car wash', summary: 'Should you walk or drive?', text: 'I need to wash my car. The car wash is 50 meters away. Should I walk or drive?' },
+  { id: 'car-wash', category: 'reasoning', title: 'Car wash', summary: 'A car wash 50 meters away.', text: 'I need to wash my car. The car wash is 50 meters away. Should I walk or drive?' },
   { id: 'context-window', category: 'reasoning', title: 'Context budget', summary: 'How many 8K-token turns fit in 128K?', text: 'A model has a 128K-token context window. If each turn in a conversation uses 8,000 tokens, about how many turns fit? Explain the calculation and what could reduce the usable number.' },
   { id: 'snake-game', category: 'build', title: 'Snake game', summary: 'Build an arrow-key controlled game.', text: 'Build a small snake game controlled with the arrow keys. Include food, collision detection, and a restart option.' },
   { id: 'reaction-test', category: 'build', title: 'Reaction-time test', summary: 'Record the milliseconds for each click.', text: 'Build a reaction-time mini game. Wait a random amount of time before showing a target, record how many milliseconds the user takes to click it, and show the results.' },
@@ -123,7 +123,7 @@ const promptExamples = [
 function customerCharge(result: ComparisonResult) {
   if (result.customerChargeStatus === 'charged' && result.customerChargeNanos != null && result.customerChargeCurrency) return money(result.customerChargeNanos, result.customerChargeCurrency);
   switch (result.customerChargeStatus) {
-    case 'owner_funded': return translateUI('Own API key');
+    case 'owner_funded': return translateUI('No Niu charge');
     case 'pending': return translateUI('Unresolved');
     case 'unpriced': return translateUI('No rate');
     case 'not_charged': return translateUI('Not charged');

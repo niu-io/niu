@@ -110,10 +110,10 @@
 @media (max-width: 640px) { .key-guardrails-row { align-items: flex-start; flex-direction: column; }}
 @media (max-width: 600px) { .request-toolbar-actions { min-width: 0; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }}
 
-.gateway-request-table.has-column-controls { min-width: 0; }
+.gateway-request-table.has-column-controls { min-width: 920px; }
 .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 6px; }
 .gateway-request-table.has-column-controls tbody th small { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gateway-request-table.has-column-controls td:nth-last-child(2) { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.gateway-request-table.has-column-controls td:nth-last-child(2) { max-width: none; overflow: visible; text-overflow: unset; }
 .gateway-request-table.has-column-controls td:last-child { width: 32px; padding: 0; }
 .gateway-request-table thead .request-column-controls { position: sticky; right: 0; width: 32px; padding: 2px; background: var(--background); }
 @media (max-width: 600px) {

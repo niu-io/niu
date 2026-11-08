@@ -318,10 +318,9 @@ describe('workspace settings', () => {
     context = { ...context, workspace: { ...workspace, name: 'Renamed default', is_default: true } };
     snapshot(context);
     renderSettings();
-    expect(await screen.findByText('The default workspace cannot be deleted.')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Delete workspace' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(await screen.findByLabelText('Workspace name')).toBeTruthy();
+    expect(screen.queryByText('The default workspace cannot be deleted.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete workspace' })).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(deleteWorkspace).not.toHaveBeenCalled();
   });

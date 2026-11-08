@@ -255,7 +255,8 @@ export default function WorkspaceSettings() {
           {t('General', '常规设置')}
         </h2>
         <form onSubmit={rename} aria-busy={renaming} className="grid gap-5">
-          <div className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] sm:gap-6">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="grid min-w-[16rem] flex-1 gap-2">
             <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
             <Input
               ref={nameInputRef}
@@ -271,8 +272,8 @@ export default function WorkspaceSettings() {
                 setRenameOutcome(null);
               }}
             />
-          </div>
-          <div className="flex justify-end gap-2">
+            </div>
+          <div className="flex gap-2">
             {nameChanged && (
               <Button
                 type="button"
@@ -290,6 +291,7 @@ export default function WorkspaceSettings() {
             <Button disabled={!canEdit || busy || !name.trim() || !nameChanged}>
               {renaming ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}
             </Button>
+          </div>
           </div>
           {visibleOutcome?.kind === 'success' && (
             <p role="status" className="text-sm text-muted-foreground">
@@ -326,16 +328,14 @@ export default function WorkspaceSettings() {
           </div>
         </div>
       </section>
-      {canDelete && (
+      {canDelete && !workspace.is_default && (
         <section aria-labelledby="workspace-delete-title" className="space-y-3 border-t border-border/60 pt-6">
           <h2 id="workspace-delete-title" className="text-base font-semibold">
             {t('Delete workspace', '删除工作空间')}
           </h2>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              {workspace.is_default
-                ? t('The default workspace cannot be deleted.', '默认工作空间不可删除。')
-                : t(
+              {t(
                     'Only empty workspaces can be deleted. Workspaces with saved records are protected.',
                     '仅空工作空间可以删除，包含历史记录的工作空间受到保护。',
                   )}
@@ -343,7 +343,7 @@ export default function WorkspaceSettings() {
             <Button
               ref={deleteButtonRef}
               variant="destructive"
-              disabled={workspace.is_default || busy}
+              disabled={busy}
               onClick={() => {
                 setConfirmation('');
                 setDeleteError('');

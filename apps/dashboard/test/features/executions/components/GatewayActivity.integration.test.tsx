@@ -955,11 +955,11 @@ it('shows owner-funded coverage without presenting missing pricing or zero charg
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys') ? {data: []} : {data: [], next_cursor: null, summary: {...summary, owner_funded_request_count: 2, unpriced_request_count: 0, customer_charges: [], charges_by_model: [{...funding, model_alias: 'fast'}], charges_by_key: [{...funding, api_key_id: 'key-1', key_name: 'Personal client'}]}})));
   render(<MemoryRouter><GatewayActivity token="test" models={['fast']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   const totals = await screen.findByRole('region', {name: 'Filtered request totals'});
-  await within(totals).findByText('Own API key');
+  await within(totals).findByText('No Niu charge');
   expect(within(totals).getByText(/2 with own API keys/)).toBeTruthy();
   expect(within(totals).getByText(/Provider charges may still apply/)).toBeTruthy();
   const breakdown = screen.getByRole('region', {name: 'Customer charge breakdown'});
-  expect(within(breakdown).getByText('Own API key')).toBeTruthy();
+  expect(within(breakdown).getByText('No Niu charge')).toBeTruthy();
   expect(within(breakdown).queryByText('No rate')).toBeNull();
   expect(within(breakdown).queryByText('Not charged')).toBeNull();
   const user = userEvent.setup();

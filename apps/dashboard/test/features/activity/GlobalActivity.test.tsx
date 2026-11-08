@@ -48,7 +48,7 @@ describe('Global Activity',()=>{
   mockData();open('/activity/logs');
   const links=await screen.findAllByRole('link',{name:/Open model-one request/});
   expect(links.map(link=>link.getAttribute('href')).sort()).toEqual(['/workspaces/a/executions#gateway-attempt-run-1001','/workspaces/b/executions#gateway-attempt-run-1001']);
-  expect(screen.getAllByText('Own API key').length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText('No Niu charge').length).toBeGreaterThanOrEqual(2);
  });
  it.each(['click','Enter',' '])('opens request details from the whole row using %s',async action=>{
   mockData();open('/activity/logs');const user=userEvent.setup();

@@ -364,7 +364,7 @@ describe('Global Chat', () => {
     expect(screen.getAllByText('Unresolved')).toHaveLength(2);
     expect(screen.getAllByText('No rate')).toHaveLength(2);
     expect(screen.getAllByText('Not charged')).toHaveLength(2);
-    expect(screen.getAllByText('Own API key')).toHaveLength(2);
+    expect(screen.getAllByText('No Niu charge')).toHaveLength(2);
     expect(screen.queryByText(/EUR /)).toBeNull();
     expect(screen.queryByText('API-equivalent cost')).toBeNull();
   });

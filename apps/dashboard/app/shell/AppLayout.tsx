@@ -1,4 +1,5 @@
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -753,13 +754,17 @@ export default function AppLayout() {
               )}
                 <div>
                   {helpArea ? (
-                    <Outlet context={context} />
+                    <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">{t('Loading page…', '正在加载页面…')}</p>}>
+                      <Outlet context={context} />
+                    </Suspense>
                   ) : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? (
                     <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={reloadWorkspaces} />
                   ) : token && !supplierArea && !settingsArea && (workspaceLoading || !authorityWorkspacesReady) ? (
                     <WorkspaceShellSkeleton label={t('Loading workspace…', '正在加载工作空间…')} />
                   ) : (
-                    <Outlet key={principalKey || 'anonymous'} context={context} />
+                    <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">{t('Loading page…', '正在加载页面…')}</p>}>
+                      <Outlet key={principalKey || 'anonymous'} context={context} />
+                    </Suspense>
                   )}
                 </div>
             </div>
