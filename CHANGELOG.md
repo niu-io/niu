@@ -6,34 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [0.3.1] - 2026-11-06
-
-Staging candidate for hosted 0.3.1 qualification. Payment-dependent and hosted-only
-checks remain tracked separately; this version is not a claim that a release is
-published.
-
-### Added
-- Auditable Provider connection retirement that disables routes and models, erases the saved credential and preserves request, billing, incident and audit history (`niu-bvnh`).
-- Bounded read-only Provider price discovery for OpenRouter, FastRouter, BabelArk, Qiniu and DeepSeek, with recorded source versions, conditional discounts and explicit ambiguity.
-- Truthful incident notification and recovery state for queued, sending, delivered, failed and not-configured receivers.
-- Explicit agent authorization scopes, member invitations, key guardrail assignment modes and agent invocation protocols.
-- Customer-price and bounded semantic Auto routing strategies with validated System 1 decision evidence.
-
-### Changed
-- Normalize routing request traits across inference protocols; unsupported native traits now return an explicit 400 instead of being silently dropped.
-- Remove the legacy Provider qualification review workflow; old routes return 404 and the authorization lifecycle replaces it.
-- Require an explicit access scope for Internal Provider connections; omission returns a clear 400 instead of silently binding an account.
-- Consolidate dashboard settings, key editing, pricing, Provider model/key management, media routes and mobile navigation.
-- Complete the remaining zh-CN dashboard diagnostics and remove contradictory billing and draft-lockout copy.
-
-### Fixed
-- Show the platform currency as an unlimited key allowance before an explicit limit exists.
-- Keep Chat billing/key notices outside the composer form and do not disable the composer on draft-read failures.
-- Distinguish duplicate routing names with their callable `pool/<slug>`.
-- Make long model names and routing status legible at narrow widths.
-- Reject the well-known `Hello123` demo password at startup.
-- Preserve incident delivery authority, Provider isolation and historical records across retirement and scope changes.
-
 ## [0.3.0] - 2026-11-02
 
 Agent-oriented UX, documentation and native coding-agent integrations.
@@ -607,8 +579,7 @@ Agent-oriented UX, documentation and native coding-agent integrations.
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.1...HEAD
-[0.3.1]: https://github.com/niu-io/niu/compare/v0.2.31...v0.3.1
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/niu-io/niu/compare/v0.2.31...v0.3.0
 [0.2.28]: https://github.com/niu-io/niu/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/niu-io/niu/compare/v0.2.26...v0.2.27

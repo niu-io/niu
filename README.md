@@ -50,13 +50,13 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.3.1`; confirm that release is published before running it. The hosted staging candidate is not a public installation target. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.1`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.2.30`; it does not install the unpublished 0.3.0 source preview. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.3.1 --dir /opt/niu
+./scripts/install.sh install --version v0.3.0 --dir /opt/niu
 ```
 
-For the 0.3.x source preview, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
+For the 0.3.0 source preview, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
 
 Once running on port `2555`:
 
@@ -106,7 +106,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.3.1 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.3.0 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
