@@ -1,7 +1,6 @@
 //! Monotonic request timings. No content is retained by timing collection.
 use crate::state::AppState;
 use axum::{body::Body, extract::State, http::Request, middleware::Next, response::Response};
-use futures_util::StreamExt;
 use std::{
     sync::{Arc, Mutex},
     time::Instant,

@@ -23,8 +23,8 @@ static DOWNLOADS: LazyLock<Arc<tokio::sync::Semaphore>> =
 // upstream signed delivery URL can return truncated objects after the first
 // fetch; never replace a good copy with a later partial response.
 type ResultCacheKey = (Uuid, Uuid, Uuid, u8);
-static RESULT_CACHE: LazyLock<Mutex<HashMap<ResultCacheKey, (&'static str, Vec<u8>)>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+type ResultCache = Mutex<HashMap<ResultCacheKey, (&'static str, Vec<u8>)>>;
+static RESULT_CACHE: LazyLock<ResultCache> = LazyLock::new(|| Mutex::new(HashMap::new()));
 fn result_cache_key(
     scope: niu_storage::TenantScope,
     id: Uuid,
@@ -316,7 +316,7 @@ async fn retrieve_authorized_media(
         .await
         .map_err(|_| ApiError::unavailable())?;
         let fresh_url = observation.video_url().ok_or_else(ApiError::unavailable)?;
-        niu_media::babelark_video::fetch_result(&fresh_url, maximum_bytes, Duration::from_secs(60))
+        niu_media::babelark_video::fetch_result(fresh_url, maximum_bytes, Duration::from_secs(60))
             .await
     } else {
         niu_media::result::fetch_result(
