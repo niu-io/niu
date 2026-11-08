@@ -214,7 +214,23 @@ async fn retrieve_authorized_media(
         if kind != MediaResultKind::Video {
             return Err(ApiError::not_found());
         }
-        niu_media::babelark_video::fetch_result(&url, maximum_bytes, Duration::from_secs(60)).await
+        let token = cipher
+            .open(route.vendor_id, &route.credential_ciphertext)
+            .map_err(|_| ApiError::unavailable())?;
+        // BabelArk can rotate or expire its result URL; refresh the upstream
+        // task before downloading instead of trusting a stale saved URL.
+        let observation = niu_media::babelark_video::query_job(
+            &route.api_base,
+            &token,
+            &route.upstream_job_id,
+            &route.upstream_model,
+            Duration::from_secs(60),
+        )
+        .await
+        .map_err(|_| ApiError::unavailable())?;
+        let fresh_url = observation.video_url().ok_or_else(ApiError::unavailable)?;
+        niu_media::babelark_video::fetch_result(&fresh_url, maximum_bytes, Duration::from_secs(60))
+            .await
     } else {
         niu_media::result::fetch_result(
             &url,
@@ -224,6 +240,13 @@ async fn retrieve_authorized_media(
         )
         .await
     };
+    if kind == MediaResultKind::Video
+        && route.channel == niu_media::babelark_video::REVISION
+        && let Ok(media) = &media
+        && !media.bytes.windows(4).any(|window| window == b"moov")
+    {
+        return Err(ApiError::unavailable());
+    }
     let upstream_http_status = match &media {
         Err(niu_media::result::ResultError::HttpStatus(status)) => Some(i32::from(*status)),
         _ => None,
