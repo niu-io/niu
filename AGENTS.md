@@ -1,6 +1,6 @@
 # Niu public repository
 
-Write product documentation in English. Keep the Niu brand assets and theme tokens. The product name is Niu in English UI and documentation, never niu.io or NIU.IO. Keep niu.io only as the domain in URLs and technical configuration. Use Niu as the product name in every locale, including navigation and wordmarks. Only the first brand introduction at the beginning of a Chinese landing page or the documentation home uses Niu（牛元）; subsequent mentions use Niu. 牛刀 is the retired name.
+Write product documentation in English. Keep the Niu brand assets and theme tokens. The product name is Niu in English UI and documentation, never niu.io or NIU.IO. Keep niu.io only as the domain in URLs and technical configuration. Use 牛元 as the Chinese brand name in Chinese-language content (Niu 牛元 when paired with the English brand); 牛刀 is the retired name.
 
 Keep marketing source in the separate `niu-io/website` repository. Niu owns the public catalog, dashboard, docs and APIs; the hosted distribution composes their pinned artifacts under the single `niu.io` domain. Do not introduce a separate application subdomain or make community builds depend on website or private source. Follow `docs/architecture/repository-ownership.md` for route and asset ownership.
 
@@ -23,6 +23,10 @@ Before creating a review task, search for the existing finding/reference and upd
 Markdown holds durable requirements, review evidence, design decisions and dated verification records; link those records to the bead. Do not maintain a second live backlog, owner/status table or TODO checklist in Markdown. Historical review statuses remain dated evidence, with current execution state in Beads. Use GitHub Issues only when explicitly requested or needed for external/public discussion; link them to the bead instead of mirroring the backlog or automatically publishing review findings.
 
 Keep a task open while implementation awaits verification; use a `needs-verification` label when useful. Close it only with evidence matching its acceptance scope, or an explicit duplicate/rejected/superseded disposition. In the handoff record completed work, unverified behavior, blockers and the next action. Commit the Dolt working set and refresh the portable issue snapshot; report unpushed task state honestly. Beads does not authorize git commits, remote publication, delegation or product changes beyond the active task.
+
+## Branch model and production promotion
+
+Branch every product change from the current `release/<minor>` branch (currently `release/0.3`) and merge it back there. `main` is production and receives only a staging-accepted `release/<minor>`; never commit product changes to `main` directly, and never force-push `main` or a release branch. Create release tags on the release branch after staging acceptance. See [the branch model](docs/development/branching.md) for the flow, staging gate and cleanup rules.
 
 ## API route naming
 
