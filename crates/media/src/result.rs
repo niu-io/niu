@@ -20,6 +20,7 @@ pub enum ResultError {
     InvalidMedia,
 }
 /// Intentionally lacks Debug/Serialize: the body is private customer content.
+#[derive(Clone)]
 pub struct ResultMedia {
     pub content_type: &'static str,
     pub bytes: Vec<u8>,
