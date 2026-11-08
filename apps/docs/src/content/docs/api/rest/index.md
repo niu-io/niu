@@ -181,6 +181,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/vendors/{id}/models` — List model bindings for one Provider API-key configuration](/docs/api/rest/listvendormodels/)
 - [`POST /api/v1/vendors/{id}/models` — Create or update a model mapping with optimistic revision checks](/docs/api/rest/upsertvendormodel/)
 - [`PUT /api/v1/vendors/{id}/personal-owner` — Assign a configured personal credential to its account](/docs/api/rest/assignpersonalcredentialowner/)
+- [`POST /api/v1/vendors/{id}/retire` — Retire a Provider API-key connection without deleting history](/docs/api/rest/retirevendorconnection/)
 - [`GET /api/v1/vendors/{id}/supplier` — Read the Provider owning an API configuration](/docs/api/rest/getconfigurationprovider/)
 - [`PUT /api/v1/vendors/{id}/supplier` — Associate an API configuration with a Provider](/docs/api/rest/associateconfigurationprovider/)
 - [`GET /api/v1/vendors/{vendor}/cooldown` — Read credential safe-failure cooldown](/docs/api/rest/getvendorcooldown/)

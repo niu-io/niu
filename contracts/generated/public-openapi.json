@@ -43126,6 +43126,71 @@
         }
       }
     },
+    "/api/v1/vendors/{id}/retire": {
+      "post": {
+        "operationId": "retireVendorConnection",
+        "summary": "Retire a Provider API-key connection without deleting history",
+        "description": "Platform administration required. Disables the connection and every model binding, erases the stored credential and appends an immutable retirement audit event. Existing offers, requests, earnings, incidents and audit history are retained; in-flight attempts keep their pinned configuration, while new dispatch is blocked. Idempotent for an already retired connection. Not a hard delete.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retired connection wrapped in data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/handler_operations_json_Vendor"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired administrative credential."
+          },
+          "403": {
+            "description": "Platform administration permission required."
+          },
+          "404": {
+            "description": "Vendor does not exist."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Provider API connections"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      }
+    },
     "/api/v1/vendors/{id}/supplier": {
       "get": {
         "operationId": "getConfigurationProvider",
@@ -79639,6 +79704,88 @@
           }
         }
       },
+      "handler_operations_json_Vendor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "adapter",
+          "api_base",
+          "enabled",
+          "revision",
+          "has_credential"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "adapter": {
+            "type": "string",
+            "enum": [
+              "openrouter",
+              "openai",
+              "anthropic",
+              "gemini",
+              "ark"
+            ]
+          },
+          "api_base": {
+            "type": "string",
+            "format": "uri"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "has_credential": {
+            "type": "boolean"
+          },
+          "owner_funded": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "commercial",
+              "personal",
+              "internal"
+            ],
+            "readOnly": true,
+            "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
+          },
+          "supplier": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Provider ownership on configuration-list reads; credentials and commercial data are excluded.",
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
       "guardrails_openapi_yaml_Policy": {
         "type": "object",
         "additionalProperties": false,
@@ -80861,88 +81008,6 @@
           "model",
           "choices"
         ]
-      },
-      "handler_operations_json_Vendor": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "name",
-          "adapter",
-          "api_base",
-          "enabled",
-          "revision",
-          "has_credential"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "adapter": {
-            "type": "string",
-            "enum": [
-              "openrouter",
-              "openai",
-              "anthropic",
-              "gemini",
-              "ark"
-            ]
-          },
-          "api_base": {
-            "type": "string",
-            "format": "uri"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "has_credential": {
-            "type": "boolean"
-          },
-          "owner_funded": {
-            "type": "boolean",
-            "readOnly": true,
-            "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
-          },
-          "access_scope": {
-            "type": "string",
-            "enum": [
-              "commercial",
-              "personal",
-              "internal"
-            ],
-            "readOnly": true,
-            "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
-          },
-          "supplier": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "description": "Provider ownership on configuration-list reads; credentials and commercial data are excluded.",
-            "required": [
-              "id",
-              "name"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "name": {
-                "type": "string"
-              }
-            }
-          }
-        }
       },
       "handler_operations_json_VendorCreate": {
         "type": "object",
