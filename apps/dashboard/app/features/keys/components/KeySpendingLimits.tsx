@@ -1,7 +1,8 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { formatUnitAtoms, money } from '@/lib/money';
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
+import { IconCurrencyDollar } from '@tabler/icons-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import type { ProjectKey } from '../api';
 
@@ -24,7 +25,7 @@ export default function KeySpendingLimits({ projectKey }: { projectKey: ProjectK
   return <Card>
     <CardHeader><CardTitle>{uiT("Spending limits")}</CardTitle><CardDescription>{uiT("Lifetime customer spending allowances. Account and workspace limits still apply.")}</CardDescription></CardHeader>
     <CardContent className="space-y-4">
-      {!hasAny && <Empty className="min-h-32"><EmptyHeader><EmptyDescription>{uiT("No billing currency is available for this key yet.")}</EmptyDescription></EmptyHeader></Empty>}
+      {!hasAny && <Empty className="min-h-32"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available for this key yet.")}</EmptyDescription></EmptyHeader></Empty>}
       {showUnit && unit && <div className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
         <h3 className="font-medium">{unitName}</h3>
         <dl className="grid gap-3 text-sm sm:grid-cols-3">

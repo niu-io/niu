@@ -1,4 +1,5 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
+import { IconHistory } from '@tabler/icons-react';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -58,7 +59,7 @@ export default function KeyGuardrailHistory({ token, endpoint }: { token: string
         </Table>}
         {loading && !rows.length && <TableSkeleton columns={3} rows={3} label={uiT("Loading assignment history…")} />}
         {loading && rows.length > 0 && <p role="status" className="text-sm text-muted-foreground">{uiT("Loading assignment history…")}</p>}
-        {error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert> : !loading && !rows.length && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No recorded assignment changes. Changes before history tracking are unavailable.")}</EmptyDescription></EmptyHeader></Empty>}
+        {error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert> : !loading && !rows.length && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No recorded assignment changes. Changes before history tracking are unavailable.")}</EmptyDescription></EmptyHeader></Empty>}
         {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>{uiT("Load older changes")}</Button>}
         <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>{uiT("Close")}</Button></DialogFooter>
       </DialogContent>

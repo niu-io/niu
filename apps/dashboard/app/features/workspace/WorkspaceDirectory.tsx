@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Area, AreaChart } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -40,7 +40,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
     )}
     {context.workspaceLoading ? <TableSkeleton columns={5} rows={4} label={t('Loading workspaces…', '正在加载工作空间…')} />
       : context.workspaceError ? <div role="alert" className="grid justify-items-start gap-3"><p>{t('Could not load your workspaces.', '无法加载您的工作空间。')}</p><Button variant="secondary" onClick={context.reloadWorkspaces}>{t('Try again', '重试')}</Button></div>
-      : context.workspaces.length === 0 ? <Empty><EmptyHeader><EmptyTitle>{t('No workspaces available.', '暂无可用工作空间。')}</EmptyTitle></EmptyHeader></Empty>
+      : context.workspaces.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{t('No workspaces available.', '暂无可用工作空间。')}</EmptyTitle></EmptyHeader></Empty>
       : <Table aria-label={uiT("Workspaces")}>
         <TableHeader><TableRow><TableHead>{t('Name', '名称')}</TableHead><TableHead className="hidden sm:table-cell">{t('Active API keys', '有效 API 密钥')}</TableHead><TableHead className="hidden sm:table-cell">{t('Requests · 30 days', '近 30 天请求数')}</TableHead><TableHead className="hidden sm:table-cell">{t('Last request', '最近请求')}</TableHead><TableHead className="w-12 text-right"><span className="sr-only">{t('Actions', '操作')}</span></TableHead></TableRow></TableHeader>
         <TableBody>{context.workspaces.map(workspace => {

@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
@@ -194,7 +194,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     {actionError && <p role="alert" className="text-sm text-destructive">{uiT(actionError)}</p>}
     {loading ? <TableSkeleton columns={2} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
       {!connections.length && <p>{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline" to={keysHref}>{uiT("Connect API key")}</Link></p>}
-      {!aliases.length ? <Empty className="min-h-60"><EmptyHeader><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table className="table-fixed">
+      {!aliases.length ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table className="table-fixed">
         <TableHeader className="hidden sm:table-header-group"><TableRow><TableHead className="w-[35%]">{uiT("Model")}</TableHead><TableHead>{uiT("Connection and availability")}</TableHead></TableRow></TableHeader>
         <TableBody>{aliases.slice(0, limit).map(alias => {
           const routes = entries.filter(entry => entry.model.alias === alias);

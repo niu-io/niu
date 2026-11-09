@@ -670,7 +670,7 @@ function Administration({ token }: { token: string }) {
               <TableCell>{member.name || uiT("Unnamed account")}</TableCell><TableCell>{member.role === "manager" ? uiT("Manager") : uiT("Viewer")}</TableCell><TableCell>{member.revoked ? uiT("Account revoked") : member.active ? uiT("Active") : uiT("Revoked")}</TableCell>
               <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={uiF("Edit access for {0}", [member.name || uiT("unnamed account")])} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>{uiT("Edit access")}</Button></TableCell>
             </TableRow>)}</TableBody>
-          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
+          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
           {!internal && section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Model offers")}</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>{uiT("Models")}</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
@@ -687,7 +687,7 @@ function Administration({ token }: { token: string }) {
             <TabsContent value="text">
             {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
-              visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
+              visibleOffers.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
               <div className="table-wrap">
                 <ShadcnTable className="provider-ledger supplier-text-offers">
                   <TableHeader>
@@ -755,14 +755,14 @@ function Administration({ token }: { token: string }) {
             <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Accrued charges")}</TableHead><TableHead>{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
               {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
+            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
             <MediaConsumption records={data?.media_consumption} administrator />
           </>}
           {section === "settlements" && <>
             <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
             {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead>{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
               {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
+            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
           </>}
         </section>
       )}
@@ -894,7 +894,7 @@ function Administration({ token }: { token: string }) {
               <p>
                 {uiT("This records an external payment that has already completed. It does not initiate a transfer. Niu includes every unpaid earning in the selected currency through the cutoff.")}</p>
               {payableBalances.length === 0 ? (
-                <Empty className="provider-inline-empty min-h-28 rounded-xl border border-dashed border-border/60 bg-muted/20 py-5"><EmptyHeader><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
+                <Empty className="provider-inline-empty min-h-28 rounded-xl border border-dashed border-border/60 bg-muted/20 py-5"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
               ) : (
                 <>
                   <div className="grid gap-2">

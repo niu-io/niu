@@ -2,7 +2,8 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router';
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { IconCoins } from '@tabler/icons-react';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { formatExactUnitAtoms, formatUnitAtoms, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
@@ -331,7 +332,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       )}
 
       {!loading && !error && config?.definition && !visibleText.length && !visibleMedia.length && (
-        <Empty className="min-h-40"><EmptyHeader><EmptyDescription>{hasTariffs ? uiT("No Credits tariffs match this filter.") : uiT("No Credits tariffs have been published.")}</EmptyDescription></EmptyHeader></Empty>
+        <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{hasTariffs ? uiT("No Credits tariffs match this filter.") : uiT("No Credits tariffs have been published.")}</EmptyDescription></EmptyHeader></Empty>
       )}
 
       {textEditor && config?.definition && (
