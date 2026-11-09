@@ -180,6 +180,59 @@ impl Store {
         tx.commit().await?;
         Ok(saved)
     }
+    pub async fn set_evaluation_definition_for_scope(
+        &self,
+        scope: TenantScope,
+        input: &EvaluationDefinition,
+    ) -> Result<EvaluationDefinition, StoreError> {
+        input.validate()?;
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query(
+            "ALTER TABLE workspace_evaluation_history ALTER COLUMN actor_key_id DROP NOT NULL",
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(format!(
+                "evaluation:{}:{}:{}",
+                scope.organization_id, scope.project_id, input.slug
+            ))
+            .execute(&mut *tx)
+            .await?;
+        let revision: Option<i64> = sqlx::query_scalar(
+            "SELECT revision FROM workspace_evaluations WHERE organization_id=$1 AND project_id=$2 AND slug=$3 FOR UPDATE",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(&input.slug)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if revision.unwrap_or(0) != input.revision {
+            return Err(StoreError::Conflict);
+        }
+        let mut saved = input.clone();
+        saved.revision += 1;
+        let value = serde_json::to_value(&saved).map_err(|_| StoreError::InvalidObservation)?;
+        sqlx::query("INSERT INTO workspace_evaluations(organization_id,project_id,slug,revision,configuration) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,slug) DO UPDATE SET revision=EXCLUDED.revision,configuration=EXCLUDED.configuration")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(&saved.slug)
+            .bind(saved.revision)
+            .bind(&value)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("INSERT INTO workspace_evaluation_history(organization_id,project_id,slug,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4,$5,$6)")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(&saved.slug)
+            .bind(saved.revision)
+            .bind(value)
+            .bind(None::<Uuid>)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(saved)
+    }
     /// Lexical attempt cursor pages the current set. Restart from the first page
     /// when checking for newly admitted work; this is not an incremental feed.
     pub async fn evaluation_attempts(

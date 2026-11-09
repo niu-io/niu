@@ -1736,6 +1736,10 @@ export class NiuAdminClient {
     if (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1)) throw new TypeError('Use a positive definition revision');
     return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}${revision === undefined ? '' : `?revision=${revision}`}`, undefined, options);
   }
+  setWorkspaceReviewEvaluation(workspace: string, slug: string, definition: import('./index.js').EvaluationDefinition, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition> {
+    if (!definition || definition.slug !== reviewSlug(slug)) throw new TypeError('Path and definition slug must match');
+    return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}`, definition, options, 'PUT');
+  }
   listWorkspaceReviewEvaluationRuns(workspace: string, slug: string, after?: string, options?: RequestOptions): Promise<import('./index.js').EvaluationPage<import('./index.js').EvaluationRunBrief>> {
     return this.apiRequest(`/workspaces/${uuid(workspace)}/evaluations/${reviewSlug(slug)}/runs${after === undefined ? '' : `?after=${reviewSlug(after)}`}`, undefined, options);
   }

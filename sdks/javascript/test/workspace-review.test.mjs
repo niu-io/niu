@@ -14,4 +14,8 @@ test('member review uses scoped API routes without an inference key',async()=>{
  assert.equal(calls.at(-1).method,'PUT');
  assert.equal(new URL(calls.at(-1).url).pathname,`/api/v1/workspaces/${workspace}/routing/assistant`);
  assert.throws(()=>client.setWorkspaceReviewPool(workspace,'assistant',{slug:'other',name:'Assistant',description:'',enabled:true,revision:0,default_action:'candidates',candidates:[],rules:[]}));
+ await client.setWorkspaceReviewEvaluation(workspace,'notes',{slug:'notes',name:'Notes',task:'Summarize notes',rubric:'Must include action items',protocol:'chat',revision:0,samples:[{reference:'sample-1',request_sha256:'a'.repeat(64)}]});
+ assert.equal(calls.at(-1).method,'PUT');
+ assert.equal(new URL(calls.at(-1).url).pathname,`/api/v1/workspaces/${workspace}/evaluations/notes`);
+ assert.throws(()=>client.setWorkspaceReviewEvaluation(workspace,'notes',{slug:'other',name:'Notes',task:'Summarize notes',rubric:'Must include action items',protocol:'chat',revision:0,samples:[{reference:'sample-1',request_sha256:'a'.repeat(64)}]}));
 });

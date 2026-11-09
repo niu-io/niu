@@ -182,6 +182,12 @@ test('evaluations are a dedicated module listing definitions and task evidence',
   ).toBeTruthy();
   expect(screen.getByText('Summarize decisions')).toBeTruthy();
   expect(
+    screen.getByText('Define task, rubric & test samples'),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: 'Create evaluation' }),
+  ).toBeTruthy();
+  expect(
     screen.queryByRole('button', { name: 'Create routing rule' }),
   ).toBeNull();
 });

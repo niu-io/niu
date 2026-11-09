@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import {
   IconChevronDown,
+  IconEdit,
+  IconPlus,
 } from '@tabler/icons-react';
 import {
   NiuAdminClient,
@@ -9,7 +11,6 @@ import {
   type EvaluationDefinition,
   type EvaluationReceipt,
   type EvaluationRunBrief,
-  type EvaluationSummary,
 } from '@niu-io/sdk';
 import ConnectGate from '@/shell/ConnectGate';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -44,172 +45,19 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { useLocale, translateUI } from '@/shell/ui-locale';
+import { useLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { formatDurationMs } from '@/lib/duration';
-import { formatFinancialMoney } from '@/lib/money';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { agentHandoffPrompt, formatModelAlias, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
-
-function charge(dimension: string, amount: string) {
-  const money = /^money:([A-Z]{3}):nanos$/.exec(dimension);
-  if (money) return `${money[1]} ${formatFinancialMoney(amount, money[1])}`;
-  const unit = /^unit:[^:]+:(.*):atoms$/.exec(dimension);
-  if (unit) {
-    const n = BigInt(amount);
-    const whole = n / 1000000000n;
-    const fraction = (n % 1000000000n)
-      .toString()
-      .replace('-', '')
-      .padStart(9, '0')
-      .replace(/0+$/, '');
-    return `${n < 0n && whole === 0n ? '-' : ''}${whole}${fraction ? '.' + fraction : ''} ${safeText(unit[1])}`;
-  }
-  return translateUI('Unavailable');
-}
-
-function EvaluationMetrics({ summary }: { summary: EvaluationSummary }) {
-  const { t: uiT, format: uiF } = useUILocale();
-  return (
-    <div className="grid gap-5 border-b py-5 sm:grid-cols-2 lg:grid-cols-4">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {uiT('Accepted samples')}
-        </p>
-        <p className="mt-1 text-xl font-medium tabular-nums">
-          {summary.verdicts.accepted ?? 0} / {summary.samples}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {summary.verdicts.rejected ?? 0} {uiT('rejected ·')}{' '}
-          {summary.verdicts.unknown ?? 0} {uiT('unknown')}
-        </p>
-      </div>
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {uiT('Input evidence')}
-        </p>
-        <p className="mt-1 text-xl font-medium">
-          {summary.verified_inputs} {uiT('verified')}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {summary.unverified_inputs} {uiT('unverified')}
-        </p>
-      </div>
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {uiT('Known customer charges')}
-        </p>
-        <p className="mt-1 font-medium">
-          {summary.customer_charge_totals.length
-            ? summary.customer_charge_totals
-                .map((row) => charge(row.dimension, row.amount))
-                .join(' + ')
-            : uiT('Unavailable')}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {summary.unknown_charge_attempts} {uiT('of')} {summary.attempts}{' '}
-          {uiT('attempts have unknown charges')}
-        </p>
-      </div>
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {uiT('Cost per accepted sample')}
-        </p>
-        <p className="mt-1 font-medium">
-          {summary.cost_per_accepted
-            ? uiF('{0} / {1} accepted', [
-                charge(
-                  summary.cost_per_accepted.dimension,
-                  summary.cost_per_accepted.numerator,
-                ),
-                summary.cost_per_accepted.denominator,
-              ])
-            : uiT('Insufficient comparable charge evidence')}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function EvaluationComparisonTable({
-  comparison,
-}: {
-  comparison: EvaluationComparison;
-}) {
-  const { t: uiT, format: uiF } = useUILocale();
-  const values: Array<[string, (summary: EvaluationSummary) => string]> = [
-    [
-      'Accepted samples',
-      (summary) => `${summary.verdicts.accepted ?? 0} / ${summary.samples}`,
-    ],
-    [
-      'Rejected / unknown judgments',
-      (summary) =>
-        `${summary.verdicts.rejected ?? 0} / ${summary.verdicts.unknown ?? 0}`,
-    ],
-    [
-      'Verified / unverified inputs',
-      (summary) => `${summary.verified_inputs} / ${summary.unverified_inputs}`,
-    ],
-    [
-      'Known customer charges',
-      (summary) =>
-        summary.customer_charge_totals
-          .map((row) => charge(row.dimension, row.amount))
-          .join(' + ') || uiT('Unavailable'),
-    ],
-    [
-      'Unknown-charge attempts',
-      (summary) => `${summary.unknown_charge_attempts} / ${summary.attempts}`,
-    ],
-    [
-      'Cost per accepted sample',
-      (summary) =>
-        summary.cost_per_accepted
-          ? uiF('{0} / {1} accepted', [
-              charge(
-                summary.cost_per_accepted.dimension,
-                summary.cost_per_accepted.numerator,
-              ),
-              summary.cost_per_accepted.denominator,
-            ])
-          : uiT('Insufficient charge evidence'),
-    ],
-  ];
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-1/3 whitespace-normal">
-            {uiT('Metric')}
-          </TableHead>
-          <TableHead className="w-1/3 whitespace-normal">
-            {uiT('Baseline')}
-          </TableHead>
-          <TableHead className="w-1/3 whitespace-normal">
-            {uiT('Current run')}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {values.map(([label, value]) => (
-          <TableRow key={label}>
-            <TableCell className="whitespace-normal align-top font-medium">
-              {uiT(label)}
-            </TableCell>
-            <TableCell className="whitespace-normal align-top">
-              {value(comparison.left_summary)}
-            </TableCell>
-            <TableCell className="whitespace-normal align-top">
-              {value(comparison.right_summary)}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
+import {
+  EvaluationComparisonTable,
+  EvaluationMetrics,
+  EvaluationSampleCriteriaSection,
+  EvaluationWorkflowOverview,
+} from './EvaluationComponents';
+import { EvaluationFormDialog } from './EvaluationFormDialog';
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace, url, params }) => {
@@ -259,6 +107,7 @@ export default function EvaluationsPage() {
             routeWorkspace={params.workspace ?? 'default'}
             slug={params.slug}
             run={params.run}
+            canWrite={context.session?.permissions?.write !== false}
           />
         ) : (
           <p role="status">
@@ -290,15 +139,18 @@ function EvaluationsView({
   routeWorkspace,
   slug,
   run,
+  canWrite,
 }: {
   token: string;
   workspace: string;
   routeWorkspace: string;
   slug?: string;
   run?: string;
+  canWrite: boolean;
 }) {
   const { t } = useLocale();
   const { t: uiT, format: uiF } = useUILocale();
+  const navigate = useNavigate();
   const client = useMemo(
     () =>
       new NiuAdminClient({
@@ -532,6 +384,10 @@ function EvaluationsView({
     }
   }
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingDefinition, setEditingDefinition] =
+    useState<EvaluationDefinition | null>(null);
+
   const description = error
     ? uiT('Return to the list or retry loading this resource.')
     : loading
@@ -545,11 +401,43 @@ function EvaluationsView({
               'Saved workspace configuration{0}. Your agent can make changes within its delegated authority.',
               [revision ? uiF(' · revision {0}', [revision]) : ''],
             )
-          : rows.length ? uiT('Review task acceptance, performance and customer charges against a baseline.') : '';
+          : t(
+              'Benchmark candidate models or routing rules (pool/<slug>) against your task samples to compare acceptance rate, latency, and cost per accepted result.',
+              '使用你的任务测试集对候选模型或路由规则（pool/<slug>）进行基准评测，对比任务通过率、耗时与单次合格成本。',
+            );
 
   return (
     <ReviewPageShell
       title={title}
+      actions={
+        <>
+          {!slug && canWrite && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingDefinition(null);
+                setDialogOpen(true);
+              }}
+            >
+              <IconPlus size={16} />
+              {t('Create evaluation', '创建评估')}
+            </Button>
+          )}
+          {slug && detail.definition && !run && canWrite && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingDefinition(detail.definition!);
+                setDialogOpen(true);
+              }}
+            >
+              <IconEdit size={16} />
+              {t('Edit evaluation', '编辑评估')}
+            </Button>
+          )}
+        </>
+      }
       back={
         slug
           ? {
@@ -567,65 +455,95 @@ function EvaluationsView({
       onRefresh={() => setRefresh((value) => value + 1)}
       onRetry={() => setRefresh((value) => value + 1)}
     >
-      {!slug &&
-        (rows.length ? (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{uiT('Name')}</TableHead>
-                  <TableHead>{uiT('Task')}</TableHead>
-                  <TableHead>{uiT('Protocol')}</TableHead>
-                  <TableHead>{uiT('Revision')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.slug}>
-                    <TableCell>
-                      <Link
-                        className="font-medium underline-offset-4 hover:underline"
-                        to={`${base}/${encodeURIComponent(row.slug)}`}
-                      >
-                        {safeText(row.name)}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="whitespace-normal">
-                      {safeText(row.task)}
-                    </TableCell>
-                    <TableCell>{row.protocol}</TableCell>
-                    <TableCell>{row.revision}</TableCell>
+      {!slug && (
+        <>
+          <EvaluationWorkflowOverview />
+          {rows.length ? (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{uiT('Name')}</TableHead>
+                    <TableHead>{uiT('Task')}</TableHead>
+                    <TableHead>{uiT('Protocol')}</TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                      {t('Samples', '样本数')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      {uiT('Revision')}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <div className="flex gap-2">
-              {after && (
-                <Button variant="outline" onClick={() => setQuery({})}>
-                  {uiT('First page')}
-                </Button>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.slug}>
+                      <TableCell>
+                        <Link
+                          className="font-medium underline-offset-4 hover:underline"
+                          to={`${base}/${encodeURIComponent(row.slug)}`}
+                        >
+                          {safeText(row.name)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="whitespace-normal">
+                        {safeText(row.task)}
+                      </TableCell>
+                      <TableCell>{row.protocol}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {row.samples?.length ?? 0}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {row.revision}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="flex gap-2">
+                {after && (
+                  <Button variant="outline" onClick={() => setQuery({})}>
+                    {uiT('First page')}
+                  </Button>
+                )}
+                {next && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setQuery({ after: next })}
+                  >
+                    {uiT('Next page')}
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <ReviewEmptyState
+              title={uiF('No {0} yet', [title.toLowerCase()])}
+              description={t(
+                'Create an evaluation suite with your task, acceptance rubric, and test samples, or ask your coding agent to evaluate models within your test budget.',
+                '创建一个包含业务任务、验收标准（Rubric）与测试样本的评估集，或让你的编码智能体在预算范围内评测模型。',
               )}
-              {next && (
-                <Button
-                  variant="outline"
-                  onClick={() => setQuery({ after: next })}
-                >
-                  {uiT('Next page')}
-                </Button>
+              actions={
+                canWrite ? (
+                  <Button
+                    onClick={() => {
+                      setEditingDefinition(null);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <IconPlus size={16} />
+                    {t('Create evaluation', '创建评估')}
+                  </Button>
+                ) : undefined
+              }
+              prompt={agentHandoffPrompt(
+                routeWorkspace,
+                'define a task-specific model evaluation; agree on acceptance criteria and an intended test budget, and rely only on the server spending limits as enforcement',
               )}
-            </div>
-          </>
-        ) : (
-          <ReviewEmptyState
-            title={uiF('No {0} yet', [title.toLowerCase()])}
-            description={`${uiT('Ask your coding agent to')} ${uiT('evaluate models against your task criteria and intended test budget')}.`}
-            prompt={agentHandoffPrompt(
-              routeWorkspace,
-              'define a task-specific model evaluation; agree on acceptance criteria and an intended test budget, and rely only on the server spending limits as enforcement',
-            )}
-            onError={setError}
-          />
-        ))}
+              onError={setError}
+            />
+          )}
+        </>
+      )}
       {slug && detail.definition && !run && (
         <Tabs
           value={tab}
@@ -641,51 +559,59 @@ function EvaluationsView({
             <TabsTrigger value="runs">{uiT('Runs')}</TabsTrigger>
             <TabsTrigger value="criteria">{uiT('Criteria')}</TabsTrigger>
           </TabsList>
-          <TabsContent value="runs">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{uiT('Run')}</TableHead>
-                  <TableHead>{uiT('Evaluator')}</TableHead>
-                  <TableHead>{uiT('Accepted')}</TableHead>
-                  <TableHead>{uiT('Unknown charges')}</TableHead>
-                  <TableHead>{uiT('Captured')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detail.runs?.map((receipt) => (
-                  <TableRow key={receipt.slug}>
-                    <TableCell>
-                      <Link
-                        className="font-medium hover:underline"
-                        to={`${base}/${encodeURIComponent(slug)}/runs/${encodeURIComponent(receipt.slug)}`}
-                      >
-                        {safeText(receipt.name)}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {safeText(receipt.evaluator.name)} ·{' '}
-                      {safeText(receipt.evaluator.version)}
-                    </TableCell>
-                    <TableCell>
-                      {receipt.summary.verdicts.accepted ?? 0} /{' '}
-                      {receipt.summary.samples}
-                    </TableCell>
-                    <TableCell>
-                      {receipt.summary.unknown_charge_attempts}{' '}
-                      {uiT('attempts')}
-                    </TableCell>
-                    <TableCell>{stamp(receipt.created_at)}</TableCell>
+          <TabsContent value="runs" className="space-y-4">
+            {detail.runs?.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{uiT('Run')}</TableHead>
+                    <TableHead>{uiT('Evaluator')}</TableHead>
+                    <TableHead>{uiT('Accepted')}</TableHead>
+                    <TableHead>{uiT('Unknown charges')}</TableHead>
+                    <TableHead>{uiT('Captured')}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {!detail.runs?.length && (
-              <Empty className="min-h-60"><EmptyHeader><EmptyMedia variant="icon"><IconChevronDown size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT('No evaluation runs yet')}</EmptyTitle><EmptyDescription>
-                    {uiT(
-                      'No evaluation runs yet. Ask your agent to run an evaluation within your intended test budget and server spending limits.',
-                    )}
-                  </EmptyDescription></EmptyHeader></Empty>
+                </TableHeader>
+                <TableBody>
+                  {detail.runs.map((receipt) => (
+                    <TableRow key={receipt.slug}>
+                      <TableCell>
+                        <Link
+                          className="font-medium hover:underline"
+                          to={`${base}/${encodeURIComponent(slug)}/runs/${encodeURIComponent(receipt.slug)}`}
+                        >
+                          {safeText(receipt.name)}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {safeText(receipt.evaluator.name)} ·{' '}
+                        {safeText(receipt.evaluator.version)}
+                      </TableCell>
+                      <TableCell>
+                        {receipt.summary.verdicts.accepted ?? 0} /{' '}
+                        {receipt.summary.samples}
+                      </TableCell>
+                      <TableCell>
+                        {receipt.summary.unknown_charge_attempts}{' '}
+                        {uiT('attempts')}
+                      </TableCell>
+                      <TableCell>{stamp(receipt.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <>
+                <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconChevronDown size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT('No evaluation runs yet')}</EmptyTitle><EmptyDescription>
+                      {uiT(
+                        'No evaluation runs yet. Ask your agent to run an evaluation within your intended test budget and server spending limits.',
+                      )}
+                    </EmptyDescription></EmptyHeader></Empty>
+                <EvaluationSampleCriteriaSection
+                  definition={detail.definition}
+                  routeWorkspace={routeWorkspace}
+                  onError={setError}
+                />
+              </>
             )}
             {next && (
               <Button variant="outline" onClick={() => setQuery({ after: next })}>
@@ -716,6 +642,11 @@ function EvaluationsView({
               {uiT('named samples · revision')} {detail.definition.revision}
               {uiT('. Runs retain their pinned definition.')}
             </p>
+            <EvaluationSampleCriteriaSection
+              definition={detail.definition}
+              routeWorkspace={routeWorkspace}
+              onError={setError}
+            />
           </TabsContent>
         </Tabs>
       )}
@@ -930,6 +861,22 @@ function EvaluationsView({
           </Tabs>
         </>
       )}
+      <EvaluationFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editingDefinition={editingDefinition}
+        cacheScope={cacheScope}
+        workspace={workspace}
+        client={client}
+        onSaved={(saved) => {
+          setRefresh((value) => value + 1);
+          if (!slug) {
+            void navigate(`${base}/${encodeURIComponent(saved.slug)}`);
+          } else {
+            setDetail((previous) => ({ ...previous, definition: saved }));
+          }
+        }}
+      />
     </ReviewPageShell>
   );
 }

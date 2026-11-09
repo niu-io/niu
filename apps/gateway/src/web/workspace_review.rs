@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State, rejection::JsonRejection},
     http::{HeaderMap, StatusCode},
 };
-use niu_storage::{AdminPermission, TenantScope, WorkspaceModelPool};
+use niu_storage::{AdminPermission, EvaluationDefinition, TenantScope, WorkspaceModelPool};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -1106,6 +1106,36 @@ pub async fn evaluation(
             .map_err(ApiError::from_store)?
             .ok_or_else(ApiError::not_found)?
     )))
+}
+/// Save a workspace evaluation definition under the current member Write authority.
+pub async fn put_evaluation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((workspace, name)): Path<(Uuid, String)>,
+    input: Result<Json<EvaluationDefinition>, JsonRejection>,
+) -> Result<Json<Value>, ApiError> {
+    let scope = crate::admin::workspace_aliases::authorize_workspace(
+        &state,
+        &headers,
+        workspace,
+        AdminPermission::Write,
+    )
+    .await?
+    .1;
+    slug(&name)?;
+    let Json(input) =
+        input.map_err(|_| ApiError::invalid_request("Invalid evaluation definition"))?;
+    if name != input.slug {
+        return Err(ApiError::invalid_request(
+            "Path and definition slug must match",
+        ));
+    }
+    let saved = state
+        .store
+        .set_evaluation_definition_for_scope(scope, &input)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!(saved)))
 }
 /// ```openapi
 /// {
