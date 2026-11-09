@@ -598,7 +598,7 @@ function RoutingView({
       setDeletePoolError(
         reason instanceof Error
           ? reason.message
-          : t('Could not delete custom model.', '无法删除自定义模型。'),
+          : t('Could not delete routing rule.', '无法删除路由规则。'),
       );
     } finally {
       setDeletingPool(false);
@@ -702,7 +702,7 @@ function RoutingView({
     const trimmedName = poolName.trim();
     const normalizedSlug = poolSlug.trim();
     if (!trimmedName) {
-      setPoolFormError(t('Enter a model pool name.', '请输入模型池名称。'));
+      setPoolFormError(t('Enter a routing rule name.', '请输入路由规则名称。'));
       return;
     }
     if (
@@ -772,8 +772,8 @@ function RoutingView({
     ) {
       setPoolFormError(
         t(
-          'An enabled custom model requires at least one enabled candidate model.',
-          '启用的自定义路由模型至少需要一个处于启用状态的候选模型。',
+          'An enabled routing rule requires at least one enabled candidate model.',
+          '启用的路由规则至少需要一个处于启用状态的候选模型。',
         ),
       );
       return;
@@ -935,8 +935,8 @@ function RoutingView({
             [revision ? uiF(' · revision {0}', [revision]) : ''],
           )
         : rows.length ? t(
-            'Define custom models backed by conditional routing rules and fallback candidates, or review agent revisions and execution evidence.',
-            '将一系列条件路由与候选回退规则配置为自定义模型，或审阅智能体使用的路由策略、修订记录及执行证据。',
+            'Configure conditional routing rules and fallback candidates—callable as custom model IDs—or review agent revisions and execution evidence.',
+            '配置条件路由规则与候选模型回退策略（可直接作为自定义模型 ID 调用），或审阅智能体的修订记录与执行证据。',
           ) : '';
 
   return (
@@ -947,7 +947,7 @@ function RoutingView({
           {!slug && canWrite && (
             <Button size="sm" onClick={openCreatePoolDialog}>
               <IconPlus size={16} />
-              {t('Create custom model', '创建自定义模型')}
+              {t('Create routing rule', '创建路由规则')}
             </Button>
           )}
           {slug && detail.pool && canWrite && (
@@ -969,7 +969,7 @@ function RoutingView({
                 }}
               >
                 <IconTrash size={16} />
-                {t('Delete custom model', '删除自定义模型')}
+                {t('Delete routing rule', '删除路由规则')}
               </Button>
             </>
           )}
@@ -990,11 +990,14 @@ function RoutingView({
               <TableHeader>
                 <TableRow>
                   <TableHead>{uiT('Name')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">
+                    {t('Model ID', '模型 ID')}
+                  </TableHead>
                   <TableHead>{uiT('State')}</TableHead>
                   <TableHead className="hidden sm:table-cell">
                     {uiT('Models')}
                   </TableHead>
-                  <TableHead className="hidden sm:table-cell">
+                  <TableHead className="hidden md:table-cell">
                     {uiT('Revision')}
                   </TableHead>
                 </TableRow>
@@ -1009,10 +1012,10 @@ function RoutingView({
                       >
                         {safeText(row.name)}
                       </Link>
-                      <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                        {uiF('pool/{0}', [safeText(row.slug)])}
-                      </p>
                       <div className="mt-1 space-y-0.5 text-xs text-muted-foreground sm:hidden">
+                        <p className="break-all font-mono">
+                          {uiF('pool/{0}', [safeText(row.slug)])}
+                        </p>
                         <p>
                           {uiT('Models')}:{' '}
                           {row.candidates
@@ -1025,24 +1028,30 @@ function RoutingView({
                         </p>
                       </div>
                     </TableCell>
+                    <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
+                      {uiF('pool/{0}', [safeText(row.slug)])}
+                    </TableCell>
                     <TableCell className="whitespace-normal">
                       <span className="lifecycle-badge" data-tone={row.enabled ? 'active' : 'inactive'}>
                         <span className="status-dot" aria-hidden="true" />{row.enabled ? uiT('Enabled') : uiT('Disabled')}
                       </span>
                     </TableCell>
                     <TableCell className="hidden whitespace-normal break-words sm:table-cell">
-                      {row.candidates.some((model) => model.enabled)
-                        ? row.candidates
+                      {row.candidates.some((model) => model.enabled) ? (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          {row.candidates
                             .filter((model) => model.enabled)
-                            .map((model, index) => (
-                              <span key={model.alias}>
-                                {index > 0 ? ', ' : ''}
+                            .map((model) => (
+                              <span key={model.alias} className="inline-flex items-center">
                                 {formatModelAlias(model.alias)}
                               </span>
-                            ))
-                        : uiT('No enabled candidates')}
+                            ))}
+                        </div>
+                      ) : (
+                        uiT('No enabled candidates')
+                      )}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">
+                    <TableCell className="hidden md:table-cell">
                       {row.revision}
                     </TableCell>
                   </TableRow>
@@ -1067,16 +1076,16 @@ function RoutingView({
           </>
         ) : (
           <ReviewEmptyState
-            title={t('No custom models yet', '暂无自定义路由模型')}
+            title={t('No routing rules yet', '暂无路由规则')}
             description={t(
-              'Combine conditional routing rules and prioritized candidate models into a callable custom model, or ask your coding agent to configure routing for your task.',
-              '将一系列条件路由分流规则与候选模型组合为可调用的自定义模型，或让你的 coding agent 为任务配置模型路由。',
+              'Define conditional routing rules and fallback candidate models—each callable as a custom model ID—or ask your coding agent to configure routing for your task.',
+              '定义条件路由分流规则与候选模型回退策略（每条规则均可作为自定义模型 ID 调用），或让你的 coding agent 为任务配置模型路由。',
             )}
             actions={
               canWrite ? (
                 <Button onClick={openCreatePoolDialog}>
                   <IconPlus size={16} />
-                  {t('Create custom model', '创建自定义模型')}
+                  {t('Create routing rule', '创建路由规则')}
                 </Button>
               ) : undefined
             }
@@ -1375,13 +1384,13 @@ function RoutingView({
           <DialogHeader className="pr-6">
             <DialogTitle>
               {editingPool
-                ? t('Edit custom model routing', '编辑自定义模型路由')
-                : t('Create custom model', '创建自定义模型')}
+                ? t('Edit routing rule', '编辑路由规则')
+                : t('Create routing rule', '创建路由规则')}
             </DialogTitle>
             <DialogDescription>
               {t(
-                'Define a custom model backed by conditional routing rules and prioritized fallback candidates.',
-                '通过条件路由分流规则与按优先级/权重排列的候选模型，定义一个可直接调用的自定义模型。',
+                'Configure conditional routing rules and prioritized fallback candidates. Requests can invoke this rule directly as a custom model ID.',
+                '配置条件路由分流规则与按优先级/权重排列的候选模型。请求可直接将该规则作为自定义模型 ID 调用。',
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1416,7 +1425,7 @@ function RoutingView({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="pool-name">{t('Name', '自定义模型名称')}</Label>
+                <Label htmlFor="pool-name">{t('Name', '路由规则名称')}</Label>
                 <Input
                   id="pool-name"
                   required
@@ -1430,12 +1439,12 @@ function RoutingView({
                       setPoolSlug(poolSlugFromName(nextName));
                     }
                   }}
-                  placeholder={t('Fast coding router', '快速编码路由模型')}
+                  placeholder={t('Fast coding router', '快速编码路由规则')}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pool-slug">
-                  {t('Slug', '模型标识 (Slug)')}
+                  {t('Slug', '路由标识 (Slug)')}
                 </Label>
                 <Input
                   id="pool-slug"
@@ -1457,7 +1466,7 @@ function RoutingView({
                   placeholder={t('fast-coding-router', 'fast-coding-router')}
                 />
                 <p className="break-words text-xs text-muted-foreground">
-                  {t('Invoked as custom model', '作为自定义模型调用：')}{' '}
+                  {t('Callable as custom model ID', '可作为自定义模型 ID 调用：')}{' '}
                   <code className="font-mono">
                     pool/{poolSlug || '<slug>'}
                   </code>
@@ -1529,7 +1538,7 @@ function RoutingView({
                   onCheckedChange={(checked) => setPoolEnabled(checked === true)}
                 />
                 <Label htmlFor="pool-enabled" className="font-normal">
-                  {t('Enable custom model routing', '启用该自定义路由模型')}
+                  {t('Enable routing rule', '启用该路由规则')}
                 </Label>
               </div>
             </div>
@@ -1856,7 +1865,7 @@ function RoutingView({
                   ? t('Saving…', '保存中…')
                   : editingPool
                     ? t('Save changes', '保存更改')
-                    : t('Create custom model', '创建自定义模型')}
+                    : t('Create routing rule', '创建路由规则')}
               </Button>
             </DialogFooter>
           </form>
@@ -1874,12 +1883,12 @@ function RoutingView({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('Delete custom model?', '删除自定义模型？')}
+              {t('Delete routing rule?', '删除路由规则？')}
             </DialogTitle>
             <DialogDescription>
               {t(
-                'This removes the custom model from the routing list. Its slug and immutable history remain reserved; existing API keys using it will no longer resolve.',
-                '该自定义模型将从路由列表中移除。其标识与不可变历史仍会保留；继续使用它的 API 密钥将无法解析。',
+                'This removes the routing rule from the workspace. Its slug and immutable history remain reserved; existing API keys invoking its custom model ID will no longer resolve.',
+                '该路由规则将从工作空间中移除。其标识与不可变历史仍会保留；继续调用该自定义模型 ID 的 API 密钥将无法解析。',
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1903,7 +1912,7 @@ function RoutingView({
             >
               {deletingPool
                 ? t('Deleting…', '删除中…')
-                : t('Delete custom model', '删除自定义模型')}
+                : t('Delete routing rule', '删除路由规则')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -166,7 +166,7 @@ test("switching workspace clears prior resource rows before the new response arr
   await waitFor(() => expect(finish).toBeTruthy());
   finish!(Response.json({ data: [], next_after: null }));
   expect(
-    await screen.findByRole("heading", { name: "No custom models yet" }),
+    await screen.findByRole("heading", { name: "No routing rules yet" }),
   ).toBeTruthy();
 });
 test("permission failure does not masquerade as empty or saved configuration", async () => {
@@ -182,7 +182,7 @@ test("permission failure does not masquerade as empty or saved configuration", a
       "Your current membership cannot read this workspace.",
     ),
   ).toBeTruthy();
-  expect(screen.queryByText("No custom models yet")).toBeNull();
+  expect(screen.queryByText("No routing rules yet")).toBeNull();
   expect(screen.queryByText(/Saved workspace configuration/)).toBeNull();
   expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
 });
@@ -418,10 +418,10 @@ test("workspace member can create a custom routed model directly from the empty 
   );
   render(page("/workspaces/demo/routing"));
   expect(
-    await screen.findByRole("heading", { name: "No custom models yet" }),
+    await screen.findByRole("heading", { name: "No routing rules yet" }),
   ).toBeTruthy();
   const createButtons = screen.getAllByRole("button", {
-    name: "Create custom model",
+    name: "Create routing rule",
   });
   expect(createButtons.length).toBeGreaterThanOrEqual(2);
   const user = userEvent.setup();
@@ -437,7 +437,7 @@ test("workspace member can create a custom routed model directly from the empty 
   await user.type(screen.getByPlaceholderText("Search models…"), "gpt-4.1-mini");
   await user.click(screen.getByRole("option", { name: /Use exact alias/ }));
   await user.click(
-    screen.getAllByRole("button", { name: "Create custom model" }).at(-1)!,
+    screen.getAllByRole("button", { name: "Create routing rule" }).at(-1)!,
   );
 
   expect(await screen.findByRole("link", { name: "Fast coding pool" })).toBeTruthy();

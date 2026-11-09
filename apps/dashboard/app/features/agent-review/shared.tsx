@@ -32,7 +32,7 @@ export function formatModelAlias(value: string) {
   const clean = safeText(value);
   const title = catalogTitle(clean);
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <ProviderLogo provider={modelIdentity({ id: clean })} size="small" />
       <span>
         {title}
