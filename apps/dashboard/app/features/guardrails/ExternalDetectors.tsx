@@ -1,8 +1,8 @@
-import { Empty, EmptyHeader, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from "react";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
+import { IconChevronDown as ChevronDown, IconShieldCheck } from "@tabler/icons-react";
 import { ListRowsSkeleton } from "@/components/PageSkeletons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -81,7 +81,7 @@ export default function ExternalDetectors({ token, endpoint, bindings, disabled,
         </div>
       </div>;
     })}
-    {!bindings.length && <Empty className="guardrails-empty">{loaded && <EmptyHeader><EmptyDescription>{descriptions.length ? uiT("No required external checks.") : uiT("No external detectors are available. Ask your deployment administrator to configure a detector and authorize this workspace.")}</EmptyDescription></EmptyHeader>}{!disabled && <EmptyContent><Button variant="outline" disabled={!loaded || !descriptions.length || bindings.length >= 4} onClick={() => review()}>{uiT("Add external check")}</Button></EmptyContent>}</Empty>}
+    {!bindings.length && <Empty className="guardrails-empty">{loaded && <EmptyHeader><EmptyMedia variant="icon"><IconShieldCheck aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No external input checks")}</EmptyTitle><EmptyDescription>{descriptions.length ? uiT("No required external checks.") : uiT("No external detectors are available. Ask your deployment administrator to configure a detector and authorize this workspace.")}</EmptyDescription></EmptyHeader>}{!disabled && <EmptyContent><Button variant="outline" disabled={!loaded || !descriptions.length || bindings.length >= 4} onClick={() => review()}>{uiT("Add external check")}</Button></EmptyContent>}</Empty>}
     {!disabled && bindings.length > 0 && <Button className="mt-4" variant="outline" disabled={!loaded || !descriptions.length || bindings.length >= 4} onClick={() => review()}>{uiT("Add external check")}</Button>}
     <Dialog open={open} onOpenChange={value => { setOpen(value); setConsent(false); }}>
       <DialogContent className="guardrails-version-dialog"><DialogHeader><DialogTitle>{uiT("Review external processing")}</DialogTitle><DialogDescription>{uiT("Approve the recipient and declared processing conditions before requiring this check.")}</DialogDescription></DialogHeader>

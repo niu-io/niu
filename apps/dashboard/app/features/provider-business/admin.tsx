@@ -23,7 +23,7 @@ import { ListRowsSkeleton, TableSkeleton, WorkspaceShellSkeleton } from "@/compo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError } from "@/features/providers/api";
 import { money } from "@/lib/money";
@@ -748,7 +748,7 @@ function Administration({ token }: { token: string }) {
                 <div><span>{uiT("Accrued ·")}{" "}{balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
                 <div><span>{uiT("Unpaid")}</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
                 <div><span>{uiT("Paid")}</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
-              </div>) : <p className="provider-inline-empty">{uiT("No provider charges recorded yet.")}</p>}
+              </div>) : <Empty className="provider-inline-empty min-h-32 rounded-xl border border-dashed border-border/60 bg-muted/20 py-6"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No provider charges recorded yet.")}</EmptyDescription></EmptyHeader></Empty>}
             </div>
           </div>}
           {section === "usage" && <>
@@ -894,7 +894,7 @@ function Administration({ token }: { token: string }) {
               <p>
                 {uiT("This records an external payment that has already completed. It does not initiate a transfer. Niu includes every unpaid earning in the selected currency through the cutoff.")}</p>
               {payableBalances.length === 0 ? (
-                <p className="provider-inline-empty">{uiT("No unpaid earnings are available to settle.")}</p>
+                <Empty className="provider-inline-empty min-h-28 rounded-xl border border-dashed border-border/60 bg-muted/20 py-5"><EmptyHeader><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
               ) : (
                 <>
                   <div className="grid gap-2">

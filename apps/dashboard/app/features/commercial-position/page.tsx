@@ -21,7 +21,7 @@ import { useBranding } from '@/shell/branding';
 import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge'; import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -1274,8 +1274,8 @@ function CommercialStatement({ token }: { token: string }) {
             </div>
 
             {displayedRows.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</p>
+              <Empty className="min-h-36 rounded-xl border border-dashed border-border/60 bg-muted/20 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
+                {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
               <Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>

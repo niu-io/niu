@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { request } from '@/lib/api-client';
+import { peekQuery, primeQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 
 type WorkspaceNotifications = {
@@ -15,11 +16,14 @@ type WorkspaceIncidents = { data: { model: string; owner_funded: boolean }[]; mo
 
 export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceSlug }: { token: string; workspaceId: string; workspaceSlug: string }) {
   const { t } = useLocale();
-  const [models, setModels] = useState<WorkspaceIncidents['data']>([]);
-  const [more, setMore] = useState(false);
-  const [notifications, setNotifications] = useState<WorkspaceNotifications | null>(null);
+  const location = useLocation();
+  const endpoint = `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/incidents`;
+  const cached = peekQuery<WorkspaceIncidents>(token, endpoint);
+  const [models, setModels] = useState<WorkspaceIncidents['data']>(() => cached?.data ?? []);
+  const [more, setMore] = useState(() => cached?.more ?? false);
+  const [notifications, setNotifications] = useState<WorkspaceNotifications | null>(() => cached?.notifications ?? null);
   const [error, setError] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [checked, setChecked] = useState(() => cached !== undefined);
   useEffect(() => {
     const controller = new AbortController();
     let pending = false;
@@ -27,21 +31,26 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
       if (pending) return;
       pending = true;
       try {
-        const result = await request<WorkspaceIncidents>(token, `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/incidents`, 'GET', undefined, controller.signal);
+        const result = await request<WorkspaceIncidents>(token, endpoint, 'GET', undefined, controller.signal);
         const note = result.notifications;
         if (!Array.isArray(result.data) || result.data.some(item => typeof item?.model !== 'string' || !item.model.trim() || typeof item.owner_funded !== 'boolean') || typeof result.more !== 'boolean'
           || !note || !['none', 'not_configured', 'authority_inactive', 'queued', 'sending', 'delivered', 'failed'].includes(note.state)
           || !['incidents', 'subscribers', 'authorized', 'delivered', 'failed', 'cancelled', 'queued', 'sending', 'not_configured', 'authority_inactive'].every(key => typeof (note as unknown as Record<string, unknown>)[key] === 'number')) throw new Error('Invalid incident response');
-        if (!controller.signal.aborted) { setModels(result.data); setMore(result.more); setNotifications(note); setError(false); }
+        if (!controller.signal.aborted) {
+          primeQuery(token, endpoint, result);
+          setModels(result.data); setMore(result.more); setNotifications(note); setError(false);
+        }
       } catch { if (!controller.signal.aborted) setError(true); }
       finally { if (!controller.signal.aborted) setChecked(true); pending = false; }
     }
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30_000);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [token, workspaceId]);
-  if (!checked) return <p role="status" className="mb-4 text-sm text-muted-foreground">{t('Checking model incidents…', '正在检查模型事故…')}</p>;
-  if (!models.length && !error) return null;
+  }, [token, endpoint]);
+  if (!checked) return <p role="status" className="sr-only">{t('Checking model incidents…', '正在检查模型事故…')}</p>;
+  const path = location.pathname.replace(/\/+$/, '') || '/';
+  const isTrafficSurface = path === '/' || path === `/workspaces/${encodeURIComponent(workspaceSlug)}` || path.endsWith('/executions') || path.endsWith('/usage');
+  if (!models.length && (!error || !isTrafficSurface)) return null;
   return <Alert variant={models.length ? 'destructive' : 'default'} className="mb-6">
     <AlertTitle>{models.length ? t('Some model requests need attention', '部分模型请求需要处理') : t('Model incident status unavailable', '无法读取模型事故状态')}</AlertTitle>
     <AlertDescription className="flex flex-wrap items-center justify-between gap-3">

@@ -1,4 +1,5 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
+import { IconCurrencyDollar } from '@tabler/icons-react';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { amountFromNanos, amountToNanos, formatUnitAtoms, money, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -261,7 +262,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     })()}
     {!platformCurrency && <p className="text-sm text-muted-foreground">{uiT("Spending limits will be available after the platform currency is configured in Admin.")}</p>}
     {loading && !accounts && <ListRowsSkeleton rows={2} label={uiT("Loading spending limits…")} />}
-    {!error && accounts?.length === 0 && !loading && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No billing currency is available yet.")}</EmptyDescription></EmptyHeader></Empty>}
+    {!error && accounts?.length === 0 && !loading && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available yet.")}</EmptyDescription></EmptyHeader></Empty>}
     {!error && accounts?.filter(account => account.currency === platformCurrency || account.limit_nanos !== null || BigInt(account.committed_nanos) > 0n).map(account => <div key={account.currency} className="space-y-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="font-medium">{account.currency}</h3><p className="text-sm text-muted-foreground">{account.limit_nanos === null ? uiT("No workspace limit set.") : uiF("{0} committed of {1}", [money(account.committed_nanos, account.currency), money(account.limit_nanos, account.currency)])}</p></div>

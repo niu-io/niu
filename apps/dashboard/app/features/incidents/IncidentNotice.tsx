@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { peekQuery, primeQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 import { loadIncidents } from './api';
 
 export default function IncidentNotice({ token }: { token: string }) {
   const { t } = useLocale();
-  const [active, setActive] = useState(false);
+  const cacheKey = '/api/v1/platform/incidents?status=active';
+  const cachedActive = peekQuery<boolean>(token, cacheKey);
+  const [active, setActive] = useState(() => cachedActive ?? false);
   const [error, setError] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -17,7 +20,12 @@ export default function IncidentNotice({ token }: { token: string }) {
       pending = true;
       try {
         const page = await loadIncidents(token, 'active', controller.signal);
-        if (!controller.signal.aborted) { setActive(page.data.length > 0); setError(false); }
+        if (!controller.signal.aborted) {
+          const hasActive = page.data.length > 0;
+          primeQuery(token, cacheKey, hasActive);
+          setActive(hasActive);
+          setError(false);
+        }
       } catch {
         if (!controller.signal.aborted) setError(true);
       } finally { pending = false; }
