@@ -447,3 +447,48 @@ it('shows an inline New API key button right inside the No active API keys empty
   await user.click(inlineNewKeyButton);
   expect(await screen.findByRole('dialog', { name: 'Create an API key' })).toBeTruthy();
 });
+
+it('reveals, hides, and repeatedly copies an active API key from the keys table', async () => {
+  const secretValue = 'niu_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('?reveal=true')) {
+      return Response.json({
+        id: 'active-1',
+        name: 'Production agent',
+        token: secretValue,
+        token_preview: 'niu_1234••••••••cdef',
+        allowed_models: ['*'],
+        expires_at_ms: null,
+        revoked: false,
+        expired: false,
+      });
+    }
+    return Response.json({
+      data: [{ id: 'active-1', name: 'Production agent', allowed_models: ['*'], expires_at_ms: null, revoked: false, expired: false }],
+    });
+  });
+  vi.stubGlobal('fetch', fetcher);
+
+  const user = userEvent.setup();
+  const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+  render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast']} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
+
+  expect(await screen.findByText('Production agent')).toBeTruthy();
+  expect(screen.getByText('niu_••••••••••••')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Reveal API key for Production agent' }));
+  expect(await screen.findByText(secretValue)).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Hide API key for Production agent' }));
+  expect(screen.queryByText(secretValue)).toBeNull();
+  expect(screen.getByText('niu_1234••••••••cdef')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Copy API key for Production agent' }));
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(writeText).toHaveBeenLastCalledWith(secretValue);
+
+  await user.click(screen.getByRole('button', { name: 'Copy API key for Production agent' }));
+  expect(writeText).toHaveBeenCalledTimes(2);
+  expect(writeText).toHaveBeenLastCalledWith(secretValue);
+});

@@ -780,8 +780,18 @@ pub async fn list_keys(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let (_, scope) =
-        authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
+    let reveal = query.reveal == Some(true);
+    let (_, scope) = authorize_workspace(
+        &state,
+        &headers,
+        workspace,
+        if reveal {
+            AdminPermission::Write
+        } else {
+            AdminPermission::Read
+        },
+    )
+    .await?;
     if query.limit.is_some() || query.after.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
@@ -789,20 +799,34 @@ pub async fn list_keys(
                 "Key page limit must be between 1 and 100",
             ));
         }
-        let (data, next_cursor) = state
+        let (mut data, next_cursor) = state
             .store
             .key_detail_directory_page(scope, query.after, limit)
             .await
             .map_err(ApiError::from_store)?;
+        if reveal {
+            state
+                .store
+                .attach_key_secrets(scope, &mut data)
+                .await
+                .map_err(ApiError::from_store)?;
+        }
         return Ok(Json(
             serde_json::json!({"data": data, "next_cursor": next_cursor}),
         ));
     }
-    let data = state
+    let mut data = state
         .store
         .list_key_details(scope)
         .await
         .map_err(ApiError::from_store)?;
+    if reveal {
+        state
+            .store
+            .attach_key_secrets(scope, &mut data)
+            .await
+            .map_err(ApiError::from_store)?;
+    }
     Ok(Json(serde_json::json!({"data": data})))
 }
 
@@ -1275,15 +1299,33 @@ pub async fn get_key(
     State(state): State<AppState>,
     Path((workspace, key)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let (_, scope) =
-        authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
-    let detail = state
+    let reveal = query.reveal == Some(true);
+    let (_, scope) = authorize_workspace(
+        &state,
+        &headers,
+        workspace,
+        if reveal {
+            AdminPermission::Write
+        } else {
+            AdminPermission::Read
+        },
+    )
+    .await?;
+    let mut detail = state
         .store
         .key_detail(scope, key)
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    if reveal {
+        state
+            .store
+            .attach_key_secrets(scope, std::slice::from_mut(&mut detail))
+            .await
+            .map_err(ApiError::from_store)?;
+    }
     Ok(Json(detail))
 }
 

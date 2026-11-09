@@ -341,8 +341,8 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Issuance and its audit record commit together; bound contention on
         // either write so a failed request never leaves an undisclosed key.
-        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $7 * interval '1 second' END,$8)")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
+        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, token_secret, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $8 * interval '1 second' END,$9)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(&token).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
             .execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'issued')")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
@@ -1045,13 +1045,13 @@ impl Store {
         let id = Uuid::new_v4();
         let token = format!("niu_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols FROM api_keys WHERE id=$3")
-            .bind(id).bind(hash).bind(old).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,token_secret,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols) SELECT $1,organization_id,project_id,name,$2,$3,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols FROM api_keys WHERE id=$4")
+            .bind(id).bind(hash).bind(&token).bind(old).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO agent_key_capabilities (key_id,capability,authorization_id) SELECT $1,c.capability,c.authorization_id FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=$2 AND k.organization_id=$3 AND k.project_id=$4 AND a.organization_id=k.organization_id AND a.project_id=k.project_id AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id)")
             .bind(id).bind(old).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         sqlx::query("UPDATE workspace_event_subscriptions SET issuer_key_id=$1 WHERE organization_id=$2 AND project_id=$3 AND issuer_key_id=$4 AND EXISTS(SELECT 1 FROM agent_key_capabilities WHERE key_id=$1 AND capability='events:write')")
@@ -1073,7 +1073,7 @@ impl Store {
         let revoked: bool = sqlx::query_scalar("SELECT revoked_at IS NOT NULL FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if !revoked {
-            sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp() WHERE id=$1")
+            sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE id=$1")
                 .bind(id)
                 .execute(&mut *tx)
                 .await?;
@@ -1081,6 +1081,56 @@ impl Store {
                 .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
         }
         tx.commit().await?;
+        Ok(())
+    }
+
+    /// Attaches persisted plaintext API key secrets (`token` and `token_preview`)
+    /// to active workspace key detail payloads when requested by an authorized
+    /// workspace operator with write permission.
+    pub async fn attach_key_secrets(
+        &self,
+        scope: TenantScope,
+        details: &mut [serde_json::Value],
+    ) -> Result<(), StoreError> {
+        if details.is_empty() {
+            return Ok(());
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let rows: Vec<(Uuid, String)> = sqlx::query_as(
+            "SELECT id, token_secret FROM api_keys WHERE organization_id = $1 AND project_id = $2 AND revoked_at IS NULL AND expires_at > clock_timestamp() AND token_secret IS NOT NULL",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let secrets: std::collections::HashMap<Uuid, String> = rows.into_iter().collect();
+        for detail in details {
+            let Some(obj) = detail.as_object_mut() else {
+                continue;
+            };
+            let Some(id_str) = obj.get("id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let Ok(id) = Uuid::parse_str(id_str) else {
+                continue;
+            };
+            if let Some(secret) = secrets.get(&id) {
+                let preview = if secret.len() >= 12 {
+                    format!("{}••••••••{}", &secret[..8], &secret[secret.len() - 4..])
+                } else {
+                    "niu_••••••••".to_string()
+                };
+                obj.insert(
+                    "token".to_string(),
+                    serde_json::Value::String(secret.clone()),
+                );
+                obj.insert(
+                    "token_preview".to_string(),
+                    serde_json::Value::String(preview),
+                );
+            }
+        }
         Ok(())
     }
 

@@ -2649,6 +2649,7 @@ pub async fn projects(
 pub struct KeyListQuery {
     pub(crate) after: Option<Uuid>,
     pub(crate) limit: Option<u16>,
+    pub(crate) reveal: Option<bool>,
 }
 
 /// ```openapi
