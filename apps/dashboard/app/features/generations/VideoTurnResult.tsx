@@ -1,4 +1,6 @@
 import { useLocale as useUILocale, translateUI } from '@/shell/ui-locale';
+import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { catalogTitle } from '@/lib/providers';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { IconInfoCircle as InfoCircle, IconLoader2 as Loader, IconRefresh as RefreshCw } from '@tabler/icons-react';
@@ -43,8 +45,9 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
   const { token, workspace, session } = context;
   const canWrite = Boolean(session?.permissions.write);
   const taskReference = turn.task?.reference ?? turn.task_id ?? '';
-  const [task, setTask] = useState<GenerationTask | null>(null);
-  const [loading, setLoading] = useState(Boolean(taskReference));
+  const taskCacheKey = workspace && taskReference ? `/api/v1/workspaces/${workspace.id}/tasks/${taskReference}` : '';
+  const [task, setTask] = useState<GenerationTask | null>(() => token && taskCacheKey ? peekQuery<GenerationTask>(token, taskCacheKey, {persist: true}) ?? null : null);
+  const [loading, setLoading] = useState(() => Boolean(taskReference && !(token && taskCacheKey && peekQuery<GenerationTask>(token, taskCacheKey, {persist: true}))));
   const [error, setError] = useState('');
   const [detailError, setDetailError] = useState('');
   const [billing, setBilling] = useState<VideoJobBilling | null>(null);
@@ -68,14 +71,14 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
       setLoading(false);
       return () => controller.abort();
     }
-    setLoading(true);
+    if (! peekQuery(token, taskCacheKey, {persist: true})) setLoading(true);
     void client.generations(scope).tasks.retrieve(taskReference, {signal: controller.signal})
       .then(response => savedTask(response, taskReference, sessionId, turn.id))
-      .then(value => { if (!controller.signal.aborted) setTask(value); })
+      .then(value => { if (!controller.signal.aborted) { primeQuery(token, taskCacheKey, value, {persist: true}); setTask(value); } })
       .catch(() => { if (!controller.signal.aborted) setError('This saved video could not be loaded. Check workspace access and reload.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [client, scopeKey, taskReference, sessionId, turn.id, refreshKey, revision]);
+  }, [client, scopeKey, taskReference, sessionId, turn.id, refreshKey, revision, token, taskCacheKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -181,9 +184,11 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
       ? uiT("This saved request has not been submitted.")
       : uiT("No saved result is linked to this request.");
 
+  const readableRun = (task?.reference ?? turn.task?.reference ?? '');
   return <article className="video-response" aria-label={uiT("Video result")}>
     <div className="video-result-heading">
-      <span className="video-response-model">{model ?? uiT("Video")}</span>
+      <span className="video-response-model">{model ? catalogTitle({ id: model }) : uiT("Video")}</span>
+      {/^run-[1-9][0-9]{0,18}$/.test(readableRun) && <Badge variant="outline" className="font-mono text-xs">{readableRun}</Badge>}
       {task ? <Badge variant="secondary">{translateUI(status)}</Badge>
         : intent ? <Badge variant="secondary">{intent.submission_state === 'not_dispatched' ? uiT("Not dispatched") : intent.submission_state === 'saved' ? uiT("Saved request") : uiT("Status unavailable")}</Badge>
           : null}

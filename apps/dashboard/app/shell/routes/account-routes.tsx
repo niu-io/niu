@@ -56,6 +56,24 @@ export const accountRoutes: RouteObject[] = [
     }),
     children: [
       {
+        id: 'generations-run',
+        path: 'runs/:run',
+        lazy: bindLazy(routeImporters.playground, {
+          destination: 'Global',
+          navTo: '/generations',
+          title: { en: 'Generations', zh: '生成对话' },
+        }),
+      },
+      {
+        id: 'generations-session-run',
+        path: ':session/runs/:run',
+        lazy: bindLazy(routeImporters.playground, {
+          destination: 'Global',
+          navTo: '/generations',
+          title: { en: 'Generations', zh: '生成对话' },
+        }),
+      },
+      {
         id: 'generations-index',
         path: ':session?',
         lazy: bindLazy(routeImporters.playground, {

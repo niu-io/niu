@@ -229,7 +229,7 @@ it('creates a key with a corrupt stale marker and no recovery lockout',async()=>
  vi.stubGlobal('fetch',fetch);
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
- expect(screen.queryByText('Previous key request')).toBeNull();
+ expect(screen.queryByText('API key request status unknown')).toBeNull();
  await user.click(screen.getByRole('button',{name:'New API key'}));
  await user.type(screen.getByLabelText('Name'),'Fresh key');
  await user.click(screen.getByRole('button',{name:'Create key'}));
@@ -244,7 +244,7 @@ it('shows a stale marker as a non-blocking notice and still creates a new key',a
   : Response.json({data:[]}));
  vi.stubGlobal('fetch',fetch);
  const user=userEvent.setup();render(recoveryView());
- expect(await screen.findByText('Previous key request')).toBeTruthy();
+ expect(await screen.findByText('API key request status unknown')).toBeTruthy();
  await user.click(screen.getByRole('button',{name:'New API key'}));
  await user.type(screen.getByLabelText('Name'),'Fresh key');
  await user.click(screen.getByRole('button',{name:'Create key'}));
@@ -262,7 +262,7 @@ it('creates a key when browser storage is unavailable',async()=>{
   : Response.json({data:[]})));
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
- expect(screen.queryByText('Previous key request')).toBeNull();
+ expect(screen.queryByText('API key request status unknown')).toBeNull();
  await user.click(screen.getByRole('button',{name:'New API key'}));
  await user.type(screen.getByLabelText('Name'),'Fresh key');
  await user.click(screen.getByRole('button',{name:'Create key'}));
@@ -277,7 +277,7 @@ it('rotates a key with a corrupt stale marker and no recovery lockout',async()=>
   : Response.json({data:[recoveryKey]})));
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('Production agent');
- expect(screen.queryByText('Previous key request')).toBeNull();
+ expect(screen.queryByText('API key request status unknown')).toBeNull();
  await user.click(screen.getByRole('button',{name:'Actions for Production agent'}));
  await user.click(screen.getByRole('menuitem',{name:'Rotate'}));
  await user.click(screen.getByRole('button',{name:'Rotate key'}));
@@ -292,7 +292,7 @@ it('rotates a key with a stale marker without opening a recovery wizard',async()
   : Response.json({data:[recoveryKey]}));
  vi.stubGlobal('fetch',fetch);
  const user=userEvent.setup();render(recoveryView());
- expect(await screen.findByText('Previous key request')).toBeTruthy();
+ expect(await screen.findByText('API key request status unknown')).toBeTruthy();
  await user.click(screen.getByRole('button',{name:'Actions for Production agent'}));
  await user.click(screen.getByRole('menuitem',{name:'Rotate'}));
  await user.click(screen.getByRole('button',{name:'Rotate key'}));
@@ -426,10 +426,10 @@ it('shows a confirmed retry rejection as a non-blocking notice',async()=>{
  await user.click(await screen.findByRole('button',{name:'Retry request'}));
  expect(await screen.findByText('The selected model is no longer available')).toBeTruthy();
  expect(screen.queryByRole('heading',{name:'Save your API key'})).toBeNull();
- expect(screen.queryByText('Previous key request')).toBeTruthy();
+ expect(screen.queryByText('Could not create API key')).toBeTruthy();
  expect(posts).toBe(2);
  await user.click(screen.getByRole('button',{name:'Dismiss'}));
- expect(screen.queryByText('Previous key request')).toBeNull();
+ expect(screen.queryByText('Could not create API key')).toBeNull();
  await user.click(screen.getByRole('button',{name:'New API key'}));
  expect(await screen.findByLabelText('Name')).toBeTruthy();
 });

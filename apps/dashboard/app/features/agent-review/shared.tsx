@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { IconArrowLeft, IconRefresh } from '@tabler/icons-react';
+import { IconArrowLeft, IconRefresh, IconSparkles } from '@tabler/icons-react';
 import PageHeader from '@/components/PageHeader';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
 import { readLocale as readUILocale, useLocale } from '@/shell/ui-locale';
@@ -63,12 +64,14 @@ export function CopyAgentPrompt({
 export function ReviewEmptyState({
   title,
   description,
+  icon,
   actions,
   prompt,
   onError,
 }: {
   title: string;
   description: ReactNode;
+  icon?: ReactNode;
   actions?: ReactNode;
   prompt: string;
   onError: (message: string) => void;
@@ -77,6 +80,9 @@ export function ReviewEmptyState({
   return (
     <Empty>
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {icon ?? <IconSparkles size={20} aria-hidden="true" />}
+        </EmptyMedia>
         <EmptyTitle role="heading" aria-level={2}>
           {title}
         </EmptyTitle>
@@ -85,7 +91,7 @@ export function ReviewEmptyState({
       <EmptyContent className="flex-row flex-wrap justify-center">
         {actions}
         <CopyAgentPrompt prompt={prompt} onError={onError} />
-        <Button variant="link" asChild>
+        <Button variant="outline" asChild>
           <a href="/docs/install.md">{uiT('Connect your agent')}</a>
         </Button>
       </EmptyContent>
@@ -145,12 +151,16 @@ export function ReviewPageShell({
           </Link>
         </Button>
       )}
-      <div>
-        {heading && (
-          <h1 className="text-xl font-semibold break-words">{heading}</h1>
-        )}
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      </div>
+      {(heading || description) && (
+        <div>
+          {heading && (
+            <h1 className="text-xl font-semibold break-words">{heading}</h1>
+          )}
+          {description && (
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          )}
+        </div>
+      )}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>

@@ -12,8 +12,8 @@
 .playground-model-category:hover { color: var(--foreground); background: color-mix(in srgb, var(--muted) 50%, transparent); }
 .playground-model-category[aria-selected="true"] { color: var(--foreground); background: var(--accent); font-weight: 600; }
 .playground-model-category > span { color: var(--muted-foreground); font-size: 13px; font-weight: 500; }
-.playground-model-picker-list { max-height: min(56vh, 560px); overflow: auto; padding: 4px; border: 1px solid var(--border); border-radius: 11px; }
-.playground-model-picker-option { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 7px; color: var(--foreground); background: transparent; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.playground-model-picker-list { display: grid; gap: 2px; max-height: min(56vh, 560px); overflow: auto; padding: 4px; border: 1px solid var(--border); border-radius: 11px; }
+.playground-model-picker-option { display: flex; width: 100%; height: auto; min-height: 44px; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 9px 11px; border: 0; border-radius: 8px; color: var(--foreground); background: transparent; font: inherit; font-size: 14px; line-height: 1.4; white-space: normal; text-align: left; cursor: pointer; }
 .playground-model-picker-option:hover, .playground-model-picker-option[aria-pressed="true"] { background: color-mix(in srgb, var(--primary) 8%, var(--card)); }
 .playground-model-picker-option[aria-pressed="true"] > svg { color: var(--primary); }
 .playground-model-picker-option:disabled { cursor: not-allowed; opacity: .52; }

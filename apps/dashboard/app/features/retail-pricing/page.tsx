@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -6,7 +6,7 @@ import LegacyMediaContracts from './legacy-media';
 import { PricingHealthNotice, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { IconSearch } from '@tabler/icons-react';
+import { IconCurrencyDollar, IconSearch } from '@tabler/icons-react';
 import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -96,7 +96,7 @@ function Standards({ token }: { token: string }) {
         {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed, true)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
         {loading && !rows.length && <TableSkeleton columns={4} rows={5} label={uiT("Loading standard prices…")} />}
         {!!rows.length && <Table aria-label={uiT("Platform standard selling prices")}><TableHeader><TableRow>{[uiT('Model'), uiT('Standard price'), uiT('Price checks'), uiT('Actions')].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="max-w-64 whitespace-normal"><p className="font-medium break-words">{row.model_alias}</p><p className="mt-1 text-xs text-muted-foreground">{row.currency} · {row.schedule.kind === 'text' ? uiT("Text tokens") : row.schedule.meter}</p><p className="mt-1 text-xs text-muted-foreground">{uiT("Published")}{" "}{date(row.published_at)}</p></TableCell><TableCell className="whitespace-normal"><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex flex-col items-start gap-1"><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>{uiT("Prices & history")}</Button>{<Button variant="outline" disabled={loading || !!error || !!editor} onClick={() => { setEditor({ kind: row.schedule.kind, previous: row }); setEditorOpen(true); }}>{uiT("Revise standard")}</Button>}<Button variant="outline" disabled={loading || !!error} onClick={() => setManaged(row)}>{uiT("Promotions")}</Button></div></TableCell></TableRow>)}</TableBody></Table>}
-        {!loading && !error && !visible.length && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{rows.length ? uiT("No loaded prices match this filter.") : uiT("No platform standard prices have been published.")}</EmptyDescription></EmptyHeader></Empty>}
+        {!loading && !error && !visible.length && <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{rows.length ? uiT("No matching prices") : uiT("No standard prices yet")}</EmptyTitle><EmptyDescription>{rows.length ? uiT("No loaded prices match this filter.") : uiT("No platform standard prices have been published.")}</EmptyDescription></EmptyHeader></Empty>}
         {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
       </TabsContent>
       <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} /></TabsContent>

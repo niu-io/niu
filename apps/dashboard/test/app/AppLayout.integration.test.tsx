@@ -329,12 +329,12 @@ describe('dashboard route layout', () => {
     expect(listCalls).toBe(1);
   });
 
-  it('makes routing, evaluations and event subscriptions distinct workspace destinations', async () => {
+  it('makes routing and evaluations distinct workspace destinations', async () => {
     mockHealth();
     const router = renderAt('/workspaces/default/routing');
     const nav = await screen.findByRole('navigation', {name:'Main navigation'});
     const user = userEvent.setup();
-    for (const [label, path] of [['Routing','routing'],['Evaluations','evaluations'],['Event subscriptions','events']]) {
+    for (const [label, path] of [['Routing','routing'],['Evaluations','evaluations']]) {
       const link = within(nav).getByRole('link', {name:label, exact:true});
       expect(link.getAttribute('href')).toBe(`/workspaces/default/${path}`);
       await user.click(link);
@@ -989,13 +989,13 @@ describe('dashboard route layout', () => {
   });
 });
 
-it.each(['routing', 'evaluations', 'events'].flatMap(section => [false, true].map(unavailable => ({section, unavailable}))))('keeps $section management reachable with payment readiness unavailable=$unavailable', async ({section, unavailable}) => {
+it.each(['routing', 'evaluations'].flatMap(section => [false, true].map(unavailable => ({section, unavailable}))))('keeps $section management reachable with payment readiness unavailable=$unavailable', async ({section, unavailable}) => {
   mockHealth();
   const original = globalThis.fetch;
   vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input).split('?')[0] === '/api/v1/payments/readiness'
     ? Promise.resolve(unavailable ? new Response('', {status: 503}) : Response.json({data: {ready: false, reason: 'payment_setup_required'}})) : original(input, init)));
   renderAt(`/workspaces/default/${section}`);
-  const title = {routing: 'Routing', evaluations: 'Evaluations', events: 'Event subscriptions'}[section]!;
+  const title = {routing: 'Routing', evaluations: 'Evaluations'}[section]!;
   await screen.findByRole('region', {name: title, exact: true});
   expect(screen.queryByRole('region', {name: 'Service setup'})).toBeNull();
   expect(screen.getByRole('button', {name: 'Refresh', exact: true})).toBeTruthy();

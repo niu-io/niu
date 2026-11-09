@@ -38,7 +38,7 @@ function renderAt(
   );
 }
 
-test('routing, evaluations and event subscriptions are separate workspace destinations', () => {
+test('routing and evaluations are separate workspace destinations', () => {
   const workspaceItems = navigation.filter(
     (item) => item.destination === 'Workspace',
   );
@@ -47,10 +47,8 @@ test('routing, evaluations and event subscriptions are separate workspace destin
   const events = workspaceItems.find((item) => item.to === 'events');
   expect(routing?.label).toBe('Routing');
   expect(evaluations?.label).toBe('Evaluations');
-  expect(events?.label).toBe('Event subscriptions');
-  expect(new Set([routing?.to, evaluations?.to, events?.to]).size).toBe(3);
-  expect([routing?.hidden, evaluations?.hidden, events?.hidden]).toEqual([
-    undefined,
+  expect(events).toBeUndefined();
+  expect([routing?.hidden, evaluations?.hidden]).toEqual([
     undefined,
     undefined,
   ]);

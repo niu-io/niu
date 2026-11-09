@@ -158,13 +158,14 @@ function PaymentConfiguration({token}: {token: string}) {
         const configured = gateway.configured && !(gateway.name === 'Stripe' && mock?.available);
         const enabled = configured && epay && savedSettings?.enabled === true;
         const proof=configuration.verification?.gateways.find(item=>item.gateway===gateway.name.toLowerCase());
-        const status = !configured ? uiT("Not configured") : epay&&!enabled ? uiT("Disabled") : proof?.ready ? uiT("Verified") : proof ? uiT("Needs attention") : uiT("Configured");
-        const StatusIcon = !configured ? CircleDashed : status==='Verified' ? CheckCircle2 : PauseCircle;
+        const isVerified = configured && (!epay || enabled) && Boolean(proof?.ready);
+        const status = !configured ? uiT("Not configured") : epay&&!enabled ? uiT("Disabled") : isVerified ? uiT("Verified") : proof ? uiT("Needs attention") : uiT("Configured");
+        const StatusIcon = !configured ? CircleDashed : isVerified ? CheckCircle2 : PauseCircle;
         return <Card key={gateway.name} className="gap-5 shadow-none" role="article" aria-label={gateway.name === 'Zhifux' ? uiT("ZhifuX") : gateway.name}>
           <CardHeader>
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className={`flex h-12 items-center gap-2 rounded-xl px-3 ${gateway.name === 'Zhifux' ? 'bg-[#4f26c3]' : 'bg-muted'}`} aria-hidden="true">{epay ? <><IconBrandAlipay className="size-7 text-[#1677ff]"/><IconBrandWechat className="size-7 text-[#07a940]"/></> : gateway.name === 'Stripe' ? <IconBrandStripe className="size-8 text-[#635bff]"/> : <img src={`${import.meta.env.BASE_URL}payment-gateways/zhifux.png`} alt="" width={89} height={24} className="h-6 w-auto"/>}</div>
-              <Badge variant="secondary" className={`gap-1.5 font-normal ${status==='Verified' ? 'text-[var(--success)]' : ''}`}><StatusIcon className="size-3.5"/>{status}</Badge>
+              <Badge variant="secondary" className={`gap-1.5 font-normal ${isVerified ? 'text-[var(--success)]' : ''}`}><StatusIcon className="size-3.5"/>{status}</Badge>
             </div>
             <CardTitle className="text-base leading-6">{gateway.name === 'Zhifux' ? uiT("ZhifuX") : gateway.name}</CardTitle>
             <CardDescription>{epay ? uiT("Alipay and WeChat Pay through an EPay-compatible merchant.") : gateway.name === 'Stripe' ? uiT("Hosted checkout with your Stripe merchant account.") : uiT("Account top-ups through the ZhifuX native API.")}</CardDescription>

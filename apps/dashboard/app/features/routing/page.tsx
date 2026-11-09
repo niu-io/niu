@@ -15,7 +15,6 @@ import {
 } from '@niu-io/sdk';
 import ConnectGate from '@/shell/ConnectGate';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -956,10 +955,10 @@ function RoutingView({
             'Saved workspace configuration{0}. Your agent can make changes within its delegated authority.',
             [revision ? uiF(' · revision {0}', [revision]) : ''],
           )
-        : t(
+        : rows.length ? t(
             'Define custom models backed by conditional routing rules and fallback candidates, or review agent revisions and execution evidence.',
             '将一系列条件路由与候选回退规则配置为自定义模型，或审阅智能体使用的路由策略、修订记录及执行证据。',
-          );
+          ) : '';
 
   return (
     <ReviewPageShell
@@ -1048,9 +1047,9 @@ function RoutingView({
                       </div>
                     </TableCell>
                     <TableCell className="whitespace-normal">
-                      <Badge variant={row.enabled ? 'secondary' : 'outline'}>
-                        {row.enabled ? uiT('Enabled') : uiT('Disabled')}
-                      </Badge>
+                      <span className="lifecycle-badge" data-tone={row.enabled ? 'active' : 'inactive'}>
+                        <span className="status-dot" aria-hidden="true" />{row.enabled ? uiT('Enabled') : uiT('Disabled')}
+                      </span>
                     </TableCell>
                     <TableCell className="hidden whitespace-normal break-words sm:table-cell">
                       {row.candidates

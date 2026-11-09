@@ -306,7 +306,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
               ))}
             </div>
           )}
-          {data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) === 0 ? <p className="billing-spending-empty">{uiT("No charges yet.")}</p> : null}
+          {data.balances.some(b => Boolean(b.charged_nanos && b.charged_nanos !== '0')) ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) > 0 ? null : (data.unresolved !== '0' || data.unpriced !== '0') ? <p className="billing-spending">{uiT("Pending / unpriced")}</p> : data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos || '0', balance.currency)}</p>) : <p className="billing-spending-empty">{uiT("No charges yet.")}</p>}
           {(data.unresolved !== '0' || data.unpriced !== '0') && <p className="text-muted-foreground">{[data.unresolved !== '0' && `${data.unresolved} ${data.unresolved === '1' ? 'request' : 'requests'} awaiting settlement`, data.unpriced !== '0' && `${data.unpriced} ${data.unpriced === '1' ? 'request' : 'requests'} without a customer rate`].filter(Boolean).join(' · ')}.</p>}
         </section>
         <WorkspaceSpendingLimits token={token} organization={organization} project={project} canConfigure={canConfigure} refresh={revision} />
@@ -463,8 +463,8 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">{uiT("Token rates per million · fees per request")}</p>}</div>
           {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
-          {data.billing_mode !== 'credits' && data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Customer model rates")} style={{minWidth:"70rem",tableLayout:"auto"}}>
-            <TableHeader><TableRow><TableHead style={{width:"18rem"}}>{uiT("Model")}</TableHead><TableHead>{uiT("Input")}</TableHead><TableHead>{uiT("Cache read")}</TableHead><TableHead>{uiT("Cache write")}</TableHead><TableHead>{uiT("Output")}</TableHead><TableHead>{uiT("Reasoning")}</TableHead><TableHead>{uiT("Fixed fee / request")}</TableHead><TableHead>{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
+          {data.billing_mode !== 'credits' && data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger min-w-[44rem]" aria-label={uiT("Customer model rates")}>
+            <TableHeader><TableRow><TableHead className="min-w-44">{uiT("Model")}</TableHead><TableHead>{uiT("Input")}</TableHead><TableHead>{uiT("Cache read")}</TableHead><TableHead>{uiT("Cache write")}</TableHead><TableHead>{uiT("Output")}</TableHead><TableHead>{uiT("Reasoning")}</TableHead><TableHead>{uiT("Fixed fee / request")}</TableHead><TableHead>{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
                 <TableCell>{tariff.model_alias}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>

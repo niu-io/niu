@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -261,7 +261,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
         )}
       </p>
 
-      <div className="flex flex-wrap items-center gap-3">
+      {(pools.length > 0 || Boolean(filter.trim()) || scopeFilter !== 'all') && <div className="flex flex-wrap items-center gap-3">
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="sm">
@@ -343,7 +343,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           <IconRefresh size={16} />
           {t('Refresh pools', '刷新列表')}
         </Button>
-      </div>
+      </div>}
 
       {notice && (
         <Alert>
@@ -534,7 +534,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       ) : (
         !error && (
           <Empty>
-            <EmptyHeader><EmptyTitle>
+            <EmptyHeader><EmptyMedia variant="icon"><IconRoute size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>
               {pools.length > 0
                 ? t('No model pools match the current filter.', '没有符合当前筛选条件的模型池。')
                 : t('No model pools configured yet.', '尚未配置任何模型池。')}
