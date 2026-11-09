@@ -94,9 +94,11 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/admin/providers",
         "/admin/suppliers",
         "/generations",
+        "/invite",
         "/settings",
         "/providers",
         "/suppliers",
+        "/supplier-accounts",
         "/activity",
         "/models",
     ] {

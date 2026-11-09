@@ -12,6 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { catalogTitle } from '@/lib/providers';
 import { readLocale as readUILocale, useLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 
@@ -19,6 +20,23 @@ export function safeText(value: string) {
   return value.replace(
     /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
     '[internal reference]',
+  );
+}
+
+export function formatModelName(value: string) {
+  return catalogTitle(safeText(value));
+}
+
+export function formatModelAlias(value: string) {
+  const clean = safeText(value);
+  const title = catalogTitle(clean);
+  return title !== clean ? (
+    <>
+      {title}
+      <span className="sr-only"> {clean}</span>
+    </>
+  ) : (
+    clean
   );
 }
 

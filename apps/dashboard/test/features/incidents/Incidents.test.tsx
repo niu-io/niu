@@ -62,3 +62,14 @@ it('retains the last active warning when a subsequent monitoring refresh fails',
   expect(screen.getByText('Upstream connections need attention')).toBeTruthy();
   expect(screen.getByText('Could not refresh incident evidence. Review the last known state before assuming recovery.')).toBeTruthy();
 });
+
+it('suppresses unconfirmed monitoring errors on non-connection admin pages while showing them on connection surfaces', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Network unavailable'); }));
+  const { unmount } = render(<MemoryRouter initialEntries={['/admin/branding']}><IncidentNotice token="unconfirmed-token" /></MemoryRouter>);
+  await screen.findByRole('status', { hidden: true }).catch(() => null);
+  await act(async () => {});
+  expect(screen.queryByText('Connection monitoring unavailable')).toBeNull();
+  unmount();
+  render(<MemoryRouter initialEntries={['/admin/providers']}><IncidentNotice token="unconfirmed-token" /></MemoryRouter>);
+  expect(await screen.findByText('Connection monitoring unavailable')).toBeTruthy();
+});

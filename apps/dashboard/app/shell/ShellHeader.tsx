@@ -167,10 +167,10 @@ export default function ShellHeader({
       {destination === 'Workspace' && !workspaceDirectoryArea && !supplierArea && !adminArea ? (
         <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
           <BreadcrumbList className="flex-nowrap gap-1 sm:gap-2.5">
-            <BreadcrumbItem className="min-w-0 gap-0">
+            <BreadcrumbItem className="min-w-0 overflow-hidden gap-0">
               <BreadcrumbLink asChild>
                 <ProductRailLink
-                  className="max-w-20 shrink-0 truncate sm:max-w-64"
+                  className="max-w-20 min-w-0 shrink truncate sm:max-w-64"
                   to={activeWorkspacePath}
                 >
                   {workspace ? workspaceDisplayName(workspace.name) : t('Workspace', '工作空间')}

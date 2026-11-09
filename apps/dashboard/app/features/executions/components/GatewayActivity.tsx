@@ -863,7 +863,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           <DropdownMenu open={filterMenuOpen} onOpenChange={open => { setFilterMenuOpen(open); if (!open) setMobileFilterField(null); }}><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={uiT("Filter requests")} title={uiT("Filter requests")}><ListFilter size={16} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" collisionPadding={16} className={isMobile ? "w-72 max-w-[calc(100vw-32px)]" : "w-52"}>
               {([
-                ['model', uiT('Model'), [...new Set([...models, ...requests.map(item => item.model)])].map(value => ({ value, label: value }))],
+                ['model', uiT('Model'), [...new Set([...models, ...requests.map(item => item.model)])].map(value => ({ value, label: catalogTitle(value) }))],
                 ['keyId', uiT('API key'), keys.map(key => ({ value: key.id, label: key.name }))],
                 ['status', uiT('Status'), ['confirmed_completed', 'output_withheld', 'delivery_failed', 'recorded_failure', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
                 ['httpStatus', uiT('HTTP status'), [...new Set(['unknown', ...(summary?.delivery_statuses ?? []).map(item => item.http_status === null ? 'unknown' : String(item.http_status)), ...(filters.httpStatus ? [filters.httpStatus] : [])])].map(value => ({value, label: value === 'unknown' ? 'Unknown' : `HTTP ${value}`}))],
@@ -872,13 +872,13 @@ export default function GatewayActivity({ token, models, initialScope, compact =
                 <DropdownMenuSeparator /><DropdownMenuLabel>{label}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={filters[field] || '__all__'} onValueChange={value => { updateFilter(field, value === '__all__' ? '' : value); setFilterMenuOpen(false); setMobileFilterField(null); }}>
                   <DropdownMenuRadioItem value="__all__">{uiT("All")}</DropdownMenuRadioItem>
-                  {options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}</DropdownMenuRadioItem>)}
+                  {options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}{field === 'model' && option.label !== option.value && <span className="sr-only"> {option.value}</span>}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
                 {field === 'status' && <p className="px-2 py-1 text-xs text-muted-foreground">{uiT("Status combines execution and delivery. Open a request to see its exact HTTP result.")}</p>}
               </div> : null : <DropdownMenuSub key={field}>
                 <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
                 <DropdownMenuPortal><DropdownMenuSubContent className="max-h-80 overflow-y-auto"><DropdownMenuRadioGroup value={filters[field] || '__all__'} onValueChange={value => { updateFilter(field, value === '__all__' ? '' : value); setFilterMenuOpen(false); }}>
-                  <DropdownMenuRadioItem value="__all__">{uiT("All")}</DropdownMenuRadioItem>{options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}</DropdownMenuRadioItem>)}
+                  <DropdownMenuRadioItem value="__all__">{uiT("All")}</DropdownMenuRadioItem>{options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}{field === 'model' && option.label !== option.value && <span className="sr-only"> {option.value}</span>}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>{field === 'status' && <p className="px-2 py-1 text-xs text-muted-foreground">{uiT("Status combines execution and delivery. Open a request to see its exact HTTP result.")}</p>}</DropdownMenuSubContent></DropdownMenuPortal>
               </DropdownMenuSub>)}
             </DropdownMenuContent>
@@ -895,7 +895,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             <DropdownMenuContent align="end" className="w-52"><DropdownMenuLabel>{uiT("Sort by")}</DropdownMenuLabel><DropdownMenuRadioGroup value={sort} onValueChange={setSort}>{requestSorts.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator /><DropdownMenuItem disabled={invalidDateRange || loading || Boolean(error)} onSelect={() => void exportRequests()}><FileDown />{uiT("Export CSV")}</DropdownMenuItem></DropdownMenuContent>
           </DropdownMenu>}
         </div>
-        {(filters.model || filters.keyId || filters.status || filters.httpStatus || filters.operationId) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus', 'operationId'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'operationId' ? uiT("Related requests") : field === 'keyId' ? keys.find(key => key.id === filters.keyId)?.name ?? uiT("API key") : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? uiT("Unknown delivery status") : `HTTP ${filters.httpStatus}` : filters.model}<X size={12} /><span className="sr-only">{uiT("Remove filter")}</span></Button>)}</div>}
+        {(filters.model || filters.keyId || filters.status || filters.httpStatus || filters.operationId) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus', 'operationId'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'operationId' ? uiT("Related requests") : field === 'keyId' ? keys.find(key => key.id === filters.keyId)?.name ?? uiT("API key") : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? uiT("Unknown delivery status") : `HTTP ${filters.httpStatus}` : <>{catalogTitle(filters.model)}{catalogTitle(filters.model) !== filters.model && <span className="sr-only"> {filters.model}</span>}</>}<X size={12} /><span className="sr-only">{uiT("Remove filter")}</span></Button>)}</div>}
         {keyFilterError && <p role="alert">{uiT(keyFilterError)}</p>}
         {exporting && <p role="status">{uiT("Preparing export…")}</p>}
         {exportError && <p role="alert">{uiT(exportError)}</p>}

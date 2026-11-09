@@ -54,32 +54,11 @@ import { useDashboardContext, type Model } from '@/shell/dashboard-context';
 import { useLocale, translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
-import {
-  fetchQuery,
-  invalidateForMutation,
-  peekQuery,
-} from '@/lib/query-cache';
-import {
-  loadCriticalRouteEndpoint,
-  routeShouldRevalidate,
-  useOptionalRouteLoaderData,
-} from '@/lib/route-data';
+import { fetchQuery, invalidateForMutation, peekQuery } from '@/lib/query-cache';
+import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import ModelPicker from '../agent-review/ModelPicker';
-import {
-  agentHandoffPrompt,
-  ReviewEmptyState,
-  ReviewPageShell,
-  safeText,
-  stamp,
-} from '../agent-review/shared';
-import {
-  buildPoolStrategy,
-  PoolStrategyFields,
-  poolStrategyErrorMessage,
-  PoolStrategySummary,
-  strategyDraftFrom,
-  type PoolStrategyDraft,
-} from './strategy';
+import { agentHandoffPrompt, formatModelAlias, formatModelName, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
+import { buildPoolStrategy, PoolStrategyFields, poolStrategyErrorMessage, PoolStrategySummary, strategyDraftFrom, type PoolStrategyDraft } from './strategy';
 
 function poolSlugFromName(name: string) {
   if (!name.trim()) return '';
@@ -160,7 +139,7 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
         <TableBody>
           {pool.candidates.map((model) => (
             <TableRow key={model.alias}>
-              <TableCell>{safeText(model.alias)}</TableCell>
+              <TableCell>{formatModelAlias(model.alias)}</TableCell>
               <TableCell>{model.enabled ? uiT('Enabled') : uiT('Disabled')}</TableCell>
               <TableCell>{model.priority}</TableCell>
               <TableCell>{model.weight}</TableCell>
@@ -192,7 +171,7 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
                 <TableBody>
                   {rule.candidates.map((candidate) => (
                     <TableRow key={candidate.alias}>
-                      <TableCell>{safeText(candidate.alias)}</TableCell>
+                      <TableCell>{formatModelAlias(candidate.alias)}</TableCell>
                       <TableCell>
                         {candidate.enabled ? uiT('Enabled') : uiT('Disabled')}
                       </TableCell>
@@ -1038,7 +1017,7 @@ function RoutingView({
                           {uiT('Models')}:{' '}
                           {row.candidates
                             .filter((model) => model.enabled)
-                            .map((model) => safeText(model.alias))
+                            .map((model) => formatModelName(model.alias))
                             .join(', ') || uiT('No enabled candidates')}
                         </p>
                         <p>
@@ -1052,10 +1031,16 @@ function RoutingView({
                       </span>
                     </TableCell>
                     <TableCell className="hidden whitespace-normal break-words sm:table-cell">
-                      {row.candidates
-                        .filter((model) => model.enabled)
-                        .map((model) => safeText(model.alias))
-                        .join(', ') || uiT('No enabled candidates')}
+                      {row.candidates.some((model) => model.enabled)
+                        ? row.candidates
+                            .filter((model) => model.enabled)
+                            .map((model, index) => (
+                              <span key={model.alias}>
+                                {index > 0 ? ', ' : ''}
+                                {formatModelAlias(model.alias)}
+                              </span>
+                            ))
+                        : uiT('No enabled candidates')}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {row.revision}
@@ -1157,7 +1142,7 @@ function RoutingView({
                     </TableCell>
                     <TableCell>
                       {policy.candidates
-                        .map((model) => safeText(model.alias))
+                        .map((model) => formatModelName(model.alias))
                         .join(', ')}
                     </TableCell>
                     <TableCell>
@@ -1221,7 +1206,7 @@ function RoutingView({
                         </p>
                         <p>
                           {uiT('Selected model')}:{' '}
-                          {safeText(selection.selected_model)}
+                          {formatModelAlias(selection.selected_model)}
                         </p>
                         <p>
                           {uiT('HTTP response')}:{' '}
@@ -1246,7 +1231,7 @@ function RoutingView({
                       {selection.pool_revision}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      {safeText(selection.selected_model)}
+                      {formatModelAlias(selection.selected_model)}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {selection.response_status ?? uiT('Unavailable')}

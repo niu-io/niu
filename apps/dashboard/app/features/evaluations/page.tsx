@@ -46,20 +46,11 @@ import {
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale, translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { formatDurationMs } from '@/lib/duration';
 import { formatFinancialMoney } from '@/lib/money';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
-import {
-  loadCriticalRouteEndpoint,
-  routeShouldRevalidate,
-  useOptionalRouteLoaderData,
-} from '@/lib/route-data';
-import {
-  agentHandoffPrompt,
-  ReviewEmptyState,
-  ReviewPageShell,
-  safeText,
-  stamp,
-} from '../agent-review/shared';
+import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
+import { agentHandoffPrompt, formatModelAlias, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
 
 function charge(dimension: string, amount: string) {
   const money = /^money:([A-Z]{3}):nanos$/.exec(dimension);
@@ -791,13 +782,7 @@ function EvaluationsView({
                       <TableCell>{uiT(result.input_match)}</TableCell>
                       <TableCell>{uiT(result.judgment.verdict)}</TableCell>
                       <TableCell>
-                        {safeText(
-                          result.attempts.find(
-                            (attempt) =>
-                              attempt.attempt_id ===
-                              result.evaluated_attempt_id,
-                          )?.model ?? 'Unavailable',
-                        )}
+                        {formatModelAlias(result.attempts.find(attempt => attempt.attempt_id === result.evaluated_attempt_id)?.model ?? 'Unavailable')}
                         {(result.pool_selections ?? [])
                           .filter(
                             (policy) =>
@@ -821,7 +806,7 @@ function EvaluationsView({
                       <TableCell>
                         {result.duration_ms === null
                           ? uiT('Unavailable')
-                          : uiF('{0} ms', [result.duration_ms])}
+                          : formatDurationMs(result.duration_ms)}
                       </TableCell>
                       <TableCell className="whitespace-normal">
                         {safeText(
