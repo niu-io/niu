@@ -244,8 +244,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .app-shell .page-content:not(.help-content) { display: flex; flex-direction: column; }
 .page-content:not(.help-content) > .gateway-route-content:not([hidden]),
 .page-content:not(.help-content) > .gateway-route-content > div:not([hidden]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
-.empty-region:has([data-slot="empty"]),
-.empty-region:has(> .empty-state) { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.empty-region:has([data-slot="empty"]) { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 1; }
 .provider-admin-panel:has(> [data-slot="empty"]),.vendor-detail-panel:has(> .vendor-empty) { display: flex; flex: 1; flex-direction: column; }
 .vendor-detail-panel > .vendor-empty { flex: 1; }

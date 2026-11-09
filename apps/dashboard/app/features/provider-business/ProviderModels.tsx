@@ -47,7 +47,7 @@ export default function ProviderModels(props: Props) {
   // Remount on authorization/provider changes so neither reads nor dialogs cross scopes.
   return <ScopedModels key={`${props.token}:${props.providerId}:${props.canManage}`} {...props} />;
 }
-function ScopedModels({ token, providerId, providerSlug, canManage, offers, offersComplete, commercialEnabled = true, onOffer, onEnableOffer, onSaved }: Props) {
+function ScopedModels({ token, providerId, providerSlug, canManage, offers, offersComplete, commercialEnabled = true, onOffer, onEnableOffer: _onEnableOffer, onSaved }: Props) {
   const { t: uiT, format: uiF } = useUILocale();
   const initial = peekScopedModels(token, providerId);
   const [connections, setConnections] = useState<ProviderConnection[]>(() => initial?.connections ?? []);
@@ -180,51 +180,88 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
       } else setActionError(reason instanceof Error ? reason.message : 'Could not import models.');
     } finally { if (active.current) { setBusy(false); setImporting(''); write.current = null; } }
   }
-  return <div className="empty-region space-y-4 px-4 py-4 sm:px-6">
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex w-full min-w-56 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
-      <Button disabled={!canManage || loading || !!error || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null})}><IconPlus size={16} />{uiT("Add model")}</Button>
-      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Refresh")}</Button>
-      {connections.length === 1 && <Button variant="outline" disabled={!canManage || loading || !!error || busy} onClick={() => void importModels(connections[0])}><IconDownload size={16} />{importing ? uiT("Importing…") : uiT("Import models")}</Button>}
-      {connections.length > 1 && <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="outline" disabled={!canManage || loading || !!error || busy}><IconDownload size={16} />{importing ? uiT("Importing…") : uiT("Import models")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
-        <DropdownMenuContent align="end">{connections.map(connection => <DropdownMenuItem key={connection.id} disabled={busy} onSelect={() => void importModels(connection)}>{uiF('Import from {0}', [connection.name || uiT("Unnamed API key")])}</DropdownMenuItem>)}</DropdownMenuContent>
-      </DropdownMenu>}
-      <Button asChild variant="ghost"><Link to={keysHref}>{uiT("Manage API keys")}</Link></Button>
+  return <div className="empty-region space-y-4 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="relative w-full min-w-56 sm:max-w-sm sm:flex-1">
+        <IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input className="pl-9" aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={!canManage || loading || !!error || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null})}><IconPlus size={16} />{uiT("Add model")}</Button>
+        {connections.length === 1 && <Button size="sm" variant="outline" disabled={!canManage || loading || !!error || busy} onClick={() => void importModels(connections[0])}><IconDownload size={16} />{importing ? uiT("Importing…") : uiT("Import models")}</Button>}
+        {connections.length > 1 && <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button size="sm" variant="outline" disabled={!canManage || loading || !!error || busy}><IconDownload size={16} />{importing ? uiT("Importing…") : uiT("Import models")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">{connections.map(connection => <DropdownMenuItem key={connection.id} disabled={busy} onSelect={() => void importModels(connection)}>{uiF('Import from {0}', [connection.name || uiT("Unnamed API key")])}</DropdownMenuItem>)}</DropdownMenuContent>
+        </DropdownMenu>}
+        <Button size="sm" variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Refresh")}</Button>
+        <Button asChild size="sm" variant="ghost"><Link to={keysHref}>{uiT("Manage API keys")}</Link></Button>
+      </div>
     </div>
     {notice && <p role="status" className="text-sm">{notice}</p>}
     {actionError && <p role="alert" className="text-sm text-destructive">{uiT(actionError)}</p>}
-    {loading ? <TableSkeleton columns={2} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
-      {!connections.length && <p>{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline" to={keysHref}>{uiT("Connect API key")}</Link></p>}
-      {!aliases.length ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table className="table-fixed">
-        <TableHeader className="hidden sm:table-header-group"><TableRow><TableHead className="w-[35%]">{uiT("Model")}</TableHead><TableHead>{uiT("Connection and availability")}</TableHead></TableRow></TableHeader>
+    {loading ? <TableSkeleton columns={commercialEnabled ? 5 : 4} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
+      {!connections.length && <p className="text-sm text-muted-foreground">{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline text-foreground" to={keysHref}>{uiT("Connect API key")}</Link></p>}
+      {!aliases.length ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
+        <TableHeader><TableRow><TableHead className="whitespace-nowrap">{uiT("Model")}</TableHead><TableHead>{uiT("Upstream route")}</TableHead><TableHead className="hidden whitespace-nowrap lg:table-cell">{uiT("Route status")}</TableHead>{commercialEnabled && <TableHead className="hidden whitespace-nowrap lg:table-cell">{uiT("Commercial offer")}</TableHead>}<TableHead className="whitespace-nowrap text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader>
         <TableBody>{aliases.slice(0, limit).map(alias => {
           const routes = entries.filter(entry => entry.model.alias === alias);
           const offer = offers.find(item => item.model_alias === alias);
           const commercial = routes.some(entry => !entry.connection.owner_funded);
           const media = offer?.rate_kind === 'media' || routes.some(entry => !!entry.model.capabilities.video_schema);
           const supplyStatus = !offer ? offersComplete ? uiT("No purchase offer") : uiT("Offer status not loaded") : !offer.active ? uiT("Offer paused") : !offer.route_ready ? uiT("No eligible connection") : uiT("Ready for commercial supply");
-          return <TableRow key={alias} className="flex flex-col sm:table-row">
-            <TableCell className="block align-top whitespace-normal break-words font-medium sm:table-cell"><span className="inline-flex items-center gap-2"><ProviderLogo provider={modelIdentity({ id: alias, upstream_model: routes[0]?.model.upstream_model, catalog: routes[0]?.model.capabilities?.catalog })} size="small" /><span>{alias}</span></span></TableCell>
-            <TableCell className="block space-y-3 whitespace-normal sm:table-cell">
-              {routes.map(({connection, model}) => {
-                const check = checks[`${connection.id}:${model.alias}`];
-                const currentCheck = check?.identity === checkIdentity(connection, model) ? check : undefined;
-                const capabilities = modelCapabilityLabels(model.capabilities);
-                return <div key={connection.id} className="space-y-1">
-                  <div className="break-words">{model.upstream_model} <span className="text-muted-foreground">{uiT("via")}{" "}{connection.name || uiT("Unnamed API key")}</span></div>
-                  <p className="text-sm text-muted-foreground">{connection.access_scope === 'internal' ? uiT("Internal shared · billed by Provider") : connection.owner_funded ? uiT("Personal use · billed by Provider") : uiT("Commercial connection")} · {!connection.has_credential ? uiT("API key missing") : !connection.enabled ? uiT("API key disabled") : !model.enabled ? uiT("Model disabled") : model.available === true ? uiT("Route configured · Provider access not verified") : model.available === false ? uiT("Route unavailable") : uiT("Route status unknown")}</p>
-                  {capabilities.length > 0 && <div role="group" className="flex flex-wrap gap-1" aria-label={uiT("Optional capabilities")}>{capabilities.map(label => <Badge key={label} variant="secondary" className="font-normal">{label}</Badge>)}</div>}
-                  <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model})}>{uiT("Edit model")}</Button><Button size="sm" variant="ghost" disabled={!canManage || currentCheck?.pending} onClick={() => void checkModel(connection, model)}>{currentCheck?.pending ? uiT("Checking…") : uiT("Check")}</Button></div>
-                  {currentCheck?.error
-                    ? <span className="vendor-check-result is-error" role="alert">{uiT(currentCheck.error)}</span>
-                    : currentCheck?.result
-                      ? <span className="vendor-check-result" aria-live="polite">{modelCheckLabel(currentCheck.result, model.capabilities)}</span>
-                      : null}
-                </div>;
-              })}
-              {!routes.length && <div><p>{uiT("No model connection configured.")}</p><Button size="sm" variant="outline" disabled={!canManage || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null, initialAlias: alias})}>{uiT("Add model connection")}</Button></div>}
-              {commercialEnabled && (commercial || offer) && <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm">{supplyStatus}</p><div><Button size="sm" variant="outline" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>{offer && !offer.active && <Button size="sm" variant="ghost" disabled={!canManage} onClick={() => onEnableOffer(offer.id)}>{uiT("Enable offer")}</Button>}</div></div>}
+          return <TableRow key={alias}>
+            <TableCell className="align-middle whitespace-nowrap font-medium"><span className="inline-flex items-center gap-2"><ProviderLogo provider={modelIdentity({ id: alias, upstream_model: routes[0]?.model.upstream_model, catalog: routes[0]?.model.capabilities?.catalog })} size="small" /><span>{alias}</span></span></TableCell>
+            <TableCell className="align-middle whitespace-normal lg:whitespace-nowrap">
+              <div className="space-y-1">
+                {routes.map(({connection, model}) => {
+                  const capabilities = modelCapabilityLabels(model.capabilities);
+                  const fullStatus = `${connection.access_scope === 'internal' ? uiT("Internal shared · billed by Provider") : connection.owner_funded ? uiT("Personal use · billed by Provider") : uiT("Commercial connection")} · ${!connection.has_credential ? uiT("API key missing") : !connection.enabled ? uiT("API key disabled") : !model.enabled ? uiT("Model disabled") : model.available === true ? uiT("Route configured · Provider access not verified") : model.available === false ? uiT("Route unavailable") : uiT("Route status unknown")}`;
+                  return <div key={connection.id} className="flex flex-wrap items-center gap-x-1.5 gap-y-1 lg:flex-nowrap">
+                    <span className="font-mono text-[13px] font-medium text-foreground">{model.upstream_model}</span>
+                    {connections.length > 1 && <span className="text-xs text-muted-foreground">{uiT("via")}{" "}{connection.name || uiT("Unnamed API key")}</span>}
+                    {capabilities.length > 0 && <span role="group" className="inline-flex flex-wrap items-center gap-1 lg:flex-nowrap" aria-label={uiT("Optional capabilities")}>{capabilities.map(label => <Badge key={label} variant="secondary" className="px-1.5 py-0 text-[11px] font-normal">{label}</Badge>)}</span>}
+                    <span className="sr-only">{fullStatus}</span>
+                  </div>;
+                })}
+                {!routes.length && <span className="text-sm text-muted-foreground">{uiT("No model connection configured.")}</span>}
+              </div>
+            </TableCell>
+            <TableCell className="hidden align-middle whitespace-nowrap lg:table-cell">
+              <div className="space-y-1">
+                {routes.map(({connection, model}) => {
+                  const check = checks[`${connection.id}:${model.alias}`];
+                  const currentCheck = check?.identity === checkIdentity(connection, model) ? check : undefined;
+                  const shortStatus = !connection.has_credential ? uiT("API key missing") : !connection.enabled ? uiT("API key disabled") : !model.enabled ? uiT("Model disabled") : model.available === true ? uiT("Route configured") : model.available === false ? uiT("Route unavailable") : uiT("Route status unknown");
+                  return <div key={connection.id} className="space-y-1">
+                    <Badge variant={model.enabled && connection.enabled && connection.has_credential && model.available !== false ? "secondary" : "outline"} className="font-normal">{shortStatus}</Badge>
+                    {currentCheck?.error
+                      ? <span className="vendor-check-result is-error block text-xs whitespace-normal" role="alert">{uiT(currentCheck.error)}</span>
+                      : currentCheck?.result
+                        ? <span className="vendor-check-result block text-xs whitespace-normal" aria-live="polite">{modelCheckLabel(currentCheck.result, model.capabilities)}</span>
+                        : null}
+                  </div>;
+                })}
+                {!routes.length && <span className="text-xs text-muted-foreground">—</span>}
+              </div>
+            </TableCell>
+            {commercialEnabled && <TableCell className="hidden align-middle whitespace-nowrap lg:table-cell">
+              {(commercial || offer) ? <div className="inline-flex items-center gap-1">
+                <Badge variant={offer?.active && offer?.route_ready ? "secondary" : "outline"} className="font-normal">{supplyStatus}</Badge>
+                <Button size="xs" variant="ghost" className="px-1.5" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>
+              </div> : <span className="text-xs text-muted-foreground">—</span>}
+            </TableCell>}
+            <TableCell className="align-middle whitespace-nowrap text-right">
+              <div className="inline-flex items-center justify-end gap-1">
+                {routes.map(({connection, model}) => {
+                  const check = checks[`${connection.id}:${model.alias}`];
+                  const currentCheck = check?.identity === checkIdentity(connection, model) ? check : undefined;
+                  return <span key={connection.id} className="inline-flex items-center gap-1">
+                    <Button size="xs" variant="ghost" className="px-1.5" disabled={!canManage || currentCheck?.pending} onClick={() => void checkModel(connection, model)}>{currentCheck?.pending ? uiT("Checking…") : uiT("Check")}</Button>
+                    <Button size="xs" variant="outline" disabled={!canManage} onClick={() => openEditor({connectionId: connection.id, model})}>{uiT("Edit model")}</Button>
+                  </span>;
+                })}
+                {!routes.length && <Button size="xs" variant="outline" disabled={!canManage || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null, initialAlias: alias})}>{uiT("Add model connection")}</Button>}
+              </div>
             </TableCell>
           </TableRow>;
         })}</TableBody>

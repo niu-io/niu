@@ -298,7 +298,6 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
   .overview-workflow-icon { margin-bottom: 9px; }
   .overview-workflow p { min-height: 0; }}
 
-
 /* Owner-visible invitation directory. Secrets are never recoverable here. */
 .operator-invitations { display: grid; gap: 12px; margin-top: 10px; }
 .operator-invitations-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

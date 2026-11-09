@@ -381,7 +381,7 @@ function Administration({ token }: { token: string }) {
       if (offer?.currency && currency && offer.currency !== currency) throw new Error(uiF("These saved rates use {0}. Publish new {1} terms without copying amounts across currencies.", [offer.currency, currency]));
       const decimal = (value: string) => {
         const amount = BigInt(value), fraction = (amount % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
-        return (amount / 1_000_000_000n).toString() + (fraction ? "." + fraction : "");
+        return `${amount / 1_000_000_000n}${fraction ? `.${fraction}` : ""}`;
       };
       setData(result.data);
       if (replaceDraft) {
@@ -682,10 +682,10 @@ function Administration({ token }: { token: string }) {
           {(section === "overview" || section === "models") && <>
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {!internal && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
+            {!internal && <TabsList variant="line" className="mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
             <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin} offers={internal ? [] : data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} commercialEnabled={!internal} onEnableOffer={id => open("offer-enable", id)} onOffer={(modelAlias, media) => { if (media) { setPricingTab("media"); setMediaRateModel(modelAlias); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
             <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
+            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 pb-4"><div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={offerSearch} type="search" className="pl-9" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
               visibleOffers.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
               <div className="table-wrap">
@@ -735,10 +735,10 @@ function Administration({ token }: { token: string }) {
             )}
             </TabsContent>
             {section === "models" && <TabsContent value="media">
-              <div className="px-6"><MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} /></div>
+              <div><MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} /></div>
             </TabsContent>}
             </Tabs>
-            {!internal && data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
+            {!internal && data?.offers_has_more && <div className="py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}
           {!internal && (section === "overview" || section === "settlements") && <div className="provider-admin-block">

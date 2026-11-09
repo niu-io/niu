@@ -36,8 +36,6 @@
   .dashboard-login-brand .dashboard-login-product { display:none; }
   .dashboard-login-topbar { gap: 4px; }
   .dashboard-login-nav [data-slot="button"] { padding-inline: 5px; }}
-
-.gateway-route-content > div > .empty-state { width: 100%; }
 .generations-history [data-slot="empty"] { min-height: 160px; }
 .provider-empty-state { flex: 1; }
 
@@ -54,10 +52,6 @@
 
 /* The staging payment notice stays one line. The longer explanation opens on demand. */
 .mock-payment-warning { padding-block: 0.45rem; }
-.mock-payment-warning .mock-payment-full { display: none; }
-.mock-payment-warning .mock-payment-compact { display: block; }
-.mock-payment-warning .mock-payment-compact summary { cursor: pointer; font-size: 13px; color: var(--muted-foreground); }
-.mock-payment-warning .mock-payment-compact p { margin-top: 0.375rem; }
 .mock-payment-warning [data-slot="alert-title"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 620; }
 
 .help-search-fab {
