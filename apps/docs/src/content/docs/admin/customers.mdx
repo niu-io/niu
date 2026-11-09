@@ -11,6 +11,8 @@ merchant configuration or installation access.
 
 ## Prepare the service
 
+In default **Internal use** mode (`NIU_OPERATING_MODE=internal`), internal workspaces can call connected Provider routes without customer billing setup. When operating in **Resale** mode (`NIU_OPERATING_MODE=resale`), complete these prerequisites before onboarding paid customers:
+
 1. Configure the platform currency in **Admin → Settings** and a supported gateway
    in **Admin → Payment gateways**. Workspace features remain unavailable until
    this prerequisite is satisfied. See [payment configuration](/docs/admin/payments/).
@@ -81,8 +83,10 @@ still incur real upstream costs, so keep the environment and API keys private.
 
 ## 准备平台服务
 
+在默认的**内部使用**模式（`NIU_OPERATING_MODE=internal`）下，内部工作空间可直接调用已连接的模型供应商路由，无需配置客户计费。当运行于**商业转售**模式（`NIU_OPERATING_MODE=resale`）时，请在开通付费客户前完成以下先决条件：
+
 1. 在**管理后台 → 实例设置**（**Admin → Settings**）中配置平台结算币种，并在**管理后台 → 支付网关**（**Admin → Payment gateways**）中配置受支持的支付网关。在满足此先决条件前，工作空间功能将保持不可用。请参阅[支付配置](/docs/admin/payments/)。
-2. 在**管理后台 → 模型供应商**（**Admin → Providers**）中连接并验证拟提供的模型。仅保存 API 凭证并不代表该模型已可供客户调用。
+2. 在**管理后台 → 模型供应商**（**Admin → Providers**）中连接拟提供的模型，并针对每个当前报价修订版本显式启用商业供应授权。仅保存 API 凭证或启用路由并不代表该模型已可供客户调用。
 3. 在**管理后台 → 定价配置**（**Admin → Pricing**）中发布客户销售价格。请将上游采购价与平台毛利保留在管理后台中；它们不是面向客户的收费标准。
 4. 在交付访问权限前，请先为当前部署启用受支持的[成员登录方式](/docs/deployment/single-container/#enable-member-sign-in)。
 

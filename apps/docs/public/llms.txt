@@ -12,7 +12,7 @@
 - [OpenAPI](https://niu.io/docs/openapi/public.json): Machine-readable REST contracts.
 - [SDK](https://niu.io/docs/api/sdk/): Generated TypeScript reference.
 
-- [Workspace model pools](https://niu.io/docs/pools.md): delegated candidate workflow, revisions, execution evidence and recovery limits.
+- [Workspace model routing](https://niu.io/docs/pools.md): delegated candidate workflow (`pool/<slug>`), revisions, execution evidence and recovery limits.
 - [Workspace resource events](https://niu.io/docs/events.md): event cursors, scoped signed subscriptions, private signing credentials and delivery reconciliation.
 
 - [Task evaluations](https://niu.io/docs/evaluations.md): explicit grants, input fingerprints, attributed judgments, comparable sample coverage and customer charges.

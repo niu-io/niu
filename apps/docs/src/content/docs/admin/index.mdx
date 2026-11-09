@@ -5,7 +5,7 @@ description: Configure model supply, customer pricing, payments and deployment b
 
 <div data-lang="en">
 
-Administration manages the installation-wide settings behind your Niu gateway. It is separate from a customer's workspace and from a Provider's own business portal.
+Administration manages the installation-wide settings behind your Niu gateway. It is separate from a customer's workspace; Provider records and finances are managed directly here rather than through a separate Provider portal.
 
 ## Open Admin
 
@@ -15,17 +15,20 @@ The current dashboard requires installation or platform administrator authority 
 
 ## Set up your installation
 
+Niu defaults to **Internal use** mode (`NIU_OPERATING_MODE=internal`), where connecting a Provider in **Admin → Providers** immediately makes enabled model routes available to authorized workspaces without customer billing setup. Set `NIU_OPERATING_MODE=resale` when operating a multi-customer commercial deployment that requires platform currency, payment gateways, offer commercial authorization, and published customer selling prices.
+
 | Task | Guide | Dashboard destination |
 | --- | --- | --- |
-| Configure platform currency | [Customer setup](/docs/admin/customers/) | Admin → Settings |
-| Set up independently funded customers | [Customer setup](/docs/admin/customers/) | Admin → Customers |
 | Connect model supply and credentials | [Providers](/docs/admin/suppliers/) | Admin → Providers |
-| Configure customer selling prices | [Customer pricing](/docs/admin/pricing/) | Admin → Pricing |
-| Configure supported top-up payment methods | [Payments](/docs/admin/payments/) | Admin → Payment gateways |
+| Inspect upstream credential & permission incidents | [Providers](/docs/admin/suppliers/#connection-incidents) | Admin → Incidents |
+| Configure platform currency (Resale mode) | [Customer setup](/docs/admin/customers/) | Admin → Settings |
+| Set up independently funded customers (Resale mode) | [Customer setup](/docs/admin/customers/) | Admin → Customers |
+| Configure customer selling prices (Resale mode) | [Customer pricing](/docs/admin/pricing/) | Admin → Pricing |
+| Configure supported top-up payment methods (Resale mode) | [Payments](/docs/admin/payments/) | Admin → Payment gateways |
 | Set deployment branding and appearance | [Branding & theme](/docs/admin/branding/) | Admin → Branding |
 | Review saved administrative changes | [Audit logs](/docs/reference/platform-audit/) | Admin → Audit logs |
 
-Configure the platform currency and a payment gateway before workspace features become available. Then authorize Provider offers and publish customer selling prices before handing off paid access. Create a workspace key with the intended model grants and limits, and use the [API quickstart](/docs/guides/api-quickstart/) to check an application request. Review its customer-facing usage separately from confidential supply information.
+In **Resale** mode, configure the platform currency and a payment gateway before workspace features become available, then authorize Provider offers and publish customer selling prices before handing off paid access. Create a workspace key with the intended model grants and limits, and use the [API quickstart](/docs/guides/api-quickstart/) to check an application request. Review its customer-facing usage separately from confidential supply information.
 
 ## Guides and generated references
 
@@ -35,7 +38,7 @@ These guides explain administrator workflows. Exact parameters, response types a
 
 <div data-lang="zh" data-title-zh="平台管理">
 
-平台管理（Administration）用于管理 Niu 网关背后的全局安装实例设置。它与客户的工作空间以及模型供应商自身的业务门户相互独立。
+平台管理（Administration）用于管理 Niu 网关背后的全局安装实例设置。它与客户的工作空间相互独立；模型供应商的档案与财务结算直接在此统一管理，系统不开放单独的模型供应商门户。
 
 ## 打开管理后台
 
@@ -45,17 +48,20 @@ These guides explain administrator workflows. Exact parameters, response types a
 
 ## 设置您的安装实例
 
+Niu 默认采用**内部使用**模式（`NIU_OPERATING_MODE=internal`）：在**管理后台 → 模型供应商**中连接并导入模型后，已授权的工作空间即可直接调用，无需配置客户计费流程。若需运行面向多客户的商业化服务，请设置 `NIU_OPERATING_MODE=resale`（**商业转售**模式），并完成平台结算币种、支付网关、商业供应报价授权与客户销售价格配置。
+
 | 任务 | 指南 | 控制台位置 |
 | --- | --- | --- |
-| 配置平台结算币种 | [客户配置](/docs/admin/customers/) | 管理后台 → 实例设置（Admin → Settings） |
-| 开通独立资金账户的客户 | [客户配置](/docs/admin/customers/) | 管理后台 → 客户管理（Admin → Customers） |
 | 连接模型供应与凭证 | [模型供应商](/docs/admin/suppliers/) | 管理后台 → 模型供应商（Admin → Providers） |
-| 配置客户销售价格 | [客户定价](/docs/admin/pricing/) | 管理后台 → 定价配置（Admin → Pricing） |
-| 配置受支持的充值支付方式 | [支付配置](/docs/admin/payments/) | 管理后台 → 支付网关（Admin → Payment gateways） |
+| 排查上游凭证与权限故障事件 | [模型供应商](/docs/admin/suppliers/#connection-incidents) | 管理后台 → 连接故障（Admin → Incidents） |
+| 配置平台结算币种（商业转售模式） | [客户配置](/docs/admin/customers/) | 管理后台 → 实例设置（Admin → Settings） |
+| 开通独立资金账户的客户（商业转售模式） | [客户配置](/docs/admin/customers/) | 管理后台 → 客户管理（Admin → Customers） |
+| 配置客户销售价格（商业转售模式） | [客户定价](/docs/admin/pricing/) | 管理后台 → 定价配置（Admin → Pricing） |
+| 配置受支持的充值支付方式（商业转售模式） | [支付配置](/docs/admin/payments/) | 管理后台 → 支付网关（Admin → Payment gateways） |
 | 设置部署品牌与外观 | [品牌与主题](/docs/admin/branding/) | 管理后台 → 品牌定制（Admin → Branding） |
 | 审查已保存的管理变更 | [审计日志](/docs/reference/platform-audit/) | 管理后台 → 审计日志（Admin → Audit logs） |
 
-在工作空间功能可用之前，请先配置平台结算币种和支付网关。随后在交付付费访问权限前，完成模型供应商模型的准入验证并发布客户销售价格。创建一个具有预期模型授权与限额的工作空间密钥，并使用 [API 快速入门](/docs/guides/api-quickstart/)验证一次应用请求。请将面向客户的用量与保密的供应侧信息分开审查。
+在**商业转售**（**Resale**）模式下，工作空间功能可用前请先配置平台结算币种和支付网关，并在交付付费访问权限前完成模型供应商报价商业授权与客户销售价格发布。创建一个具有预期模型授权与限额的工作空间密钥，并使用 [API 快速入门](/docs/guides/api-quickstart/)验证一次应用请求。请将面向客户的用量与保密的供应侧信息分开审查。
 
 ## 指南与自动生成的参考文档
 

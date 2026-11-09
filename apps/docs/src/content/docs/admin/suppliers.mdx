@@ -7,15 +7,22 @@ description: Connect upstream credentials and manage customer model routes.
 
 A **Provider** supplies model access through an upstream API service. One Provider can have multiple API credentials, each with its own adapter, endpoint, enabled state and model mappings. Its offers, agreed purchase rates and settlements belong to the same Provider. Provider finances and statistics are currently managed only by platform administrators; no Provider login role or portal is available.
 
+## Operating modes: Internal use and Resale
+
+Niu supports two installation operating modes configured via `NIU_OPERATING_MODE`:
+
+- **Internal use (`NIU_OPERATING_MODE=internal`, default)**: Connects shared upstream Providers for your own organization's workspaces. Imported and enabled model routes are immediately available to authorized workspaces without configuring platform currency, payment gateways, customer selling prices, or commercial offer authorizations.
+- **Resale (`NIU_OPERATING_MODE=resale`)**: Operates Niu as a commercial multi-customer service. Before a customer workspace can call a shared Provider route, an administrator must publish the agreed Provider purchase rate, explicitly authorize the exact current offer revision for commercial use, and publish a customer selling price in **Admin → Pricing**.
+
 ## Before you connect
 
 Set `NIU_VENDOR_ENCRYPTION_KEY` in the deployment secret store before saving credentials. Back it up separately from PostgreSQL. API reads do not return saved secrets; changing the encryption key without re-encrypting existing data makes those credentials unreadable. See [credential protection](/docs/security/overview/).
 
 ## Connect model supply
 
-1. Open **Admin → Providers** and create or choose a Provider.
-2. Open its **API keys** section. Add a credential using the adapter and endpoint appropriate to the upstream service.
-3. Configure the upstream models exposed by that credential and the customer model aliases you intend to offer. Select only capabilities supported by the actual model and adapter.
+1. Open **Admin → Providers** and click **New Provider**. Choose a prepared preset (**OpenRouter**, **FastRouter**, **BabelArk**, **Qiniu**, **DeepSeek**) or **Custom** for any OpenAI-compatible, Anthropic Messages, New API, or LiteLLM endpoint.
+2. For a prepared preset, enter your upstream API key and click **Connect and import models** to create the Provider, save the encrypted credential, verify the upstream catalog, and import discovered model routes in one step. Or open an existing Provider's **API keys** section to add a credential manually.
+3. Configure or review the upstream models exposed by that credential and the public model aliases you intend to offer. Select only capabilities supported by the actual model and adapter.
 4. Check the connection and inspect its result. Saving a credential or seeing a model in a catalog does not establish successful generation.
 5. Enable the intended mappings, grant the model to a workspace key, and make a bounded [test request](/docs/guides/api-quickstart/).
 
@@ -39,7 +46,11 @@ Provider sections include **Overview**, **API keys**, **Models**, **Usage**, **S
 
 Keep customer selling prices separate from Provider offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Provider membership does not enable portal access. Platform administrators manage financial and statistics records and can provide externally reviewed billing exports when needed.
 
-For commercial supply, publish the agreed purchase rate, then have an authorized platform administrator explicitly enable the offer for its exact current revision. That action records the commercial authorization and pauses or invalidates it when the rate, route or credential changes. A personal upstream credential used for testing cannot supply a commercial offer. Authorization does not prove live upstream access, and customer selling prices and selling eligibility remain separate workspace decisions.
+For commercial supply in **Resale** mode, publish the agreed purchase rate, then have an authorized platform administrator explicitly enable the offer for its exact current revision. That action records the commercial authorization and pauses or invalidates it when the rate, route or credential changes. A personal upstream credential used for testing cannot supply a commercial offer. Authorization does not prove live upstream access, and customer selling prices and selling eligibility remain separate workspace decisions.
+
+## Connection incidents
+
+When upstream inference or connection verification encounters authentication failures (`401`), account/permission restrictions (`403`), or repeated upstream credential rejections, Niu records a connection incident visible in **Admin → Incidents** (`/api/v1/incidents`). Inspect the affected Provider, credential and upstream status code, rotate or repair the credential in **Admin → Providers**, and re-verify the connection to resolve the incident.
 
 ## Video routes
 
@@ -51,7 +62,14 @@ The [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niu
 
 <div data-lang="zh" data-title-zh="模型供应商管理">
 
-**模型供应商**（**Provider**）通过上游 API 服务提供模型访问能力。一个模型供应商可以配置多个 API 凭证，每个凭证都可以拥有各自独立的适配器、端点、启用状态和模型映射。其供应报价（offers）、约定采购费率、门户访问权限及结算记录均归属于同一个模型供应商。
+**模型供应商**（**Provider**）通过上游 API 服务提供模型访问能力。一个模型供应商可以配置多个 API 凭证，每个凭证都可以拥有各自独立的适配器、端点、启用状态和模型映射。其供应报价（offers）、约定采购费率及结算记录均归属于同一个模型供应商。模型供应商的财务与统计记录目前仅由平台管理员统一管理；系统不提供独立的模型供应商登录角色或供应商门户。
+
+## 运行模式：内部使用与商业转售
+
+Niu 支持通过 `NIU_OPERATING_MODE` 配置两种安装实例运行模式：
+
+- **内部使用（`NIU_OPERATING_MODE=internal`，默认）**：为您自身组织的工作空间连接共享上游模型供应商。导入并启用模型路由后，已授权的工作空间即可直接调用，无需配置平台结算币种、支付网关、客户销售价格或商业供应报价授权。
+- **商业转售（`NIU_OPERATING_MODE=resale`）**：将 Niu 作为面向多客户的商业化服务运行。在客户工作空间调用共享模型供应商路由之前，平台管理员必须先发布约定采购费率、针对当前确切的报价修订版本显式启用商业供应授权（commercial authorization），并在**管理后台 → 定价配置**（**Admin → Pricing**）中发布客户销售价格。
 
 ## 连接前的准备
 
@@ -59,9 +77,9 @@ The [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niu
 
 ## 连接模型供应
 
-1. 打开**管理 → 模型供应商**（**Admin → Providers**），创建或选择一个模型供应商。
-2. 打开其 **API 密钥**（**API keys**）部分。使用适用于该上游服务的适配器和端点添加一条凭证。
-3. 配置该凭证所暴露的上游模型，以及您计划对客户提供的模型别名。请仅勾选实际模型和适配器确实支持的能力。
+1. 打开**管理后台 → 模型供应商**（**Admin → Providers**）并点击**新建模型供应商**（**New Provider**）。选择预设模板（**OpenRouter**、**FastRouter**、**BabelArk**、**Qiniu**、**DeepSeek**），或选择 **Custom** 配置任意 OpenAI 兼容、Anthropic Messages、New API 或 LiteLLM 端点。
+2. 使用预设模板时，输入上游 API 密钥并点击**连接并导入模型**（**Connect and import models**），即可一步完成创建模型供应商、加密保存凭证、校验上游目录并导入所发现的模型路由；您也可以打开现有模型供应商的 **API 密钥**（**API keys**）部分手动添加凭证。
+3. 配置或核对该凭证所暴露的上游模型，以及您计划公开提供的模型别名。请仅勾选实际模型和适配器确实支持的能力。
 4. 执行连接检查并查看检查结果。保存凭证或在目录中看到某个模型，并不代表模型生成调用一定能够成功。
 5. 启用预期的模型映射，将该模型授权给工作空间密钥，并发起一次有界的[测试请求](/docs/guides/api-quickstart/)。
 
@@ -83,9 +101,13 @@ OpenRouter 建议使用 `https://openrouter.ai/api/v1`。New API 和 LiteLLM 应
 
 模型供应商管理页面包含**概览**（**Overview**）、**API 密钥**（**API keys**）、**模型**（**Models**）、**用量**（**Usage**）、**结算**（**Settlements**）、**成员管理**（**Members**）和**设置**（**Settings**）等部分。请将凭证轮换和启用状态变更限制在所选凭证的范围内；这些操作不应替换模型供应商本身的身份或影响无关的模型映射。
 
-请将面向客户的销售价格与模型供应商报价严格分开。采购费率、上游支出和平台利润属于授权平台管理范畴；面向客户的报告仅展示客户费用。供应商门户的访问权限仅限于该模型供应商自身获批查看的记录。
+请将面向客户的销售价格与模型供应商报价严格分开。采购费率、上游支出和平台利润属于授权平台管理范畴；面向客户的报告仅展示客户费用。模型供应商成员身份不会开启独立的门户访问权限；平台管理员统一管理财务与统计记录，并可在需要时导出经外部核对的账单报表。
 
-对于商业化模型供应，在发布供应报价之前，请先对服务权益、模型行为、数据处理、可用性以及约定费率完成资质审核。用于测试的个人上游凭证不构成合格的商业供应协议。
+在**商业转售**（**Resale**）模式下提供商业化模型供应时，请先发布约定采购费率，然后由经授权的平台管理员针对当前确切的报价修订版本显式启用商业供应授权。该操作会记录商业授权状态，并在费率、路由或凭证发生变更时自动暂停或失效。用于测试的个人上游凭证不能用于商业供应报价。完成商业授权并不证明实时上游访问一定可用，客户销售价格与销售资格仍然是独立的工作空间决策。
+
+## 连接故障事件（Connection incidents）
+
+当上游模型推理或连接检查遇到认证失败（`401`）、账户/权限受限（`403`）或持续的上游凭证拒绝时，Niu 会生成一条连接故障记录，并展示在**管理后台 → 连接故障**（**Admin → Incidents**，对应 `/api/v1/incidents`）中。请检查受影响的模型供应商、凭证与上游状态码，在**管理后台 → 模型供应商**中轮换或修复凭证，并重新验证连接以解除故障状态。
 
 ## 视频路由
 
