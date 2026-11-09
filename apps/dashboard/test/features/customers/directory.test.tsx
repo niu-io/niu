@@ -107,5 +107,5 @@ it('shows the customer directory empty state without an empty table',async()=>{
  stubApi({accounts:{data:[],next_after:null}});show();
  expect(await screen.findByText('No customers yet. Create a company to start setting up independent customer access.')).toBeTruthy();
  expect(screen.queryByRole('table')).toBeNull();
- expect(screen.getByRole('button',{name:'New customer'})).toBeTruthy();
+ expect(screen.getAllByRole('button',{name:'New customer'})).toHaveLength(2);
 });

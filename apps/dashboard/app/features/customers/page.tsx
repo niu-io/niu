@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -191,7 +191,7 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
     {notice && <p role="status">{uiT(notice)}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !companies.length && <TableSkeleton columns={8} rows={5} label={uiT("Loading customer balances…")} />}
-    {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuilding size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No customers yet")}</EmptyTitle><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader></Empty>}
+    {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuilding size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No customers yet")}</EmptyTitle><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader>{canSetup && <EmptyContent><Button onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} aria-hidden="true" /><span>{uiT("New customer")}</span></Button></EmptyContent>}</Empty>}
     {!!companies.length && <Table className="table-fixed min-w-[680px]" aria-label={uiT("Customer companies")}><TableHeader><TableRow>{[uiT('Company'), uiT('Credits'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')].map((name, index) => <TableHead key={name} className={COLUMN_WIDTHS[index] + ' ' + (index > 2 && index < 7 ? 'text-right whitespace-normal' : 'whitespace-nowrap') + (index === 7 ? ' text-right' : '')}>{name}</TableHead>)}</TableRow></TableHeader>
       <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map(account => <TableRow key={company.organization_id + ':' + account.currency}>
         <TableCell className="whitespace-normal min-w-48 max-w-72"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell>
