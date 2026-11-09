@@ -3,5 +3,5 @@ import ConnectGate from '@/shell/ConnectGate';
 import GenerationsLayout from './GenerationsLayout';
 
 export default function GenerationsRouteLayout() {
-  return <ConnectGate>{context => <GenerationsLayout environmentNotice={context.environmentNotice}><Outlet context={context} /></GenerationsLayout>}</ConnectGate>;
+  return <ConnectGate>{context => <GenerationsLayout><Outlet context={context} /></GenerationsLayout>}</ConnectGate>;
 }

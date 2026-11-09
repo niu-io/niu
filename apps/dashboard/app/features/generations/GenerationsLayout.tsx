@@ -54,7 +54,7 @@ export function GenerationSessionBindings(content: Content) {
   return null;
 }
 
-export default function GenerationsLayout({ children, environmentNotice }: { children: ReactNode; environmentNotice?: ReactNode }) {
+export default function GenerationsLayout({ children }: { children: ReactNode }) {
   const { t: uiT } = useUILocale();
   const toggle = useRef<HTMLButtonElement>(null);
   const { toggleSidebar, isMobile, openMobile, open } = useSidebar();
@@ -83,7 +83,6 @@ export default function GenerationsLayout({ children, environmentNotice }: { chi
   }, [content?.contextPanel?.initialRunId]);
   return <Host.Provider value={publish}><div className="generations-layout"><GenerationsSidebar content={content} toggle={toggle} /><div className="generations-session">
     <header className="generations-toolbar"><div className="playground-header-navigation"><Button ref={toggle} variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><h1>{content?.title ?? uiT("New generation")}</h1><div className="generations-toolbar-actions">{content?.actions}{content?.contextPanel && <GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => setContextOpen(current => !current)} />}</div></header>
-    {environmentNotice}
     <div className="generations-session-content"><div className="generations-session-primary">{children}</div>{content?.contextPanel && <GenerationsContextPanel sessionKey={content.sessionKey} panel={content.contextPanel} open={contextOpen} onOpenChange={setContextOpen} activeTab={contextTab} onTabChange={setContextTab} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />}</div>
   </div></div></Host.Provider>;
 }
