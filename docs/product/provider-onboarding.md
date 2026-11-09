@@ -35,7 +35,7 @@ Visibility and funding attribution are enforced by the backend:
 
 - Internal-scope models are visible to authorized organizations and their model-granted keys; personal-scope routes remain isolated to their funding account.
 - Both scopes remain owner-funded. They are excluded from shared commercial supply, customer tariffs, retail media, settlement and Provider offers.
-- `public_catalog` is truthful for internal scope: an operator may publish an alias to the unauthenticated model list, and the checked flag now produces that result. Personal scope never publishes.
+- The public catalog is retired. Saving a route clears `public_catalog`, and `GET /catalog/v1/models` returns an empty list. Personal scope remains private to the owning account.
 - Catalog responses contain model metadata only. Credentials, endpoints, upstream mappings and procurement prices remain server-side. Route readiness still requires an enabled credential, enabled mapping and a matching scope; catalog visibility does not qualify supply or prove inference access.
 
 ## Administrator-managed Provider presets

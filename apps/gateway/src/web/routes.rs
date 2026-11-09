@@ -2257,36 +2257,9 @@ async fn get_generation(
     })))
 }
 
-async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    let (models, generation_routes) = crate::vendors::generation_catalog(&state, None).await?;
-    let data: Vec<_> = models
-        .iter()
-        .filter(|(_, model)| model.public_catalog)
-        .map(|(name, model)| {
-            let video_configuration = generation_routes.get(name)
-                .filter(|route| route.model.capabilities.get("video_schema").is_some())
-                .map(super::inference::video_models::configured_preview);
-            json!({
-                "id": name,
-                "object": "model",
-                "owned_by": "niu",
-                "catalog": model.catalog.customer_metadata(),
-                "generation_capabilities": configured_generation_capabilities(model, video_configuration),
-                "capabilities": {
-                    "chat_completions": video_configuration.is_none() && model.protocol().supports_chat_completions(),
-                    "streaming": model.protocol().supports_streaming(),
-                    "tool_calls": chat_tool_capabilities(model)["tool_calls"],
-                    "streaming_tool_calls": chat_tool_capabilities(model)["streaming_tool_calls"],
-                    "embeddings": model.supports_embeddings,
-                    "messages": model.supports_messages,
-                    "messages_streaming": model.supports_messages_streaming,
-                    "generate_content": model.supports_generate_content,
-                    "responses": model.supports_responses
-                }
-            })
-        })
-        .collect();
-    Ok(Json(json!({"object": "list", "data": data})))
+async fn catalog_models(State(_state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    // The public catalog was removed. Existing clients still receive an empty list.
+    Ok(Json(json!({"object": "list", "data": []})))
 }
 
 #[derive(Deserialize)]

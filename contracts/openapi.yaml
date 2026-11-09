@@ -1016,8 +1016,8 @@ paths:
   /catalog/v1/models:
     get:
       operationId: listPublicCatalogModels
-      summary: List model aliases explicitly published by the gateway operator
-      description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
+      summary: Retired public catalog list
+      description: The public catalog is retired. This route returns an empty list. Use the authenticated model list for models a workspace key can call.
       responses:
         '200':
           description: Public model aliases and declared capabilities, including configured tool_calls and streaming_tool_calls. These flags do not guarantee upstream availability or authorization. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.

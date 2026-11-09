@@ -113,8 +113,7 @@ describe('Global Chat', () => {
     const prompt=await screen.findByLabelText('Prompt for all selected models');
     await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
     await user.type(prompt,'Keep this draft');
-    await user.click(screen.getByRole('button',{name:/API key: Choose API key/i}));
-    expect(await screen.findByText(/No active API key is available/)).toBeTruthy();
+    expect(await screen.findByText('This API key is invalid. Choose another or create a new one to continue.')).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Create API key'}));
     expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
@@ -364,7 +363,7 @@ describe('Global Chat', () => {
     expect(screen.getAllByText('Unresolved')).toHaveLength(2);
     expect(screen.getAllByText('No rate')).toHaveLength(2);
     expect(screen.getAllByText('Not charged')).toHaveLength(2);
-    expect(screen.getAllByText('Own API key')).toHaveLength(2);
+    expect(screen.getAllByText('No Niu charge')).toHaveLength(2);
     expect(screen.queryByText(/EUR /)).toBeNull();
     expect(screen.queryByText('API-equivalent cost')).toBeNull();
   });
@@ -1441,7 +1440,7 @@ it('does not substitute an available key for an inaccessible bookmarked key', as
     ? jsonResponse({data:[{id:'key-a',slug:'default',name:'Default',allowed_models:['*'],revoked:false,expired:false}]})
     : jsonResponse({data:[]})));
   render(<SidebarProvider><MemoryRouter initialEntries={['/generations?key=unavailable-reference&new=1']}><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
-  await screen.findByText('The requested API key is unavailable or you no longer have access. Choose another key before sending.');
+  await screen.findByText('This API key is invalid. Choose another or create a new one to continue.');
   expect(screen.queryByRole('button',{name:'API key: Default'})).toBeNull();
   expect((screen.getByRole('button',{name:'Send to 1 model'}) as HTMLButtonElement).disabled).toBe(true);
   expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).endsWith('/chat/completions'))).toBe(false);

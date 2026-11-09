@@ -3,9 +3,11 @@ title: Build with Niu
 description: Give your coding agent one setup prompt, authorize access in Niu and review working results.
 ---
 
+<div data-lang="en">
+
 Tell Claude Code, Codex or DeepSeek Harness what you want to accomplish. Niu gives your agent model information, authorized management and execution evidence. You set the goal and spending authority, sign in when needed, and review the results.
 
-This guide accompanies the **0.3 preview**. The agent must check [installation availability](/docs/install.md) before setup. The preview is not a published release; do not assume its packages or authorization endpoints are already available on every deployment.
+This guide accompanies **Niu 0.3**. The agent must check [installation availability](/docs/install.md) before setup; self-hosted or older deployments may not enable every 0.3 package or authorization endpoint yet.
 
 ## Connect your agent
 
@@ -53,11 +55,11 @@ Keep unknown costs explicit. Ask before expanding the paid workload or authority
 
 The checkpoints are a running application, a model choice backed by task samples, and a persistent result you can revisit. You review whether the result is useful; the agent handles configuration, source changes, verification and diagnostics.
 
-The agent can discover prices and capabilities, record attributed evaluations, compare matched samples and manage a workspace model pool **when those capabilities are available and explicitly delegated**. Published token prices alone do not establish value. Unknown or owner-funded costs are not zero. Niu does not guarantee the best model or successful task completion.
+The agent can discover prices and capabilities, record attributed evaluations, compare matched samples and manage a workspace routing policy (`pool/<slug>`) **when those capabilities are available and explicitly delegated**. Published token prices alone do not establish value. Unknown or owner-funded costs are not zero. Niu does not guarantee the best model or successful task completion.
 
 ## Review and improve
 
-Your workspace provides **Model pools**, **Evaluations**, **Event subscriptions**, **Logs** and **Activity**. Use them to inspect saved policy revisions, task judgments, current notification authority, request performance and customer charges. You can still try models directly through Models and Generations.
+Your workspace provides **Routing**, **Evaluations**, **Event subscriptions**, **Logs** and **Activity**. Use them to inspect saved policy revisions, task judgments, current notification authority, request performance and customer charges. You can still try models directly through Models and Generations.
 
 The agent should read this evidence itself. Give feedback about the outcome:
 
@@ -68,6 +70,81 @@ Keep the same acceptance samples and remain within our approved test scope.
 Verify the change against the baseline and show me the working app.
 ```
 
-For continuous feedback, an authorized agent can subscribe to model-pool changes and recorded evaluations. A notification is not permission for more paid work, and delivery does not guarantee a sleeping host will wake. Keep the goal, acceptance criteria and spending authority explicit.
+For continuous feedback, an authorized agent can subscribe to routing-policy changes and recorded evaluations. A notification is not permission for more paid work, and delivery does not guarantee a sleeping host will wake. Keep the goal, acceptance criteria and spending authority explicit.
 
-Your agent can consult the [capability map](/docs/agents.md), [pool workflow](/docs/pools.md), [evaluation workflow](/docs/evaluations.md), [event workflow](/docs/events.md) and generated API/SDK references as needed. You do not need to read them to use this workflow.
+Your agent can consult the [capability map](/docs/agents.md), [routing workflow](/docs/pools.md), [evaluation workflow](/docs/evaluations.md), [event workflow](/docs/events.md) and generated API/SDK references as needed. You do not need to read them to use this workflow.
+
+</div>
+
+<div data-lang="zh" data-title-zh="用 Niu 开发" data-description-zh="向你的 coding agent 发送一句接入提示词，在 Niu 中完成授权并审阅运行结果。">
+
+告诉 Claude Code、Codex 或 DeepSeek Harness 你想要完成什么。Niu 为你的 Agent 提供模型能力与价格信息、受控的管理权限以及真实的请求诊断证据；你负责设定目标与预算权限、在浏览器中完成登录授权，并审阅最终结果。
+
+本指南对应 **Niu 0.3**。Agent 在配置前必须先检查[接入可用性说明](/docs/install.md)；自托管或较早部署版本可能尚未启用全部 0.3 接入包或授权端点。
+
+## 连接你的 Agent
+
+打开当前部署的[文档首页](/docs/)，复制其中的接入提示词并粘贴给你的 coding agent。提示词中包含当前部署地址，便于 Agent 在浏览器授权过程中核验目标来源。
+
+Agent 会识别当前宿主环境、安装对应的接入包并打开 Niu 的浏览器核验页面。登录账号并核对显示的验证码，选择你的工作空间并审阅申请的管理权限范围与有效期（模型调用权限默认关闭）。Agent 会私密接收受限凭证，并自行核验当前授权范围与可用模型。仅完成软件包安装或浏览器登录本身并不代表连接已就绪。
+
+请勿在对话中手动粘贴密码、会话 Cookie、API 密钥或原始工具输出。若当前部署尚未支持该流程，Agent 应明确说明缺失的前置条件。使用工作空间 API 密钥的手动配置方式仍保留在[可选手动参考](/docs/guides/mcp/)中。
+
+## 从可运行示例开始
+
+0.3 源码包含 `examples/personal-assistant`：一个将会议纪要转化为行动计划与可编辑跟进草稿的 WebApp。它会将结果持久化保存在后端，方便你随时重新打开；未经你确认，应用不会代你对外发送任何内容。
+
+连接完成后，可以将以下任务交给你的 Agent：
+
+```text
+Run the personal-assistant source example from the Niu 0.3 checkout.
+Read its README, install dependencies and start the app. Give me its URL.
+Use the included sample notes and acceptance reference to demonstrate it.
+Before paid testing, agree with me on candidate models, acceptance criteria,
+maximum requests and a spending budget. Retrieve Niu evidence yourself.
+Keep application credentials on the server and outside Git and conversation;
+do not reuse an expiring agent-management credential as a production app key.
+Show that an edited result survives an app restart.
+```
+
+[源码示例](https://github.com/niu-io/niu/tree/main/examples/personal-assistant)与[应用规格说明](/docs/specs/personal-assistant.md)随源码一同交付。运行该示例本身也是你的 coding agent 可以直接完成的工作，无需单独阅读依赖安装教程。
+
+应用启动后，加载示例纪要，在约定的测试预算内生成结果，进行编辑并保存；随后重启应用并重新打开已保存的结果。确认无误后，再告诉 Agent 你实际希望它处理的业务任务。邮件或日历等外部服务需要各自独立的连接与授权。
+
+## 按可审阅的阶段推进
+
+开发新应用时，将[完整规格说明](/docs/specs/personal-assistant.md)与你的业务要求一并交给 Agent：
+
+```text
+Build the application described in SPEC.md with Niu.
+My tasks: [two or three concrete things I want to accomplish].
+A good result: [example input and acceptable output].
+My waiting-time target: [target].
+My test authority: [candidate models, maximum requests and budget/currency].
+
+Use Niu directly. Show me a working result at each checkpoint in the spec.
+Keep unknown costs explicit. Ask before expanding the paid workload or authority.
+```
+
+三个核心审阅节点分别是：可运行的应用、基于任务样本证据的模型选择，以及可随时重访的持久化结果。你只需审阅结果是否满足业务需要；配置、源码修改、核验与诊断均由 Agent 负责完成。
+
+在相关能力可用且已显式授权的前提下，Agent 可以查询价格与模型能力、记录带归属的任务评估、对比同样本表现，并管理工作空间路由策略（`pool/<slug>`）。公开的 Token 单价本身并不代表任务价值；未知或由组织承担的费用也不等于零成本。Niu 不承诺“最优模型”或保证任务必然成功。
+
+## 审阅与持续改进
+
+你的工作空间提供**模型路由（Routing）**、**评估（Evaluations）**、**事件订阅（Event subscriptions）**、**请求日志（Logs）**与**用量动态（Activity）**。你可以通过这些页面审阅已保存的路由策略修订、任务评估结论、当前通知授权、请求耗时分解与客户费用，也可以随时通过“模型”与“生成对话”直接试用模型。
+
+Agent 应自行读取这些运行证据。你只需针对业务结果给出反馈：
+
+```text
+The action plan is useful, but the follow-up draft is too slow.
+Use our existing Niu evaluation and request evidence to propose an improvement.
+Keep the same acceptance samples and remain within our approved test scope.
+Verify the change against the baseline and show me the working app.
+```
+
+如需持续跟进，已获授权的 Agent 可以订阅路由策略变更与新记录的评估事件。请注意：事件通知并不代表批准更多付费测试，送达通知也不保证处于休眠状态的宿主环境会自动唤醒。请始终保持目标、验收标准与预算授权边界清晰明确。
+
+你的 Agent 可以按需查阅[能力地图](/docs/agents.md)、[路由工作流](/docs/pools.md)、[评估工作流](/docs/evaluations.md)、[事件工作流](/docs/events.md)以及自动生成的 API/SDK 参考文档，你无需亲自通读这些机器参考文档即可使用上述工作流。
+
+</div>

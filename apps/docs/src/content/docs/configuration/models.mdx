@@ -9,9 +9,9 @@ A model route maps a public model name to an upstream provider, provider model i
 
 The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Static credentials are referenced by environment variable name and loaded at startup.
 
-Set `public_catalog = true` on a route to publish its alias, declared capabilities and descriptive model metadata at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
+Authenticated workspace keys and dashboard sessions discover callable model aliases, declared capabilities, and customer prices through `GET /v1/models` and the workspace **Models** view (`/models`). The unauthenticated public catalog is retired (`GET /catalog/v1/models` returns an empty list).
 
-The public model directory filters published aliases by alias, display name, inferred developer, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. Developer labels are inferred from published model identifiers and are not verified; unrecognized identifiers remain unattributed, and Provider identity stays separate. Missing metadata is omitted rather than estimated. `GET /v1/models` and `GET /catalog/v1/models` report `owned_by: "niu"` as the route owner, not the upstream model developer. Public discovery does not grant workspace access or establish live Provider verification; workspace keys and customer prices remain separate.
+The workspace model directory filters callable aliases by alias, display name, inferred developer, Provider, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. Developer labels are inferred from published model identifiers and are not verified; unrecognized identifiers remain unattributed, and Provider identity stays separate. Missing metadata is omitted rather than estimated. `GET /v1/models` reports `owned_by: "niu"` as the route owner, not the upstream model developer.
 
 ```toml
 [models.fast]
@@ -44,13 +44,14 @@ Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It
 
 Keep credentials out of TOML, source control, browser storage and public catalog responses.
 
-## Model Pools
+## Model Pools and Workspace Routing Policies
 
-A **Model Pool** publishes a stable custom model name (`slug`, such as `smart-coder`) backed by an ordered set of candidate model routes, conditional routing rules, and automatic failover. Applications and workspace keys call the pool name directly in the `model` field of `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages`, without hardcoding individual upstream aliases in client code.
+Niu supports two levels of pool-based routing:
 
-Platform administrators configure Model Pools in **Admin → Model Pools** or via `/api/v1/pools`:
+- **Workspace routing policies (`Routing` in workspace navigation)**: Workspace operators and delegated coding agents (`pools:read`, `pools:write`) create workspace-scoped routing policies callable as `pool/<slug>` in `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages`. Each policy defines priority tiers, weights, and optional request match conditions (`modality`, `thinking`, `tool_calls`, `structured_output`, `max_context_tokens`). Agents can dry-run candidate selection via `preview_pool` (`POST /v1/routing/preview`) before updating `set_pool` (`PUT /v1/routing/{slug}`). See the [workspace routing contract](/docs/pools.md).
+- **Platform Model Pools (`Admin → Model Pools`)**: Platform administrators publish installation-wide custom model names (`slug`, such as `smart-coder`) backed by an ordered set of candidate model routes, conditional routing rules, and automatic failover via `/api/v1/pools`:
 
-1. **Callable identity and catalog visibility.** Each enabled pool has a human-readable `slug` that cannot collide with an existing model route alias. Enable **Publish as callable model** (`publish_as_model`) to list the pool in authorized `GET /v1/models` responses, and optionally enable **Public catalog** (`public_catalog`) to disclose its public alias and capabilities at `/models/` without exposing candidate routes or Provider identities.
+1. **Callable identity and catalog visibility.** Each enabled pool has a human-readable `slug` that cannot collide with an existing model route alias. Enable **Publish as callable model** (`publish_as_model`) to list the pool in authorized `GET /v1/models` responses and the workspace model catalog without exposing candidate routes or upstream credentials.
 2. **Conditional rules and fallback strategy.** Rules evaluate incoming request traits in priority order—such as estimated `context_length_tokens`, `modality`, `thinking`, `tool_calls`, or `structured_output`—and narrow selection to matching candidate routes before applying the pool's strategy (`priority_failover`, `weighted_random`, `round_robin`, or `lowest_cost`). Use `POST /api/v1/pools/{id}/preview` to dry-run rule matching before rollout.
 3. **Dual billing modes and strategy audit.** Choose **`pool_tariff`** to charge workspaces a single published customer selling price under the pool's own alias, or **`candidate_tariff`** to treat the pool as a pure routing layer and bill each request at the selected candidate model's customer tariff. Pre-dispatch quota reservations hold the conservative upper bound across eligible candidates so failover cannot bypass workspace spending limits. Platform administrators can inspect `GET /api/v1/pools/{id}/audit` to audit candidate hit distribution, failover rates, customer revenue, and platform margin sustainability; confidential Provider costs never appear in customer workspace views or responses.
 
@@ -177,9 +178,9 @@ a separate selection mechanism and are not assigned a fabricated registry genera
 
 当前的开发配置文件使用 TOML 格式，示例文件为 [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml)。静态凭证通过环境变量名引用，并在启动时加载。
 
-在路由上设置 `public_catalog = true` 可在 `/models/` 和 `GET /catalog/v1/models` 发布其别名、声明的能力及描述性模型元数据。这是一项显式的公开披露操作。公开目录会省略供应商名称、上游模型标识符、端点、凭证和定价信息。路由默认保持隐藏状态。
+已认证的工作空间密钥和控制台会话可通过 `GET /v1/models` 与工作空间**模型目录**（`/models`）发现可调用的模型别名、声明能力及客户价格。未认证的公开目录已下线（`GET /catalog/v1/models` 返回空列表）。
 
-公开模型目录支持按别名、显示名称、推测的开发商、输入/输出模态以及声明的 API 能力筛选已发布的别名。目录条目会展示可用的描述、上下文与输出上限，以及指向受支持协议参考文档的链接。开发商标签根据公开的模型标识符推测，未经核实；无法识别的标识符不会归属任何开发商，模型供应商身份仍保持独立。缺失的元数据会被省略，而不会进行估算。`GET /v1/models` 和 `GET /catalog/v1/models` 将 `owned_by: "niu"` 报告为路由所有者，而非上游模型开发商。公开目录发现不会授予工作空间访问权限，也不代表已完成实时的模型供应商验证；工作空间密钥与客户价格仍然相互独立。
+工作空间模型目录支持按别名、显示名称、推测的开发商、模型供应商、输入/输出模态以及声明的 API 能力筛选可调用别名。目录条目会展示可用的描述、上下文与输出上限，以及指向受支持协议参考文档的链接。开发商标签根据公开的模型标识符推测，未经核实；无法识别的标识符不会归属任何开发商，模型供应商身份仍保持独立。缺失的元数据会被省略，而不会进行估算。`GET /v1/models` 将 `owned_by: "niu"` 报告为路由所有者，而非上游模型开发商。
 
 ```toml
 [models.fast]
@@ -204,13 +205,14 @@ api_key_env = "OPENROUTER_API_KEY"
 
 请勿将凭证写入 TOML 文件、源代码版本控制、浏览器存储或公开目录响应中。
 
-## 模型池
+## 模型池与工作空间路由策略
 
-**模型池（Model Pool）** 将一组候选模型路由、条件分流规则与自动故障切换策略发布为一个稳定的自定义模型名称（`slug`，例如 `smart-coder`）。应用程序与工作空间密钥只需在 `POST /v1/chat/completions`、`POST /v1/responses` 和 `POST /v1/messages` 的 `model` 字段中直接传入模型池名称即可调用，无需在业务代码中硬编码底层模型别名。
+Niu 支持两个层级的池化路由编排：
 
-平台管理员可在**管理后台 → 模型池**（**Admin → Model Pools**）或通过 `/api/v1/pools` 配置模型池：
+- **工作空间路由策略（工作空间导航中的“模型路由 / Routing”）**：工作空间管理员与获授权的 coding agent（具备 `pools:read`、`pools:write` 权限）可创建工作空间范围的路由策略，并在 `POST /v1/chat/completions`、`POST /v1/responses` 和 `POST /v1/messages` 的 `model` 字段中通过 `pool/<slug>` 直接调用。每条策略可定义优先级分层、流量权重以及可选的请求匹配条件（`modality`、`thinking`、`tool_calls`、`structured_output`、`max_context_tokens`）。Agent 可在更新 `set_pool`（`PUT /v1/routing/{slug}`）前调用 `preview_pool`（`POST /v1/routing/preview`）预演候选命中结果。详情请参阅[工作空间路由规范](/docs/pools.md)。
+- **平台级模型池（`Admin → Model Pools`）**：平台管理员可在**管理后台 → 模型池**或通过 `/api/v1/pools` 将一组候选模型路由、条件分流规则与自动故障切换策略发布为全局稳定的自定义模型名称（`slug`，例如 `smart-coder`）：
 
-1. **可调用模型身份与目录发布。** 每个启用的模型池拥有唯一的 `slug`，且不能与现有模型路由别名冲突。开启**发布为可调用模型**（`publish_as_model`）后，已授权的工作空间即可在 `GET /v1/models` 中发现该模型池；可选开启**公开模型目录**（`public_catalog`）将其公开别名与声明能力展示在 `/models/` 中，同时隐藏底层候选路由与模型供应商信息。
+1. **可调用模型身份与目录发布。** 每个启用的模型池拥有唯一的 `slug`，且不能与现有模型路由别名冲突。开启**发布为可调用模型**（`publish_as_model`）后，已授权的工作空间即可在 `GET /v1/models` 与工作空间模型目录中发现该模型池，同时隐藏底层候选路由与上游凭证。
 2. **条件路由规则与容灾策略。** 网关按优先级匹配请求特征（如预估 `context_length_tokens` 上下文长度、`modality` 模态、`thinking` 深度思考、`tool_calls` 工具调用或 `structured_output` 结构化输出），筛选出符合条件的候选模型后再执行池级调度策略（主备故障切换 `priority_failover`、权重随机 `weighted_random`、轮询 `round_robin` 或最低成本优先 `lowest_cost`）。上线前可通过 `POST /api/v1/pools/{id}/preview` 预览规则命中结果。
 3. **双计费模式与策略审计。** 选择**统一池定价**（`pool_tariff`）可将模型池作为独立自定义模型对外统一标价计费；选择**按命中候选模型计费**（`candidate_tariff`）则将模型池作为纯路由编排技术层，按实际命中的候选模型客户价目表分别计费。分发前的额度预留会按候选集保守上限冻结预算，确保故障切换不会突破工作空间支出限额。平台管理员可通过 `GET /api/v1/pools/{id}/audit` 审计候选命中分布、容灾切换率、客户计费收入与平台毛利合理性；机密的模型供应商采购成本绝不会暴露在客户工作空间界面或客户 API 响应中。
 

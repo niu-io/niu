@@ -206,7 +206,6 @@ export function ShellRail({
             <TooltipTrigger asChild>
               <ProductRailLink
                 to={modelsHref}
-                reloadDocument={!token}
                 disablePrefetch={!token}
                 className={`rail-item${destination === 'Models' ? ' selected' : ''}`}
                 aria-label={t('Models', '模型')}

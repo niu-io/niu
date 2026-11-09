@@ -90,7 +90,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         <h2 id="organization-details-title">{uiT("General")}</h2>
         <dl className="organization-details">
           <div><dt>{uiT("Organization name")}</dt><dd>{organization.name}</dd></div>
-          {organization.slug ? <div><dt>{t('URL slug', '路径标识')}</dt><dd className="font-mono text-sm">{organization.slug}</dd></div> : null}
+          {organization.slug ? <div><dt>{t('Address', '地址')}</dt><dd className="text-sm">{organization.slug}</dd></div> : null}
         </dl>
         {canCreate && context.renameOrganization && (
           <form className="flex flex-wrap items-end gap-3 pt-2" onSubmit={handleRename}>
@@ -126,8 +126,8 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
             <h2 id="organization-members-title">{t('Members', '成员')}</h2>
             <p className="text-sm text-muted-foreground">
               {t(
-                'Manage organization members, roles, and workspace access in Settings.',
-                '在设置中管理组织成员、角色与工作空间访问权限。',
+                'Roles and workspace access for this organization.',
+                '此组织的角色与工作空间访问权限。',
               )}
             </p>
           </div>

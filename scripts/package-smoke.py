@@ -837,32 +837,15 @@ def main():
     assert favicon_status == 200 and favicon_type.startswith("image/")
     assert favicon == (ROOT / "branding/assets/favicon.ico").read_bytes(), "packaged dashboard favicon is missing or changed"
 
-    catalog_status, catalog_html, catalog_type = request("GET", "/models/")
-    assert catalog_status == 200 and "text/html" in catalog_type
-    assert "Public model catalog" in catalog_html
-    assert 'href="https://niu.io/models/"' in catalog_html
-    catalog_script_path = re.search(
-        r'component-url="(/_catalog/PublicModelCatalog\.[^\"]+\.js)"', catalog_html
-    )
-    assert catalog_script_path, "the public catalog omitted its model browser bundle"
-    catalog_css_path = re.search(r'href="(/_catalog/[^\"]+\.css)"', catalog_html)
-    assert catalog_css_path, "the public catalog omitted its stylesheet"
-    _, catalog_css, catalog_css_type = request("GET", catalog_css_path.group(1))
-    assert catalog_css_type.startswith("text/css") and "--oxhide" in catalog_css
+    models_status, models_html, models_type = request("GET", "/models/")
+    assert models_status == 200 and "text/html" in models_type
+    assert "<title>Niu</title>" in models_html
+    assert "Public model catalog" not in models_html
     _, catalog_mark, catalog_mark_type = request("GET", "/catalog-assets/brand/niu-mark.png")
     assert catalog_mark_type.startswith("image/") and len(catalog_mark) > 100
-    _, catalog_script, _ = request("GET", catalog_script_path.group(1))
-    catalog_script_text = (
-        catalog_script.decode("utf-8")
-        if isinstance(catalog_script, bytes)
-        else catalog_script
-    )
-    assert "catalog/v1/models" in catalog_script_text
     catalog_api_status, catalog, catalog_api_type = request("GET", "/catalog/v1/models")
     assert catalog_api_status == 200 and "application/json" in catalog_api_type
-    assert [item["id"] for item in catalog["data"]] == ["fast"]
-    assert catalog["data"][0]["capabilities"]["chat_completions"] is True
-    assert "fixture-model" not in json.dumps(catalog), "public catalog exposed the upstream model"
+    assert catalog["data"] == []
 
     docs_status, docs_html, docs_type = request("GET", "/docs/")
     assert docs_status == 200 and "text/html" in docs_type
@@ -1168,7 +1151,7 @@ def main():
     if COMPOSE_MODE:
         print("Compose smoke passed: app and PostgreSQL restarts, backup/restore, graceful drain, migrations, and credential-free admin lists.")
     else:
-        print("Packaged image serves the workspace entry, docs, public catalog and nested workspace routes; API errors stay in their namespaces; streamed inference persists evidence across restart.")
+        print("Packaged image serves the workspace entry, docs, signed-in model catalog and nested workspace routes; API errors stay in their namespaces; streamed inference persists evidence across restart.")
 
 
 def cleanup():

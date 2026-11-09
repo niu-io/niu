@@ -107,6 +107,7 @@ describe('RoutePoolsPage', () => {
       organization_id: null,
       enabled: true,
       expected_revision: 4,
+      public_catalog: false,
       candidates: [
         { alias: 'direct-sonnet-v2', priority: 100, weight: 800, enabled: true },
         { alias: 'openrouter-sonnet-4', priority: 50, weight: 1000, enabled: true },
@@ -413,7 +414,7 @@ describe('RoutePoolsPage', () => {
     );
 
     expect(await screen.findByText('Smart Router')).toBeTruthy();
-    expect(screen.getByText('Public catalog')).toBeTruthy();
+    expect(screen.queryByText('Public catalog')).toBeNull();
     expect(screen.getByText('Per-candidate billing')).toBeTruthy();
 
     // Open Strategy & billing audit dialog

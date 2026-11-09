@@ -27,7 +27,6 @@ export default function InstallationRoute() {
         {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}<span className="dashboard-login-product">{t('Dashboard', '控制台')}</span>
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
-        <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

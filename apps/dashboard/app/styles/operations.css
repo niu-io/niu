@@ -110,10 +110,10 @@
 @media (max-width: 640px) { .key-guardrails-row { align-items: flex-start; flex-direction: column; }}
 @media (max-width: 600px) { .request-toolbar-actions { min-width: 0; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }}
 
-.gateway-request-table.has-column-controls { min-width: 0; }
+.gateway-request-table.has-column-controls { min-width: 920px; }
 .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 6px; }
 .gateway-request-table.has-column-controls tbody th small { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gateway-request-table.has-column-controls td:nth-last-child(2) { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.gateway-request-table.has-column-controls td:nth-last-child(2) { max-width: none; overflow: visible; text-overflow: unset; }
 .gateway-request-table.has-column-controls td:last-child { width: 32px; padding: 0; }
 .gateway-request-table thead .request-column-controls { position: sticky; right: 0; width: 32px; padding: 2px; background: var(--background); }
 @media (max-width: 600px) {
@@ -153,10 +153,10 @@
 .key-table .key-model-summary { max-width: 220px; }
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
-   Secondary metadata remains available on the key detail page. */
+   Keep expiry and last use; model access and limits move to the key detail page first. */
 @container (max-width: 1250px) {
-  .key-table :is(th, td):nth-child(4),
-  .key-table :is(th, td):nth-child(5) { display: none; }
+  .key-table :is(th, td):nth-child(2),
+  .key-table :is(th, td):nth-child(3) { display: none; }
   .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
 @container (max-width: 720px) {
   .key-table { min-width: 0; width: 100%; }
@@ -255,11 +255,11 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 .key-table .key-model-summary { max-width: 220px; }
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
-   Secondary metadata remains available on the key detail page. */
+   Keep expiry and last use; model access and limits move to the key detail page first. */
 @container (max-width: 1250px) {
   .key-table { min-width: 0; width: 100%; }
-  .key-table :is(th, td):nth-child(4),
-  .key-table :is(th, td):nth-child(5) { display: none; }
+  .key-table :is(th, td):nth-child(2),
+  .key-table :is(th, td):nth-child(3) { display: none; }
   .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
 @container (max-width: 720px) {
   .key-table { min-width: 0; width: 100%; }

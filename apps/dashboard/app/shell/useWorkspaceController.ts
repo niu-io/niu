@@ -202,7 +202,7 @@ export function useWorkspaceController({
         organizations[0]?.id ??
         session?.operator?.organization_id;
   const modelWorkspace = routeWorkspace ?? selectedWorkspace;
-  const modelsHref = token ? workspaceModelsHref(modelWorkspace ?? effectiveActiveWorkspace, workspaces) : '/models/';
+  const modelsHref = workspaceModelsHref(token ? modelWorkspace ?? effectiveActiveWorkspace : null, workspaces);
   const modelWorkspaceId =
     modelWorkspace && modelWorkspace.organization_id === modelOrganizationId ? modelWorkspace.id : undefined;
 

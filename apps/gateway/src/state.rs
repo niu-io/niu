@@ -341,6 +341,9 @@ impl AppState {
             runtime
                 .provision_local_account(&state.store, "demo@niu.io", &demo_password)
                 .await?;
+            if env::var("NIU_DEMO_PLATFORM_ADMIN").as_deref() == Ok("1") {
+                state.store.grant_demo_platform_administration().await?;
+            }
         }
         if let Ok(origin) = env::var("NIU_DEV_MEMBER_ORIGIN") {
             if state.password_auth.is_some() {

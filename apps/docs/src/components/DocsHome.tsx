@@ -28,8 +28,8 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
     },
     {
       href: "/docs/pools.md",
-      name: t("Model pools", "模型池"),
-      detail: t("Preview, publish and inspect workspace model policies.", "预览、发布并审阅工作空间模型策略。"),
+      name: t("Routing", "模型路由"),
+      detail: t("Preview, publish and inspect workspace routing policies.", "预览、发布并审阅工作空间路由策略。"),
     },
     {
       href: "/docs/evaluations.md",

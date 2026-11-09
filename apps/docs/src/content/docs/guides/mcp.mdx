@@ -7,16 +7,18 @@ description: Connect a coding agent to Niu with a workspace API key and the loca
 
 Learn to [use Niu with your coding agent](/docs/guides/personal-assistant/): let the agent discover models, compare results and read diagnostics directly while you review decisions. A personal assistant webapp provides the worked example.
 
-A coding agent (such as Claude Code, Cursor, Windsurf, Zed, or Codex) can connect to Niu through `@niu-io/mcp` (`niu-mcp`), a local stdio Model Context Protocol (MCP) server. Using a workspace API key, the agent can inspect key limits and remaining spending allowance, discover models and protocol capabilities, run multi-protocol inference or parallel multi-model comparisons, inspect per-generation token breakdowns and customer charges, and execute end-to-end video and media asset workflows.
+A coding agent (such as Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or Zed) can connect to Niu through `@niu-io/mcp` (`niu-mcp`), a local stdio Model Context Protocol (MCP) server. Using a task-scoped agent credential or workspace API key, the agent can inspect key limits and delegated `management_capabilities`, discover models and protocol capabilities, configure and dry-run workspace routing policies (`pool/<slug>`), record task evaluations with canonical request fingerprints, subscribe to signed workspace events, run multi-protocol inference when `invocation_allowed` is enabled, inspect per-generation token breakdowns and customer charges, and execute end-to-end video and media asset workflows.
 
-Each model call is a normal Niu request and uses the exact model the agent specifies. The server never guesses or substitutes another model, does not sign in to the dashboard, and never exposes Provider purchase costs or platform margins.
+Each model call is a normal Niu request and uses the exact model or workspace routing policy (`pool/<slug>`) the agent specifies. The server never guesses or substitutes another model, does not sign in to the dashboard, and never exposes Provider purchase costs or platform margins.
 
 ## Install the released server
 
-Install the built MCP package with npm. A Niu source checkout and a running local gateway are not required for hosted use. This command pins the package asset from [Niu v0.2.14](https://github.com/niu-io/niu/releases/tag/v0.2.14):
+For Claude Code, Codex, and DeepSeek Harness, start with the [machine-readable installation contract](/docs/install.md), which installs the host integration and completes browser-verified `/connect` authorization (where model invocation is off by default and management scopes are selected explicitly).
+
+To install the standalone MCP package manually with npm, pin the package asset from [Niu v0.3.0](https://github.com/niu-io/niu/releases/tag/v0.3.0):
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.0/niu-io-mcp-0.3.0.tgz
 ```
 
 Use `niu-mcp` as the command in your agent's MCP configuration. It can start from your application's workspace. If the editor does not inherit your shell's PATH, replace the command with the absolute executable path returned by `command -v niu-mcp`; JSON configuration does not expand shell variables or `~`. Do not use a path relative to the Niu repository.
@@ -84,10 +86,27 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 ## Tools
 
 ### Key introspection, model discovery & telemetry
-- `inspect_key` — Reads `GET /v1/key` for the key's label, `allowed_models`, `expires_at_ms` (Unix milliseconds; null means no automatic expiration), `spending_limits` (including `remaining_nanos`), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second `usage_window` (requests, known_usage_requests, unknown_usage_requests, known_prompt_tokens, known_completion_tokens), and `allowed_cidrs`.
+- `inspect_key` — Reads `GET /v1/key` for the key's label, `invocation_allowed` (whether inference calls are permitted; off by default for `/connect` agent credentials), `allowed_models` (fixed model checklist or wildcard), `management_capabilities` (`pools:read`, `pools:write`, `evaluations:read`, `evaluations:write`, `events:read`, `events:write`), `expires_at_ms` (Unix milliseconds; null means no automatic expiration), `spending_limits` (including `remaining_nanos`), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second `usage_window` (requests, known_usage_requests, unknown_usage_requests, known_prompt_tokens, known_completion_tokens), and `allowed_cidrs`.
 - `list_models` — Reads `GET /v1/models` for accessible models and published `customer_pricing`, with optional `search` and `priced_only` filters.
 - `list_catalog_models` — Reads `GET /catalog/v1/models` for public catalog metadata and protocol `capabilities` (`chat_completions`, `streaming`, `embeddings`, `messages`, `messages_streaming`, `generate_content`, `responses`), with optional `search` and `capability` filters.
 - `get_generation` — Reads `GET /v1/generations/{id}` using the `attempt_id` returned by inference calls to inspect token breakdowns (cached input, cache write, reasoning output), phase latency timings, `output_guardrail_outcome`, and settled `customer_charge`.
+
+### Workspace routing policies (`pools:read` / `pools:write`)
+- `list_pools` & `get_pool` — List workspace routing policies (`GET /v1/routing`) or read a specific policy (`GET /v1/routing/{slug}`), including ordered candidate tiers, weights, request-trait rules, and current revision.
+- `preview_pool` — Dry-run candidate selection (`POST /v1/routing/preview`) against sample request traits (`modality`, `thinking`, `tool_calls`, `structured_output`, `max_context_tokens`) without saving or invoking a model.
+- `set_pool` — Create or update a workspace routing policy (`PUT /v1/routing/{slug}`) with revision-checked optimistic concurrency (`expected_revision`). Callable in inference as `pool/<slug>`.
+- `get_pool_history` & `get_pool_selections` — Inspect immutable policy revision history (`GET /v1/routing/{slug}/history`) and the latest 100 recorded routing selections (`GET /v1/routing/{slug}/selections`). See the [workspace routing contract](/docs/pools.md).
+
+### Task evaluations (`evaluations:read` / `evaluations:write`)
+- `fingerprint_evaluation_request` — Compute a canonical v1 request fingerprint (`POST /v1/evaluations/fingerprint`) without invoking a model or storing raw prompts.
+- `list_evaluations`, `get_evaluation`, `set_evaluation` — List (`GET /v1/evaluations`), read (`GET /v1/evaluations/{slug}`), or save (`PUT /v1/evaluations/{slug}`) revisioned task evaluation definitions, rubrics, and named sample fingerprints.
+- `list_evaluation_attempts` — Discover recorded inference attempts bound to a pinned `evaluation-slug@revision/sample` (`GET /v1/evaluations/{slug}/attempts`).
+- `list_evaluation_runs`, `record_evaluation_run`, `get_evaluation_run`, `compare_evaluation_runs` — Record immutable attributed evaluation receipts (`POST /v1/evaluations/{slug}/runs`) and compare matched sample acceptance, latency, and customer charges across runs (`GET /v1/evaluations/{slug}/compare`). See the [evaluation contract](/docs/evaluations.md).
+
+### Workspace resource events (`events:read` / `events:write`)
+- `list_workspace_events` & `get_workspace_incident` — Poll the cursor-paged workspace event log (`GET /v1/events/log`) for `pool.changed`, `evaluation.recorded`, and `incident.opened` / `incident.resolved`, or inspect a workspace incident (`GET /v1/incidents/{slug}`).
+- `list_event_subscriptions`, `get_event_subscription`, `set_event_subscription`, `get_event_subscription_history` — Manage scoped webhook subscriptions (`GET|PUT /v1/events/{slug}`) with HMAC-SHA256 signing secrets.
+- `get_event_deliveries` & `test_event_subscription` — Inspect delivery attempts (`GET /v1/events/{slug}/deliveries`) or send a targeted synthetic verification event (`POST /v1/events/{slug}/test`). See the [resource event contract](/docs/events.md).
 
 ### Multi-protocol inference & model comparison
 - `create_chat_completion` — Calls `POST /v1/chat/completions` with `model` and `messages`, plus optional sampling controls (`temperature`, `top_p`, `max_tokens`, `max_completion_tokens`, `stop`, `seed`), structured output (`response_format`), `reasoning` / `reasoning_effort`, client function `tools` / `tool_choice`, `log_payloads`, and `task_id`. Returns `choices`, `usage`, and `attempt_id`.
@@ -123,16 +142,18 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 
 学习[通过编程智能体使用 Niu](/docs/guides/personal-assistant/)：让智能体直接发现模型、比较结果和读取诊断，你负责审阅决策。教程以个人助理 WebApp 为案例。
 
-编程智能体（如 Claude Code、Cursor、Windsurf、Zed 或 Codex）可以通过本地 stdio MCP 服务器 `@niu-io/mcp`（`niu-mcp`）连接到 Niu。借助工作空间 API 密钥，智能体可以检查密钥限额与剩余可用额度、发现模型及协议能力、运行多协议推理或并行多模型对比、查看单次生成的 Token 细分与客户账单费用，以及执行端到端的视频与媒体素材工作流。
+编程智能体（如 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或 Zed）可以通过本地 stdio MCP 服务器 `@niu-io/mcp`（`niu-mcp`）连接到 Niu。借助按任务授权的 Agent 凭证或工作空间 API 密钥，智能体可以检查密钥限额与已委托的 `management_capabilities`（管理能力）、发现模型及协议能力、配置并预演工作空间路由策略（`pool/<slug>`）、通过规范化请求指纹记录任务评估、订阅带签名的工作空间资源事件、在启用 `invocation_allowed` 时运行多协议推理、查看单次生成的 Token 细分与客户账单费用，以及执行端到端的视频与媒体素材工作流。
 
-每次模型调用都是一次标准的 Niu 请求，并严格使用智能体显式指定的模型。服务器绝不会猜测或替换为其他模型，不会登录控制台，也绝不会暴露模型供应商采购成本或平台利润率。
+每次模型调用都是一次标准的 Niu 请求，并严格使用智能体显式指定的模型或工作空间路由策略（`pool/<slug>`）。服务器绝不会猜测或替换为其他模型，不会登录控制台，也绝不会暴露模型供应商采购成本或平台利润率。
 
 ## 安装已发布的服务器
 
-使用 npm 安装构建好的 MCP 软件包。连接托管服务时，无需检出 Niu 源码或运行本地网关。以下命令固定安装来自 [Niu v0.2.14](https://github.com/niu-io/niu/releases/tag/v0.2.14) 的软件包产物：
+对于 Claude Code、Codex 与 DeepSeek Harness，建议优先遵循[机器可读安装规范](/docs/install.md)，由智能体自动完成宿主集成并引导浏览器 `/connect` 授权审批（其中模型调用权限默认关闭，管理权限范围可按需勾选）。
+
+如需通过 npm 手动安装独立的 MCP 软件包，请固定安装来自 [Niu v0.3.0](https://github.com/niu-io/niu/releases/tag/v0.3.0) 的软件包产物：
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.0/niu-io-mcp-0.3.0.tgz
 ```
 
 在智能体的 MCP 配置中将命令设置为 `niu-mcp`。它可以从你的应用程序工作区直接启动。如果编辑器未继承你终端 Shell 的 `PATH`，请将该命令替换为 `command -v niu-mcp` 返回的可执行文件绝对路径；JSON 配置文件不会展开 Shell 变量或 `~`。请勿使用相对于 Niu 代码仓库的相对路径。
@@ -200,10 +221,27 @@ pnpm --dir sdks/mcp build
 ## 工具列表（Tools）
 
 ### 密钥自省、模型发现与遥测
-- `inspect_key` — 读取 `GET /v1/key`，获取密钥标签、`allowed_models`（允许的模型）、`expires_at_ms`（Unix 毫秒时间戳；`null` 表示不会自动过期）、`spending_limits`（消费限额，含 `remaining_nanos` 剩余额度）、`rate_limits`（速率限制：`requests_per_minute`、`tokens_per_minute`、`max_concurrent_requests`、`active_requests`）、60 秒 `usage_window`（用量窗口：`requests`、`known_usage_requests`、`unknown_usage_requests`、`known_prompt_tokens`、`known_completion_tokens`）以及 `allowed_cidrs`。
+- `inspect_key` — 读取 `GET /v1/key`，获取密钥标签、`invocation_allowed`（是否允许发起模型推理；通过 `/connect` 签发的 Agent 凭证默认关闭）、`allowed_models`（固定勾选的模型白名单或通配符）、`management_capabilities`（委托管理权限：`pools:read`、`pools:write`、`evaluations:read`、`evaluations:write`、`events:read`、`events:write`）、`expires_at_ms`（Unix 毫秒时间戳；`null` 表示不会自动过期）、`spending_limits`（消费限额，含 `remaining_nanos` 剩余额度）、`rate_limits`（速率限制：`requests_per_minute`、`tokens_per_minute`、`max_concurrent_requests`、`active_requests`）、60 秒 `usage_window`（用量窗口：`requests`、`known_usage_requests`、`unknown_usage_requests`、`known_prompt_tokens`、`known_completion_tokens`）以及 `allowed_cidrs`。
 - `list_models` — 读取 `GET /v1/models`，获取当前可访问的模型及已发布的 `customer_pricing`（客户定价），支持可选的 `search` 和 `priced_only` 过滤条件。
 - `list_catalog_models` — 读取 `GET /catalog/v1/models`，获取公开模型目录元数据与协议 `capabilities`（`chat_completions`、`streaming`、`embeddings`、`messages`、`messages_streaming`、`generate_content`、`responses`），支持可选的 `search` 和 `capability` 过滤条件。
 - `get_generation` — 使用推理调用返回的 `attempt_id` 读取 `GET /v1/generations/{id}`，查看 Token 细分（缓存命中输入、缓存写入、推理思考输出）、各阶段延迟耗时、`output_guardrail_outcome`（输出护栏结果）以及已结算的 `customer_charge`（客户费用）。
+
+### 工作空间路由策略（`pools:read` / `pools:write`）
+- `list_pools` 与 `get_pool` — 列出工作空间路由策略（`GET /v1/routing`）或读取指定策略（`GET /v1/routing/{slug}`），包含候选模型优先级分层、权重、请求特征匹配规则及当前修订版本号。
+- `preview_pool` — 针对样本请求特征（`modality`、`thinking`、`tool_calls`、`structured_output`、`max_context_tokens`）预演候选模型命中分布（`POST /v1/routing/preview`），不保存配置且不发起真实推理。
+- `set_pool` — 创建或更新工作空间路由策略（`PUT /v1/routing/{slug}`），采用基于 `expected_revision` 的乐观并发控制。推理调用时可通过 `pool/<slug>` 直接引用。
+- `get_pool_history` 与 `get_pool_selections` — 查看不可变的策略修订历史（`GET /v1/routing/{slug}/history`）以及最近 100 条路由命中记录（`GET /v1/routing/{slug}/selections`）。详见[工作空间路由规范](/docs/pools.md)。
+
+### 任务评估（`evaluations:read` / `evaluations:write`）
+- `fingerprint_evaluation_request` — 计算规范化的 v1 请求指纹（`POST /v1/evaluations/fingerprint`），不调用模型且不保存原始提示词文本。
+- `list_evaluations`、`get_evaluation`、`set_evaluation` — 列出（`GET /v1/evaluations`）、读取（`GET /v1/evaluations/{slug}`）或保存（`PUT /v1/evaluations/{slug}`）带版本控制的任务评估定义、评分标准（rubric）及命名样本指纹。
+- `list_evaluation_attempts` — 检索绑定至指定 `evaluation-slug@revision/sample` 的推理尝试记录（`GET /v1/evaluations/{slug}/attempts`）。
+- `list_evaluation_runs`、`record_evaluation_run`、`get_evaluation_run`、`compare_evaluation_runs` — 记录带归属信息的不可变评估回执（`POST /v1/evaluations/{slug}/runs`），并跨评估运行对比相同样本的合格率、延迟与客户计费（`GET /v1/evaluations/{slug}/compare`）。详见[任务评估规范](/docs/evaluations.md)。
+
+### 工作空间资源事件（`events:read` / `events:write`）
+- `list_workspace_events` 与 `get_workspace_incident` — 轮询基于游标分页的工作空间事件日志（`GET /v1/events/log`），支持 `pool.changed`、`evaluation.recorded` 与 `incident.opened` / `incident.resolved`，或查看工作空间故障详情（`GET /v1/incidents/{slug}`）。
+- `list_event_subscriptions`、`get_event_subscription`、`set_event_subscription`、`get_event_subscription_history` — 管理带 HMAC-SHA256 签名密钥的作用域 Webhook 订阅（`GET|PUT /v1/events/{slug}`）。
+- `get_event_deliveries` 与 `test_event_subscription` — 检查投递尝试记录（`GET /v1/events/{slug}/deliveries`）或发送定向合成测试事件（`POST /v1/events/{slug}/test`）。详见[资源事件规范](/docs/events.md)。
 
 ### 多协议推理与多模型对比
 - `create_chat_completion` — 调用 `POST /v1/chat/completions`，传入 `model` 和 `messages`，并支持可选的采样参数（`temperature`、`top_p`、`max_tokens`、`max_completion_tokens`、`stop`、`seed`）、结构化输出（`response_format`）、推理控制（`reasoning` / `reasoning_effort`）、客户端函数工具（`tools` / `tool_choice`）、`log_payloads` 以及 `task_id`。返回 `choices`、`usage` 和 `attempt_id`。

@@ -116,7 +116,6 @@ export default function ShellHeader({
   adminSupplierName,
   platform,
   modelsHref,
-  token,
   title,
 }: {
   toggleRef: RefObject<HTMLButtonElement | null>;
@@ -143,7 +142,6 @@ export default function ShellHeader({
   adminSupplierName: string;
   platform: boolean;
   modelsHref: string;
-  token: string;
   title: string;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
@@ -283,7 +281,7 @@ export default function ShellHeader({
           )}
           <h1 className="dashboard-route-title">
             {destination === 'Models' && activePath.startsWith('models/') ? (
-              <NavLink to={modelsHref} reloadDocument={!token}>
+              <NavLink to={modelsHref}>
                 {t('Models', '模型')}
               </NavLink>
             ) : (

@@ -1,4 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { workspaceDisplayName } from '@/shell/workspace-route';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -43,7 +44,7 @@ function roleLabel(role: 'owner' | 'admin' | 'viewer', uiT: (en: string, zh?: st
 }
 
 export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization, initialWorkspace, embedded = false }: OperatorsViewProps) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const canManage = session.permissions.manage_operators;
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
   const lockedProject = session.kind === 'operator' ? session.operator?.project_id ?? '' : '';
@@ -599,7 +600,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
             <DialogTitle>{issuedInvitation ? uiT("Invitation created", "邀请已创建") : uiT("Invite member", "邀请成员")}</DialogTitle>
             <DialogDescription>{issuedInvitation
               ? uiT("Copy the one-time link now. No email was sent.", "请立即复制一次性链接。系统未发送邮件。")
-              : uiT("Invite someone to this scope. The recipient signs in with the invited email and accepts once; no password or access token is shared.", "邀请成员加入此范围。对方使用被邀请的邮箱登录并确认接受，无需分享密码或访问令牌。")}</DialogDescription>
+              : uiF("Invite a member to {0}.", [workspaceDisplayName(projects.find(item => item.id === (lockedProject || project))?.name ?? '') || uiT("this workspace", "此工作空间")])}</DialogDescription>
           </div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>

@@ -131,8 +131,8 @@ export function PoolStrategyFields({
         <Label>{t('Selection strategy', '选择策略')}</Label>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {t(
-            'Priority and weight is the default. Lowest customer price ranks eligible models by their current customer selling price and never uses procurement costs. Semantic Auto selects a declared path from caller task context, with an optional bounded decider.',
-            '默认按优先级与权重选择。最低客户价格会按当前客户售价对可用模型排序，绝不使用采购成本。语义 Auto 会根据调用方任务上下文选择已声明的执行路径，并可选使用有界决策模型。',
+            'Priority and weight is the default. Lowest customer price ranks eligible models by their current customer selling price. Semantic Auto selects a declared path from caller task context, with an optional bounded decider.',
+            '默认按优先级与权重选择。最低客户价格会按当前客户售价对可用模型排序。语义 Auto 会根据调用方任务上下文选择已声明的执行路径，并可选使用有界决策模型。',
           )}
         </p>
       </div>

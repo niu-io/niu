@@ -91,7 +91,9 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/", "marketing"),
         ("/compare/", "comparison overview"),
         ("/compare/new-api/", "new api comparison"),
-        ("/models/", "public catalog"),
+        ("/models/", "workspace shell"),
+        ("/models", "workspace shell"),
+        ("/models/openai/example", "workspace shell"),
         ("/docs/", "public docs"),
         ("/help/", "workspace shell"),
         ("/help/getting-started/", "workspace shell"),
@@ -192,7 +194,6 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         "/v1/missing",
         "/enterprise/api/v1/missing",
         "/missing",
-        "/models/missing",
         "/site-assets/missing",
     ] {
         body(&app, path, StatusCode::NOT_FOUND).await;
@@ -216,7 +217,7 @@ async fn community_build_does_not_require_marketing_artifacts() {
     assert_eq!(response.headers()["location"], "/workspaces/default/");
     assert_eq!(
         body(&app, "/models/", StatusCode::OK).await,
-        "public catalog"
+        "workspace shell"
     );
     assert_eq!(
         body(&app, "/favicon.ico", StatusCode::OK).await,
@@ -343,25 +344,18 @@ async fn dashboard_entry_documents_require_revalidation() {
 }
 
 #[tokio::test]
-async fn workspace_catalog_context_uses_dashboard_without_shadowing_public_catalog() {
+async fn model_routes_use_the_dashboard_even_when_a_public_catalog_artifact_exists() {
     let fixture = Fixture::new();
     let app = fixture.router(true);
-    assert_eq!(
-        body(&app, "/models/?workspace=demo", StatusCode::OK).await,
-        "workspace shell"
-    );
-    assert_eq!(
-        body(&app, "/models/openai/model?workspace=demo", StatusCode::OK).await,
-        "workspace shell"
-    );
-    assert_eq!(
-        body(&app, "/models/", StatusCode::OK).await,
-        "public catalog"
-    );
-    assert_eq!(
-        body(&app, "/models/?workspace=", StatusCode::OK).await,
-        "public catalog"
-    );
+    for path in [
+        "/models/?workspace=demo",
+        "/models/openai/model?workspace=demo",
+        "/models/",
+        "/models/?workspace=",
+        "/models/missing",
+    ] {
+        assert_eq!(body(&app, path, StatusCode::OK).await, "workspace shell", "{path}");
+    }
 }
 
 #[tokio::test]

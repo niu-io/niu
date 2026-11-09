@@ -61,7 +61,7 @@ export function workspacePathSegment(workspace: Workspace, workspaces: Workspace
   return workspace.slug || workspace.route_slug || legacyWorkspacePathSegment(workspace, workspaces);
 }
 
-/** Explicit scope selects dashboard browsing; the unscoped root is the public catalog. */
+/** Workspace-scoped model browsing. Unscoped `/models` is the same signed-in catalog. */
 export function workspaceModelsHref(workspace: Workspace | null | undefined, workspaces: Workspace[]) {
   return `/models?workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace, workspaces) : 'default')}`;
 }

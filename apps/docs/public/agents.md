@@ -12,9 +12,9 @@ The shared integration is a local stdio MCP server authenticated with a workspac
 
 | Need | Authoritative reference | Current access boundary |
 | --- | --- | --- |
-| Inspect grants and available models | [MCP](https://niu.io/docs/guides/mcp/) | Workspace-key scope; public catalog does not establish access |
+| Inspect grants and available models | [MCP](https://niu.io/docs/guides/mcp/) | Workspace-key scope; check `invocation_allowed` (off by default) and `allowed_models`; public catalog does not establish access |
 | Record task judgments and compare matched samples | [Evaluation workflow](https://niu.io/docs/evaluations.md) | 0.3.0 candidate; explicit evaluations:read/write grants, separately approved paid budget; unknown charges remain unknown |
-| Configure, preview or inspect a workspace model pool | [Agent pool workflow](https://niu.io/docs/pools.md) | 0.3.0 candidate tools require explicit pools:read/write grants; platform supply management remains separate |
+| Configure, preview or inspect a workspace routing policy | [Workspace routing workflow](https://niu.io/docs/pools.md) | 0.3.0 candidate tools require explicit pools:read/write grants; platform supply management remains separate |
 | Manage permissions and limits | [Security](https://niu.io/docs/security/overview/) | Respect current role/credential grants; key inspection is not budget-write permission |
 | Observe changes and configure signed notifications | [Resource event workflow](https://niu.io/docs/events.md) | 0.3.0 candidate; explicit events:read/write grants and authorized public receiver for push; no inactive-host wake guarantee |
 | Diagnose a request | [Request evidence](https://niu.io/docs/concepts/execution-observation/) | Use available request references; retrieve evidence directly |

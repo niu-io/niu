@@ -11,7 +11,8 @@ model connection.
 Inspect the key first. Reading definitions, fingerprinting inputs, binding an
 inference request, discovery and comparisons require `evaluations:read`.
 Saving definitions and run receipts requires `evaluations:write`. These grants do
-not authorize a paid evaluation budget or additional models. Obtain the user's
+not authorize a paid evaluation budget, model invocation (`invocation_allowed` is
+off by default in `/connect`), or additional models beyond `allowed_models`. Obtain the user's
 task criteria, candidate set, maximum requests and spending authority before paid
 trials. Niu records evidence; the agent owns task acceptance and model decisions.
 

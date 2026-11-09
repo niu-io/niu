@@ -6,9 +6,9 @@ Thank you for contributing to **Niu** (牛元), the open-source AI model gateway
 
 `niu-io/niu` contains the complete self-hosted open-source product:
 
-- `apps/gateway`: Single-process Rust HTTP gateway (`/v1` inference data plane, `/api/v1` control plane, `/catalog/v1` public catalog, and `/api/plugins/v1` plugin proxy)
+- `apps/gateway`: Single-process Rust HTTP gateway (`/v1` inference data plane, `/api/v1` control plane, `/catalog/v1` retired empty catalog list, and `/api/plugins/v1` plugin proxy)
 - `apps/dashboard`: Workspace, Provider, and platform management UI (React + TypeScript + Vite)
-- `apps/catalog`: Opt-in public model catalog (`/models/`)
+- `apps/catalog`: Brand assets served at `/catalog-assets/`. `/models/` is the signed-in dashboard catalog.
 - `apps/docs`: Developer documentation site (`/docs/`, Astro Starlight)
 - `contracts`: OpenAPI 3.1 specifications and test fixtures
 - `crates`: Storage, execution, cost calculation, benchmark, `plugin-api`, and `plugin-sdk` crates

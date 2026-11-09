@@ -11,6 +11,7 @@ import { NiuAdminClient } from '@niu-io/sdk/admin';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import { GenerationSessionBindings } from './GenerationsLayout';
 import VideoTurnResult from './VideoTurnResult';
+import VideoSessionComposer from './VideoSessionComposer';
 import { readableTurnAnchor } from './session-turn';
 import { useGenerationKeys } from './useGenerationKeys';
 import '../video/video.css';
@@ -88,18 +89,20 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
   }
   return <div className="video-shell">
     <GenerationSessionBindings trigger={trigger} title={session?.title??uiT("Video session")} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh session")}</Button>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
-    <section className="video-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation">
+    <section className="video-main playground-chat-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation playground-transcript">
       {error?<p role="alert" className="video-error">{uiT(error)}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
         {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}
         {!session.turns.length&&<Empty><EmptyHeader><EmptyDescription>{uiT("No instructions have been saved in this session.")}</EmptyDescription></EmptyHeader></Empty>}
         {session.turns.map(turn=>{
           const anchor=readableTurnAnchor(turn);
           return <div key={turn.id} id={anchor} tabIndex={-1} className={`video-turn video-session-turn${activeAnchor===anchor?' video-turn-target':''}`}>
-            {turn.instruction?<div className="video-user-message"><p>{turn.instruction.prompt}</p></div>:<p className="video-muted">{uiT("The saved instruction has expired or was deleted.")}</p>}
+            {turn.instruction?<div className="playground-user-prompt"><p>{turn.instruction.prompt}</p></div>:<p className="video-muted">{uiT("The saved instruction has expired or was deleted.")}</p>}
             <VideoTurnResult context={context} sessionId={session.id} turn={turn} keyId={keyFor(turn.task?.model??turn.intent?.model)} refreshKey={revision}/>
           </div>;
         })}
       </>}
-    </div></div></section>
+    </div>
+    {session && <VideoSessionComposer context={context} session={session} onSubmitted={() => setRevision(value => value + 1)} />}
+    </div></section>
   </div>;
 }

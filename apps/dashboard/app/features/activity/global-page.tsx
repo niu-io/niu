@@ -85,7 +85,7 @@ const scopeSegment = (workspace: Workspace, list: Workspace[]) => !workspace.slu
 const scopeHref = (workspace: Workspace, list: Workspace[], page: string) => `/workspaces/${scopeSegment(workspace, list)}/${page}`;
 function chargeLabel(request: Request) {
   if (request.customer_charge_status === 'charged' && request.customer_charge_currency && request.customer_charge_nanos !== null) return money(request.customer_charge_nanos, request.customer_charge_currency);
-  return ({owner_funded: 'Own API key', pending: 'Unresolved', unpriced: 'No rate', not_charged: 'Not charged'} as Record<string,string>)[request.customer_charge_status] ?? translateUI('Unknown');
+  return ({owner_funded: 'No Niu charge', pending: 'Unresolved', unpriced: 'No rate', not_charged: 'Not charged'} as Record<string,string>)[request.customer_charge_status] ?? translateUI('Unknown');
 }
 
 function GlobalActivity({token, models}: {token: string; models: string[]}) {

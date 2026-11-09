@@ -9,7 +9,7 @@ Availability: 0.3.0 development candidate, not a published deployment guarantee.
 
 Use `inspect_key` and check `management_capabilities`. Reading, history and preview require `pools:read`; saving requires `pools:write`. An ordinary inference key or a wildcard model grant does not confer management authority. Obtain additional scope through a new explicit browser approval; never request installation credentials.
 
-Use `list_models` to discover concrete model aliases, published customer prices and capabilities. A pool can contain only aliases visible to its workspace and allowed by its managing key. Calls through a pool also require the calling key to permit the selected concrete candidate. A pool cannot expand model grants, create customer prices or expose Provider supply configuration.
+Use `list_models` to discover concrete model aliases, published customer prices and capabilities. A workspace routing policy (displayed under **Routing** in workspace navigation and invoked as `pool/<slug>`) can contain only aliases visible to its workspace and allowed by its managing key. Calls through `pool/<slug>` also require the calling key to have `invocation_allowed: true` and to permit the selected concrete candidate in `allowed_models`. A routing policy cannot expand model grants, create customer prices or expose Provider supply configuration.
 
 ## Propose, verify and retain a baseline
 

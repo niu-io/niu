@@ -13,8 +13,8 @@ it('searches and opens a model without losing the catalog filter on return', asy
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><Link to="/models">Models breadcrumb</Link><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
   await user.type(screen.getByRole('textbox', { name: 'Filter model routes' }), 'model-24');
-  expect(screen.queryByRole('link', { name: 'openai/model-0', exact: true })).toBeNull();
-  await user.click(screen.getByRole('link', { name: 'openai/model-24', exact: true }));
+  expect(screen.queryByRole('link', { name: 'Model 0', exact: true })).toBeNull();
+  await user.click(screen.getByRole('link', { name: 'Model 24', exact: true }));
   expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
   expect(screen.getByRole('link', { name: 'Create an API key' }).getAttribute('href')).toBe('/workspaces/default/keys/new');
@@ -77,7 +77,7 @@ it('preserves developer filters when their group is collapsed with the keyboard'
   const user=userEvent.setup();
   render(<MemoryRouter><SidebarProvider><ModelTable models={models}/></SidebarProvider></MemoryRouter>);
   await user.click(screen.getByRole('checkbox',{name:'OpenAI',exact:true}));
-  const trigger=screen.getByRole('button',{name:'Developer (inferred)',exact:true});
+  const trigger=screen.getByRole('button',{name:'Developer',exact:true});
   trigger.focus();await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('false');
   expect(screen.queryByRole('checkbox',{name:'OpenAI',exact:true})).toBeNull();
@@ -102,10 +102,10 @@ it('does not turn an imported distributor into a model developer', () => {
   const providerFilters = screen.getByRole('region',{name:'Provider filters'});
   expect(within(providerFilters).getByRole('checkbox',{name:'BabelArk',exact:true})).toBeTruthy();
   const thirdParty = screen.getByRole('link',{name:'Third-party model'}).closest('article')!;
-  expect(within(thirdParty).queryByText(/Likely developer/)).toBeNull();
+  expect(within(thirdParty).queryByText(/^Developer:/)).toBeNull();
   expect(within(thirdParty).getByText('via BabelArk')).toBeTruthy();
   const direct = screen.getByRole('link',{name:'DeepSeek Chat'}).closest('article')!;
-  expect(within(direct).getByText('Likely developer: DeepSeek')).toBeTruthy();
+  expect(within(direct).getByText('Developer: DeepSeek')).toBeTruthy();
   expect(within(direct).getByText('via BabelArk')).toBeTruthy();
   view.unmount();
   render(<MemoryRouter initialEntries={['/models/babelark/third-party-model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={imported}/></SidebarProvider>}/></Routes></MemoryRouter>);
@@ -202,7 +202,7 @@ it('keeps developer and provider facets separate without treating access namespa
   const developers=within(screen.getByRole('region',{name:'Inferred developer filters'}));
   const connections=within(screen.getByRole('region',{name:'Provider filters'}));
   expect(developers.getByText('Inferred from model identifiers; not verified.')).toBeTruthy();
-  expect(screen.getAllByText(/Likely developer:/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Developer:/).length).toBeGreaterThan(0);
   expect(developers.queryByRole('checkbox',{name:/byok|fastrouter|team/i})).toBeNull();
   expect(connections.queryByRole('checkbox',{name:/byok/i})).toBeNull();
   expect(developers.getByRole('checkbox',{name:'ByteDance'})).toBeTruthy();
@@ -212,8 +212,8 @@ it('keeps developer and provider facets separate without treating access namespa
   expect(screen.getAllByRole('article')).toHaveLength(2);
   await user.click(connections.getByRole('checkbox',{name:'FastRouter'}));
   expect(screen.getAllByRole('article')).toHaveLength(1);
-  expect(screen.getByRole('link',{name:'anthropic/claude-haiku',exact:true})).toBeTruthy();
-  expect(screen.getByText('Inferred developer: Anthropic')).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Claude Haiku',exact:true})).toBeTruthy();
+  expect(screen.getAllByText('Developer: Anthropic').length).toBeGreaterThan(0);
   expect(screen.getByText('Provider: FastRouter')).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
   expect(screen.getAllByRole('article')).toHaveLength(4);
@@ -260,11 +260,11 @@ it.each([
 it('links an unknown-capability model to Chat while stating that support is unverified', () => {
   const model = {id:'babelark/example',public_catalog:false,catalog:{output_modalities:[]}};
   const browse = render(<MemoryRouter><SidebarProvider><ModelTable models={[model]}/></SidebarProvider></MemoryRouter>);
-  expect(screen.getByRole('link', {name:'Try in Chat · support unverified'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
   expect(screen.getByText('Capabilities not published')).toBeTruthy();
   browse.unmount();
   render(<MemoryRouter initialEntries={['/models/babelark/example']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByRole('link', {name:'Try in Chat · support unverified'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
   expect(screen.getByText(/capabilities have not been published/)).toBeTruthy();
   expect(screen.queryByRole('link', {name:'Open Generations'})).toBeNull();
 });
