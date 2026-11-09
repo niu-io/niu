@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkspaceLibrary } from '@/features/library/page';
 import { useWorkspaceProviderAssetSections } from '@/features/provider-modules/registry';
@@ -18,7 +19,9 @@ export default function WorkspaceAssetsRoute() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const requestedTab = section ?? search.get('tab');
+  const pathMatch = /^\/workspaces\/[^/]+\/assets\/([^/?#]+)\/?$/.exec(location.pathname);
+  const pathSection = section ?? (pathMatch ? decodeURIComponent(pathMatch[1]) : null);
+  const requestedTab = pathSection ?? search.get('tab');
   const selection = { keyId: search.get('key') ?? '', model: search.get('model') ?? '' };
   const { sections: extensionSections } = useWorkspaceProviderAssetSections(selection, requestedTab);
 
@@ -26,7 +29,14 @@ export default function WorkspaceAssetsRoute() {
     return (
       <>
         <PageHeader title={t('Assets', '素材库')} />
-        <p>{uiT('Select a workspace to see saved media.')}</p>
+        <Empty className="min-h-44 rounded-xl border border-dashed border-border/60 bg-muted/20 py-8">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconSparkles size={18} aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyDescription>{uiT('Select a workspace to see saved media.')}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </>
     );
   }
@@ -50,10 +60,11 @@ export default function WorkspaceAssetsRoute() {
 
   function handleTabChange(nextTab: string) {
     const query = new URLSearchParams(search);
-    if (nextTab === 'workspace') query.delete('tab');
-    else query.set('tab', nextTab);
+    query.delete('tab');
     navigate({
-      pathname: `/workspaces/${workspaceSlug}/assets`,
+      pathname: nextTab === 'workspace'
+        ? `/workspaces/${workspaceSlug}/assets`
+        : `/workspaces/${workspaceSlug}/assets/${encodeURIComponent(nextTab)}`,
       search: query.size ? `?${query}` : '',
     });
   }

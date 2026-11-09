@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cachedGet, markCachedStale, peekCachedGet, request, VendorRequestError } from "@/features/providers/api";
 import { FormSectionSkeleton } from "@/components/PageSkeletons";
+import { disambiguatedCatalogTitle } from "@/lib/providers";
 
 type Rule = {
   mode: "inherit" | "allow_all" | "allow_list" | "deny_all";
@@ -317,7 +318,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       )}
       {pendingNotice}
       {saved && <p role="status">{uiT("Policy saved.")}</p>}
-      {invalidRules && (
+      {invalidRules && !changed && (
         <Alert variant="destructive">
           <AlertDescription>
             {uiT("Complete your input and output patterns before saving.")}</AlertDescription>
@@ -414,25 +415,31 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                       onChange={(event) => setSearch(event.target.value)}
                       onKeyDown={(event) => event.stopPropagation()}
                     />
-                    {filterChoices.map((model) => (
-                      <DropdownMenuCheckboxItem
-                        key={model}
-                        checked={draft.models.values?.includes(model)}
-                        onSelect={(event) => event.preventDefault()}
-                        onCheckedChange={(checked) =>
-                          update("models", {
-                            mode: "allow_list",
-                            values: checked
-                              ? [...(draft.models.values ?? []), model]
-                              : (draft.models.values ?? []).filter(
-                                  (value) => value !== model,
-                                ),
-                          })
-                        }
-                      >
-                        {model}
-                      </DropdownMenuCheckboxItem>
-                    ))}
+                    {filterChoices.map((model) => {
+                      const found = models.find((item) => item.id === model);
+                      const hasFriendly = Boolean(found?.catalog?.name?.trim());
+                      const label = found && hasFriendly ? disambiguatedCatalogTitle(found, models) : model;
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={model}
+                          checked={draft.models.values?.includes(model)}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) =>
+                            update("models", {
+                              mode: "allow_list",
+                              values: checked
+                                ? [...(draft.models.values ?? []), model]
+                                : (draft.models.values ?? []).filter(
+                                    (value) => value !== model,
+                                  ),
+                            })
+                          }
+                        >
+                          <span>{label}</span>
+                          {label !== model && <span className="sr-only"> {model}</span>}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
                     {!filterChoices.length && (
                       <div className="p-2">
                         <p className="guardrails-muted">{uiT("No matching models.")}</p>
@@ -443,7 +450,11 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 </DropdownMenu>
                 <p className="guardrails-muted">
                   {draft.models.values?.length
-                    ? draft.models.values.join(", ")
+                    ? draft.models.values.map((model) => {
+                        const found = models.find((item) => item.id === model);
+                        const hasFriendly = Boolean(found?.catalog?.name?.trim());
+                        return found && hasFriendly ? disambiguatedCatalogTitle(found, models) : model;
+                      }).join(", ")
                     : uiT("No models selected. All model requests will be blocked.")}
                 </p>
               </>

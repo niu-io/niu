@@ -244,6 +244,8 @@ export function prefetchRouteData(
       prefetchGet(token, workspaceKeyPath(ws.id));
       const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
       prefetchGet(token, `/api/v1/models${q}`, { persist: true });
+      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/chats`, { persist: true });
+      prefetchGet(token, '/v1/video/models');
     }
     return;
   }
@@ -309,6 +311,8 @@ export function prefetchRouteData(
       prefetchGet(token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/evaluations`);
     } else if (section === 'events') {
       prefetchGet(token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/events`);
+    } else if (section === 'assets' || section === 'library') {
+      prefetchGet(token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/assets`);
     }
   }
 }
@@ -351,12 +355,17 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
     preloadRouteChunk('/workspaces/default/billing');
     preloadRouteChunk('/workspaces/default/guardrails');
     preloadRouteChunk('/workspaces/default/routing');
+    preloadRouteChunk('/workspaces/default/evaluations');
+    preloadRouteChunk('/workspaces/default/assets');
     preloadRouteChunk('/models');
     preloadRouteChunk('/generations');
     preloadRouteChunk('/activity');
 
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+    prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
+    prefetchGet(snapshot.token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/routing`);
+    prefetchGet(snapshot.token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/assets`);
     prefetchGet(snapshot.token, workspaceKeyPath(ws.id));
     if (canManagePlatform(snapshot.session)) {
       preloadRouteChunk('/admin/providers');

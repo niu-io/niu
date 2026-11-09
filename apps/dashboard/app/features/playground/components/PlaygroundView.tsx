@@ -1269,7 +1269,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       </section>
     </div>
 
-    <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+    <Dialog open={archiveOpen} onOpenChange={open => { setArchiveOpen(open); if (!open && new URLSearchParams(location.search).has('archived')) { const params = new URLSearchParams(location.search); params.delete('archived'); const q = params.toString(); navigate(`${location.pathname}${q ? `?${q}` : ''}${location.hash}`, { replace: true }); } }}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Archived sessions")}</DialogTitle><DialogDescription>{uiT("Restore a Chat or Video session to Generations history.")}</DialogDescription></DialogHeader>
         <h3 className="text-sm font-medium">{uiT("Chats")}</h3>
         {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{uiT(archiveError)}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
+import { catalogTitle } from '@/lib/providers';
 import { request } from '@/lib/api-client';
 
 type Grant = { client_name: string; state: string; capabilities?: string[]; task?: string | null };
@@ -177,8 +178,8 @@ export default function ConnectAgent() {
                     }} /></div>
                     <DropdownMenuItem onSelect={event => { event.preventDefault(); setSelectedModels(catalog.models); setConsent(false); }}>{t('Select all current models', '选择当前所有模型')}</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    {catalog.models.filter(model => model.toLocaleLowerCase().includes(modelQuery.trim().toLocaleLowerCase())).map(model => <DropdownMenuCheckboxItem key={model} checked={selectedModels.includes(model)} onSelect={event => event.preventDefault()} onCheckedChange={checked => { setSelectedModels(current => checked ? [...current, model] : current.filter(value => value !== model)); setConsent(false); }}>{model}</DropdownMenuCheckboxItem>)}
-                    {!catalog.models.some(model => model.toLocaleLowerCase().includes(modelQuery.trim().toLocaleLowerCase())) && <DropdownMenuItem disabled>{t('No matching models', '没有匹配的模型')}</DropdownMenuItem>}
+                    {catalog.models.filter(model => { const title = catalogTitle(model); const q = modelQuery.trim().toLocaleLowerCase(); return model.toLocaleLowerCase().includes(q) || title.toLocaleLowerCase().includes(q); }).map(model => { const found = context.models?.find(item => item.id === model); const title = found?.catalog?.name?.trim() ? catalogTitle(found) : model; return <DropdownMenuCheckboxItem key={model} checked={selectedModels.includes(model)} onSelect={event => event.preventDefault()} onCheckedChange={checked => { setSelectedModels(current => checked ? [...current, model] : current.filter(value => value !== model)); setConsent(false); }}>{title}{title !== model && <span className="sr-only"> {model}</span>}</DropdownMenuCheckboxItem>; })}
+                    {!catalog.models.some(model => { const title = catalogTitle(model); const q = modelQuery.trim().toLocaleLowerCase(); return model.toLocaleLowerCase().includes(q) || title.toLocaleLowerCase().includes(q); }) && <DropdownMenuItem disabled>{t('No matching models', '没有匹配的模型')}</DropdownMenuItem>}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <p className="text-muted-foreground">{t('Custom routing can use only these backing models.', '自定义路由仅可使用这些底层模型。')}</p>

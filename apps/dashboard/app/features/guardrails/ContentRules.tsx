@@ -175,15 +175,13 @@ export default function ContentRules({
           {stage === "input" ? uiT("Input rules") : uiT("Output rules")}
         </h2>
       )}
-      <Alert>
-        <AlertDescription>
-          {stage === "input"
-            ? uiT("Rules inspect supported text before sending it upstream. Requests with unsupported tools, images or opaque content are blocked.")
-            : outputMode === "observe_only"
-              ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
-              : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}
-        </AlertDescription>
-      </Alert>
+      <p className="guardrails-muted">
+        {stage === "input"
+          ? uiT("Rules inspect supported text before sending it upstream. Requests with unsupported tools, images or opaque content are blocked.")
+          : outputMode === "observe_only"
+            ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
+            : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}
+      </p>
       <section className="guardrails-section guardrails-content-section">
         <h3>{uiT("Patterns")}</h3>
         <p className="guardrails-muted">
@@ -276,7 +274,7 @@ export default function ContentRules({
             {uiT("The 32-rule limit has been reached.")}</p>
         )}
         {!custom.length && (
-          <p className="guardrails-muted">{uiT("No custom patterns.")}</p>
+          <p className="guardrails-muted rounded-lg border border-dashed border-border/70 bg-muted/20 px-3.5 py-2.5">{uiT("No custom patterns.")}</p>
         )}
         {custom.map(({ rule, index }, number) => (
           <div key={index} className="guardrails-custom-pattern">
