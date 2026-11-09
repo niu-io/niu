@@ -1235,7 +1235,8 @@ pub(crate) fn router(state: AppState) -> Router {
             )
             .route(
                 "/api/v1/workspaces/{workspace}/evaluations/{slug}",
-                get(super::workspace_review::evaluation),
+                get(super::workspace_review::evaluation)
+                    .put(super::workspace_review::put_evaluation),
             )
             .route(
                 "/api/v1/workspaces/{workspace}/evaluations/{slug}/runs",
