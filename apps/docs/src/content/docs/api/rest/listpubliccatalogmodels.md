@@ -1,5 +1,5 @@
 ---
-title: "List model aliases explicitly published by the gateway operator"
+title: "Retired public catalog list"
 description: "GET /catalog/v1/models"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /catalog/v1/models`
 
-Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
+The public catalog is retired. This route returns an empty list. Use the authenticated model list for models a workspace key can call.
 
 Operation: `listPublicCatalogModels`.
 
@@ -43,4 +43,4 @@ Public model aliases and declared capabilities, including configured tool_calls 
 
 ## Behavior and supported scope
 
-Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
+The public catalog is retired. This route returns an empty list. Use the authenticated model list for models a workspace key can call.

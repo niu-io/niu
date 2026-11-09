@@ -788,12 +788,11 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
             .0,
         StatusCode::CONFLICT
     );
-    for (path, auth) in [
-        ("/catalog/v1/models", ""),
-        ("/admin/v1/models", ADMIN),
-        ("/admin/v1/models", operator.token.as_str()),
-    ] {
-        let (status, catalog) = call(&app, Method::GET, path, auth, Value::Null).await;
+    let (status, public_catalog) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(public_catalog["data"], json!([]));
+    for auth in [ADMIN, operator.token.as_str()] {
+        let (status, catalog) = call(&app, Method::GET, "/admin/v1/models", auth, Value::Null).await;
         assert_eq!(status, StatusCode::OK);
         let model = catalog["data"]
             .as_array()
@@ -8724,7 +8723,6 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         "personal routes must remain isolated"
     );
     assert!(!org_b_models.to_string().contains("fixture-only-shared-key"));
-    // A checked public-catalog flag now has a truthful anonymous result.
     let (_, public_before) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
     assert!(!public_before.to_string().contains(shared_alias));
     let (status, updated) = call(
@@ -8738,7 +8736,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     assert_eq!(status, StatusCode::OK, "{updated}");
     let (_, public_after) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
     assert!(
-        public_after.to_string().contains(shared_alias),
+        !public_after.to_string().contains(shared_alias),
         "{public_after}"
     );
     assert!(!public_after.to_string().contains("fixture-only-shared-key"));

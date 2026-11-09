@@ -845,9 +845,7 @@ def main():
     assert catalog_mark_type.startswith("image/") and len(catalog_mark) > 100
     catalog_api_status, catalog, catalog_api_type = request("GET", "/catalog/v1/models")
     assert catalog_api_status == 200 and "application/json" in catalog_api_type
-    assert [item["id"] for item in catalog["data"]] == ["fast"]
-    assert catalog["data"][0]["capabilities"]["chat_completions"] is True
-    assert "fixture-model" not in json.dumps(catalog), "public catalog exposed the upstream model"
+    assert catalog["data"] == []
 
     docs_status, docs_html, docs_type = request("GET", "/docs/")
     assert docs_status == 200 and "text/html" in docs_type

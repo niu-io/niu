@@ -413,11 +413,6 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="md:hidden"> · {scopeName}</span>
-                      {!pool.organization_id && pool.public_catalog && (
-                        <Badge variant="secondary" className="text-[11px] font-normal">
-                          {t('Public catalog', '已发布至目录')}
-                        </Badge>
-                      )}
                     </div>
                   </TableCell>
                   <TableCell className="hidden align-top whitespace-normal md:table-cell">
@@ -659,7 +654,6 @@ function RoutePoolEditorDialog({
   const [displayName, setDisplayName] = useState(base?.display_name ?? '');
   const [description, setDescription] = useState(base?.description ?? '');
   const [organizationId, setOrganizationId] = useState<string | null>(base?.organization_id ?? null);
-  const [publicCatalog, setPublicCatalog] = useState(Boolean(base?.public_catalog));
   const [billingMode, setBillingMode] = useState<ModelRoutePoolBillingMode>(base?.billing_mode ?? 'pool_tariff');
   const [enabled, setEnabled] = useState(base?.enabled ?? true);
   const [candidates, setCandidates] = useState<ModelRoutePoolCandidate[]>(
@@ -956,9 +950,7 @@ function RoutePoolEditorDialog({
     if (base?.description != null || description.trim() !== '') {
       payload.description = description.trim() || null;
     }
-    if (base?.public_catalog !== undefined || publicCatalog) {
-      payload.public_catalog = organizationId === null ? publicCatalog : false;
-    }
+    payload.public_catalog = false;
     if (base?.billing_mode !== undefined || billingMode !== 'pool_tariff') {
       payload.billing_mode = billingMode;
     }
@@ -1237,16 +1229,6 @@ function RoutePoolEditorDialog({
               <span>{t('Enable model pool for request dispatch', '启用该模型池接收请求')}</span>
             </Label>
 
-            {organizationId === null && (
-              <Label className="flex items-center gap-2.5">
-                <Checkbox
-                  checked={publicCatalog}
-                  disabled={busy}
-                  onCheckedChange={value => setPublicCatalog(value === true)}
-                />
-                <span>{t('Publish in public model catalog (/v1/models)', '直接发布到公开模型目录 (/v1/models)')}</span>
-              </Label>
-            )}
           </div>
 
           <div className="space-y-3">
@@ -1739,7 +1721,6 @@ function RoutePoolEditorDialog({
                 <div><dt className="text-muted-foreground">{t('Description', '描述')}</dt><dd>{savedConflict.description || '—'}</dd></div>
                 <div><dt className="text-muted-foreground">{t('Status', '状态')}</dt><dd>{savedConflict.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</dd></div>
                 <div><dt className="text-muted-foreground">{t('Customer billing mode', '客户计费方式')}</dt><dd>{billingModeLabels[savedConflict.billing_mode ?? 'pool_tariff']}</dd></div>
-                <div><dt className="text-muted-foreground">{t('Public catalog', '公开目录')}</dt><dd>{savedConflict.public_catalog ? t('Published', '已发布') : t('Not published', '未发布')}</dd></div>
                 <div><dt className="text-muted-foreground">{t('Default fallback action', '默认回退操作')}</dt><dd>{defaultActionLabels[savedConflict.default_action ?? 'candidates']}</dd></div>
               </dl>
               <div className="text-sm"><h4 className="font-medium">{t('Candidate models', '候选模型')}</h4><ul className="list-disc pl-5">{savedConflict.candidates.map((candidate, index) => <li key={index}>{candidate.alias} · {t('Priority', '优先级')} {candidate.priority} · {t('Weight', '权重')} {candidate.weight} · {candidate.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</li>)}</ul></div>

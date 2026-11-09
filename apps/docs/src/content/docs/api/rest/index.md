@@ -548,7 +548,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`PUT /api/v1/session/mode` — Compatibility operation to enter or leave Admin mode](/docs/api/rest/setbrowseradminmode/)
 - [`PUT /api/v1/session/organization` — Switch the active organization for the current member session](/docs/api/rest/switchsessionorganization/)
 - [`PUT /api/v1/session/role` — Select an assigned role for the current browser sign-in](/docs/api/rest/setsessionrole/)
-- [`GET /catalog/v1/models` — List model aliases explicitly published by the gateway operator](/docs/api/rest/listpubliccatalogmodels/)
+- [`GET /catalog/v1/models` — Retired public catalog list](/docs/api/rest/listpubliccatalogmodels/)
 - [`GET /enterprise/readyz` — Check Enterprise module readiness](/docs/api/rest/getenterprisereadiness/)
 - [`GET /healthz` — Check process health](/docs/api/rest/gethealth/)
 - [`GET /payments/epay/notify` — Receive a signed classic EPay query notification](/docs/api/rest/receiveepayquerynotification/)
