@@ -2,10 +2,9 @@ use std::env;
 
 use axum::{
     Router, middleware,
-    response::{IntoResponse, Redirect, Response},
+    response::{Redirect, Response},
     routing::get,
 };
-use tower::ServiceExt;
 use tower_http::{
     compression::{CompressionLayer, predicate::NotForContentType},
     services::{ServeDir, ServeFile},
@@ -46,7 +45,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     let docs = Router::new().fallback_service(
         ServeDir::new(docs_dir).not_found_service(ServeFile::new(format!("{docs_dir}/404.html"))),
     );
-    let models = Router::new().fallback_service(ServeDir::new(format!("{catalog_dir}/models")));
     let workspaces = Router::new().fallback_service(
         ServeDir::new(dashboard_dir).fallback(ServeFile::new(dashboard_index.clone())),
     );
@@ -100,6 +98,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/providers",
         "/suppliers",
         "/activity",
+        "/models",
     ] {
         let slash_prefix = format!("{prefix}/");
         app = app
@@ -112,10 +111,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     }
     let app = app
         .route_service("/docs/", ServeFile::new(format!("{docs_dir}/index.html")))
-        .route_service(
-            "/models/",
-            ServeFile::new(format!("{catalog_dir}/models/index.html")),
-        )
         .nest_service(
             "/_catalog",
             ServeDir::new(format!("{catalog_dir}/_catalog")),
@@ -130,37 +125,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             Router::new().fallback_service(ServeFile::new(format!("{dashboard_dir}/index.html"))),
         )
         .nest("/docs", docs)
-        .nest("/models", models)
         .nest("/workspaces", workspaces);
-
-    // Public catalog remains public; explicit workspace context enters the
-    // authenticated dashboard. All data access still uses the normal API guards.
-    let model_dashboard = ServeFile::new(dashboard_index.clone());
-    let app = app.layer(middleware::from_fn(
-        move |request: axum::extract::Request, next: axum::middleware::Next| {
-            let entry = model_dashboard.clone();
-            async move {
-                let path = request.uri().path();
-                let scoped_models = (path == "/models" || path.starts_with("/models/"))
-                    && request.uri().query().is_some_and(|query| {
-                        url::form_urlencoded::parse(query.as_bytes())
-                            .any(|(key, value)| key == "workspace" && !value.is_empty())
-                    });
-                if scoped_models {
-                    match entry.oneshot(request).await {
-                        Ok(response) => response.into_response(),
-                        Err(never) => match never {},
-                    }
-                } else if path == "/models" {
-                    canonical_public_root(request.uri().clone())
-                        .await
-                        .into_response()
-                } else {
-                    next.run(request).await
-                }
-            }
-        },
-    ));
 
     // Marketing is a separately built artifact. Never use it as a catch-all:
     // it must not capture product routes, API failures, or workspace deep links.

@@ -283,7 +283,7 @@ export default function ShellHeader({
           )}
           <h1 className="dashboard-route-title">
             {destination === 'Models' && activePath.startsWith('models/') ? (
-              <NavLink to={modelsHref} reloadDocument={!token}>
+              <NavLink to={modelsHref}>
                 {t('Models', '模型')}
               </NavLink>
             ) : (

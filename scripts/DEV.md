@@ -26,12 +26,12 @@ sign-in still requires HTTPS. The former local administrator login and token-inj
 proxy have been removed. Installation tokens remain separate API credentials for
 explicit setup and automated administration.
 
-The dashboard serves live source with Vite HMR on port 2566. API, account sign-in,
-docs and public catalog requests are proxied to the loopback-only Gateway on
-port 2567. Compare uses the docs-owned comparison when no website artifact is configured; when `NIU_SITE_DIR` is set, website Compare pages and their assets are forwarded to the Gateway. Use the single application URL above; port 2555 is not used. Rust
+The dashboard serves live source with Vite HMR on port 2566. API, account sign-in
+and docs requests are proxied to the loopback-only Gateway on
+port 2567. `/models/` stays in the dashboard. Compare uses the docs-owned comparison when no website artifact is configured; when `NIU_SITE_DIR` is set, website Compare pages and their assets are forwarded to the Gateway. Use the single application URL above; port 2555 is not used. Rust
 source, Cargo manifests and SQL migrations are watched; successful builds restart
 the Gateway, while failed builds leave the previous binary running. Documentation
-and catalog source changes are included at startup; restart the launcher after
+source changes are included at startup; restart the launcher after
 editing them.
 
 Use `pnpm dev -- --packaged` to verify the built product directly through the

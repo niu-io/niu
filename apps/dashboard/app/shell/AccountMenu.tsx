@@ -43,7 +43,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
     return () => media.removeEventListener('change', update);
   }, [theme]);
   const { session, token, signOut, organizations, organization, selectOrganization, organizationSwitching, organizationSwitchError, workspaceLoading, workspaceError } = context;
-  const modelsHref = token ? workspaceModelsHref(context.workspace, context.workspaces) : '/models/';
+  const modelsHref = workspaceModelsHref(token ? context.workspace : null, context.workspaces);
   const installation = session?.kind === 'installation';
   const platformAdmin = Boolean(session?.permissions?.platform_admin || (installation && session?.permissions?.manage_operators !== false));
   const supplierOnly = supplierArea && !installation && !session?.operator;
@@ -64,7 +64,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><FolderKey />{t('Workspace', '工作空间')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/generations"><IconSparkles />{t('Generations', '生成对话')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />{t('Activity', '活动')}</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref} reloadDocument={!token}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
             {platformAdmin && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/admin/providers"><IconShieldLock />{t('Admin', '管理后台')}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />{t('Docs', '文档')}</Link></DropdownMenuItem>

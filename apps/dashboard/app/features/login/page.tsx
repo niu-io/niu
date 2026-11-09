@@ -67,8 +67,7 @@ export default function LoginRoute() {
       // Public pages are served as static artifacts; leave the dashboard router after login.
       const destination = new URL(returnTo, window.location.origin);
       const publicPath = destination.pathname;
-      const publicModels = /^\/models\/?$/.test(publicPath) && !destination.searchParams.get('workspace');
-      if (publicModels || publicPath === '/' || /^\/(?:docs|blog|compare)(?:\/|$)/.test(publicPath)) window.location.replace(returnTo);
+      if (publicPath === '/' || /^\/(?:docs|blog|compare)(?:\/|$)/.test(publicPath)) window.location.replace(returnTo);
       else navigate(returnTo, { replace: true });
     }
   }, [context.token, navigate, returnTo]);
@@ -136,7 +135,6 @@ export default function LoginRoute() {
         {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
-        <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
