@@ -732,7 +732,6 @@ export default function AppLayout() {
             adminSupplierName={adminSupplierName}
             platform={platform}
             modelsHref={modelsHref}
-            token={token}
             title={title}
           />
         )}

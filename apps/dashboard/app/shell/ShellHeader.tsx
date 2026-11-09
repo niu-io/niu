@@ -116,7 +116,6 @@ export default function ShellHeader({
   adminSupplierName,
   platform,
   modelsHref,
-  token,
   title,
 }: {
   toggleRef: RefObject<HTMLButtonElement | null>;
@@ -143,7 +142,6 @@ export default function ShellHeader({
   adminSupplierName: string;
   platform: boolean;
   modelsHref: string;
-  token: string;
   title: string;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
