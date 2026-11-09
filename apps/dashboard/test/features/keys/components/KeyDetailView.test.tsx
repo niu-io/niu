@@ -160,3 +160,37 @@ it('shows the exact approved model interfaces or management-only state', async (
   render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test-2" models={['fast']} canWrite={false} initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
   await screen.findByText('Blocked (management only)');
 });
+
+it('reveals, hides, and repeatedly copies the API key secret on the detail page', async () => {
+  const secretValue = 'niu_abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+  const record = { id: 'saved', slug: 'saved', revision: 1, name: 'Application key', allowed_models: ['*'], expires_at_ms: Date.now() + 86400000, revoked: false, expired: false };
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).includes('?reveal=true')) {
+      return Response.json({ ...record, token: secretValue, token_preview: 'niu_abcd••••••••7890' });
+    }
+    return Response.json({ data: [record] });
+  });
+  vi.stubGlobal('fetch', fetcher);
+
+  const user = userEvent.setup();
+  const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test-reveal" models={['fast']} canWrite initialScope={{ organizationId: 'org', projectId: 'demo' }} />} /></Routes></MemoryRouter>);
+
+  await screen.findByRole('heading', { name: 'Application key' });
+  expect(screen.getByText('niu_••••••••••••')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Reveal API key' }));
+  expect(await screen.findByText(secretValue)).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Hide API key' }));
+  expect(screen.queryByText(secretValue)).toBeNull();
+  expect(screen.getByText('niu_abcd••••••••7890')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Copy key' }));
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(writeText).toHaveBeenLastCalledWith(secretValue);
+
+  await user.click(screen.getByRole('button', { name: 'Copied' }));
+  expect(writeText).toHaveBeenCalledTimes(2);
+  expect(writeText).toHaveBeenLastCalledWith(secretValue);
+});

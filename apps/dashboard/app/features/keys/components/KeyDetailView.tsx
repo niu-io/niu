@@ -3,6 +3,7 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { IconBan as Ban } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
+import { IconEye as Eye, IconEyeOff as EyeOff } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconRefresh as RotateCw } from "@tabler/icons-react";
 import { IconCopy as Copy } from "@tabler/icons-react";
@@ -13,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
-import { cachedKeyGet, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
+import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import KeyGuardrails from './KeyGuardrails';
 import KeyHistoryDialog from './KeyHistoryDialog';
@@ -67,6 +68,9 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const [revoking, setRevoking] = useState(false);
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(false);
+  const [revealedSecret, setRevealedSecret] = useState('');
+  const [secretVisible, setSecretVisible] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
   const [guardrailRefresh, setGuardrailRefresh] = useState(0);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const restoreEditFocus = useRef(false);
@@ -80,6 +84,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   useEffect(() => {
     setConfirmRevoke(false);setNotice('');setRevoking(false);
     setEditing(false);
+    setRevealedSecret('');setSecretVisible(false);setCopiedSecret(false);
     return () => { revokeController.current?.abort(); };
   }, [token, collectionPath, keyId]);
 
@@ -163,6 +168,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       const result = await keyRequest<{token?: string; secret_available?: boolean}>(token, `${adminCollectionPath}/${encodeURIComponent(key.id)}/rotate`, 'POST');
       if (!result.token) throw new Error('The replacement secret was not returned. Reload the key before retrying.');
       setRotatedSecret(result.token);
+      setRevealedSecret(result.token);
       setConfirmRotate(false);
       setNotice('Key rotated. The previous secret no longer works.');
       setRevision(value => value + 1);
@@ -170,6 +176,48 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       setRotateError(cause instanceof Error ? cause.message : 'Could not rotate this key.');
     } finally {
       setRotating(false);
+    }
+  }
+
+  async function fetchDetailSecret(): Promise<string | null> {
+    if (!key) return null;
+    const existing = revealedSecret || key.token;
+    if (existing) return existing;
+    if (!collectionPath) return null;
+    try {
+      setError('');
+      const res = await keyRequest<ProjectKey & { data?: ProjectKey[] }>(token, `${collectionPath}/${encodeURIComponent(key.id)}?reveal=true`, 'GET');
+      const secret = res?.token ?? res?.data?.find(item => item.id === key.id)?.token ?? null;
+      if (!secret) {
+        setError('This key was created before secret reveal was enabled. Rotate the key once to enable reveal and copy.');
+        return null;
+      }
+      setRevealedSecret(secret);
+      return secret;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not reveal this API key.');
+      return null;
+    }
+  }
+
+  async function toggleRevealSecret() {
+    if (secretVisible) {
+      setSecretVisible(false);
+      return;
+    }
+    const secret = await fetchDetailSecret();
+    if (secret) setSecretVisible(true);
+  }
+
+  async function copyDetailSecret() {
+    const secret = await fetchDetailSecret();
+    if (!secret) return;
+    try {
+      await navigator.clipboard.writeText(secret);
+      setCopiedSecret(true);
+      window.setTimeout(() => setCopiedSecret(false), 1800);
+    } catch {
+      setError('Clipboard access is unavailable. Select and copy the value instead.');
     }
   }
 
@@ -205,6 +253,14 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
           onCancel={() => { restoreEditFocus.current = true; setEditing(false); setError(''); }}
         />}
         {!editing && <dl className="key-detail-facts">
+          {canWrite && !key.revoked && !key.expired && <div className="col-span-full">
+            <dt>{uiT("API key")}</dt>
+            <dd className="mt-1 flex flex-wrap items-center gap-2">
+              <code className="rounded bg-muted px-2 py-1 font-mono text-xs break-all select-all">{secretVisible && (revealedSecret || key.token) ? (revealedSecret || key.token) : formatMaskedKey(revealedSecret || key.token, key.token_preview)}</code>
+              <Button type="button" variant="outline" size="sm" onClick={() => void toggleRevealSecret()}>{secretVisible ? <EyeOff size={14} /> : <Eye size={14} />}{secretVisible ? uiT("Hide API key") : uiT("Reveal API key")}</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => void copyDetailSecret()}>{copiedSecret ? <Check size={14} /> : <Copy size={14} />}{copiedSecret ? uiT("Copied") : uiT("Copy key")}</Button>
+            </dd>
+          </div>}
           <div><dt>{uiT("Allowed models")}</dt><dd>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.length ? key.allowed_models.join(', ') : uiT("None")}</dd></div>
           <div><dt>{uiT("Model calls")}</dt><dd>{key.invocation_allowed === false ? uiT("Blocked (management only)") : key.invocation_allowed === true ? (key.invocation_protocols?.length ? (key.invocation_protocols.length >= 7 ? <>{uiT("All model endpoints")}<span className="sr-only"> ({key.invocation_protocols.map(protocolLabel).join(', ')})</span></> : `${uiT("Allowed for")} ${key.invocation_protocols.map(protocolLabel).join(', ')}`) : uiT("Allowed; interface scope not reported")) : uiT("Not reported")}</dd></div>
           <div><dt>{uiT("Limits")}</dt><dd><span className="block">{uiT("Requests per minute")}: {describeLimit(getKeyRpm(key))}</span><span className="block">{uiT("Concurrent requests")}: {describeLimit(getKeyConc(key))}</span><span className="block">{uiT("Tokens per minute")}: {describeLimit(getKeyTpm(key))}</span></dd></div>
@@ -251,7 +307,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     </>}
     <Dialog open={Boolean(rotatedSecret)} onOpenChange={open => { if (!open) setRotatedSecret(''); }}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{uiT("Save the replacement API key")}</DialogTitle><DialogDescription>{uiT("This secret is shown once. The previous secret no longer works.")}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{uiT("Save the replacement API key")}</DialogTitle><DialogDescription>{uiT("The previous secret no longer works. You can also reveal and copy this secret anytime from the key details.")}</DialogDescription></DialogHeader>
         <div className="grid gap-2"><Label htmlFor="rotated-key-secret">{uiT("API key secret")}</Label><Input id="rotated-key-secret" readOnly value={rotatedSecret} className="font-mono text-xs" /></div>
         <DialogFooter><Button variant="outline" onClick={() => setRotatedSecret('')}>{uiT("Close")}</Button><Button onClick={() => void navigator.clipboard.writeText(rotatedSecret)}><Copy size={15} />{uiT("Copy secret")}</Button></DialogFooter>
       </DialogContent>

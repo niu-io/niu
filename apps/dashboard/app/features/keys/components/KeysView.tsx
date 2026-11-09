@@ -14,6 +14,7 @@ import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
 import { IconDotsVertical as EllipsisVertical } from "@tabler/icons-react";
+import { IconEye as Eye, IconEyeOff as EyeOff } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconAlertTriangle as AlertTriangle } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
@@ -33,7 +34,7 @@ import { TableSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/shell/dashboard-context';
 import { amountToNanos, formatUnitAtoms, money } from '@/lib/money';
-import { cachedKeyGet, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
+import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
 type KeyDialog = { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
 // A request whose outcome is unknown stays visible as a non-blocking notice.
@@ -125,6 +126,8 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const [issued, setIssued] = useState<IssuedProjectKey | null>(null);
   const [secretModel, setSecretModel] = useState('');
   const [copied, setCopied] = useState('');
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [visibleSecretIds, setVisibleSecretIds] = useState<Record<string, boolean>>({});
   const [dialogError, setDialogError] = useState('');
   const root = workspacePath(location.pathname);
   const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
@@ -269,6 +272,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       if (controller.signal.aborted) return;
       if (result.kind === 'issued') {
         clearActiveRequest(pending); setCopyError(''); setIssued(result.issued);
+        setRevealedSecrets(current => ({ ...current, [result.issued.id]: result.issued.token }));
         const effectiveModels = result.issued.allowed_models ?? result.issued.key?.allowed_models
           ?? (pending.action === 'create' ? (pending.body?.allowed_models as string[] | undefined) ?? ['*'] : keys.find(key => key.id === pending.keyId)?.allowed_models ?? ['*']);
         setSecretModel(effectiveModels.includes('*') ? modelIds[0] ?? '' : effectiveModels[0] ?? '');
@@ -348,6 +352,44 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
     }
   }
 
+  async function fetchKeySecret(key: ProjectKey): Promise<string | null> {
+    const existing = revealedSecrets[key.id] || key.token;
+    if (existing) return existing;
+    if (!collectionPath) return null;
+    try {
+      setCopyError('');
+      const res = await keyRequest<ProjectKey & { data?: ProjectKey[] }>(token, `${collectionPath}/${encodeURIComponent(key.id)}?reveal=true`, 'GET');
+      const secret = res?.token ?? res?.data?.find(item => item.id === key.id)?.token ?? null;
+      if (!secret) {
+        setCopyError('This key was created before secret reveal was enabled. Rotate the key once to enable reveal and copy.');
+        return null;
+      }
+      setRevealedSecrets(current => ({ ...current, [key.id]: secret }));
+      return secret;
+    } catch (cause) {
+      setCopyError(cause instanceof Error ? cause.message : 'Could not reveal this API key.');
+      return null;
+    }
+  }
+
+  async function toggleRevealKey(key: ProjectKey) {
+    if (visibleSecretIds[key.id]) {
+      setVisibleSecretIds(current => ({ ...current, [key.id]: false }));
+      return;
+    }
+    const secret = await fetchKeySecret(key);
+    if (secret) {
+      setVisibleSecretIds(current => ({ ...current, [key.id]: true }));
+    }
+  }
+
+  async function copyKeySecret(key: ProjectKey) {
+    const secret = await fetchKeySecret(key);
+    if (secret) {
+      await copy(`row:${key.id}`, secret);
+    }
+  }
+
   async function issue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!collectionPath || !name.trim() || !allowedModels.length || busy) return;
@@ -412,7 +454,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       : dialog?.kind === 'revoke' ? uiT("Revoke API key")
         : uiT("Create an API key");
   const dialogDescription = dialog?.kind === 'secret'
-    ? uiT("This secret is shown once. Copy it now, then use it from your application.")
+    ? uiT("Copy your API key now, or reveal and copy it anytime from the API keys list.")
     : dialog?.kind === 'rotate' ? uiF("Rotating {0} immediately revokes its current secret.", [dialog.key.name])
       : dialog?.kind === 'revoke' ? uiF("Requests using {0} will stop working immediately.", [dialog.key.name])
         : '';
@@ -478,13 +520,20 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       {!loading && !error && !keys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No API keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader>{canIssue && <EmptyContent><Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button></EmptyContent>}</Empty>}
       {!loading && keys.length > 0 && visibleKeys.length === 0 && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{keyStatusFilter === 'active' ? uiT("No active API keys") : uiT("No matching keys")}</EmptyTitle><EmptyDescription>{keyStatusFilter === 'active' ? uiT("Every key in this workspace is revoked or expired.") : uiT("No keys match this status and search.")}</EmptyDescription></EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2">{keyStatusFilter === 'active' && canIssue && <Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button>}<Button variant="outline" onClick={() => {setKeyStatusFilter(keyStatusFilter === 'active' ? 'inactive' : 'all'); (filterTriggerRef.current ?? refreshButtonRef.current)?.focus();}}>{keyStatusFilter === 'active' ? uiT("Show revoked and expired") : uiT("Clear filters")}</Button></EmptyContent></Empty>}
       {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>{uiT("Key")}</TableHead><TableHead className="key-table-metadata">{uiT("Model access")}</TableHead><TableHead className="key-table-metadata">{uiT("Limits")}</TableHead><TableHead className="key-table-metadata">{uiT("Expires")}</TableHead><TableHead className="key-table-usage">{uiT("Last used")}</TableHead><TableHead>{uiT("Status")}</TableHead>{showActions && <TableHead>{uiT("Actions")}</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
-        <TableCell><Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={uiF("View key {0}", [key.name])}><KeyRound size={15} /><span>{key.name}{visibleKeys.filter(item => item.name === key.name).length > 1 && <small className="mt-0.5 block text-xs font-normal text-muted-foreground">{key.expires_at_ms === null ? uiT("Never expires") : uiF("Expires {0}", [new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))])}{' · '}{keyLastUsed(key)}</small>}</span></Link></TableCell>
+        <TableCell>
+          <Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={uiF("View key {0}", [key.name])}><KeyRound size={15} /><span>{key.name}{visibleKeys.filter(item => item.name === key.name).length > 1 && <small className="mt-0.5 block text-xs font-normal text-muted-foreground">{key.expires_at_ms === null ? uiT("Never expires") : uiF("Expires {0}", [new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))])}{' · '}{keyLastUsed(key)}</small>}</span></Link>
+          {canWrite && !key.revoked && !key.expired && <div className="mt-1 flex items-center gap-1">
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-all">{visibleSecretIds[key.id] && (revealedSecrets[key.id] || key.token) ? (revealedSecrets[key.id] || key.token) : formatMaskedKey(revealedSecrets[key.id] || key.token, key.token_preview)}</code>
+            <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={visibleSecretIds[key.id] ? uiF("Hide API key for {0}", [key.name]) : uiF("Reveal API key for {0}", [key.name])} title={visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")} onClick={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff size={14} /> : <Eye size={14} />}</Button>
+            <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={uiF("Copy API key for {0}", [key.name])} title={copied === `row:${key.id}` ? uiT("Copied") : uiT("Copy key")} onClick={() => void copyKeySecret(key)}>{copied === `row:${key.id}` ? <Check size={14} /> : <Clipboard size={14} />}</Button>
+          </div>}
+        </TableCell>
         <TableCell className="key-table-metadata"><span className="key-model-summary" title={key.allowed_models.includes('*') ? uiT("Every configured model route") : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.join(', ')}</span></TableCell>
         <TableCell className="key-table-metadata"><span className="key-model-summary">{keyLimitsSummary(key)}</span></TableCell>
         <TableCell className="key-table-metadata">{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
         <TableCell className="key-table-usage">{keyLastUsed(key)}</TableCell>
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></TableCell>
-        {showActions && <TableCell>{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
+        {showActions && <TableCell>{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem onSelect={() => void copyKeySecret(key)}><Clipboard />{uiT("Copy key")}</DropdownMenuItem><DropdownMenuItem onSelect={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff /> : <Eye />}{visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")}</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
       </TableRow>)}</TableBody></Table></div>}
       {nextCursor && <div className="mt-4 flex justify-center"><Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? uiT("Loading…") : uiT("Load more keys")}</Button></div>}
     </section>}
@@ -580,7 +629,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
         <footer className="niu-modal-actions sticky bottom-0 z-10 border-t bg-background pt-3"><Button type="button" variant="ghost" disabled={busy} onClick={() => {if (generationReturn.current) navigate(generationReturn.current); else setDialog(null);}}>{generationReturn.current ? uiT("Return to chat") : uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
       </form>}
       {dialog?.kind === 'secret' && issued && <div className="niu-modal-form key-issued-view">
-        <div className="key-once-notice"><Check size={17} /><span>{uiT("Copy this secret before closing. Niu cannot reveal it again.")}</span></div>
+        <div className="key-once-notice"><Check size={17} /><span>{uiT("API key ready. You can also reveal and copy it anytime from the API keys list.")}</span></div>
         <div className="key-copy-row"><Label htmlFor="issued-api-key">{uiT("API key")}</Label><div><Input id="issued-api-key" value={issued.token} readOnly type="text" /><Button type="button" variant="outline" onClick={() => void copy('key', issued.token)}><Clipboard size={15} />{copied === 'key' ? uiT("Copied") : uiT("Copy key")}</Button></div></div>
         <div className="key-copy-row"><Label htmlFor="issued-base-url">{uiT("Base URL")}</Label><div><Input id="issued-base-url" value={baseUrl()} readOnly /><Button type="button" variant="outline" onClick={() => void copy('url', baseUrl())}><Clipboard size={15} />{copied === 'url' ? uiT("Copied") : uiT("Copy URL")}</Button></div></div>
         {invocationAllowed ? videoExample ? <div className="key-example key-example-prerequisite" role="status"><div><strong>{uiT("Request example unavailable")}</strong></div><p>{uiT("Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.")}</p></div> : <div className="key-example"><div className="model-route-example-heading"><strong>{uiT("Check access with your API key")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copy('example', usageExample)}><Clipboard size={14} />{copied === 'example' ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div><pre className="model-route-example"><code>{usageExample}</code></pre></div> : <p role="status">{!invocationAllowed ? uiT("This key is for management only and cannot invoke models.") : uiT("Model invocation permission is unavailable for this key.")}</p>}
@@ -589,7 +638,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       </div>}
       {dialog?.kind === 'rotate' && <div className="niu-modal-form">
         {activePending?.action === 'rotate' && <Alert><AlertDescription><p>{uiT("A previous key rotation may still complete. Check it before rotating this key again.")}</p><Button type="button" variant="outline" size="sm" onClick={() => { setDialog(null); void checkRequest(activePending); }}>{uiT("Check previous request")}</Button></AlertDescription></Alert>}
-        <p className="key-confirm-copy">{uiT("The replacement secret is shown once.")}</p>{dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? uiT("Rotating…") : uiT("Rotate key")}</Button></footer>
+        <p className="key-confirm-copy">{uiT("A new secret will be generated and the current secret will stop working immediately.")}</p>{dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? uiT("Rotating…") : uiT("Rotate key")}</Button></footer>
       </div>}
       {dialog?.kind === 'revoke' && <div className="niu-modal-form"><p className="key-confirm-copy">{uiT("This cannot be undone.")}</p>{dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Keep key")}</Button><Button variant="destructive" disabled={busy} onClick={() => void revoke(dialog.key)}>{busy ? uiT("Revoking…") : uiT("Revoke key")}</Button></footer></div>}
     </DialogContent>

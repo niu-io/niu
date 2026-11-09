@@ -42,6 +42,8 @@ export type ProjectKey = {
   slug?: string;
   revision?: number;
   name: string;
+  token?: string | null;
+  token_preview?: string | null;
   allowed_models: string[];
   invocation_allowed?: boolean;
   invocation_protocols?: string[];
@@ -137,6 +139,12 @@ export function workspacePath(pathname: string) {
 
 export function keyStatus(key: ProjectKey) {
   return key.revoked ? 'Revoked' : key.expired ? 'Expired' : 'Active';
+}
+
+export function formatMaskedKey(secret?: string | null, preview?: string | null) {
+  if (secret && secret.length >= 12) return `${secret.slice(0, 8)}••••••••${secret.slice(-4)}`;
+  if (preview) return preview;
+  return 'niu_••••••••••••';
 }
 
 export function keyLastUsed(key: ProjectKey) {
