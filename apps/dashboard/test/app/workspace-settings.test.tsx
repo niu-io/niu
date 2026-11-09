@@ -118,14 +118,15 @@ beforeEach(() => {
 });
 
 describe('workspace settings', () => {
-  it('renders a single general section and links to the canonical workspace billing route', async () => {
+  it('renders general settings and workspace spending limits directly without external billing shortcut buttons', async () => {
     renderSettings();
     await screen.findByLabelText('Workspace name');
     expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.queryByRole('tablist')).toBeNull();
-    expect(screen.getByRole('link', { name: 'Spending & statements' }).getAttribute('href')).toBe(
-      '/workspaces/example/billing',
-    );
+    expect(screen.getByRole('region', { name: 'Workspace spending limits' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Spending limits' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Spending & statements' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Manage credits' })).toBeNull();
   });
 
   it('redirects the legacy spending and billing tab to workspace billing with its scope', async () => {
@@ -284,17 +285,15 @@ describe('workspace settings', () => {
   });
 
   it('offers a safe retry after an uncertain network outcome', async () => {
-    fetchMock
-      .mockImplementationOnce((input, init) => {
-        if (isRenameRequest(input, init)) return Promise.reject(new TypeError('Failed to fetch'));
-        return Promise.resolve(jsonResponse({ data: [] }));
-      })
-      .mockImplementationOnce((input, init) => {
-        if (isRenameRequest(input, init)) {
-          return Promise.resolve(jsonResponse({ id: workspace.id, name: 'Retried workspace' }));
-        }
-        return Promise.resolve(jsonResponse({ data: [] }));
-      });
+    let renameAttempt = 0;
+    fetchMock.mockImplementation((input, init) => {
+      if (isRenameRequest(input, init)) {
+        renameAttempt += 1;
+        if (renameAttempt === 1) return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.resolve(jsonResponse({ id: workspace.id, name: 'Retried workspace' }));
+      }
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
     renderSettings();
     const user = userEvent.setup();
     const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
