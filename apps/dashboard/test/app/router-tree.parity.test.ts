@@ -118,6 +118,8 @@ describe('router-tree parity', () => {
     ['/workspaces/alpha/keys/key-1', 'workspace-key-detail'],
     ['/workspaces/alpha/guardrails/rules', 'workspace-guardrails-legacy'],
     ['/workspaces/alpha/evaluations/baseline/runs/run-1', 'workspace-evaluation-run'],
+    ['/generations/runs/run-1', 'generations-run'],
+    ['/generations/session-1/runs/run-1', 'generations-session-run'],
     ['/generations/session-1', 'generations-index'],
     ['/models/gpt-5', 'models'],
     ['/settings/appearance', 'account-settings'],

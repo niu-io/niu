@@ -88,3 +88,34 @@ export function connectionIdentity(vendor: { name: string; api_base: string; ada
   const id = Object.entries(domains).find(([domain]) => host === domain || host.endsWith(`.${domain}`))?.[1];
   return providers.find(provider => provider.id === id) ?? { id: 'custom', name: vendor.adapter === 'openrouter' ? 'OpenRouter-compatible' : 'OpenAI-compatible' };
 }
+
+const catalogWords: Record<string, string> = {
+  deepseek: 'DeepSeek', qwen: 'Qwen', kimi: 'Kimi', glm: 'GLM', wan: 'Wan', seedance: 'Seedance',
+  gemma: 'Gemma', mistral: 'Mistral', conatus: 'Conatus', moonshot: 'Moonshot', gpt: 'GPT',
+  claude: 'Claude', gemini: 'Gemini', llama: 'Llama',
+};
+
+export function catalogTitle(model: { id: string; catalog?: { name?: string | null } | null } | string): string {
+  if (typeof model === 'string') {
+    if (!model.includes('/') && !model.includes('-')) return model;
+    const slug = model.split('/').pop() || model;
+    return slug
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map(part => catalogWords[part.toLowerCase()] ?? part.replace(/^v(\d)/i, 'V$1').replace(/^[a-z]/, char => char.toUpperCase()))
+      .join(' ');
+  }
+  const name = model.catalog?.name?.trim();
+  if (name && name !== model.id && !name.includes('/')) return name;
+  return catalogTitle(model.id);
+}
+
+export function disambiguatedCatalogTitle(
+  model: { id: string; provider?: string; catalog?: { name?: string | null } | null },
+  allModels?: ReadonlyArray<{ id: string; catalog?: { name?: string | null } | null }>,
+): string {
+  const base = catalogTitle(model);
+  if (!allModels || allModels.filter(item => catalogTitle(item) === base).length <= 1) return base;
+  const prefix = model.provider?.trim() || (model.id.includes('/') ? model.id.slice(0, model.id.indexOf('/')) : modelProviderName(model));
+  return prefix ? `${base} (${prefix})` : base;
+}

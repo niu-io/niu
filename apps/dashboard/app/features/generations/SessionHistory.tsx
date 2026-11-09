@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { catalogTitle } from '@/lib/providers';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { cachedKeyGet } from '@/features/keys/api';
 import type { VideoJobHistory } from '@niu-io/sdk';
@@ -137,17 +138,17 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     for(const item of videos??[])if(!item.sessionId||sessionsFailed)merged.set(item.id,{...item,reference:item.reference??merged.get(item.id)?.reference});
     const keyQuery=(item:Video)=>{
       const slug=currentKeys?.find(key=>key.id===item.keyId)?.slug;
-      return slug ? `&key=${encodeURIComponent(slug)}` : '';
+      return slug ? `?key=${encodeURIComponent(slug)}` : '';
     };
     const rows:HistoryEntry[]=[
       ...savedSessions.map(session=>({type:'video-session' as const,id:session.id,reference:session.reference,session,title:session.title,created:Date.parse(session.updated_at),href:session.reference || /^video-[1-9][0-9]{0,18}$/.test(session.id) ? `/generations/${encodeURIComponent(session.reference??session.id)}` : `/generations?video-session=${encodeURIComponent(session.id)}`})),
       ...[...new Map([...savedChats,...(chats??[])].map(item=>[item.id,item])).values()].map(item=>({type:'chat' as const,id:item.id,reference:item.reference,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations/${encodeURIComponent(item.reference??item.id)}`})),
       ...[...merged.values()].map(item=>{
         // Session-bound results belong to the session surface, which renders
-        // the turn in place. Standalone jobs keep the legacy result link.
+        // the turn in place. Standalone jobs use the runs path.
         const sessionReference=!sessionsFailed&&item.sessionId ? savedSessions.find(session=>session.id===item.sessionId)?.reference : undefined;
         const readableReference=item.reference&&/^run-[1-9][0-9]{0,18}$/.test(item.reference) ? item.reference : undefined;
-        return {type:'video' as const,id:item.id,reference:item.reference,title:`Video · ${item.model}`,created:Number(item.created_at_ms),href:sessionReference ? `/generations/${encodeURIComponent(sessionReference)}${readableReference?`#${encodeURIComponent(readableReference)}`:''}` : `/generations?job=${encodeURIComponent(item.reference??item.id)}${keyQuery(item)}`};
+        return {type:'video' as const,id:item.id,reference:item.reference,title:`Video · ${catalogTitle(item.model)}`,created:Number(item.created_at_ms),href:sessionReference ? `/generations/${encodeURIComponent(sessionReference)}${readableReference?`#${encodeURIComponent(readableReference)}`:''}` : `/generations/runs/${encodeURIComponent(item.reference??item.id)}${keyQuery(item)}`};
       }),
     ];
     return rows.sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
@@ -249,8 +250,8 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   }
   const content = <>
     {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Retry sessions")}</Button></div>}
-    <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=>{const when=historyTime(item.created);return (<SidebarMenuItem key={`${item.type}:${item.id}`}>
-      <SidebarMenuButton asChild className="h-auto min-h-8 items-start py-1.5 [&>span:last-child]:whitespace-normal" isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span className="flex min-w-0 flex-col leading-tight"><span className="truncate">{uiT(item.title)}</span>{when&&<span aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{when}</span>}</span></Link></SidebarMenuButton>
+    <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=>{const when=historyTime(item.created);const runTag=item.type==='video'&&item.reference&&/^run-[1-9][0-9]{0,18}$/.test(item.reference)?item.reference:'';return (<SidebarMenuItem key={`${item.type}:${item.id}`}>
+      <SidebarMenuButton asChild className="h-auto min-h-8 items-start py-1.5 [&>span:last-child]:whitespace-normal" isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span className="flex min-w-0 flex-col leading-tight"><span className="truncate">{uiT(item.title)}</span>{(when||runTag)&&<span aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{runTag?`${runTag}${when?` · ${when}`:''}`:when}</span>}</span></Link></SidebarMenuButton>
       {item.type==='chat'&&chatActions&&chatActions(item.id)}
       {item.type==='video-session'&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{menuOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void prepareDeleteSavedInput(item.session)}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>);})}</SidebarMenu>

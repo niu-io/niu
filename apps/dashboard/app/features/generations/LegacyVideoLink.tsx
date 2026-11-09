@@ -13,7 +13,7 @@ import '../video/video.css';
  * the result. Records without a readable session keep the legacy Video surface
  * so authorized recovery and the original error states stay available.
  */
-export default function LegacyVideoLink({context,fallback}:{context:DashboardContext;fallback:ReactNode}) {
+export default function LegacyVideoLink({context,fallback,jobOverride}:{context:DashboardContext;fallback:ReactNode;jobOverride?:string}) {
   const { t: uiT } = useUILocale();
   const location=useLocation();
   const navigate=useNavigate();
@@ -23,7 +23,7 @@ export default function LegacyVideoLink({context,fallback}:{context:DashboardCon
   const workspace=context.workspace;
   const search=useMemo(()=>new URLSearchParams(location.search),[location.search]);
   const intent=search.get('intent')??'';
-  const job=search.get('job')??'';
+  const job=search.get('job')??jobOverride??'';
   const compose=search.get('compose')==='1';
   const requestedWorkspace=search.get('workspace')??'';
   const identity=`${intent}|${job}|${workspace?.id??''}|${compose}|${requestedWorkspace}`;

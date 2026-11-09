@@ -21,7 +21,7 @@ export default function Administration() {
     return <Alert><AlertTitle>{uiT("Administrator access required")}</AlertTitle><AlertDescription>
       {canActivateAdmin ? <>
         <p>{uiT("Your account has Platform administrator access assigned, but this session is in User mode.")}</p>
-        <p>{uiT("Switch to administrator mode to manage platform configuration. This does not grant new authority.")}</p>
+        <p>{uiT("Switch to administrator mode to manage Providers, routing, pricing, and platform settings.")}</p>
         <Button type="button" variant="outline" className="mt-3" disabled={roles?.saving} onClick={() => void roles?.setRole('admin')}>{roles?.saving ? uiT("Switching…") : uiT("Switch to administrator mode")}</Button>
         {roles?.error && <p role="alert" className="mt-2 text-destructive">{uiT(roles.error)}</p>}
       </> : <>

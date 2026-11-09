@@ -26,6 +26,8 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
 } from '@/components/ui/empty';
 import {
   Table,
@@ -552,9 +554,7 @@ function EvaluationsView({
               'Saved workspace configuration{0}. Your agent can make changes within its delegated authority.',
               [revision ? uiF(' · revision {0}', [revision]) : ''],
             )
-          : uiT(
-              'Review task acceptance, performance and customer charges against a baseline.',
-            );
+          : rows.length ? uiT('Review task acceptance, performance and customer charges against a baseline.') : '';
 
   return (
     <ReviewPageShell
@@ -690,15 +690,11 @@ function EvaluationsView({
               </TableBody>
             </Table>
             {!detail.runs?.length && (
-              <Empty className="min-h-60">
-                <EmptyHeader>
-                  <EmptyDescription>
+              <Empty className="min-h-60"><EmptyHeader><EmptyMedia variant="icon"><IconChevronDown size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT('No evaluation runs yet')}</EmptyTitle><EmptyDescription>
                     {uiT(
                       'No evaluation runs yet. Ask your agent to run an evaluation within your intended test budget and server spending limits.',
                     )}
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+                  </EmptyDescription></EmptyHeader></Empty>
             )}
             {next && (
               <Button variant="outline" onClick={() => setQuery({ after: next })}>

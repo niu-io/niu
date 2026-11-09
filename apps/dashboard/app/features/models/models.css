@@ -68,6 +68,9 @@
 .models-catalog .model-route-title .model-developer-label { margin: 8px 0 0; }
 
 @media (max-width: 580px) {
+  .models-toolbar { flex-wrap: wrap; }
+  .models-toolbar > div:nth-child(2) { order: -1; flex: 1 1 100%; max-width: none; }
+  .models-sort-menu { flex: 1 1 auto; width: auto; }
   .models-card-meta > span + span { border-left: 0; padding-left: 0; }
   .models-card-meta a { flex-basis: 100%; }
 }

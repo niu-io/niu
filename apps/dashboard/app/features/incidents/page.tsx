@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { IconRefresh } from '@tabler/icons-react';
+import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
 import type { PlatformConnectionIncident } from '@niu-io/sdk/admin';
 import PageHeader from '@/components/PageHeader';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -58,7 +58,7 @@ function IncidentList({ token, status }: { token: string; status: 'active' | 're
         <TableCell className="block whitespace-normal align-top sm:table-cell"><p>{notificationLabel(t, incident.notifications)}</p><p className="mt-1 text-xs text-muted-foreground">{incident.notifications.workspaces === 1 ? t('1 affected workspace', '1 个受影响工作空间') : `${incident.notifications.workspaces} ${t('affected workspaces', '个受影响工作空间')}`}</p></TableCell>
         <TableCell className="block align-top sm:table-cell"><Button asChild variant="outline" size="sm"><Link to={incident.provider ? `/admin/providers/${encodeURIComponent(incident.provider.slug)}/keys` : `/admin/incidents?connection=${encodeURIComponent(incident.reference)}`}>{t('Manage connection', '管理连接')}</Link></Button></TableCell>
       </TableRow>)}</TableBody>
-    </Table> : !error && <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{status === 'active' ? t('No active incidents recorded', '暂无待处理事故记录') : t('No recovered incidents recorded', '暂无已恢复事故记录')}</EmptyTitle><EmptyDescription>{t('This view covers recognized account restrictions, authentication refusals and repeated upstream failures. Other failures remain in request logs.', '此处显示已识别的账户限制、认证拒绝及上游连续故障，其他失败请查看请求日志。')}</EmptyDescription></EmptyHeader></Empty>}
+    </Table> : !error && <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconAlertTriangle size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{status === 'active' ? t('No active incidents recorded', '暂无待处理事故记录') : t('No recovered incidents recorded', '暂无已恢复事故记录')}</EmptyTitle><EmptyDescription>{t('This view covers recognized account restrictions, authentication refusals and repeated upstream failures. Other failures remain in request logs.', '此处显示已识别的账户限制、认证拒绝及上游连续故障，其他失败请查看请求日志。')}</EmptyDescription></EmptyHeader></Empty>}
     {next && !error && <div className="flex justify-end"><Button variant="outline" disabled={loading} onClick={() => setCursor(next)}>{loading ? t('Loading…', '加载中…') : t('Load more', '加载更多')}</Button></div>}
   </section>;
 }

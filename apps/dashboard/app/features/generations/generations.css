@@ -32,7 +32,7 @@
 .generations-session { flex-direction:column; }
 .generations-session-content { display:flex; min-width:0; min-height:0; flex:1; overflow:hidden; }
 .generations-toolbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; flex-shrink:0; min-height:var(--dashboard-header-height); padding:10px 16px; border-bottom:1px solid var(--border); }
-.generations-toolbar h1 { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
+.generations-toolbar :where(h1) { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
 .generations-toolbar-actions { min-width:0; }
 .generations-toolbar .playground-toolbar-actions { display:flex; }
 .generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr) auto; }
@@ -43,12 +43,12 @@
 .playground-composer-surface.is-blocked { min-height:132px; }
 .playground-composer-surface.is-blocked > :not(.composer-cover) { opacity:.4; pointer-events:none; }
 .composer-cover { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:8px; padding:16px 18px; border-radius:inherit; background:color-mix(in srgb, var(--card) 88%, transparent); pointer-events:auto; }
-.composer-cover p { margin:0; }
+.composer-cover :where(p) { margin:0; }
 .composer-cover-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .generations-layout .playground-composer-notices { width:100%; max-width:var(--generation-reading-width); margin:6px auto 0; padding:0 4px; color:var(--muted-foreground); font-size:12px; line-height:1.4; }
 @media(max-width:640px) { .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice { width:36px; height:36px; padding:0; } .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span { display:none; } }
 
-.generations-toolbar [data-slot="button"] { font-size:14px; font-weight:500; line-height:20px; }
+.generations-toolbar :where([data-slot="button"]) { font-size:14px; font-weight:500; line-height:20px; }
 .generations-layout .playground-transcript { padding-inline:clamp(14px,3vw,36px); }
 
 .generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:var(--border); background:var(--background); }

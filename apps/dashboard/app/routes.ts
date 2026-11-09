@@ -94,6 +94,8 @@ export default [
       route('activity/:section?', 'features/activity/global-page.tsx', { id: 'global-activity' }),
       redirectRoute('legacy-chat', 'chat'),
       route('generations', 'features/generations/layout.tsx', { id: 'generations-layout' }, [
+        route('runs/:run', 'features/playground/page.tsx', { id: 'generations-run' }),
+        route(':session/runs/:run', 'features/playground/page.tsx', { id: 'generations-session-run' }),
         route(':session?', 'features/playground/page.tsx', { id: 'generations-index' }),
       ]),
       route('workspaces', 'features/workspace/page.tsx', { id: 'workspaces-directory' }),

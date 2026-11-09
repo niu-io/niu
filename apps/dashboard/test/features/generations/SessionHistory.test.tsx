@@ -30,7 +30,7 @@ it('loads only the active workspace with no cross-workspace or per-intent reads'
  render(<MemoryRouter><SidebarProvider><SessionHistory context={context}/></SidebarProvider></MemoryRouter>);
  expect(await screen.findByRole('link',{name:'Active video session'})).toBeDefined();
  expect(screen.getByRole('link',{name:'Active conversation'})).toBeDefined();
- expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('href')).toContain('job=run-1001');
+ expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('href')).toContain('/generations/runs/run-1001');
  expect(calls).toHaveLength(3);
  expect(calls.every(path=>!path.includes(b.id))).toBe(true);
  expect(calls.every(path=>!path.includes('/video/intents'))).toBe(true);
@@ -50,7 +50,7 @@ it('keeps a session-bound job under its saved session and falls back to the job 
  view.unmount();failSessions=true;
  render(<MemoryRouter><SidebarProvider><SessionHistory context={context}/></SidebarProvider></MemoryRouter>);
  expect(await screen.findByRole('link',{name:'Video · Video model'})).toBeDefined();
- expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('href')).toContain('job=run-1001');
+ expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('href')).toContain('/generations/runs/run-1001');
 });
 it('switches history with the explicit active workspace instead of merging workspaces',async()=>{
  const calls:string[]=[];
@@ -87,7 +87,7 @@ it('paginates sessions and video jobs inside the active workspace',async()=>{
  await screen.findByRole('link',{name:'Active video session'});
  await userEvent.click(screen.getByRole('button',{name:'Load more sessions'}));
  expect(await screen.findByRole('link',{name:'Older video session'})).toBeDefined();
- expect(screen.getByRole('link',{name:'Video · Older model'}).getAttribute('href')).toContain('job=run-1000');
+ expect(screen.getByRole('link',{name:'Video · Older model'}).getAttribute('href')).toContain('/generations/runs/run-1000');
  expect(calls.some(path=>path.includes(sessionPath(a))&&path.includes(`before=${sessionCursor}`))).toBe(true);
  expect(calls.some(path=>path.includes(taskPath(a))&&path.includes('cursor=video-next'))).toBe(true);
  expect(calls.every(path=>!path.includes(b.id))).toBe(true);
@@ -124,7 +124,7 @@ it('keeps available history when one active-workspace read fails',async()=>{
  }));
  render(<MemoryRouter><SidebarProvider><SessionHistory context={context}/></SidebarProvider></MemoryRouter>);
  await screen.findByRole('link',{name:'Active video session'});
- expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('href')).toContain('job=run-1001');
+ expect(screen.getByRole('link',{name:'Video · Video model'}).getAttribute('href')).toContain('/generations/runs/run-1001');
  expect(screen.getByRole('alert').textContent).toBe('Some sessions could not be loaded.');
  expect(screen.queryByText('No sessions yet')).toBeNull();
 });

@@ -112,6 +112,14 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     if (key?.slug && key.slug !== keyId) navigate({pathname: `${root}/keys/${encodeURIComponent(key.slug)}`, search:location.search, hash:location.hash}, {replace:true});
   }, [key?.slug, keyId, root, location.search, location.hash, navigate]);
 
+  useEffect(() => {
+    const headerTitle = document.querySelector<HTMLElement>('.dashboard-page-header .dashboard-route-title');
+    if (!headerTitle || !key?.name) return;
+    const previous = headerTitle.textContent;
+    headerTitle.textContent = key.name;
+    return () => { headerTitle.textContent = previous; };
+  }, [key?.name]);
+
   const getKeyRpm = (item?: ProjectKey) => item?.request_rate_limit?.requests_per_minute ?? item?.requests_per_minute ?? null;
   const getKeyConc = (item?: ProjectKey) => item?.concurrency_limit?.max_concurrent_requests ?? item?.max_concurrent_requests ?? null;
   const getKeyTpm = (item?: ProjectKey) => item?.token_rate_limit?.tokens_per_minute ?? item?.tokens_per_minute ?? null;
@@ -198,7 +206,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         />}
         {!editing && <dl className="key-detail-facts">
           <div><dt>{uiT("Allowed models")}</dt><dd>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.length ? key.allowed_models.join(', ') : uiT("None")}</dd></div>
-          <div><dt>{uiT("Model calls")}</dt><dd>{key.invocation_allowed === false ? uiT("Blocked (management only)") : key.invocation_allowed === true ? (key.invocation_protocols?.length ? `${uiT("Allowed for")} ${key.invocation_protocols.map(protocolLabel).join(', ')}` : uiT("Allowed; interface scope not reported")) : uiT("Not reported")}</dd></div>
+          <div><dt>{uiT("Model calls")}</dt><dd>{key.invocation_allowed === false ? uiT("Blocked (management only)") : key.invocation_allowed === true ? (key.invocation_protocols?.length ? (key.invocation_protocols.length >= 7 ? <>{uiT("All model endpoints")}<span className="sr-only"> ({key.invocation_protocols.map(protocolLabel).join(', ')})</span></> : `${uiT("Allowed for")} ${key.invocation_protocols.map(protocolLabel).join(', ')}`) : uiT("Allowed; interface scope not reported")) : uiT("Not reported")}</dd></div>
           <div><dt>{uiT("Limits")}</dt><dd><span className="block">{uiT("Requests per minute")}: {describeLimit(getKeyRpm(key))}</span><span className="block">{uiT("Concurrent requests")}: {describeLimit(getKeyConc(key))}</span><span className="block">{uiT("Tokens per minute")}: {describeLimit(getKeyTpm(key))}</span></dd></div>
           <div><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.expires_at_ms))}</dd></div>
           <div><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div>

@@ -11,7 +11,10 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
 } from '@/components/ui/empty';
+import { IconBell } from '@tabler/icons-react';
 import {
   Table,
   TableBody,
@@ -288,9 +291,11 @@ function EventSubscriptionsView({
             'Saved workspace configuration{0}. Your agent can make changes within its delegated authority.',
             [revision ? uiF(' · revision {0}', [revision]) : ''],
           )
-        : uiT(
-            'Review where workspace notifications go and whether receivers acknowledge them.',
-          );
+        : rows.length
+          ? uiT(
+              'Review where workspace notifications go and whether receivers acknowledge them.',
+            )
+          : '';
 
   return (
     <ReviewPageShell
@@ -464,6 +469,10 @@ function EventSubscriptionsView({
             {!detail.deliveries?.length && (
               <Empty className="min-h-60">
                 <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconBell size={20} aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle>{uiT('No deliveries yet')}</EmptyTitle>
                   <EmptyDescription>
                     {uiT(
                       'No delivery evidence yet. Ask your agent to queue a targeted subscription test.',

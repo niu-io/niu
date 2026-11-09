@@ -16,7 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity, modelDeveloper, modelProviderName } from '@/lib/providers';
+import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,15 +27,6 @@ import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilit
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import type { Model } from '@/shell/dashboard-context';
-
-const catalogWords: Record<string, string> = { deepseek: 'DeepSeek', qwen: 'Qwen', kimi: 'Kimi', glm: 'GLM', wan: 'Wan', seedance: 'Seedance', gemma: 'Gemma', mistral: 'Mistral', conatus: 'Conatus', moonshot: 'Moonshot' };
-
-function catalogTitle(model: Model) {
-  const name = model.catalog?.name?.trim();
-  if (name && name !== model.id && !name.includes('/')) return name;
-  const slug = model.id.split('/').pop() || model.id;
-  return slug.split(/[-_]/).filter(Boolean).map(part => catalogWords[part.toLowerCase()] ?? part.replace(/^v(\d)/i, 'V$1').replace(/^[a-z]/, char => char.toUpperCase())).join(' ');
-}
 
 function ModelFilterButton() {
   const { t: uiT } = useUILocale();
@@ -66,7 +57,8 @@ function hasGenerationOutput(model: Model) {
   return hasChatOutput(model) || isVideoModel(model);
 }
 function isVideoModel(model: Model) {
-  return generationCapability(model,'video') === true;
+  const cap = generationCapability(model, 'video');
+  return cap === true || (cap === null && /(?:^|\/|-)(?:seedance|wan2|kling|veo|sora|vidu|hailuo|luma|runway)(?:$|\/|-|\.)/i.test(model.id));
 }
 
 function requestExample(baseUrl: string, model: Model) {
@@ -180,13 +172,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     }
   }
 
-  if (models.length === 0) return <>{header}<div className="empty-state">
-    <div className="empty-icon"><Boxes size={18} /></div>
-    <strong>{uiT("No model routes yet")}</strong>
-    {Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false))
-      ? <><span>{uiT("Connect a Provider with your API key to import its models.")}</span><Button asChild><Link to="/admin/providers">{uiT("Connect a provider")}</Link></Button></>
-      : <span>{uiT("Ask a platform administrator to connect a Provider and import its models.")}</span>}
-  </div></>;
+  if (models.length === 0) return <>{header}<Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes size={20} /></EmptyMedia><EmptyTitle>{uiT("No model routes yet")}</EmptyTitle><EmptyDescription>{Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false)) ? uiT("Connect a Provider with your API key to import its models.") : uiT("Ask a platform administrator to connect a Provider and import its models.")}</EmptyDescription></EmptyHeader>{Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false)) && <EmptyContent><Button asChild><Link to="/admin/providers">{uiT("Connect a provider")}</Link></Button></EmptyContent>}</Empty></>;
 
   return <div className="models-catalog">
     {selectedId ? null : <div className="models-browse">
@@ -240,13 +226,21 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         </div>}
         <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={() => { setAuthorsSelected([]); setProvidersSelected([]); setCapabilities(emptyCapabilities()); setQuery(''); setLimit(20); searchInputRef.current?.focus(); }}>{uiT("Clear filters")}</Button>}</div>
         {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader></Empty> : <div className="models-cards">
-          {visible.map(model => <article className="models-card" key={model.id}>
-            <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0"><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{catalogTitle(model)}</Link>{catalogTitle(model) !== model.id && <p className="truncate text-xs text-muted-foreground">{model.id}</p>}</div></div>
-            {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
+          {visible.map(model => {
+            const cardTitle = disambiguatedCatalogTitle(model, models);
+            const rawDesc = model.catalog?.description;
+            const showDesc = Boolean(rawDesc && (readUILocale() === 'zh-CN' || !/\p{Script=Han}/u.test(rawDesc)));
+            const isFreeUnit = showUnitPricing(model) && model.customer_unit_pricing?.prompt_rate === '0' && model.customer_unit_pricing?.completion_rate === '0';
+            const isFreeCurrency = !showUnitPricing(model) && model.customer_pricing != null && model.customer_pricing.prompt_rate === '0' && model.customer_pricing.completion_rate === '0';
+            const developer = modelDeveloper(model);
+            return <article className="models-card" key={model.id}>
+            <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0"><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{cardTitle}</Link>{cardTitle !== model.id && <p className="truncate text-xs text-muted-foreground">{model.id}</p>}</div></div>
+            {showDesc && <p className="models-description">{rawDesc}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
             {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">{uiT("Upstream-funded · no Niu charge")}</p>}
-            <div className="models-card-meta">{modelDeveloper(model) && <span>{uiT("Developer:")}{" "}{modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat(readUILocale(), { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{canTryUnverifiedChat(model) && <><Link to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link><span>{uiT("Support unverified")}</span></>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
-          </article>)}
+            <div className="models-card-meta">{developer && <span>{uiT("Developer:")}{" "}{developer.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat(readUILocale(), { notation: 'compact' }).format(model.catalog.context_length)}{" "}{uiT("context")}</span>}{isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? 'credits', model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? 'credits', model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}{modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}{canTryUnverifiedChat(model) && <><Link to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link><span>{uiT("Support unverified")}</span></>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT("Preview not supported") : uiT("Capabilities not published")}</span>}</div>
+          </article>;
+          })}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{visible.length}{" "}{uiT("of")}{" "}{filtered.length}</span></div>}
       </section>

@@ -31,19 +31,26 @@ export default function PlaygroundRoute() {
   } : null;
 
   const location = useLocation();
-  const { session: routeParamSession } = useParams<{ session?: string }>();
-  const pathMatch = /^\/generations\/([^/?#]+)\/?$/.exec(location.pathname);
-  const pathSession = routeParamSession ?? (pathMatch ? decodeURIComponent(pathMatch[1]) : null);
-  const videoSession = Boolean(search.get('intent') || search.get('job') || search.get('new') === 'video');
+  const { session: routeParamSession, run: routeParamRun } = useParams<{ session?: string; run?: string }>();
+  const runOnlyMatch = /^\/generations\/runs\/([^/?#]+)\/?$/.exec(location.pathname);
+  const sessionRunMatch = /^\/generations\/([^/?#]+)\/runs\/([^/?#]+)\/?$/.exec(location.pathname);
+  const pathMatch = !runOnlyMatch && !sessionRunMatch ? /^\/generations\/([^/?#]+)\/?$/.exec(location.pathname) : null;
+  const pathRun = routeParamRun ?? (runOnlyMatch ? decodeURIComponent(runOnlyMatch[1]) : sessionRunMatch ? decodeURIComponent(sessionRunMatch[2]) : null);
+  const rawPathSession = routeParamSession ?? (sessionRunMatch ? decodeURIComponent(sessionRunMatch[1]) : pathMatch ? decodeURIComponent(pathMatch[1]) : null);
+  const directRunFromSession = !pathRun && rawPathSession && /^run-[1-9][0-9]{0,18}$/.test(rawPathSession) ? rawPathSession : null;
+  const effectiveRun = pathRun ?? directRunFromSession;
+  const pathSession = directRunFromSession ? null : rawPathSession;
+  const effectiveJob = search.get('job') ?? effectiveRun ?? '';
+  const videoSession = Boolean(search.get('intent') || effectiveJob || search.get('new') === 'video');
   const savedVideoSession =
     search.get('video-session') ??
     (pathSession && /^video-[1-9][0-9]{0,18}$/.test(pathSession) ? pathSession : null);
-  if(savedVideoSession)return <VideoSessionView key={`${token}:${workspace?.id??''}:${savedVideoSession}`} context={context} id={savedVideoSession}/>;
+  if(savedVideoSession)return <VideoSessionView key={`${token}:${workspace?.id??''}:${savedVideoSession}`} context={context} id={savedVideoSession} run={effectiveRun ?? undefined}/>;
   // Old result deep links resolve to the session that owns them. The composer
   // owns its session/turn hints until submission, and explicit continuation
   // carries compose=1, so both keep the editable surface.
-  const legacyVideoLink = Boolean(search.get('intent') || search.get('job')) && search.get('compose') !== '1' && !search.get('session') && !search.get('turn');
-  if(legacyVideoLink)return <LegacyVideoLink key={`${token}:${workspace?.id??''}:${search.get('intent')??''}:${search.get('job')??''}`} context={context} fallback={<VideoView key={`${token}:${workspace?.id??''}`} context={context}/>} />;
+  const legacyVideoLink = Boolean(search.get('intent') || effectiveJob) && search.get('compose') !== '1' && !search.get('session') && !search.get('turn');
+  if(legacyVideoLink)return <LegacyVideoLink key={`${token}:${workspace?.id??''}:${search.get('intent')??''}:${effectiveJob}`} context={context} jobOverride={effectiveRun ?? undefined} fallback={<VideoView key={`${token}:${workspace?.id??''}`} context={context} initialRun={effectiveRun ?? undefined}/>} />;
   const hasChatSession = Boolean((pathSession && !savedVideoSession) || search.get('session'));
   const requestedModel=search.get('model');
   const requested=requestedModel ? models.find(model=>model.id===requestedModel) : undefined;
@@ -54,7 +61,7 @@ export default function PlaygroundRoute() {
   }
 
   return <>
-    {videoSession ? <VideoView key={`${token}:${workspace?.id ?? ''}`} context={context} /> : <PlaygroundView
+    {videoSession ? <VideoView key={`${token}:${workspace?.id ?? ''}`} context={context} initialRun={effectiveRun ?? undefined} /> : <PlaygroundView
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}
       models={chatModels.map(model => model.id)}

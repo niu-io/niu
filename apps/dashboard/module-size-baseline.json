@@ -2,15 +2,15 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 4682,
+      "lines": 4730,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {
-      "lines": 2415,
+      "lines": 2396,
       "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
     },
     "app/features/routing/page.tsx": {
-      "lines": 1930,
+      "lines": 1929,
       "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives."
     },
     "app/features/commercial-position/page.tsx": {
@@ -34,7 +34,7 @@
       "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15."
     },
     "app/features/executions/components/GatewayActivity.tsx": {
-      "lines": 1010,
+      "lines": 1009,
       "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15."
     },
     "app/lib/query-cache.ts": {
@@ -42,7 +42,7 @@
       "reason": "Shared cache core owns authority isolation, request generations and invalidation. Splitting would scatter a single consistency contract; keep as one reviewed module."
     },
     "app/features/evaluations/page.tsx": {
-      "lines": 954,
+      "lines": 950,
       "reason": "Evaluation run page. Split pending with the evaluation components under niu-4rp.15."
     }
   }
