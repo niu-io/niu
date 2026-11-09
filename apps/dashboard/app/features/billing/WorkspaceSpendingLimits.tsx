@@ -40,8 +40,8 @@ function checked(result: {data: SpendingAccount[]}): SpendingAccount[] {
   return result.data;
 }
 
-export default function WorkspaceSpendingLimits({token, organization, project, canConfigure, refresh}: {
-  token: string; organization: string; project: string; canConfigure: boolean; refresh: number;
+export default function WorkspaceSpendingLimits({token, organization, project, canConfigure, refresh, className}: {
+  token: string; organization: string; project: string; canConfigure: boolean; refresh: number; className?: string;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit} = usePlatformCurrency();
@@ -214,8 +214,8 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     }
   })();
 
-  return <section aria-label={uiT("Workspace spending limits")} className="mt-8 space-y-4">
-    <div><h2>{uiT("Spending limits")}</h2><p className="text-muted-foreground">{uiT("Lifetime limits include charges and reserved requests.")}</p></div>
+  return <section aria-label={uiT("Workspace spending limits")} className={className ?? "mt-8 space-y-4"}>
+    <div className="space-y-1"><h2 className="text-base font-semibold">{uiT("Spending limits")}</h2><p className="text-sm text-muted-foreground">{uiT("Lifetime limits include charges and reserved requests.")}</p></div>
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Spending limits unavailable")}</AlertTitle><AlertDescription>{uiT("Could not load this workspace’s spending limits.")}<Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry spending limits")}</Button></AlertDescription></Alert>}
     {unitReadError && <Alert variant="destructive"><AlertTitle>{uiT("Credits spending limit unavailable")}</AlertTitle><AlertDescription>{uiT("Could not refresh the Credits spending limit. The last loaded value is still shown.")}<Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry Credits limit")}</Button></AlertDescription></Alert>}
     {unitLimit && (activeUnit || platformBillingMode === 'credits' || unitLimit.limit_atoms !== null || BigInt(unitLimit.committed_atoms || '0') > 0n) && (() => {

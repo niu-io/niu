@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import {
-  Link,
   Navigate,
   useFetcher,
   useLocation,
@@ -12,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { settingsHref } from '@/features/account/settings-routes';
+import WorkspaceSpendingLimits from '@/features/billing/WorkspaceSpendingLimits';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { readRouterSessionSnapshot } from '@/shell/router-context';
 import { useLocale } from '@/shell/ui-locale';
@@ -166,15 +165,12 @@ export default function WorkspaceSettings() {
     context.session?.permissions.manage_operators &&
       (context.session.kind === 'installation' || context.session.operator?.project_id === null),
   );
-  const canFund =
-    context.session?.operating_mode !== 'internal' &&
-    context.organization?.id === workspace.organization_id &&
-    Boolean(
-      context.session?.kind === 'installation' ||
-        (context.session?.operator?.organization_id === workspace.organization_id &&
-          context.session?.operator?.project_id === null &&
-          ['owner', 'admin'].includes(context.session.operator.role)),
-    );
+  const canConfigureSpending = Boolean(
+    context.session?.permissions.write &&
+      (context.session?.kind === 'installation' ||
+        !context.session?.operator?.role ||
+        context.session?.operator?.role === 'owner'),
+  );
   const currentName = workspaceDisplayName(workspace.name);
   const visibleOutcome = renameOutcome?.workspaceId === workspace.id ? renameOutcome : null;
   const nameError = visibleOutcome?.kind === 'error' ? visibleOutcome : null;
@@ -305,29 +301,16 @@ export default function WorkspaceSettings() {
           )}
         </form>
       </section>
-      <section aria-labelledby="workspace-budget-shortcut-title" className="space-y-3 border-t border-border/60 pt-6">
-        <h2 id="workspace-budget-shortcut-title" className="text-base font-semibold">
-          {t('Spending limits & statements', '工作空间额度上限与账单')}
-        </h2>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
-            {t(
-              'Set lifetime spending limits for this workspace or inspect settled usage statements and rates.',
-              '为当前工作空间设置累计消费上限，或查看已结算账单明细与模型费率。',
-            )}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <Link to={billingHref}>{t('Spending & statements', '额度上限与账单')}</Link>
-            </Button>
-            {canFund && (
-              <Button asChild variant="ghost">
-                <Link to={settingsHref('billing')}>{t('Manage credits', '管理共享充值额度')}</Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </section>
+      {context.token && (
+        <WorkspaceSpendingLimits
+          className="space-y-4 border-t border-border/60 pt-6"
+          token={context.token}
+          organization={workspace.organization_id}
+          project={workspace.id}
+          canConfigure={canConfigureSpending}
+          refresh={0}
+        />
+      )}
       {canDelete && !workspace.is_default && (
         <section aria-labelledby="workspace-delete-title" className="space-y-3 border-t border-border/60 pt-6">
           <h2 id="workspace-delete-title" className="text-base font-semibold">
