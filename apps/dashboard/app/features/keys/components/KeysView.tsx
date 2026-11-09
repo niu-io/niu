@@ -17,6 +17,7 @@ import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
 import { IconDotsVertical as EllipsisVertical } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
+import { IconAlertTriangle as AlertTriangle } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
 import { IconRefresh as RotateCw } from "@tabler/icons-react";
@@ -417,23 +418,38 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
     <PageHeader title={uiT("API keys")} action={canIssue
       ? <Button className="header-icon-action" aria-label={uiT("New API key")} title={uiT("New API key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button>
       : undefined} />
-    {activeNotice && <Alert><AlertTitle>{uiT("Previous key request")}</AlertTitle><AlertDescription>
-      <p>{requestNoticeMessage(activeNotice)}</p>
-      {'error' in activeNotice && activeNotice.error && <p role="alert" className="error-text">{uiT(activeNotice.error)}</p>}
-      {!canIssue && activeNotice.kind !== 'committed' && activeNotice.kind !== 'rejected' && <p>{uiT("Write access is required to check this request.")}</p>}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {activeNotice.kind === 'committed' ? <>
-          {canIssue && !activeNotice.key.revoked && !activeNotice.key.expired && <Button variant="outline" size="sm" disabled={busy} onClick={() => { dialogReturnFocus.current = null; setDialogError(''); setDialog({kind:'rotate', key:activeNotice.key}); }}>{uiT("Rotate to get a new secret")}</Button>}
-          <Button variant="ghost" size="sm" disabled={busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
-        </> : activeNotice.kind === 'rejected' ? <>
-          <Button variant="ghost" size="sm" disabled={busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
-        </> : <>
-          {canIssue && <Button variant="outline" size="sm" disabled={checking || busy} onClick={() => void checkRequest(activeNotice.pending)}>{checking ? uiT("Checking…") : uiT("Check status")}</Button>}
-          {canIssue && <Button variant="ghost" size="sm" disabled={checking || busy} onClick={() => void sendKeyRequest(activeNotice.pending)}>{uiT("Retry request")}</Button>}
-          <Button variant="ghost" size="sm" disabled={checking || busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
-        </>}
-      </div>
-    </AlertDescription></Alert>}
+    {activeNotice && (() => {
+      const noticeError = 'error' in activeNotice ? activeNotice.error : '';
+      const pendingAction = 'pending' in activeNotice ? activeNotice.pending.action : null;
+      const noticeTitle = noticeError
+        ? pendingAction === 'rotate' ? uiT("Could not rotate API key") : uiT("Could not create API key")
+        : activeNotice.kind === 'unconfirmed' ? uiT("API key request still processing")
+          : activeNotice.kind === 'uncertain' ? uiT("API key request status unknown")
+            : activeNotice.kind === 'committed' ? uiT("API key request completed")
+              : uiT("API key request rejected");
+      return <Alert variant={noticeError ? 'destructive' : 'default'} role="alert">
+        {noticeError && <AlertTriangle aria-hidden="true" />}
+        <AlertTitle>{noticeTitle}</AlertTitle>
+        <AlertDescription>
+          {noticeError
+            ? <><p className="font-medium">{uiT(noticeError)}</p><p>{uiT("The API key request failed. It may still have been saved; check its status before retrying.")}</p></>
+            : <p>{requestNoticeMessage(activeNotice)}</p>}
+          {!canIssue && activeNotice.kind !== 'committed' && activeNotice.kind !== 'rejected' && <p>{uiT("Write access is required to check this request.")}</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {activeNotice.kind === 'committed' ? <>
+              {canIssue && !activeNotice.key.revoked && !activeNotice.key.expired && <Button variant="outline" size="sm" disabled={busy} onClick={() => { dialogReturnFocus.current = null; setDialogError(''); setDialog({kind:'rotate', key:activeNotice.key}); }}>{uiT("Rotate to get a new secret")}</Button>}
+              <Button variant="ghost" size="sm" disabled={busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
+            </> : activeNotice.kind === 'rejected' ? <>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
+            </> : <>
+              {canIssue && <Button variant="outline" size="sm" disabled={checking || busy} onClick={() => void checkRequest(activeNotice.pending)}>{checking ? uiT("Checking…") : uiT("Check status")}</Button>}
+              {canIssue && <Button variant="ghost" size="sm" disabled={checking || busy} onClick={() => void sendKeyRequest(activeNotice.pending)}>{uiT("Retry request")}</Button>}
+              <Button variant="ghost" size="sm" disabled={checking || busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
+            </>}
+          </div>
+        </AlertDescription>
+      </Alert>;
+    })()}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">{uiT("Choose a workspace from the sidebar to manage its keys.")}</p>}
     {workspace && <div className="keys-scope-line"><Popover><PopoverTrigger asChild><Button ref={searchTriggerRef} type="button" variant="ghost" size="icon" aria-label={uiT("Search API keys")} title={uiT("Search API keys")} className={keyQuery ? "text-primary bg-accent" : undefined}><Search size={17}/></Button></PopoverTrigger><PopoverContent align="start" collisionPadding={16} className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus ref={searchInputRef} aria-label={uiT("Search API keys")} placeholder={uiT("Search keys…")} value={keyQuery} onChange={event => setKeyQuery(event.target.value)} />{keyQuery && <Button variant="ghost" size="sm" onClick={()=>setKeyQuery('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'text-primary bg-accent' : undefined}><ListFilter size={17}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{loading ? (keys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !keys.length ? uiT("Keys unavailable") : keyQuery.trim() || keyStatusFilter !== 'all' ? uiF("{0} of {1} {2}", [visibleKeys.length, keys.length, keys.length === 1 ? uiT("key") : uiT("keys")]) : `${keys.length} ${keys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button type="button" variant="ghost" size="icon" aria-label={uiT("Refresh API keys")} title={uiT("Refresh")} disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
     {!canWrite && workspace && <p className="key-read-only">{uiT("You have read-only access.")}</p>}
