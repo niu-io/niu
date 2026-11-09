@@ -1840,6 +1840,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "You have read-only access.": "你只有只读权限。",
   "No API keys yet": "暂无 API 密钥",
   "No matching keys": "无匹配密钥",
+  "Load more keys": "加载更多密钥",
   "No active API keys": "没有有效的 API 密钥",
   "Every key in this workspace is revoked or expired.": "此工作空间的密钥都已撤销或过期。",
   "Show revoked and expired": "显示已撤销和已过期的密钥",
