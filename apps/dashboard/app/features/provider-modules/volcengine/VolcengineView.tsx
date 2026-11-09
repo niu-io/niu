@@ -580,6 +580,7 @@ export default function VolcengineView({
             <EmptyTitle className="text-sm">{data.loading ? uiT('Loading materials…') : data.selectedKeyIpRestricted ? uiT('Source IP restricted for this API key') : !data.client ? uiT('Current materials unavailable') : !nativeContext && !chosenModel ? uiT('Choose an API key and model') : selected ? uiT('No materials in this group') : uiT('No material groups yet')}</EmptyTitle>
           </EmptyHeader>
           {!data.loading && data.client && data.canWrite && !selected && <Button variant="outline" disabled={busy} onClick={() => open('group')}>{uiT('Create group')}</Button>}
+          {!data.loading && data.client && data.canWrite && selected && selected.status === 'ready' && <Button variant="outline" disabled={busy} onClick={() => open('material')}><IconPlus size={14} />{uiT('Add material')}</Button>}
         </Empty>}
       </section></TabsContent>
       <TabsContent value="verification" className="space-y-4">

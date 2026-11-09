@@ -699,7 +699,7 @@ it('opens the material form without a saved-operation ledger and explains the pu
   expect(await screen.findByText('Ready Group')).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Saved operations' })).toBeNull();
 
-  await user.click(screen.getByRole('button', { name: 'Add material' }));
+  await user.click(screen.getAllByRole('button', { name: 'Add material' })[0]);
   const dialog = await screen.findByRole('dialog', { name: 'Add material' });
   expect(within(dialog).getByLabelText('Material URL')).toBeTruthy();
   expect(within(dialog).getByText(/Workspace media is private and cannot be reached by the Provider/)).toBeTruthy();
@@ -879,7 +879,7 @@ async function openWorkspaceMediaMaterialDialog() {
   const user = userEvent.setup();
   render(<VolcengineView workspaceName="Media Workspace" nativeContext={{ keyId, model: 'seedance-2.5' }} />);
   expect(await screen.findByText('Ready Group')).toBeTruthy();
-  await user.click(screen.getByRole('button', { name: 'Add material' }));
+  await user.click(screen.getAllByRole('button', { name: 'Add material' })[0]);
   const dialog = await screen.findByRole('dialog', { name: 'Add material' });
   await user.click(within(dialog).getByRole('tab', { name: 'Workspace media' }));
   return { user, dialog };

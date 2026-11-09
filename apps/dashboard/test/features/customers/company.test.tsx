@@ -19,7 +19,7 @@ it('preserves the original request on retry and requires explicit acknowledgemen
   throw new Error('Unexpected '+url);
  }));
  const user=userEvent.setup();render(<MemoryRouter><Customers token="company-create-test" canSetup onWorkspaceCreated={()=>{}}/></MemoryRouter>);
- await user.click(await screen.findByRole('button',{name:'New customer'}));
+ await user.click((await screen.findAllByRole('button',{name:'New customer'}))[0]);
  await user.type(screen.getByLabelText('Company name'),'Acme');await user.click(screen.getByRole('button',{name:'Create company'}));
  await screen.findByText(/Creation could not be confirmed/);await user.click(screen.getByRole('button',{name:'Retry creation'}));
  await screen.findByText(/Creation could not be confirmed/);expect(create.mock.calls[1]).toEqual(create.mock.calls[0]);

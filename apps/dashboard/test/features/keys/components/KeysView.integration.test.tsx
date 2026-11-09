@@ -39,8 +39,8 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={[{ id: 'fast' }, { id: 'careful' }]} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
   expect(await screen.findByText('No API keys yet')).toBeTruthy();
-  expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(1);
-  await user.click(screen.getByRole('button', { name: 'New API key' }));
+  expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(2);
+  await user.click(screen.getAllByRole('button', { name: 'New API key' })[1]);
   await user.type(screen.getByLabelText('Name'), 'My application');
   expect(screen.queryByText('Models this key can call')).toBeNull();
   expect(screen.queryByRole('checkbox')).toBeNull();
@@ -86,7 +86,7 @@ it('does not present a runnable request example before the workspace has a model
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={[]} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
   await screen.findByText('No API keys yet');
-  await user.click(screen.getByRole('button', { name: 'New API key' }));
+  await user.click(screen.getAllByRole('button', { name: 'New API key' })[0]);
   await user.type(screen.getByLabelText('Name'), 'Default demo key');
   await user.click(screen.getByRole('button', { name: 'Create key' }));
 
@@ -172,7 +172,7 @@ it('locks creation controls while pending and retains edits after confirmed vali
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast']} canWrite initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   await screen.findByText('No API keys yet');
-  await user.click(screen.getByRole('button', {name:'New API key'}));
+  await user.click(screen.getAllByRole('button', {name:'New API key'})[0]);
   await user.type(screen.getByLabelText('Name'), 'Production agent');
   await user.click(screen.getByRole('button', {name:'Create key'}));
   expect((screen.getByLabelText('Name') as HTMLInputElement).disabled).toBe(true);
@@ -203,7 +203,7 @@ it('ignores a late creation response after leaving key administration', async ()
   const user=userEvent.setup();
   const view=render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast']} canWrite initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   await screen.findByText('No API keys yet');
-  await user.click(screen.getByRole('button',{name:'New API key'}));
+  await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
   await user.type(screen.getByLabelText('Name'),'Old account key');
   await user.click(screen.getByRole('button',{name:'Create key'}));
   expect(signal?.aborted).toBe(false);
@@ -230,7 +230,7 @@ it('creates a key with a corrupt stale marker and no recovery lockout',async()=>
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
  expect(screen.queryByText('API key request status unknown')).toBeNull();
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Fresh key');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
@@ -245,7 +245,7 @@ it('shows a stale marker as a non-blocking notice and still creates a new key',a
  vi.stubGlobal('fetch',fetch);
  const user=userEvent.setup();render(recoveryView());
  expect(await screen.findByText('API key request status unknown')).toBeTruthy();
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Fresh key');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
@@ -263,7 +263,7 @@ it('creates a key when browser storage is unavailable',async()=>{
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
  expect(screen.queryByText('API key request status unknown')).toBeNull();
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Fresh key');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  expect(await screen.findByRole('heading',{name:'Save your API key'})).toBeTruthy();
@@ -311,7 +311,7 @@ it('offers a non-blocking retry that reuses the in-flight request identity',asyn
  }));
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Production agent');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  const retry=await screen.findByRole('button',{name:'Retry request'});
@@ -334,7 +334,7 @@ it('reconciles a committed create without forcing revocation and still allows an
  }));
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Production agent');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  await user.click(await screen.findByRole('button',{name:'Check status'}));
@@ -343,7 +343,7 @@ it('reconciles a committed create without forcing revocation and still allows an
  expect(posts).toBe(1);
  await user.click(screen.getByRole('button',{name:'Dismiss'}));
  expect(screen.queryByText('Previous key request')).toBeNull();
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  expect(await screen.findByLabelText('Name')).toBeTruthy();
 });
 
@@ -376,7 +376,7 @@ it('keeps a server conflict visible without silently creating another request',a
  }));
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Production agent');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  expect(await screen.findByText('Key request conflict')).toBeTruthy();
@@ -389,7 +389,7 @@ it('keeps a server conflict visible without silently creating another request',a
  expect(screen.queryByRole('heading',{name:'Save your API key'})).toBeNull();
  await user.click(screen.getByRole('button',{name:'Dismiss'}));
  expect(screen.queryByText('Previous key request')).toBeNull();
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  expect(await screen.findByLabelText('Name')).toBeTruthy();
 });
 
@@ -401,7 +401,7 @@ it('aborts a pending response after role loss and does not reveal its secret',as
  }));
  const user=userEvent.setup();const view=render(recoveryView());
  await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Production agent');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  view.rerender(recoveryView(false));
@@ -420,7 +420,7 @@ it('shows a confirmed retry rejection as a non-blocking notice',async()=>{
  }));
  const user=userEvent.setup();render(recoveryView());
  await screen.findByText('No API keys yet');
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  await user.type(screen.getByLabelText('Name'),'Production agent');
  await user.click(screen.getByRole('button',{name:'Create key'}));
  await user.click(await screen.findByRole('button',{name:'Retry request'}));
@@ -430,6 +430,23 @@ it('shows a confirmed retry rejection as a non-blocking notice',async()=>{
  expect(posts).toBe(2);
  await user.click(screen.getByRole('button',{name:'Dismiss'}));
  expect(screen.queryByText('Could not create API key')).toBeNull();
- await user.click(screen.getByRole('button',{name:'New API key'}));
+ await user.click(screen.getAllByRole('button',{name:'New API key'})[0]);
  expect(await screen.findByLabelText('Name')).toBeTruthy();
+});
+
+it('shows an inline New API key button right inside the No active API keys empty state', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+    data: [{ id: 'revoked-1', name: 'Old key', allowed_models: ['*'], expires_at_ms: null, revoked: true, expired: false }],
+  })));
+  const user = userEvent.setup();
+  render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast']} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
+
+  expect(await screen.findByText('No active API keys')).toBeTruthy();
+  const keyListSection = screen.getByRole('region', { name: 'API keys' });
+  const inlineNewKeyButton = within(keyListSection).getByRole('button', { name: 'New API key' });
+  expect(inlineNewKeyButton).toBeTruthy();
+  expect(within(keyListSection).getByRole('button', { name: 'Show revoked and expired' })).toBeTruthy();
+
+  await user.click(inlineNewKeyButton);
+  expect(await screen.findByRole('dialog', { name: 'Create an API key' })).toBeTruthy();
 });
