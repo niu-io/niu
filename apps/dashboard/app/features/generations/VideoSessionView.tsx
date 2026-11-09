@@ -11,6 +11,7 @@ import { NiuAdminClient } from '@niu-io/sdk/admin';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import { GenerationSessionBindings } from './GenerationsLayout';
 import VideoTurnResult from './VideoTurnResult';
+import VideoSessionComposer from './VideoSessionComposer';
 import { readableTurnAnchor } from './session-turn';
 import { useGenerationKeys } from './useGenerationKeys';
 import '../video/video.css';
@@ -100,6 +101,8 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
           </div>;
         })}
       </>}
-    </div></div></section>
+    </div>
+    {session && !session.archived && <VideoSessionComposer context={context} session={session} onSubmitted={() => setRevision(value => value + 1)} />}
+    </div></section>
   </div>;
 }

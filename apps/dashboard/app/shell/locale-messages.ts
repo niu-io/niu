@@ -2804,6 +2804,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Add an API key to generate videos.": "添加 API 密钥以生成视频。",
   "Create a video": "创建视频",
   "Create a key that can run a video model, then return here to describe the video.": "先创建一把可以调用视频模型的密钥，再回来描述要生成的视频。",
+  "Video models could not be loaded.": "无法加载视频模型。",
+  "The video could not be estimated.": "无法估算这次视频生成。",
   "Describe the scene you want to bring to life.": "描述你想呈现的场景。",
   "Reload status": "重新加载状态",
   "Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Provider checks are disabled.": "已保存历史可用。原 API 密钥已撤销、过期、缺失或不再授权此模型；生成与 Provider 检查已禁用。",
