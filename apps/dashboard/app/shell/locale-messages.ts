@@ -2816,6 +2816,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Describe the scene you want to bring to life.": "描述你想呈现的场景。",
   "Reload status": "重新加载状态",
   "Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Provider checks are disabled.": "已保存历史可用。原 API 密钥已撤销、过期、缺失或不再授权此模型；生成与 Provider 检查已禁用。",
+  "This API key is invalid. Choose another or create a new one to continue.": "API 密钥无效。换一把，或新建一把后继续。",
   "The outcome is unresolved. Do not resubmit this generation.": "结果尚未核定，请勿重新提交此次生成。",
   "Video details": "视频详情",
   "Generation status, timing and customer charges.": "生成状态、耗时与客户费用。",

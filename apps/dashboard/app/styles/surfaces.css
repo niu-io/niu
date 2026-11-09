@@ -312,7 +312,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .playground-chat-title { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
 .playground-transcript { grid-area: 2 / 1; padding-bottom: 180px; }
 .playground-composer { grid-area: 2 / 1; align-self: end; border: 0; background: transparent; pointer-events: none; padding: 12px clamp(14px, 3vw, 36px) 16px; }
-.playground-composer-surface { pointer-events: auto; width: 100%; border-radius: 22px; padding: 14px 14px 10px; gap: 8px; box-shadow: 0 4px 16px color-mix(in srgb, var(--foreground) 6%, transparent); }
+.playground-composer-surface { position: relative; pointer-events: auto; width: 100%; border-radius: 22px; padding: 14px 14px 10px; gap: 8px; box-shadow: 0 4px 16px color-mix(in srgb, var(--foreground) 6%, transparent); }
 .playground-composer-surface:focus-within { border-color: color-mix(in srgb, var(--foreground) 30%, var(--border)); }
 .playground-composer textarea { min-height: 52px; padding: 2px 4px 6px; box-shadow: none; border-radius: 0; }
 .playground-composer textarea:focus-visible { box-shadow: none; }

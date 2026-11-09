@@ -27,6 +27,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, Di
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
 import { IconPaperclip as Paperclip } from "@tabler/icons-react";
+import { IconFlask as FlaskConical } from "@tabler/icons-react";
 import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { IconArrowUp as ArrowUp } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
@@ -34,7 +35,6 @@ import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCoin as CircleDollarSign } from "@tabler/icons-react";
 import { IconCopy as ClipboardCopy } from "@tabler/icons-react";
 import { IconClock as Clock3 } from "@tabler/icons-react";
-import { IconFlask as FlaskConical } from "@tabler/icons-react";
 import { IconHash as Hash } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
@@ -815,6 +815,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const chatEndpoint = '/v1/chat/completions';
   const keyIds = keyChoices.map(key => key.id).join('\u0000') + '\u0000' + workspaceKeys.map(key => key.slug ?? '').join('\u0000');
   const preferredKey = new URLSearchParams(location.search).get('key');
+  const requestedKeyMissing = Boolean(workspaceKeysReady && !availableKeys.loading && !keyLoadError && !availableKeys.error && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)));
+  const keyBlocked = requestedKeyMissing;
   const preferredModel = new URLSearchParams(location.search).get('model');
 
   useEffect(() => {
@@ -827,7 +829,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         next.set('key', resolved.slug);
         navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
       }
-    } else if (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId)) setSelectedKeyId(keyChoices[0]?.id ?? '');
+    } else if (!preferredKey && (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId))) setSelectedKeyId(keyChoices[0]?.id ?? '');
   }, [preferredKey, keyIds]);
 
   // A new-generation URL is an action, not a permanent draft-restoration mode.
@@ -1210,10 +1212,10 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           {draft.error && <div role="alert" className="playground-chat-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
         </div>
 
-        {initialScope && modelAliases.length >= minComparisonModels && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}><form ref={composerRef} onSubmit={compare} className="playground-composer" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }}>
-          <PopoverAnchor asChild><div className="playground-composer-surface">
+        {(keyBlocked || (initialScope && modelAliases.length >= minComparisonModels)) && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}><form ref={composerRef} onSubmit={compare} className="playground-composer" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }}>
+          <PopoverAnchor asChild><div className={`playground-composer-surface${keyBlocked ? ' is-blocked' : ''}`}>
             <Label htmlFor="playground-user-prompt" className="sr-only">{uiT("Prompt for all selected models")}</Label>
-            <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={running || settingsSaving} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
+            <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={running || settingsSaving || keyBlocked} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 if (canSubmit) event.currentTarget.form?.requestSubmit();
@@ -1249,12 +1251,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving} aria-label={uiT("Chat settings")} title={uiT("Chat settings")}><Settings2 size={18} /></Button></PopoverTrigger>
               {running
                 ? <Button type="button" size="icon" className="rounded-full" aria-label={uiT("Stop generating")} onClick={cancelComparison}><Square size={14} /></Button>
-                : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit}><ArrowUp size={19} /></Button>}
+                : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit || keyBlocked}><ArrowUp size={19} /></Button>}
             </div>
+            {keyBlocked && <div className="composer-cover" role="status"><p>{uiT("This API key is invalid. Choose another or create a new one to continue.")}</p><div className="composer-cover-actions"><Button type="button" onClick={() => void (async () => { if (initialScope && !await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}}); })()}>{uiT("Create API key")}</Button></div></div>}
           </div></PopoverAnchor>
         </form>
           <div className="playground-composer-notices">
-            {workspaceKeysReady && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)) && <p role="status">{uiT("The requested API key is unavailable or you no longer have access. Choose another key before sending.")}</p>}
+            {noAvailableKeys && !managedKey && !keyBlocked && <p role="status">{uiT("This API key is invalid. Choose another or create a new one to continue.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}}); })()}>{uiT("Create API key")}</Button></p>}
             <p aria-label={uiT("Usage billing")}>{billingSummary}</p>
           </div>
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
@@ -1359,7 +1362,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         <div className="space-y-4">
           {availableKeys.error && <p role="alert" className="text-sm text-destructive">{uiT(availableKeys.error)}</p>}
           {keyLoadError && <p role="alert" className="text-sm text-destructive">{uiT(keyLoadError)}</p>}
-          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("No active API key is available. Create one for this workspace, then return to your chat. Its limits and the workspace billing policy apply.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}</div>}{!noAvailableKeys && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
+          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("This API key is invalid. Choose another or create a new one to continue.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}</div>}{!noAvailableKeys && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
             <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? uiT("Select API key")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setResults(null); setError(''); }}>
               {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>

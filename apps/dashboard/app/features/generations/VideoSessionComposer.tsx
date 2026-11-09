@@ -105,13 +105,13 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
       setBusy(false);
     }
   }
-  return <form className="video-composer" onSubmit={event => { event.preventDefault(); void generate(); }}>
-    <div className={`video-composer-surface${cover ? ' is-blocked' : ''}`}>
-      <div className="video-composer-fields" inert={cover ? true : undefined}>
+  return <form className="playground-composer" onSubmit={event => { event.preventDefault(); void generate(); }}>
+    <div className={`playground-composer-surface${cover ? ' is-blocked' : ''}`}>
+      <div className="video-composer-fields">
         <Label htmlFor="session-video-prompt" className="sr-only">{uiT("Prompt")}</Label>
         <Textarea id="session-video-prompt" placeholder={uiT("Describe your video…")} rows={2} value={prompt} onChange={event => setPrompt(event.target.value)} disabled={busy || loading || Boolean(cover)} />
         {error && !cover && <p role="alert" className="video-error">{['This model requires a reference image.', 'Video models could not be loaded.', 'The video could not be estimated.', 'Enter a prompt.'].includes(error) ? uiT(error) : error}</p>}
-        <div className="video-composer-toolbar"><div className="video-composer-options">
+        <div className="playground-composer-actions"><div className="video-composer-options">
           {models.length > 0 ? <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" className="video-model-choice" aria-label={uiT("Video model")} disabled={busy}><span className="truncate">{modelId || uiT("Choose video model")}</span><ChevronDown size={14} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id => { const next = models.find(item => item.id === id); setModelId(id); setControls(next ? initialControls(next) : {}); }}>{models.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu> : <Button type="button" variant="ghost" className="video-model-choice" disabled>{uiT("Choose video model")}</Button>}
           {model && Object.entries(model.controls).filter(([name, rule]) => ['resolution', 'ratio', 'duration'].includes(name) && rule.kind === 'choice').map(([name, rule]) => <DropdownMenu key={name}><DropdownMenuTrigger asChild><Button type="button" variant="ghost" disabled={busy}>{String(controls[name] ?? uiT("Choose…"))}<ChevronDown size={14} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value => setControls(current => ({...current, [name]: value}))}>{rule.kind === 'choice' && rule.values.map(value => <DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>)}
         </div>
@@ -119,9 +119,9 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
         </div>
         {model?.requires_image && <p className="video-muted">{uiT("This model requires a reference image.")}</p>}
       </div>
-      {cover === 'archived' && <div className="video-composer-cover" role="status"><p>{uiT("Archived")}</p><p className="video-muted">{uiT("Restore this session from Archived sessions to return it to history.")}</p></div>}
-      {cover === 'readonly' && <div className="video-composer-cover" role="status"><p>{uiT("Generation needs write access.")}</p><p className="video-muted">{uiT("A member with write access can describe the next video here.")}</p></div>}
-      {cover === 'nokey' && <div className="video-composer-cover" role="status"><p>{uiT("No active API key")}</p><p className="video-muted">{uiT("Create a key that can run a video model, then return here to describe the video.")}</p><div className="video-composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey: true, returnTo: window.location.pathname + window.location.search}}>{uiT("Create API key")}</Link></Button></div></div>}
+      {cover === 'archived' && <div className="composer-cover" role="status"><p>{uiT("Archived")}</p><p className="video-muted">{uiT("Restore this session from Archived sessions to return it to history.")}</p></div>}
+      {cover === 'readonly' && <div className="composer-cover" role="status"><p>{uiT("Generation needs write access.")}</p><p className="video-muted">{uiT("A member with write access can describe the next video here.")}</p></div>}
+      {cover === 'nokey' && <div className="composer-cover" role="status"><p>{uiT("This API key is invalid. Choose another or create a new one to continue.")}</p><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey: true, returnTo: window.location.pathname + window.location.search}}>{uiT("Create API key")}</Link></Button></div></div>}
     </div>
   </form>;
 }

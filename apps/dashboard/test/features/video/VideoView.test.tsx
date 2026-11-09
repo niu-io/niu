@@ -515,10 +515,10 @@ it.each([key,'old-key'])('restores saved history with a revoked key reference %s
   const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={[`/generations?mode=video&key=${reference}&job=${job}`]}><SidebarProvider><Route/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
   await waitFor(()=>expect(new URLSearchParams(screen.getByLabelText('Current route').textContent??'').get('key')).toBe('old-key'));
-  await screen.findByText(/Saved history is available\. The original API key is revoked/);
+  await screen.findByText('This API key is invalid. Choose another or create a new one to continue.');
   expect(screen.queryByText('Loading saved video…')).toBeNull();
   expect(calls.some(path=>path.includes('/v1/video/'))).toBe(false);
-  expect(screen.getByRole('link',{name:'Manage API keys'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Create API key'})).toBeTruthy();
 });
 
 it('connects saved lifecycle observations to the result waterfall without new generation',async()=>{
@@ -720,6 +720,7 @@ it('keeps saved prompt in the conversation and submits a fresh draft with a new 
   await screen.findByText('Original video scene');
   await screen.findByLabelText('Prompt');
   await waitFor(()=>expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).disabled).toBe(false));
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Video API key'}).textContent).toContain('Review key'));
   expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
   expect(screen.queryByRole('tab',{name:'Input'})).toBeNull();
   await user.type(screen.getByLabelText('Prompt'),'A fresh sunrise scene');
