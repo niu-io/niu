@@ -153,10 +153,10 @@
 .key-table .key-model-summary { max-width: 220px; }
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
-   Secondary metadata remains available on the key detail page. */
+   Keep expiry and last use; model access and limits move to the key detail page first. */
 @container (max-width: 1250px) {
-  .key-table :is(th, td):nth-child(4),
-  .key-table :is(th, td):nth-child(5) { display: none; }
+  .key-table :is(th, td):nth-child(2),
+  .key-table :is(th, td):nth-child(3) { display: none; }
   .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
 @container (max-width: 720px) {
   .key-table { min-width: 0; width: 100%; }
@@ -255,11 +255,11 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 .key-table .key-model-summary { max-width: 220px; }
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
-   Secondary metadata remains available on the key detail page. */
+   Keep expiry and last use; model access and limits move to the key detail page first. */
 @container (max-width: 1250px) {
   .key-table { min-width: 0; width: 100%; }
-  .key-table :is(th, td):nth-child(4),
-  .key-table :is(th, td):nth-child(5) { display: none; }
+  .key-table :is(th, td):nth-child(2),
+  .key-table :is(th, td):nth-child(3) { display: none; }
   .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
 @container (max-width: 720px) {
   .key-table { min-width: 0; width: 100%; }

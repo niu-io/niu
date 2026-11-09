@@ -1,5 +1,5 @@
 import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState, useRef, type ReactNode, type RefObject } from 'react';
 import { Link } from 'react-router';
@@ -26,6 +26,10 @@ type HistoryEntry =
   | {type:'chat';id:string;reference?:string;title:string;created:number;href:string}
   | {type:'video';id:string;reference?:string;title:string;created:number;href:string};
 type SavedInput = {id:string;revision:number;title:string};
+function historyTime(created: number) {
+  if (!Number.isFinite(created) || created <= 0) return '';
+  return new Intl.DateTimeFormat(readLocale(), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(created));
+}
 function savedVideo(task:GenerationTask):Video {
   return {id:task.id,reference:task.reference,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),sessionId:task.session_id};
 }
@@ -245,11 +249,11 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   }
   const content = <>
     {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Retry sessions")}</Button></div>}
-    <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=><SidebarMenuItem key={`${item.type}:${item.id}`}>
-      <SidebarMenuButton asChild isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{uiT(item.title)}</span></Link></SidebarMenuButton>
+    <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=>{const when=historyTime(item.created);return (<SidebarMenuItem key={`${item.type}:${item.id}`}>
+      <SidebarMenuButton asChild className="h-auto min-h-8 items-start py-1.5 [&>span:last-child]:whitespace-normal" isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span className="flex min-w-0 flex-col leading-tight"><span className="truncate">{uiT(item.title)}</span>{when&&<span aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{when}</span>}</span></Link></SidebarMenuButton>
       {item.type==='chat'&&chatActions&&chatActions(item.id)}
       {item.type==='video-session'&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{menuOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void prepareDeleteSavedInput(item.session)}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
-    </SidebarMenuItem>)}</SidebarMenu>
+    </SidebarMenuItem>);})}</SidebarMenu>
     {!entries.length&&!loading&&!pending&&!error&&!failed&&<Empty className="p-3 md:p-3"><EmptyHeader><EmptyDescription>{uiT("No sessions yet")}</EmptyDescription></EmptyHeader></Empty>}
     {(loading||pending)&&!entries.length&&<SidebarMenu role="status" aria-busy="true" aria-label={uiT("Loading sessions…")}>
       {Array.from({length:4},(_,index)=><SidebarMenuItem key={index}><SidebarMenuSkeleton showIcon/></SidebarMenuItem>)}
