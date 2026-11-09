@@ -182,11 +182,11 @@ test('evaluations are a dedicated module listing definitions and task evidence',
   ).toBeTruthy();
   expect(screen.getByText('Summarize decisions')).toBeTruthy();
   expect(
-    screen.queryByRole('button', { name: 'Create custom model' }),
+    screen.queryByRole('button', { name: 'Create routing rule' }),
   ).toBeNull();
 });
 
-test('routing module remains focused on custom model pools', async () => {
+test('routing module remains focused on routing rules', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) =>
