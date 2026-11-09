@@ -1,5 +1,5 @@
 import { useOutletContext } from 'react-router';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent } from 'react';
 
 export type CatalogMetadata = { name?: string | null; description?: string | null; context_length?: number | null; max_completion_tokens?: number | null; input_modalities?: string[]; output_modalities?: string[]; supported_parameters?: string[] };
 export type CustomerPricing = {currency:string; unit:'nanounits_per_million_tokens'; prompt_rate:string; cached_prompt_rate?:string|null; completion_rate:string};
@@ -51,7 +51,6 @@ export function canManagePlatform(session: AdminSession | null | undefined): boo
 }
 
 export type DashboardContext = {
-  environmentNotice?: ReactNode;
   appearance?: {ready:boolean; saving:boolean; error:string; reload:()=>void};
   token: string;
   sessionChecked: boolean;

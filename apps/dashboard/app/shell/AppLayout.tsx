@@ -10,10 +10,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { Navigate, Outlet, useNavigate, useRevalidator } from 'react-router';
-import { TriangleAlert, X } from 'lucide-react';
 import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { legacySettingsTarget } from '@/features/account/settings-routes';
 import { reconcileActiveRouteLoad } from '@/lib/route-data';
@@ -25,7 +22,6 @@ import {
   type DashboardContext,
   type GatewayStatus,
 } from './dashboard-context';
-import { useMockPayments } from './mock-payments';
 import { prefetchRouteIntent, scheduleWorkspaceWarmup } from './prefetch';
 import { resolveProvider } from './provider-route';
 import { ProviderNav } from './ProviderNav';
@@ -65,8 +61,6 @@ const sidebarBreakpoint = 960;
 export default function AppLayout() {
   const { t, format: uiF } = useLocale();
   const uiT = (en: string) => t(en, en);
-  const mockPaymentsEnabled = useMockPayments();
-  const [paymentNoticeDismissed, setPaymentNoticeDismissed] = useState(false);
   const { settings: branding, logo } = useBranding();
   const revalidator = useRevalidator();
   const revalidatorRef = useRef(revalidator);
@@ -350,44 +344,6 @@ export default function AppLayout() {
 
   const context = useMemo<DashboardContext>(
     () => ({
-      environmentNotice:
-        mockPaymentsEnabled && !paymentNoticeDismissed ? (
-          <Alert className="mock-payment-warning shrink-0 pr-12" role="status">
-            <TriangleAlert aria-hidden="true" />
-            <AlertTitle className="line-clamp-none">
-              {t('Mock payments enabled · Real model costs', '模拟支付已开启 · 实际产生模型费用')}
-            </AlertTitle>
-            <AlertDescription>
-              <p className="mock-payment-full">
-                {t(
-                  'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
-                  '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
-                )}
-              </p>
-              <details className="mock-payment-compact">
-                <summary>{t('Details', '详情')}</summary>
-                <p>
-                  {t(
-                    'Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.',
-                    '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。',
-                  )}
-                </p>
-              </details>
-            </AlertDescription>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="absolute right-2 top-2"
-              aria-label={t('Dismiss payment notice', '关闭模拟支付提示')}
-              onClick={() => {
-                setPaymentNoticeDismissed(true);
-                document.getElementById('dashboard-content')?.focus({ preventScroll: true });
-              }}
-            >
-              <X aria-hidden="true" />
-            </Button>
-          </Alert>
-        ) : null,
       appearance,
       sessionChecked,
       token,
@@ -435,9 +391,6 @@ export default function AppLayout() {
       refreshWorkspace,
     }),
     [
-      mockPaymentsEnabled,
-      paymentNoticeDismissed,
-      t,
       appearance,
       sessionChecked,
       token,
@@ -735,7 +688,6 @@ export default function AppLayout() {
             title={title}
           />
         )}
-        {!isGlobalChat && context.environmentNotice}
         <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
           {!helpArea && gatewayStatus === 'checking' && (
             <WorkspaceShellSkeleton label={t('Connecting to your workspace…', '正在连接工作空间…')} />
