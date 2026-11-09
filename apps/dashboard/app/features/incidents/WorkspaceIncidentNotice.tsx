@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { request } from '@/lib/api-client';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { catalogTitle } from '@/lib/providers';
 import { useLocale } from '@/shell/ui-locale';
 
 type WorkspaceNotifications = {
@@ -56,11 +57,11 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
     <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0 space-y-1">
         {models.some(item => item.owner_funded) && <div>
-          <p className="break-words">{t('Your Provider connection:', '您的 Provider 连接：')} {models.filter(item => item.owner_funded).slice(0, 3).map(item => item.model).join(', ')}{models.filter(item => item.owner_funded).length > 3 || more ? '…' : ''}</p>
+          <p className="break-words">{t('Your Provider connection:', '您的 Provider 连接：')} {models.filter(item => item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => item.owner_funded).length > 3 || more ? '…' : ''}</p>
           {!error && <p>{t('Check your Provider account or contact the person who manages its connection. The Provider may charge for retries.', '请检查您的 Provider 账户或联系连接管理员。Provider 可能对重试收费。')}</p>}
         </div>}
         {models.some(item => !item.owner_funded) && <div>
-          <p className="break-words">{t('Platform supply:', '平台供应：')} {models.filter(item => !item.owner_funded).slice(0, 3).map(item => item.model).join(', ')}{models.filter(item => !item.owner_funded).length > 3 || more ? '…' : ''}</p>
+          <p className="break-words">{t('Platform supply:', '平台供应：')} {models.filter(item => !item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => !item.owner_funded).length > 3 || more ? '…' : ''}</p>
           {!error && <p>{t('Review your failed requests and contact your platform operator. A retry may incur charges.', '请检查失败的请求并联系平台操作者。重试可能产生费用。')}</p>}
         </div>}
         {error && <p>{t('Could not refresh incident status. Check your request logs before assuming recovery.', '无法刷新事故状态。确认恢复前请检查请求日志。')}</p>}

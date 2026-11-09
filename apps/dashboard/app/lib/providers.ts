@@ -92,16 +92,18 @@ export function connectionIdentity(vendor: { name: string; api_base: string; ada
 const catalogWords: Record<string, string> = {
   deepseek: 'DeepSeek', qwen: 'Qwen', kimi: 'Kimi', glm: 'GLM', wan: 'Wan', seedance: 'Seedance',
   gemma: 'Gemma', mistral: 'Mistral', conatus: 'Conatus', moonshot: 'Moonshot', gpt: 'GPT',
-  claude: 'Claude', gemini: 'Gemini', llama: 'Llama',
+  claude: 'Claude', gemini: 'Gemini', llama: 'Llama', doubao: 'Doubao', seedream: 'Seedream',
+  minimax: 'MiniMax', grok: 'Grok',
 };
 
 export function catalogTitle(model: { id: string; catalog?: { name?: string | null } | null } | string): string {
   if (typeof model === 'string') {
-    if (!model.includes('/') && !model.includes('-')) return model;
-    const slug = model.split('/').pop() || model;
-    return slug
-      .split(/[-_]/)
-      .filter(Boolean)
+    const slug = (model.split('/').pop() || model)
+      .replace(/-(?:20\d{6}|\d{6})$/, '')
+      .replace(/(?<=[a-z])-(\d+)-(\d+)(?=-|$)/gi, '-$1.$2');
+    const parts = slug.split(/[-_]/).filter(Boolean);
+    if (!model.includes('/') && !identifyProvider(model) && !parts.some(part => part.toLowerCase() in catalogWords)) return model;
+    return parts
       .map(part => catalogWords[part.toLowerCase()] ?? part.replace(/^v(\d)/i, 'V$1').replace(/^[a-z]/, char => char.toUpperCase()))
       .join(' ');
   }

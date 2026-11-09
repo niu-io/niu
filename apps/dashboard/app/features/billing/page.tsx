@@ -11,6 +11,7 @@ import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { IconRefresh as RefreshCw } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
+import { catalogTitle } from '@/lib/providers';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -123,6 +124,7 @@ const mediaMeter = (value: string, count: { numerator: string; denominator: stri
   return value === 'seconds' ? single ? 'second' : 'seconds' : value === 'video_tokens' ? single ? 'video token' : 'video tokens' : single ? 'billing unit' : 'billing units';
 };
 const day = (ms: number) => new Date(ms).toLocaleDateString(readUILocale(), { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const modelLabel = (alias: string) => { const title = catalogTitle(alias); return title === alias ? alias : <>{title}<span className="sr-only"> {alias}</span></>; };
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
@@ -334,7 +336,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                       <TableRow key={charge.reference}>
                         <TableCell>{new Date(charge.charged_at).toLocaleString(readUILocale(), { timeZone: 'UTC' })}</TableCell>
                         <TableCell className="font-mono text-xs">{charge.reference}</TableCell>
-                        <TableCell>{charge.model_alias}</TableCell>
+                        <TableCell>{modelLabel(charge.model_alias)}</TableCell>
                         <TableCell>{charge.request_kind === 'video' ? uiT("Video") : uiT("Inference")}</TableCell>
                         <TableCell className="text-right tabular-nums" title={formatExactUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}>
                           {formatUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}
@@ -399,7 +401,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                     {data.unit_tariffs!.map(tariff => (
                       <Fragment key={tariff.model_alias}>
                         <TableRow>
-                          <TableCell className="font-medium">{tariff.model_alias}{Boolean(tariff.price.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}</TableCell>
+                          <TableCell className="font-medium">{modelLabel(tariff.model_alias)}{Boolean(tariff.price.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}</TableCell>
                           <TableCell className="tabular-nums">{formatUnitAtoms(tariff.price.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
                           <TableCell className="tabular-nums">{tariff.price.cached_prompt_rate != null ? formatUnitAtoms(tariff.price.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
                           <TableCell className="tabular-nums">{tariff.price.cache_write_prompt_rate != null ? formatUnitAtoms(tariff.price.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
@@ -410,7 +412,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                         </TableRow>
                         {tariff.price.context_tiers?.map(tier => (
                           <TableRow key={tier.minimum_input_tokens}>
-                            <TableCell className="font-medium">{tariff.model_alias}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
+                            <TableCell className="font-medium">{modelLabel(tariff.model_alias)}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
                             <TableCell className="tabular-nums">{formatUnitAtoms(tier.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
                             <TableCell className="tabular-nums">{tier.cached_prompt_rate != null ? formatUnitAtoms(tier.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
                             <TableCell className="tabular-nums">{tier.cache_write_prompt_rate != null ? formatUnitAtoms(tier.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
@@ -442,7 +444,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                   <TableBody>
                     {data.unit_media_tariffs!.map(mt => (
                       <TableRow key={`${mt.model_alias}:${mt.channel}:${mt.resolution}:${mt.reference_video}`}>
-                        <TableCell className="font-medium">{mt.model_alias}</TableCell>
+                        <TableCell className="font-medium">{modelLabel(mt.model_alias)}</TableCell>
                         <TableCell>{mt.channel}</TableCell>
                         <TableCell>{mt.resolution}</TableCell>
                         <TableCell>{mt.reference_video ? uiT("Yes") : uiT("No")}</TableCell>
@@ -467,7 +469,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
             <TableHeader><TableRow><TableHead className="min-w-44">{uiT("Model")}</TableHead><TableHead>{uiT("Input")}</TableHead><TableHead>{uiT("Cache read")}</TableHead><TableHead>{uiT("Cache write")}</TableHead><TableHead>{uiT("Output")}</TableHead><TableHead>{uiT("Reasoning")}</TableHead><TableHead>{uiT("Fixed fee / request")}</TableHead><TableHead>{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
-                <TableCell>{tariff.model_alias}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
+                <TableCell>{modelLabel(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
                 <TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell>
                 <TableCell>{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>
                 <TableCell>{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>
@@ -477,7 +479,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                 <TableCell>{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
               </TableRow>
               {tariff.context_tiers?.map(tier => <TableRow key={tier.minimum_input_tokens}>
-                <TableCell>{tariff.model_alias}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
+                <TableCell>{modelLabel(tariff.model_alias)}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
                 <TableCell>{money(tier.prompt_rate, tariff.currency)}</TableCell>
                 <TableCell>{categoryRate(tier.cached_prompt_rate, tariff.currency)}</TableCell>
                 <TableCell>{categoryRate(tier.cache_write_prompt_rate, tariff.currency)}</TableCell>
@@ -498,7 +500,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         {detailError ? <Alert variant="destructive"><AlertTitle>{uiT("Details unavailable")}</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>{uiT("Retry details")}</Button></AlertDescription></Alert> : lines ? <>
           {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Text charges")}><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Amount")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Rates")}</TableHead></TableRow></TableHeader>
             <TableBody>{lines.map(line => <TableRow key={`${line.revision}:${line.currency}:${line.context_minimum_input_tokens ?? 'base'}`}>
-              <TableCell>{line.model_alias}</TableCell>
+              <TableCell>{modelLabel(line.model_alias)}</TableCell>
               <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
               <TableCell>{line.requests}</TableCell>
               <TableCell>{line.prompt_tokens} / {line.completion_tokens}
@@ -519,7 +521,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
             <h3 className="text-sm font-medium">{uiT("Media usage")}</h3>
             <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Amount")}</TableHead><TableHead>{uiT("Measured usage")}</TableHead><TableHead>{uiT("Billable usage")}</TableHead></TableRow></TableHeader>
               <TableBody>{mediaLines.map((line, index) => <TableRow key={index}>
-                <TableCell>{line.model_alias}</TableCell>
+                <TableCell>{modelLabel(line.model_alias)}</TableCell>
                 <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
                 <TableCell>{quantity(line.measured_quantity)} {uiT(mediaMeter(line.meter, line.measured_quantity))}</TableCell>
                 <TableCell>{quantity(line.billable_quantity)} {uiT(mediaMeter(line.meter, line.billable_quantity))}</TableCell>

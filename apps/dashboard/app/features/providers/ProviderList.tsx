@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { IconDots as MoreHorizontal, IconPlus as Plus, IconChevronDown, IconPlugConnected, IconRoute } from '@tabler/icons-react';
 import { providerLogoPresets, providerLogoIsMonochrome } from './provider-logos';
 import { TableSkeleton } from '@/components/PageSkeletons';
@@ -125,7 +126,7 @@ export default function ProviderList() {
 
       <h2 className="text-base font-semibold">{uiT("Configured Providers")}</h2>
       {error && !dialog && <p role="alert">{error}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-      {loading ? <TableSkeleton columns={3} rows={5} label={uiT("Loading Providers…")} /> : !visible.length ? !error && <p className="text-sm text-muted-foreground">{uiT("No Providers yet. Choose one below to connect.")}</p> : <ul className="divide-y divide-border" aria-label={uiT("Configured Providers")}>
+      {loading ? <TableSkeleton columns={3} rows={5} label={uiT("Loading Providers…")} /> : !visible.length ? !error && <Empty className="min-h-36 rounded-xl border border-dashed border-border/60 bg-muted/20 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconPlugConnected size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No Providers yet. Choose one below to connect.")}</EmptyDescription></EmptyHeader></Empty> : <ul className="divide-y divide-border" aria-label={uiT("Configured Providers")}>
         {visible.map(provider => { const availability = providerAvailability(provider); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/providers/${encodeURIComponent(provider.id)}`); }; return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 py-4">
           <div className="flex min-w-48 flex-1 items-center gap-3"><ProviderMark url={provider.logo_url} preset={providerPresets.find(item => item.name === provider.name)} /><Link className="min-w-0 break-words font-medium hover:underline" to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{provider.name}</Link></div>
           <div className="min-w-48 flex-[2]"><Badge className="whitespace-normal" variant={availability.usable ? "secondary" : "outline"}>{uiT(availability.label)}</Badge>{!(provider.internal_api_keys && provider.internal_api_keys === provider.api_keys) && <p className="mt-1 text-xs text-muted-foreground">{availability.label === 'Ready to supply' ? uiF("{0} of {1} offers ready", [provider.ready_offers ?? 0, provider.offers ?? '—']) : uiT(availability.detail)}</p>}</div>
