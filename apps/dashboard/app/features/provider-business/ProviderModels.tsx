@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/PageSkeletons';
+import ProviderLogo from '@/components/ProviderLogo';
+import { modelIdentity } from '@/lib/providers';
 import ModelMappingForm from '@/features/providers/components/ModelMappingForm';
 import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, integrationLabels, type ProviderConnection, type ProviderModel, type ModelWrite, type ProviderCatalogModel, type ProviderDiscoveryEvidence, type ProviderModelCheck } from '@/features/providers/api';
 import { modelCapabilityLabels, modelCheckLabel } from '@/features/providers/model-presentation';
@@ -180,7 +182,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
   }
   return <div className="empty-region space-y-4 px-4 py-4 sm:px-6">
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
+      <div className="flex w-full min-w-56 items-center gap-2 sm:w-auto sm:flex-1"><IconSearch size={16} aria-hidden="true" /><Input aria-label={uiT("Filter configured models")} placeholder={uiT("Filter by model or API key…")} value={query} onChange={event => { setQuery(event.target.value); setLimit(20); }} /></div>
       <Button disabled={!canManage || loading || !!error || !connections.length} onClick={() => openEditor({connectionId: connections[0].id, model: null})}><IconPlus size={16} />{uiT("Add model")}</Button>
       <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Refresh")}</Button>
       {connections.length === 1 && <Button variant="outline" disabled={!canManage || loading || !!error || busy} onClick={() => void importModels(connections[0])}><IconDownload size={16} />{importing ? uiT("Importing…") : uiT("Import models")}</Button>}
@@ -203,7 +205,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
           const media = offer?.rate_kind === 'media' || routes.some(entry => !!entry.model.capabilities.video_schema);
           const supplyStatus = !offer ? offersComplete ? uiT("No purchase offer") : uiT("Offer status not loaded") : !offer.active ? uiT("Offer paused") : !offer.route_ready ? uiT("No eligible connection") : uiT("Ready for commercial supply");
           return <TableRow key={alias} className="flex flex-col sm:table-row">
-            <TableCell className="block align-top whitespace-normal break-words font-medium sm:table-cell">{alias}</TableCell>
+            <TableCell className="block align-top whitespace-normal break-words font-medium sm:table-cell"><span className="inline-flex items-center gap-2"><ProviderLogo provider={modelIdentity({ id: alias, upstream_model: routes[0]?.model.upstream_model, catalog: routes[0]?.model.capabilities?.catalog })} size="small" /><span>{alias}</span></span></TableCell>
             <TableCell className="block space-y-3 whitespace-normal sm:table-cell">
               {routes.map(({connection, model}) => {
                 const check = checks[`${connection.id}:${model.alias}`];

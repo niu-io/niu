@@ -5,6 +5,8 @@ import { Link } from 'react-router';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { IconCoins } from '@tabler/icons-react';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
+import ProviderLogo from '@/components/ProviderLogo';
+import { modelIdentity } from '@/lib/providers';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { formatExactUnitAtoms, formatUnitAtoms, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
 import { mediaQuantity, mediaQuantityInput } from '@/lib/media-price';
@@ -116,14 +118,14 @@ function DialogModelPicker({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button id={id} type="button" variant="outline" className="w-full justify-between" disabled={loading || !!error} aria-label={ariaLabel}>
-            <span className="min-w-0 truncate">{modelAlias || (loading ? uiT("Loading registered models…") : uiT("Choose registered model"))}</span>
+            <span className="flex min-w-0 items-center gap-2">{modelAlias && <ProviderLogo provider={modelIdentity({ id: modelAlias })} size="small" />}<span className="min-w-0 truncate">{modelAlias || (loading ? uiT("Loading registered models…") : uiT("Choose registered model"))}</span></span>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto">
           <Input aria-label={uiT("Filter registered models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} />
           <DropdownMenuRadioGroup value={modelAlias} onValueChange={value => { const choice = choices.find(item => item.model_alias === value); if (choice) onSelect(choice); }}>
-            {visible.map(choice => <DropdownMenuRadioItem key={choice.model_alias} value={choice.model_alias}>{choice.model_alias}</DropdownMenuRadioItem>)}
+            {visible.map(choice => <DropdownMenuRadioItem key={choice.model_alias} value={choice.model_alias}><ProviderLogo provider={modelIdentity({ id: choice.model_alias })} size="small" />{choice.model_alias}</DropdownMenuRadioItem>)}
           </DropdownMenuRadioGroup>
           {!loading && !visible.length && <p className="p-2 text-sm text-muted-foreground">{uiT("No registered models match this filter.")}</p>}
         </DropdownMenuContent>
@@ -253,7 +255,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
             <TableBody>
               {visibleText.map(row => (
                 <TableRow key={row.model_alias}>
-                  <TableCell className="max-w-40 whitespace-normal font-medium"><p className="break-words">{row.model_alias}</p></TableCell>
+                  <TableCell className="max-w-40 whitespace-normal font-medium"><p className="inline-flex items-center gap-2 break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p></TableCell>
                   <TableCell className="tabular-nums"><UnitRate atoms={row.price.prompt_rate} unitName={unitName} precision={precision} /></TableCell>
                   <TableCell className="tabular-nums"><UnitRate atoms={row.price.completion_rate} unitName={unitName} precision={precision} /></TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
@@ -299,7 +301,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
               {visibleMedia.map(row => (
                 <TableRow key={`${row.model_alias}:${row.channel}:${row.resolution}:${row.reference_video}`}>
                   <TableCell className="max-w-56 whitespace-normal font-medium">
-                    <p className="break-words">{row.model_alias}</p>
+                    <p className="inline-flex items-center gap-2 break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p>
                     <p className="text-xs text-muted-foreground">
                       {row.channel} · {row.resolution} · {row.reference_video ? uiT("With reference video") : uiT("Standard")}
                     </p>

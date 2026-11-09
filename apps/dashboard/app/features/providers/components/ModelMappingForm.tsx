@@ -8,6 +8,8 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import VideoSchemaEditor from './VideoSchemaEditor';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ProviderLogo from '@/components/ProviderLogo';
+import { modelIdentity } from '@/lib/providers';
 import { emptyCapabilities, type ModelCapabilities, type ModelWrite, type ProviderCatalogModel, type VendorModel } from '../api';
 
 const capabilityChoices: Array<{ key: Exclude<keyof ModelCapabilities, 'catalog' | 'video_schema'>; label: string; help: string }> = [
@@ -129,6 +131,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ini
             </div>
             <DropdownMenuRadioGroup className="max-h-64 overflow-y-auto" value={upstreamModel} onValueChange={id => { const item = catalog.find(item => item.id === id); if (item) chooseProviderModel(item); }}>
               {visibleCatalog.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>
+                <ProviderLogo provider={modelIdentity({ id: item.id, catalog: item.catalog ?? { name: item.name } })} size="small" />
                 <span className="min-w-0"><strong className="block truncate">{item.name}</strong><small className="block truncate text-muted-foreground">{item.id}</small></span>
               </DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>

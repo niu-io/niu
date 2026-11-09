@@ -12,7 +12,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import { catalogTitle } from '@/lib/providers';
+import ProviderLogo from '@/components/ProviderLogo';
+import { catalogTitle, modelIdentity } from '@/lib/providers';
 import { readLocale as readUILocale, useLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 
@@ -30,13 +31,14 @@ export function formatModelName(value: string) {
 export function formatModelAlias(value: string) {
   const clean = safeText(value);
   const title = catalogTitle(clean);
-  return title !== clean ? (
-    <>
-      {title}
-      <span className="sr-only"> {clean}</span>
-    </>
-  ) : (
-    clean
+  return (
+    <span className="inline-flex items-center gap-2">
+      <ProviderLogo provider={modelIdentity({ id: clean })} size="small" />
+      <span>
+        {title}
+        {title !== clean && <span className="sr-only"> {clean}</span>}
+      </span>
+    </span>
   );
 }
 

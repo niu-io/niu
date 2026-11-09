@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import ProviderLogo from '@/components/ProviderLogo';
+import { modelIdentity } from '@/lib/providers';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -56,7 +58,10 @@ export default function ModelPicker({
         disabled={disabled}
         className="w-full justify-between font-normal"
       >
-        <span className={value ? 'truncate' : 'truncate text-muted-foreground'}>{value || placeholder}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {value && <ProviderLogo provider={modelIdentity({ id: value, catalog: models.find(item => item.id === value)?.name ? { name: models.find(item => item.id === value)?.name } : undefined })} size="small" />}
+          <span className={value ? 'truncate' : 'truncate text-muted-foreground'}>{value || placeholder}</span>
+        </span>
         <ChevronDown size={14} className="shrink-0 opacity-60" aria-hidden="true" />
       </Button>
     </PopoverTrigger>
@@ -67,9 +72,10 @@ export default function ModelPicker({
           <CommandEmpty>{uiT("No configured models match. Type an alias to use it.")}</CommandEmpty>
           <CommandGroup>
             {filtered.map(model => <CommandItem key={model.id} value={model.id} onSelect={() => choose(model.id)}>
-              <Check size={14} className={model.id === value ? 'opacity-100' : 'opacity-0'} aria-hidden="true" />
+              <ProviderLogo provider={modelIdentity({ id: model.id, catalog: model.name ? { name: model.name } : undefined })} size="small" />
               <span className="min-w-0 flex-1 truncate">{model.id}</span>
               {model.name && model.name !== model.id && <span className="max-w-40 truncate text-xs text-muted-foreground">{model.name}</span>}
+              <Check size={14} className={model.id === value ? 'opacity-100' : 'opacity-0'} aria-hidden="true" />
             </CommandItem>)}
             {custom && <CommandItem value={`__custom__:${custom}`} onSelect={() => choose(custom)}>
               <Search size={14} aria-hidden="true" />

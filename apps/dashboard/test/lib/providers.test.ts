@@ -28,6 +28,21 @@ describe('model developer and provider boundaries', () => {
     expect(modelIdentity({id:'fastrouter/seedream-4'}).name).toBe('ByteDance');
     expect(modelIdentity({id:'babelark/claude-sonnet-4'}).name).toBe('Anthropic');
     expect(modelIdentity({id:'qiniu/deepseek-v3'}).name).toBe('DeepSeek');
+    expect(modelIdentity({id:'volcengine/deepseek-r1'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'babelark-text/deepseek-v3'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'qiniu-primary/deepseek-r1'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'new-api/deepseek-chat'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'siliconflow/deepseek-ai/DeepSeek-V3'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'nvidia/deepseek-r1'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'deepseek_v3'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'deepseek.r1'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'deepseekv3'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'ark-deepseek-r1'}).id).toBe('deepseek');
+    expect(modelIdentity({id:'custom-chat', catalog:{name:'DeepSeek V3'}}).id).toBe('deepseek');
+    expect(modelIdentity({id:'babelark/qwen3.6-plus'}).id).toBe('qwen');
+    expect(modelIdentity({id:'babelark-video/wan3.0-video'}).id).toBe('qwen');
+    expect(modelIdentity({id:'qiniu/meituan/longcat-flash-lite'}).id).toBe('meituan');
+    expect(modelIdentity({id:'qiniu/longcat-flash-lite'}).id).toBe('meituan');
   });
   it('does not fabricate developers from arbitrary aliases or providers', () => {
     for(const id of ['byok/private','fastrouter/custom','babelark/custom','qiniu/custom','my-team/private-model','fastrouter','babelark','qiniu','byok']) {
