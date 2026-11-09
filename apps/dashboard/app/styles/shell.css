@@ -99,9 +99,6 @@ td { font-size: 14px; border-color: color-mix(in srgb, var(--border) 55%, transp
 .connect-panel strong { font-size: 16px; }
 .connect-panel form { flex-wrap: wrap; gap: 10px; }
 .connect-panel input { width: min(360px, 100%); min-height: 42px; }
-.empty-state { padding: 32px; gap: 12px; }
-.empty-state strong { font-size: 18px; }
-.empty-state span { font-size: 14px; line-height: 1.6; }
 .overview-workflow { padding: 24px; }
 .overview-workflow-icon { background: transparent; color: var(--foreground); }
 .overview-workflow h2 { font-size: 18px; }
@@ -211,7 +208,6 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .account-identity-details > span, .account-identity dl { color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
 .account-identity dl { margin: 8px 0 0; }.account-identity dd { margin: 0 0 8px; overflow-wrap: anywhere; }
 
-
 /* One-time invitation acceptance uses the sign-in shell so the recipient
    reviews organization, scope and role before accepting. */
 .invitation-org { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -229,5 +225,4 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 @media (max-width: 580px) {
   .invitation-org { align-items: flex-start; flex-wrap: wrap; }
   .invitation-org .lifecycle-badge { margin-left: 60px; }
-  .dashboard-login-card.invitation-card { padding: 20px 18px; border-radius: 14px; }
-}
+  .dashboard-login-card.invitation-card { padding: 20px 18px; border-radius: 14px; }}
