@@ -7,6 +7,7 @@ import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { generationOutcome } from '../generation-outcome';
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
+import { buildChatContextPanelData, openGenerationsContextRun } from '@/features/generations/GenerationsContextPanel';
 import VideoArchivedSessions from '@/features/generations/VideoArchivedSessions';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,30 +15,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { IconX as X } from "@tabler/icons-react";
-import { IconDots as MoreHorizontal } from "@tabler/icons-react";
-import { IconPencil as Pencil } from "@tabler/icons-react";
-import { IconTrash as Trash } from "@tabler/icons-react";
-import { IconArchive as Archive } from "@tabler/icons-react";
-import { IconDownload as Download } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
-import { IconPaperclip as Paperclip } from "@tabler/icons-react";
-import { IconFlask as FlaskConical } from "@tabler/icons-react";
-import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
-import { IconArrowUp as ArrowUp } from "@tabler/icons-react";
-import { IconCheck as Check } from "@tabler/icons-react";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconCoin as CircleDollarSign } from "@tabler/icons-react";
-import { IconCopy as ClipboardCopy } from "@tabler/icons-react";
-import { IconClock as Clock3 } from "@tabler/icons-react";
-import { IconHash as Hash } from "@tabler/icons-react";
-import { IconKey as KeyRound } from "@tabler/icons-react";
-import { IconPlus as Plus } from "@tabler/icons-react";
-import { IconAdjustmentsHorizontal as Settings2 } from "@tabler/icons-react";
-import { IconSquare as Square } from "@tabler/icons-react";
-import { IconStopwatch as Timer } from "@tabler/icons-react";
+import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconCheck as Check, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer } from "@tabler/icons-react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1124,10 +1105,12 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? uiT("Choose API key");
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);
   const currentWorkspaceSegment = workspace ? workspacePathSegment(workspace, workspaces) : workspaceId;
+  const activeTurns = activeComparison?.turns ?? (results ? [{ prompt: activeComparison?.prompt ?? '', results }] : []);
+  const contextPanelData = buildChatContextPanelData(activeTurns, customerCharge, dashboard.models ?? [], workspaceRoot, { systemPrompt, maxTokens, temperature, logPayloads });
 
   return <div className="playground-view">
     <div className="playground-chat-layout">
-      <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} actions={<div className="playground-toolbar-actions">
+      <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions">
             <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
@@ -1159,13 +1142,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 </div>
                 : !results
                 ? null
-                : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results }]).map((turn, turnIndex) => <div className="playground-comparison-thread" key={turnIndex}>
+                : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results }]).map((turn, turnIndex) => <div className="playground-comparison-thread" id={`generation-turn-${turnIndex + 1}`} tabIndex={-1} key={turnIndex}>
                   <div className="playground-user-prompt"><span>{uiT("You")}</span><p>{turn.prompt}</p></div>
                   {error && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
-                    <div className="playground-results-heading"><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
+                    <div className={turn.results.length === 1 ? "sr-only" : "playground-results-heading"}><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
-                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></div>
+                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</h3></div><button type="button" className="playground-status-trigger" title={result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")} onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></button></div>
                       {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{uiT(generationOutcome(result.finishReason).detail)}</p>}
                       {result.phase === 'failed' && <p className="playground-response-error">{result.error && uiT(result.error)}</p>}
                       {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
@@ -1176,6 +1159,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                           <div><CircleDollarSign size={15} /><span>{uiT("Customer charge")}</span><strong>{customerCharge(result)}</strong></div>
                         </div>
                         <div className="playground-result-actions">
+                          <Button type="button" variant="ghost" size="sm" onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}>{result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")}</Button>
                           {result.content && <Button type="button" variant="ghost" size="sm" aria-label={'Copy ' + result.model + ' response'} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? uiT("Copied") : uiT("Copy")}</Button>}
                           {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptReference??result.attemptId)}>{uiT("Inspect request")}</Link>}
                         </div>

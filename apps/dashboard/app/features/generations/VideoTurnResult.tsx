@@ -10,7 +10,6 @@ import type { GenerationsTurn } from '@niu-io/sdk/generations-sessions';
 import { NiuAdminClient, type GenerationTask, type TenantScope } from '@niu-io/sdk/admin';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { FormSectionSkeleton, ListRowsSkeleton } from '@/components/PageSkeletons';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import type { DashboardContext } from '@/shell/dashboard-context';
@@ -18,6 +17,7 @@ import VideoResult from '../video/VideoResult';
 import VideoBilling from '../video/VideoBilling';
 import VideoLifecycle from '../video/VideoLifecycle';
 import { videoStatusLabel } from '../video/status';
+import { openGenerationsContextRun, useRegisterVideoTurnRun, type GenerationContextRun, type GenerationContextRunState } from './GenerationsContextPanel';
 import './generations.css';
 import '../video/video.css';
 
@@ -38,8 +38,8 @@ function savedTask(response: unknown, requested: string, sessionId: string, turn
  * One saved Video turn. Selecting a session renders every result in place; the
  * caller supplies a current workspace key only for explicit recovery reads.
  */
-export default function VideoTurnResult({context, sessionId, turn, keyId, refreshKey = 0}: {
-  context: DashboardContext; sessionId: string; turn: GenerationsTurn; keyId?: string; refreshKey?: number;
+export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1, turnAnchor, keyId, refreshKey = 0}: {
+  context: DashboardContext; sessionId: string; turn: GenerationsTurn; turnIndex?: number; turnAnchor?: string; keyId?: string; refreshKey?: number;
 }) {
   const { t: uiT } = useUILocale();
   const navigate = useNavigate();
@@ -186,11 +186,31 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
       : uiT("No saved result is linked to this request.");
 
   const readableRun = (task?.reference ?? turn.task?.reference ?? '');
+  const registeredRun: GenerationContextRun = {
+    id: turn.id,
+    reference: readableRun || turn.intent?.reference || undefined,
+    turnIndex,
+    turnAnchor,
+    prompt: turn.instruction?.prompt ?? uiT("Saved video request"),
+    model: model ?? 'video',
+    modelTitle: model ? catalogTitle({ id: model }) : uiT("Video"),
+    kind: 'video',
+    state: (task?.state ?? 'saved') as GenerationContextRunState,
+    statusLabel: task ? translateUI(status) : intent?.submission_state === 'not_dispatched' ? uiT("Not dispatched") : uiT("Saved request"),
+    customDetails: task ? <div className="video-details">
+      {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle} />}
+      {timings?.data.length ? <div className="video-timings"><h3>{uiT("Transport time")}</h3><p className="video-muted">{uiT("Submission, status queries and result transfers; Provider queue and generation time are not measured here.")}</p>{timings.data.map((span, index) => <div className="video-span" key={index}><span>{span.phase === 'submission' ? uiT("Submission") : span.phase === 'query' ? uiT("Status query") : span.phase === 'result' ? uiT("Result transfer") : uiT("Other transport")}</span><div className="video-span-track"><i style={{marginLeft: `${(span.started_unix_ms - epoch) / total * 100}%`, width: `${Math.max(.5, span.elapsed_ms / total * 100)}%`}} /></div><small>{formatDurationMs(span.elapsed_ms)}</small></div>)}{timings.has_more && <small>{uiT("Showing the latest recorded requests.")}</small>}</div> : null}
+      <h3>{uiT("Billing")}</h3>{billing ? <VideoBilling billing={billing} /> : diagnosticsLoading ? <ListRowsSkeleton rows={1} label={uiT("Loading billing…")} /> : <p>{uiT("Billing is unavailable.")}</p>}
+      <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(task.model)}#gateway-attempt-${encodeURIComponent(task.reference ?? task.id)}`}>{uiT("View in Logs")}</Link></Button>
+    </div> : null,
+  };
+  useRegisterVideoTurnRun(sessionId, registeredRun);
+
   return <article className="video-response" aria-label={uiT("Video result")}>
     <div className="video-result-heading">
       <span className="video-response-model">{model ? catalogTitle({ id: model }) : uiT("Video")}</span>
-      {/^run-[1-9][0-9]{0,18}$/.test(readableRun) && <Badge variant="outline" className="font-mono text-xs">{readableRun}</Badge>}
-      {task ? <Badge variant="secondary">{translateUI(status)}</Badge>
+      {/^run-[1-9][0-9]{0,18}$/.test(readableRun) && <button type="button" className="playground-status-trigger" onClick={() => openGenerationsContextRun(turn.id)}><Badge variant="outline" className="font-mono text-xs">{readableRun}</Badge></button>}
+      {task ? <button type="button" className="playground-status-trigger" onClick={() => openGenerationsContextRun(turn.id)}><Badge variant="secondary">{translateUI(status)}</Badge></button>
         : intent ? <Badge variant="secondary">{intent.submission_state === 'not_dispatched' ? uiT("Not dispatched") : intent.submission_state === 'saved' ? uiT("Saved request") : uiT("Status unavailable")}</Badge>
           : null}
     </div>
@@ -217,11 +237,6 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
         ? <Button asChild variant="ghost"><Link to={`/generations?intent=${encodeURIComponent(intent.reference)}&compose=1`}>{uiT("Edit request")}</Link></Button>
         : <Button variant="ghost" onClick={() => void continueSavedRequest()} disabled={intentBusy}>{intentBusy ? uiT("Opening…") : uiT("Edit request")}</Button>)}
     </div>}
-    {task && <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="video-details-trigger" aria-label={uiT("Video details")}><InfoCircle size={18} /></Button></SheetTrigger><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>{uiT("Video details")}</SheetTitle><SheetDescription>{uiT("Generation status, timing and customer charges.")}</SheetDescription></SheetHeader><div className="video-details p-4">
-      {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle} />}
-      {timings?.data.length ? <div className="video-timings"><h3>{uiT("Transport time")}</h3><p className="video-muted">{uiT("Submission, status queries and result transfers; Provider queue and generation time are not measured here.")}</p>{timings.data.map((span, index) => <div className="video-span" key={index}><span>{span.phase === 'submission' ? uiT("Submission") : span.phase === 'query' ? uiT("Status query") : span.phase === 'result' ? uiT("Result transfer") : uiT("Other transport")}</span><div className="video-span-track"><i style={{marginLeft: `${(span.started_unix_ms - epoch) / total * 100}%`, width: `${Math.max(.5, span.elapsed_ms / total * 100)}%`}} /></div><small>{formatDurationMs(span.elapsed_ms)}</small></div>)}{timings.has_more && <small>{uiT("Showing the latest recorded requests.")}</small>}</div> : null}
-      <h3>{uiT("Billing")}</h3>{billing ? <VideoBilling billing={billing} /> : diagnosticsLoading ? <ListRowsSkeleton rows={1} label={uiT("Loading billing…")} /> : <p>{uiT("Billing is unavailable.")}</p>}
-      <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(task.model)}#gateway-attempt-${encodeURIComponent(task.reference ?? task.id)}`}>{uiT("View in Logs")}</Link></Button>
-    </div></SheetContent></Sheet>}
+    {task && <Button type="button" variant="ghost" size="icon" className="video-details-trigger" aria-label={uiT("Video details")} onClick={() => openGenerationsContextRun(turn.id)}><InfoCircle size={18} /></Button>}
   </article>;
 }

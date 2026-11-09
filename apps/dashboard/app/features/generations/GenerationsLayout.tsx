@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { createContext, useContext, useLayoutEffect, useMemo, useState, useRef, useCallback, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
@@ -7,9 +7,10 @@ import logo from '../../../../../branding/assets/niu-mark.png';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, useSidebar } from '@/components/ui/sidebar';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import SessionHistory from './SessionHistory';
+import GenerationsContextPanel, { GenerationsContextTrigger, OPEN_CONTEXT_EVENT, type GenerationsContextPanelData, type OpenContextEventDetail } from './GenerationsContextPanel';
 import './generations.css';
 
-type Content = { title?: string; actions?: ReactNode; onNewSession?: () => void; onArchive?: (event: MouseEvent<HTMLButtonElement>) => void; notice?: ReactNode; history: ComponentProps<typeof SessionHistory>; extra?: ReactNode; trigger: RefObject<HTMLButtonElement | null> };
+type Content = { title?: string; actions?: ReactNode; onNewSession?: () => void; onArchive?: (event: MouseEvent<HTMLButtonElement>) => void; notice?: ReactNode; history: ComponentProps<typeof SessionHistory>; extra?: ReactNode; trigger: RefObject<HTMLButtonElement | null>; contextPanel?: GenerationsContextPanelData; sessionKey?: string };
 const Host = createContext<((content: Content) => void) | null>(null);
 
 function GenerationsSidebar({ content, toggle }: { content: Content | null; toggle: RefObject<HTMLButtonElement | null> }) {
@@ -58,11 +59,31 @@ export default function GenerationsLayout({ children, environmentNotice }: { chi
   const toggle = useRef<HTMLButtonElement>(null);
   const { toggleSidebar, isMobile, openMobile, open } = useSidebar();
   const [content, setContent] = useState<Content | null>(null);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextTab, setContextTab] = useState<'runs' | 'deliverables'>('runs');
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const publish = useMemo(() => (next: Content) => setContent(next), []);
   useLayoutEffect(() => { if(content)content.trigger.current = toggle.current; }, [content]);
+  useEffect(() => {
+    const onOpenContext = (event: Event) => {
+      const detail = (event as CustomEvent<OpenContextEventDetail>).detail;
+      setContextOpen(true);
+      if (detail?.tab) setContextTab(detail.tab);
+      if (detail?.runId) setSelectedRunId(detail.runId);
+    };
+    window.addEventListener(OPEN_CONTEXT_EVENT, onOpenContext);
+    return () => window.removeEventListener(OPEN_CONTEXT_EVENT, onOpenContext);
+  }, []);
+  useEffect(() => {
+    if (content?.contextPanel?.initialRunId) {
+      setSelectedRunId(content.contextPanel.initialRunId);
+      setContextTab('runs');
+      setContextOpen(true);
+    }
+  }, [content?.contextPanel?.initialRunId]);
   return <Host.Provider value={publish}><div className="generations-layout"><GenerationsSidebar content={content} toggle={toggle} /><div className="generations-session">
-    <header className="generations-toolbar"><div className="playground-header-navigation"><Button ref={toggle} variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><h1>{content?.title ?? uiT("New generation")}</h1><div className="generations-toolbar-actions">{content?.actions}</div></header>
+    <header className="generations-toolbar"><div className="playground-header-navigation"><Button ref={toggle} variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><h1>{content?.title ?? uiT("New generation")}</h1><div className="generations-toolbar-actions">{content?.actions}{content?.contextPanel && <GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => setContextOpen(current => !current)} />}</div></header>
     {environmentNotice}
-    <div className="generations-session-content">{children}</div>
+    <div className="generations-session-content"><div className="generations-session-primary">{children}</div>{content?.contextPanel && <GenerationsContextPanel sessionKey={content.sessionKey} panel={content.contextPanel} open={contextOpen} onOpenChange={setContextOpen} activeTab={contextTab} onTabChange={setContextTab} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />}</div>
   </div></div></Host.Provider>;
 }

@@ -11,11 +11,15 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import { resolveWorkspacePathSegment, workspacePathSegment } from '@/shell/workspace-route';
 import { NiuAdminClient } from '@niu-io/sdk/admin';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
+import { catalogTitle } from '@/lib/providers';
+import { translateUI } from '@/shell/ui-locale';
 import { GenerationSessionBindings } from './GenerationsLayout';
+import type { GenerationContextRunState, GenerationsContextPanelData } from './GenerationsContextPanel';
 import VideoTurnResult from './VideoTurnResult';
 import VideoSessionComposer from './VideoSessionComposer';
 import { readableTurnAnchor } from './session-turn';
 import { useGenerationKeys } from './useGenerationKeys';
+import { videoStatusLabel } from '../video/status';
 import '../video/video.css';
 
 /** Saved instructions and their results only. Opening a session never dispatches. */
@@ -94,17 +98,57 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
     if(!workspace)return undefined;
     return keys.find(key=>key.workspace.id===workspace.id && (!key.allowed_models?.length || key.allowed_models.includes('*') || Boolean(model&&key.allowed_models.includes(model))))?.id;
   }
+  const contextPanel: GenerationsContextPanelData = !session ? { runs: [], deliverables: [], initialRunId: run ?? null } : {
+    runs: session.turns.map((turn, index) => {
+      const anchor = readableTurnAnchor(turn);
+      const model = turn.task?.model ?? turn.intent?.model ?? 'video';
+      const rawStatus = turn.task?.status;
+      const statusLabel = rawStatus && Object.hasOwn(videoStatusLabel, rawStatus)
+        ? translateUI(videoStatusLabel[rawStatus as keyof typeof videoStatusLabel])
+        : turn.intent?.submission_state === 'not_dispatched'
+          ? uiT('Not dispatched')
+          : uiT('Saved request');
+      return {
+        id: turn.id,
+        reference: turn.task?.reference ?? turn.intent?.reference ?? undefined,
+        turnIndex: index + 1,
+        turnAnchor: anchor,
+        prompt: turn.instruction?.prompt ?? uiT('Saved video request'),
+        model,
+        modelTitle: catalogTitle({ id: model }),
+        kind: 'video' as const,
+        state: (rawStatus ?? 'saved') as GenerationContextRunState,
+        statusLabel,
+      };
+    }),
+    deliverables: session.turns.flatMap((turn, index) => {
+      if (turn.task?.status !== 'succeeded') return [];
+      const anchor = readableTurnAnchor(turn);
+      const model = turn.task?.model ?? turn.intent?.model ?? 'video';
+      return [{
+        id: `${turn.id}:video`,
+        turnIndex: index + 1,
+        turnAnchor: anchor,
+        runId: turn.id,
+        title: turn.instruction?.prompt.split('\n')[0]?.slice(0, 60) || catalogTitle({ id: model }),
+        subtitle: `${uiT('Turn')} ${index + 1} · ${catalogTitle({ id: model })}`,
+        kind: 'video' as const,
+        language: 'mp4',
+      }];
+    }),
+    initialRunId: run ?? null,
+  };
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={trigger} title={session?.title??uiT("Video session")} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh session")}</Button>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
+    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh session")}</Button>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
     <section className="video-main playground-chat-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation playground-transcript">
       {error?<p role="alert" className="video-error">{uiT(error)}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
         {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}
         {!session.turns.length&&<Empty><EmptyHeader><EmptyMedia variant="icon"><IconVideo size={20}/></EmptyMedia><EmptyTitle>{uiT("No video turns yet")}</EmptyTitle><EmptyDescription>{uiT("No instructions have been saved in this session.")}</EmptyDescription></EmptyHeader></Empty>}
-        {session.turns.map(turn=>{
+        {session.turns.map((turn, index)=>{
           const anchor=readableTurnAnchor(turn);
           return <div key={turn.id} id={anchor} tabIndex={-1} className={`video-turn video-session-turn${activeAnchor===anchor?' video-turn-target':''}`}>
             {turn.instruction?<div className="playground-user-prompt"><p>{turn.instruction.prompt}</p></div>:<p className="video-muted">{uiT("The saved instruction has expired or was deleted.")}</p>}
-            <VideoTurnResult context={context} sessionId={session.id} turn={turn} keyId={keyFor(turn.task?.model??turn.intent?.model)} refreshKey={revision}/>
+            <VideoTurnResult context={context} sessionId={session.id} turn={turn} turnIndex={index + 1} turnAnchor={anchor} keyId={keyFor(turn.task?.model??turn.intent?.model)} refreshKey={revision}/>
           </div>;
         })}
       </>}
