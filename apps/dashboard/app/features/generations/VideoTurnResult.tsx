@@ -1,4 +1,5 @@
 import { useLocale as useUILocale, translateUI } from '@/shell/ui-locale';
+import { formatDurationMs } from '@/lib/duration';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
 import { catalogTitle } from '@/lib/providers';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -203,7 +204,7 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
           : <Button variant="outline" onClick={() => void continueSavedRequest()} disabled={intentBusy}>{intentBusy ? uiT("Opening…") : uiT("Continue saved request")}</Button>}
       </div>
       : <p className="video-muted">{statusMessage || uiT("No request or task is linked to this instruction.")}</p>)}
-    {task?.state === 'succeeded' && client && scope && <VideoResult key={`${scope.projectId}/${task.id}`} client={client} scope={scope} task={task.id} keyId={canWrite ? keyId : undefined} canWrite={canWrite} libraryHref={`${workspacePath}/library`} />}
+    {task?.state === 'succeeded' && client && scope && <VideoResult key={`${scope.projectId}/${task.id}`} client={client} scope={scope} task={task.id} keyId={canWrite ? keyId : undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`} />}
     {task && task.state !== 'succeeded' && <div className="video-artifact-placeholder">
       {(task.state === 'queued' || task.state === 'running') && <Loader className="animate-spin" />}
       <h3 role="status">{task.state === 'queued' ? uiT("Waiting to generate") : task.state === 'running' ? uiT("Generating your video…") : task.state === 'failed' ? uiT("Video generation failed") : uiT("Waiting for a confirmed status")}</h3>
@@ -218,7 +219,7 @@ export default function VideoTurnResult({context, sessionId, turn, keyId, refres
     </div>}
     {task && <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="video-details-trigger" aria-label={uiT("Video details")}><InfoCircle size={18} /></Button></SheetTrigger><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>{uiT("Video details")}</SheetTitle><SheetDescription>{uiT("Generation status, timing and customer charges.")}</SheetDescription></SheetHeader><div className="video-details p-4">
       {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle} />}
-      {timings?.data.length ? <div className="video-timings"><h3>{uiT("Transport time")}</h3><p className="video-muted">{uiT("Submission, status queries and result transfers; Provider queue and generation time are not measured here.")}</p>{timings.data.map((span, index) => <div className="video-span" key={index}><span>{span.phase === 'submission' ? uiT("Submission") : span.phase === 'query' ? uiT("Status query") : uiT("Result transfer")}</span><div className="video-span-track"><i style={{marginLeft: `${(span.started_unix_ms - epoch) / total * 100}%`, width: `${Math.max(.5, span.elapsed_ms / total * 100)}%`}} /></div><small>{span.elapsed_ms}{" "}{uiT("ms")}</small></div>)}{timings.has_more && <small>{uiT("Showing the latest recorded requests.")}</small>}</div> : null}
+      {timings?.data.length ? <div className="video-timings"><h3>{uiT("Transport time")}</h3><p className="video-muted">{uiT("Submission, status queries and result transfers; Provider queue and generation time are not measured here.")}</p>{timings.data.map((span, index) => <div className="video-span" key={index}><span>{span.phase === 'submission' ? uiT("Submission") : span.phase === 'query' ? uiT("Status query") : span.phase === 'result' ? uiT("Result transfer") : uiT("Other transport")}</span><div className="video-span-track"><i style={{marginLeft: `${(span.started_unix_ms - epoch) / total * 100}%`, width: `${Math.max(.5, span.elapsed_ms / total * 100)}%`}} /></div><small>{formatDurationMs(span.elapsed_ms)}</small></div>)}{timings.has_more && <small>{uiT("Showing the latest recorded requests.")}</small>}</div> : null}
       <h3>{uiT("Billing")}</h3>{billing ? <VideoBilling billing={billing} /> : diagnosticsLoading ? <ListRowsSkeleton rows={1} label={uiT("Loading billing…")} /> : <p>{uiT("Billing is unavailable.")}</p>}
       <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(task.model)}#gateway-attempt-${encodeURIComponent(task.reference ?? task.id)}`}>{uiT("View in Logs")}</Link></Button>
     </div></SheetContent></Sheet>}

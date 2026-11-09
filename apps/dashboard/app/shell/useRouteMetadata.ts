@@ -73,7 +73,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
 
   const searchParams = new URLSearchParams(location.search);
   const videoSessionRoute = isGlobalChat && (location.pathname.startsWith('/generations/video-') || searchParams.has('video-session'));
-  const videoComposerRoute = isGlobalChat && !videoSessionRoute && (searchParams.get('new') === 'video' || searchParams.has('job'));
+  const videoComposerRoute = isGlobalChat && !videoSessionRoute && (location.pathname.startsWith('/generations/runs/') || searchParams.get('new') === 'video' || searchParams.has('job'));
 
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'

@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { money } from '@/lib/money';
+import { catalogTitle } from '@/lib/providers';
 import { useLocale } from '@/shell/ui-locale';
 
 export type PoolStrategyDraft = {
@@ -203,16 +205,23 @@ export function PoolStrategyFields({
           </ul>
           {draft.auto.decider ? (
             <p className="text-xs text-muted-foreground">
-              {t('Decider', '决策模型')} {draft.auto.decider.model} ·{' '}
-              {t('timeout', '超时')} {draft.auto.decider.timeout_ms}{' '}
+              {t('Decider', '决策模型')}{' '}
+              {catalogTitle(draft.auto.decider.model)}
+              {catalogTitle(draft.auto.decider.model) !==
+                draft.auto.decider.model && (
+                <span className="sr-only"> {draft.auto.decider.model}</span>
+              )}{' '}
+              · {t('timeout', '超时')} {draft.auto.decider.timeout_ms}{' '}
               {t('ms', '毫秒')} ·{' '}
               {t('at most', '最多')} {draft.auto.decider.max_calls}{' '}
               {t('call(s)', '次调用')} ·{' '}
               {draft.auto.decider.max_input_tokens}/
               {draft.auto.decider.max_output_tokens} {t('tokens', 'Token')} ·{' '}
               {t('spend ceiling', '费用上限')}{' '}
-              {draft.auto.decider.max_spend_nanos}{' '}
-              {draft.auto.decider.currency} {t('nanounits', '纳单位')}
+              {money(
+                String(draft.auto.decider.max_spend_nanos),
+                draft.auto.decider.currency,
+              )}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -294,8 +303,8 @@ export function PoolStrategyFields({
           </div>
           <p className="text-xs text-muted-foreground sm:col-span-3">
             {t(
-              'Prices are compared in currency nanounits per million tokens using these request-size assumptions, including context tiers, request fees and minimum charges. Missing or incomparable prices stay unknown; if no candidate has a comparable price, priority and weight apply. Credits-denominated plans currently fall back. Preview before saving.',
-              '价格按“每个币种纳单位/百万 Token”并使用上述请求规模假设比较，包含上下文阶梯、请求固定费用与最低收费。缺失或不可比的价格保持未知；若没有候选具有可比价格，则回退到优先级与权重。按积分计费的计划目前会回退。保存前请预览。',
+              'Prices are compared per 1M tokens using these request-size assumptions, including context tiers, request fees and minimum charges. Missing or incomparable prices stay unknown; if no candidate has a comparable price, priority and weight apply. Credits-denominated plans currently fall back. Preview before saving.',
+              '价格按“每百万 Token”并使用上述请求规模假设比较，包含上下文阶梯、请求固定费用与最低收费。缺失或不可比的价格保持未知；若没有候选具有可比价格，则回退到优先级与权重。按积分计费的计划目前会回退。保存前请预览。',
             )}
           </p>
         </div>
@@ -355,9 +364,19 @@ export function PoolStrategySummary({
         {t('Selection strategy', '选择策略')}:{' '}
         {t('Semantic Auto', '语义 Auto')} · {strategy.auto.paths.length}{' '}
         {t('paths', '条路径')}
-        {strategy.auto.decider
-          ? ` · ${t('bounded decider', '有界决策模型')} ${strategy.auto.decider.model}`
-          : ` · ${t('caller context only', '仅使用调用方上下文')}`}
+        {strategy.auto.decider ? (
+          <>
+            {' · '}
+            {t('bounded decider', '有界决策模型')}{' '}
+            {catalogTitle(strategy.auto.decider.model)}
+            {catalogTitle(strategy.auto.decider.model) !==
+              strategy.auto.decider.model && (
+              <span className="sr-only"> {strategy.auto.decider.model}</span>
+            )}
+          </>
+        ) : (
+          ` · ${t('caller context only', '仅使用调用方上下文')}`
+        )}
       </p>
     );
   }
@@ -367,7 +386,7 @@ export function PoolStrategySummary({
       <p className="mt-2 text-sm">
         {t('Selection strategy', '选择策略')}:{' '}
         {t('Lowest customer price', '最低客户价格')} · {price.currency} ·{' '}
-        {t('nanounits per million tokens', '纳单位/百万 Token')} ·{' '}
+        {t('per 1M tokens', '每百万 Token')} ·{' '}
         {t('assumed input', '假设输入')} {price.input_tokens.toLocaleString()} ·{' '}
         {t('assumed output', '假设输出')} {price.output_tokens.toLocaleString()}
       </p>

@@ -1,4 +1,5 @@
 import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { catalogTitle } from '@/lib/providers';
 import { NiuAPIError, type RequestOptions, type VideoJobHistoryQuery } from '@niu-io/sdk';
 import type { NiuAdminClient, TenantScope, VideoIntentIndexEntry, VideoSubmissionIntent } from '@niu-io/sdk/admin';
 
@@ -11,7 +12,7 @@ export type VideoIntentHistoryRow = VideoIntentIndexEntry & {
 };
 export function videoSessionTitle(data: Pick<VideoSubmissionIntent, 'request' | 'model'>): string {
   const prompt=data.request?.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n').split('\n').find(line=>line.trim())?.trim();
-  return prompt ? `Video · ${prompt.slice(0,120)}` : data.model ? `Video · ${data.model}` : 'Video session';
+  return prompt ? `Video · ${prompt.slice(0,120)}` : data.model ? `Video · ${catalogTitle(data.model)}` : 'Video session';
 }
 type HistoryClient = Pick<NiuAdminClient, 'listVideoIntents' | 'getVideoIntent'>;
 

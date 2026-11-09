@@ -332,7 +332,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:last-child { flex: 1 1 auto; }
 .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-separator"] { flex-shrink: 0; }
 .dashboard-page-header .breadcrumbs [aria-label="Switch workspace page"] { min-width: 0; max-width: 100%; padding: 4px; }
-@media (max-width: 680px) {
+@media (max-width: 768px) {
   .dashboard-page-header { flex-wrap: wrap; flex-basis: auto; flex-shrink: 0; height: auto; }
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child { flex: 1 1 0; }
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:last-child { flex: 0 1 auto; max-width: 60%; }
