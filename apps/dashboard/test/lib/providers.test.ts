@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connectionIdentity, identifyProvider, modelIdentity, modelDeveloper, modelProviderName, providers } from '../../app/lib/providers';
+import { catalogTitle, connectionIdentity, identifyProvider, modelIdentity, modelDeveloper, modelProviderName, providers } from '../../app/lib/providers';
 
 describe('provider identity', () => {
   it('identifies the model author independently of a route alias', () => {
@@ -63,5 +63,12 @@ describe('model developer and provider boundaries', () => {
     expect(modelProviderName({provider:'fastrouter'})).toBe('FastRouter');
     expect(modelProviderName({provider:'openrouter'})).toBe('OpenRouter');
     expect(modelProviderName({provider:'Team inference'})).toBe('Team inference');
+  });
+  it('formats catalog model slugs while preserving custom route aliases', () => {
+    expect(catalogTitle('volcengine/doubao-seedance-2-0-fast-260128')).toBe('Doubao Seedance 2.0 Fast');
+    expect(catalogTitle('fastrouter/ByteDance-Seed/Seedance-2.0-fast')).toBe('Seedance 2.0 Fast');
+    expect(catalogTitle('anthropic/claude-3-5-sonnet-20241022')).toBe('Claude 3.5 Sonnet');
+    expect(catalogTitle('video-model')).toBe('video-model');
+    expect(catalogTitle('model-9')).toBe('model-9');
   });
 });

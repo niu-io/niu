@@ -1,10 +1,11 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { IconChevronDown } from '@tabler/icons-react';
+import { IconChevronDown, IconReceipt } from '@tabler/icons-react';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { request } from '@/features/providers/api';
 import type { RetailCustomer } from './api';
 import MediaRateHistory from '@/features/provider-business/MediaRateHistory';
@@ -47,7 +48,7 @@ export default function LegacyMediaContracts({ token, onClose, returnFocus }: { 
     {loading && (companies.length ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading companies…")}</p> : <ListRowsSkeleton rows={3} label={uiT("Loading companies…")} />)}
     {error && <div role="alert" className="space-y-2"><p>{error}</p><Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry companies")}</Button></div>}
     {cursor && !error && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More companies")}</Button>}
-    {!loading && !error && !companies.length && <p>{uiT("No customer companies are available.")}</p>}
+    {!loading && !error && !companies.length && <Empty className="min-h-32"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No customer companies are available.")}</EmptyDescription></EmptyHeader></Empty>}
     {company && <MediaRateHistory key={company.organization_id} token={token} organization={company.organization_id} allowPublish={false}/>}
   </DialogContent></Dialog>;
 }
