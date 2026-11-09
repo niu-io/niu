@@ -82,19 +82,19 @@ export const workspaceRoute: RouteObject = {
     },
     {
       path: 'provider-capabilities/:provider',
-      loader: legacyPathRedirectLoader('../assets?tab=materials'),
-      element: <LegacyPathRedirect to="../assets?tab=materials" />,
+      loader: legacyPathRedirectLoader('../assets/materials'),
+      element: <LegacyPathRedirect to="../assets/materials" />,
     },
     {
       path: 'video',
-      loader: legacyPathRedirectLoader('../assets?tab=materials'),
-      element: <LegacyPathRedirect to="../assets?tab=materials" />,
+      loader: legacyPathRedirectLoader('../assets/materials'),
+      element: <LegacyPathRedirect to="../assets/materials" />,
     },
     {
       id: 'workspace-video-provider',
       path: 'video/:provider/:section?',
-      loader: legacyPathRedirectLoader('../assets?tab=materials'),
-      element: <LegacyPathRedirect to="../assets?tab=materials" />,
+      loader: legacyPathRedirectLoader('../assets/materials'),
+      element: <LegacyPathRedirect to="../assets/materials" />,
     },
     {
       id: 'workspace-keys-new',

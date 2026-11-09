@@ -528,7 +528,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
           </section>}
           {mediaError && <Alert variant="destructive"><AlertTitle>{uiT("More media charges unavailable")}</AlertTitle><AlertDescription>{mediaError}<Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Retry media charges")}</Button></AlertDescription></Alert>}
           {mediaNext && !mediaError && <Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Show more media charges")}</Button>}
-          {lines.length === 0 && mediaLines.length === 0 && !mediaNext && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No line items available.")}</EmptyDescription></EmptyHeader></Empty>}
+          {lines.length === 0 && mediaLines.length === 0 && !mediaNext && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No line items available.")}</EmptyDescription></EmptyHeader></Empty>}
         </> : <TableSkeleton columns={5} rows={4} label={uiT("Loading line items…")} />}
 
       </DialogContent>

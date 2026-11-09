@@ -1,4 +1,5 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
+import { IconHistory } from '@tabler/icons-react';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -163,7 +164,7 @@ export default function KeyHistoryDialog({ token, projectKey, keyPath }: { token
       {rows.length > 0 && <Table className="w-full table-fixed text-xs sm:text-sm"><TableHeader><TableRow><TableHead className="whitespace-normal! text-xs! sm:text-sm! w-[45%] px-2!">{option.field === 'allowed_cidrs' ? uiT("Access") : uiT("Limit")}</TableHead><TableHead className="whitespace-normal! text-xs! sm:text-sm! w-1/4 px-2!">{uiT("Changed by")}</TableHead><TableHead className="whitespace-normal! text-xs! sm:text-sm! px-2!">{uiT("Date")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row => <TableRow key={row.revision}><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{display(row)}</TableCell><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{row.actor_name || uiT("Name unavailable")}</TableCell><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{date(row.recorded_at)}</TableCell></TableRow>)}</TableBody></Table>}
       {loading && (rows.length ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading older changes…")}</p> : <TableSkeleton columns={3} rows={3} label={uiT("Loading limit history…")} />)}
       {error && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry history")}</Button></div>}
-      {!loading && !error && !rows.length && <Empty className="min-h-48"><EmptyHeader><EmptyDescription>{option.empty}</EmptyDescription></EmptyHeader></Empty>}
+      {!loading && !error && !rows.length && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{option.empty}</EmptyDescription></EmptyHeader></Empty>}
       {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>{uiT("Load older changes")}</Button>}
       <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>{uiT("Close")}</Button></DialogFooter>
     </DialogContent>

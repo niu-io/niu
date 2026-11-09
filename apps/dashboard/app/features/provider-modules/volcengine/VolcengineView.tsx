@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import type { MediaAsset, MediaAssetMutation } from '@niu-io/sdk/media-assets';
 import type { WorkspaceAsset } from '@niu-io/sdk/workspace-assets';
 import { NiuAPIError } from '@niu-io/sdk';
@@ -576,7 +576,7 @@ export default function VolcengineView({
           </TableRow>)}</TableBody>
         </Table> : data.error ? <p className="text-sm text-muted-foreground">{uiT('Materials could not be loaded. Retry before continuing.')}</p> : <Empty className="min-h-40 border-0 py-10">
           <EmptyHeader>
-            <IconFolder className="mx-auto mb-2 text-muted-foreground" size={28} stroke={1.5} />
+            <EmptyMedia variant="icon"><IconFolder size={20} stroke={1.5} aria-hidden="true" /></EmptyMedia>
             <EmptyTitle className="text-sm">{data.loading ? uiT('Loading materials…') : data.selectedKeyIpRestricted ? uiT('Source IP restricted for this API key') : !data.client ? uiT('Current materials unavailable') : !nativeContext && !chosenModel ? uiT('Choose an API key and model') : selected ? uiT('No materials in this group') : uiT('No material groups yet')}</EmptyTitle>
           </EmptyHeader>
           {!data.loading && data.client && data.canWrite && !selected && <Button variant="outline" disabled={busy} onClick={() => open('group')}>{uiT('Create group')}</Button>}
@@ -698,5 +698,5 @@ export default function VolcengineView({
 }
 
 function Unavailable({ title, description }: { heading: string; title: string; description: string }) {
-  return <div className=""><Empty className="min-h-40 border-0 py-10"><EmptyHeader><ScanFace className="mx-auto mb-2 text-muted-foreground" size={28} strokeWidth={1.5} /><EmptyTitle className="text-sm font-medium">{title}</EmptyTitle><EmptyDescription className="max-w-sm text-sm">{description}</EmptyDescription></EmptyHeader></Empty></div>;
+  return <div className=""><Empty className="min-h-40 border-0 py-10"><EmptyHeader><EmptyMedia variant="icon"><ScanFace size={20} strokeWidth={1.5} aria-hidden="true" /></EmptyMedia><EmptyTitle className="text-sm font-medium">{title}</EmptyTitle><EmptyDescription className="max-w-sm text-sm">{description}</EmptyDescription></EmptyHeader></Empty></div>;
 }

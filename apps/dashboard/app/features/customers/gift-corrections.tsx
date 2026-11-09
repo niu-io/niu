@@ -1,4 +1,5 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
+import { IconGift } from '@tabler/icons-react';
 import { readLocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -42,7 +43,7 @@ export function IssuedGiftHistory({token,organization,currency,onCorrect}:{token
     <Button variant="outline" disabled={loading} onClick={()=>void load()}>{uiT("Refresh issued gifts")}</Button>
     {loading&&!rows.length&&<TableSkeleton columns={5} rows={3} label={uiT("Loading issued gifts…")}/>}
     {error&&<Alert variant="destructive"><AlertDescription>{uiT(error)}{" "}{uiT("Refresh issued gifts before another action.")}</AlertDescription></Alert>}
-    {!loading&&!error&&!rows.length&&<Empty className="min-h-48"><EmptyHeader><EmptyDescription>{uiT("No issued gifts in this currency.")}</EmptyDescription></EmptyHeader></Empty>}
+    {!loading&&!error&&!rows.length&&<Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconGift size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No issued gifts in this currency.")}</EmptyDescription></EmptyHeader></Empty>}
     {!!rows.length&&<Table aria-label={uiT("Issued noncash gifts")}><TableHeader><TableRow><TableHead>{uiT("Issued (UTC)")}</TableHead><TableHead>{uiT("Reason")}</TableHead><TableHead className="text-right">{uiT("Gift amount")}</TableHead><TableHead>{uiT("State")}</TableHead><TableHead>{uiT("Actions")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.id}><TableCell className="whitespace-nowrap">{date(row.created_at)}</TableCell><TableCell className="min-w-44 max-w-64 whitespace-normal break-words">{row.reason}</TableCell><TableCell className="whitespace-nowrap text-right tabular-nums">{amount(row)}</TableCell><TableCell><Badge variant="outline">{row.correction?uiT("Corrected"):uiT("Issued")}</Badge></TableCell><TableCell><Button variant="outline" disabled={loading||!!error} onClick={()=>onCorrect(row)}>{row.correction?uiT("View correction"):uiT("Correct unused gift")}</Button></TableCell></TableRow>)}</TableBody></Table>}
     {cursor&&<Button variant="outline" disabled={loading||!!error} onClick={()=>void load(cursor)}>{uiT("More issued gifts")}</Button>}
   </div>;

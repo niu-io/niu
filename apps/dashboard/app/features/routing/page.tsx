@@ -53,7 +53,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDashboardContext, type Model } from '@/shell/dashboard-context';
 import { useLocale, translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import {
   fetchQuery,
   invalidateForMutation,
@@ -1270,11 +1270,10 @@ function RoutingView({
               </TableBody>
             </Table>
             {!detail.selections?.length && (
-              <Empty className="min-h-60">
+              <Empty className="min-h-48">
                 <EmptyHeader>
-                  <EmptyDescription>
-                    {uiT('No recorded selections yet.')}
-                  </EmptyDescription>
+                  <EmptyMedia variant="icon"><IconHistory size={18} aria-hidden="true" /></EmptyMedia>
+                  <EmptyDescription>{uiT('No recorded selections yet.')}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )}

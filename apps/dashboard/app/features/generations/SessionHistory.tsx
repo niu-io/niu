@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
 import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState, useRef, type ReactNode, type RefObject } from 'react';
@@ -255,7 +255,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       {item.type==='chat'&&chatActions&&chatActions(item.id)}
       {item.type==='video-session'&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{menuOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void prepareDeleteSavedInput(item.session)}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>);})}</SidebarMenu>
-    {!entries.length&&!loading&&!pending&&!error&&!failed&&<Empty className="p-3 md:p-3"><EmptyHeader><EmptyDescription>{uiT("No sessions yet")}</EmptyDescription></EmptyHeader></Empty>}
+    {!entries.length&&!loading&&!pending&&!error&&!failed&&<Empty className="p-3 md:p-3"><EmptyHeader><EmptyMedia variant="icon"><IconMessageChatbot size={16} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No sessions yet")}</EmptyDescription></EmptyHeader></Empty>}
     {(loading||pending)&&!entries.length&&<SidebarMenu role="status" aria-busy="true" aria-label={uiT("Loading sessions…")}>
       {Array.from({length:4},(_,index)=><SidebarMenuItem key={index}><SidebarMenuSkeleton showIcon/></SidebarMenuItem>)}
     </SidebarMenu>}
