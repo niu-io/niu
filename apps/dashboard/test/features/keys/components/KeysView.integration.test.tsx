@@ -129,7 +129,7 @@ it('opens key rotation and revocation from the named action menu and keeps cance
   expect(fetch.mock.calls.every(([, init]) => init.method==='GET')).toBe(true);
 });
 
-it('searches names without issuing requests and can recover from an empty result', async () => {
+it('filters by status without issuing requests and can recover from an empty filter result', async () => {
   const fetchKeys = vi.fn(async () => new Response(JSON.stringify({ data: ['Production app', 'Staging app'].map((name, i) => ({
     id: `key-${i}`, name, allowed_models: ['*'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false,
   })) }), { status: 200, headers: { 'content-type': 'application/json' } }));
@@ -137,18 +137,15 @@ it('searches names without issuing requests and can recover from an empty result
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="viewer" models={['fast']} canWrite={false} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
   await screen.findByRole('link', { name: 'View key Production app' });
-  const searches = fetchKeys.mock.calls.length;
-  await user.click(screen.getByRole('button', {name:'Search API keys'}));
-  await user.type(screen.getByRole('textbox', { name: 'Search API keys' }), 'PRODUCTION');
-  expect(screen.getByRole('link', { name: 'View key Production app' })).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'View key Staging app' })).toBeNull();
-  await user.clear(screen.getByRole('textbox', { name: 'Search API keys' }));
-  await user.type(screen.getByRole('textbox', { name: 'Search API keys' }), 'missing');
+  expect(screen.queryByRole('button', { name: 'Search API keys' })).toBeNull();
+  const requests = fetchKeys.mock.calls.length;
+  await user.click(screen.getByRole('button', { name: 'Filter by key status' }));
+  await user.click(screen.getByRole('menuitemradio', { name: 'Revoked or expired' }));
   expect(screen.getByText('No matching keys')).toBeTruthy();
-  await user.click(screen.getByRole('button', { name: 'Clear search' }));
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Search API keys' }));
+  await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Filter by key status' }));
   expect(screen.getByRole('link', { name: 'View key Staging app' })).toBeTruthy();
-  expect(fetchKeys.mock.calls.length).toBe(searches);
+  expect(fetchKeys.mock.calls.length).toBe(requests);
 });
 
 it('distinguishes an unread key list from a successfully loaded empty list', async () => {
