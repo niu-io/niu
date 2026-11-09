@@ -2462,6 +2462,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Configured Providers": "已配置的 Provider",
   "Choose a Provider and enter its API key to import models. You pay the Provider directly.": "选择 Provider，填写 API 密钥即可导入模型。费用由您直接向 Provider 支付。",
   "Connect {0}": "连接 {0}",
+  "Open {0}": "打开 {0}",
   "Pay this Provider directly. Niu imports its model list; no selling prices or payment setup are required.": "费用直接向此 Provider 支付。Niu 会导入模型列表，无需配置售价或收款。",
   "Select an account first.": "请先选择账户。",
   "Provider website": "Provider 网站",
