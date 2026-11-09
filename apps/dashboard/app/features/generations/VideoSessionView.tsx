@@ -102,7 +102,7 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
         })}
       </>}
     </div>
-    {session && !session.archived && <VideoSessionComposer context={context} session={session} onSubmitted={() => setRevision(value => value + 1)} />}
+    {session && <VideoSessionComposer context={context} session={session} onSubmitted={() => setRevision(value => value + 1)} />}
     </div></section>
   </div>;
 }

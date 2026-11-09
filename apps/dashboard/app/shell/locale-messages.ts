@@ -3399,6 +3399,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Estimate": "估算",
   "Estimate generation cost": "估算生成费用",
   "Generation needs write access.": "生成需要写入权限。",
+  "A member with write access can describe the next video here.": "有写入权限的成员可以在这里继续描述下一条视频。",
   "Read access can estimate; generation needs write access.": "只读权限可估算，生成需要写入权限。",
   "Provider navigation": "Provider 导航",
   "Admin navigation": "管理导航",
