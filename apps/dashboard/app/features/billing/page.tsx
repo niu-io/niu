@@ -11,7 +11,8 @@ import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { IconRefresh as RefreshCw } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { catalogTitle } from '@/lib/providers';
+import ProviderLogo from '@/components/ProviderLogo';
+import { catalogTitle, modelIdentity } from '@/lib/providers';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -124,7 +125,7 @@ const mediaMeter = (value: string, count: { numerator: string; denominator: stri
   return value === 'seconds' ? single ? 'second' : 'seconds' : value === 'video_tokens' ? single ? 'video token' : 'video tokens' : single ? 'billing unit' : 'billing units';
 };
 const day = (ms: number) => new Date(ms).toLocaleDateString(readUILocale(), { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
-const modelLabel = (alias: string) => { const title = catalogTitle(alias); return title === alias ? alias : <>{title}<span className="sr-only"> {alias}</span></>; };
+const modelLabel = (alias: string) => { const title = catalogTitle(alias); return <span className="inline-flex items-center gap-2"><ProviderLogo provider={modelIdentity({ id: alias })} size="small" /><span>{title}{title !== alias && <span className="sr-only"> {alias}</span>}</span></span>; };
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({

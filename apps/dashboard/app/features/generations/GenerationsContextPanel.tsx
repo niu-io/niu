@@ -467,7 +467,7 @@ export default function GenerationsContextPanel({
                             {run.kind === 'video' ? (
                               <IconVideo size={14} className="shrink-0 text-muted-foreground" />
                             ) : (
-                              <ProviderLogo provider={modelIdentity({ id: run.model })} size="small" />
+                              <ProviderLogo provider={modelIdentity({ id: run.model, catalog: { name: run.modelTitle } })} size="small" />
                             )}
                             <span className="truncate">{run.modelTitle}</span>
                           </span>
@@ -492,7 +492,7 @@ export default function GenerationsContextPanel({
                       {selectedRun.kind === 'video' ? (
                         <IconVideo size={18} className="shrink-0 text-primary" />
                       ) : (
-                        <ProviderLogo provider={modelIdentity({ id: selectedRun.model })} size="small" />
+                        <ProviderLogo provider={modelIdentity({ id: selectedRun.model, catalog: { name: selectedRun.modelTitle } })} size="small" />
                       )}
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-semibold">{selectedRun.modelTitle}</h3>

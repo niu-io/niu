@@ -2,8 +2,8 @@ const assets = import.meta.glob('../assets/providers/*.{svg,png}', { eager: true
 const definitions = [
   ['anthropic', 'Anthropic', 'anthropic', ['anthropic', 'claude']],
   ['openai', 'OpenAI', 'openai', ['openai', 'gpt', 'chatgpt', 'o1', 'o3', 'o4']],
-  ['qwen', 'Qwen', 'qwen-color', ['qwen', 'qvq', 'alibaba']],
-  ['deepseek', 'DeepSeek', 'deepseek-color', ['deepseek']],
+  ['qwen', 'Qwen', 'qwen-color', ['qwen', 'qvq', 'qwq', 'wan', 'wanx', 'alibaba']],
+  ['deepseek', 'DeepSeek', 'deepseek-color', ['deepseek', 'deepseek-ai', 'deepseekv', 'deepseekr']],
   ['google', 'Google', 'gemini-color', ['google', 'gemini', 'gemma']],
   ['meta', 'Meta', 'meta-color', ['meta', 'meta-llama', 'llama']],
   ['mistral', 'Mistral', 'mistral-color', ['mistral', 'mistralai', 'mixtral', 'codestral', 'devstral', 'pixtral']],
@@ -21,14 +21,14 @@ const definitions = [
   ['aion-labs', 'Aion Labs', 'aionlabs', ['aion-labs']],
   ['amazon', 'Amazon', 'aws', ['amazon']],
   ['arcee-ai', 'Arcee AI', 'arcee', ['arcee-ai']],
-  ['baidu', 'Baidu', 'baidu', ['baidu']],
+  ['baidu', 'Baidu', 'baidu', ['baidu', 'ernie', 'wenxin']],
   ['fireworks', 'Fireworks', 'fireworks', ['fireworks']],
   ['ibm-granite', 'IBM', 'ibm', ['ibm-granite']],
   ['inception', 'Inception', 'inception', ['inception']],
   ['inclusionai', 'InclusionAI', 'antgroup', ['inclusionai']],
   ['inference-net', 'Inference.net', 'inference', ['inference-net']],
-  ['kwaipilot', 'Kwai', 'kwaipilot', ['kwaipilot']],
-  ['meituan', 'Meituan', 'longcat', ['meituan']],
+  ['kwaipilot', 'Kwai', 'kwaipilot', ['kwaipilot', 'kling', 'kolors']],
+  ['meituan', 'Meituan', 'longcat', ['meituan', 'longcat']],
   ['microsoft', 'Microsoft', 'microsoft', ['microsoft']],
   ['morph', 'Morph', 'morph', ['morph']],
   ['nousresearch', 'Nous Research', 'nousresearch', ['nousresearch']],
@@ -39,33 +39,64 @@ const definitions = [
   ['relace', 'Relace', 'relace', ['relace']],
   ['sakana', 'Sakana AI', 'sakana', ['sakana']],
   ['stepfun', 'StepFun', 'stepfun', ['stepfun']],
-  ['tencent', 'Tencent', 'tencent', ['tencent']],
+  ['tencent', 'Tencent', 'tencent', ['tencent', 'hunyuan']],
   ['upstage', 'Upstage', 'upstage', ['upstage']],
   ['xiaomi', 'Xiaomi', 'xiaomi', ['xiaomi']],
 ] as const;
 export type ProviderIdentity = { id: string; name: string; logo?: string };
 export const providers: ProviderIdentity[] = definitions.map(([id, name, asset]) => ({ id, name, logo: assets[`../assets/providers/${asset}.svg`] ?? assets[`../assets/providers/${asset}.png`] }));
+function matchesAliasPrefix(normalized: string, alias: string): boolean {
+  if (normalized === alias) return true;
+  if (!normalized.startsWith(alias)) return false;
+  const next = normalized[alias.length];
+  if (next === '/' || next === '-' || next === '_' || next === '.' || next === ':' || next === ' ') return true;
+  return alias.length >= 3 && next >= '0' && next <= '9';
+}
 export function identifyProvider(value?: string): ProviderIdentity | undefined {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return;
-  const index = definitions.findIndex(([, , , aliases]) => aliases.some(alias => normalized === alias || normalized.startsWith(`${alias}/`) || normalized.startsWith(`${alias}-`)));
+  const index = definitions.findIndex(([, , , aliases]) => aliases.some(alias => matchesAliasPrefix(normalized, alias)));
   return providers[index];
 }
-type ModelIdentityInput = { id: string; upstream_model?: string };
+export type ModelIdentityInput = {
+  id: string;
+  upstream_model?: string;
+  catalog?: { name?: string | null } | null;
+};
 // These businesses distribute or route model access. Their brand identifies a
 // Provider, never the upstream model developer.
 const distributorIds = new Set(['fastrouter', 'openrouter', 'babelark', 'qiniu']);
 // Route namespaces describe access or transport, not model authorship.
 const routingNamespaces = new Set(['byok', ...distributorIds]);
+const modelFamilyTokens = new Set([
+  'deepseek', 'claude', 'gpt', 'chatgpt', 'gemini', 'gemma',
+  'qwen', 'qvq', 'qwq', 'wan', 'wanx', 'llama',
+  'mixtral', 'codestral', 'devstral', 'pixtral',
+  'kimi', 'moonshot', 'glm', 'chatglm', 'minimax', 'grok',
+  'nemotron', 'seedance', 'seedream', 'doubao',
+  'longcat', 'hunyuan', 'ernie', 'kling',
+]);
 export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | undefined {
-  for (const source of [model.upstream_model, model.id]) {
+  for (const source of [model.upstream_model, model.id, model.catalog?.name]) {
     if (!source?.trim()) continue;
-    const parts = source.trim().toLowerCase().split('/');
+    const parts = source.trim().toLowerCase().split('/').filter(Boolean);
     while (parts.length > 1 && routingNamespaces.has(parts[0])) parts.shift();
     const candidate = parts.join('/');
-    if (routingNamespaces.has(candidate)) continue;
-    const known = identifyProvider(candidate);
-    if (known && !distributorIds.has(known.id)) return known;
+    if (!candidate || routingNamespaces.has(candidate)) continue;
+    for (let index = parts.length - 1; index >= 0; index -= 1) {
+      const segment = parts[index];
+      if (routingNamespaces.has(segment)) continue;
+      const known = identifyProvider(segment);
+      if (known && !distributorIds.has(known.id)) return known;
+    }
+    const basename = parts[parts.length - 1] ?? '';
+    for (const token of basename.split(/[-_.: ]+/)) {
+      const clean = token.replace(/\d.*$/, '');
+      if (modelFamilyTokens.has(token) || (clean.length >= 3 && modelFamilyTokens.has(clean))) {
+        const known = identifyProvider(token);
+        if (known && !distributorIds.has(known.id)) return known;
+      }
+    }
   }
   // An arbitrary alias prefix is not evidence of a model developer.
   return undefined;
