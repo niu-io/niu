@@ -1837,6 +1837,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "You have read-only access.": "你只有只读权限。",
   "No API keys yet": "暂无 API 密钥",
   "No matching keys": "无匹配密钥",
+  "Load more keys": "加载更多密钥",
   "Try another name or clear your search.": "尝试其他名称或清除搜索。",
   "Key": "密钥",
   "Rotate": "轮换",
