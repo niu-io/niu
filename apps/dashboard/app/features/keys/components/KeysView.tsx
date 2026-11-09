@@ -99,6 +99,8 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const initialCollectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
   const initialCachedKeys = initialCollectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, initialCollectionPath) : undefined;
   const [keys, setKeys] = useState<ProjectKey[]>(() => loaderKeys ?? initialCachedKeys?.data ?? []);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [keyQuery, setKeyQuery] = useState('');
   const [keyStatusFilter, setKeyStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const visibleKeys = keys.filter(key => key.name.toLocaleLowerCase().includes(keyQuery.trim().toLocaleLowerCase())).filter(key => keyStatusFilter === 'all' || (keyStatusFilter === 'inactive' ? key.revoked || key.expired : !(key.revoked || key.expired))).sort((a, b) => Number(Boolean(a.revoked || a.expired)) - Number(Boolean(b.revoked || b.expired)));
@@ -153,25 +155,30 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const mutationController = useRef<AbortController | null>(null);
   useEffect(() => () => mutationController.current?.abort(), [collectionPath, token, canWrite]);
 
-  async function reload(force = true) {
+  async function reload(force = true, after?: string) {
     loadController.current?.abort();
     if (!collectionPath) return;
     const controller = new AbortController();
     loadController.current = controller;
-    const cached = !force ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) : undefined;
+    const pagePath = `${collectionPath}?limit=50${after ? `&after=${encodeURIComponent(after)}` : ''}`;
+    const cached = !force ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath) : undefined;
     if (cached) {
       setKeys(cached.data);
+      setNextCursor(cached.next_cursor ?? null);
       setLoading(false);
     } else {
       setLoading(true);
     }
     setError('');
     try {
-      const value = await cachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath, {
+      const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath, {
         signal: controller.signal,
         force,
       });
-      if (!controller.signal.aborted) setKeys(value.data);
+      if (!controller.signal.aborted) {
+        setKeys(value.data);
+        setNextCursor(value.next_cursor ?? null);
+      }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load API keys.');
     } finally {
@@ -179,8 +186,24 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
     }
   }
 
+  async function loadMore() {
+    if (!collectionPath || !nextCursor || loadingMore || loading) return;
+    setLoadingMore(true);
+    setError('');
+    try {
+      const pagePath = `${collectionPath}?limit=50&after=${encodeURIComponent(nextCursor)}`;
+      const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath, { force: true });
+      setKeys(current => [...current, ...value.data]);
+      setNextCursor(value.next_cursor ?? null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load more API keys.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   useEffect(() => {
-    const cached = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) : undefined;
+    const cached = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, `${collectionPath}?limit=50`) : undefined;
     if (cached) {
       setKeys(cached.data);
     } else {
@@ -467,6 +490,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></TableCell>
         {showActions && <TableCell>{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
       </TableRow>)}</TableBody></Table></div>}
+      {nextCursor && <div className="mt-4 flex justify-center"><Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? uiT("Loading…") : uiT("Load more keys")}</Button></div>}
     </section>}
 
 
