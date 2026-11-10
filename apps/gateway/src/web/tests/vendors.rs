@@ -788,11 +788,13 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
             .0,
         StatusCode::CONFLICT
     );
-    let (status, public_catalog) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    let (status, public_catalog) =
+        call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(public_catalog["data"], json!([]));
     for auth in [ADMIN, operator.token.as_str()] {
-        let (status, catalog) = call(&app, Method::GET, "/admin/v1/models", auth, Value::Null).await;
+        let (status, catalog) =
+            call(&app, Method::GET, "/admin/v1/models", auth, Value::Null).await;
         assert_eq!(status, StatusCode::OK);
         let model = catalog["data"]
             .as_array()

@@ -560,7 +560,7 @@ test('resources and prompts are exposed over MCP JSON-RPC', async () => {
     },
   };
 
-  assert.equal(toolDefinitions.length, 50);
+  assert.equal(toolDefinitions.length, 51);
   assert.equal(resourceDefinitions.length, 6);
   assert.equal(resourceTemplates.length, 2);
   assert.equal(promptDefinitions.length, 4);
