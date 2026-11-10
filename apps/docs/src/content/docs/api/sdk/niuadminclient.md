@@ -101,6 +101,12 @@ listWorkspaceReviewEvaluations(workspace: string, after?: string, options?: Requ
 getWorkspaceReviewEvaluation(workspace: string, slug: string, revision?: number, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition>;
 ```
 
+### setWorkspaceReviewEvaluation
+
+```typescript
+setWorkspaceReviewEvaluation(workspace: string, slug: string, definition: import('./index.js').EvaluationDefinition, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition>;
+```
+
 ### listWorkspaceReviewEvaluationRuns
 
 ```typescript
