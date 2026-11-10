@@ -76,7 +76,7 @@ export function BrandingProvider({children}:{children:ReactNode}) {
     if (!readThemeOwner()) cacheTheme(settings.default_appearance);
     else applyTheme(readTheme());
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (icon) {icon.href=settings.favicon_data_url ?? `${import.meta.env.BASE_URL}assets/favicon.ico`;icon.type=settings.favicon_data_url ? 'image/png':'image/x-icon';}
+    if (icon) {icon.href=settings.favicon_data_url ?? `${import.meta.env.BASE_URL}assets/favicon-32.png`;icon.type='image/png';}
   },[configuration]);
   return <BrandingContext.Provider value={{settings:configuration.settings,logo:configuration.settings.logo_data_url ?? defaultLogo,update:setConfiguration}}>{children}</BrandingContext.Provider>;
 }

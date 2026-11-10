@@ -34,9 +34,14 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="theme-color" content="#f6f7f9" />
         <link
           rel="icon"
-          type="image/x-icon"
-          href={`${import.meta.env.BASE_URL}assets/favicon.ico`}
-          sizes="any"
+          type="image/png"
+          sizes="32x32"
+          href={`${import.meta.env.BASE_URL}assets/favicon-32.png`}
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href={`${import.meta.env.BASE_URL}assets/apple-touch-icon.png`}
         />
         <title>Niu</title>
         <Meta />
