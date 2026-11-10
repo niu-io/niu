@@ -327,7 +327,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Application error' })).toBeTruthy();
-    expect(screen.getByRole('navigation', { name: 'Product navigation' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
 
     // Recover zero-refresh by navigating back to a healthy sibling route without full document reload
     await act(async () => {

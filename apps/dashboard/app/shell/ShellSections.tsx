@@ -1,8 +1,6 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
-  IconLayoutDashboard as LayoutDashboard,
-  IconListDetails,
   IconWifiOff as WifiOff,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -16,22 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import {
   Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SettingsNavigation } from '@/features/account/settings-shell';
 import { ShellNavigation, ShellAccount } from './ShellNavigation';
-import { canManagePlatform, type DashboardContext, type GatewayStatus, type Model } from './dashboard-context';
+import type { DashboardContext, GatewayStatus, Model } from './dashboard-context';
 import { prefetchRouteIntent } from './prefetch';
-import ProductRailLink from './ProductRailLink';
-import { ProviderNav } from './ProviderNav';
 import { useLocale } from './ui-locale';
-import WorkspaceNav from './WorkspaceNav';
 
 export function SignOutFailureDialog({
   open,
@@ -110,13 +99,6 @@ export function ShellSidebar({
   activityArea,
   settingsArea,
   supplierArea,
-  contextual,
-  creationAvailable,
-  context,
-  activeWorkspacePath,
-  models,
-  activePath,
-  onCreateWorkspace,
 }: {
   sidebarRef: RefObject<HTMLDivElement | null>;
   toggleRef: RefObject<HTMLButtonElement | null>;
@@ -132,9 +114,6 @@ export function ShellSidebar({
   activePath: string;
   onCreateWorkspace: () => void;
 }) {
-  const { t } = useLocale();
-  const uiT = (en: string) => t(en, en);
-  const location = useLocation();
   const { setOpenMobile } = useSidebar();
   return (
     <Sidebar
@@ -152,7 +131,7 @@ export function ShellSidebar({
       }
       side="left"
       variant="sidebar"
-      collapsible="offcanvas"
+      collapsible="icon"
       className="niu-workspace-sidebar"
       mobileClassName="niu-workspace-sidebar-mobile"
       mobileContentProps={{
@@ -191,45 +170,6 @@ export function ShellSidebar({
       }}
     >
       <ShellNavigation />
-      {!contextual ? <SidebarContent /> : activityArea ? (
-        <>
-          <SidebarHeader className="sidebar-heading">
-            <h2 className="sidebar-heading-row">{t('Activity', '活动')}</h2>
-          </SidebarHeader>
-          <SidebarContent className="workspace-sidebar-content">
-            <nav aria-label={uiT('Activity navigation')}>
-              <SidebarMenu className="workspace-nav-menu">
-                {[
-                  { to: '/activity', label: t('Overview', '概览'), icon: LayoutDashboard },
-                  { to: '/activity/logs', label: t('Logs', '请求日志'), icon: IconListDetails },
-                ].map(item => (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={location.pathname === item.to} className="nav-item">
-                      <ProductRailLink to={item.to + location.search} end>
-                        <item.icon className="nav-icon" aria-hidden="true" />
-                        <span>{item.label}</span>
-                      </ProductRailLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </nav>
-          </SidebarContent>
-        </>
-      ) : settingsArea ? (
-        <SettingsNavigation context={context} />
-      ) : adminArea || supplierArea ? (
-        <>{canManagePlatform(context.session) ? <ProviderNav context={context} /> : <SidebarContent />}</>
-      ) : (
-        <WorkspaceNav
-          creationAvailable={creationAvailable}
-          context={context}
-          activeWorkspacePath={activeWorkspacePath}
-          models={models}
-          activePath={activePath}
-          onCreateWorkspace={onCreateWorkspace}
-        />
-      )}
       <ShellAccount />
     </Sidebar>
   );

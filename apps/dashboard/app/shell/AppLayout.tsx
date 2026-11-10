@@ -1,3 +1,4 @@
+import ShellSectionTabs from './ShellSectionTabs';
 import { ShellNavigationContext, SidebarRouteDismiss } from './ShellNavigation';
 import {
   Suspense,
@@ -445,15 +446,8 @@ export default function AppLayout() {
   const toggleRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const hasSidebar =
-    !isGlobalChat && (destination !== 'Models' || activePath.startsWith('models/') || models.length === 0);
-  const modelFiltersAvailable =
-    destination === 'Models' &&
-    !activePath.startsWith('models/') &&
-    !workspaceLoading &&
-    authorityWorkspacesReady &&
-    !effectiveWorkspaceError &&
-    (models.length > 0 || (!modelsLoading && !modelsError));
+  const hasSidebar = true;
+  const modelFiltersAvailable = false;
   const legacySettings = useMemo(
     () =>
       settingsArea
@@ -581,7 +575,7 @@ export default function AppLayout() {
   }
 
   return (
-    <ShellNavigationContext.Provider value={{context, workspacePath: activeWorkspacePath, modelsHref, generationsHref}}><SidebarProvider
+    <ShellNavigationContext.Provider value={{context: {...context, workspace: activeContextWorkspace ?? effectiveActiveWorkspace}, workspacePath: activeWorkspacePath, modelsHref, generationsHref, onCreateWorkspace: () => setWorkspaceCreateOpen(true)}}><SidebarProvider
       open={sidebarOpen}
       onOpenChange={setSidebarOpen}
       className="app-shell"
@@ -590,7 +584,7 @@ export default function AppLayout() {
       style={
         {
           '--sidebar-width': 'var(--context)',
-          '--sidebar-width-icon': 'var(--context)',
+          '--sidebar-width-icon': 'var(--workspace-sidebar-icon-width)',
           '--sidebar-width-mobile': 'var(--context)',
         } as CSSProperties
       }
@@ -672,6 +666,7 @@ export default function AppLayout() {
           {signOutFailure}
           {(helpArea || gateway.everConnected) && (
             <div className="gateway-route-content" hidden={!helpArea && gatewayStatus !== 'online'}>
+              <ShellSectionTabs context={context} />
               {adminSupplierId && (
                 <AdminProviderTabs
                   adminSupplierId={adminSupplierId}

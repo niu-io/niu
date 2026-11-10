@@ -354,8 +354,6 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
     preloadRouteChunk('/workspaces/default/executions');
     preloadRouteChunk('/workspaces/default/billing');
     preloadRouteChunk('/workspaces/default/guardrails');
-    preloadRouteChunk('/workspaces/default/routing');
-    preloadRouteChunk('/workspaces/default/evaluations');
     preloadRouteChunk('/workspaces/default/assets');
     preloadRouteChunk('/models');
     preloadRouteChunk('/generations');
@@ -364,7 +362,6 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
-    prefetchGet(snapshot.token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/routing`);
     prefetchGet(snapshot.token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/assets`);
     prefetchGet(snapshot.token, workspaceKeyPath(ws.id));
     if (canManagePlatform(snapshot.session)) {

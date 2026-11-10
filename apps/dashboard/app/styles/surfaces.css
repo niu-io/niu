@@ -41,16 +41,18 @@
   .playground-starter { min-width: 170px; flex-basis: 170px; padding: 10px 12px; }}
 
 /* The product rail and the shadcn workspace sidebar share one responsive shell. */
-.app-shell { --rail: 0px; --context: 256px; --dashboard-header-height: 56px; height: 100dvh; min-height: 100dvh; overflow: hidden; }
+.app-shell { --rail: 0px; --context: 256px; --workspace-sidebar-icon-width: 56px; --dashboard-header-height: 56px; height: 100dvh; min-height: 100dvh; overflow: hidden; }
 .app-rail { position: fixed; }
 .app-shell [data-slot="sidebar-gap"] { width: var(--context); flex: 0 0 var(--context); }
 .app-shell [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-gap"] { width: 0; flex-basis: 0; }
+.app-shell > [data-slot="sidebar"][data-collapsible="icon"] [data-slot="sidebar-gap"],
+.app-shell > [data-slot="sidebar"][data-collapsible="icon"] .niu-workspace-sidebar { width: var(--sidebar-width-icon); flex-basis: var(--sidebar-width-icon); }
 .app-shell [data-slot="sidebar-container"].niu-workspace-sidebar { top: 0; bottom: 0; left: var(--rail); width: var(--context); height: 100dvh; z-index: 15; }
 .app-shell [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-container"].niu-workspace-sidebar { left: calc(var(--rail) - var(--context)); }
 .app-shell [data-slot="sidebar-inner"] { border-right: 0; }
 .app-shell .main-panel { width: auto; min-height: 0; min-width: 0; flex: 1 1 0; margin: 0; container-type: inline-size; }
 /* Size management gutters from the canvas left after navigation, including split panes. */
-.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > .generations-layout)),
+.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
 .app-shell .main-panel > .dashboard-page-header {
   padding-inline: clamp(16px, 3cqw, 32px);
 }
@@ -232,10 +234,10 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .billing-empty { display: flex; flex: 0 0 auto; min-height: 240px; align-items: center; justify-content: center; text-align: center; }
 
 .app-shell .page-content.help-content,
-.app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > .generations-layout) { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 0; height: auto; overflow: hidden; }
+.app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider)) { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 0; height: auto; overflow: hidden; }
 .help-content > .gateway-route-content:not([hidden]),
 .help-content > .gateway-route-content > div:not([hidden]),
-.page-content > .gateway-route-content:not([hidden]):has(> div:not([hidden]) > .generations-layout),
+.page-content > .gateway-route-content:not([hidden]):has(> div:not([hidden]) > :is(.generations-layout, .generations-provider)),
 .page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout) { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .help-frame { display: block; flex: 1; width: 100%; min-height: 100dvh; height: 100%; border: 0; }
 
@@ -345,3 +347,9 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .gateway-request-table thead th { font-size: 12px; font-weight: 500; background: var(--muted); }
 .gateway-request-table tbody td { color: var(--foreground); font-variant-numeric: tabular-nums; }
 .gateway-table-status { padding: 2px 6px; font-size: 11px; }
+
+/* The compact workspace switcher remains operable in the icon sidebar. */
+.niu-workspace-sidebar .workspace-switcher-trigger { min-height: 36px; padding: 8px; }
+.app-shell > [data-collapsible="icon"] .workspace-switcher-trigger { width: 32px; padding: 7px; }
+.app-shell > [data-collapsible="icon"] .workspace-switcher-copy,
+.app-shell > [data-collapsible="icon"] .workspace-switcher-trigger > svg:last-child { display: none; }

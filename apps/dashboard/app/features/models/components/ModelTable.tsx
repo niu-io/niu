@@ -1,4 +1,3 @@
-import { ShellNavigation, ShellAccount } from '@/shell/ShellNavigation';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { generationCapability } from '../generation-capabilities';
@@ -15,7 +14,7 @@ import { IconFilter as Search } from "@tabler/icons-react";
 import { Link, useParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
 import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -31,9 +30,8 @@ import type { Model } from '@/shell/dashboard-context';
 
 function ModelFilterButton() {
   const { t: uiT } = useUILocale();
-  const { isMobile, toggleSidebar } = useSidebar();
-  if (!isMobile) return null;
-  return <Button type="button" variant="outline" className="shrink-0" aria-controls="model-filters" onClick={toggleSidebar}>{uiT("Filters")}</Button>;
+  const { isMobile, openMobile, open, toggleSidebar } = useSidebar();
+  return <Button type="button" variant="outline" className="shrink-0" aria-controls="model-filters" aria-expanded={isMobile ? openMobile : open} onClick={toggleSidebar}>{uiT("Filters")}</Button>;
 }
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -74,7 +72,11 @@ function requestExample(baseUrl: string, model: Model) {
   ].join(` ${String.fromCharCode(92)}\n`);
 }
 
-export default function ModelTable({ models, header }: { models: Model[]; header?: ReactNode }) {
+export default function ModelTable(props: { models: Model[]; header?: ReactNode }) {
+  return <SidebarProvider defaultOpen={false} className="min-h-0 min-w-0 w-full"><ModelTableContent {...props} /></SidebarProvider>;
+}
+
+function ModelTableContent({ models, header }: { models: Model[]; header?: ReactNode }) {
   const { t: uiT, format: uiF } = useUILocale();
   function chooseAuthor(value: string) { setAuthorsSelected(current => current.includes(value) ? current.filter(id => id !== value) : [...current, value]); setLimit(20); }
   const { token, workspace, workspaces, session } = useDashboardContext();
@@ -175,17 +177,16 @@ export default function ModelTable({ models, header }: { models: Model[]; header
 
   if (models.length === 0) return <>{header}<Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes size={20} /></EmptyMedia><EmptyTitle>{uiT("No model routes yet")}</EmptyTitle><EmptyDescription>{Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false)) ? uiT("Connect a Provider with your API key to import its models.") : uiT("Ask a platform administrator to connect a Provider and import its models.")}</EmptyDescription></EmptyHeader>{Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false)) && <EmptyContent><Button asChild><Link to="/admin/providers">{uiT("Connect a provider")}</Link></Button></EmptyContent>}</Empty></>;
 
-  return <div className="models-catalog">
+  return <div className="models-catalog w-full">
     {selectedId ? null : <div className="models-browse">
-      <Sidebar id="model-filters" className="niu-workspace-sidebar models-sidebar" mobileClassName="niu-workspace-sidebar-mobile models-sidebar-mobile" mobileContentProps={{ onCloseAutoFocus: event => {
+      <Sidebar side="right" id="model-filters" className="models-sidebar" mobileClassName="models-sidebar-mobile" mobileContentProps={{ onCloseAutoFocus: event => {
         const toggle = document.querySelector<HTMLButtonElement>('button[aria-controls="model-filters"]');
         if (!toggle) return;
         const focused = document.activeElement;
         if (focused instanceof Element && focused !== document.body && !focused.closest('[data-sidebar="sidebar"]')) return;
         event.preventDefault();
         toggle.focus();
-      }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }} mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }}>
-        <ShellNavigation />
+      }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }} mobileStyle={{ right: 0, top: 0, bottom: 0, height: '100dvh', width: 'min(288px, 90vw)' }}>
     <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{uiT("Filters")}</h2></SidebarHeader>
         <SidebarContent><SidebarGroup><SidebarGroupContent>
           {availableCapabilities.filter(group => group.options.length > 0).map(group => <Collapsible key={group.id} className="models-filter-group" defaultOpen>
@@ -208,7 +209,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
         </SidebarGroupContent></SidebarGroup></SidebarContent>
-      <ShellAccount /></Sidebar>
+      </Sidebar>
       <section className="models-results" aria-label={uiT("Model catalog")}>
         {header}
         <div className="models-toolbar">

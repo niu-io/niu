@@ -51,18 +51,18 @@ describe('dashboard route layout', () => {
   it('clears a browser session when another tab confirms sign-out', async () => {
     mockHealth();
     const router = renderAt('/workspaces/default/keys');
-    await screen.findByRole('navigation', { name: 'Product navigation' });
+    await screen.findByRole('navigation', { name: 'Main navigation' });
     await act(async () => { window.dispatchEvent(new StorageEvent('storage', { key: 'niu.auth.signout', newValue: 'confirmed-signout' })); });
     await screen.findByRole('button', { name: 'Sign in', exact: true });
     expect(router.state.location.pathname).toBe('/login');
-    expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
   });
   it('renders Settings in the existing app shell without a nested modal sidebar', async () => {
     mockHealth();
     const router = renderAt('/settings/appearance');
-    const settingsNavigation = await screen.findByRole('navigation', { name: 'Settings navigation' });
+    const settingsNavigation = await screen.findByRole('tablist', { name: 'Settings sections' });
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(settingsNavigation).getByRole('link', { name: 'Preferences' }).getAttribute('aria-current')).toBe('page');
+    expect(within(settingsNavigation).getByRole('tab', { name: 'Preferences' }).getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByRole('button', { name: 'Color mode' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Appearance', level: 1 })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/appearance');
@@ -84,10 +84,10 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session' && offline
       ? Promise.reject(new TypeError('Network unavailable')) : originalFetch(input, init)));
     renderAt('/workspaces/default/keys');
-    await screen.findByRole('navigation', { name: 'Product navigation' });
+    await screen.findByRole('navigation', { name: 'Main navigation' });
     offline = true;
     await act(async () => { window.dispatchEvent(new Event('focus')); });
-    expect(screen.getByRole('navigation', { name: 'Product navigation' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Sign in', exact: true })).toBeNull();
   });
   it('revalidates a returning tab and redirects a revoked session with its destination preserved', async () => {
@@ -97,11 +97,11 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session' && revoked
       ? Promise.resolve(Response.json({}, { status: 401 })) : originalFetch(input, init)));
     const router = renderAt('/workspaces/default/keys?filter=active');
-    await screen.findByRole('navigation', { name: 'Product navigation' });
+    await screen.findByRole('navigation', { name: 'Main navigation' });
     revoked = true;
     await act(async () => { window.dispatchEvent(new Event('focus')); });
     await screen.findByRole('button', { name: 'Sign in', exact: true });
-    expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
     expect(router.state.location.pathname).toBe('/login');
     expect(router.state.location.state?.from).toBe('/workspaces/default/keys?filter=active');
   });
@@ -134,8 +134,8 @@ describe('dashboard route layout', () => {
     mockHealth();
     const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
-    const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' }, { timeout: 10000 });
-    expect(within(navigation).getByRole('link', { name: 'Payment gateways' }).getAttribute('href')).toBe('/admin/payments');
+    const navigation = await screen.findByRole('tablist', { name: 'Admin sections' }, { timeout: 10000 });
+    expect(within(navigation).getByRole('tab', { name: 'Payment gateways' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
     const breadcrumb = within(await screen.findByLabelText('Breadcrumb'));
     expect(breadcrumb.queryByText('Admin')).toBeNull();
@@ -144,7 +144,7 @@ describe('dashboard route layout', () => {
     await user.click(within(tabs).getByRole('tab', { name: 'API keys' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
     await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys' }).getAttribute('aria-selected')).toBe('true'));
-    await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
+    await user.click(within(navigation).getByRole('tab', { name: 'Payment gateways' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
@@ -248,21 +248,21 @@ describe('dashboard route layout', () => {
     await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(await screen.findByRole('navigation',{name:'Settings navigation'})).toBeTruthy();
+    expect(await screen.findByRole('tablist',{name:'Settings sections'})).toBeTruthy();
     expect(router.state.location.state?.settingsReturnTo).toBe('/workspaces/production?period=month#activity');
     await userEvent.click(screen.getByRole('link',{name:'About Niu',exact:true}));
     expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/about');
-    expect(screen.getByRole('link',{name:'Workspace',exact:true}).getAttribute('href')).toBe('/workspaces/production');
+    expect(screen.getByRole('link',{name:'Overview',exact:true}).getAttribute('href')).toBe('/workspaces/production');
   });
 
   it('opens direct Settings URLs in the app shell without a Settings rail entry',async()=>{
     mockHealth();const router=renderAt('/settings/appearance');
-    const settingsNavigation=await screen.findByRole('navigation',{name:'Settings navigation'});
+    const settingsNavigation=await screen.findByRole('tablist',{name:'Settings sections'});
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(settingsNavigation).getByRole('link',{name:'Preferences'}).getAttribute('aria-current')).toBe('page');
+    expect(within(settingsNavigation).getByRole('tab',{name:'Preferences'}).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('button',{name:'Color mode'})).toBeTruthy();
-    expect(screen.queryByRole('link',{name:'Settings',exact:true})).toBeNull();
+    expect(within(settingsNavigation).queryByRole('tab',{name:'Settings',exact:true})).toBeNull();
     await userEvent.click(screen.getByRole('link',{name:'About Niu',exact:true}));
     expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/about');
@@ -271,35 +271,33 @@ describe('dashboard route layout', () => {
   it('uses the current Assets title after navigating from API keys', async () => {
     mockHealth(); const router = renderAt('/workspaces/default/keys');
     await screen.findByRole('heading', { name: 'API keys', level: 1 });
-    await userEvent.click(screen.getByRole('link', { name: 'Assets', exact: true }));
+    await router.navigate('/workspaces/default/assets');
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/assets'));
     expect(await screen.findByRole('heading', { name: 'Assets', level: 1 })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'API keys', level: 1 })).toBeNull();
   });
 
-  it('does not highlight Workspace when Documentation is selected', async () => {
+  it('does not highlight workspace Overview when Documentation is selected', async () => {
     mockHealth(); renderAt('/help/');
-    await screen.findByRole('link', { name: 'Workspace', exact: true });
-    const rail = await screen.findByRole('navigation', { name: 'Product navigation' });
-    expect(within(rail).getByRole('link', { name: 'Workspace', exact: true }).getAttribute('data-active')).toBe('false');
-    expect(within(rail).getByRole('link', { name: 'Docs', exact: true }).getAttribute('data-active')).toBe('true');
+    const nav = within(await screen.findByRole('navigation', { name: 'Main navigation' }));
+    expect(nav.queryByRole('link', { name: 'Overview', exact: true })?.getAttribute('data-active')).not.toBe('true');
+    expect(screen.getByRole('link', { name: 'Docs', exact: true }).getAttribute('data-active')).toBe('true');
   });
 
-  it('opens global Activity from the rail without selecting Workspace', async () => {
+
+  it('opens global Activity sections without selecting workspace Overview', async () => {
     mockHealth(); const router = renderAt('/activity');
-    const rail = within(await screen.findByRole('navigation',{name:'Product navigation'}));
-    expect(rail.getByRole('link',{name:'Activity',exact:true}).getAttribute('data-active')).toBe('true');
-    expect(rail.getByRole('link',{name:'Workspace',exact:true}).getAttribute('data-active')).toBe('false');
-    const navigation = within(await screen.findByRole('navigation',{name:'Activity navigation'}));
-    expect(navigation.getByRole('link',{name:'Overview',exact:true}).getAttribute('aria-current')).toBe('page');
-    await userEvent.click(navigation.getByRole('link',{name:'Logs',exact:true}));
-    expect(router.state.location.pathname).toBe('/activity/logs');
-    await waitFor(() => expect(navigation.getByRole('link',{name:'Logs',exact:true}).getAttribute('aria-current')).toBe('page'));
+    const nav = within(await screen.findByRole('navigation', { name: 'Main navigation' }));
+    expect(nav.getByRole('link', { name: 'Overview', exact: true }).getAttribute('data-active')).toBe('false');
+    const tabs = within(await screen.findByRole('tablist', { name: 'Activity sections' }));
+    await userEvent.click(tabs.getByRole('tab', { name: 'Logs' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/activity/logs'));
   });
+
 
   it('keeps external agent observability out of product navigation', async () => {
     mockHealth(); renderAt('/workspaces/default/usage');
-    const rail = await screen.findByRole('navigation', { name: 'Product navigation' });
+    const rail = await screen.findByRole('navigation', { name: 'Main navigation' });
     expect(within(rail).queryByRole('link', { name: 'Agent Observability' })).toBeNull();
     expect(within(await screen.findByRole('navigation', {name:'Main navigation'})).getByRole('link', { name: 'Overview', exact: true })).toBeTruthy();
   });
@@ -339,19 +337,16 @@ describe('dashboard route layout', () => {
     expect(listCalls).toBe(1);
   });
 
-  it('makes routing and evaluations distinct workspace destinations', async () => {
+  it('keeps deferred features out of primary navigation and preserves the Routing deep link', async () => {
     mockHealth();
     const router = renderAt('/workspaces/default/routing');
-    const nav = await screen.findByRole('navigation', {name:'Main navigation'});
-    const user = userEvent.setup();
-    for (const [label, path] of [['Routing','routing'],['Evaluations','evaluations']]) {
-      const link = within(nav).getByRole('link', {name:label, exact:true});
-      expect(link.getAttribute('href')).toBe(`/workspaces/default/${path}`);
-      await user.click(link);
-      await waitFor(() => expect(router.state.location.pathname).toBe(`/workspaces/default/${path}`));
-      await waitFor(() => expect(link.getAttribute('data-active')).toBe('true'));
-    }
+    const nav = within(await screen.findByRole('navigation', { name: 'Main navigation' }));
+    expect(nav.queryByRole('link', { name: 'Routing', exact: true })).toBeNull();
+    expect(nav.queryByRole('link', { name: 'Evaluations', exact: true })).toBeNull();
+    expect(nav.getByRole('link', { name: 'Usage', exact: true })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/workspaces/default/routing');
   });
+
 
   it('keeps workspace settings in workspace navigation and creates from the workspace switcher', async () => {
     mockHealth();
@@ -422,7 +417,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     const user = userEvent.setup();
     const router = renderAt('/workspaces/default/usage');
-    await screen.findByRole('heading', { name: 'Activity', exact: true });
+    await screen.findByRole('heading', { name: 'Usage', exact: true });
     await user.click(screen.getByRole('button', { name: 'Switch workspace', exact: true }));
     await user.click(screen.getByRole('menuitemradio', { name: 'Production', exact: true }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/usage'));
@@ -430,7 +425,7 @@ describe('dashboard route layout', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Production', exact: true }).getAttribute('aria-checked')).toBe('true');
     await user.click(screen.getByRole('menuitemradio', { name: 'Default', exact: true }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/usage'));
-    expect(screen.getByRole('heading', { name: 'Activity', exact: true })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Usage', exact: true })).toBeTruthy();
   });
 
   it('opens the workspace when the dashboard root is requested', async () => {
@@ -472,7 +467,7 @@ describe('dashboard route layout', () => {
     online = true;
     await user.click(screen.getByRole('button', {name: 'Try again'}));
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeTruthy();
-    expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
   });
   it('explains a workspace API version mismatch and retries the real request', async () => {
     const user = userEvent.setup();
@@ -529,7 +524,7 @@ describe('dashboard route layout', () => {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
       window.dispatchEvent(new Event('resize'));
 
-      await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main navigation' }).closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('offcanvas'));
+      await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main navigation' }).closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('icon'));
       const toggle = screen.getByRole('button', { name: 'Expand workspace navigation' });
       expect(toggle).toBeTruthy();
       expect(document.activeElement).toBe(toggle);
@@ -538,52 +533,18 @@ describe('dashboard route layout', () => {
     }
   });
 
-  it('separates global destinations from workspace navigation', async () => {
+  it('keeps the primary sidebar when opening Models and collapsing navigation', async () => {
     mockHealth();
     const user = userEvent.setup();
     const router = renderAt('/workspaces/default/');
-    await screen.findByRole('heading', { name: 'Overview' });
-    const rail = within(screen.getByRole('navigation', { name: 'Product navigation' }));
-    const sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }));
-    expect(screen.getByRole('banner')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy();
-    expect(sidebar.getByRole('link', { name: 'Assets' })).toBeTruthy();
-    expect(sidebar.queryByRole('link', { name: 'Agent Connect' })).toBeNull();
-    expect(sidebar.queryByRole('link', { name: 'Tasks' })).toBeNull();
-    expect(sidebar.queryByRole('link', { name: 'Benchmarks' })).toBeNull();
-    expect(rail.queryByRole('link', { name: 'Platform settings' })).toBeNull();
-    expect(rail.getByRole('link', { name: 'Workspace' }).getAttribute('data-active')).toBe('true');
+    const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
     await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
-    await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main navigation' }).closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('offcanvas'));
-    expect(rail.getByRole('link', { name: 'Workspace' })).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/workspaces/default/');
-    await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
-    expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
+    expect(nav.closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('icon');
+    await user.click(within(nav).getByRole('link', { name: 'Models', exact: true }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/models'));
+    await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Models' }).getAttribute('data-active')).toBe('true'));
+  });
 
-    await user.click(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Models', exact: true }));
-    expect(await screen.findByLabelText('Breadcrumb')).toBeTruthy();
-    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
-    expect(router.state.location.pathname).toBe('/models');
-    expect(screen.queryByRole('complementary')).toBeNull();
-    expect(screen.getByRole('banner')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /workspace navigation/ })).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Configured models' })).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
-    expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Activity' })).toBeTruthy();
-    expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Models', exact: true }).getAttribute('data-active')).toBe('true');
-    expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Workspace' }).getAttribute('data-active')).toBe('false');
-
-    await user.click(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Generations' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/generations'), { timeout: 5000 });
-    await waitFor(() => expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Generations' }).getAttribute('data-active')).toBe('true'), { timeout: 5000 });
-    expect(screen.queryByRole('complementary')).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
-    await user.click(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Workspace' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default'));
-    await waitFor(() => expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Workspace' }).getAttribute('data-active')).toBe('true'));
-    expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Overview' })).toBeTruthy();
-  }, 15_000);
 
   it('opens account actions and dismisses the menu with the keyboard', async () => {
     mockHealth();
@@ -909,7 +870,7 @@ describe('dashboard route layout', () => {
     await user.click(await screen.findByRole('button', { name: 'Confirm revoke' }));
 
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeTruthy();
-    expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
   });
 
   it('preserves customer navigation when provider administration is denied', async () => {
@@ -921,8 +882,8 @@ describe('dashboard route layout', () => {
     renderAt('/admin/providers');
     const denied = await screen.findByRole('alert');
     expect(within(denied).getByText('Administrator access required')).toBeTruthy();
-    const navigation = screen.getByRole('navigation', { name: 'Product navigation' });
-    for (const name of ['Workspace', 'Generations', 'Models']) {
+    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    for (const name of ['Overview', 'Generations', 'Models']) {
       expect(within(navigation).getByRole('link', { name, exact: true })).toBeTruthy();
     }
   });
@@ -974,11 +935,12 @@ describe('dashboard route layout', () => {
       ? Response.json({ data: { kind: 'operator', operator: { role: 'owner', organization_id: 'org', project_id: null }, provider_memberships: [], permissions: { read: true, write: true, manage_operators: true, platform_admin: true } } })
       : previousFetch(input, init)));
     renderAt('/admin/providers');
-    await screen.findByRole('navigation', { name: 'Admin navigation' });
-    const navigation = screen.getByRole('navigation', { name: 'Product navigation' });
-    for (const name of ['Workspace', 'Generations', 'Models', 'Admin']) {
+    await screen.findByRole('tablist', { name: 'Admin sections' });
+    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    for (const name of ['Overview', 'Generations', 'Models']) {
       expect(within(navigation).getByRole('link', { name, exact: true })).toBeTruthy();
     }
+    expect(screen.getByRole('link', { name: 'Admin', exact: true })).toBeTruthy();
     expect(screen.queryByText('Administrator access required')).toBeNull();
   });
 

@@ -51,22 +51,21 @@ it('retains history data and scroll position when the mobile drawer closes and r
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   const fetch = vi.fn(async () => Response.json({ data: [], has_more: false }));
   vi.stubGlobal('fetch', fetch);
-  function Mobile() {
+  function MobileBindings() {
     const { setOpenMobile } = useSidebar();
     const trigger = useRef<HTMLButtonElement>(null);
-    return <><Button ref={trigger} onClick={() => setOpenMobile(true)}>Show history</Button>
-      <GenerationsLayout><GenerationSessionBindings trigger={trigger} notice={<Button onClick={() => setOpenMobile(false)}>Hide history</Button>} history={{context, chats}} /></GenerationsLayout></>;
+    return <GenerationSessionBindings trigger={trigger} notice={<Button onClick={() => setOpenMobile(false)}>Hide history</Button>} history={{context, chats}} />;
   }
   const user = userEvent.setup();
-  render(<MemoryRouter><SidebarProvider><Mobile /></SidebarProvider></MemoryRouter>);
-  await user.click(screen.getByRole('button', { name: 'Show history' }));
+  render(<MemoryRouter><SidebarProvider><GenerationsLayout><MobileBindings /></GenerationsLayout></SidebarProvider></MemoryRouter>);
+  await user.click(screen.getByRole('button', { name: 'Toggle generation history' }));
   await screen.findByRole('link', { name: 'Shared chat' });
   await waitFor(() => expect(screen.queryByText('Loading sessions…')).toBeNull());
   screen.getByLabelText('Saved sessions').scrollTop = 80;
   const reads = fetch.mock.calls.length;
   await user.click(screen.getByRole('button', { name: 'Hide history' }));
   await waitFor(() => expect(screen.queryByLabelText('Saved sessions')).toBeNull());
-  await user.click(screen.getByRole('button', { name: 'Show history' }));
+  await user.click(screen.getByRole('button', { name: 'Toggle generation history' }));
   await screen.findByRole('link', { name: 'Shared chat' });
   expect(screen.getByLabelText('Saved sessions').scrollTop).toBe(80);
   expect(fetch.mock.calls.length).toBe(reads);
@@ -86,8 +85,8 @@ it('fills the full page canvas across Chat and Video session views without manag
   const generationsCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/generations/generations.css'), 'utf8');
   const videoCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/video/video.css'), 'utf8');
 
-  expect(stylesCss).toContain('.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > .generations-layout))');
-  expect(stylesCss).toContain('.app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > .generations-layout)');
+  expect(stylesCss).toContain('.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider)))');
+  expect(stylesCss).toContain('.app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))');
   expect(stylesCss).toContain('.page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout)');
   expect(generationsCss).toMatch(/\.generations-layout\s*\{[^}]*grid-template-rows:minmax\(0,1fr\);[^}]*width:100%;[^}]*height:100%;/);
   expect(videoCss).toMatch(/\.video-response > \[data-slot="button"\]:not\(\.video-details-trigger\)[^{]*\{\s*justify-self:start;\s*\}/);

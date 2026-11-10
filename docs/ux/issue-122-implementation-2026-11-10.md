@@ -46,3 +46,21 @@ A local API task used existing administrator authority to discover the workspace
 The complete dashboard suite initially reported 1,294 passes and one mobile history regression. After its repair, the 66 navigation/history tests passed; 28 affected financial/media tests also passed. Dashboard type/lint/CSS checks, website checks and website production build passed. The tests retain checks for permission and procurement boundaries, historical prices, uncertain mutation identity and saved draft behavior. Read-only pricing fixtures are visual test data, not evidence of active supply, customer eligibility or real economic results.
 
 Staging deployment and post-deployment observations are recorded separately after the immutable candidate is live. Production promotion is not included.
+
+## Framework correction after user review — 2026-11-10
+
+The earlier navigation acceptance above is superseded. The candidate mixed global destinations with a second contextual sidebar, removed the persistent workspace switcher, and used desktop offcanvas collapse. These are framework failures, not cosmetic polish. A responsive test also left a 1440px emulated viewport inside a 1600px browser window; resetting it restored the real canvas width. Future verification must restore the actual window and measure the canvas in addition to checking test viewports.
+
+The navigation was already inspected before this correction; this is not a blind task-model exercise. Two alternatives were considered: product-area navigation plus contextual sections, and a workspace-first stable navigation. The former makes the implementation's product categories primary, requires a second navigation decision, and obscures active scope. The latter follows the user's explicit workspace-first requirement and preserves direct access to supported management tasks.
+
+| User task | Actor and scope | Primary home | Boundary decision |
+| --- | --- | --- | --- |
+| Identify or change the workload being managed | Human; selected workspace | Persistent workspace switcher at the top of navigation, including its compact state | Restore; do not substitute a generic Workspace link or a breadcrumb-only picker |
+| Connect an agent with bounded authority | Human authorizes; external agent discovers and verifies; selected workspace | Setup entry adjacent to workspace navigation | Preserve actual scope and current authorization limitations; do not imply that copying instructions establishes a connection |
+| Inspect results, access, configuration and spending | Human reviews; agent operates within authorization; selected workspace | Stable workspace navigation and the selected full-width content canvas | Keep direct destinations; do not replace navigation with filters or session history |
+| Inspect cross-workspace activity | Authorized human or agent; account/organization query scope | Explicit global activity entry | Preserve the broader scope; do not falsely label it workspace-only |
+| Configure platform supply and commercial operations | Platform administrator; installation scope | Separate Admin entry with section navigation in its canvas | Preserve authorization and commercial boundaries; workspace selection does not grant administrator scope |
+| Manage personal appearance and account | Human; account preference scope | Footer identity menu and theme control | Persist independently of page and workspace; remain reachable when collapsed |
+| Filter model evidence or revisit a generation | Human; current page/session | Independent right auxiliary panel | Must not replace, collapse or change the primary navigation; close returns usable canvas width |
+
+Framework acceptance requires stable destinations across route families; workspace identity and switcher in expanded and icon modes; independent auxiliary controls; current-route indication and tooltips in icon mode; accessible footer menus; keyboard dismissal and focus return; full-width canvas without accumulated phantom gutters; desktop, split-window and mobile inspection. This correction is not yet deployment acceptance.

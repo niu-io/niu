@@ -50,12 +50,12 @@ describe('canonical organization settings', () => {
     expect(screen.getByDisplayValue('Acme')).toBeTruthy();
     expect(screen.getByText('acme', { exact: true })).toBeTruthy();
     expect(screen.getByLabelText('Update organization name')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Members' }).getAttribute('href')).toBe('/settings/members');
-    expect(screen.getByRole('link', { name: 'Credits' }).getAttribute('href')).toBe('/settings/billing');
+    expect(screen.getByRole('tab', { name: 'Members' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Credits' })).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
     expect(router.state.location.pathname).toBe('/settings/organization');
-    const settingsNav = screen.getByRole('navigation', { name: 'Settings navigation' });
-    expect(within(settingsNav).getByRole('link', { name: 'Organization' }).getAttribute('aria-current')).toBe('page');
+    const settingsNav = screen.getByRole('tablist', { name: 'Settings sections' });
+    expect(within(settingsNav).getByRole('tab', { name: 'Organization' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('redirects the workspace organization page to the canonical Settings destination', async () => {

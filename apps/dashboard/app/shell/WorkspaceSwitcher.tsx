@@ -1,7 +1,7 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol } from '@/lib/money';
 import { Link } from 'react-router';
-import { IconList } from '@tabler/icons-react';
+import { IconFolder, IconList } from '@tabler/icons-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconSelector as ChevronsUpDown } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
@@ -18,10 +18,11 @@ import { useLocale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
 import { workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
 
-export default function WorkspaceSwitcher({ context, onCreateWorkspace, creationAvailable = true }: {
+export default function WorkspaceSwitcher({ context, onCreateWorkspace, creationAvailable = true, logo }: {
   context: DashboardContext;
   onCreateWorkspace: () => void;
   creationAvailable?: boolean;
+  logo?: string;
 }) {
   const { t: uiT } = useUILocale();
   const { t } = useLocale();
@@ -50,7 +51,7 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
   return <div className="workspace-switcher">
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label={uiT("Switch workspace")} title={t('Switch workspace', '切换工作空间')}>
-        <span className="workspace-switcher-copy"><strong>{triggerTitle}</strong></span>
+        {logo ? <img src={logo} alt="" className="size-5 shrink-0" /> : <IconFolder size={18} aria-hidden="true" />}<span className="workspace-switcher-copy"><strong>{triggerTitle}</strong></span>
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>

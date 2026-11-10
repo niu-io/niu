@@ -1,4 +1,6 @@
-import type { LoaderFunctionArgs } from 'react-router';
+import { Link, type LoaderFunctionArgs } from 'react-router';
+import { Button } from '@/components/ui/button';
+import { useLocale } from '@/shell/ui-locale';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import ConnectGate from '@/shell/ConnectGate';
@@ -16,15 +18,16 @@ export const shouldRevalidate = routeShouldRevalidate;
 
 export default function ActivityRoute() {
   useOptionalRouteLoaderData();
+  const { t } = useLocale();
   const { workspace } = useDashboardContext();
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
   return <ConnectGate>
-    {({ token, models }) => <GatewayActivity
+    {({ token, models }) => <><div className="mb-4 flex justify-end"><Button variant="outline" asChild><Link to="../billing" relative="path">{t('Workspace statements', '工作空间账单')}</Link></Button></div><GatewayActivity
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}
       models={models.map(model => model.id)}
       initialScope={scope}
       statisticsOnly
-    />}
+    /></>}
   </ConnectGate>;
 }

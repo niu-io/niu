@@ -38,7 +38,7 @@ function renderAt(
   );
 }
 
-test('routing and evaluations are separate workspace destinations', () => {
+test('deferred Routing and Evaluations retain distinct route metadata without navigation entries', () => {
   const workspaceItems = navigation.filter(
     (item) => item.destination === 'Workspace',
   );
@@ -48,10 +48,7 @@ test('routing and evaluations are separate workspace destinations', () => {
   expect(routing?.label).toBe('Routing');
   expect(evaluations?.label).toBe('Evaluations');
   expect(events).toBeUndefined();
-  expect([routing?.hidden, evaluations?.hidden]).toEqual([
-    undefined,
-    undefined,
-  ]);
+  expect([routing?.hidden, evaluations?.hidden]).toEqual([true, true]);
 });
 
 test('the legacy review route module dispatches each section to its feature', () => {

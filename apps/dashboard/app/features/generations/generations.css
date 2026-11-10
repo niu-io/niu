@@ -113,3 +113,8 @@
 .generations-deliverable-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .playground-status-trigger { cursor: pointer; background: transparent; border: 0; padding: 0; font: inherit; display: inline-flex; align-items: center; border-radius: 999px; }
 .playground-status-trigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* Session navigation sits after the primary desktop sidebar. */
+.app-shell:has(> [data-slot="sidebar"][data-state="expanded"]) .generations-history[data-slot="sidebar-container"] { left: var(--context); }
+.app-shell:has(> [data-slot="sidebar"][data-state="collapsed"]) .generations-history[data-slot="sidebar-container"] { left: var(--workspace-sidebar-icon-width); }
+.app-shell .generations-layout [data-collapsible="offcanvas"] .generations-history[data-slot="sidebar-container"] { visibility: hidden; }

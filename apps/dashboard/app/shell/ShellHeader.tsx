@@ -153,7 +153,6 @@ export default function ShellHeader({
         <WorkspaceSidebarToggle
           buttonRef={toggleRef}
           supplierArea={supplierArea}
-          modelsArea={destination === 'Models'}
           settingsArea={settingsArea}
           activityArea={activityArea}
           adminArea={adminArea}
