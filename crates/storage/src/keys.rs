@@ -1073,10 +1073,12 @@ impl Store {
         let revoked: bool = sqlx::query_scalar("SELECT revoked_at IS NOT NULL FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if !revoked {
-            sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE id=$1")
-                .bind(id)
-                .execute(&mut *tx)
-                .await?;
+            sqlx::query(
+                "UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE id=$1",
+            )
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
             sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'revoked')")
                 .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
         }

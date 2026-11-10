@@ -157,7 +157,7 @@ export default function LoginRoute() {
       <section className="dashboard-login-card" aria-label={uiT("Sign in")}>
         <div className="dashboard-login-header">
           <h1>{t('Sign in', '登录')}</h1>
-          <p className="dashboard-login-intro">{t('Sign in to manage workspaces, API keys, model routes, and billing.', '登录以管理工作空间、API 密钥、模型路由与计费。')}</p>
+          <p className="dashboard-login-intro">{t('Sign in to connect your agent and manage your workspaces.', '登录后即可连接 Agent 并管理工作空间。')}</p>
         </div>
         <form className="dashboard-login-form" onSubmit={submit} noValidate>
           {returnTo.startsWith('/connect') && (

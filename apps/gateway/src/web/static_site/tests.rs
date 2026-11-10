@@ -358,7 +358,11 @@ async fn model_routes_use_the_dashboard_even_when_a_public_catalog_artifact_exis
         "/models/?workspace=",
         "/models/missing",
     ] {
-        assert_eq!(body(&app, path, StatusCode::OK).await, "workspace shell", "{path}");
+        assert_eq!(
+            body(&app, path, StatusCode::OK).await,
+            "workspace shell",
+            "{path}"
+        );
     }
 }
 

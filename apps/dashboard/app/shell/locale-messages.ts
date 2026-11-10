@@ -501,7 +501,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Too many sign-in attempts. Try again in a minute.": "登录尝试次数过多，请一分钟后再试。",
   "Sign-in failed. Try again.": "登录失败，请重试。",
   "Could not reach the sign-in service. Try again.": "无法连接登录服务，请重试。",
-  "Sign in to manage workspaces, API keys, model routes, and billing.": "登录以管理工作空间、API 密钥、模型路由与计费。",
+  "Sign in to connect your agent and manage your workspaces.": "登录后即可连接 Agent 并管理工作空间。",
   "Password changed. Sign in again.": "密码已修改，请重新登录。",
   "User access token": "用户访问令牌",
   "Paste your access token": "粘贴您的访问令牌",
