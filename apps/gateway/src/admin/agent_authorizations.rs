@@ -194,7 +194,12 @@ pub async fn create(
         .store
         .create_agent_authorization_with_task(&input.client_name, &input.capabilities, task)
         .await
-        .map_err(ApiError::from_store)?;
+        .map_err(|error| match error {
+            niu_storage::StoreError::InvalidKey => ApiError::invalid_request(
+                "Use a supported agent client name (Claude Code, Codex, or DeepSeek Harness) and request only supported capabilities without duplicates",
+            ),
+            other => ApiError::from_store(other),
+        })?;
     Ok((
         StatusCode::CREATED,
         Json(
