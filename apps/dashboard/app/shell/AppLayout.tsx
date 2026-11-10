@@ -1,3 +1,4 @@
+import { ShellNavigationContext, SidebarRouteDismiss } from './ShellNavigation';
 import {
   Suspense,
   useCallback,
@@ -17,11 +18,7 @@ import { reconcileActiveRouteLoad } from '@/lib/route-data';
 import { subscribeMutations } from '@/lib/query-cache';
 import AccountMenu from './AccountMenu';
 import { useBranding } from './branding';
-import {
-  canManagePlatform,
-  type DashboardContext,
-  type GatewayStatus,
-} from './dashboard-context';
+import type { DashboardContext, GatewayStatus } from './dashboard-context';
 import { prefetchRouteIntent, scheduleWorkspaceWarmup } from './prefetch';
 import { resolveProvider } from './provider-route';
 import { ProviderNav } from './ProviderNav';
@@ -37,7 +34,6 @@ import ShellHeader from './ShellHeader';
 import {
   AdminProviderTabs,
   GatewayOutageDialog,
-  ShellRail,
   ShellSidebar,
   SignOutFailureDialog,
 } from './ShellSections';
@@ -449,11 +445,8 @@ export default function AppLayout() {
   const toggleRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const isInstallation = canManagePlatform(session);
   const hasSidebar =
-    !helpArea &&
-    (!adminArea || isInstallation) &&
-    (activityArea || settingsArea || supplierManagement || destination === 'Workspace');
+    !isGlobalChat && (destination !== 'Models' || activePath.startsWith('models/') || models.length === 0);
   const modelFiltersAvailable =
     destination === 'Models' &&
     !activePath.startsWith('models/') &&
@@ -461,7 +454,6 @@ export default function AppLayout() {
     authorityWorkspacesReady &&
     !effectiveWorkspaceError &&
     (models.length > 0 || (!modelsLoading && !modelsError));
-  const showWorkspaceAreas = !supplierArea || isInstallation || Boolean(session?.operator);
   const legacySettings = useMemo(
     () =>
       settingsArea
@@ -589,7 +581,7 @@ export default function AppLayout() {
   }
 
   return (
-    <SidebarProvider
+    <ShellNavigationContext.Provider value={{context, workspacePath: activeWorkspacePath, modelsHref, generationsHref}}><SidebarProvider
       open={sidebarOpen}
       onOpenChange={setSidebarOpen}
       className="app-shell"
@@ -603,6 +595,7 @@ export default function AppLayout() {
         } as CSSProperties
       }
     >
+      <SidebarRouteDismiss />
       <a className="dashboard-skip" href="#dashboard-content">
         {t('Skip to content', '跳转到主内容')}
       </a>
@@ -616,23 +609,6 @@ export default function AppLayout() {
         open={organizationCreateOpen}
         onOpenChange={setOrganizationCreateOpen}
       />
-      <ShellRail
-        brandingDisplayName={branding.display_name}
-        logo={logo}
-        showWorkspaceAreas={showWorkspaceAreas}
-        activeWorkspacePath={activeWorkspacePath}
-        destination={destination}
-        pathname={location.pathname}
-        supplierArea={supplierArea}
-        generationsHref={generationsHref}
-        activePath={activePath}
-        modelsHref={modelsHref}
-        token={token}
-        isInstallation={isInstallation}
-        helpArea={helpArea}
-        context={context}
-      />
-      <div className="app-rail-spacer" aria-hidden="true" />
       {hasSidebar && (
         <ShellSidebar
           sidebarRef={sidebarRef}
@@ -641,7 +617,7 @@ export default function AppLayout() {
           activityArea={activityArea}
           settingsArea={settingsArea}
           supplierArea={supplierArea}
-          phoneNavigation={phoneNavigation}
+          contextual={activityArea || settingsArea || supplierManagement || destination === 'Workspace'}
           creationAvailable
           context={context}
           activeWorkspacePath={activeWorkspacePath}
@@ -659,7 +635,7 @@ export default function AppLayout() {
             <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile />
           </nav>
         )}
-        {!isGlobalChat && !helpArea && (
+        {!isGlobalChat && (
           <ShellHeader
             toggleRef={toggleRef}
             hasSidebar={hasSidebar}
@@ -722,6 +698,6 @@ export default function AppLayout() {
           )}
         </div>
       </SidebarInset>
-    </SidebarProvider>
+    </SidebarProvider></ShellNavigationContext.Provider>
   );
 }

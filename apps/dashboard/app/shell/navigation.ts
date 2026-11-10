@@ -37,7 +37,7 @@ export const navigation: Array<NavItem> = [
   { destination: 'Workspace', to: 'video', label: 'Video setup', labelZh: '视频设置', icon: IconVideo, hidden: true, parentTo: 'assets' },
   { destination: 'Workspace', to: 'guardrails', label: 'Guardrails', labelZh: '安全护栏', icon: ShieldCheck },
   { destination: 'Workspace', to: 'usage', label: 'Activity', labelZh: '活动', icon: ChartNoAxesCombined, hidden: true, parentTo: '.' },
-  { destination: 'Workspace', to: 'billing', label: 'Billing', labelZh: '计费', icon: CreditCard, hidden: true, parentTo: 'settings' },
+  { destination: 'Workspace', to: 'billing', label: 'Billing', labelZh: '计费', icon: CreditCard },
   { destination: 'Administration', to: '/admin', label: 'Admin', labelZh: '管理后台', icon: IconShieldLock },
   { destination: 'Providers', to: '/providers', label: 'Providers', labelZh: '模型供应商', icon: ProviderConnection },
   { destination: 'Workspace', to: 'settings', label: 'Settings', labelZh: '设置', icon: IconSettings },

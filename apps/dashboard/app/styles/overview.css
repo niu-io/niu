@@ -73,10 +73,10 @@
 .page-content:has(.cost-workbench) { display: flex; flex-direction: column; }
 .page-content .cost-workbench { display: flex; flex: 1; flex-direction: column; }
 .cost-workbench > .gateway-task-feed.is-compact { display: flex; flex: 1; flex-direction: column; }
-.cost-workbench > .gateway-task-feed.is-compact > .gateway-task-empty { flex: 1; width: 100%; min-height: 240px; }
+.cost-workbench > .gateway-task-feed.is-compact > .gateway-task-empty { flex: 0 0 auto; width: 100%; min-height: 240px; }
 .page-content:has(.gateway-task-feed:not(.is-compact) > .gateway-task-empty) { display: flex; flex-direction: column; }
-.gateway-task-feed:not(.is-compact):has(> .gateway-task-empty) { display: flex; flex: 1; flex-direction: column; }
-.gateway-task-feed:not(.is-compact) > .gateway-task-empty { flex: 1; width: 100%; min-height: 240px; }
+.gateway-task-feed:not(.is-compact):has(> .gateway-task-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
+.gateway-task-feed:not(.is-compact) > .gateway-task-empty { flex: 0 0 auto; width: 100%; min-height: 240px; }
 .gateway-task-empty>svg { margin-bottom: 11px; color: var(--primary); }
 .gateway-task-empty h3 { margin: 0; font-size: 22px; font-weight: 630; letter-spacing: -.035em; }
 .gateway-task-empty>p { max-width: 590px; margin: 8px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; }
@@ -139,7 +139,7 @@
 @media (max-width: 639px) {
   .operator-session-table table { min-width: 0; table-layout: fixed; }
   .operator-session-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
-  .operator-session-table .operator-confirm-actions { display: flex; flex-direction: column; }
+  .operator-session-table .operator-confirm-actions { display: flex; flex-wrap: wrap; gap: 4px; }
   .operator-session-table .operator-confirm-actions button { max-width: 100%; height: auto; min-height: 32px; white-space: normal; }}
 .operator-session-state { display: inline-flex; align-items: center; gap: 5px; }
 .operator-session-state::before { width: 5px; height: 5px; border-radius: 50%; background: currentColor; content: ""; }
@@ -304,3 +304,5 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .operator-invitation-recipient { font-weight: 520; overflow-wrap: anywhere; }
 .invitation-delivery-alert { align-items: flex-start; }
 .operator-invitations-heading h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+
+.gateway-request-table :is(.request-column-latency, .request-column-input, .request-column-output, .request-column-charge) { text-align: right; font-variant-numeric: tabular-nums; }

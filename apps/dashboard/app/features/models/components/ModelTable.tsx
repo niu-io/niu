@@ -1,3 +1,4 @@
+import { ShellNavigation, ShellAccount } from '@/shell/ShellNavigation';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { generationCapability } from '../generation-capabilities';
@@ -184,7 +185,8 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         event.preventDefault();
         toggle.focus();
       }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }} mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }}>
-        <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{uiT("Filters")}</h2></SidebarHeader>
+        <ShellNavigation />
+    <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{uiT("Filters")}</h2></SidebarHeader>
         <SidebarContent><SidebarGroup><SidebarGroupContent>
           {availableCapabilities.filter(group => group.options.length > 0).map(group => <Collapsible key={group.id} className="models-filter-group" defaultOpen>
             <CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT(group.label)}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger>
@@ -206,7 +208,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
         </SidebarGroupContent></SidebarGroup></SidebarContent>
-      </Sidebar>
+      <ShellAccount /></Sidebar>
       <section className="models-results" aria-label={uiT("Model catalog")}>
         {header}
         <div className="models-toolbar">
@@ -278,10 +280,10 @@ export default function ModelTable({ models, header }: { models: Model[]; header
       </div>
       {canTryUnverifiedChat(selected) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
       {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
-      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
+      {hasGenerationOutput(selected) && <><div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
       {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
       <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
-      <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p>
+      <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p></>}
       <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("Model unavailable")}</EmptyTitle><EmptyDescription>{uiT("This model is no longer in the catalog.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>{uiT("Browse models")}</Link></Button></EmptyContent></Empty> : null}
   </div>;

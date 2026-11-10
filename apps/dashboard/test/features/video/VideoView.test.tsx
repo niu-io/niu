@@ -515,7 +515,7 @@ it.each([key,'old-key'])('restores saved history with a revoked key reference %s
   const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={[`/generations?mode=video&key=${reference}&job=${job}`]}><SidebarProvider><Route/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
   await waitFor(()=>expect(new URLSearchParams(screen.getByLabelText('Current route').textContent??'').get('key')).toBe('old-key'));
-  await screen.findByText('This API key is invalid. Choose another or create a new one to continue.');
+  await screen.findByText('This API key was revoked.');
   expect(screen.queryByText('Loading saved video…')).toBeNull();
   expect(calls.some(path=>path.includes('/v1/video/'))).toBe(false);
   expect(screen.getByRole('link',{name:'Create API key'})).toBeTruthy();

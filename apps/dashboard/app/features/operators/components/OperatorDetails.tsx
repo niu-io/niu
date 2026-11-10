@@ -186,7 +186,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
               const state = expiryState(item);
               const confirming = confirmTarget?.kind === 'session' && confirmTarget.id === item.id;
               return <TableRow key={item.id}>
-                <TableCell>{new Date(item.created_at).toLocaleString(readUILocale())}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Created")}</dt><dd>{new Date(item.created_at).toLocaleString(readUILocale())}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></dd></div></dl></TableCell>
+                <TableCell>{new Date(item.created_at).toLocaleString(readUILocale())}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></dd></div></dl></TableCell>
                 <TableCell className="hidden sm:table-cell">{formatExpiry(item.expires_at_unix)}</TableCell>
                 <TableCell className="hidden sm:table-cell"><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></TableCell>
                 <TableCell>{state === 'Active' && !operator.revoked

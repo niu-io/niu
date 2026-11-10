@@ -421,9 +421,9 @@ test("workspace member can create a custom routed model directly from the empty 
     await screen.findByRole("heading", { name: "No routing rules yet" }),
   ).toBeTruthy();
   const createButtons = screen.getAllByRole("button", {
-    name: "Create routing rule",
+    name: "Manual setup",
   });
-  expect(createButtons.length).toBeGreaterThanOrEqual(2);
+  expect(createButtons).toHaveLength(1);
   const user = userEvent.setup();
   await user.click(createButtons[0]!);
   const dialog = await screen.findByRole("dialog");

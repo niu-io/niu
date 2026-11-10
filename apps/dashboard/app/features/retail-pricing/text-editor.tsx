@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request, writeMayHaveCommitted } from '@/features/providers/api';
+import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
 import { registeredRetailModels } from './api';
 import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '@niu-io/sdk/admin';
@@ -61,8 +61,11 @@ export function TextStandardEditor({ token, previous, open = true, onClose, onSa
       onSaved();
     } catch (failure) {
       const uncertain = writeMayHaveCommitted(failure) || !(failure instanceof Error) || failure.message === 'Publication response could not be confirmed.';
-      if (!uncertain) setConflict(true);
-      setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this exact submission with its original key before starting another publication.' : ' Close and refresh current prices before editing again.'));
+      if (!uncertain) {
+        if (failure instanceof ProviderRequestError && failure.status === 409) setConflict(true);
+        else { setAttempt(null); key.current = crypto.randomUUID(); }
+      }
+      setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this submission to confirm the original outcome before starting another publication.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh current prices before editing again.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
   return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle><DialogDescription>{uiT("Customer selling terms in")}{" "}{currency || uiT("the platform currency")}{uiT(". These prices apply across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>

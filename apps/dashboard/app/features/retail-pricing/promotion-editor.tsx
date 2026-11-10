@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request, writeMayHaveCommitted } from '@/features/providers/api';
+import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
 import { mediaAmount, mediaAmountUnits } from '@/lib/media-price';
 import { retailCustomers, type RetailCustomer } from './api';
@@ -74,8 +74,12 @@ export function PromotionEditor({ token, baseline, onClose, onSaved }: { token: 
       if (result.data?.price_id !== baseline.price_id || !result.data.revision || BigInt(result.data.version) !== BigInt(input.expected_version) + 1n) throw new Error('Publication response could not be confirmed.');
       onSaved();
     } catch (failure) {
-      const uncertain = writeMayHaveCommitted(failure); if (!uncertain) setConflict(true);
-      setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Keep this form open and retry its exact original submission.' : ' Close and refresh prices/history before another edit.'));
+      const uncertain = writeMayHaveCommitted(failure);
+      if (!uncertain) {
+        if (failure instanceof ProviderRequestError && failure.status === 409) setConflict(true);
+        else { setAttempt(null); key.current = crypto.randomUUID(); }
+      }
+      setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Keep this form open and retry its exact original submission.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh prices/history before another edit.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
   return <Dialog open onOpenChange={open => { if (!open && !busy && (!attempt || conflict)) onClose(); }}><DialogContent className="sm:max-w-3xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Publish finite promotion")}</DialogTitle><DialogDescription>{baseline.model_alias} · {baseline.currency}{uiT(". Original standard published")}{" "}{new Date(baseline.published_at).toLocaleString(readUILocale())}{uiT(". Customer-specific rules override global rules without stacking; existing requests keep their pinned prices.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>

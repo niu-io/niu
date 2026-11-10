@@ -21,14 +21,13 @@
 .request-histogram > svg { display:block; width:100%; height:56px; color:var(--primary); }
 .request-histogram-axis { gap:16px; margin-top:8px; font-size:10px; }
 @media (max-width: 580px) {
-  .app-shell { --rail: 54px; --dashboard-header-height: 56px; }
+  .app-shell { --rail: 0px; --dashboard-header-height: 56px; }
   .app-rail { display: flex; width: 54px; padding-inline: 5px; }
-  .app-rail-spacer { display: block; width: 54px; min-width: 54px; flex: 0 0 54px; }
   /* Keep the product rail visible beside the phone drawer so product areas,
      account identity and workspace sections stay one coherent surface. */
   body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { display: flex; z-index: 51; }
   [data-slot="sheet-overlay"] { inset: 0 0 0 54px !important; }
-  .niu-workspace-sidebar-mobile { --rail: 54px; }}
+  .niu-workspace-sidebar-mobile { --rail: 0px; }}
 
 /* Keep contextual navigation docked beside the rail on compact desktops.
    Only phone layouts use the Sidebar's modal drawer. */
@@ -83,7 +82,7 @@
 .guardrails-policy-summary h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .guardrails-policy-summary .guardrails-muted { margin-top: 4px; }
 .guardrails-access-grid { display: grid; width: 100%; gap: 28px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.guardrails-access-grid > div { display: grid; min-width: 0; gap: 10px; justify-items: start; }
+.guardrails-access-grid > div { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 10px; }
 .guardrails-access-grid h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .guardrails-content-section { justify-items: stretch; }
 .guardrails-content-section h3 { font-weight: 600; }
@@ -158,7 +157,7 @@
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
    Keep expiry and last use; model access and limits move to the key detail page first. */
-@container (max-width: 1250px) {
+@container (max-width: 900px) {
   .key-table :is(th, td):nth-child(2),
   .key-table :is(th, td):nth-child(3) { display: none; }
   .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
@@ -260,7 +259,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
    Keep expiry and last use; model access and limits move to the key detail page first. */
-@container (max-width: 1250px) {
+@container (max-width: 900px) {
   .key-table { min-width: 0; width: 100%; }
   .key-table :is(th, td):nth-child(2),
   .key-table :is(th, td):nth-child(3) { display: none; }

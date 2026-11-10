@@ -132,7 +132,7 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
     {preview ? (preview.kind === 'video' ? <video className="video-preview" controls playsInline preload="metadata" src={preview.url} aria-label={uiT("Generated video")} onError={()=>setError('This browser could not play the video. You can download the file.')}/> : <img className="video-preview" src={preview.url} alt={uiT("Generated last frame")}/>) : <div className="video-artifact-placeholder">
       {busy||!availability&&!error ? <><LoaderCircle className="animate-spin"/><p role="status">{uiT("Loading video…")}</p></> : <><Film/><h3>{deleted||availability?.video==='deleted'?uiT("Video removed"):availability?.video==='expired'?uiT("Video preview expired"):uiT("Video preview unavailable")}</h3><p>{uiT("The generation completed, but its video is not currently available to view.")}</p>
       {authority&&availability&&<Button variant="secondary" disabled={busy} onClick={()=>void load('video',true)}><RefreshCw/>{uiT("Restore video")}</Button>}
-      {!authority&&availability&&<p>{uiT("A retained workspace copy or access to the original task is needed to restore this video.")}</p>}
+      {!authority&&availability&&<p>{uiT("A retained workspace copy or access to the original task is needed to restore this video.")}</p>}{libraryHref && <Button asChild variant="outline"><Link to={libraryHref}>{uiT("View Assets")}</Link></Button>}
       {!availability&&error&&<Button variant="secondary" onClick={()=>{setError('');setMetadataRevision(value=>value+1);}}>{uiT("Try again")}</Button>}</>}
     </div>}
     {error&&<p role="alert" className="video-error">{uiT(error)}</p>}

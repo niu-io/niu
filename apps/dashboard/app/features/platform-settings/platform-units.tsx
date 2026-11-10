@@ -86,6 +86,13 @@ const BLOCKER_LABELS: Record<string, string> = {
   missing_unit_definition: 'Missing branded unit definition',
   missing_purchase_rule: 'Missing platform-currency purchase conversion rule',
   customer_monetary_balance: 'Non-zero customer monetary balances',
+  monetary_balance: 'Non-zero customer monetary balances',
+  monetary_credit_facility: 'Active customer approved credit facilities',
+  monetary_reservation: 'Unresolved customer requests or reservations',
+  unposted_monetary_charge: 'Unresolved monetary inference or media attempts',
+  pending_checkout: 'Pending customer checkout orders',
+  unapplied_monetary_grant: 'Unapplied monetary balance grants',
+  missing_payment_currency: 'Platform currency required',
   approved_credit_limit: 'Active customer approved credit facilities',
   pending_topup_order: 'Pending customer checkout orders',
   unapplied_balance_grant: 'Unapplied monetary balance grants',
@@ -436,7 +443,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             <div>
               <h3 className="text-sm font-semibold">{uiT("3. Guarded billing-mode transition")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Switching modes requires zero incompatible obligations across all companies and an unexpired 15-minute compatibility preview bound to configuration revision v")}{config.revision}.
+                {uiT("Resolve the listed obligations before switching. Review expires after 15 minutes or when configuration changes.")}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -463,7 +470,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
               </DropdownMenu>
               <Button
                 size="sm"
-                disabled={preparingMode || loading || publishingMode}
+                disabled={preparingMode || loading || publishingMode || targetMode === config.billing_mode}
                 onClick={() => void handleSaveModePreview()}
               >
                 {preparingMode ? uiT("Preparing switch…") : uiT("Switch billing mode")}
@@ -514,7 +521,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                     {preview.blockers.map(blocker => (
                       <TableRow key={blocker.category}>
                         <TableCell className="font-medium">
-                          {translateUI(BLOCKER_LABELS[blocker.category]) ?? blocker.category}
+                          {translateUI(BLOCKER_LABELS[blocker.category] ?? 'Compatibility check unavailable')}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{blocker.record_count}</TableCell>
                         <TableCell className="text-right tabular-nums">{blocker.organization_count}</TableCell>

@@ -1,5 +1,8 @@
 /** System copy only. Customer names and persisted API values stay unchanged. */
 export const UI_MESSAGES_ZH: Record<string, string> = {
+  "Resolve the listed obligations before switching. Review expires after 15 minutes or when configuration changes.": "切换前请处理下列未结事项。审核将在 15 分钟后或配置变更时失效。",
+  "Compatibility check unavailable": "兼容性检查暂不可用",
+  "Platform currency required": "需要设置平台币种",
   "Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.": "工作空间消费限额适用于 Niu 费用。由模型供应商计费的用量直接支付给该供应商。",
   "Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.": "支出与限额适用于此工作空间。{0} 的 Niu 余额由该组织的工作空间共享；由模型供应商计费的用量直接支付给供应商。",
   "Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.": "支出与限额适用于此工作空间。所属组织的 Niu 余额由该组织的工作空间共享；由模型供应商计费的用量直接支付给供应商。",
@@ -4126,6 +4129,12 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "All keys": "全部密钥",
   "Active keys": "有效密钥",
   "Revoked or expired": "已撤销或过期",
+  "{0} matching · {1} loaded": "{0} 项匹配 · 已加载 {1} 项",
+  "No loaded keys match this filter. Load more to search the remaining keys.": "已加载密钥中没有匹配项，请加载更多以检查其余密钥。",
+  "This API key was revoked.": "此 API 密钥已被撤销。",
+  "This API key has expired.": "此 API 密钥已过期。",
+  "Select an active API key to continue.": "请选择有效的 API 密钥以继续。",
+  "View Assets": "查看素材",
   "No keys match this status and search.": "没有符合此状态和搜索条件的密钥。",
   "This can mean no payment gateway is configured or the payment service is unavailable. Ask an installation administrator to check payment configuration, then refresh. Existing orders remain available.": "这可能表示尚未配置支付网关，或支付服务暂不可用。请联系实例管理员检查支付配置后刷新；已有订单仍可查看。",
   "Evidence": "证据",

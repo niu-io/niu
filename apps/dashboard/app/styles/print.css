@@ -4,7 +4,7 @@
 }
 
 @media print {
-  .dashboard-skip,.app-rail,.app-rail-spacer,.niu-workspace-sidebar,.niu-workspace-sidebar-mobile,[data-slot="sidebar"],[data-slot="sidebar-gap"],[data-slot="sidebar-container"],.mobile-product-navigation,.dashboard-page-header,.commercial-print-hide {
+  .dashboard-skip,.app-rail,.niu-workspace-sidebar,.niu-workspace-sidebar-mobile,[data-slot="sidebar"],[data-slot="sidebar-gap"],[data-slot="sidebar-container"],.mobile-product-navigation,.dashboard-page-header,.commercial-print-hide {
     display: none !important;
   }
   .commercial-print-only {

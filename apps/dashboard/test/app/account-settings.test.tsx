@@ -89,7 +89,7 @@ describe('global settings routes',()=>{
  it('preserves an unfinished profile edit across sections',async()=>{
   current=context();const fetcher=mockRequests();render(view('/settings/account'));const user=userEvent.setup();
   const name=screen.getByLabelText('Display name') as HTMLInputElement;await waitFor(()=>expect(name.disabled).toBe(false));
-  await user.clear(name);await user.type(name,'Unfinished edit');await user.click(screen.getByRole('link',{name:'About',exact:true}));expect(screen.queryByRole('form',{name:'Profile'})).toBeNull();await user.click(screen.getByRole('link',{name:'Appearance',exact:true}));expect(screen.queryByRole('form',{name:'Profile'})).toBeNull();
+  await user.clear(name);await user.type(name,'Unfinished edit');await user.click(screen.getByRole('link',{name:'About Niu',exact:true}));expect(screen.queryByRole('form',{name:'Profile'})).toBeNull();await user.click(screen.getByRole('link',{name:'Organization',exact:true}));expect(screen.queryByRole('form',{name:'Profile'})).toBeNull();
   await user.click(screen.getByRole('link',{name:'Account',exact:true}));expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('Unfinished edit');
   expect(fetcher.mock.calls.filter(call=>String(call[0])==='/api/v1/auth/profile')).toHaveLength(1);
  });

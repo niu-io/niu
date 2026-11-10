@@ -90,6 +90,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
   );
 
   const activeNavigation = useMemo<NavItem | undefined>(() => {
+    // An exact resource path takes precedence over inherited workspace handles.
+    const exact = scopedNavigation.find(item => item.to.replace(/^\/+|\/+$/g, '') === activePath);
+    if (exact) return exact;
     if (leafHandle?.navTo) {
       const byHandle = scopedNavigation.find(
         item => item.to.replace(/^\/+|\/+$/g, '') === leafHandle.navTo?.replace(/^\/+|\/+$/g, ''),

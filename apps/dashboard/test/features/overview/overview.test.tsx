@@ -30,9 +30,9 @@ function quickStart(overrides: Partial<Parameters<typeof OverviewQuickStart>[0]>
 }
 
 describe('workspace overview quick start', () => {
-  it('guides a writer from an empty workspace to a key, the API guide and request evidence', () => {
+  it('prioritizes agent connection while retaining manual setup and request evidence', () => {
     render(quickStart());
-    expect(screen.getByRole('heading', {name: 'Send your first request'})).toBeTruthy();
+    expect(screen.getByRole('heading', {name: 'Connect your agent'})).toBeTruthy();
     expect(screen.getByRole('link', {name: 'Create an API key'}).getAttribute('href')).toBe('/workspaces/demo/keys');
     expect(screen.getByRole('link', {name: 'Read the API quickstart'}).getAttribute('href')).toBe('/help/guides/api-quickstart/');
     expect(screen.getByRole('link', {name: 'View requests'}).getAttribute('href')).toBe('/workspaces/demo/executions');
@@ -47,7 +47,7 @@ describe('workspace overview quick start', () => {
 
   it('points administrators without models at Provider configuration', () => {
     render(quickStart({hasModels: false, canManagePlatform: true}));
-    expect(screen.getByRole('heading', {name: 'Make a model available'})).toBeTruthy();
+    expect(screen.getByRole('heading', {name: 'Connect your agent'})).toBeTruthy();
     expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/providers');
   });
 

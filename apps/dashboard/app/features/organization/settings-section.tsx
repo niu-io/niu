@@ -33,7 +33,6 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
   const entries = workspaces.filter(item => item.organization_id === organization?.id);
   const canCreate = Boolean(session?.permissions.write && (session.kind === 'installation' || session.operator?.project_id === null));
   const canManageMembers = Boolean(organization && session?.permissions?.manage_operators);
-  const canViewBilling = session?.operating_mode !== 'internal';
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,12 +88,12 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       <section className="organization-settings-card space-y-4" aria-labelledby="organization-details-title">
         <h2 id="organization-details-title">{uiT("General")}</h2>
         <dl className="organization-details">
-          <div><dt>{uiT("Organization name")}</dt><dd>{organization.name}</dd></div>
+          {!(canCreate && context.renameOrganization) && <div><dt>{uiT("Organization name")}</dt><dd>{organization.name}</dd></div>}
           {organization.slug ? <div><dt>{t('Address', '地址')}</dt><dd className="text-sm">{organization.slug}</dd></div> : null}
         </dl>
         {canCreate && context.renameOrganization && (
           <form className="flex flex-wrap items-end gap-3 pt-2" onSubmit={handleRename}>
-            <div className="grid min-w-64 flex-1 gap-1.5">
+            <div className="grid w-full max-w-md gap-1.5">
               <Label htmlFor="organization-rename-name">{t('Update organization name', '修改组织名称')}</Label>
               <Input
                 id="organization-rename-name"
@@ -120,54 +119,6 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         {renameError ? <p role="alert" className="text-sm text-destructive">{uiT(renameError)}</p> : null}
         {renameSaved ? <p role="status" className="text-sm text-muted-foreground">{t('Organization name saved.', '组织名称已保存。')}</p> : null}
       </section>
-      <section className="organization-settings-card" aria-labelledby="organization-members-title">
-        <div className="organization-section-heading">
-          <div className="space-y-1">
-            <h2 id="organization-members-title">{t('Members', '成员')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t(
-                'Roles and workspace access for this organization.',
-                '此组织的角色与工作空间访问权限。',
-              )}
-            </p>
-          </div>
-          {canManageMembers && (
-            <Button asChild variant="outline">
-              <Link
-                to={settingsHref('members')}
-                onMouseEnter={() => prefetchRouteIntent(settingsHref('members'))}
-                onFocus={() => prefetchRouteIntent(settingsHref('members'))}
-              >
-                {t('Manage members', '管理成员')}
-              </Link>
-            </Button>
-          )}
-        </div>
-      </section>
-      {canViewBilling && (
-        <section className="organization-settings-card" aria-labelledby="organization-billing-title">
-          <div className="organization-section-heading">
-            <div className="space-y-1">
-              <h2 id="organization-billing-title">{t('Credits and billing', '额度与账单')}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t(
-                  `Credits and billing belong to ${organization.name}, are shared across its workspaces, and remain isolated from other organizations. Newly created organizations start with zero balance and require top-up funding or configured payment and model supply before paid requests run.`,
-                  `余额与账单归属于 ${organization.name}，并在其工作空间之间共享，与其他组织完全隔离。新创建的组织初始余额为零，发起付费请求前需先充值或配置支付与模型供应。`,
-                )}
-              </p>
-            </div>
-            <Button asChild variant="outline">
-              <Link
-                to={settingsHref('billing')}
-                onMouseEnter={() => prefetchRouteIntent(settingsHref('billing'))}
-                onFocus={() => prefetchRouteIntent(settingsHref('billing'))}
-              >
-                {t('Manage credits', '管理额度')}
-              </Link>
-            </Button>
-          </div>
-        </section>
-      )}
       <section className="organization-settings-card" aria-labelledby="organization-workspaces-title">
         <div className="organization-section-heading"><div><h2 id="organization-workspaces-title">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button>}</div>
         {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Users for {0}", [workspaceDisplayName(item.name)])} title={uiF("Users for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button></EmptyContent>}</Empty>}
@@ -184,7 +135,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
             </p>
           </div>
           <form className="flex flex-wrap items-end gap-3" onSubmit={handleJoinOrganization}>
-            <div className="grid min-w-64 flex-1 gap-1.5">
+            <div className="grid w-full max-w-md gap-1.5">
               <Label htmlFor="organization-join-token">{t('Member access token', '成员访问令牌')}</Label>
               <Input
                 id="organization-join-token"

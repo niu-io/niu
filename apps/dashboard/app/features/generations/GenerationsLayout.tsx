@@ -1,3 +1,4 @@
+import { ShellNavigation, ShellAccount } from '@/shell/ShellNavigation';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
@@ -33,6 +34,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   return <><Sidebar id="generation-history" className="niu-workspace-sidebar playground-history generations-history" mobileClassName="niu-workspace-sidebar-mobile generations-history"
     mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }}
     mobileContentProps={{ onCloseAutoFocus: event => { const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label={uiT("Generation history")}>
+    <ShellNavigation />
     <SidebarHeader className="sidebar-heading generations-history-heading"><h2 className="sidebar-heading-row">{uiT("Generations")}</h2></SidebarHeader>
     <SidebarContent className="playground-history-list" aria-label={uiT("Saved sessions")}>
       <div className="playground-history-controls"><Button variant="outline" className="generations-new-generation" disabled={content?.history.disabled} onClick={() => { content?.onNewSession?.(); const video = Boolean(content?.history.activeVideoSession); navigate(video ? `/generations?new=video${workspaceQuery}` : '/generations?new=1'); if(isMobile)setOpenMobile(false); }}><IconPlus size={16} />{uiT("New generation")}</Button></div>
@@ -41,7 +43,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
       {content?.extra}
     </SidebarContent>
     <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />{uiT("Archived sessions")}</Button></SidebarFooter>
-  </Sidebar>
+  <ShellAccount /></Sidebar>
     {content && <SessionHistory {...content.history} focusFallback={toggle} listTarget={listTarget} key={content.history.context.token} />}
   </>;
 }

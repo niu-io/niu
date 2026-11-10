@@ -95,7 +95,7 @@ it('explains durable failure classifications when request payloads are unavailab
   const dialog=await screen.findByRole('dialog',{name:'Request details'});
   expect(within(dialog).getByText('This model is unavailable in the upstream account’s region.')).toBeTruthy();
   expect(within(dialog).getByText('Upstream HTTP 403')).toBeTruthy();
-  expect(within(dialog).getByText('Needs verification')).toBeTruthy();
+  expect(within(dialog).getByText('Unresolved')).toBeTruthy();
   expect(await within(dialog).findByText('Request and response bodies were not retained or have expired.')).toBeTruthy();
 });
 
@@ -117,7 +117,7 @@ it('keeps unknown video execution distinct from saved submission HTTP diagnostic
   const dialog = await screen.findByRole('dialog', {name: 'Request details'});
   expect(within(dialog).getByText('Upstream HTTP 401')).toBeTruthy();
   expect(within(dialog).getByText('HTTP 202')).toBeTruthy();
-  expect(within(dialog).getByText('Needs verification')).toBeTruthy();
+  expect(within(dialog).getByText('Unresolved')).toBeTruthy();
   expect(within(dialog).queryByText('Finish reason')).toBeNull();
   expect(within(dialog).queryByText('Not charged')).toBeNull();
   expect(within(dialog).queryByText('Completed')).toBeNull();
@@ -641,13 +641,13 @@ describe('gateway activity', () => {
     const user = userEvent.setup();
     render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
     await screen.findByRole('button', { name: 'Filter requests' });
-    await waitFor(() => expect(screen.getAllByText('Blocked by policy')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText('Output withheld')).toHaveLength(2));
     expect(screen.getByText('Completed · Redacted')).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
     expect(screen.getAllByText('$0.25')).toHaveLength(4);
     await user.click(screen.getByRole('button', { name: 'Filter requests' }));
     await user.click(screen.getByRole('menuitem', { name: 'Status', exact: true }));
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Blocked by policy', exact: true }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Output withheld', exact: true }));
     await waitFor(() => expect(calls.some(path => path.includes('status=output_withheld'))).toBe(true));
     await waitFor(() => expect(screen.queryByText('Completed · Redacted')).toBeNull());
     expect(screen.getAllByText('$0.25')).toHaveLength(2);
@@ -663,16 +663,16 @@ describe('gateway activity', () => {
     await user.click(await screen.findByRole('button', { name: 'Filter requests' }));
     await user.click(screen.getByRole('menuitem', { name: 'Status', exact: true }));
     expect(screen.getAllByRole('menu')).toHaveLength(1);
-    expect(screen.getByRole('menuitemradio', { name: 'Provider completed', exact: true })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'Completed', exact: true })).toBeTruthy();
     await user.click(screen.getByRole('menuitem', { name: '← Filters', exact: true }));
     expect(screen.getByRole('menuitem', { name: 'Model', exact: true })).toBeTruthy();
     await user.click(screen.getByRole('menuitem', { name: 'Status', exact: true }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Blocked by policy', exact: true }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Output withheld', exact: true }));
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     const query = new URLSearchParams(screen.getByLabelText('Route query').textContent || '');
     expect(query.get('status')).toBe('output_withheld');
     expect(query.get('view')).toBe('diagnosis');
-    await user.click(screen.getByRole('button', { name: /Blocked by policy\s*Remove filter/ }));
+    await user.click(screen.getByRole('button', { name: /Output withheld\s*Remove filter/ }));
     await waitFor(() => expect(new URLSearchParams(screen.getByLabelText('Route query').textContent || '').get('status')).toBeNull());
     expect(new URLSearchParams(screen.getByLabelText('Route query').textContent || '').get('view')).toBe('diagnosis');
   });
@@ -754,7 +754,7 @@ describe('gateway activity', () => {
     fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Build key', exact: true }));
     await user.click(await screen.findByRole('button', { name: 'Filter requests' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Status', exact: true }));
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Provider completed', exact: true }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Completed', exact: true }));
     await user.click(screen.getByRole('button', { name: 'All time' }));
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-09-27' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-09-27' } });
@@ -1092,7 +1092,7 @@ it.each([
   const dialog = await screen.findByRole('dialog', { name: 'Request details' });
   expect(within(dialog).getByText(description)).toBeTruthy();
   expect(within(dialog).getByText('HTTP 200')).toBeTruthy();
-  expect(within(dialog).getByText('Needs verification')).toBeTruthy();
+  expect(within(dialog).getByText('Unresolved')).toBeTruthy();
   expect(within(dialog).queryByText('Not charged')).toBeNull();
   expect(within(dialog).queryByText(/before sending response headers/)).toBeNull();
   expect(within(dialog).queryByText(/Upstream HTTP/)).toBeNull();

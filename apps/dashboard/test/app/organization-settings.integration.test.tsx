@@ -47,11 +47,11 @@ describe('canonical organization settings', () => {
 
     expect(await screen.findByRole('heading', { name: 'Organization', level: 1 })).toBeTruthy();
     expect(await screen.findByRole('heading', { name: 'General' })).toBeTruthy();
-    expect(screen.getByText('Acme', { exact: true })).toBeTruthy();
+    expect(screen.getByDisplayValue('Acme')).toBeTruthy();
     expect(screen.getByText('acme', { exact: true })).toBeTruthy();
     expect(screen.getByLabelText('Update organization name')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Manage members' }).getAttribute('href')).toBe('/settings/members');
-    expect(screen.getByRole('link', { name: 'Manage credits' }).getAttribute('href')).toBe('/settings/billing');
+    expect(screen.getByRole('link', { name: 'Members' }).getAttribute('href')).toBe('/settings/members');
+    expect(screen.getByRole('link', { name: 'Credits' }).getAttribute('href')).toBe('/settings/billing');
     expect(screen.queryByRole('table')).toBeNull();
     expect(router.state.location.pathname).toBe('/settings/organization');
     const settingsNav = screen.getByRole('navigation', { name: 'Settings navigation' });

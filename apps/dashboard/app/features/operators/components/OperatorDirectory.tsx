@@ -1,6 +1,6 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { workspaceDisplayName } from '@/shell/workspace-route';
 import { IconSearch, IconUsers } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
@@ -26,7 +26,8 @@ function roleLabel(role: Operator['role'], uiT: (en: string, zh?: string) => str
   return uiT('Viewer', '查看者');
 }
 
-export default function OperatorDirectory({ operators, organizations, projects, loading, disabled, onSelect, onAdd, onRevoke }: {
+export default function OperatorDirectory({ operators, organizations, projects, loading, disabled, onSelect, onAdd, onRevoke, actions }: {
+  actions?: ReactNode;
   operators: Operator[];
   organizations: NamedResource[];
   projects: NamedResource[];
@@ -49,7 +50,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
     return terms.every(term => text.includes(term));
   });
   return <section aria-label={uiT("Workspace members", "工作空间成员")} className="operator-directory space-y-4">
-    {operators.length > 0 && <Popover><PopoverTrigger asChild><Button ref={searchTriggerRef} type="button" variant="ghost" size="icon" aria-label={uiT("Search users")} title={uiT("Search users")} className={search ? "text-primary bg-accent" : undefined}><IconSearch size={17}/></Button></PopoverTrigger><PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus ref={searchInput} type="search" aria-label={uiT("Search users")} placeholder={uiT("Search users…")} value={search} onChange={event => setSearch(event.target.value)} />{search && <Button variant="ghost" size="sm" onClick={()=>setSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>}
+    <div className="flex flex-wrap items-center justify-end gap-2">{operators.length > 0 && <Popover><PopoverTrigger asChild><Button ref={searchTriggerRef} type="button" variant="ghost" size="icon" aria-label={uiT("Search users")} title={uiT("Search users")} className={search ? "text-primary bg-accent" : undefined}><IconSearch size={17}/></Button></PopoverTrigger><PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus ref={searchInput} type="search" aria-label={uiT("Search users")} placeholder={uiT("Search users…")} value={search} onChange={event => setSearch(event.target.value)} />{search && <Button variant="ghost" size="sm" onClick={()=>setSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>}{actions}</div>
     {loading
       ? <TableSkeleton columns={5} rows={5} label={uiT("Loading users…")} />
       : operators.length === 0

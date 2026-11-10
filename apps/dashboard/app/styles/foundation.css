@@ -107,9 +107,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .key-name-link { display: inline-flex; align-items: center; gap: 9px; color: var(--foreground); font-weight: 610; text-decoration: none; }
 .key-model-summary { display: block; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-content:has(.keys-page .key-empty) { display: flex; flex-direction: column; }
-.keys-page:has(.key-empty) { display: flex; flex: 1; flex-direction: column; }
-.key-list:has(> .key-empty) { display: flex; flex: 1; flex-direction: column; }
-.key-list > .key-empty { flex: 1; min-height: 240px; }
+.keys-page:has(.key-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
+.key-list:has(> .key-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
+.key-list > .key-empty { flex: 0 0 auto; min-height: 240px; }
 .key-once-notice { display: flex; align-items: center; gap: 9px; padding: 12px 13px; border-radius: 10px; color: var(--success); background: color-mix(in srgb, var(--success) 8%, var(--card)); font-size: 14px; }
 .key-copy-row { display: grid; gap: 7px; }
 .key-copy-row > label { font-size: 14px; font-weight: 600; }

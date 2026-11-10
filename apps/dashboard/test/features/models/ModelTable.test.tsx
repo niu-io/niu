@@ -243,18 +243,19 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
 
 // Refs #104: absent metadata is not a Chat capability assertion.
 it.each([
-  [undefined, false, false, '/chat/completions'],
-  [[], false, false, '/chat/completions'],
+  [undefined, false, false, null],
+  [[], false, false, null],
   [['text'], true, false, '/chat/completions'],
   [['video'], false, true, '/video/jobs'],
   [['text', 'video'], true, true, '/video/jobs'],
-  [['audio'], false, false, '/chat/completions'],
+  [['audio'], false, false, null],
 ])('offers only documented generation handoffs for outputs %s', (outputs, chat, video, endpoint) => {
   const model={id:'example/model', public_catalog:true, catalog:{output_modalities:outputs}};
   render(<MemoryRouter initialEntries={['/models/example/model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]} /></SidebarProvider>} /></Routes></MemoryRouter>);
   expect(!!screen.queryByRole('link',{name:'Open Generations'})).toBe(chat);
   expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
-  expect(document.querySelector('pre')?.textContent).toContain(endpoint);
+  if (endpoint) expect(document.querySelector('pre')?.textContent).toContain(endpoint);
+  else expect(document.querySelector('pre')).toBeNull();
 });
 
 it('links an unknown-capability model to Chat while stating that support is unverified', () => {

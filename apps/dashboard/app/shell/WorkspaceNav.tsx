@@ -24,7 +24,7 @@ function isWorkspaceNavItemActive(itemTo: string, activePath: string): boolean {
     );
   }
   if (itemTo === 'settings') {
-    return activePath === 'settings' || activePath === 'billing' || activePath === 'costs';
+    return activePath === 'settings';
   }
   const clean = itemTo.replace(/^\/+|\/+$/g, '');
   return activePath === itemTo || activePath.startsWith(`${clean}/`);

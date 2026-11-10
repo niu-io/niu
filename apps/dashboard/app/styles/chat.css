@@ -26,7 +26,6 @@
   .model-route-cta > a { justify-content: center; }}
 
 .sidebar .nav-item:hover, .sidebar .nav-item.active { background: var(--sidebar-accent); }
-.rail-item { border-radius: var(--radius-control); }
 
 @media (max-width: 640px) {
   .overview-primary-actions { width: 100%; align-items: stretch; flex-wrap: wrap; }

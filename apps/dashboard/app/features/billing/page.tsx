@@ -22,7 +22,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { TableSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
-import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
 type Tariff = CustomerTariff;
 // An absent category rate is neither a zero price nor an inherited tier rate.
@@ -146,10 +145,10 @@ export default function BillingRoute() {
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
   const organizationName = workspace.organization_name?.trim() || (organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
-  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>{!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : canFund ? <Button asChild variant="outline"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p>)}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} /></>;
+  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>{!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : canFund ? <Button asChild variant="outline"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p>)}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} /></>;
 }
 
-function BillingView({ token, organization, project, canConfigure }: { token: string; organization: string; project: string; canConfigure: boolean }) {
+function BillingView({ token, organization, project }: { token: string; organization: string; project: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
@@ -301,7 +300,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
                     {formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {uiT("Exact net consumed:")}{" "}{formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} · {ub.charged_requests}{" "}{uiT("settled")}{" "}{ub.charged_requests === 1 ? uiT("request") : uiT("requests")}
+                    {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision) !== formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision) && <>{uiT("Exact net consumed:")} {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} · </>}{ub.charged_requests}{" "}{uiT("settled")}{" "}{ub.charged_requests === 1 ? uiT("request") : uiT("requests")}
                     {BigInt(ub.restored_atoms || '0') > 0n && uiF(" · Restored: {0}", [formatExactUnitAtoms(ub.restored_atoms, ub.name, ub.display_precision)])}
                     {BigInt(ub.held_atoms || '0') > 0n && uiF(" · Held for active requests: {0}", [formatExactUnitAtoms(ub.held_atoms, ub.name, ub.display_precision)])}
                   </p>
@@ -312,7 +311,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
           {data.balances.some(b => Boolean(b.charged_nanos && b.charged_nanos !== '0')) ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) > 0 ? null : (data.unresolved !== '0' || data.unpriced !== '0') ? <p className="billing-spending">{uiT("Pending / unpriced")}</p> : data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos || '0', balance.currency)}</p>) : <Empty className="billing-spending-empty my-3 min-h-28 rounded-xl border border-dashed border-border/60 bg-muted/20 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No charges yet.")}</EmptyDescription></EmptyHeader></Empty>}
           {(data.unresolved !== '0' || data.unpriced !== '0') && <p className="text-muted-foreground">{[data.unresolved !== '0' && `${data.unresolved} ${data.unresolved === '1' ? 'request' : 'requests'} awaiting settlement`, data.unpriced !== '0' && `${data.unpriced} ${data.unpriced === '1' ? 'request' : 'requests'} without a customer rate`].filter(Boolean).join(' · ')}.</p>}
         </section>
-        <WorkspaceSpendingLimits token={token} organization={organization} project={project} canConfigure={canConfigure} refresh={revision} />
+
       </TabsContent>
       <TabsContent value="statements">
         {(data.billing_mode === 'credits' || (data.unit_charges?.length ?? 0) > 0) && (

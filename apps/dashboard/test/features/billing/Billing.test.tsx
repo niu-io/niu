@@ -188,7 +188,6 @@ describe("customer billing", () => {
     expect(screen.queryByRole("button", { name: "Record payment" })).toBeNull();
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
       "/api/v1/organizations/org/projects/project/billing",
-      "/api/v1/organizations/org/projects/project/spending-limit",
     ]);
   });
   it("loads only the selected workspace invoice details", async () => {

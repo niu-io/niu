@@ -38,6 +38,32 @@ describe('Media standard price choices', () => {
     expect(screen.queryByLabelText('Channel')).toBeNull();
     expect(screen.queryByLabelText('Billing meter')).toBeNull();
   });
+  it('preserves editable draft values after a confirmed rejection and submits corrections with a new identity', async () => {
+    const writes: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_input, init) => {
+      if (init?.method === 'POST') {
+        writes.push(init.body);
+        return writes.length === 1 ? Response.json({error:{message:'Price is not accepted'}},{status:422}) : Response.json({data:{price_id:'saved',revision:'revision',version:'1'}});
+      }
+      return Response.json({data:[{model_alias:'video',media}],next_after:null});
+    }));
+    const user = userEvent.setup(); const saved = editor();
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Media standard model'}).hasAttribute('disabled')).toBe(false));
+    await user.click(screen.getByRole('button',{name:'Media standard model'}));
+    await user.click(screen.getByRole('menuitemradio',{name:'video',exact:true}));
+    await user.click(screen.getByRole('button',{name:'Media resolution'}));
+    await user.click(screen.getByRole('menuitemradio',{name:'1080p'}));
+    await user.type(screen.getByLabelText('Selling price in USD'),'0.01');
+    await user.click(screen.getByRole('button',{name:'Publish media standard',exact:true}));
+    await screen.findByText(/Price is not accepted/);
+    const price = screen.getByLabelText('Selling price in USD') as HTMLInputElement;
+    expect(price.disabled).toBe(false); expect(price.value).toBe('0.01');
+    await user.clear(price); await user.type(price,'0.02');
+    await user.click(screen.getByRole('button',{name:'Publish media standard',exact:true}));
+    await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
+    expect(JSON.parse(writes[1]).idempotency_key).not.toBe(JSON.parse(writes[0]).idempotency_key);
+    expect(JSON.parse(writes[1]).schedule.amount_units).not.toBe(JSON.parse(writes[0]).schedule.amount_units);
+  });
   it('can close and reopen an uncertain publication without changing its retry identity', async () => {
     const writes: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (_input, init) => {

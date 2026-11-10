@@ -22,5 +22,9 @@ export default {
         { recursive: true, force: true },
       );
     }
+    // The gateway serves index.html. Current SPA builds emit __spa-fallback.html;
+    // always replace the entry even when immutable assets are retained locally.
+    const fallback = path.join(clientDir, '__spa-fallback.html');
+    if (existsSync(fallback)) cpSync(fallback, path.join(reactRouterConfig.buildDirectory, 'index.html'));
   },
 } satisfies Config;

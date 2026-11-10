@@ -462,8 +462,6 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
           </div>
           <div>
             <h3>{uiT("Providers")}</h3>
-            <p className="guardrails-muted">
-              {uiT("Limit the API services used for requests.")}</p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

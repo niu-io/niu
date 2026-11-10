@@ -8,9 +8,9 @@
 .model-route-title { margin-top: 27px; }
 .model-route-title h1 { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 650; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .model-route-facts { display: grid; gap: 0; margin: 22px 0; border-top: 1px solid var(--border); }
-.model-route-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.model-route-facts > div { display: grid; grid-template-columns: minmax(120px, 12rem) minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .model-route-facts dt { flex: 0 0 auto; color: var(--muted-foreground); font-size: 14px; }
-.model-route-facts dd { margin: 0; font-size: 14px; text-align: right; overflow-wrap: anywhere; }
+.model-route-facts dd { margin: 0; font-size: 14px; text-align: left; overflow-wrap: anywhere; }
 .model-route-cta { display: flex; flex-wrap: wrap; gap: 8px; }
 .model-route-cta a { gap: 8px; }
 .model-route-example-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 24px 0 8px; }

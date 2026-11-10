@@ -3,6 +3,9 @@
 .video-toolbar { min-height:var(--dashboard-header-height); display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); }
 .video-toolbar h1 { flex:1; font-size:16px; font-weight:600; margin:0; }
 .video-main.playground-chat-main > .video-content { display:contents; }
+.video-main.playground-chat-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.video-main.playground-chat-main .video-conversation { grid-area: 1 / 1; }
+.video-main.playground-chat-main .playground-composer { grid-area: 2 / 1; width: 100%; }
 .video-content { display:flex; flex-direction:column; min-height:0; flex:1; overflow:hidden; position:relative; }
 .video-conversation { flex:1; min-height:0; overflow:auto; padding:24px max(20px, calc((100% - 880px) / 2)); scroll-padding-bottom:24px; }
 .video-welcome { min-height:100%; }

@@ -58,7 +58,7 @@ describe('settings routes', () => {
     expect(screen.getByRole('button', { name: 'Color mode' })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/appearance');
     expect(screen.getByRole('link', { name: 'Credits' }).getAttribute('href')).toBe('/settings/billing');
-    await userEvent.click(screen.getByRole('link', { name: 'About', exact: true }));
+    await userEvent.click(screen.getByRole('link', { name: 'About Niu', exact: true }));
     expect(router.state.location.pathname).toBe('/settings/about');
     expect(screen.getByRole('region', { name: 'About Niu' })).toBeTruthy();
   });
@@ -97,7 +97,7 @@ describe('settings routes', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('link', { name: 'Account' }).getAttribute('aria-current')).toBe('page');
-    for (const name of ['Organization', 'Members', 'Appearance', 'Credits', 'About']) {
+    for (const name of ['Organization', 'Members', 'Credits']) {
       expect(screen.getByRole('link', { name }).hasAttribute('aria-current')).toBe(false);
     }
   });

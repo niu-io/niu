@@ -153,12 +153,12 @@ export function ReviewPageShell({
             {actions}
             <Button
               variant="ghost"
-              size="sm"
+              size="icon-sm"
+              aria-label={t('Refresh', '刷新')}
               disabled={loading}
               onClick={onRefresh}
             >
               <IconRefresh size={16} />
-              {t('Refresh', '刷新')}
             </Button>
           </div>
         }

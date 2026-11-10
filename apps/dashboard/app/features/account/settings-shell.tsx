@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
 import { useLocale, type Locale } from '@/shell/ui-locale';
-import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle, IconLanguage, IconUsers, IconBuildings } from '@tabler/icons-react';
+import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconCreditCard, IconLanguage, IconUsers, IconBuildings } from '@tabler/icons-react';
 import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
@@ -101,8 +101,8 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
         <a href="https://github.com/niu-io/niu/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconCopyright size={14} aria-hidden="true"/>{t('Third-party notices', '第三方声明')}</a>
       </nav>
     </section>}
-    {section === 'appearance' && <section aria-label={uiT("Appearance preferences")} className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+    {(section === 'appearance' || section === 'account') && <section aria-label={uiT("Appearance preferences")} className="space-y-3">
+      <div className="flex max-w-xl flex-wrap items-center justify-between gap-4 py-4">
         <div><h2 className="text-sm font-medium">{t('Color mode', '外观模式')}</h2><p className="text-sm text-muted-foreground">{t('System follows your device’s appearance.', '跟随系统将自动匹配您设备的外观模式。')}</p></div>
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Color mode")} disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={theme} onValueChange={value => saveTheme(value as Theme)}>
@@ -110,7 +110,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
           </DropdownMenuRadioGroup></DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+      <div className="flex max-w-xl flex-wrap items-center justify-between gap-4 py-4">
         <div><h2 className="text-sm font-medium">{t('Language', '界面语言')}</h2><p className="text-sm text-muted-foreground">{t('Choose the language used across Niu.', '选择 Niu 界面显示的语言。')}</p></div>
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
@@ -122,6 +122,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       {context.appearance?.saving && <p role="status">{t('Saving color mode…', '正在保存外观模式…')}</p>}
       {context.appearance?.error && <div role="alert"><p>{context.appearance.error}</p><Button variant="secondary" onClick={context.appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</Button></div>}
     </section>}
+    {(section === 'account' || section === 'appearance') && <Button asChild variant="link" className="px-0"><Link to="/settings/about">{t('About Niu', '关于 Niu')}</Link></Button>}
     {['billing', 'payments'].includes(section) && <header className="space-y-2">
       <h2 className="text-base font-semibold">{t('Credits', '额度与充值')}</h2>
       <p className="text-sm text-muted-foreground">{t('Manage shared funds, add money, and review payment orders and balance activity.', '管理共享资金、充值额度，并查看支付订单与余额变动明细。')}</p>
@@ -150,8 +151,7 @@ export function SettingsNavigation({ context, section }: { context: DashboardCon
     ...(canManageMembers ? [{path:'members',label:t('Members', '成员管理'),icon:IconUsers}] : []),
     ...(canViewBilling ? [{path:'billing',label:t('Credits', '额度与充值'),icon:IconCreditCard}] : []),
     ...(personal ? [{path:'account',label:t('Account', '账户'),icon:IconUserCircle}] : []),
-    {path:'appearance',label:t('Appearance', '外观'),icon:IconPalette},
-    {path:'about',label:t('About', '关于'),icon:IconInfoCircle},
+    ...(!personal ? [{path:'appearance',label:t('Preferences', '偏好设置'),icon:IconUserCircle}] : []),
   ];
   return <>
     <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{t('Settings', '设置')}</h2></SidebarHeader>

@@ -62,7 +62,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/settings/appearance');
     const settingsNavigation = await screen.findByRole('navigation', { name: 'Settings navigation' });
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(settingsNavigation).getByRole('link', { name: 'Appearance' }).getAttribute('aria-current')).toBe('page');
+    expect(within(settingsNavigation).getByRole('link', { name: 'Preferences' }).getAttribute('aria-current')).toBe('page');
     expect(await screen.findByRole('button', { name: 'Color mode' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Appearance', level: 1 })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/appearance');
@@ -250,7 +250,7 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(await screen.findByRole('navigation',{name:'Settings navigation'})).toBeTruthy();
     expect(router.state.location.state?.settingsReturnTo).toBe('/workspaces/production?period=month#activity');
-    await userEvent.click(screen.getByRole('link',{name:'About',exact:true}));
+    await userEvent.click(screen.getByRole('link',{name:'About Niu',exact:true}));
     expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/about');
     expect(screen.getByRole('link',{name:'Workspace',exact:true}).getAttribute('href')).toBe('/workspaces/production');
@@ -260,26 +260,36 @@ describe('dashboard route layout', () => {
     mockHealth();const router=renderAt('/settings/appearance');
     const settingsNavigation=await screen.findByRole('navigation',{name:'Settings navigation'});
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(settingsNavigation).getByRole('link',{name:'Appearance'}).getAttribute('aria-current')).toBe('page');
+    expect(within(settingsNavigation).getByRole('link',{name:'Preferences'}).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button',{name:'Color mode'})).toBeTruthy();
     expect(screen.queryByRole('link',{name:'Settings',exact:true})).toBeNull();
-    await userEvent.click(within(settingsNavigation).getByRole('link',{name:'About',exact:true}));
+    await userEvent.click(screen.getByRole('link',{name:'About Niu',exact:true}));
     expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/about');
   });
 
+  it('uses the current Assets title after navigating from API keys', async () => {
+    mockHealth(); const router = renderAt('/workspaces/default/keys');
+    await screen.findByRole('heading', { name: 'API keys', level: 1 });
+    await userEvent.click(screen.getByRole('link', { name: 'Assets', exact: true }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/assets'));
+    expect(await screen.findByRole('heading', { name: 'Assets', level: 1 })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'API keys', level: 1 })).toBeNull();
+  });
+
   it('does not highlight Workspace when Documentation is selected', async () => {
     mockHealth(); renderAt('/help/');
+    await screen.findByRole('link', { name: 'Workspace', exact: true });
     const rail = await screen.findByRole('navigation', { name: 'Product navigation' });
-    expect(within(rail).getByRole('link', { name: 'Workspace', exact: true }).className).not.toContain('selected');
-    expect(within(rail).getByRole('link', { name: 'Docs', exact: true }).className).toContain('selected');
+    expect(within(rail).getByRole('link', { name: 'Workspace', exact: true }).getAttribute('data-active')).toBe('false');
+    expect(within(rail).getByRole('link', { name: 'Docs', exact: true }).getAttribute('data-active')).toBe('true');
   });
 
   it('opens global Activity from the rail without selecting Workspace', async () => {
     mockHealth(); const router = renderAt('/activity');
     const rail = within(await screen.findByRole('navigation',{name:'Product navigation'}));
-    expect(rail.getByRole('link',{name:'Activity',exact:true}).className).toContain('selected');
-    expect(rail.getByRole('link',{name:'Workspace',exact:true}).className).not.toContain('selected');
+    expect(rail.getByRole('link',{name:'Activity',exact:true}).getAttribute('data-active')).toBe('true');
+    expect(rail.getByRole('link',{name:'Workspace',exact:true}).getAttribute('data-active')).toBe('false');
     const navigation = within(await screen.findByRole('navigation',{name:'Activity navigation'}));
     expect(navigation.getByRole('link',{name:'Overview',exact:true}).getAttribute('aria-current')).toBe('page');
     await userEvent.click(navigation.getByRole('link',{name:'Logs',exact:true}));
@@ -542,7 +552,7 @@ describe('dashboard route layout', () => {
     expect(sidebar.queryByRole('link', { name: 'Tasks' })).toBeNull();
     expect(sidebar.queryByRole('link', { name: 'Benchmarks' })).toBeNull();
     expect(rail.queryByRole('link', { name: 'Platform settings' })).toBeNull();
-    expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
+    expect(rail.getByRole('link', { name: 'Workspace' }).getAttribute('data-active')).toBe('true');
     await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
     await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main navigation' }).closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('offcanvas'));
     expect(rail.getByRole('link', { name: 'Workspace' })).toBeTruthy();
@@ -550,7 +560,7 @@ describe('dashboard route layout', () => {
     await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
     expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
 
-    await user.click(rail.getByRole('link', { name: 'Models', exact: true }));
+    await user.click(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Models', exact: true }));
     expect(await screen.findByLabelText('Breadcrumb')).toBeTruthy();
     await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
     expect(router.state.location.pathname).toBe('/models');
@@ -560,18 +570,18 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Configured models' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
-    expect(rail.getByRole('link', { name: 'Activity' })).toBeTruthy();
-    expect(rail.getByRole('link', { name: 'Models', exact: true }).className).toContain('selected');
-    expect(rail.getByRole('link', { name: 'Workspace' }).className).not.toContain('selected');
+    expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Activity' })).toBeTruthy();
+    expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Models', exact: true }).getAttribute('data-active')).toBe('true');
+    expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Workspace' }).getAttribute('data-active')).toBe('false');
 
-    await user.click(rail.getByRole('link', { name: 'Generations' }));
+    await user.click(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Generations' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/generations'), { timeout: 5000 });
-    await waitFor(() => expect(rail.getByRole('link', { name: 'Generations' }).className).toContain('selected'), { timeout: 5000 });
+    await waitFor(() => expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Generations' }).getAttribute('data-active')).toBe('true'), { timeout: 5000 });
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
-    await user.click(rail.getByRole('link', { name: 'Workspace' }));
+    await user.click(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Workspace' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default'));
-    await waitFor(() => expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected'));
+    await waitFor(() => expect(within(screen.getByRole('navigation', {name:'Product navigation'})).getByRole('link', { name: 'Workspace' }).getAttribute('data-active')).toBe('true'));
     expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Overview' })).toBeTruthy();
   }, 15_000);
 

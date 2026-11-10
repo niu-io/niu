@@ -1,3 +1,4 @@
+import ProviderMark from './ProviderMark';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useLocale } from '@/shell/ui-locale';
@@ -63,7 +64,7 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
   }
   const shared = !resale && accessScope === 'internal';
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
-    <DialogHeader><DialogTitle className="flex items-center gap-3"><img src={preset.logo} alt="" className={`size-8 rounded-md object-contain${preset.monochrome ? ' dark:invert' : ''}`} />{format('Connect {0}', [preset.name])}</DialogTitle><DialogDescription>{resale ? t('Connect this Provider and discover its models. Commercial models need offers and customer pricing before selling.') : shared ? t('The account funds this Provider directly. Every internal workspace can use the imported models without customer pricing or payment collection.') : t('The account funds this Provider directly. Only this account can use the imported models.')}</DialogDescription></DialogHeader>
+    <DialogHeader><DialogTitle className="flex items-center gap-3"><ProviderMark preset={preset} />{format('Connect {0}', [preset.name])}</DialogTitle><DialogDescription>{resale ? t('Connect this Provider and discover its models. Commercial models need offers and customer pricing before selling.') : shared ? t('The account funds this Provider directly. Every internal workspace can use the imported models without customer pricing or payment collection.') : t('The account funds this Provider directly. Only this account can use the imported models.')}</DialogDescription></DialogHeader>
     <form onSubmit={event => void connect(event)} className="space-y-4">
       <p className="text-sm font-medium">{resale ? t('Resale') : t('Internal use')}</p>
       {resale ? <p className="text-sm text-muted-foreground">{t('Account')}: {organization?.name ?? t('Select an account first.')}</p> : <div className="space-y-2">

@@ -241,14 +241,14 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       {visibleText.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{uiT("Text model tariffs (per 1M tokens)")}</h3>
-          <Table aria-label={uiT("Branded Credits text tariffs")}>
+          <Table className="table-fixed min-w-[42rem] [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits text tariffs")}>
             <TableHeader>
               <TableRow>
                 <TableHead>{uiT("Model")}</TableHead>
-                <TableHead>{uiT("Input / 1M")}</TableHead>
-                <TableHead>{uiT("Output / 1M")}</TableHead>
-                <TableHead>{uiT("Cached / Reasoning")}</TableHead>
-                <TableHead>{uiT("Request fee & min")}</TableHead>
+                <TableHead className="text-right">{uiT("Input / 1M")}</TableHead>
+                <TableHead className="text-right">{uiT("Output / 1M")}</TableHead>
+                <TableHead className="text-right">{uiT("Cached / Reasoning")}</TableHead>
+                <TableHead className="text-right">{uiT("Request fee & min")}</TableHead>
                 <TableHead>{uiT("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -256,13 +256,13 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
               {visibleText.map(row => (
                 <TableRow key={row.model_alias}>
                   <TableCell className="max-w-40 whitespace-normal font-medium"><p className="inline-flex items-center gap-2 break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p></TableCell>
-                  <TableCell className="tabular-nums"><UnitRate atoms={row.price.prompt_rate} unitName={unitName} precision={precision} /></TableCell>
-                  <TableCell className="tabular-nums"><UnitRate atoms={row.price.completion_rate} unitName={unitName} precision={precision} /></TableCell>
-                  <TableCell className="text-xs tabular-nums text-muted-foreground">
+                  <TableCell className="text-right tabular-nums"><UnitRate atoms={row.price.prompt_rate} unitName={unitName} precision={precision} /></TableCell>
+                  <TableCell className="text-right tabular-nums"><UnitRate atoms={row.price.completion_rate} unitName={unitName} precision={precision} /></TableCell>
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                     <p>{uiT("Cached:")}{' '}{row.price.cached_prompt_rate != null ? formatUnitAtoms(row.price.cached_prompt_rate, unitName, precision) : uiT("Ordinary")}</p>
                     <p>{uiT("Reasoning:")}{' '}{row.price.reasoning_completion_rate != null ? formatUnitAtoms(row.price.reasoning_completion_rate, unitName, precision) : uiT("Ordinary")}</p>
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums text-muted-foreground">
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                     <p>{uiT("Fee:")}{' '}{formatUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
                     <p>{uiT("Min:")}{' '}{formatUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
                   </TableCell>
@@ -288,12 +288,12 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       {visibleMedia.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{uiT("Video tariffs")}</h3>
-          <Table aria-label={uiT("Branded Credits media tariffs")}>
+          <Table className="table-fixed min-w-[42rem] [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits media tariffs")}>
             <TableHeader>
               <TableRow>
-                <TableHead>{uiT("Model & dimensions")}</TableHead>
-                <TableHead>{uiT("Rate")}</TableHead>
-                <TableHead>{uiT("Minimum & rounding")}</TableHead>
+                <TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Media specification")}</TableHead>
+                <TableHead className="text-right">{uiT("Rate")}</TableHead>
+                <TableHead className="text-right">{uiT("Minimum quantity")}</TableHead><TableHead>{uiT("Rounding")}</TableHead>
                 <TableHead>{uiT("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -302,17 +302,19 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                 <TableRow key={`${row.model_alias}:${row.channel}:${row.resolution}:${row.reference_video}`}>
                   <TableCell className="max-w-56 whitespace-normal font-medium">
                     <p className="inline-flex items-center gap-2 break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p>
-                    <p className="text-xs text-muted-foreground">
+                  </TableCell><TableCell className="whitespace-normal text-sm text-muted-foreground">
+                    <p>
                       {row.channel} · {row.resolution} · {row.reference_video ? uiT("With reference video") : uiT("Standard")}
                     </p>
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell className="text-right tabular-nums">
                     <p>{formatUnitAtoms(row.price.amount_atoms, unitName, precision)}{' '}{uiT("per")}{' '}{quantityText(row.price.per_quantity)} {uiT("video tokens")}</p>
                     {formatExactUnitAtoms(row.price.amount_atoms, unitName, precision) !== formatUnitAtoms(row.price.amount_atoms, unitName, precision) && <p className="text-xs text-muted-foreground">{formatExactUnitAtoms(row.price.amount_atoms, unitName, precision)}</p>}
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    <p>{uiT("Minimum:")}{' '}{quantityText(row.price.minimum_quantity)} {uiT("video tokens")}</p>
-                    <p>{uiT("Rounding:")}{' '}{uiT(row.price.rounding)}</p>
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                    {quantityText(row.price.minimum_quantity)} {uiT("video tokens")}
+                  </TableCell><TableCell className="text-sm">
+                    {uiT(row.price.rounding)}
                   </TableCell>
                   <TableCell>
                     <Button

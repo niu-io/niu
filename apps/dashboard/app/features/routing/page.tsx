@@ -57,7 +57,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/u
 import { fetchQuery, invalidateForMutation, peekQuery } from '@/lib/query-cache';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import ModelPicker from '../agent-review/ModelPicker';
-import { agentHandoffPrompt, formatModelAlias, formatModelName, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
+import { CopyAgentPrompt, agentHandoffPrompt, formatModelAlias, formatModelName, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
 import { buildPoolStrategy, PoolStrategyFields, poolStrategyErrorMessage, PoolStrategySummary, strategyDraftFrom, type PoolStrategyDraft } from './strategy';
 
 function poolSlugFromName(name: string) {
@@ -935,8 +935,8 @@ function RoutingView({
             [revision ? uiF(' · revision {0}', [revision]) : ''],
           )
         : rows.length ? t(
-            'Configure conditional routing rules and fallback candidates—callable as custom model IDs—or review agent revisions and execution evidence.',
-            '配置条件路由规则与候选模型回退策略（可直接作为自定义模型 ID 调用），或审阅智能体的修订记录与执行证据。',
+            'Review routing strategies, agent revisions, and execution evidence. Manual configuration is available when needed.',
+            '查看路由策略、Agent 修订记录和执行证据；需要时可手动调整配置。',
           ) : '';
 
   return (
@@ -944,10 +944,11 @@ function RoutingView({
       title={title}
       actions={
         <>
+          {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'configure model routing for my task; inspect existing grants, costs, and evaluation evidence, explain tradeoffs, then verify the saved strategy')} onError={setError} />}
           {!slug && canWrite && (
-            <Button size="sm" onClick={openCreatePoolDialog}>
+            <Button size="sm" variant="ghost" onClick={openCreatePoolDialog}>
               <IconPlus size={16} />
-              {t('Create routing rule', '创建路由规则')}
+              {t('Manual setup', '手动配置')}
             </Button>
           )}
           {slug && detail.pool && canWrite && (
@@ -1078,17 +1079,9 @@ function RoutingView({
           <ReviewEmptyState
             title={t('No routing rules yet', '暂无路由规则')}
             description={t(
-              'Define conditional routing rules and fallback candidate models—each callable as a custom model ID—or ask your coding agent to configure routing for your task.',
-              '定义条件路由分流规则与候选模型回退策略（每条规则均可作为自定义模型 ID 调用），或让你的 coding agent 为任务配置模型路由。',
+              'Ask your coding agent to configure routing for your task within your model access and spending limits. Review the saved strategy and evidence here.',
+              '让编码 Agent 在模型访问权限和支出限制内为任务配置路由，在此查看保存的策略与证据。',
             )}
-            actions={
-              canWrite ? (
-                <Button onClick={openCreatePoolDialog}>
-                  <IconPlus size={16} />
-                  {t('Create routing rule', '创建路由规则')}
-                </Button>
-              ) : undefined
-            }
             prompt={agentHandoffPrompt(
               routeWorkspace,
               'configure model routing for my task',

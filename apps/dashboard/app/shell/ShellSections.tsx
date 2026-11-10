@@ -1,14 +1,8 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { Cpu as RailModels, FolderKey as RailWorkspace } from 'lucide-react';
 import {
-  IconBook as RailDocs,
-  IconBookFilled as RailDocsFilled,
-  IconChartLine as ChartNoAxesCombined,
   IconLayoutDashboard as LayoutDashboard,
   IconListDetails,
-  IconShieldLock,
-  IconSparkles as RailChat,
   IconWifiOff as WifiOff,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +17,6 @@ import {
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -31,10 +24,9 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SettingsNavigation } from '@/features/account/settings-shell';
-import AccountMenu from './AccountMenu';
-import type { DashboardContext, GatewayStatus, Model } from './dashboard-context';
+import { ShellNavigation, ShellAccount } from './ShellNavigation';
+import { canManagePlatform, type DashboardContext, type GatewayStatus, type Model } from './dashboard-context';
 import { prefetchRouteIntent } from './prefetch';
 import ProductRailLink from './ProductRailLink';
 import { ProviderNav } from './ProviderNav';
@@ -111,151 +103,6 @@ export function GatewayOutageDialog({
   );
 }
 
-export function ShellRail({
-  brandingDisplayName,
-  logo,
-  showWorkspaceAreas,
-  activeWorkspacePath,
-  destination,
-  pathname,
-  supplierArea,
-  generationsHref,
-  activePath,
-  modelsHref,
-  token,
-  isInstallation,
-  helpArea,
-  context,
-}: {
-  brandingDisplayName: string;
-  logo: string;
-  showWorkspaceAreas: boolean;
-  activeWorkspacePath: string;
-  destination: string;
-  pathname: string;
-  supplierArea: boolean;
-  generationsHref: string;
-  activePath: string;
-  modelsHref: string;
-  token: string;
-  isInstallation: boolean;
-  helpArea: boolean;
-  context: DashboardContext;
-}) {
-  const { t, format: uiF } = useLocale();
-  const uiT = (en: string) => t(en, en);
-  return (
-    <nav className="app-rail" aria-label={uiT('Product navigation')}>
-      <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label={uiF('{0} home', [brandingDisplayName])}>
-        <img src={logo} alt="" />
-      </a>
-      {showWorkspaceAreas && (
-        <Tooltip delayDuration={250}>
-          <TooltipTrigger asChild>
-            <ProductRailLink
-              to={activeWorkspacePath}
-              end
-              className={`rail-item${
-                destination === 'Workspace' && pathname.startsWith('/workspaces/') && !supplierArea
-                  ? ' selected'
-                  : ''
-              }`}
-              aria-label={t('Workspace', '工作空间')}
-            >
-              <RailWorkspace size={23} strokeWidth={1.7} />
-            </ProductRailLink>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={10}>
-            {t('Workspace', '工作空间')}
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {showWorkspaceAreas && (
-        <>
-          <Tooltip delayDuration={250}>
-            <TooltipTrigger asChild>
-              <ProductRailLink
-                to={generationsHref}
-                className={`rail-item${
-                  activePath === 'generations' || activePath.startsWith('generations/') ? ' selected' : ''
-                }`}
-                aria-label={t('Generations', '生成对话')}
-              >
-                <RailChat size={23} stroke={1.7} />
-              </ProductRailLink>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={10}>
-              {t('Generations', '生成对话')}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip delayDuration={250}>
-            <TooltipTrigger asChild>
-              <ProductRailLink
-                to="/activity"
-                className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`}
-                aria-label={t('Activity', '活动')}
-              >
-                <ChartNoAxesCombined size={23} aria-hidden="true" />
-              </ProductRailLink>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={10}>
-              {t('Activity', '活动')}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip delayDuration={250}>
-            <TooltipTrigger asChild>
-              <ProductRailLink
-                to={modelsHref}
-                disablePrefetch={!token}
-                className={`rail-item${destination === 'Models' ? ' selected' : ''}`}
-                aria-label={t('Models', '模型')}
-              >
-                <RailModels size={23} strokeWidth={1.7} />
-              </ProductRailLink>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={10}>
-              {t('Models', '模型')}
-            </TooltipContent>
-          </Tooltip>
-        </>
-      )}
-      <div className="rail-bottom">
-        {isInstallation && (
-          <Tooltip delayDuration={250}>
-            <TooltipTrigger asChild>
-              <ProductRailLink
-                to="/admin/providers"
-                className={`rail-item${supplierArea ? ' selected' : ''}`}
-                aria-label={t('Admin', '管理后台')}
-              >
-                <IconShieldLock size={24} aria-hidden="true" />
-              </ProductRailLink>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={10}>
-              {t('Admin', '管理后台')}
-            </TooltipContent>
-          </Tooltip>
-        )}
-        <Tooltip delayDuration={250}>
-          <TooltipTrigger asChild>
-            <ProductRailLink
-              className={`rail-item${helpArea ? ' selected' : ''}`}
-              to="/help/"
-              aria-label={t('Docs', '文档')}
-            >
-              {helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}
-            </ProductRailLink>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={10}>
-            {t('Docs', '文档')}
-          </TooltipContent>
-        </Tooltip>
-        <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} />
-      </div>
-    </nav>
-  );
-}
-
 export function ShellSidebar({
   sidebarRef,
   toggleRef,
@@ -263,7 +110,7 @@ export function ShellSidebar({
   activityArea,
   settingsArea,
   supplierArea,
-  phoneNavigation,
+  contextual,
   creationAvailable,
   context,
   activeWorkspacePath,
@@ -277,7 +124,7 @@ export function ShellSidebar({
   activityArea: boolean;
   settingsArea: boolean;
   supplierArea: boolean;
-  phoneNavigation: boolean;
+  contextual: boolean;
   creationAvailable: boolean;
   context: DashboardContext;
   activeWorkspacePath: string;
@@ -343,7 +190,8 @@ export function ShellSidebar({
         height: 'auto',
       }}
     >
-      {activityArea ? (
+      <ShellNavigation />
+      {!contextual ? <SidebarContent /> : activityArea ? (
         <>
           <SidebarHeader className="sidebar-heading">
             <h2 className="sidebar-heading-row">{t('Activity', '活动')}</h2>
@@ -371,7 +219,7 @@ export function ShellSidebar({
       ) : settingsArea ? (
         <SettingsNavigation context={context} />
       ) : adminArea || supplierArea ? (
-        <ProviderNav context={context} />
+        <>{canManagePlatform(context.session) ? <ProviderNav context={context} /> : <SidebarContent />}</>
       ) : (
         <WorkspaceNav
           creationAvailable={creationAvailable}
@@ -382,11 +230,7 @@ export function ShellSidebar({
           onCreateWorkspace={onCreateWorkspace}
         />
       )}
-      {phoneNavigation && (
-        <SidebarFooter>
-          <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile />
-        </SidebarFooter>
-      )}
+      <ShellAccount />
     </Sidebar>
   );
 }

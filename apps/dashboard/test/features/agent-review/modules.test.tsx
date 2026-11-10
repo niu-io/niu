@@ -182,10 +182,11 @@ test('evaluations are a dedicated module listing definitions and task evidence',
   ).toBeTruthy();
   expect(screen.getByText('Summarize decisions')).toBeTruthy();
   expect(
-    screen.getByText('Define task, rubric & test samples'),
-  ).toBeTruthy();
+    screen.queryByText('Define task, rubric & test samples'),
+  ).toBeNull();
+  expect(screen.getByRole('button', { name: 'Copy agent prompt' })).toBeTruthy();
   expect(
-    screen.getByRole('button', { name: 'Create evaluation' }),
+    screen.getByRole('button', { name: 'Manual setup' }),
   ).toBeTruthy();
   expect(
     screen.queryByRole('button', { name: 'Create routing rule' }),

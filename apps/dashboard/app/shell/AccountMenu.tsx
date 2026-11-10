@@ -24,7 +24,7 @@ import { useLocale, type Locale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 
-export default function AccountMenu({ context, workspacePath, supplierArea = false, mobile = false }: { context: DashboardContext; workspacePath: string; supplierArea?: boolean; mobile?: boolean }) {
+export default function AccountMenu({ context, workspacePath, supplierArea = false, mobile = false, showDestinations = true }: { context: DashboardContext; workspacePath: string; supplierArea?: boolean; mobile?: boolean; showDestinations?: boolean }) {
   const { t: uiT, format: uiF } = useUILocale();
   const {isMobile: compactNavigation, setOpenMobile} = useSidebar();
   const { locale, setLocale, t } = useLocale();
@@ -53,13 +53,12 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
   const localeLabel = locale === 'zh-CN' ? '简体中文' : 'English';
   const roles = context.roleSwitch;
 
-  return <>
-    <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
+  return <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
       {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="gap-2 px-2" aria-label={uiT("Account menu")}>{profile ? <Avatar className="size-6"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6" aria-hidden="true">{avatarInitial}</span>}<span className="max-w-24 truncate text-sm font-medium">{label}</span><ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
         {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
       </DropdownMenuTrigger>}
         <DropdownMenuContent className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
-          {mobile && <>
+          {mobile && showDestinations && <>
             {!supplierOnly && <>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><FolderKey />{t('Workspace', '工作空间')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/generations"><IconSparkles />{t('Generations', '生成对话')}</Link></DropdownMenuItem>
@@ -138,7 +137,5 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {appearance.error && <><DropdownMenuLabel className="text-destructive">{appearance.error}</DropdownMenuLabel><DropdownMenuItem onSelect={appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</DropdownMenuItem></>}
           {token && <><DropdownMenuSeparator/><DropdownMenuItem onSelect={signOut}><LogOut/>{t('Sign out', '退出登录')}</DropdownMenuItem></>}
         </DropdownMenuContent>
-    </DropdownMenu>
-
-  </>;
+    </DropdownMenu>;
 }

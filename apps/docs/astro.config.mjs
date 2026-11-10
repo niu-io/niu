@@ -56,7 +56,7 @@ export default defineConfig({
           { label: 'Request logs', slug: 'concepts/execution-observation' },
           { label: 'Request capacity', slug: 'guides/request-capacity' },
           'configuration/guardrails',
-          { label: 'Material library', slug: 'reference/workspace-materials' },
+          { label: 'Assets', slug: 'reference/workspace-materials' },
           { label: 'Usage & billing', slug: 'concepts/performance-and-cost' },
           { label: 'Request lifecycle', slug: 'concepts/request-lifecycle' },
         ] },

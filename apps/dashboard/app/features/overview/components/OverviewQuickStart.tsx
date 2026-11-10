@@ -1,6 +1,8 @@
 import { IconArrowUpRight, IconRoute } from '@tabler/icons-react';
 import { Link } from 'react-router';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import AgentConnection from '@/shell/AgentConnection';
+import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale } from '@/shell/ui-locale';
 
 type Step = { to: string; label: string; detail: string };
@@ -17,6 +19,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
   hasModels: boolean;
 }) {
   const { t: uiT } = useLocale();
+  const context = useDashboardContext();
   const firstStep: Step = hasModels
     ? canWrite
       ? { to: `${workspaceRoot}/keys`, label: uiT("Create an API key"), detail: uiT("Choose the models this workspace may call.") }
@@ -25,13 +28,13 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
       ? { to: '/admin/providers', label: uiT("Connect provider"), detail: uiT("Connect a Provider and import its models.") }
       : { to: modelsHref, label: uiT("Browse models"), detail: uiT("Ask a platform administrator to make a model available.") };
   const steps: Step[] = [
-    firstStep,
     { to: '/help/guides/api-quickstart/', label: uiT("Read the API quickstart"), detail: uiT("Use HTTP or SDK examples with your workspace key.") },
     { to: `${workspaceRoot}/executions`, label: uiT("View requests"), detail: uiT("Inspect each request after your first call.") },
+    firstStep,
   ];
-  const title = hasModels ? uiT("Send your first request") : uiT("Make a model available");
+  const title = uiT("Connect your agent", "连接你的 Agent");
   const description = hasModels
-    ? uiT("Calls sent through Chat or your application appear here.")
+    ? uiT("Let your coding agent manage model access within your authority. Its requests and results appear here.", "让编码 Agent 在授权范围内管理模型访问，在此查看请求与结果。")
     : uiT("A platform administrator must connect a Provider and publish models before this workspace can send requests.");
   return <Empty className="gateway-task-empty gateway-first-use">
     <EmptyHeader>
@@ -39,6 +42,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
       <EmptyTitle role="heading" aria-level={3}>{title}</EmptyTitle>
       <EmptyDescription>{description}</EmptyDescription>
     </EmptyHeader>
+    <AgentConnection context={context} />
     <div className="gateway-first-use-steps">
       {steps.map((step, index) => <Link key={step.to} to={step.to} aria-label={step.label}>
         <span aria-hidden="true">{index + 1}</span>

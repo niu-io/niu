@@ -50,12 +50,11 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { formatDurationMs } from '@/lib/duration';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
-import { agentHandoffPrompt, formatModelAlias, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
+import { CopyAgentPrompt, agentHandoffPrompt, formatModelAlias, ReviewEmptyState, ReviewPageShell, safeText, stamp } from '../agent-review/shared';
 import {
   EvaluationComparisonTable,
   EvaluationMetrics,
   EvaluationSampleCriteriaSection,
-  EvaluationWorkflowOverview,
 } from './EvaluationComponents';
 import { EvaluationFormDialog } from './EvaluationFormDialog';
 
@@ -401,26 +400,28 @@ function EvaluationsView({
               'Saved workspace configuration{0}. Your agent can make changes within its delegated authority.',
               [revision ? uiF(' · revision {0}', [revision]) : ''],
             )
-          : t(
-              'Benchmark candidate models or routing rules (pool/<slug>) against your task samples to compare acceptance rate, latency, and cost per accepted result.',
-              '使用你的任务测试集对候选模型或路由规则（pool/<slug>）进行基准评测，对比任务通过率、耗时与单次合格成本。',
-            );
+          : rows.length ? t(
+              'Review task criteria, recorded judgments, latency, and customer charges from agent-run evaluations.',
+              '查看 Agent 评估的任务标准、已记录判定、耗时与客户费用。',
+            ) : '';
 
   return (
     <ReviewPageShell
       title={title}
       actions={
         <>
+          {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'evaluate models against my task criteria within the authorized spending limits; report conclusions, cost, and limitations')} onError={setError} />}
           {!slug && canWrite && (
             <Button
               size="sm"
+              variant="ghost"
               onClick={() => {
                 setEditingDefinition(null);
                 setDialogOpen(true);
               }}
             >
               <IconPlus size={16} />
-              {t('Create evaluation', '创建评估')}
+              {t('Manual setup', '手动配置')}
             </Button>
           )}
           {slug && detail.definition && !run && canWrite && (
@@ -457,7 +458,6 @@ function EvaluationsView({
     >
       {!slug && (
         <>
-          <EvaluationWorkflowOverview />
           {rows.length ? (
             <>
               <Table>
@@ -519,22 +519,9 @@ function EvaluationsView({
             <ReviewEmptyState
               title={uiF('No {0} yet', [title.toLowerCase()])}
               description={t(
-                'Create an evaluation suite with your task, acceptance rubric, and test samples, or ask your coding agent to evaluate models within your test budget.',
-                '创建一个包含业务任务、验收标准（Rubric）与测试样本的评估集，或让你的编码智能体在预算范围内评测模型。',
+                'Ask your coding agent to evaluate models against your task criteria within an authorized test budget. Review its recorded evidence here.',
+                '让编码 Agent 在授权测试预算内，按照任务验收标准评测模型，并在此查看记录的证据。',
               )}
-              actions={
-                canWrite ? (
-                  <Button
-                    onClick={() => {
-                      setEditingDefinition(null);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <IconPlus size={16} />
-                    {t('Create evaluation', '创建评估')}
-                  </Button>
-                ) : undefined
-              }
               prompt={agentHandoffPrompt(
                 routeWorkspace,
                 'define a task-specific model evaluation; agree on acceptance criteria and an intended test budget, and rely only on the server spending limits as enforcement',

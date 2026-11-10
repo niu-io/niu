@@ -266,7 +266,7 @@ it('presents Provider identity and actions without exposing preset endpoints in 
   expect(screen.getByRole('link', { name: 'Manage models' })).toBeTruthy();
 });
 
-it('replaces Connect with an Open Provider link when a preset is already configured', async () => {
+it('shows configured Providers once and excludes them from available presets', async () => {
   vi.mocked(request).mockImplementation(async (_token, path) => ({ data: path.endsWith('/presets')
     ? [
         { id: 'openrouter', name: 'OpenRouter', protocol: 'openai', api_base: 'https://openrouter.ai/api/v1', website: 'https://openrouter.ai/keys' },
@@ -275,8 +275,8 @@ it('replaces Connect with an Open Provider link when a preset is already configu
     : [{ id: 'prov-or', slug: 'openrouter', name: 'OpenRouter', members: 0, api_keys: 1, internal_api_keys: 1, internal_model_routes: 12 }] }));
   render(<MemoryRouter><ProviderList /></MemoryRouter>);
   const availableList = await screen.findByRole('list', { name: 'Available Providers' });
-  expect(within(availableList).getByText('Configured')).toBeTruthy();
-  const openLink = within(availableList).getByRole('link', { name: 'Open OpenRouter' });
+  expect(within(availableList).queryByText('OpenRouter')).toBeNull();
+  const openLink = screen.getByRole('link', { name: 'OpenRouter', exact: true });
   expect(openLink.getAttribute('href')).toBe('/admin/providers/openrouter');
   expect(within(availableList).queryByRole('button', { name: 'Connect OpenRouter' })).toBeNull();
   expect(within(availableList).getByRole('button', { name: 'Connect DeepSeek' })).toBeTruthy();

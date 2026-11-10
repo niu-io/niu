@@ -208,35 +208,34 @@ export function workspaceChatRedirectLoader({ request, params, context }: Loader
   return redirect(`/generations${search.size ? `?${search.toString()}` : ''}${url.hash || getActiveNavigationHash()}`);
 }
 
+export function legacyPathTarget(to: string, workspace: string | undefined, search: string, hash: string) {
+  const [path, presetQuery = ''] = to.split('?');
+  const merged = new URLSearchParams(presetQuery);
+  new URLSearchParams(search).forEach((value, key) => merged.set(key, value));
+  const target = path.startsWith('../') && workspace
+    ? `/workspaces/${encodeURIComponent(workspace)}/${path.slice(3)}` : path;
+  return `${target}${merged.size ? `?${merged}` : ''}${hash}`;
+}
+
 export function LegacyPathRedirect({ to }: { to: string }) {
   const location = useLocation();
-  return <Navigate to={`${to}${location.search}${location.hash}`} replace />;
+  const { workspace } = useParams();
+  return <Navigate to={legacyPathTarget(to, workspace, location.search, location.hash)} replace />;
 }
 
 export function legacyPathRedirectLoader(to: string) {
   return ({ request, params, context }: LoaderFunctionArgs) => {
     if (shouldDeferLegacyRedirect(request, context)) return null;
-    if (to.startsWith('../') && params.workspace) {
-      const target = to.slice(3);
-      const url = parseRequestUrl(request);
-      const [targetPath, presetQuery = ''] = target.split('?');
-      const merged = new URLSearchParams(presetQuery);
-      const incoming = new URLSearchParams(url.search);
-      incoming.forEach((value, key) => merged.set(key, value));
-      const queryStr = merged.toString();
-      return redirect(
-        `/workspaces/${encodeURIComponent(params.workspace)}/${targetPath}${queryStr ? `?${queryStr}` : ''}${url.hash || getActiveNavigationHash()}`,
-      );
-    }
-    return redirect(`${to}${requestSuffix(request)}`);
+    const url = parseRequestUrl(request);
+    return redirect(legacyPathTarget(to, params.workspace, url.search, url.hash || getActiveNavigationHash()));
   };
 }
 
 export function WorkspaceSectionRedirect({ section }: { section: string }) {
-  const { slug } = useParams();
+  const { slug, workspace } = useParams();
   const location = useLocation();
   const suffix = slug ? `/${encodeURIComponent(slug)}` : '';
-  return <Navigate to={`../${section}${suffix}${location.search}${location.hash}`} replace />;
+  return <Navigate to={legacyPathTarget(`../${section}${suffix}`, workspace, location.search, location.hash)} replace />;
 }
 
 export function workspaceSectionRedirectLoader(section: string) {

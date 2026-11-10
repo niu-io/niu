@@ -502,11 +502,12 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   </div>;
 
   return <>
-    {embedded ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div> : <PageHeader title={uiT("Users")} action={actions} />}
+    {!embedded && <PageHeader title={uiT("Users")} action={actions} />}
     {error && <div className="operator-error" role="alert"><span>{error}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
 
     <div className="operator-directory-region">
       <OperatorDirectory
+        actions={embedded ? actions : undefined}
         operators={visibleOperators}
         organizations={organizations}
         projects={projects}

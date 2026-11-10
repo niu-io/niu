@@ -44,7 +44,7 @@ describe('organization switching', () => {
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
     await screen.findByRole('heading', { name: 'Organization', level: 1 });
-    expect(await screen.findByText('Research', { exact: true })).toBeTruthy();
+    expect(await screen.findByDisplayValue('Research')).toBeTruthy();
     expect(screen.queryByText('Acme', { exact: true })).toBeNull();
     expect(screen.getByRole('link', { name: 'Users for Shared name' }).getAttribute('href')).toBe('/settings/members?workspace=shared-name-project2');
     await user.click(screen.getByRole('link', { name: 'Shared name', exact: true }));
@@ -219,7 +219,7 @@ describe('organization switching', () => {
     });
     await screen.findByRole('heading', { name: 'Organization', level: 1 });
     expect(router.state.location.search).toContain('organization=studio-alpha');
-    expect(await screen.findByText('Studio Alpha', { exact: true })).toBeTruthy();
+    expect(await screen.findByDisplayValue('Studio Alpha')).toBeTruthy();
     expect(await screen.findByText('studio-alpha', { exact: true })).toBeTruthy();
 
     // Rename the organization in Organization settings
@@ -228,7 +228,7 @@ describe('organization switching', () => {
     await user.type(renameInput, 'Studio Alpha Prime');
     await user.click(screen.getByRole('button', { name: 'Save name' }));
     await screen.findByText('Organization name saved.');
-    expect(screen.getByText('Studio Alpha Prime', { exact: true })).toBeTruthy();
+    expect(screen.getByDisplayValue('Studio Alpha Prime')).toBeTruthy();
 
     // Claim membership in another organization using an issued access token
     await user.type(screen.getByLabelText('Member access token'), 'niu-invite-partner-token');
