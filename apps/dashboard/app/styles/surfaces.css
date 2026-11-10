@@ -190,7 +190,7 @@
 .page-content:has(.provider-admin-panel > .provider-empty-state), .provider-admin-panel:has(> .provider-empty-state) { display: flex; flex: 1; flex-direction: column; }
 .provider-admin-panel > .provider-empty-state { flex: 1; min-height: 240px; }
 .page-content:has(.provider-admin-panel > .supplier-ledger-empty), .provider-admin-panel:has(> .supplier-ledger-empty) { display: flex; flex: 1; flex-direction: column; }
-.provider-admin-panel > .supplier-ledger-empty { min-height: 240px; }
+.provider-admin-panel > .supplier-ledger-empty { flex: 0 0 auto; min-height: 200px; }
 .page-content:has(.not-found-empty) { display: flex; flex: 1; flex-direction: column; }
 .not-found-empty { min-height: 240px; }
 .provider-admin-panel > p { font-size: 13px; color: var(--muted-foreground); }
@@ -243,7 +243,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 /* Empty states center in the remaining page or pane, below its controls. */
 .app-shell .page-content:not(.help-content) { display: flex; flex-direction: column; }
 .page-content:not(.help-content) > .gateway-route-content:not([hidden]),
-.page-content:not(.help-content) > .gateway-route-content > div:not([hidden]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.page-content:not(.help-content) > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
 .empty-region:has([data-slot="empty"]) { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 1; }
 .provider-admin-panel:has(> [data-slot="empty"]),.vendor-detail-panel:has(> .vendor-empty) { display: flex; flex: 1; flex-direction: column; }
