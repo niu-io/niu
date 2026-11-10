@@ -118,15 +118,19 @@ beforeEach(() => {
 });
 
 describe('workspace settings', () => {
-  it('renders general settings and workspace spending limits directly without external billing shortcut buttons', async () => {
+  it('renders general settings and workspace spending limits in dedicated tabs without external billing shortcut buttons', async () => {
     renderSettings();
+    const user = userEvent.setup();
     await screen.findByLabelText('Workspace name');
-    expect(screen.queryByRole('tab')).toBeNull();
-    expect(screen.queryByRole('tablist')).toBeNull();
-    expect(screen.getByRole('region', { name: 'Workspace spending limits' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Spending limits' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'General' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Spending limits' }).getAttribute('aria-selected')).toBe('false');
     expect(screen.queryByRole('link', { name: 'Spending & statements' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Manage credits' })).toBeNull();
+
+    await user.click(screen.getByRole('tab', { name: 'Spending limits' }));
+    expect(screen.getByRole('tab', { name: 'Spending limits' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('region', { name: 'Workspace spending limits' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Spending limits' })).toBeTruthy();
   });
 
   it('redirects the legacy spending and billing tab to workspace billing with its scope', async () => {

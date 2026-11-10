@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import WorkspaceSpendingLimits from '@/features/billing/WorkspaceSpendingLimits';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { readRouterSessionSnapshot } from '@/shell/router-context';
@@ -108,6 +109,9 @@ export default function WorkspaceSettings() {
   const [confirming, setConfirming] = useState(false);
   const [confirmation, setConfirmation] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [activeTab, setActiveTab] = useState<'general' | 'limits'>(() =>
+    searchParams.get('tab') === 'limits' || location.hash === '#limits' ? 'limits' : 'general',
+  );
   const operationScope = useRef(0);
   const handledFetcherData = useRef<WorkspaceSettingsActionData | null>(null);
 
@@ -245,104 +249,114 @@ export default function WorkspaceSettings() {
   }
 
   return (
-    <div className="w-full min-w-0 space-y-10">
-      <section aria-labelledby="workspace-general-title" className="space-y-5">
-        <h2 id="workspace-general-title" className="text-base font-semibold">
-          {t('General', '常规设置')}
-        </h2>
-        <form onSubmit={rename} aria-busy={renaming} className="grid gap-5">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="grid min-w-[16rem] flex-1 gap-2">
-            <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
-            <Input
-              ref={nameInputRef}
-              id="workspace-name"
-              required
-              maxLength={WORKSPACE_NAME_MAX_BYTES}
-              value={name}
-              disabled={!canEdit || busy}
-              aria-invalid={nameError?.code === 'invalid-name' ? true : undefined}
-              aria-describedby={nameError?.code === 'invalid-name' ? 'workspace-name-error' : undefined}
-              onChange={event => {
-                setName(event.target.value);
-                setRenameOutcome(null);
-              }}
-            />
-            </div>
-          <div className="flex gap-2">
-            {nameChanged && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => {
-                  setName(currentName);
-                  setRenameOutcome(null);
-                  nameInputRef.current?.focus();
-                }}
-              >
-                {t('Cancel', '取消')}
-              </Button>
-            )}
-            <Button disabled={!canEdit || busy || !name.trim() || !nameChanged}>
-              {renaming ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}
-            </Button>
-          </div>
-          </div>
-          {visibleOutcome?.kind === 'success' && (
-            <p role="status" className="text-sm text-muted-foreground">
-              {t('Workspace renamed.', '工作空间已重命名。')}
-            </p>
-          )}
-          {nameError && (
-            <p id="workspace-name-error" role="alert" className="text-sm text-destructive">
-              {renameErrorText(nameError)}
-            </p>
-          )}
-        </form>
-      </section>
-      {context.token && (
-        <WorkspaceSpendingLimits
-          className="space-y-4 border-t border-border/60 pt-6"
-          token={context.token}
-          organization={workspace.organization_id}
-          project={workspace.id}
-          canConfigure={canConfigureSpending}
-          refresh={0}
-        />
-      )}
-      {canDelete && !workspace.is_default && (
-        <section aria-labelledby="workspace-delete-title" className="space-y-3 border-t border-border/60 pt-6">
-          <h2 id="workspace-delete-title" className="text-base font-semibold">
-            {t('Delete workspace', '删除工作空间')}
-          </h2>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              {t(
+    <div className="w-full min-w-0 space-y-6">
+      <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'general' | 'limits')}>
+        <TabsList aria-label={t('General', '常规设置')}>
+          <TabsTrigger value="general">{t('General', '常规设置')}</TabsTrigger>
+          {context.token && <TabsTrigger value="limits">{t('Spending limits', '支出限制')}</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="general" className="space-y-8 pt-2">
+          <section aria-labelledby="workspace-general-title" className="space-y-5">
+            <h2 id="workspace-general-title" className="text-base font-semibold">
+              {t('General', '常规设置')}
+            </h2>
+            <form onSubmit={rename} aria-busy={renaming} className="grid gap-5">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="grid min-w-[16rem] flex-1 gap-2">
+                  <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
+                  <Input
+                    ref={nameInputRef}
+                    id="workspace-name"
+                    required
+                    maxLength={WORKSPACE_NAME_MAX_BYTES}
+                    value={name}
+                    disabled={!canEdit || busy}
+                    aria-invalid={nameError?.code === 'invalid-name' ? true : undefined}
+                    aria-describedby={nameError?.code === 'invalid-name' ? 'workspace-name-error' : undefined}
+                    onChange={event => {
+                      setName(event.target.value);
+                      setRenameOutcome(null);
+                    }}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {nameChanged && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setName(currentName);
+                        setRenameOutcome(null);
+                        nameInputRef.current?.focus();
+                      }}
+                    >
+                      {t('Cancel', '取消')}
+                    </Button>
+                  )}
+                  <Button disabled={!canEdit || busy || !name.trim() || !nameChanged}>
+                    {renaming ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}
+                  </Button>
+                </div>
+              </div>
+              {visibleOutcome?.kind === 'success' && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {t('Workspace renamed.', '工作空间已重命名。')}
+                </p>
+              )}
+              {nameError && (
+                <p id="workspace-name-error" role="alert" className="text-sm text-destructive">
+                  {renameErrorText(nameError)}
+                </p>
+              )}
+            </form>
+          </section>
+          {canDelete && !workspace.is_default && (
+            <section aria-labelledby="workspace-delete-title" className="space-y-3 border-t border-border/60 pt-6">
+              <h2 id="workspace-delete-title" className="text-base font-semibold">
+                {t('Delete workspace', '删除工作空间')}
+              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">
+                  {t(
                     'Only empty workspaces can be deleted. Workspaces with saved records are protected.',
                     '仅空工作空间可以删除，包含历史记录的工作空间受到保护。',
                   )}
+                </p>
+                <Button
+                  ref={deleteButtonRef}
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmation('');
+                    setDeleteError('');
+                    setConfirming(true);
+                  }}
+                >
+                  {t('Delete workspace', '删除工作空间')}
+                </Button>
+              </div>
+            </section>
+          )}
+          {!confirming && deleteError && (
+            <p role="alert" className="text-sm text-destructive">
+              {t(deleteError)}
             </p>
-            <Button
-              ref={deleteButtonRef}
-              variant="destructive"
-              disabled={busy}
-              onClick={() => {
-                setConfirmation('');
-                setDeleteError('');
-                setConfirming(true);
-              }}
-            >
-              {t('Delete workspace', '删除工作空间')}
-            </Button>
-          </div>
-        </section>
-      )}
-      {!confirming && deleteError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t(deleteError)}
-        </p>
-      )}
+          )}
+        </TabsContent>
+        {context.token && (
+          <TabsContent value="limits" className="pt-2">
+            <WorkspaceSpendingLimits
+              className="space-y-4"
+              token={context.token}
+              organization={workspace.organization_id}
+              project={workspace.id}
+              canConfigure={canConfigureSpending}
+              refresh={0}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
       <Dialog
         open={confirming}
         onOpenChange={open => {
