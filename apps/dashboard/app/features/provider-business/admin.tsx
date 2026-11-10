@@ -599,7 +599,7 @@ function Administration({ token }: { token: string }) {
   const sectionDescription = {
     overview: internal ? 'Connect an API key and discover models for internal use.' : 'Connect API access and model routes, then manage commercial rates and payments.',
     models: internal ? 'Manage model connections and availability.' : 'Model connections, availability and commercial offers.',
-    consumption: 'Provider usage and accrued purchase charges over the last 90 days.',
+    usage: 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
     members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
   }[section];
@@ -621,7 +621,7 @@ function Administration({ token }: { token: string }) {
     settlementPreview.entry_count > 0;
   return (
     <>
-      <div className="supplier-section-heading"><p>{sectionDescription && uiT(sectionDescription)}</p></div>
+      {sectionDescription && <div className="supplier-section-heading"><p>{uiT(sectionDescription)}</p></div>}
       <PageHeader
         title={sectionTitle}
         action={businesses.length > 0 && <div className="provider-header-actions">
@@ -752,7 +752,7 @@ function Administration({ token }: { token: string }) {
             </div>
           </div>}
           {section === "usage" && <>
-            <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>
+            {(Boolean(data?.consumption?.length) || (Array.isArray(data?.media_consumption) && data.media_consumption.length === 0)) && <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>}
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Accrued charges")}</TableHead><TableHead>{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
               {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
             </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
