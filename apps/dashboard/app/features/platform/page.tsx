@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
+import zhifuxLogo from '@/assets/payment-gateways/zhifux.png';
 type Settings = {revision: string; enabled: boolean; merchant_id: string; has_key: boolean; endpoint: string; notify_url: string; return_url: string; methods: string[]};
 type GatewayVerification = {gateway:string;checkout_enabled:boolean;currency_supported:boolean;account_verified:boolean|null;callback_verified:boolean;ready:boolean};
 type Configuration = { payment_gateways: {name: string; configured: boolean}[]; verification?: {currency_configured:boolean;gateways:GatewayVerification[]} };
@@ -164,7 +164,7 @@ function PaymentConfiguration({token}: {token: string}) {
         return <Card key={gateway.name} className="gap-5 shadow-none" role="article" aria-label={gateway.name === 'Zhifux' ? uiT("ZhifuX") : gateway.name}>
           <CardHeader>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div className={`flex h-12 items-center gap-2 rounded-xl px-3 ${gateway.name === 'Zhifux' ? 'bg-[#4f26c3]' : 'bg-muted'}`} aria-hidden="true">{epay ? <><IconBrandAlipay className="size-7 text-[#1677ff]"/><IconBrandWechat className="size-7 text-[#07a940]"/></> : gateway.name === 'Stripe' ? <IconBrandStripe className="size-8 text-[#635bff]"/> : <img src={`${import.meta.env.BASE_URL}payment-gateways/zhifux.png`} alt="" width={89} height={24} className="h-6 w-auto"/>}</div>
+              <div className={`flex h-12 items-center gap-2 rounded-xl px-3 ${gateway.name === 'Zhifux' ? 'bg-[#4f26c3]' : 'bg-muted'}`} aria-hidden="true">{epay ? <><IconBrandAlipay className="size-7 text-[#1677ff]"/><IconBrandWechat className="size-7 text-[#07a940]"/></> : gateway.name === 'Stripe' ? <IconBrandStripe className="size-8 text-[#635bff]"/> : <img src={zhifuxLogo} alt="" width={89} height={24} className="h-6 w-auto"/>}</div>
               <Badge variant="secondary" className={`gap-1.5 font-normal ${isVerified ? 'text-[var(--success)]' : ''}`}><StatusIcon className="size-3.5"/>{status}</Badge>
             </div>
             <CardTitle className="text-base leading-6">{gateway.name === 'Zhifux' ? uiT("ZhifuX") : gateway.name}</CardTitle>

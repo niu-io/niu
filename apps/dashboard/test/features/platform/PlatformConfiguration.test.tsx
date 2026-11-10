@@ -74,10 +74,13 @@ it('distinguishes disabled EPay from server credentials without claiming verifie
   api.request.mockImplementation(async (_token, path) => ({data: path.endsWith('/mock')
     ? {available:false,enabled:false}
     : path.endsWith('/configuration')
-      ? {payment_gateways:[{name:'EPay',configured:true},{name:'Stripe',configured:true}]}
+      ? {payment_gateways:[{name:'Zhifux',configured:false},{name:'EPay',configured:true},{name:'Stripe',configured:true}]}
       : {revision:'1',enabled:false,has_key:true,merchant_id:'merchant',methods:['alipay']}}));
   render(<PlatformConfiguration/>);
   expect((await screen.findByRole('article',{name:'EPay'})).textContent).toContain('Disabled');
+  const zhifuxLogoImg = screen.getByRole('article',{name:'ZhifuX'}).querySelector('img');
+  expect(zhifuxLogoImg?.getAttribute('src')).toContain('zhifux');
+  expect(zhifuxLogoImg?.getAttribute('src')).not.toBe('/payment-gateways/zhifux.png');
   const stripe = screen.getByRole('article',{name:'Stripe'});
   expect(stripe.textContent).toContain('Configured');
   expect(stripe.textContent).not.toContain('Enabled');
