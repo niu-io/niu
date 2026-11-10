@@ -298,7 +298,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
   const defPrecision = config?.definition?.display_precision ?? 2;
 
   return (
-    <section className="space-y-6 border-t pt-6" aria-label={uiT("Branded Credits and billing mode")}>
+    <section className="space-y-6" aria-label={uiT("Branded Credits and billing mode")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{uiT("Branded Credits & billing mode")}</h2>

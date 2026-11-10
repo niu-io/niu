@@ -1,10 +1,15 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
+import PlatformSettingsRoute from '@/features/platform-settings/page';
 import { PlatformUnitsSetting } from '@/features/platform-settings/platform-units';
 import { saveLocale } from '@/shell/locale';
 
+vi.mock('@/shell/dashboard-context', () => ({
+  useDashboardContext: () => ({ token: 'units-test-token', session: { operating_mode: 'resale' } }),
+}));
 vi.mock('@/shell/platform-currency', () => ({
-  usePlatformCurrency: () => ({ currency: 'USD', billingMode: 'currency', unit: null, error: '', reload: vi.fn() }),
+  usePlatformCurrency: () => ({ currency: 'USD', billingMode: 'currency', unit: null, error: '', reload: vi.fn(), ready: true, failed: false }),
 }));
 
 it('shows a clean purchase rate and one billing-mode switch without atom or scale controls', async () => {
@@ -40,4 +45,17 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   expect(screen.queryByLabelText(/decimal scale/i)).toBeNull();
   expect(screen.queryByLabelText(/^rounding$/i)).toBeNull();
   expect(screen.getByRole('button', { name: 'Switch billing mode' })).toBeTruthy();
+});
+
+it('separates General and Branded Credits & billing mode into tabs on Admin Settings', async () => {
+  saveLocale('en');
+  const user = userEvent.setup();
+  render(<PlatformSettingsRoute />);
+  expect(screen.getByRole('tab', { name: 'General' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('region', { name: 'Platform currency' })).toBeTruthy();
+
+  await user.click(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }));
+  expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('region', { name: 'Branded Credits and billing mode' })).toBeTruthy();
 });
