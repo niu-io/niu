@@ -96,7 +96,7 @@ export default function WorkspaceAssetsRoute() {
         libraryElement
       ) : (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList variant="line">
+          <TabsList>
             <TabsTrigger value="workspace">{t('Workspace media', '工作空间素材')}</TabsTrigger>
             {extensionSections.map(ext => (
               <TabsTrigger key={ext.id} value={ext.id}>

@@ -455,10 +455,11 @@ export default function GenerationsContextPanel({
                     const isSelected = selectedRun?.id === run.id;
                     const active = isRunActive(run.state);
                     return (
-                      <button
+                      <Button
                         key={run.id}
                         type="button"
-                        className={`generations-run-item${isSelected ? ' is-selected' : ''}`}
+                        variant="ghost"
+                        className={`generations-run-item h-auto justify-start whitespace-normal font-normal${isSelected ? ' is-selected' : ''}`}
                         aria-current={isSelected ? 'true' : undefined}
                         onClick={() => onSelectRun(run.id)}
                       >
@@ -479,7 +480,7 @@ export default function GenerationsContextPanel({
                         <p className="generations-run-item-prompt">
                           {`“${run.prompt.split('\n')[0]?.slice(0, 80) || uiT('Saved request')}”`}
                         </p>
-                      </button>
+                      </Button>
                     );
                   })}
                 </section>

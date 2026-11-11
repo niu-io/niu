@@ -170,6 +170,11 @@ export default function LoginRoute() {
               {t('Sign in with the email this invitation was issued to. You will review the organization, workspace scope and role before accepting.', '请使用收到邀请的邮箱登录。接受前您将查看组织、工作空间范围与角色。')}
             </p>
           )}
+          {(returnTo === '/models' || returnTo.startsWith('/models?') || returnTo.startsWith('/models/') || /^\/workspaces\/[^/]+\/models([/?#]|$)/.test(returnTo)) && (
+            <p className="dashboard-login-status" role="status">
+              {t('Model availability and pricing depend on your workspace. Sign in to browse your workspace model catalog.', '可用模型与价格取决于所属工作空间，请登录后查看对应工作空间的模型目录。')}
+            </p>
+          )}
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
             <p className="dashboard-login-status" role="status">{t('Password changed. Sign in again.', '密码已修改，请重新登录。')}</p>
           )}
@@ -259,9 +264,6 @@ export default function LoginRoute() {
           </Button>}
         </form>
         {memberLogin && mode === 'password' && !configurationFailed && <p className="dashboard-login-hint dashboard-login-access-help">{t('Need an account or forgot your password? Ask your organization owner or installation administrator for help.', '需要账号或忘记密码？请联系组织所有者或实例管理员获取帮助。')}</p>}
-        {!tokenLogin && !signInNotConfigured && !configurationFailed && (
-          <p className="dashboard-login-hint"><Link className="underline underline-offset-2" to="/installation">{t('Installation administration', '实例管理')}</Link></p>
-        )}
         {(showModeSwitch || demoLogin) && (
           <div className="dashboard-login-secondary">
             {mode === 'password' && tokenLogin && (

@@ -4,7 +4,6 @@ import Search from '@astrojs/starlight/components/Search.astro';
 import ThemeSelect from './ThemeSelect.astro';
 import SessionLink from './SessionLink';
 import { publicNavigationActive, documentationNavigation } from '../navigation';
-import navigation from '../../../../branding/public-navigation.json';
 const links = documentationNavigation;
 const navZh: Record<string, string> = {
   'Docs': '文档',
@@ -18,12 +17,12 @@ const navZh: Record<string, string> = {
 };
 ---
 <div class="docs-header">
-  <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span><span class="docs-embedded-name" data-i18n-en="Docs" data-i18n-zh="文档">Docs</span></a>
+  <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span></a>
   <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={publicNavigationActive(Astro.url.pathname, label) ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}</nav>
   <div class="public-session" transition:persist="docs-session"><SessionLink client:load /></div>
   <div class="docs-header-tools">
     <!-- Starlight initializes search on DOMContentLoaded. Keep that instance
-         across ClientRouter swaps, including navigation inside dashboard Help. -->
+         across ClientRouter swaps. -->
     <div class="contents" data-docs-search transition:persist="docs-search"><Search /></div>
     <div class="contents" transition:persist="docs-theme"><ThemeSelect /></div>
   </div>
@@ -40,7 +39,7 @@ const navZh: Record<string, string> = {
   });
   // Keep site-search inside .docs-header-tools so the header trigger button stays
   // anchored across Astro ClientRouter transitions, while detaching ONLY its modal
-  // <dialog> into document.body so hidden mobile/embedded headers never suppress
+  // <dialog> into document.body so hidden mobile headers never suppress
   // the open top-layer search dialog.
   const ensureDialogInBody = () => {
     const search = document.querySelector('site-search');

@@ -1,6 +1,4 @@
-import { translateUI } from '@/shell/ui-locale';
-import { readLocale as readUILocale } from '@/shell/ui-locale';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { formatLocalizedMessage, translateUI, readLocale as readUILocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { confirmedKeyValidationFailure, forgetKeyMutationHint, keyMutationHintKey, readKeyMutationHint, reconcileKeyMutation, rememberKeyMutationHint, submitKeyMutation, type PendingKeyMutation } from '../mutation-recovery';
 import { currencySymbol } from '@/lib/money';
@@ -34,7 +32,7 @@ import { TableSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/shell/dashboard-context';
 import { amountToNanos, formatUnitAtoms, money } from '@/lib/money';
-import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
+import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPagePath, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
 type KeyDialog = { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
 // A request whose outcome is unknown stays visible as a non-blocking notice.
@@ -64,31 +62,33 @@ function keyLimitsSummary(key: ProjectKey): string {
       }
     }
   }
+  const locale = readUILocale();
   const rpm = key.request_rate_limit?.requests_per_minute ?? key.requests_per_minute;
   if (rpm !== undefined && rpm !== null) {
-    parts.push(`${rpm.toLocaleString(readUILocale())} req/m`);
+    parts.push(formatLocalizedMessage('{0} req/m', [rpm.toLocaleString(locale)], locale));
   }
   const conc = key.concurrency_limit?.max_concurrent_requests ?? key.max_concurrent_requests;
   if (conc !== undefined && conc !== null) {
-    parts.push(`${conc.toLocaleString(readUILocale())} concurrent`);
+    parts.push(formatLocalizedMessage('{0} concurrent', [conc.toLocaleString(locale)], locale));
   }
   const tpm = key.token_rate_limit?.tokens_per_minute ?? key.tokens_per_minute;
   if (tpm !== undefined && tpm !== null) {
-    parts.push(`${tpm.toLocaleString(readUILocale())} tok/m`);
+    parts.push(formatLocalizedMessage('{0} tok/m', [tpm.toLocaleString(locale)], locale));
   }
   const cidrs = key.ip_policy ? key.ip_policy.allowed_cidrs : key.allowed_cidrs;
   if (cidrs !== undefined && cidrs !== null) {
-    parts.push(cidrs.length ? `${cidrs.length} IP${cidrs.length === 1 ? '' : 's'}` : 'IPs blocked');
+    parts.push(cidrs.length ? (cidrs.length === 1 ? translateUI('1 IP') : formatLocalizedMessage('{0} IPs', [cidrs.length], locale)) : translateUI('IPs blocked'));
   }
   return parts.length ? parts.join(' · ') : translateUI('Unlimited');
 }
 
-export default function KeysView({ token, models, canWrite, initialScope, loaderKeys }: {
+export default function KeysView({ token, models, canWrite, initialScope, loaderKeys, loaderNextCursor }: {
   token: string;
   models: Model[];
   canWrite: boolean;
   initialScope: { organizationId: string; projectId: string } | null;
   loaderKeys?: ProjectKey[];
+  loaderNextCursor?: string | null;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { workspace, workspaceLoading, rememberChatKey, forgetChatKey, session } = useDashboardContext();
@@ -96,9 +96,15 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const navigate = useNavigate();
   const generationReturn = useRef<string | null>(null);
   const initialCollectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
-  const initialCachedKeys = initialCollectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, initialCollectionPath) : undefined;
+  const initialPagePath = initialScope ? workspaceKeyPagePath(initialScope.projectId) : '';
+  const initialCachedKeys = initialPagePath
+    ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath)
+      ?? (initialCollectionPath ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialCollectionPath) : undefined)
+    : undefined;
+  const scopeIdentity = `${token}:${initialCollectionPath}`;
   const [keys, setKeys] = useState<ProjectKey[]>(() => loaderKeys ?? initialCachedKeys?.data ?? []);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(() => loaderNextCursor ?? initialCachedKeys?.next_cursor ?? null);
+  const [loadedScope, setLoadedScope] = useState<string>(() => initialCollectionPath && (loaderKeys || initialCachedKeys) ? scopeIdentity : '');
   const [loadingMore, setLoadingMore] = useState(false);
   const [keyStatusFilter, setKeyStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const visibleKeys = keys.filter(key => keyStatusFilter === 'all' || (keyStatusFilter === 'inactive' ? key.revoked || key.expired : !(key.revoked || key.expired))).sort((a, b) => Number(Boolean(a.revoked || a.expired)) - Number(Boolean(b.revoked || b.expired)));
@@ -106,9 +112,11 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   useEffect(() => {
     if (loaderKeys) {
       setKeys(loaderKeys);
+      setNextCursor(loaderNextCursor ?? null);
+      setLoadedScope(scopeIdentity);
       setLoading(false);
     }
-  }, [loaderKeys]);
+  }, [loaderKeys, loaderNextCursor, scopeIdentity]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<KeyDialog>(null);
@@ -131,6 +139,10 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const [dialogError, setDialogError] = useState('');
   const root = workspacePath(location.pathname);
   const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
+  const firstPagePath = initialScope ? workspaceKeyPagePath(initialScope.projectId) : '';
+  const currentScopeIdentity = `${token}:${collectionPath}`;
+  const isInitialPending = Boolean(collectionPath) && (workspaceLoading || (loadedScope !== currentScopeIdentity && !error));
+  const isPending = loading || isInitialPending;
   const canIssue = canWrite && Boolean(workspace);
   const hintKey = keyMutationHintKey(session?.operator?.id ?? 'installation', `${initialScope?.organizationId ?? ''}:${initialScope?.projectId ?? ''}`);
   const [pendingRequest, setPendingRequest] = useState<PendingKeyMutation | null>(null);
@@ -156,14 +168,18 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
 
   async function reload(force = true, after?: string) {
     loadController.current?.abort();
-    if (!collectionPath) return;
+    if (!collectionPath || !initialScope) return;
     const controller = new AbortController();
     loadController.current = controller;
-    const pagePath = `${collectionPath}?limit=50${after ? `&after=${encodeURIComponent(after)}` : ''}`;
-    const cached = !force ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath) : undefined;
+    const pagePath = workspaceKeyPagePath(initialScope.projectId, 50, after);
+    const cached = !force
+      ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath)
+        ?? (!after ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, collectionPath) : undefined)
+      : undefined;
     if (cached) {
       setKeys(cached.data);
       setNextCursor(cached.next_cursor ?? null);
+      setLoadedScope(currentScopeIdentity);
       setLoading(false);
     } else {
       setLoading(true);
@@ -177,6 +193,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       if (!controller.signal.aborted) {
         setKeys(value.data);
         setNextCursor(value.next_cursor ?? null);
+        setLoadedScope(currentScopeIdentity);
       }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load API keys.');
@@ -186,11 +203,11 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   }
 
   async function loadMore() {
-    if (!collectionPath || !nextCursor || loadingMore || loading) return;
+    if (!collectionPath || !initialScope || !nextCursor || loadingMore || loading) return;
     setLoadingMore(true);
     setError('');
     try {
-      const pagePath = `${collectionPath}?limit=50&after=${encodeURIComponent(nextCursor)}`;
+      const pagePath = workspaceKeyPagePath(initialScope.projectId, 50, nextCursor);
       const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath, { force: true });
       setKeys(current => [...current, ...value.data]);
       setNextCursor(value.next_cursor ?? null);
@@ -202,15 +219,22 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   }
 
   useEffect(() => {
-    const cached = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, `${collectionPath}?limit=50`) : undefined;
+    const cached = firstPagePath
+      ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, firstPagePath)
+        ?? (collectionPath ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, collectionPath) : undefined)
+      : undefined;
     if (cached) {
       setKeys(cached.data);
-    } else {
+      setNextCursor(cached.next_cursor ?? null);
+      setLoadedScope(currentScopeIdentity);
+    } else if (!loaderKeys) {
       setKeys([]);
+      setNextCursor(null);
+      setLoadedScope('');
     }
     void reload(false);
     return () => loadController.current?.abort();
-  }, [collectionPath, token]);
+  }, [collectionPath, firstPagePath, token, currentScopeIdentity]);
 
   useEffect(() => {
     setDialog(null); setIssued(null); setBusy(false); setPendingRequest(null); setRequestNotice(null); setChecking(false);
@@ -512,13 +536,13 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       </Alert>;
     })()}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">{uiT("Choose a workspace from the sidebar to manage its keys.")}</p>}
-    {workspace && <div className="keys-scope-line">{keys.length > 0 && <DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}<span role="status">{loading ? (keys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !keys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} matching · {1} loaded", [visibleKeys.length, keys.length]) : keyStatusFilter !== 'all' ? uiF("{0} of {1} {2}", [visibleKeys.length, keys.length, keys.length === 1 ? uiT("key") : uiT("keys")]) : `${keys.length} ${keys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button ref={refreshButtonRef} type="button" variant="ghost" size="icon" aria-label={uiT("Refresh API keys")} title={uiT("Refresh")} disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
+    {workspace && <div className="keys-scope-line">{keys.length > 0 && <DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}<span role="status">{isPending ? (keys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !keys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} matching · {1} loaded", [visibleKeys.length, keys.length]) : keyStatusFilter !== 'all' ? uiF("{0} of {1} {2}", [visibleKeys.length, keys.length, keys.length === 1 ? uiT("key") : uiT("keys")]) : `${keys.length} ${keys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button ref={refreshButtonRef} type="button" variant="ghost" size="icon" aria-label={uiT("Refresh API keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
     {!canWrite && workspace && <p className="key-read-only">{uiT("You have read-only access.")}</p>}
     {error && <p className="key-error" role="alert">{uiT(error)}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>{uiT("Try again")}</Button></p>}
-    {workspace && <section className="key-list" aria-label={uiT("API keys")} aria-busy={loading}>
-      {loading && !keys.length && <TableSkeleton columns={6} rows={4} label="" />}
-      {!loading && !error && !keys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No API keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader>{canIssue && <EmptyContent><Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button></EmptyContent>}</Empty>}
-      {!loading && keys.length > 0 && visibleKeys.length === 0 && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{!nextCursor && keyStatusFilter === 'active' ? uiT("No active API keys") : uiT("No matching keys")}</EmptyTitle><EmptyDescription>{nextCursor ? uiT("No loaded keys match this filter. Load more to search the remaining keys.") : uiT("No keys match this status and search.")}</EmptyDescription></EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2">{keyStatusFilter === 'active' && canIssue && <Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button>}<Button variant="outline" onClick={() => {setKeyStatusFilter(keyStatusFilter === 'active' ? 'inactive' : 'all'); (filterTriggerRef.current ?? refreshButtonRef.current)?.focus();}}>{keyStatusFilter === 'active' ? uiT("Show revoked and expired") : uiT("Clear filters")}</Button></EmptyContent></Empty>}
+    {(workspace || workspaceLoading) && <section className="key-list" aria-label={uiT("API keys")} aria-busy={isPending}>
+      {(isPending || workspaceLoading) && !keys.length && <div className="table-wrap"><TableSkeleton tableClassName="key-table" rows={4} label="" headers={[uiT("Key"), uiT("Model access"), uiT("Limits"), uiT("Expires"), uiT("Last used"), uiT("Status"), ...(canWrite ? [uiT("Actions")] : [])]} columnClassNames={[undefined, 'key-table-metadata', 'key-table-metadata', 'key-table-metadata', 'key-table-usage', undefined, ...(canWrite ? ['text-right'] : [])]} cellWidths={['w-32', 'w-28', 'w-20', 'w-20', 'w-24', 'w-14', ...(canWrite ? ['w-6'] : [])]} /></div>}
+      {!isPending && !workspaceLoading && !error && !keys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No API keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader>{canIssue && <EmptyContent><Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button></EmptyContent>}</Empty>}
+      {!isPending && !workspaceLoading && keys.length > 0 && visibleKeys.length === 0 && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{!nextCursor && keyStatusFilter === 'active' ? uiT("No active API keys") : uiT("No matching keys")}</EmptyTitle><EmptyDescription>{nextCursor ? uiT("No loaded keys match this filter. Load more to search the remaining keys.") : uiT("No keys match this status and search.")}</EmptyDescription></EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2">{keyStatusFilter === 'active' && canIssue && <Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button>}<Button variant="outline" onClick={() => {setKeyStatusFilter(keyStatusFilter === 'active' ? 'inactive' : 'all'); (filterTriggerRef.current ?? refreshButtonRef.current)?.focus();}}>{keyStatusFilter === 'active' ? uiT("Show revoked and expired") : uiT("Clear filters")}</Button></EmptyContent></Empty>}
       {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>{uiT("Key")}</TableHead><TableHead className="key-table-metadata">{uiT("Model access")}</TableHead><TableHead className="key-table-metadata">{uiT("Limits")}</TableHead><TableHead className="key-table-metadata">{uiT("Expires")}</TableHead><TableHead className="key-table-usage">{uiT("Last used")}</TableHead><TableHead>{uiT("Status")}</TableHead>{showActions && <TableHead className="text-right">{uiT("Actions")}</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
         <TableCell>
           <Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={uiF("View key {0}", [key.name])}><KeyRound size={15} /><span>{key.name}</span></Link>
@@ -554,7 +578,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button id="api-key-models" disabled={busy} type="button" variant="outline" className="h-10 w-full justify-between font-normal">
-                {allowedModels.includes('*') ? uiT("All configured models") : uiF("{0} model{1} selected", [allowedModels.length, allowedModels.length === 1 ? '' : 's'])}
+                {allowedModels.includes('*') ? uiT("All configured models") : allowedModels.length === 1 ? uiT("1 model selected") : uiF("{0} models selected", [allowedModels.length])}
                 <ChevronDown aria-hidden="true" size={16} />
               </Button>
             </DropdownMenuTrigger>

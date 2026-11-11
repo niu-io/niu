@@ -589,7 +589,7 @@ export default function VolcengineView({
           <TableHeader><TableRow><TableHead>{uiT('Person')}</TableHead><TableHead>{uiT('Status')}</TableHead><TableHead /></TableRow></TableHeader>
           <TableBody>{data.sessions.map(verification => <TableRow key={verification.id}>
             <TableCell>{verification.subject_name || uiT('Unnamed person')}</TableCell>
-            <TableCell>{verification.status.replaceAll('_', ' ')}</TableCell>
+            <TableCell>{uiT(verification.status.replaceAll('_', ' '))}</TableCell>
             <TableCell><div className="flex flex-wrap items-center justify-end gap-1.5">
               {['waiting_user', 'processing'].includes(verification.status) && <>
                 <Button variant="ghost" disabled={busy} onClick={() => void openVerification(verification.id)}>{uiT('Open verification')}</Button>
@@ -613,7 +613,7 @@ export default function VolcengineView({
             <div><dt className="text-xs text-muted-foreground">{uiT('Material type')}</dt><dd className="font-medium">{uiT(targetAsset.kind)}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{uiT('Group')}</dt><dd className="font-medium break-words">{selected?.name ?? uiT('Current group')}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{uiT('Readiness status')}</dt><dd className="font-medium">{translateUI(assetStatusDescriptions[targetAsset.status])}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">{uiT('Saved revision')}</dt><dd className="font-medium">{uiT('Revision')}{' '}{targetAsset.revision}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{uiT('Saved revision')}</dt><dd className="font-medium">{uiF('Revision {0}', [targetAsset.revision])}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{uiT('Last updated')}</dt><dd className="font-medium">{new Date(targetAsset.updated_at_ms).toLocaleString(readUILocale())}</dd></div>
             <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">{uiT('Provider observation')}</dt><dd className="font-medium">{targetAsset.observation ? uiF('Observed {0}{1} at {2}', [targetAsset.observation.status, targetAsset.observation.name ? ` (“${targetAsset.observation.name}”)` : '', new Date(targetAsset.observation.observed_at_ms).toLocaleString(readUILocale())]) : uiT('No Provider status observation recorded yet. Use Check status to query the Provider.')}</dd></div>
           </dl>
@@ -658,7 +658,7 @@ export default function VolcengineView({
                   <Button variant="outline" disabled={formLocked || uploading} onClick={() => fileInput.current?.click()}>
                     <IconUpload size={16} />{uploading ? uiT('Uploading…') : uiT('Upload')}
                   </Button>
-                  <input ref={fileInput} type="file" className="hidden" accept={WORKSPACE_MEDIA_TYPES[kind].accept} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadWorkspaceFile(file); }} />
+                  <Input ref={fileInput} type="file" className="hidden" accept={WORKSPACE_MEDIA_TYPES[kind].accept} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadWorkspaceFile(file); }} />
                 </div>
                 {previewUrl && <img src={previewUrl} alt={selectedWorkspaceAsset?.name ?? ''} className="h-24 w-24 rounded-md object-cover" />}
                 {selectedWorkspaceAsset && <p className="text-xs text-muted-foreground">{selectedWorkspaceAsset.name} · {selectedWorkspaceAsset.content_type} · {mediaSize(selectedWorkspaceAsset.byte_length)}</p>}

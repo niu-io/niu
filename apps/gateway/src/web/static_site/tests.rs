@@ -95,8 +95,6 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/models", "workspace shell"),
         ("/models/openai/example", "workspace shell"),
         ("/docs/", "public docs"),
-        ("/help/", "workspace shell"),
-        ("/help/getting-started/", "workspace shell"),
         ("/login", "workspace shell"),
         ("/login/", "workspace shell"),
         ("/installation", "workspace shell"),
@@ -189,10 +187,6 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
     ] {
         assert_eq!(body(&app, path, StatusCode::OK).await, expected);
     }
-    assert_eq!(
-        body(&app, "/help/missing", StatusCode::OK).await,
-        "workspace shell"
-    );
     for path in [
         "/admin/v1/missing",
         "/v1/missing",
@@ -206,6 +200,33 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         body(&app, "/docs/missing", StatusCode::NOT_FOUND).await,
         "docs missing"
     );
+}
+
+#[tokio::test]
+async fn legacy_help_redirects_to_standalone_docs() {
+    let fixture = Fixture::new();
+    let app = fixture.router(false);
+    for (path, destination) in [
+        ("/help", "/docs/"),
+        ("/help/?search=1", "/docs/?search=1"),
+        (
+            "/help/getting-started/?q=a%20b",
+            "/docs/getting-started/?q=a%20b",
+        ),
+        ("/help/install.md", "/docs/install.md"),
+        ("/help/help/article/", "/docs/help/article/"),
+        ("/help/api/", "/docs/api/explorer/"),
+        ("/help/api/rest", "/docs/api/explorer/"),
+        ("/help/api/rest/listmodels/", "/docs/api/rest/listmodels/"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PERMANENT_REDIRECT, "{path}");
+        assert_eq!(response.headers()["location"], destination);
+    }
 }
 
 #[tokio::test]

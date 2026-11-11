@@ -121,7 +121,8 @@ describe('router-tree parity', () => {
     ['/generations/runs/run-1', 'generations-run'],
     ['/generations/session-1/runs/run-1', 'generations-session-run'],
     ['/generations/session-1', 'generations-index'],
-    ['/models/gpt-5', 'models'],
+    ['/models/gpt-5', 'legacy-models'],
+    ['/workspaces/alpha/models/gpt-5', 'workspace-models'],
     ['/settings/appearance', 'account-settings'],
     ['/workspaces/alpha/unknown/deep', 'workspace-not-found'],
   ])('matches %s to route id %s', (path, expectedId) => {

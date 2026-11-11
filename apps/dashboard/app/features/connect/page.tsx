@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { ChevronsUpDown, Check, ChevronDown } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
+import { workspacePathSegment } from '@/shell/workspace-route';
 import { useBranding } from '@/shell/branding';
 import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
@@ -150,7 +151,7 @@ export default function ConnectAgent() {
           {validCode && <Button variant="outline" disabled={pending} onClick={() => setRetry(value => value + 1)}>{t('Reload request', '重新加载请求')}</Button>}
         </div>
       )}
-      {terminal && <div role="status" className="space-y-3"><Check aria-hidden="true" /><h2 className="font-semibold">{grant.state === 'denied' ? t('Connection declined', '已拒绝连接') : t('Authorization approved', '已批准授权')}</h2><p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace API keys page.', '返回 Agent，它将验证连接。你可以在工作空间 API 密钥页面撤销签发的密钥。')}</p></div>}
+      {terminal && <div role="status" className="space-y-3"><Check aria-hidden="true" /><h2 className="font-semibold">{grant.state === 'denied' ? t('Connection declined', '已拒绝连接') : t('Authorization approved', '已批准授权')}</h2><p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace API keys page.', '返回 Agent，它将验证连接。你可以在工作空间 API 密钥页面撤销签发的密钥。')}</p>{grant.state === 'approved' && workspace && <div><Button asChild variant="outline" size="sm"><Link to={`/workspaces/${workspacePathSegment(workspace, context.workspaces)}/keys`}>{t('Open API keys', '打开 API 密钥')}</Link></Button></div>}</div>}
       {grant && !terminal && <>
         <p className="text-sm text-muted-foreground">{t('Check that this code matches the request in your agent:', '请确认此验证码与你的 Agent 中显示的一致：')} <code className="font-mono font-medium text-foreground">{code.match(/.{1,4}/g)?.join('-')}</code></p>
         <dl className="space-y-4 text-sm"><div><dt className="text-muted-foreground">{t('Client name (reported)', '客户端自报名称')}</dt><dd className="mt-1 font-medium">{grant.client_name}</dd></div><div><dt className="text-muted-foreground">{t('Signed in as', '当前账户')}</dt><dd className="mt-1">{context.session?.profile?.name || t('Your Niu account', '你的 Niu 账户')}</dd></div></dl>
@@ -185,7 +186,6 @@ export default function ConnectAgent() {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {selectedModels.length === 0 && <p className="text-muted-foreground">{t('Select at least one allowed model above, or turn off model calls.', '请在上方至少选择一个允许的模型，或关闭模型调用。')}</p>}
-                <p className="text-muted-foreground">{t('Custom routing can use only these backing models.', '自定义路由仅可使用这些底层模型。')}</p>
               </>}
           </div>}
         </div>

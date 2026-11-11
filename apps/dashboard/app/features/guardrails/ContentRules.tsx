@@ -175,13 +175,15 @@ export default function ContentRules({
           {stage === "input" ? uiT("Input rules") : uiT("Output rules")}
         </h2>
       )}
-      <p className="guardrails-muted">
-        {stage === "input"
-          ? uiT("Rules inspect supported text before sending it upstream. Requests with unsupported tools, images or opaque content are blocked.")
-          : outputMode === "observe_only"
-            ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
-            : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}
-      </p>
+      {(showHeading || stage === "input") && (
+        <p className="guardrails-muted">
+          {stage === "input"
+            ? uiT("Rules inspect supported text before sending it upstream. Requests with unsupported tools, images or opaque content are blocked.")
+            : outputMode === "observe_only"
+              ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
+              : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}
+        </p>
+      )}
       <section className="guardrails-section guardrails-content-section">
         <h3>{uiT("Patterns")}</h3>
         <p className="guardrails-muted">
@@ -259,6 +261,7 @@ export default function ContentRules({
           <Button
             ref={addPatternButton}
             variant="outline"
+            aria-label={!showHeading ? (stage === "input" ? uiT("Add input pattern") : uiT("Add output pattern")) : undefined}
             disabled={disabled || rules.length >= 32}
             onClick={() => {
               newPatternFocus.current = rules.length;
@@ -268,7 +271,7 @@ export default function ContentRules({
             {uiT("Add pattern")}</Button>
         </div>
         <p className="guardrails-muted">
-          {uiT("Up to 4096 UTF-8 bytes per pattern. Look-around and backreferences are unsupported.")}</p>
+          {uiT("Standard regular expressions up to 4 KB (look-around and backreferences are not supported).")}</p>
         {rules.length >= 32 && (
           <p className="guardrails-muted">
             {uiT("The 32-rule limit has been reached.")}</p>
@@ -344,33 +347,43 @@ export default function ContentRules({
         <h3>{uiT("Test your patterns")}</h3>
         <p className="guardrails-muted">
           {uiT("Tests only the rules shown here. Use synthetic text; nothing is saved or sent to a model.")}</p>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" aria-label={uiT("Test protocol")}>
-              {protocol === "chat"
-                ? "Chat"
-                : protocol === "responses"
-                  ? uiT("Responses")
-                  : uiT("Embeddings")}
-              <ChevronDown />
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" aria-label={!showHeading ? (stage === "input" ? uiT("Input test protocol") : uiT("Output test protocol")) : uiT("Test protocol")}>
+                {protocol === "chat"
+                  ? uiT("Chat")
+                  : protocol === "responses"
+                    ? uiT("Responses")
+                    : uiT("Embeddings")}
+                <ChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup
+                value={protocol}
+                onValueChange={(value) => setProtocol(value as Protocol)}
+              >
+                <DropdownMenuRadioItem value="chat">{uiT("Chat")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="responses">
+                  {uiT("Responses")}</DropdownMenuRadioItem>
+                {stage === "input" && (
+                  <DropdownMenuRadioItem value="embeddings">
+                    {uiT("Embeddings")}</DropdownMenuRadioItem>
+                )}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="text-xs text-muted-foreground">{uiT("Simulates the request API format being inspected")}</span>
+        </div>
+        <div className="flex w-full items-center justify-between gap-2">
+          <Label htmlFor={`${stage}-sample`}>{!showHeading ? (stage === "input" ? uiT("Input sample text") : uiT("Output sample text")) : uiT("Sample text")}</Label>
+          {!sample.trim() && (
+            <Button type="button" variant="ghost" size="xs" onClick={() => setSample("Contact alice@example.com or use key sk-niu-demo-1234567890abcdef.")}>
+              {uiT("Fill example")}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup
-              value={protocol}
-              onValueChange={(value) => setProtocol(value as Protocol)}
-            >
-              <DropdownMenuRadioItem value="chat">Chat</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="responses">
-                {uiT("Responses")}</DropdownMenuRadioItem>
-              {stage === "input" && (
-                <DropdownMenuRadioItem value="embeddings">
-                  {uiT("Embeddings")}</DropdownMenuRadioItem>
-              )}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Label htmlFor={`${stage}-sample`}>{uiT("Sample text")}</Label>
+          )}
+        </div>
         <Textarea
           className="guardrails-sample"
           id={`${stage}-sample`}
@@ -381,6 +394,7 @@ export default function ContentRules({
         />
         <Button
           variant="outline"
+          aria-label={!showHeading ? (stage === "input" ? uiT("Test input patterns") : uiT("Test output patterns")) : undefined}
           disabled={
             testing || Boolean(invalid) || !rules.length || !sample.trim()
           }

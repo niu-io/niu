@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useLocale } from '@/shell/ui-locale';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { workspacePathSegment } from '@/shell/workspace-route';
+import { workspaceModelsHref } from '@/shell/workspace-route';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -98,7 +98,7 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
       </> : <p role="status">{resale ? format('{0} models discovered. New commercial models are disabled until configured for selling. Existing settings are preserved.', [imported]) : format('{0} models discovered. Existing model settings are preserved.', [imported])}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{t(error)}</p>}
       <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>{imported === null ? t('Cancel') : t('Done')}</Button>
-        {imported === null ? <Button type="submit" disabled={busy || uncertain || !organization || (!connection && (!key.trim() || !name.trim() || !base.trim()))}>{busy ? t('Connecting…') : connection ? t('Retry model import') : t('Connect and import models')}</Button> : <Button asChild><Link to={resale ? '/admin/providers' : workspace ? `/models?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : "/models"} onClick={onClose}>{resale ? t('Configured Providers') : t('View models')}</Link></Button>}
+        {imported === null ? <Button type="submit" disabled={busy || uncertain || !organization || (!connection && (!key.trim() || !name.trim() || !base.trim()))}>{busy ? t('Connecting…') : connection ? t('Retry model import') : t('Connect and import models')}</Button> : <Button asChild><Link to={resale ? '/admin/providers' : workspaceModelsHref(workspace, workspaces)} onClick={onClose}>{resale ? t('Configured Providers') : t('View models')}</Link></Button>}
       </DialogFooter>
     </form>
   </DialogContent></Dialog>;

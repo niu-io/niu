@@ -12,6 +12,7 @@ import { IconPlugConnected as Router } from "@tabler/icons-react";
 import { IconShieldExclamation as ShieldAlert } from "@tabler/icons-react";
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
+import { invalidateForMutation } from '@/lib/query-cache';
 import type { AdminSession } from '@/shell/dashboard-context';
 import { Button } from '@/components/ui/button';
 import { cachedGet, peekCachedGet, ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ProviderConnection, type ProviderConnectionWrite } from '../api';
@@ -20,9 +21,10 @@ import ProviderEditor, { type ProviderConnectionCreate } from './ProviderEditor'
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function ProvidersView({ token, session, refreshWorkspace, catalogPath = '/models', providerSlug, fixedConnectionId }: {
+export default function ProvidersView({ token, session, refreshWorkspace, catalogPath = '/workspaces', providerSlug, fixedConnectionId, organizationId }: {
   catalogPath?: string;
   fixedConnectionId?: string;
+  organizationId?: string;
   providerSlug?: string;
   token: string;
   session: AdminSession;
@@ -210,7 +212,9 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         {},
       );
       setDisconnectOpen(false);
-      window.location.reload();
+      invalidateForMutation(token, '/api/v1/vendors', 'POST');
+      await reloadConnections(undefined, true);
+      void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
     } catch (reason) {
       explainError(reason);
       setError(reason instanceof Error && !(reason instanceof TypeError) ? reason.message : 'Could not disconnect this Provider. Nothing was changed. Retry.');
@@ -248,7 +252,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const modelsHref = providerId ? `/admin/providers/${encodeURIComponent(providerSlug ?? providerId)}/models` : '';
 
   return <>
-    {providerId && <div className="supplier-section-heading"><h2>{uiT("API keys")}</h2><p>{uiT("Manage upstream API keys, request limits and cooldowns for this Provider.")}</p></div>}
+    {providerId && <div className="supplier-section-heading"><h2 className="sr-only">{uiT("API keys")}</h2><p>{uiT("Manage upstream API keys, request limits and cooldowns for this Provider.")}</p></div>}
     <PageHeader title={uiT("API keys")} action={!fixedConnectionId && canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
     {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
     <div className="supplier-detail-layout">
@@ -262,7 +266,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       />}
       {!loadingConnections && selectedConnection ? <section className="supplier-detail-header" aria-labelledby="vendor-detail-title">
         <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedConnection)} size="large" /><div><h2 id="vendor-detail-title">{selectedConnection.name}</h2><p>{providerAdapterApiLabels[selectedConnection.adapter]}</p></div><span className={'vendor-status-badge' + (selectedConnection.enabled ? ' is-enabled' : '')}>{selectedConnection.enabled ? uiT("Enabled") : uiT("Disabled")}</span></div>
-        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions">{modelsHref && <Button asChild size="sm" variant="outline"><Link to={modelsHref}>{uiT("Models")}</Link></Button>}<Button type="button" size="sm" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit API key")}</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/routing">{uiT("Routing")}</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>{uiT("Model catalog")}</Link></Button>{selectedConnection.enabled && <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => { setError(''); setDisconnectOpen(true); }}>{uiT("Disconnect")}</Button>}</div></div>
+        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions">{modelsHref && <Button asChild size="sm" variant="outline"><Link to={modelsHref}>{uiT("Models")}</Link></Button>}<Button type="button" size="sm" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit API key")}</Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>{uiT("Model catalog")}</Link></Button>{selectedConnection.enabled && <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => { setError(''); setDisconnectOpen(true); }}>{uiT("Disconnect")}</Button>}</div></div>
         {!selectedConnection.has_credential && <p className="error-text" role="status">{uiT("No credential stored. Edit this API key to configure access.")}</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}
@@ -280,6 +284,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         token={token}
         initialProviderId={providerId}
         connection={addingConnection ? null : selectedConnection}
+        operatingMode={session.operating_mode}
+        organizationId={organizationId}
         disabled={busy}
         onCreate={createConnection}
         onSave={saveConnection}

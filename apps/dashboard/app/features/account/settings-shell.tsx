@@ -1,12 +1,12 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
-import { Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router';
+import { Navigate, Link, useLocation, useNavigate } from 'react-router';
 import AccountProfile from './AccountProfile';
 import PasswordSettings from './PasswordSettings';
 import AccountBilling from '@/features/billing/AccountBilling';
 import OperatorsView from '@/features/operators/components/OperatorsView';
 import { OrganizationSettings } from '@/features/organization/settings-section';
-import { resolveWorkspacePathSegment, workspaceDisplayName } from '@/shell/workspace-route';
+import { resolveWorkspacePathSegment, workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import { SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
@@ -14,7 +14,7 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
 import { useLocale, type Locale } from '@/shell/ui-locale';
 import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconCreditCard, IconLanguage, IconUsers, IconBuildings } from '@tabler/icons-react';
-import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
+import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconExternalLink } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
 import { settingsHref } from './settings-routes';
@@ -47,7 +47,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
     </div> : null}
     {section === 'members' && <section aria-label={scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Organization members', '组织成员管理')} className="space-y-6">
       <header className="space-y-2">
-        <h2 className="text-base font-semibold">{scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Members', '成员管理')}</h2>
+        <h2 className={scopedWorkspace ? "text-base font-semibold" : "sr-only"}>{scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Members', '成员管理')}</h2>
         <p className="text-sm text-muted-foreground">{scopedWorkspace
           ? t(
             'Members with access to {0}. Organization-wide access is shown as All workspaces.',
@@ -91,7 +91,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('License', '开源许可')}</dt><dd>MIT</dd></div>
       </dl>
       <nav aria-label={uiT("Product resources")} className="grid gap-1 sm:grid-cols-2">
-        <Button asChild variant="ghost" className="justify-start"><NavLink to="/help/"><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconChevronRight className="ml-auto text-muted-foreground" aria-hidden="true"/></NavLink></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '版本发布说明')}</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈问题')}</a></Button>
@@ -104,7 +104,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
     {(section === 'appearance' || section === 'account') && <section aria-label={uiT("Appearance preferences")} className="space-y-3">
       <div className="flex max-w-xl flex-wrap items-center justify-between gap-4 py-4">
         <div><h2 className="text-sm font-medium">{t('Color mode', '外观模式')}</h2><p className="text-sm text-muted-foreground">{t('System follows your device’s appearance.', '跟随系统将自动匹配您设备的外观模式。')}</p></div>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Color mode")} disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Color mode")} disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={theme} onValueChange={value => saveTheme(value as Theme)}>
             <DropdownMenuRadioItem value="system"><IconDeviceDesktop/>{t('System', '跟随系统')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light"><IconSun/>{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark"><IconMoon/>{t('Dark', '深色')}</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup></DropdownMenuContent>
@@ -112,7 +112,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       </div>
       <div className="flex max-w-xl flex-wrap items-center justify-between gap-4 py-4">
         <div><h2 className="text-sm font-medium">{t('Language', '界面语言')}</h2><p className="text-sm text-muted-foreground">{t('Choose the language used across Niu.', '选择 Niu 界面显示的语言。')}</p></div>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
             <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
@@ -120,14 +120,14 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
         </DropdownMenu>
       </div>
       {context.appearance?.saving && <p role="status">{t('Saving color mode…', '正在保存外观模式…')}</p>}
-      {context.appearance?.error && <div role="alert"><p>{context.appearance.error}</p><Button variant="secondary" onClick={context.appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</Button></div>}
+      {context.appearance?.error && <div role="alert"><p>{uiT(context.appearance.error)}</p><Button variant="outline" onClick={context.appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</Button></div>}
     </section>}
     {(section === 'account' || section === 'appearance') && <Button asChild variant="link" className="px-0"><Link to="/settings/about">{t('About Niu', '关于 Niu')}</Link></Button>}
     {['billing', 'payments'].includes(section) && <header className="space-y-2">
-      <h2 className="text-base font-semibold">{t('Credits', '额度与充值')}</h2>
+      <h2 className="sr-only">{t('Credits', '额度与充值')}</h2>
       <p className="text-sm text-muted-foreground">{t('Manage shared funds, add money, and review payment orders and balance activity.', '管理共享资金、充值额度，并查看支付订单与余额变动明细。')}</p>
     </header>}
-    {['billing', 'payments'].includes(section) && context.organization && <p className="text-muted-foreground">{context.organization.name} · {t('Shared across workspaces', '跨工作空间共享')}</p>}
+    {['billing', 'payments'].includes(section) && context.organization && <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{context.organization.name} · {t('Shared across workspaces', '跨工作空间共享')}</span>{context.workspace && <Link className="underline underline-offset-4 hover:text-foreground" to={`/workspaces/${encodeURIComponent(workspacePathSegment(context.workspace, context.workspaces))}/billing`}>{t('View workspace billing', '查看工作空间计费')}</Link>}</p>}
     {['billing', 'payments'].includes(section) && (canViewBilling
       ? context.organization
         ? <AccountBilling section="all" key={context.token + context.organization.id} token={context.token} organization={context.organization.id} canConfigure={Boolean(context.session?.permissions?.write)}/>
@@ -158,7 +158,12 @@ export function SettingsNavigation({ context, section }: { context: DashboardCon
     <SidebarContent className="px-3 pb-3"><nav aria-label={uiT("Settings navigation")}><SidebarMenu>
       {entries.map(item => {
         const selectedSection = section ?? location.pathname.split('/')[2];
-        const selected = (selectedSection === 'payments' ? 'billing' : selectedSection) === item.path;
+        const normalizedSection = selectedSection === 'payments'
+          ? 'billing'
+          : selectedSection === 'about' || (personal && selectedSection === 'appearance')
+            ? (personal ? 'account' : 'appearance')
+            : selectedSection;
+        const selected = normalizedSection === item.path;
         return <SidebarMenuItem key={item.path}><SidebarMenuButton asChild tooltip={item.label} isActive={selected}><Link aria-current={selected ? 'page' : undefined} state={location.state} to={settingsHref(item.path)}><item.icon aria-hidden="true"/><span>{item.label}</span></Link></SidebarMenuButton></SidebarMenuItem>;
       })}
     </SidebarMenu></nav></SidebarContent>

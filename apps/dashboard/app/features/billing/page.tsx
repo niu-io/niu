@@ -4,7 +4,7 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Link, type LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { settingsHref } from '@/features/account/settings-routes';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '@niu-io/sdk/admin';
 import { useSearchParams } from 'react-router';
 import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
@@ -145,10 +145,19 @@ export default function BillingRoute() {
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
   const organizationName = workspace.organization_name?.trim() || (organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
-  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>{!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : canFund ? <Button asChild variant="outline"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button> : <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p>)}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} /></>;
+  const headerAction = !internal && matchingOrganization && canFund
+    ? <Button asChild variant="outline" size="sm"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button>
+    : undefined;
+  return <>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>
+      {!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null)}
+    </div>
+    <BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} headerAction={headerAction} />
+  </>;
 }
 
-function BillingView({ token, organization, project }: { token: string; organization: string; project: string }) {
+function BillingView({ token, organization, project, headerAction }: { token: string; organization: string; project: string; headerAction?: ReactNode }) {
   const { t: uiT, format: uiF } = useUILocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
@@ -282,11 +291,11 @@ function BillingView({ token, organization, project }: { token: string; organiza
   }
 
   return <>
-    {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
+    <PageHeader title={uiT("Billing")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
+    {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{uiT(error)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !data ? <WorkspaceShellSkeleton label={uiT("Loading billing…")} /> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <TabsList variant="line" aria-label={uiT("Billing sections")}><TabsTrigger value="balance">{uiT("Spending")}</TabsTrigger><TabsTrigger value="statements">{uiT("Statements")}</TabsTrigger><TabsTrigger value="rates">{uiT("Rates")}</TabsTrigger></TabsList>
-        <Button variant="outline" aria-label={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>
+        <TabsList aria-label={uiT("Billing sections")}><TabsTrigger value="balance">{uiT("Spending")}</TabsTrigger><TabsTrigger value="statements">{uiT("Statements")}</TabsTrigger><TabsTrigger value="rates">{uiT("Rates")}</TabsTrigger></TabsList>
       </div>
       <TabsContent value="balance" className="billing-balance-content">
         <section aria-label={uiT("Workspace spending")}>
@@ -308,8 +317,8 @@ function BillingView({ token, organization, project }: { token: string; organiza
               ))}
             </div>
           )}
-          {data.balances.some(b => Boolean(b.charged_nanos && b.charged_nanos !== '0')) ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) > 0 ? null : (data.unresolved !== '0' || data.unpriced !== '0') ? <p className="billing-spending">{uiT("Pending / unpriced")}</p> : data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos || '0', balance.currency)}</p>) : <Empty className="billing-spending-empty my-3 min-h-28 rounded-xl border border-dashed border-border/60 bg-muted/20 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No charges yet.")}</EmptyDescription></EmptyHeader></Empty>}
-          {(data.unresolved !== '0' || data.unpriced !== '0') && <p className="text-muted-foreground">{[data.unresolved !== '0' && `${data.unresolved} ${data.unresolved === '1' ? 'request' : 'requests'} awaiting settlement`, data.unpriced !== '0' && `${data.unpriced} ${data.unpriced === '1' ? 'request' : 'requests'} without a customer rate`].filter(Boolean).join(' · ')}.</p>}
+          {(data.balances ?? []).some(b => Boolean(b.charged_nanos && b.charged_nanos !== '0')) ? (data.balances ?? []).map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) > 0 ? null : (data.unresolved !== '0' || data.unpriced !== '0') ? <p className="billing-spending">{uiT("Pending / unpriced")}</p> : (data.balances ?? []).length ? (data.balances ?? []).map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos || '0', balance.currency)}</p>) : <Empty className="billing-spending-empty my-3 min-h-28 rounded-lg bg-muted/30 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No charges yet.")}</EmptyDescription></EmptyHeader></Empty>}
+          {(data.unresolved !== '0' || data.unpriced !== '0') && <p className="text-muted-foreground">{[data.unresolved !== '0' && (data.unresolved === '1' ? uiT("1 request awaiting settlement") : uiF("{0} requests awaiting settlement", [data.unresolved])), data.unpriced !== '0' && (data.unpriced === '1' ? uiT("1 request without a customer rate") : uiF("{0} requests without a customer rate", [data.unpriced]))].filter(Boolean).join(' · ')}{uiT(".")}</p>}
         </section>
 
       </TabsContent>
@@ -363,7 +372,7 @@ function BillingView({ token, organization, project }: { token: string; organiza
         {(data.billing_mode !== 'credits' || (invoices?.length ?? 0) > 0 || Boolean(invoiceError)) && <section className="panel">
           <div className="provider-panel-heading"><h2>{uiT("Usage statements")}</h2></div>
           {invoiceLoading && !invoices && <TableSkeleton columns={4} rows={4} label={uiT("Loading statements…")} className="px-6 pb-4" />}
-          {invoiceError && <Alert variant="destructive"><AlertDescription>{invoiceError}<Button variant="outline" disabled={invoiceLoading} onClick={() => invoiceFailure === 'older' ? void loadOlderInvoices() : setInvoiceRevision(value => value + 1)}>{invoiceFailure === 'older' ? uiT("Retry older statements") : uiT("Retry statements")}</Button></AlertDescription></Alert>}
+          {invoiceError && <Alert variant="destructive"><AlertDescription>{uiT(invoiceError)}<Button variant="outline" disabled={invoiceLoading} onClick={() => invoiceFailure === 'older' ? void loadOlderInvoices() : setInvoiceRevision(value => value + 1)}>{invoiceFailure === 'older' ? uiT("Retry older statements") : uiT("Retry statements")}</Button></AlertDescription></Alert>}
           {invoices?.length ? <div className="table-wrap"><Table className="provider-ledger billing-invoices">
             <TableHeader><TableRow><TableHead>{uiT("Period")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead className="text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader>
             <TableBody>{invoices.map(invoice => <TableRow key={invoice.id}>
@@ -462,12 +471,12 @@ function BillingView({ token, organization, project }: { token: string; organiza
             )}
           </section>
         )}
-        {(data.billing_mode !== 'credits' || data.tariffs.length > 0) && <section className="panel billing-rates">
-          <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">{uiT("Token rates per million · fees per request")}</p>}</div>
-          {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
-          {data.billing_mode !== 'credits' && data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger min-w-[44rem]" aria-label={uiT("Customer model rates")}>
+        {(data.billing_mode !== 'credits' || (data.tariffs ?? []).length > 0) && <section className="panel billing-rates">
+          <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{(data.tariffs ?? []).length > 0 && <p className="provider-intro billing-description">{uiT("Token rates per million · fees per request")}</p>}</div>
+          {(data.tariffs ?? []).length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
+          {data.billing_mode !== 'credits' && (data.tariffs ?? []).length ? <div className="table-wrap"><Table className="provider-ledger min-w-[44rem]" aria-label={uiT("Customer model rates")}>
             <TableHeader><TableRow><TableHead className="min-w-44">{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Input")}</TableHead><TableHead className="text-right">{uiT("Cache read")}</TableHead><TableHead className="text-right">{uiT("Cache write")}</TableHead><TableHead className="text-right">{uiT("Output")}</TableHead><TableHead className="text-right">{uiT("Reasoning")}</TableHead><TableHead className="text-right">{uiT("Fixed fee / request")}</TableHead><TableHead className="text-right">{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
-            <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
+            <TableBody>{(data.tariffs ?? []).map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
                 <TableCell>{modelLabel(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
                 <TableCell className="text-right tabular-nums">{money(tariff.prompt_rate, tariff.currency)}</TableCell>
@@ -497,7 +506,7 @@ function BillingView({ token, organization, project }: { token: string; organiza
       <DialogContent className="niu-modal billing-detail-dialog">
         <DialogHeader className="text-left"><DialogTitle>{uiT("Statement details")}</DialogTitle><DialogDescription>{selected ? uiF("Billing period: {0} – {1}", [day(selected.from_ms), day(selected.to_ms - 1)]) : uiT("Workspace usage")}</DialogDescription></DialogHeader>
         {selected && <p className="tabular-nums">{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? uiT("Settled") : uiT("Issued")}</p>}
-        {detailError ? <Alert variant="destructive"><AlertTitle>{uiT("Details unavailable")}</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>{uiT("Retry details")}</Button></AlertDescription></Alert> : lines ? <>
+        {detailError ? <Alert variant="destructive"><AlertTitle>{uiT("Details unavailable")}</AlertTitle><AlertDescription>{uiT(detailError)}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>{uiT("Retry details")}</Button></AlertDescription></Alert> : lines ? <>
           {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Text charges")}><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Rates")}</TableHead></TableRow></TableHeader>
             <TableBody>{lines.map(line => <TableRow key={`${line.revision}:${line.currency}:${line.context_minimum_input_tokens ?? 'base'}`}>
               <TableCell>{modelLabel(line.model_alias)}</TableCell>
@@ -528,7 +537,7 @@ function BillingView({ token, organization, project }: { token: string; organiza
               </TableRow>)}</TableBody>
             </Table></div>
           </section>}
-          {mediaError && <Alert variant="destructive"><AlertTitle>{uiT("More media charges unavailable")}</AlertTitle><AlertDescription>{mediaError}<Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Retry media charges")}</Button></AlertDescription></Alert>}
+          {mediaError && <Alert variant="destructive"><AlertTitle>{uiT("More media charges unavailable")}</AlertTitle><AlertDescription>{uiT(mediaError)}<Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Retry media charges")}</Button></AlertDescription></Alert>}
           {mediaNext && !mediaError && <Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? uiT("Loading more…") : uiT("Show more media charges")}</Button>}
           {lines.length === 0 && mediaLines.length === 0 && !mediaNext && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No line items available.")}</EmptyDescription></EmptyHeader></Empty>}
         </> : <TableSkeleton columns={5} rows={4} label={uiT("Loading line items…")} />}

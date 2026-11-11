@@ -83,6 +83,7 @@ export default defineConfig({
         ] },
         { label: 'API', collapsed: true, items: [
           { label: 'REST specification', slug: 'api/rest' },
+          { label: 'API explorer', slug: 'api/explorer' },
           { label: 'Model discovery', slug: 'api/rest/listmodels' },
           { label: 'Chat completions', slug: 'api/rest/createchatcompletion' },
         ] },

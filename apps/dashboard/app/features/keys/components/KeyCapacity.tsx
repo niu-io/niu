@@ -3,7 +3,6 @@ import { IconActivity } from '@tabler/icons-react';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useInRouterContext } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,7 +20,6 @@ function checked(page: KeyCapacityPage) {
 /** Niu-specific diagnosis, deliberately read-only: uncertain execution is not safe to replay. */
 export default function KeyCapacity({ token, endpoint, kind, onInspectRequest }: { token: string; endpoint: string; kind: 'concurrency' | 'tokens'; onInspectRequest?: (attempt: string, opener: HTMLElement | null) => void }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const inRouter = useInRouterContext();
   const trigger = useRef<HTMLButtonElement>(null), pending = useRef<string | null>(null);
   const [open, setOpen] = useState(false), [rows, setRows] = useState<KeyCapacityRequest[]>([]);
   const [page, setPage] = useState<KeyCapacityPage | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -43,7 +41,7 @@ export default function KeyCapacity({ token, endpoint, kind, onInspectRequest }:
   const label=kind==='concurrency'?uiT("Inspect unresolved requests"):uiT("Inspect token reservations");
   return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button ref={trigger} variant="link" className="h-auto px-0 py-1 text-xs">{label}</Button></DialogTrigger><DialogContent onCloseAutoFocus={()=>{const attempt=pending.current;pending.current=null;if(attempt)onInspectRequest?.(attempt,trigger.current);}} className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{kind==='concurrency'?uiT("Unresolved requests"):uiT("Token reservations")}</DialogTitle><DialogDescription>{uiT("Requests share limits across key rotations.")}</DialogDescription></DialogHeader>
     <p className="text-sm text-muted-foreground">{kind==='concurrency'?uiT("These requests still occupy concurrent-request slots. Completion is unconfirmed; they may still be running."):uiT("Unfinished requests retain their token reservations. Completed requests with unknown usage remain for 60 seconds. Known usage is shown separately in the key summary.")}</p>
-    <Alert><AlertDescription>{uiT("Open a request to inspect its outcome. If uncertain, ask your administrator to investigate with the Provider. Do not resend it to clear capacity.")}{" "}{inRouter ? <Link className="underline" to="/help/guides/request-capacity/">{uiT("Capacity troubleshooting")}</Link> : <a className="underline" href="/help/guides/request-capacity/">{uiT("Capacity troubleshooting")}</a>}</AlertDescription></Alert>
+    <Alert><AlertDescription>{uiT("Open a request to inspect its outcome. If uncertain, ask your administrator to investigate with the Provider. Do not resend it to clear capacity.")}{" "}<a className="underline" href={`${import.meta.env.BASE_URL}docs/guides/request-capacity/`}>{uiT("Capacity troubleshooting")}</a></AlertDescription></Alert>
     <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{page?uiF("{0} loaded · {1} matching at {2}", [rows.length, page.total, new Date(page.snapshot_at).toLocaleTimeString(readUILocale())]):uiT("Current capacity snapshot")}</p><Button variant="outline" disabled={busy} onClick={()=>void load()}>{uiT("Refresh capacity")}</Button></div>
     {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="link" onClick={()=>void load(page?.next_after??null)} disabled={busy}>{uiT("Retry capacity")}</Button></AlertDescription></Alert>}
     {busy && <p role="status">{uiT("Loading capacity details…")}</p>}

@@ -39,7 +39,7 @@ describe('customer model workflow', () => {
   it('starts Chat directly in the current workspace', () => {
     fixture.context = { token: 'test-session', models: [{id: 'model'}], workspace: {id: 'internal-workspace', organization_id: 'org'}, session: null } as unknown as DashboardContext;
     render(<MemoryRouter initialEntries={['/workspaces/customer-workspace']}><Routes><Route path="/workspaces/:workspace" element={<OverviewRoute />} /></Routes></MemoryRouter>);
-    expect(screen.getByRole('link', { name: 'Compare models' }).getAttribute('href')).toBe('/generations?new=1&workspace=customer-workspace');
+    expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&workspace=customer-workspace');
   });
   it('keeps the empty model catalog customer-facing', () => {
     fixture.context = { token: 'test-session', models: [], workspace: null, session: null } as unknown as DashboardContext;

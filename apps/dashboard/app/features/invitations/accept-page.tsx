@@ -1,10 +1,13 @@
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { useLocale, useLocale as useUILocale, type Locale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { IconAlertTriangle, IconCheck, IconClock, IconLink, IconUsers } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCheck, IconChevronDown, IconClock, IconLanguage, IconLink, IconUsers } from '@tabler/icons-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import NiuBrand from '@/components/NiuBrand';
+import { useBranding } from '@/shell/branding';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspaceDisplayName } from '@/shell/workspace-route';
 import {
@@ -77,7 +80,9 @@ function destinationFor(invitation: MemberInvitationPreview): string {
 }
 
 export default function AcceptInvitationPage() {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
+  const { locale, setLocale } = useLocale();
+  const { settings: branding, logo } = useBranding();
   const { token: invitationToken } = useParams();
   const context = useDashboardContext();
   const navigate = useNavigate();
@@ -140,9 +145,35 @@ export default function AcceptInvitationPage() {
     }
   }
 
+  const topbar = (
+    <header className="dashboard-login-topbar">
+      <Link className="dashboard-login-brand" to="/" aria-label={uiF('{0} home', [branding.display_name])}>
+        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name}</span></>}
+      </Link>
+      <nav aria-label={uiT('Public resources')} className="dashboard-login-nav">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" aria-label={uiT('Language')}>
+              <IconLanguage size={16} aria-hidden="true" />
+              <span>{locale === 'zh-CN' ? '简体中文' : 'English'}</span>
+              <IconChevronDown size={14} aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
+              <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </nav>
+    </header>
+  );
+
   if (loading) {
     return (
       <main className="dashboard-login">
+        {topbar}
         <div className="dashboard-login-stage">
           <section className="dashboard-login-card invitation-card" aria-busy="true">
             <p className="text-sm text-muted-foreground" role="status">
@@ -158,6 +189,7 @@ export default function AcceptInvitationPage() {
     const unavailable = problem?.status === 404;
     return (
       <main className="dashboard-login">
+        {topbar}
         <div className="dashboard-login-stage">
           <section className="dashboard-login-card invitation-card" aria-label={uiT('Invitation unavailable', '邀请不可用')}>
             <span className="invitation-avatar" aria-hidden="true">
@@ -196,6 +228,7 @@ export default function AcceptInvitationPage() {
 
   return (
     <main className="dashboard-login">
+      {topbar}
       <div className="dashboard-login-stage">
         <section className="dashboard-login-card invitation-card" aria-label={uiT('Organization invitation', '组织邀请')}>
           <div className="invitation-org">
@@ -315,30 +348,51 @@ export default function AcceptInvitationPage() {
           )}
 
           {status === 'accepted' && !alreadyJoined && (
-            <p className="text-sm text-muted-foreground">
-              {uiT(
-                'This invitation was accepted by another account. Ask the organization owner to review the member list or create a new invitation.',
-                '此邀请已由其他账户接受。请联系组织所有者查看成员列表或创建新邀请。',
-              )}
-            </p>
+            <>
+              <p className="text-sm text-muted-foreground">
+                {uiT(
+                  'This invitation was accepted by another account. Ask the organization owner to review the member list or create a new invitation.',
+                  '此邀请已由其他账户接受。请联系组织所有者查看成员列表或创建新邀请。',
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline">
+                  <Link to="/workspaces/default/">{uiT('Return to workspace', '返回工作空间')}</Link>
+                </Button>
+              </div>
+            </>
           )}
 
           {status === 'expired' && (
-            <p className="text-sm text-muted-foreground">
-              {uiT(
-                'This invitation expired. Ask the organization owner to create a new invitation link.',
-                '此邀请已过期。请联系组织所有者重新创建邀请链接。',
-              )}
-            </p>
+            <>
+              <p className="text-sm text-muted-foreground">
+                {uiT(
+                  'This invitation expired. Ask the organization owner to create a new invitation link.',
+                  '此邀请已过期。请联系组织所有者重新创建邀请链接。',
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline">
+                  <Link to="/workspaces/default/">{uiT('Return to workspace', '返回工作空间')}</Link>
+                </Button>
+              </div>
+            </>
           )}
 
           {status === 'canceled' && (
-            <p className="text-sm text-muted-foreground">
-              {uiT(
-                'This invitation was canceled or replaced. Ask the organization owner for a new invitation link.',
-                '此邀请已被取消或替换。请联系组织所有者获取新的邀请链接。',
-              )}
-            </p>
+            <>
+              <p className="text-sm text-muted-foreground">
+                {uiT(
+                  'This invitation was canceled or replaced. Ask the organization owner for a new invitation link.',
+                  '此邀请已被取消或替换。请联系组织所有者获取新的邀请链接。',
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline">
+                  <Link to="/workspaces/default/">{uiT('Return to workspace', '返回工作空间')}</Link>
+                </Button>
+              </div>
+            </>
           )}
 
           <p className="invitation-footnote">

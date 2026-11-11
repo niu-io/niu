@@ -14,8 +14,11 @@ export default function AgentConnection({ context, sidebar = false }: { context:
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(false);
   const origin = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, '');
-  const scope = workspace ? ` Workspace: ${origin}/workspaces/${encodeURIComponent(workspacePathSegment(workspace, workspaces))}.` : '';
-  const prompt = `Connect to Niu at ${origin}.${scope} Read ${origin}/docs/install.md and ${origin}/docs/agents.md. Discover supported integration and authorization methods. Ask me to approve the required scope and spending limits, then verify connection, permissions, and model availability. Do not send paid model requests without my authorization.`;
+  const workspaceUrl = workspace ? `${origin}/workspaces/${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : '';
+  const prompt = t(
+    `Connect to Niu at ${origin}.${workspaceUrl ? ` Workspace: ${workspaceUrl}.` : ''} Read ${origin}/docs/install.md and ${origin}/docs/agents.md. Discover supported integration and authorization methods. Ask me to approve the required scope and spending limits, then verify connection, permissions, and model availability. Do not send paid model requests without my authorization.`,
+    `请连接到位于 ${origin} 的 Niu。${workspaceUrl ? `工作空间：${workspaceUrl}。` : ''}请阅读 ${origin}/docs/install.md 与 ${origin}/docs/agents.md，检查支持的接入与授权方式。在征得我对权限范围与消费上限的确认后，验证连接、权限与模型可用性。未经我明确授权，不要发送任何付费模型请求。`,
+  );
   return <Dialog onOpenChange={() => { setCopied(false); setError(false); }}>
     <DialogTrigger asChild>{sidebar ? <SidebarMenuButton tooltip={t('Connect your agent', '连接你的 Agent')} aria-label={t('Connect your agent', '连接你的 Agent')}><IconPlugConnected /><span>{t('Connect your agent', '连接你的 Agent')}</span></SidebarMenuButton> : <Button variant="secondary" className="justify-start"><IconPlugConnected />{t('Connect your agent', '连接你的 Agent')}</Button>}</DialogTrigger>
     <DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>{t('Connect your agent', '连接你的 Agent')}</DialogTitle><DialogDescription>{t('Give this setup request to your coding agent. It discovers the supported connection and asks you to authorize access.', '将此接入请求交给编码 Agent。它会检查支持的连接方式，并请你授权访问。')}</DialogDescription></DialogHeader>

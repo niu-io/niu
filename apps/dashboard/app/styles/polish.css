@@ -1,5 +1,6 @@
 /* Developer payment mode must not imply that inference is free. */
 .mock-payment-warning { width: auto; margin: 16px clamp(16px, 3cqw, 32px) 0; border-color: color-mix(in srgb, var(--warning) 24%, var(--border)); background: color-mix(in srgb, var(--warning) 7%, var(--background)); color: var(--foreground); }
+[data-slot="card-content"] .mock-payment-warning, [data-slot="dialog-content"] .mock-payment-warning { margin: 0; }
 .mock-payment-warning [data-slot="alert-description"] { color: var(--foreground); }
 
 /* Lifecycle badges: a status dot distinguishes active keys and users from revoked or expired ones. */
@@ -53,12 +54,3 @@
 /* The staging payment notice stays one line. The longer explanation opens on demand. */
 .mock-payment-warning { padding-block: 0.45rem; }
 .mock-payment-warning [data-slot="alert-title"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
-
-.help-search-fab {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 30;
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
-}

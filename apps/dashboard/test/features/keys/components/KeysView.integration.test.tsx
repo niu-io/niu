@@ -148,11 +148,12 @@ it('filters by status without issuing requests and can recover from an empty fil
   expect(fetchKeys.mock.calls.length).toBe(requests);
 });
 
-it('distinguishes an unread key list from a successfully loaded empty list', async () => {
+it('distinguishes an unread key list from a successfully loaded empty list and renders skeleton rows while loading', async () => {
  let resolveRead!:(response:Response)=>void;
  vi.stubGlobal('fetch',vi.fn(()=>new Promise<Response>(resolve=>{resolveRead=resolve;})));
- render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="test" models={[]} canWrite={false} initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
+ const { container } = render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="test" models={[]} canWrite={false} initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
  expect(screen.getByText('Loading keys…')).toBeTruthy();
+ expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
  expect(screen.queryByText('0 keys')).toBeNull();
  expect(screen.queryByText('No API keys yet')).toBeNull();
  resolveRead(new Response('{}',{status:503}));

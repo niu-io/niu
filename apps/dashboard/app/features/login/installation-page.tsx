@@ -69,6 +69,7 @@ export default function InstallationRoute() {
           {context.token && context.session?.kind === 'operator' && <p className="dashboard-login-error" role="alert">{t('An installation administrator credential is required.', '需要提供实例管理员凭证。')}</p>}
           <Button type="submit" className="dashboard-login-submit">{t('Continue', '继续')}</Button>
         </form>
+        <p className="dashboard-login-hint"><Link className="underline underline-offset-2" to="/login">{t('Account sign-in', '账户登录')}</Link></p>
       </section>
     </div>
   </main>;

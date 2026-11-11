@@ -197,9 +197,9 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
         <Button asChild size="sm" variant="ghost"><Link to={keysHref}>{uiT("Manage API keys")}</Link></Button>
       </div>
     </div>
-    {notice && <p role="status" className="text-sm">{notice}</p>}
+    {notice && <p role="status" className="text-sm">{uiT(notice)}</p>}
     {actionError && <p role="alert" className="text-sm text-destructive">{uiT(actionError)}</p>}
-    {loading ? <TableSkeleton columns={commercialEnabled ? 5 : 4} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
+    {loading ? <TableSkeleton columns={commercialEnabled ? 5 : 4} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{uiT(error)}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
       {!connections.length && <p className="text-sm text-muted-foreground">{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline text-foreground" to={keysHref}>{uiT("Connect API key")}</Link></p>}
       {!aliases.length ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
         <TableHeader><TableRow><TableHead className="whitespace-nowrap">{uiT("Model")}</TableHead><TableHead>{uiT("Upstream route")}</TableHead><TableHead className="hidden whitespace-nowrap lg:table-cell">{uiT("Route status")}</TableHead>{commercialEnabled && <TableHead className="hidden whitespace-nowrap lg:table-cell">{uiT("Commercial offer")}</TableHead>}<TableHead className="whitespace-nowrap text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader>
@@ -266,7 +266,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
           </TableRow>;
         })}</TableBody>
       </Table>}
-      {aliases.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models (")}{aliases.length - limit}{" "}{uiT("remaining)")}</Button>}
+      {aliases.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiF("Show more models ({0} remaining)", [aliases.length - limit])}</Button>}
     </>}
     <Dialog open={!!editor} onOpenChange={open => { if (!open && !busy) setEditor(null); }}>
       <DialogContent onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }} className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
@@ -275,7 +275,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
           <div className="space-y-2"><Label>{uiT("Provider API key")}</Label>{editor.model ? <p>{selectedConnection.name}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{selectedConnection.name || uiT("Unnamed API key")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={selectedConnection.id} onValueChange={connectionId => setEditor({...editor, connectionId, model: null})}>{connections.map(connection => <DropdownMenuRadioItem key={connection.id} value={connection.id}>{connection.name || uiT("Unnamed API key")}{!connection.enabled ? uiT("· Disabled") : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
           {discovery && !catalogLoading && !catalogError && <div className="space-y-1 text-sm text-muted-foreground" role="status">
             <p>{integrationLabels[discovery.integration.effective_type]} · {discovery.inventory_scope === 'credential_filtered' ? uiT("Credential-filtered inventory") : uiT("Instance-reported inventory")}</p>
-            <p>{uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving. Advertised prices do not set purchase rates or customer prices.")}</p>
+            <p>{commercialEnabled ? uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving. Advertised prices do not set purchase rates or customer prices.") : uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving.")}</p>
           </div>}
           <ModelMappingForm key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`} initialAlias={editor.initialAlias} ownerFunded={selectedConnection.owner_funded} accessScope={selectedConnection.access_scope} model={editor.model} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} onRetryCatalog={() => void loadCatalog()} disabled={busy} onCancel={() => setEditor(null)} onSave={input => save(input)} />
         </>}

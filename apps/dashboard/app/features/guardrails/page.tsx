@@ -291,7 +291,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   ) : !loaded ? (
     <Alert variant="destructive">
       <AlertDescription>
-        {error || uiT("Could not load Guardrails.")}{" "}
+        {uiT(error || "Could not load Guardrails.")}{" "}
         <Button
           variant="outline"
           size="sm"
@@ -399,7 +399,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" disabled={!canWrite || saving}>
-                      {uiT("Choose models (")}{draft.models.values?.length ?? 0})
+                      {uiF("Choose models ({0})", [draft.models.values?.length ?? 0])}
                       <ChevronDown />
                     </Button>
                   </DropdownMenuTrigger>
@@ -510,7 +510,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" disabled={!canWrite || saving}>
-                      {uiT("Choose providers (")}{draft.providers.values?.length ?? 0})
+                      {uiF("Choose providers ({0})", [draft.providers.values?.length ?? 0])}
                       <ChevronDown />
                     </Button>
                   </DropdownMenuTrigger>
@@ -588,6 +588,11 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
             ? uiT("Record rule matches without blocking or changing responses.")
             : uiT("Inspect complete generated text before delivery.")}
         </p>
+        <p className="rounded-lg border border-border/70 bg-muted/25 px-3.5 py-2.5 text-xs text-muted-foreground">
+          {draft.output?.mode === "observe_only"
+            ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
+            : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}
+        </p>
         <div className="grid justify-items-start gap-2">
           <Label htmlFor="guardrail-output-mode">{uiT("Output inspection mode")}</Label>
           <DropdownMenu>
@@ -662,7 +667,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         }
       />
       <Tabs value={tab} onValueChange={selectTab} className="gap-4">
-        <TabsList variant="line" aria-label={uiT("Guardrails")}>
+        <TabsList aria-label={uiT("Guardrails")}>
           <TabsTrigger
             value="policy"
             aria-label={loaded && changed ? `${uiT("Policy")}, ${uiT("Unsaved changes")}` : uiT("Policy")}

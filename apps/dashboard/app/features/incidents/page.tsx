@@ -78,7 +78,7 @@ export default function ConnectionIncidents() {
     <p className="text-sm text-muted-foreground">{t('Review upstream access failures and evidence of recovery. Configuration changes alone do not confirm recovery.', '查看上游访问失败及恢复证据。仅修改配置不能确认恢复。')}</p>
     <p className="text-sm text-muted-foreground">{t('Detection uses requests actually sent to Providers. No proactive upstream probe is configured, so an idle connection can be unhealthy without an incident here.', '检测依据实际发送给 Provider 的请求。当前未配置主动上游探测，因此空闲连接可能已不可用但没有事故记录。')}</p>
     <Tabs value={status} onValueChange={value => setQuery(current => { const next = new URLSearchParams(current); if (value === 'resolved') next.set('status', value); else next.delete('status'); return next; })}>
-      <TabsList><TabsTrigger value="active">{t('Needs attention', '待处理')}</TabsTrigger><TabsTrigger value="resolved">{t('History', '历史记录')}</TabsTrigger></TabsList>
+      <TabsList variant="line"><TabsTrigger value="active">{t('Needs attention', '待处理')}</TabsTrigger><TabsTrigger value="resolved">{t('History', '历史记录')}</TabsTrigger></TabsList>
       <TabsContent value="active"><IncidentList key={`${identity}:active:${refresh}`} token={context.token} status="active" /></TabsContent>
       <TabsContent value="resolved"><IncidentList key={`${identity}:resolved:${refresh}`} token={context.token} status="resolved" /></TabsContent>
     </Tabs>

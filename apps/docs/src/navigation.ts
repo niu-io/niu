@@ -8,7 +8,7 @@ export function documentationSection(path: string): 'Docs' | 'API' | 'SDK' | 'Co
 
 /** Classify explicit machine entry points; task guides remain human documentation. */
 export function documentationAudience(path: string): 'human' | 'agent' {
-  const normalized = path.replace(/^\/help(?=\/|$)/, '/docs').replace(/\/+$/, '');
+  const normalized = path.replace(/\/+$/, '');
   return /^\/docs\/(?:agents(?:\/|$)|(?:install|agents|pools|evaluations|events)\.md$)/.test(normalized) ? 'agent' : 'human';
 }
 
@@ -31,8 +31,3 @@ export const documentationNavigation = [
   { label: 'API', href: '/docs/api/rest/' },
   { label: 'SDK', href: '/docs/api/sdk/' },
 ];
-
-/** Embedded help keeps documentation and search links inside the dashboard. */
-export function documentationHref(href: string, embedded = false): string {
-  return embedded ? href.replace(/^\/docs\//, '/help/') : href;
-}

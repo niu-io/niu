@@ -209,8 +209,8 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
   return <article className="video-response" aria-label={uiT("Video result")}>
     <div className="video-result-heading">
       <span className="video-response-model">{model ? catalogTitle({ id: model }) : uiT("Video")}</span>
-      {/^run-[1-9][0-9]{0,18}$/.test(readableRun) && <button type="button" className="playground-status-trigger" onClick={() => openGenerationsContextRun(turn.id)}><Badge variant="outline" className="font-mono text-xs">{readableRun}</Badge></button>}
-      {task ? <button type="button" className="playground-status-trigger" onClick={() => openGenerationsContextRun(turn.id)}><Badge variant="secondary">{translateUI(status)}</Badge></button>
+      {/^run-[1-9][0-9]{0,18}$/.test(readableRun) && <Button type="button" variant="ghost" className="playground-status-trigger h-auto p-0" onClick={() => openGenerationsContextRun(turn.id)}><Badge variant="outline" className="font-mono text-xs">{readableRun}</Badge></Button>}
+      {task ? <Button type="button" variant="ghost" className="playground-status-trigger h-auto p-0" onClick={() => openGenerationsContextRun(turn.id)}><Badge variant="secondary">{translateUI(status)}</Badge></Button>
         : intent ? <Badge variant="secondary">{intent.submission_state === 'not_dispatched' ? uiT("Not dispatched") : intent.submission_state === 'saved' ? uiT("Saved request") : uiT("Status unavailable")}</Badge>
           : null}
     </div>

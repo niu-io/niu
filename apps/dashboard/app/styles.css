@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import '../../../branding/tokens.css';
-@import '../../../branding/product-rail.css';
 @import './styles/foundation.css';
 @import './styles/overview.css';
 @import './styles/shell.css';

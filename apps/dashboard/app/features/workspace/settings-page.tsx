@@ -247,12 +247,12 @@ export default function WorkspaceSettings() {
   return (
     <div className="w-full min-w-0 space-y-10">
       <section aria-labelledby="workspace-general-title" className="space-y-5">
-        <h2 id="workspace-general-title" className="text-base font-semibold">
+        <h2 id="workspace-general-title" className="sr-only">
           {t('General', '常规设置')}
         </h2>
         <form onSubmit={rename} aria-busy={renaming} className="grid gap-5">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="grid min-w-[16rem] flex-1 gap-2">
+            <div className="grid w-full max-w-md min-w-[16rem] gap-2">
               <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
               <Input
                 ref={nameInputRef}

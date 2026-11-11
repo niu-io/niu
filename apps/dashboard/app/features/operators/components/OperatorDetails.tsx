@@ -114,17 +114,17 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       const saved = await onReloadRole();
       setExpectedRole(saved.role);
       setRoleLocked(false);
-      setRoleMessage('Saved role reloaded. Review your choice before saving.');
+      setRoleMessage(uiT('Saved role reloaded. Review your choice before saving.'));
     } catch (reason) {
       setRoleLocked(true);
-      setRoleMessage('Could not reload the saved role. Your choice is retained. ' + (reason instanceof Error ? reason.message : 'Try again.'));
+      setRoleMessage(uiT('Could not reload the saved role. Your choice is retained.') + ' ' + uiT(reason instanceof Error ? reason.message : 'Try again.'));
     } finally { setRoleBusy(false); }
   }
   const [expiryDays, setExpiryDays] = useState(30);
   const [expandedHistoryFor, setExpandedHistoryFor] = useState<string | null>(null);
   const [tokenCopy, setTokenCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
   if (!operator) return <section className="operator-detail" aria-labelledby="operator-detail-title">
-    <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">{uiT("Select a user")}</h2><p>{uiT("Review their role, create an access token, or revoke their access.")}</p></div>
+    <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">{uiT("Select a member", "选择一位成员")}</h2><p>{uiT("Review their role, create an access token, or revoke their access.")}</p></div>
   </section>;
 
   const activeSessions = sessions.filter(item => sessionStatus(item) === 'active');
@@ -135,26 +135,26 @@ export default function OperatorDetails({ operator, organizations, projects, ses
   return <section className="operator-detail" aria-labelledby="operator-detail-title">
     <div className="operator-detail-heading">
       <span className="operator-detail-avatar">{operator.name.trim().charAt(0).toUpperCase() || 'O'}</span>
-      <div className="operator-detail-copy"><p className="eyebrow">{uiT("USER")}</p><h2 className="scroll-mt-20" id="operator-detail-title">{operator.name}</h2><p>{displayScope(operator, organizations, projects)}</p></div>
+      <div className="operator-detail-copy"><p className="eyebrow">{uiT("MEMBER", "成员")}</p><h2 className="scroll-mt-20" id="operator-detail-title">{operator.name}</h2><p>{displayScope(operator, organizations, projects)}</p></div>
       <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role)}</span>
     </div>
     <p className="operator-scope-footnote px-4">{uiT({ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role])}{!operator.project_id && operator.role !== 'viewer' && <> {uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</>}</p>
     {canChangeRole && <div className="space-y-3 px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Label className="grid gap-2" htmlFor="operator-role">{uiT("Role")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+        <div className="grid gap-2"><Label htmlFor="operator-role">{uiT("Role")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draftRole} onValueChange={value => setDraftRole(value as Operator['role'])}>
               <DropdownMenuRadioItem value="viewer">{uiT("Viewer · read workspace data")}</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="admin">{uiT("Admin · change workspace data")}</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="owner">{uiT("Owner · manage user access")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
-        </Label>
+        </div>
         <Button size="sm" disabled={busy || roleBusy || roleConflict || draftRole === expectedRole} onClick={() => void saveRole()}>{uiT("Save role")}</Button>
         {(roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
       </div>
       {!operator.project_id && draftRole !== 'viewer' && draftRole !== operator.role && <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>}
       {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{uiT(roleRefreshError)}</p>}
-      {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{roleMessage || uiT("The saved role changed. Reload it before saving again.")}</p>}
+      {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{uiT(roleMessage) || uiT("The saved role changed. Reload it before saving again.")}</p>}
     </div>}
     {credential?.operatorId === operator.id && <section className="operator-credential" aria-labelledby="operator-credential-title" role="status">
       <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">{uiT("Save this user’s access token")}</h3><p>{uiT("Shown once · expires")}{" "}{formatExpiry(credential.session.expires_at_unix)}{uiT(". Share it securely with this user. It grants dashboard and management API access, not model API access. Existing Niu users can link this organization in Organization settings → Join an organization.", "。请安全地分享给该用户。它授予控制台与管理 API 权限，而非模型 API 权限。已有 Niu 账户的用户可在“组织设置 → 加入组织”中绑定该组织。")}</p></div></div>
@@ -174,12 +174,12 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       {operator.revoked
         ? <span className="operator-revoked-note">{uiT("User access revoked")}</span>
         : <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Label className="grid gap-2" htmlFor="new-session-expiry">{uiT("Expires in")}<DropdownMenu><DropdownMenuTrigger asChild><Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>{uiT(expiryChoices.find(item => item.days === expiryDays)?.label ?? "")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <div className="grid gap-2"><Label htmlFor="new-session-expiry">{uiT("Expires in")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>{uiT(expiryChoices.find(item => item.days === expiryDays)?.label ?? "")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
                 {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{uiT(item.label)}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup></DropdownMenuContent>
             </DropdownMenu>
-          </Label>
+          </div>
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => onIssueSession(expiryDays * 86400)}><KeyRound size={14} />{uiT("Create access token")}</Button>
         </div>}
     </div>

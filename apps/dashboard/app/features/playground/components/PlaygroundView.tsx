@@ -15,10 +15,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
-import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconCheck as Check, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer } from "@tabler/icons-react";
+import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconVideo as Video } from "@tabler/icons-react";
+import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,14 +86,12 @@ const promptCategories = [
   { id: 'reasoning', label: 'Reasoning' },
   { id: 'build', label: 'Build' },
   { id: 'writing', label: 'Writing' },
-  { id: 'video', label: 'Video' },
 ] as const;
 
 const promptExamples = [
   { id: 'car-wash', category: 'reasoning', title: 'Car wash', summary: 'A car wash 50 meters away.', text: 'I need to wash my car. The car wash is 50 meters away. Should I walk or drive?' },
   { id: 'context-window', category: 'reasoning', title: 'Context budget', summary: 'How many 8K-token turns fit in 128K?', text: 'A model has a 128K-token context window. If each turn in a conversation uses 8,000 tokens, about how many turns fit? Explain the calculation and what could reduce the usable number.' },
   { id: 'snake-game', category: 'build', title: 'Snake game', summary: 'Build an arrow-key controlled game.', text: 'Build a small snake game controlled with the arrow keys. Include food, collision detection, and a restart option.' },
-  { id: 'reaction-test', category: 'build', title: 'Reaction-time test', summary: 'Record the milliseconds for each click.', text: 'Build a reaction-time mini game. Wait a random amount of time before showing a target, record how many milliseconds the user takes to click it, and show the results.' },
   { id: 'file-tree', category: 'build', title: 'Collapsible file tree', summary: 'Use plain HTML and CSS.', text: 'Use plain HTML and CSS to build a collapsible file tree. Make the folder and file hierarchy clear and keep the controls accessible.' },
   { id: 'support-reply', category: 'writing', title: 'Support reply', summary: 'Respond to a frustrated customer with empathy.', text: 'Rewrite this complaint as an empathetic customer-support reply: “Your API has been down for three days, hurting our business. We’ll switch providers if this continues.” Acknowledge the impact, explain the next step, and avoid making promises you cannot verify.' },
   { id: 'job-post', category: 'writing', title: 'Backend engineer job post', summary: 'A Java and MySQL role with clear expectations.', text: 'Write a concise job post for a backend engineer role. The person should be skilled in Java and MySQL, take ownership of their work, and be comfortable with occasional overtime when releases require it.' },
@@ -908,22 +907,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     });
   }
 
-  const modelCategories = useMemo(() => {
-    const coding = usableModels.filter(model => /(?:^|[\/_ .-])(?:code|coder|codex|codestral|devstral|starcoder)(?:$|[\/_ .:-])/i.test(model));
-    const reasoning = usableModels.filter(model => /reason|thinking|deepseek-r1|qwq|(?:^|[\/_ .-])o[134](?:$|[\/_ .:-])/i.test(model));
-    return [
-      ...(coding.length >= 2 ? [{ id: 'coding', label: 'Coding', models: coding }] : []),
-      ...(reasoning.length >= 2 ? [{ id: 'reasoning', label: 'Reasoning', models: reasoning }] : []),
-      { id: 'all', label: 'All models', models: usableModels },
-    ];
-  }, [usableModels]);
-  const activeModelCategory = modelCategories.find(category => category.id === modelCategory) ?? modelCategories[0];
-  const filteredModelAliases = useMemo(() => {
-    const query = modelQuery.trim().toLowerCase();
-    const source = query ? usableModels : activeModelCategory?.models ?? usableModels;
-    return source.filter(model => !query || model.toLowerCase().includes(query)).slice(0, 80);
-  }, [usableModels, modelQuery, activeModelCategory]);
-
   async function loadCharges(attemptIds: string[], signal?: AbortSignal) {
     if (!attemptIds.length) return new Map<string, RequestLedgerEntry>();
     const base = '/api/v1/organizations/' + encodeURIComponent(organization) + '/projects/' + encodeURIComponent(workspaceId);
@@ -1111,7 +1094,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   return <div className="playground-view">
     <div className="playground-chat-layout">
       <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions">
-            <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
+            <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
           </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
@@ -1130,11 +1113,16 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 ? <div className="playground-first-run">
                   <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2><p>{uiT("Write, build, compare models or generate a video.")}</p>{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
                   <div className="playground-starter-picker" aria-label={uiT("Example tasks")}>
-                    <Tabs value={promptCategory} onValueChange={value => {if(value==='video'){navigate(`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}`:''}`);return;}setPromptCategory(value as typeof promptCategory);}} className="playground-starter-tabs">
-                      <TabsList aria-label={uiT("Task category")} className="playground-starter-categories">
-                        {promptCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-starter-category">{uiT(category.label)}</TabsTrigger>)}
-                      </TabsList>
-                    </Tabs>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Tabs value={promptCategory} onValueChange={value => setPromptCategory(value as typeof promptCategory)} className="playground-starter-tabs">
+                        <TabsList aria-label={uiT("Task category")} className="playground-starter-categories">
+                          {promptCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-starter-category">{uiT(category.label)}</TabsTrigger>)}
+                        </TabsList>
+                      </Tabs>
+                      <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground" asChild>
+                        <Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}`}><Video size={14} aria-hidden="true" />{uiT("Switch to Video mode")}</Link>
+                      </Button>
+                    </div>
                     <div className="playground-starters" aria-label={uiT("Example prompts")}>
                       {visiblePromptExamples.map(item => <Button key={item.id} type="button" className="playground-starter" disabled={running || settingsSaving || !draft.ready || Boolean(modelsError) || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); setError(''); setNotice(''); requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus()); }}><strong>{uiT(item.title)}</strong><span>{uiT(item.summary)}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
                     </div>
@@ -1148,19 +1136,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
                     <div className={turn.results.length === 1 ? "sr-only" : "playground-results-heading"}><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
-                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model })} size="small" /><h3>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</h3></div><button type="button" className="playground-status-trigger" title={result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")} onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></button></div>
+                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model })} size="small" /><h3>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</h3></div><Button type="button" variant="ghost" className="playground-status-trigger h-auto p-0" title={result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")} onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></Button></div>
                       {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{uiT(generationOutcome(result.finishReason).detail)}</p>}
                       {result.phase === 'failed' && <p className="playground-response-error">{result.error && uiT(result.error)}</p>}
                       {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
                       <div className="playground-result-footer">
                         <div className="playground-card-metrics">
                           <div><Clock3 size={15} /><span>{uiT("Time")}</span><strong>{result.elapsedMs.toLocaleString(readUILocale())}{" "}{uiT("ms")}</strong></div>
-                          <div><Hash size={15} /><span>Tokens</span><strong>{result.totalTokens == null ? uiT("Unknown") : result.totalTokens.toLocaleString(readUILocale())}</strong></div>
+                          <div><Hash size={15} /><span>{uiT("Tokens")}</span><strong>{result.totalTokens == null ? uiT("Unknown") : result.totalTokens.toLocaleString(readUILocale())}</strong></div>
                           <div><CircleDollarSign size={15} /><span>{uiT("Customer charge")}</span><strong>{customerCharge(result)}</strong></div>
                         </div>
                         <div className="playground-result-actions">
                           <Button type="button" variant="ghost" size="sm" onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}>{result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")}</Button>
-                          {result.content && <Button type="button" variant="ghost" size="sm" aria-label={'Copy ' + result.model + ' response'} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? uiT("Copied") : uiT("Copy")}</Button>}
+                          {result.content && <Button type="button" variant="ghost" size="sm" aria-label={uiF("Copy {0} response", [result.model])} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? uiT("Copied") : uiT("Copy")}</Button>}
                           {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptReference??result.attemptId)}>{uiT("Inspect request")}</Link>}
                         </div>
                       </div>
@@ -1172,7 +1160,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                           <TableHead scope="col">{uiT("Measure")}</TableHead>
                           {turn.results.map((result, index) => <Fragment key={result.model}>
                             <TableHead scope="col" className={index === 0 ? 'playground-baseline-column' : undefined}>{index === 0 ? <>{uiT("Baseline")}<br /><span>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</span></> : <>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</>}</TableHead>
-                            {index > 0 && <TableHead scope="col" className="playground-delta-heading" aria-label={'Difference for ' + result.model + ' versus baseline'}>{uiT("Δ vs baseline")}</TableHead>}
+                            {index > 0 && <TableHead scope="col" className="playground-delta-heading" aria-label={uiF("Difference for {0} versus baseline", [result.model])}>{uiT("Δ vs baseline")}</TableHead>}
                           </Fragment>)}
                         </TableRow></TableHeader><TableBody>{comparisonMetrics.map(metric => <TableRow key={metric.key}>
                           <TableHead scope="row">{uiT(metric.label)}</TableHead>
@@ -1185,7 +1173,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                     </details>}
                   </section>
                 </div>)}</>}
-          {notice && <p className="playground-result-notice" role="status">{notice}</p>}
+          {notice && <p className="playground-result-notice" role="status">{uiT(notice)}</p>}
           {draft.error && <div role="alert" className="playground-chat-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
         </div>
 
@@ -1237,6 +1225,9 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           {noAvailableKeys && !managedKey && !keyBlocked && <div className="playground-composer-notices">
             <p role="status">{uiT("Create an API key to start using models in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></p>
           </div>}
+          {!noAvailableKeys && !managedKey && !selectedKey && !keyBlocked && <div className="playground-composer-notices">
+            <p role="status">{uiT("Select an API key to send messages in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button></p>
+          </div>}
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
                   {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
@@ -1257,7 +1248,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Archived sessions")}</DialogTitle><DialogDescription>{uiT("Restore a Chat or Video session to Generations history.")}</DialogDescription></DialogHeader>
         <h3 className="text-sm font-medium">{uiT("Chats")}</h3>
         {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{uiT(archiveError)}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}
-        {archiveLoading ? <TableSkeleton columns={2} rows={3} label={uiT("Loading archived chats…")} /> : archivedChats.length === 0 ? (archiveError ? null : <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><Archive size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No archived chats")}</EmptyDescription></EmptyHeader></Empty>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>Chat</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={uiF("Restore {0}", [sessionTitle(item)])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
+        {archiveLoading ? <TableSkeleton columns={2} rows={3} label={uiT("Loading archived chats…")} /> : archivedChats.length === 0 ? (archiveError ? null : <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><Archive size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No archived chats")}</EmptyDescription></EmptyHeader></Empty>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>{uiT("Chat")}</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={uiF("Restore {0}", [sessionTitle(item)])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
         <VideoArchivedSessions context={dashboard} open={archiveOpen} disabled={running||archiveBusy}/>
       </DialogContent>
     </Dialog>
@@ -1309,32 +1300,24 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       </DialogContent>
     </Dialog>
 
-    <Dialog open={modelPickerOpen} onOpenChange={setModelPickerOpen}>
-      <DialogContent className="niu-modal playground-model-dialog" showCloseButton={false} onCloseAutoFocus={event => { event.preventDefault(); (modelPickerOpener.current?.isConnected ? modelPickerOpener.current : modelPickerFallback.current)?.focus(); }}>
-        <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{uiT("Choose models")}</DialogTitle><DialogDescription>{uiT("Select one to four enabled routes. Each receives the same prompt.")}</DialogDescription></div>
-          <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
-        </DialogHeader>
-      <div className="playground-model-picker">
-        <label className="model-search"><span className="sr-only">{uiT("Search models")}</span><Input autoFocus value={modelQuery} onChange={event => setModelQuery(event.target.value)} placeholder={uiT("Search model routes")} /></label>
-        <Tabs value={activeModelCategory?.id} onValueChange={value => { setModelCategory(value); setModelQuery(''); }}>
-          <TabsList className="playground-model-categories" aria-label={uiT("Model categories")}>
-            {modelCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-model-category">{uiT(category.label)}<span>{category.models.length}</span></TabsTrigger>)}
-          </TabsList>
-        </Tabs>
-        <div className="playground-model-picker-list">{filteredModelAliases.map(model => {
-          const selected = selectedModels.includes(model);
-          const modelObj = dashboard.models?.find(item => item.id === model) ?? { id: model };
-          const displayTitle = disambiguatedCatalogTitle(modelObj, dashboard.models ?? []);
-          const billingSource = dashboard.models?.find(item => item.id === model)?.billing_source;
-          return <Button key={model} type="button" className="playground-model-picker-option" aria-pressed={selected} disabled={!selected && selectedModels.length >= maxComparisonModels} onClick={() => toggleModel(model)}>
-            <ProviderLogo provider={modelIdentity(modelObj)} size="small" /><span>{displayTitle}{displayTitle !== model && <span className="sr-only"> {model}</span>}{managedKey && billingSource && <span className="block text-xs text-muted-foreground">{billingSource === 'own_api_key' ? uiT("Billed by your Provider") : uiT("Niu credits")}</span>}{unverifiedModels.includes(model) && <span className="block text-xs text-muted-foreground">{uiT("Chat support unverified")}</span>}</span>{selected && <Check size={16} />}
-          </Button>;
-        })}{filteredModelAliases.length === 0 && (modelsLoading ? <p className="model-no-results">{uiT("Loading models…")}</p> : <Empty className="model-no-results min-h-32"><EmptyHeader><EmptyMedia variant="icon"><FlaskConical size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{modelsError ? uiT("Model catalog unavailable.") : uiT("No model routes found.")}</EmptyDescription></EmptyHeader></Empty>)}</div>
-        {((modelQuery.trim() ? usableModels.filter(model => model.toLowerCase().includes(modelQuery.trim().toLowerCase())).length : activeModelCategory?.models.length ?? usableModels.length) > filteredModelAliases.length) && <p className="playground-model-picker-hint">{uiT("Showing")}{" "}{filteredModelAliases.length}{" "}{uiT("models. Refine your search to find another.")}</p>}
-      </div>
-    </DialogContent>
-    </Dialog>
+    <PlaygroundModelPickerDialog
+      open={modelPickerOpen}
+      onOpenChange={setModelPickerOpen}
+      onCloseRestoreFocus={() => (modelPickerOpener.current?.isConnected ? modelPickerOpener.current : modelPickerFallback.current)?.focus()}
+      usableModels={usableModels}
+      selectedModels={selectedModels}
+      maxModels={maxComparisonModels}
+      unverifiedModels={unverifiedModels}
+      catalogModels={dashboard.models}
+      managedKey={Boolean(managedKey)}
+      modelsLoading={modelsLoading}
+      modelsError={modelsError}
+      query={modelQuery}
+      onQueryChange={setModelQuery}
+      category={modelCategory}
+      onCategoryChange={setModelCategory}
+      onToggleModel={toggleModel}
+    />
 
     <Dialog open={apiSettingsOpen} onOpenChange={setApiSettingsOpen}>
       <DialogContent className="sm:max-w-md">

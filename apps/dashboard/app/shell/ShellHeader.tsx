@@ -1,6 +1,6 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import type { RefObject } from 'react';
-import { NavLink } from 'react-router';
+import { useEffect, type RefObject } from 'react';
+import { NavLink, useLocation } from 'react-router';
 import {
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
   IconLayoutSidebarLeftExpand as PanelLeftOpen,
@@ -25,7 +25,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
-import type { Workspace } from './dashboard-context';
+import { cn } from '@/lib/utils';
+import type { Organization, Workspace } from './dashboard-context';
 import { useLocale } from './ui-locale';
 import { navigation } from './navigation';
 import ProductRailLink from './ProductRailLink';
@@ -109,6 +110,7 @@ export default function ShellHeader({
   logo,
   activeWorkspacePath,
   activePath,
+  organization,
   workspace,
   workspaces,
   selectWorkspace,
@@ -133,6 +135,7 @@ export default function ShellHeader({
   logo: string;
   activeWorkspacePath: string;
   activePath: string;
+  organization?: Organization | null;
   workspace: Workspace | null;
   workspaces: Workspace[];
   selectWorkspace: (next: Workspace) => void;
@@ -146,6 +149,25 @@ export default function ShellHeader({
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
+  const location = useLocation();
+  const { state: sidebarState } = useSidebar();
+  const trimmedPath = location.pathname.replace(/\/+$/, '');
+  const isProviderOverview = Boolean(
+    adminSupplierId && (
+      trimmedPath === `/admin/providers/${encodeURIComponent(adminSupplierId)}` ||
+      trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}`
+    ),
+  );
+  useEffect(() => {
+    if (!adminSupplierId || !adminSupplierName) return;
+    document.title = isProviderOverview
+      ? `${adminSupplierName} · ${brandingName}`
+      : `${title} · ${adminSupplierName} · ${brandingName}`;
+  }, [adminSupplierId, adminSupplierName, brandingName, isProviderOverview, title]);
+  const scopedWorkspaces = organization
+    ? workspaces.filter(item => item.organization_id === organization.id)
+    : workspaces;
+  const headerWorkspaces = scopedWorkspaces.length ? scopedWorkspaces : workspaces;
 
   return (
     <header className="dashboard-page-header">
@@ -180,9 +202,9 @@ export default function ShellHeader({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-6 shrink-0"
+                    className={cn('size-6 shrink-0', sidebarState === 'expanded' && 'min-[960px]:hidden')}
                     aria-label={uiT("Switch workspace in header")}
-                    disabled={!workspaces.length}
+                    disabled={!headerWorkspaces.length}
                   >
                     <ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
                   </Button>
@@ -192,17 +214,17 @@ export default function ShellHeader({
                   <DropdownMenuRadioGroup
                     value={workspace?.id ?? ''}
                     onValueChange={id => {
-                      const next = workspaces.find(item => item.id === id);
+                      const next = headerWorkspaces.find(item => item.id === id);
                       if (next) selectWorkspace(next);
                     }}
                   >
-                    {workspaces.map(item => {
+                    {headerWorkspaces.map(item => {
                       const displayName = workspaceDisplayName(item.name);
-                      const hasDuplicateName = workspaces.filter(candidate => workspaceDisplayName(candidate.name) === displayName).length > 1;
-                      const orgLabel = hasDuplicateName && item.organization_name ? ` · ${item.organization_name}` : '';
+                      const hasDuplicateName = headerWorkspaces.filter(candidate => workspaceDisplayName(candidate.name) === displayName).length > 1;
+                      const slugLabel = hasDuplicateName && (item.slug || item.route_slug) ? ` · ${item.slug || item.route_slug}` : '';
                       return (
                         <DropdownMenuRadioItem key={item.id} value={item.id}>
-                          {displayName}{orgLabel}
+                          {displayName}{slugLabel}
                         </DropdownMenuRadioItem>
                       );
                     })}
@@ -227,6 +249,18 @@ export default function ShellHeader({
                 <BreadcrumbSeparator>/</BreadcrumbSeparator>
               </>
             )}
+            {activePath.startsWith('models/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/models`}>
+                      {t('Models', '模型')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
             <BreadcrumbItem className="min-w-0">
               <h1 className="dashboard-route-title">{title}</h1>
             </BreadcrumbItem>
@@ -234,64 +268,81 @@ export default function ShellHeader({
         </Breadcrumb>
       ) : adminSupplierId ? (
         <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
-          <BreadcrumbList>
+          <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-2.5">
             <BreadcrumbItem className="hidden sm:inline-flex">
               <BreadcrumbLink asChild>
                 <ProductRailLink to="/admin/providers">{t('Providers', '模型供应商')}</ProductRailLink>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden sm:block" />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <ProductRailLink
-                  className="max-w-28 truncate sm:max-w-none"
-                  to={`/admin/providers/${encodeURIComponent(adminSupplierId)}`}
-                >
+            {isProviderOverview ? (
+              <BreadcrumbItem className="min-w-0">
+                <h1 className="dashboard-route-title truncate" aria-current="page">
                   {adminSupplierName || t('Loading Provider…', '正在加载供应商…')}
-                </ProductRailLink>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <h1 className="dashboard-route-title" aria-current="page">
-                {title}
-              </h1>
-            </BreadcrumbItem>
+                </h1>
+              </BreadcrumbItem>
+            ) : (
+              <>
+                <BreadcrumbItem className="min-w-0">
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink
+                      className="max-w-44 truncate sm:max-w-none"
+                      to={`/admin/providers/${encodeURIComponent(adminSupplierId)}`}
+                    >
+                      {adminSupplierName || t('Loading Provider…', '正在加载供应商…')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="min-w-0">
+                  <h1 className="dashboard-route-title truncate" aria-current="page">
+                    {title}
+                  </h1>
+                </BreadcrumbItem>
+              </>
+            )}
           </BreadcrumbList>
         </Breadcrumb>
       ) : (
         <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
-          {!(
-            adminArea ||
-            workspaceDirectoryArea ||
-            destination === 'Global' ||
-            destination === 'Models' ||
-            (supplierArea && !supplierManagement)
-          ) && (
-            <>
-              <span>
-                {settingsArea
-                  ? t('Settings', '设置')
-                  : supplierArea
-                    ? t('Providers', '模型供应商')
-                    : platform
-                      ? t('Platform', '平台')
-                      : t('Workspace', '工作空间')}
-              </span>
-              <span className="crumb-divider" aria-hidden="true">
-                /
-              </span>
-            </>
-          )}
-          <h1 className="dashboard-route-title">
-            {destination === 'Models' && activePath.startsWith('models/') ? (
-              <NavLink to={modelsHref}>
-                {t('Models', '模型')}
-              </NavLink>
-            ) : (
-              title
+          <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-2.5">
+            {(settingsArea ||
+              !(
+                adminArea ||
+                workspaceDirectoryArea ||
+                destination === 'Global' ||
+                destination === 'Models' ||
+                (supplierArea && !supplierManagement)
+              )) && (
+              <>
+                <BreadcrumbItem className="hidden sm:inline-flex">
+                  <span>
+                    {settingsArea
+                      ? ['organization', 'members', 'billing', 'payments'].includes(location.pathname.split('/')[2] ?? '')
+                        ? t('Organization settings', '组织设置')
+                        : t('Account settings', '账户设置')
+                      : supplierArea
+                        ? t('Providers', '模型供应商')
+                        : platform
+                          ? t('Platform', '平台')
+                          : t('Workspace', '工作空间')}
+                  </span>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator>
+              </>
             )}
-          </h1>
+            <BreadcrumbItem className="min-w-0">
+              <h1 className="dashboard-route-title">
+                {destination === 'Models' && activePath.startsWith('models/') ? (
+                  <NavLink to={modelsHref}>
+                    {t('Models', '模型')}
+                  </NavLink>
+                ) : (
+                  title
+                )}
+              </h1>
+            </BreadcrumbItem>
+          </BreadcrumbList>
         </Breadcrumb>
       )}
       <div

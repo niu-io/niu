@@ -3,9 +3,9 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useStat
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconMessageChatbot, IconVideo, IconX } from '@tabler/icons-react';
-import logo from '../../../../../branding/assets/niu-mark.png';
+import { useBranding } from '@/shell/branding';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarProvider, useSidebar } from '@/components/ui/sidebar';
-import { workspacePathSegment } from '@/shell/workspace-route';
+import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import SessionHistory from './SessionHistory';
 import GenerationsContextPanel, { GenerationsContextTrigger, OPEN_CONTEXT_EVENT, type GenerationsContextPanelData, type OpenContextEventDetail } from './GenerationsContextPanel';
 import './generations.css';
@@ -74,6 +74,7 @@ export default function GenerationsLayout({ children }: { children: ReactNode })
 
 function GenerationsCanvas({ children, navigation }: { children: ReactNode; navigation: ReturnType<typeof useSidebar> }) {
   const { t: uiT } = useUILocale();
+  const { logo } = useBranding();
   const location = useLocation();
   const toggle = useRef<HTMLButtonElement>(null);
   const { isMobile, openMobile, open, setOpen, setOpenMobile } = useSidebar();
@@ -138,16 +139,16 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
   const workspaceSuffix = workspaceSlug ? `&workspace=${encodeURIComponent(workspaceSlug)}` : '';
 
   return <Host.Provider value={publish}><div className="generations-layout"><div className="generations-session">
-    <header className="generations-toolbar"><div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.isMobile ? navigation.openMobile : navigation.open}>{(navigation.isMobile ? navigation.openMobile : navigation.open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><h1>{content?.title ?? uiT("New generation")}</h1><div className="generations-toolbar-actions">
-      <fieldset className="generations-mode-switch hidden sm:inline-flex" aria-label={uiT("Generation mode", "生成模式")}>
-        <Button variant={!inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2.5 text-xs" asChild>
-          <Link to={`/generations?new=1${workspaceSuffix}`}><IconMessageChatbot size={14} aria-hidden="true" /><span>{uiT("Chat", "对话")}</span></Link>
+    <header className="generations-toolbar"><div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.isMobile ? navigation.openMobile : navigation.open}>{(navigation.isMobile ? navigation.openMobile : navigation.open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><div className="flex min-w-0 flex-col justify-center gap-0 sm:flex-row sm:items-center sm:justify-start sm:gap-2"><h1 className="truncate max-sm:text-sm max-sm:leading-tight">{content?.title ?? uiT("New generation")}</h1>{workspace && workspaceSlug && <Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}`} className="inline-flex max-w-full sm:max-w-44 shrink-0 truncate items-center text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground sm:rounded-md sm:bg-muted/60 sm:px-2 sm:py-0.5 sm:text-xs sm:hover:bg-muted">{uiT(workspaceDisplayName(workspace.name))}</Link>}</div><div className="generations-toolbar-actions">
+      <fieldset className="generations-mode-switch inline-flex" aria-label={uiT("Generation mode", "生成模式")}>
+        <Button variant={!inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 sm:px-2.5 text-xs" asChild>
+          <Link to={`/generations?new=1${workspaceSuffix}`} aria-label={uiT("Chat", "对话")}><IconMessageChatbot size={14} aria-hidden="true" /><span className="max-[440px]:sr-only">{uiT("Chat", "对话")}</span></Link>
         </Button>
-        <Button variant={inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2.5 text-xs" asChild>
-          <Link to={`/generations?new=video${workspaceSuffix}`}><IconVideo size={14} aria-hidden="true" /><span>{uiT("Video", "视频")}</span></Link>
+        <Button variant={inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 sm:px-2.5 text-xs" asChild>
+          <Link to={`/generations?new=video${workspaceSuffix}`} aria-label={uiT("Video", "视频")}><IconVideo size={14} aria-hidden="true" /><span className="max-[440px]:sr-only">{uiT("Video", "视频")}</span></Link>
         </Button>
       </fieldset>
-      {workspaceSlug && <Button variant="ghost" size="sm" asChild><Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}/assets`}>{uiT("Assets", "素材库")}</Link></Button>}
+      {workspaceSlug && <Button variant="ghost" size="sm" className="max-sm:hidden" asChild><Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}/assets`}>{uiT("Assets", "素材库")}</Link></Button>}
       {content?.actions}
       <Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="icon" onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory /></Button>
       {content?.contextPanel && <GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} />}

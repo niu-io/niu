@@ -85,7 +85,7 @@ it('fills the full page canvas across Chat and Video session views without manag
   const generationsCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/generations/generations.css'), 'utf8');
   const videoCss = readFileSync(resolve(import.meta.dirname, '../../../app/features/video/video.css'), 'utf8');
 
-  expect(stylesCss).toContain('.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider)))');
+  expect(stylesCss).toContain('.app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider)))');
   expect(stylesCss).toContain('.app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))');
   expect(stylesCss).toContain('.page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout)');
   expect(generationsCss).toMatch(/\.generations-layout\s*\{[^}]*grid-template-rows:minmax\(0,1fr\);[^}]*width:100%;[^}]*height:100%;/);

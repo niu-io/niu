@@ -61,9 +61,9 @@ export function workspacePathSegment(workspace: Workspace, workspaces: Workspace
   return workspace.slug || workspace.route_slug || legacyWorkspacePathSegment(workspace, workspaces);
 }
 
-/** Workspace-scoped model browsing. Unscoped `/models` is the same signed-in catalog. */
+/** Workspace-scoped model browsing. Legacy `/models` redirects into the active workspace. */
 export function workspaceModelsHref(workspace: Workspace | null | undefined, workspaces: Workspace[]) {
-  return `/models?workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace, workspaces) : 'default')}`;
+  return `/workspaces/${encodeURIComponent(workspace ? workspacePathSegment(workspace, workspaces) : 'default')}/models`;
 }
 
 export function resolveWorkspacePathSegment(segment: string, workspaces: Workspace[]) {

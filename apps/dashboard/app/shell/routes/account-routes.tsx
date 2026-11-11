@@ -2,28 +2,19 @@ import type { RouteObject } from 'react-router';
 import { bindLazy } from '../lazy-route';
 import {
   GenerationsRedirect,
+  LegacyModelsRedirect,
   generationsRedirectLoader,
+  legacyModelsRedirectLoader,
 } from '../legacy-redirects';
 import { routeImporters } from '../prefetch';
 
-/** Account-scoped surfaces: docs, models, settings, activity and chat. */
+/** Account-scoped surfaces: settings, activity and chat (plus legacy /models redirect). */
 export const accountRoutes: RouteObject[] = [
-    {
-    id: 'help',
-    path: 'help/*',
-    lazy: bindLazy(routeImporters.help, {
-      destination: 'Global',
-      title: { en: 'Docs', zh: '文档' },
-    }),
-  },
   {
-    id: 'models',
+    id: 'legacy-models',
     path: 'models/*',
-    lazy: bindLazy(routeImporters.models, {
-      destination: 'Models',
-      navTo: '/models/',
-      title: { en: 'Models', zh: '模型' },
-    }),
+    loader: legacyModelsRedirectLoader,
+    element: <LegacyModelsRedirect />,
   },
   {
     id: 'account-settings',
