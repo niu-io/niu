@@ -474,13 +474,15 @@ starlight-toc a[aria-current='true'] {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
-#starlight__search dialog {
+#starlight__search dialog,
+dialog[data-docs-search-dialog] {
   border-radius: var(--radius-overlay);
   border: 1px solid var(--border);
   background: var(--popover);
   box-shadow: var(--shadow-overlay);
 }
-#starlight__search dialog::backdrop {
+#starlight__search dialog::backdrop,
+dialog[data-docs-search-dialog]::backdrop {
   background: oklch(0 0 0 / 32%);
   backdrop-filter: blur(3px);
 }
@@ -502,7 +504,8 @@ starlight-toc a[aria-current='true'] {
   font-size: 0;
 }
 @media (max-width: 640px) {
-  site-search dialog {
+  site-search dialog,
+  dialog[data-docs-search-dialog] {
     width: calc(100vw - 2rem);
     max-width: calc(100vw - 2rem);
     max-height: calc(100dvh - 6rem);

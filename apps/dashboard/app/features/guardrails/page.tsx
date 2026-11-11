@@ -413,7 +413,18 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
                       placeholder={uiT("Search models…")}
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
-                      onKeyDown={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const items = event.currentTarget
+                            .closest('[role="menu"]')
+                            ?.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]:not([data-disabled])');
+                          (event.key === "ArrowDown" ? items?.[0] : items?.[items.length - 1])?.focus();
+                        } else if (event.key !== "Escape" && event.key !== "Tab") {
+                          event.stopPropagation();
+                        }
+                      }}
                     />
                     {filterChoices.map((model) => {
                       const found = models.find((item) => item.id === model);
@@ -639,17 +650,17 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
 
   return (
     <div className="guardrails-page">
-      {tab === "policy" && loaded && (
-        <PageHeader
-          title={uiT("Guardrails")}
-          action={
+      <PageHeader
+        title={uiT("Guardrails")}
+        action={
+          tab === "policy" && loaded ? (
             <Button disabled={disabledSave} onClick={() => void save()} aria-label={uiT("Save all changes")}>
               <span className="hidden sm:inline">{saving ? uiT("Saving…") : uiT("Save all changes")}</span>
               <span className="sm:hidden">{saving ? uiT("Saving…") : uiT("Save")}</span>
             </Button>
-          }
-        />
-      )}
+          ) : undefined
+        }
+      />
       <Tabs value={tab} onValueChange={selectTab} className="gap-4">
         <TabsList variant="line" aria-label={uiT("Guardrails")}>
           <TabsTrigger

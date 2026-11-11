@@ -84,6 +84,15 @@ function DocumentationPage() {
   const openSearch = () => {
     const contentWindow = frame.current?.contentWindow;
     if (!contentWindow) return;
+    try {
+      const trigger = contentWindow.document.querySelector<HTMLButtonElement>('site-search button');
+      if (trigger) {
+        trigger.click();
+        return;
+      }
+    } catch {
+      /* Fall back to query param navigation if the iframe is still loading. */
+    }
     const url = new URL(contentWindow.location.href);
     url.searchParams.set('embed', 'help');
     url.searchParams.set('search', '1');

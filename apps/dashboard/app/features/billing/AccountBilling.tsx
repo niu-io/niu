@@ -257,7 +257,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
             <Table className="billing-transactions"><TableHeader><TableRow><TableHead>{t("Date (UTC)")}</TableHead><TableHead>{t("Type")}</TableHead><TableHead className="text-right">{t("Amount")}</TableHead></TableRow></TableHeader>
               <TableBody>{transactions.map(entry => <TableRow key={entry.id}>
                 <TableCell><time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString(readLocale(), {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})}</time></TableCell>
-                <TableCell>{t(transactionNames[entry.kind])}</TableCell><TableCell className="text-right">{money(entry.amount_nanos, entry.currency)}</TableCell>
+                <TableCell>{t(transactionNames[entry.kind])}</TableCell><TableCell className="text-right tabular-nums">{money(entry.amount_nanos, entry.currency)}</TableCell>
               </TableRow>)}</TableBody>
             </Table>
           </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <Empty className="mt-2 min-h-32 rounded-xl border border-dashed border-border/60 bg-muted/20 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{t("No transactions yet.")}</EmptyDescription></EmptyHeader></Empty>)}

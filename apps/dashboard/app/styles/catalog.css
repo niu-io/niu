@@ -6,7 +6,7 @@
 .model-route-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .model-route-detail-heading .badge { display: inline-flex; align-items: center; gap: 7px; }
 .model-route-title { margin-top: 27px; }
-.model-route-title h1 { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 650; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.model-route-title h1 { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 600; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .model-route-facts { display: grid; gap: 0; margin: 22px 0; border-top: 1px solid var(--border); }
 .model-route-facts > div { display: grid; grid-template-columns: minmax(120px, 12rem) minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .model-route-facts dt { flex: 0 0 auto; color: var(--muted-foreground); font-size: 14px; }
@@ -20,5 +20,5 @@
 .model-route-example code { font-family: var(--font-mono, ui-monospace, monospace); }
 .model-route-example-note { margin: 8px 0 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
 .model-route-example-note code { color: var(--foreground); }
-.model-activity-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; margin-top: auto; padding-top: 20px; color: var(--primary); font-size: 14px; font-weight: 550; text-decoration: none; }
+.model-activity-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; margin-top: auto; padding-top: 20px; color: var(--primary); font-size: 14px; font-weight: 500; text-decoration: none; }
 .model-activity-link:hover { text-decoration: underline; text-underline-offset: 3px; }

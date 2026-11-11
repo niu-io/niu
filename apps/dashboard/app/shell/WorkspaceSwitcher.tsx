@@ -48,23 +48,32 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
   }
 
   const triggerTitle = workspace ? workspaceDisplayName(workspace.name) : workspaceLoading ? t('Loading workspaces…', '正在加载工作空间…') : t('Choose a workspace', '选择工作空间');
+  const duplicateNames = new Set(
+    entries
+      .map(item => workspaceDisplayName(item.name))
+      .filter((itemName, index, list) => list.indexOf(itemName) !== index),
+  );
   return <div className="workspace-switcher">
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label={uiT("Switch workspace")} title={t('Switch workspace', '切换工作空间')}>
+      <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label={uiT("Switch workspace")} title={workspace ? `${triggerTitle} (${t('Switch workspace', '切换工作空间')})` : t('Switch workspace', '切换工作空间')}>
         {logo ? <img src={logo} alt="" className="size-5 shrink-0" /> : <IconFolder size={18} aria-hidden="true" />}<span className="workspace-switcher-copy"><strong>{triggerTitle}</strong></span>
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-        <DropdownMenuLabel className="workspace-switcher-menu-title">{t('Workspaces', '工作空间')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="workspace-switcher-menu-title">{organization ? `${t('Workspaces', '工作空间')} · ${organization.name}` : t('Workspaces', '工作空间')}</DropdownMenuLabel>
         {workspaceLoading && <div className="workspace-switcher-empty">{t('Loading workspaces…', '正在加载工作空间…')}</div>}
         {!workspaceLoading && entries.length === 0 && <div className="workspace-switcher-empty">{t('No workspaces yet.', '暂无工作空间。')}</div>}
         {!workspaceLoading && <DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {
           const next = entries.find(item => item.id === id);
           if (next) selectWorkspace(next);
         }}>
-          {entries.map(item => <DropdownMenuRadioItem className="workspace-switcher-item" key={item.id} value={item.id}>
-            <span>{workspaceDisplayName(item.name)}</span>
-          </DropdownMenuRadioItem>)}
+          {entries.map(item => {
+            const displayName = workspaceDisplayName(item.name);
+            const slugHint = duplicateNames.has(displayName) && (item.slug || item.route_slug) ? ` · ${item.slug || item.route_slug}` : '';
+            return <DropdownMenuRadioItem className="workspace-switcher-item" key={item.id} value={item.id}>
+              <span>{displayName}{slugHint}</span>
+            </DropdownMenuRadioItem>;
+          })}
         </DropdownMenuRadioGroup>}
         {workspaceError && <div className="workspace-switcher-error" role="alert">{t('Workspace access is unavailable. Close this menu and retry.', '工作空间访问暂不可用，请关闭菜单后重试。')}</div>}
         <DropdownMenuSeparator />

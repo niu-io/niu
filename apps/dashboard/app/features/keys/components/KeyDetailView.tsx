@@ -287,7 +287,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         endpoint={`${keyPath}/guardrail`}
         workspaceEndpoint={`${adminCollectionPath.replace(/\/keys$/, '')}/guardrails`}
         root={root}
-        canWrite={false}
+        canWrite={canWrite}
         active={!key.revoked && !key.expired}
       />}
       {initialScope && keyPath && <KeyLimits key={`${token}:${key.id}:usage`} token={token} projectKey={key} keyPath={keyPath} onInspectRequest={(attemptId,opener)=>setCapacityRequest({attemptId,opener,nonce:Date.now()})} />}

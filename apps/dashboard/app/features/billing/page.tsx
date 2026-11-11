@@ -360,20 +360,20 @@ function BillingView({ token, organization, project }: { token: string; organiza
             )}
           </section>
         )}
-        <section className="panel">
+        {(data.billing_mode !== 'credits' || (invoices?.length ?? 0) > 0 || Boolean(invoiceError)) && <section className="panel">
           <div className="provider-panel-heading"><h2>{uiT("Usage statements")}</h2></div>
           {invoiceLoading && !invoices && <TableSkeleton columns={4} rows={4} label={uiT("Loading statements…")} className="px-6 pb-4" />}
           {invoiceError && <Alert variant="destructive"><AlertDescription>{invoiceError}<Button variant="outline" disabled={invoiceLoading} onClick={() => invoiceFailure === 'older' ? void loadOlderInvoices() : setInvoiceRevision(value => value + 1)}>{invoiceFailure === 'older' ? uiT("Retry older statements") : uiT("Retry statements")}</Button></AlertDescription></Alert>}
           {invoices?.length ? <div className="table-wrap"><Table className="provider-ledger billing-invoices">
-            <TableHeader><TableRow><TableHead>{uiT("Period")}</TableHead><TableHead>{uiT("Amount")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Actions")}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{uiT("Period")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead className="text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader>
             <TableBody>{invoices.map(invoice => <TableRow key={invoice.id}>
               <TableCell>{day(invoice.from_ms)} – {day(invoice.to_ms - 1)}<span className="billing-mobile-status">{invoice.status === 'paid' ? uiT("Settled") : uiT("Issued")}</span></TableCell>
-              <TableCell>{money(invoice.amount_nanos, invoice.currency)}</TableCell><TableCell>{invoice.status === 'paid' ? uiT("Settled") : uiT("Issued")}</TableCell>
-              <TableCell><Button size="sm" variant="ghost" onClick={() => setSelected(invoice)}>{uiT("View details")}</Button></TableCell>
+              <TableCell className="text-right tabular-nums">{money(invoice.amount_nanos, invoice.currency)}</TableCell><TableCell>{invoice.status === 'paid' ? uiT("Settled") : uiT("Issued")}</TableCell>
+              <TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => setSelected(invoice)}>{uiT("View details")}</Button></TableCell>
             </TableRow>)}</TableBody>
           </Table></div> : invoices && !invoiceLoading && !invoiceError ? <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No statements yet")}</EmptyTitle><EmptyDescription>{uiT("Issued usage statements appear here.")}</EmptyDescription></EmptyHeader></Empty> : null}
           {invoiceNext && !invoiceError && <Button variant="outline" disabled={invoiceLoading} onClick={() => void loadOlderInvoices()}>{uiT("Older statements")}</Button>}
-        </section>
+        </section>}
       </TabsContent>
       <TabsContent value="rates">
         {(data.billing_mode === 'credits' || (data.unit_tariffs?.length ?? 0) > 0 || (data.unit_media_tariffs?.length ?? 0) > 0) && (
@@ -388,13 +388,13 @@ function BillingView({ token, organization, project }: { token: string; organiza
                   <TableHeader>
                     <TableRow>
                       <TableHead>{uiT("Model")}</TableHead>
-                      <TableHead>{uiT("Input")}</TableHead>
-                      <TableHead>{uiT("Cache read")}</TableHead>
-                      <TableHead>{uiT("Cache write")}</TableHead>
-                      <TableHead>{uiT("Output")}</TableHead>
-                      <TableHead>{uiT("Reasoning")}</TableHead>
-                      <TableHead>{uiT("Fixed fee")}</TableHead>
-                      <TableHead>{uiT("Minimum")}</TableHead>
+                      <TableHead className="text-right">{uiT("Input")}</TableHead>
+                      <TableHead className="text-right">{uiT("Cache read")}</TableHead>
+                      <TableHead className="text-right">{uiT("Cache write")}</TableHead>
+                      <TableHead className="text-right">{uiT("Output")}</TableHead>
+                      <TableHead className="text-right">{uiT("Reasoning")}</TableHead>
+                      <TableHead className="text-right">{uiT("Fixed fee")}</TableHead>
+                      <TableHead className="text-right">{uiT("Minimum")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -402,24 +402,24 @@ function BillingView({ token, organization, project }: { token: string; organiza
                       <Fragment key={tariff.model_alias}>
                         <TableRow>
                           <TableCell className="font-medium">{modelLabel(tariff.model_alias)}{Boolean(tariff.price.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}</TableCell>
-                          <TableCell className="tabular-nums">{formatUnitAtoms(tariff.price.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
-                          <TableCell className="tabular-nums">{tariff.price.cached_prompt_rate != null ? formatUnitAtoms(tariff.price.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
-                          <TableCell className="tabular-nums">{tariff.price.cache_write_prompt_rate != null ? formatUnitAtoms(tariff.price.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
-                          <TableCell className="tabular-nums">{formatUnitAtoms(tariff.price.completion_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
-                          <TableCell className="tabular-nums">{tariff.price.reasoning_completion_rate != null ? formatUnitAtoms(tariff.price.reasoning_completion_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
-                          <TableCell className="tabular-nums">{tariff.price.request_fee_atoms != null && BigInt(tariff.price.request_fee_atoms) > 0n ? formatUnitAtoms(tariff.price.request_fee_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
-                          <TableCell className="tabular-nums">{tariff.price.minimum_charge_atoms != null && BigInt(tariff.price.minimum_charge_atoms) > 0n ? formatUnitAtoms(tariff.price.minimum_charge_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatUnitAtoms(tariff.price.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{tariff.price.cached_prompt_rate != null ? formatUnitAtoms(tariff.price.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{tariff.price.cache_write_prompt_rate != null ? formatUnitAtoms(tariff.price.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatUnitAtoms(tariff.price.completion_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{tariff.price.reasoning_completion_rate != null ? formatUnitAtoms(tariff.price.reasoning_completion_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{tariff.price.request_fee_atoms != null && BigInt(tariff.price.request_fee_atoms) > 0n ? formatUnitAtoms(tariff.price.request_fee_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{tariff.price.minimum_charge_atoms != null && BigInt(tariff.price.minimum_charge_atoms) > 0n ? formatUnitAtoms(tariff.price.minimum_charge_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
                         </TableRow>
                         {tariff.price.context_tiers?.map(tier => (
                           <TableRow key={tier.minimum_input_tokens}>
                             <TableCell className="font-medium">{modelLabel(tariff.model_alias)}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
-                            <TableCell className="tabular-nums">{formatUnitAtoms(tier.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
-                            <TableCell className="tabular-nums">{tier.cached_prompt_rate != null ? formatUnitAtoms(tier.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
-                            <TableCell className="tabular-nums">{tier.cache_write_prompt_rate != null ? formatUnitAtoms(tier.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
-                            <TableCell className="tabular-nums">{formatUnitAtoms(tier.completion_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
-                            <TableCell className="tabular-nums">{tier.reasoning_completion_rate != null ? formatUnitAtoms(tier.reasoning_completion_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
-                            <TableCell className="tabular-nums">{tariff.price.request_fee_atoms != null && BigInt(tariff.price.request_fee_atoms) > 0n ? formatUnitAtoms(tariff.price.request_fee_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
-                            <TableCell className="tabular-nums">{tariff.price.minimum_charge_atoms != null && BigInt(tariff.price.minimum_charge_atoms) > 0n ? formatUnitAtoms(tariff.price.minimum_charge_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{formatUnitAtoms(tier.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{tier.cached_prompt_rate != null ? formatUnitAtoms(tier.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{tier.cache_write_prompt_rate != null ? formatUnitAtoms(tier.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{formatUnitAtoms(tier.completion_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{tier.reasoning_completion_rate != null ? formatUnitAtoms(tier.reasoning_completion_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{tariff.price.request_fee_atoms != null && BigInt(tariff.price.request_fee_atoms) > 0n ? formatUnitAtoms(tariff.price.request_fee_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{tariff.price.minimum_charge_atoms != null && BigInt(tariff.price.minimum_charge_atoms) > 0n ? formatUnitAtoms(tariff.price.minimum_charge_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
                           </TableRow>
                         ))}
                       </Fragment>
@@ -437,8 +437,8 @@ function BillingView({ token, organization, project }: { token: string; organiza
                       <TableHead>{uiT("Channel")}</TableHead>
                       <TableHead>{uiT("Resolution")}</TableHead>
                       <TableHead>{uiT("Reference video")}</TableHead>
-                      <TableHead>{uiT("Rate")}</TableHead>
-                      <TableHead>{uiT("Minimum billable")}</TableHead>
+                      <TableHead className="text-right">{uiT("Rate")}</TableHead>
+                      <TableHead className="text-right">{uiT("Minimum billable")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -448,10 +448,10 @@ function BillingView({ token, organization, project }: { token: string; organiza
                         <TableCell>{mt.channel}</TableCell>
                         <TableCell>{mt.resolution}</TableCell>
                         <TableCell>{mt.reference_video ? uiT("Yes") : uiT("No")}</TableCell>
-                        <TableCell className="tabular-nums">
+                        <TableCell className="text-right tabular-nums">
                           {formatUnitAtoms(mt.price.amount_atoms, mt.unit_name, mt.display_precision)}{" "}{uiT("per")}{" "}{quantity(mt.price.per_quantity)} {uiT(mediaMeter(mt.meter, mt.price.per_quantity))}
                         </TableCell>
-                        <TableCell className="tabular-nums">
+                        <TableCell className="text-right tabular-nums">
                           {quantity(mt.price.minimum_quantity)} {uiT(mediaMeter(mt.meter, mt.price.minimum_quantity))}
                         </TableCell>
                       </TableRow>
@@ -462,69 +462,69 @@ function BillingView({ token, organization, project }: { token: string; organiza
             )}
           </section>
         )}
-        <section className="panel billing-rates">
+        {(data.billing_mode !== 'credits' || data.tariffs.length > 0) && <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">{uiT("Token rates per million · fees per request")}</p>}</div>
           {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
           {data.billing_mode !== 'credits' && data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger min-w-[44rem]" aria-label={uiT("Customer model rates")}>
-            <TableHeader><TableRow><TableHead className="min-w-44">{uiT("Model")}</TableHead><TableHead>{uiT("Input")}</TableHead><TableHead>{uiT("Cache read")}</TableHead><TableHead>{uiT("Cache write")}</TableHead><TableHead>{uiT("Output")}</TableHead><TableHead>{uiT("Reasoning")}</TableHead><TableHead>{uiT("Fixed fee / request")}</TableHead><TableHead>{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead className="min-w-44">{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Input")}</TableHead><TableHead className="text-right">{uiT("Cache read")}</TableHead><TableHead className="text-right">{uiT("Cache write")}</TableHead><TableHead className="text-right">{uiT("Output")}</TableHead><TableHead className="text-right">{uiT("Reasoning")}</TableHead><TableHead className="text-right">{uiT("Fixed fee / request")}</TableHead><TableHead className="text-right">{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
                 <TableCell>{modelLabel(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
-                <TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell>
-                <TableCell>{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell>{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell>{money(tariff.completion_rate, tariff.currency)}</TableCell>
-                <TableCell>{categoryRate(tariff.reasoning_completion_rate, tariff.currency)}</TableCell>
-                <TableCell>{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
-                <TableCell>{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
+                <TableCell className="text-right tabular-nums">{money(tariff.prompt_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{money(tariff.completion_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{categoryRate(tariff.reasoning_completion_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
+                <TableCell className="text-right tabular-nums">{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
               </TableRow>
               {tariff.context_tiers?.map(tier => <TableRow key={tier.minimum_input_tokens}>
                 <TableCell>{modelLabel(tariff.model_alias)}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
-                <TableCell>{money(tier.prompt_rate, tariff.currency)}</TableCell>
-                <TableCell>{categoryRate(tier.cached_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell>{categoryRate(tier.cache_write_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell>{money(tier.completion_rate, tariff.currency)}</TableCell>
-                <TableCell>{categoryRate(tier.reasoning_completion_rate, tariff.currency)}</TableCell>
-                <TableCell>{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
-                <TableCell>{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
+                <TableCell className="text-right tabular-nums">{money(tier.prompt_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{categoryRate(tier.cached_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{categoryRate(tier.cache_write_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{money(tier.completion_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{categoryRate(tier.reasoning_completion_rate, tariff.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
+                <TableCell className="text-right tabular-nums">{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
               </TableRow>)}
             </Fragment>)}</TableBody>
           </Table></div> : <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No rates published")}</EmptyTitle><EmptyDescription>{uiT("Published customer prices appear here.")}</EmptyDescription></EmptyHeader></Empty>}
-        </section>
+        </section>}
       </TabsContent>
     </Tabs>}
     <Dialog open={Boolean(selected)} onOpenChange={open => { if (!open) setSelected(null); }}>
       <DialogContent className="niu-modal billing-detail-dialog">
         <DialogHeader className="text-left"><DialogTitle>{uiT("Statement details")}</DialogTitle><DialogDescription>{selected ? uiF("Billing period: {0} – {1}", [day(selected.from_ms), day(selected.to_ms - 1)]) : uiT("Workspace usage")}</DialogDescription></DialogHeader>
-        {selected && <p>{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? uiT("Settled") : uiT("Issued")}</p>}
+        {selected && <p className="tabular-nums">{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? uiT("Settled") : uiT("Issued")}</p>}
         {detailError ? <Alert variant="destructive"><AlertTitle>{uiT("Details unavailable")}</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>{uiT("Retry details")}</Button></AlertDescription></Alert> : lines ? <>
-          {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Text charges")}><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Amount")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Rates")}</TableHead></TableRow></TableHeader>
+          {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label={uiT("Text charges")}><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Rates")}</TableHead></TableRow></TableHeader>
             <TableBody>{lines.map(line => <TableRow key={`${line.revision}:${line.currency}:${line.context_minimum_input_tokens ?? 'base'}`}>
               <TableCell>{modelLabel(line.model_alias)}</TableCell>
-              <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
-              <TableCell>{line.requests}</TableCell>
-              <TableCell>{line.prompt_tokens} / {line.completion_tokens}
-                {(line.cached_prompt_tokens != null || line.cached_prompt_rate != null) && <small>{uiT("Cached input:")}{" "}{line.cached_prompt_tokens ?? uiT("Unknown")}</small>}
-                {(line.cache_write_prompt_tokens != null || line.cache_write_prompt_rate != null) && <small>{uiT("Cache-write input:")}{" "}{line.cache_write_prompt_tokens ?? uiT("Unknown")}</small>}
-                {(line.reasoning_completion_tokens != null || line.reasoning_completion_rate != null) && <small>{uiT("Reasoning output:")}{" "}{line.reasoning_completion_tokens ?? uiT("Unknown")}</small>}
+              <TableCell className="text-right tabular-nums">{money(line.amount_nanos, line.currency)}</TableCell>
+              <TableCell className="text-right tabular-nums">{line.requests}</TableCell>
+              <TableCell className="text-right tabular-nums">{line.prompt_tokens} / {line.completion_tokens}
+                {(line.cached_prompt_tokens != null || line.cached_prompt_rate != null) && <small className="block">{uiT("Cached input:")}{" "}{line.cached_prompt_tokens ?? uiT("Unknown")}</small>}
+                {(line.cache_write_prompt_tokens != null || line.cache_write_prompt_rate != null) && <small className="block">{uiT("Cache-write input:")}{" "}{line.cache_write_prompt_tokens ?? uiT("Unknown")}</small>}
+                {(line.reasoning_completion_tokens != null || line.reasoning_completion_rate != null) && <small className="block">{uiT("Reasoning output:")}{" "}{line.reasoning_completion_tokens ?? uiT("Unknown")}</small>}
               </TableCell>
-              <TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)}{" "}{uiT("per 1M")}{(line.cached_prompt_tokens != null || line.cached_prompt_rate != null) && <small>{uiT("Cache read:")}{" "}{categoryRate(line.cached_prompt_rate, line.currency)}{line.cached_prompt_rate != null ? " " + uiT("per 1M") : ''}</small>}
-                {(line.cache_write_prompt_tokens != null || line.cache_write_prompt_rate != null) && <small>{uiT("Cache write:")}{" "}{categoryRate(line.cache_write_prompt_rate, line.currency)}{line.cache_write_prompt_rate != null ? " " + uiT("per 1M") : ''}</small>}
-                {(line.reasoning_completion_tokens != null || line.reasoning_completion_rate != null) && <small>{uiT("Reasoning output:")}{" "}{categoryRate(line.reasoning_completion_rate, line.currency)}{line.reasoning_completion_rate != null ? " " + uiT("per 1M") : ''}</small>}
-                {line.context_minimum_input_tokens != null && <small>{uiT("Context input threshold:")}{" "}{line.context_minimum_input_tokens}{" "}{uiT("tokens (inclusive)")}</small>}
-                <small>{uiT("Fixed fee / request:")}{" "}{line.request_fee_nanos != null ? money(line.request_fee_nanos, line.currency) : uiT("Unknown")}</small>
-                <small>{uiT("Minimum / request:")}{" "}{line.minimum_charge_nanos != null ? money(line.minimum_charge_nanos, line.currency) : uiT("Unknown")}</small>
+              <TableCell className="tabular-nums">{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)}{" "}{uiT("per 1M")}{(line.cached_prompt_tokens != null || line.cached_prompt_rate != null) && <small className="block">{uiT("Cache read:")}{" "}{categoryRate(line.cached_prompt_rate, line.currency)}{line.cached_prompt_rate != null ? " " + uiT("per 1M") : ''}</small>}
+                {(line.cache_write_prompt_tokens != null || line.cache_write_prompt_rate != null) && <small className="block">{uiT("Cache write:")}{" "}{categoryRate(line.cache_write_prompt_rate, line.currency)}{line.cache_write_prompt_rate != null ? " " + uiT("per 1M") : ''}</small>}
+                {(line.reasoning_completion_tokens != null || line.reasoning_completion_rate != null) && <small className="block">{uiT("Reasoning output:")}{" "}{categoryRate(line.reasoning_completion_rate, line.currency)}{line.reasoning_completion_rate != null ? " " + uiT("per 1M") : ''}</small>}
+                {line.context_minimum_input_tokens != null && <small className="block">{uiT("Context input threshold:")}{" "}{line.context_minimum_input_tokens}{" "}{uiT("tokens (inclusive)")}</small>}
+                <small className="block">{uiT("Fixed fee / request:")}{" "}{line.request_fee_nanos != null ? money(line.request_fee_nanos, line.currency) : uiT("Unknown")}</small>
+                <small className="block">{uiT("Minimum / request:")}{" "}{line.minimum_charge_nanos != null ? money(line.minimum_charge_nanos, line.currency) : uiT("Unknown")}</small>
               </TableCell>
             </TableRow>)}</TableBody>
           </Table></div>}
           {mediaLines.length > 0 && <section aria-label={uiT("Media charges")} className="min-w-0 space-y-3">
             <h3 className="text-sm font-medium">{uiT("Media usage")}</h3>
-            <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Amount")}</TableHead><TableHead>{uiT("Measured usage")}</TableHead><TableHead>{uiT("Billable usage")}</TableHead></TableRow></TableHeader>
+            <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead><TableHead className="text-right">{uiT("Measured usage")}</TableHead><TableHead className="text-right">{uiT("Billable usage")}</TableHead></TableRow></TableHeader>
               <TableBody>{mediaLines.map((line, index) => <TableRow key={index}>
                 <TableCell>{modelLabel(line.model_alias)}</TableCell>
-                <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
-                <TableCell>{quantity(line.measured_quantity)} {uiT(mediaMeter(line.meter, line.measured_quantity))}</TableCell>
-                <TableCell>{quantity(line.billable_quantity)} {uiT(mediaMeter(line.meter, line.billable_quantity))}</TableCell>
+                <TableCell className="text-right tabular-nums">{money(line.amount_nanos, line.currency)}</TableCell>
+                <TableCell className="text-right tabular-nums">{quantity(line.measured_quantity)} {uiT(mediaMeter(line.meter, line.measured_quantity))}</TableCell>
+                <TableCell className="text-right tabular-nums">{quantity(line.billable_quantity)} {uiT(mediaMeter(line.meter, line.billable_quantity))}</TableCell>
               </TableRow>)}</TableBody>
             </Table></div>
           </section>}

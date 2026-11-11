@@ -12,4 +12,4 @@ it('retains exact media price, minimum and rounding in the detailed table',()=>{
  render(<SellingSchedule schedule={schedule} currency="USD"/>);const table=screen.getByRole('table',{name:'Selling price details'});
  expect(within(table).getByText('USD 1.23 / 3/2 seconds')).toBeTruthy();expect(within(table).getByText('1/2')).toBeTruthy();expect(within(table).getByText('HalfEven')).toBeTruthy();expect(within(table).getByText(/720p/)).toBeTruthy();
 });
-it('keeps compact schedules suitable for a parent table cell',()=>{render(<SellingSchedule schedule={text} currency="USD" compact/>);expect(screen.queryByRole('table')).toBeNull();expect(screen.getByText(/Input \/ 1M tokens: \$1.00/)).toBeTruthy();});
+it('keeps compact schedules suitable for a parent table cell',()=>{render(<SellingSchedule schedule={text} currency="USD" compact/>);expect(screen.queryByRole('table')).toBeNull();expect(screen.getByText('Input / 1M tokens')).toBeTruthy();expect(screen.getByText('$1.00')).toBeTruthy();});

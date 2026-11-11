@@ -75,7 +75,7 @@ export function MetricStripSkeleton({
       aria-busy={label ? 'true' : undefined}
       className={cn('grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-4', className)}
     >
-      {label && <span className="mb-2 block text-sm text-muted-foreground">{label}</span>}
+      {label && <span className="col-span-full mb-1 block text-sm text-muted-foreground">{label}</span>}
       {Array.from({ length: count }, (_, idx) => (
         <div key={idx} className="panel space-y-2.5 p-4">
           <Skeleton className="h-3.5 w-24" />
@@ -103,7 +103,7 @@ export function ChartPanelSkeleton({
       aria-busy={label ? 'true' : undefined}
       className={cn('grid w-full gap-4', compact ? 'lg:grid-cols-2' : 'lg:grid-cols-2', className)}
     >
-      {label && <span className="mb-2 block text-sm text-muted-foreground">{label}</span>}
+      {label && <span className="col-span-full mb-1 block text-sm text-muted-foreground">{label}</span>}
       {[0, 1].map(panelIdx => (
         <div key={panelIdx} className="panel space-y-4 p-5">
           <div className="space-y-1.5">

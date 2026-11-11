@@ -284,8 +284,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             </p>
             <p>
               {t(
-                'Choose Unified pool price (pool_tariff) to sell the pool as a custom model at one retail tariff, or Per-candidate price (candidate_tariff) to bill customers at whichever candidate model handled the request.',
-                '可选择“按模型池统一定价 (pool_tariff)”将其作为自定义模型售卖，或选择“按命中候选模型分别计费 (candidate_tariff)”按实际命中的底层模型扣费。',
+                'Choose Unified pool price to sell the pool as a custom model at one retail tariff, or Per-candidate price to bill customers at whichever candidate model handled the request.',
+                '可选择“按模型池统一定价”将其作为自定义模型售卖，或选择“按命中候选模型分别计费”按实际命中的底层模型扣费。',
               )}
             </p>
           </PopoverContent>
@@ -1039,8 +1039,8 @@ function RoutePoolEditorDialog({
   }
 
   const billingModeLabels: Record<ModelRoutePoolBillingMode, string> = {
-    pool_tariff: t('Unified pool price (custom model)', '作为自定义模型统一定价 (pool_tariff)'),
-    candidate_tariff: t('Per-candidate model price (pass-through)', '按命中的候选模型分别计费 (candidate_tariff)'),
+    pool_tariff: t('Unified pool price (custom model)', '作为自定义模型统一定价'),
+    candidate_tariff: t('Per-candidate model price (pass-through)', '按命中的候选模型分别计费'),
   };
 
   const defaultActionLabels: Record<ModelRoutePoolDefaultAction, string> = {
@@ -1419,16 +1419,16 @@ function RoutePoolEditorDialog({
                   <DropdownMenuContent align="end" className="w-72">
                     <DropdownMenuLabel>{t('Preset routing strategies', '预设路由策略模板')}</DropdownMenuLabel>
                     <DropdownMenuItem onSelect={() => addRule('vision')}>
-                      {t('Vision & multimodal split', '视觉与多模态请求分流 (vision)')}
+                      {t('Vision & multimodal split', '视觉与多模态请求分流')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => addRule('tools')}>
-                      {t('Tool-calling & JSON split', '工具调用与函数分流 (tools)')}
+                      {t('Tool-calling & JSON split', '工具调用与函数分流')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => addRule('long_context')}>
                       {t('Long-context tiering (>= 32k tokens)', '长上下文阶梯分流 (>= 32k Token)')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => addRule('reasoning')}>
-                      {t('Deep reasoning split', '深度思考/推理请求分流 (reasoning)')}
+                      {t('Deep reasoning split', '深度思考/推理请求分流')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1573,11 +1573,11 @@ function RoutePoolEditorDialog({
                       <div className="flex flex-wrap items-center gap-4 pt-1">
                         {(
                           [
-                            ['vision', t('Requires vision / image input', '包含视觉/图片输入 (vision)')],
-                            ['tools', t('Requires tool calling', '包含工具调用 (tools)')],
+                            ['vision', t('Requires vision / image input', '包含视觉/图片输入')],
+                            ['tools', t('Requires tool calling', '包含工具调用')],
                             ['structured_output', t('Requires JSON schema / structured output', '包含结构化输出')],
-                            ['reasoning', t('Requires reasoning / thinking', '包含推理参数 (reasoning)')],
-                            ['streaming', t('Streaming SSE request', '流式请求 (stream)')],
+                            ['reasoning', t('Requires reasoning / thinking', '包含推理参数')],
+                            ['streaming', t('Streaming SSE request', '流式请求')],
                           ] as const
                         ).map(([field, label]) => (
                           <Label key={field} className="flex items-center gap-1.5 text-xs">
@@ -1882,11 +1882,11 @@ function RoutePoolPreviewDialog({
           <div className="flex flex-wrap items-center gap-4">
             <Label className="flex items-center gap-2 text-sm">
               <Checkbox checked={vision} onCheckedChange={v => setVision(v === true)} />
-              <span>{t('Vision / image input', '包含视觉图片 (vision)')}</span>
+              <span>{t('Vision / image input', '包含视觉图片')}</span>
             </Label>
             <Label className="flex items-center gap-2 text-sm">
               <Checkbox checked={tools} onCheckedChange={v => setTools(v === true)} />
-              <span>{t('Tool calling', '工具调用 (tools)')}</span>
+              <span>{t('Tool calling', '工具调用')}</span>
             </Label>
             <Label className="flex items-center gap-2 text-sm">
               <Checkbox checked={structuredOutput} onCheckedChange={v => setStructuredOutput(v === true)} />
@@ -1894,11 +1894,11 @@ function RoutePoolPreviewDialog({
             </Label>
             <Label className="flex items-center gap-2 text-sm">
               <Checkbox checked={reasoning} onCheckedChange={v => setReasoning(v === true)} />
-              <span>{t('Reasoning / thinking', '深度推理 (reasoning)')}</span>
+              <span>{t('Reasoning / thinking', '深度推理')}</span>
             </Label>
             <Label className="flex items-center gap-2 text-sm">
               <Checkbox checked={streaming} onCheckedChange={v => setStreaming(v === true)} />
-              <span>{t('Streaming SSE', '流式输出 (stream)')}</span>
+              <span>{t('Streaming SSE', '流式输出')}</span>
             </Label>
             <Button type="button" size="sm" disabled={loading} onClick={() => void runPreview()}>
               <IconPlayerPlay size={15} />

@@ -1,6 +1,6 @@
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { Area, AreaChart } from 'recharts';
+import { Area, AreaChart, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -20,7 +20,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
   const { locale, isZh, t } = useLocale();
   const [creating, setCreating] = useState(false);
   const canCreate = Boolean(context.session?.permissions.write && (context.session.kind === 'installation' || context.session.operator?.project_id === null));
-  const date = (value: number) => new Intl.DateTimeFormat(locale, {month: 'short', day: 'numeric', year: 'numeric'}).format(value);
+  const date = (value: number) => new Intl.DateTimeFormat(locale, {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'}).format(value);
   return <>
     {(canCreate || context.openCreateOrganization) && (
       <div className="flex flex-wrap items-center justify-end gap-2">
@@ -58,7 +58,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
               </dl>
             </TableCell>
             <TableCell className="hidden sm:table-cell text-right tabular-nums"><Link className="hover:underline tabular-nums" to={`${path}/keys`}>{workspace.active_key_count?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link></TableCell>
-            <TableCell className="hidden sm:table-cell text-right tabular-nums"><Link className="hover:underline tabular-nums" to={`${path}/executions`}>{workspace.requests_30d?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link>{workspace.requests_by_day?.length ? <ChartContainer config={{request_count:{label:t('Requests', '请求数'),color:'var(--chart-1)'}}} className="mt-2 ml-auto h-10 w-36" aria-label={uiF("Daily requests for {0} · past 30 calendar days · UTC", [name])}><AreaChart accessibilityLayer data={workspace.requests_by_day}><ChartTooltip content={<ChartTooltipContent labelFormatter={(_label,payload) => payload[0]?.payload ? new Intl.DateTimeFormat(locale,{month:'short',day:'numeric',timeZone:'UTC'}).format(payload[0].payload.start_ms)+' UTC' : ''}/>}/><Area dataKey="request_count" type="monotone" strokeLinecap="round" strokeLinejoin="round" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={1.5} isAnimationActive={false}/></AreaChart></ChartContainer> : null}</TableCell>
+            <TableCell className="hidden sm:table-cell text-right tabular-nums"><Link className="hover:underline tabular-nums" to={`${path}/executions`}>{workspace.requests_30d?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link>{workspace.requests_by_day?.some(point => point.request_count > 0) ? <ChartContainer config={{request_count:{label:t('Requests', '请求数'),color:'var(--chart-1)'}}} className="mt-1.5 ml-auto h-8 w-36" aria-label={uiF("Daily requests for {0} · past 30 calendar days · UTC", [name])}><AreaChart accessibilityLayer data={workspace.requests_by_day}><YAxis domain={[0, (max: number) => Math.max(max, 1)]} hide /><ChartTooltip content={<ChartTooltipContent labelFormatter={(_label,payload) => payload[0]?.payload ? new Intl.DateTimeFormat(locale,{month:'short',day:'numeric',timeZone:'UTC'}).format(payload[0].payload.start_ms)+' UTC' : ''}/>}/><Area dataKey="request_count" type="monotone" strokeLinecap="round" strokeLinejoin="round" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.14} strokeWidth={1.5} isAnimationActive={false}/></AreaChart></ChartContainer> : null}</TableCell>
             <TableCell className="hidden sm:table-cell text-muted-foreground">{workspace.last_request_at_ms != null ? date(workspace.last_request_at_ms) : workspace.requests_30d == null ? t('Unavailable', '不可用') : t('No requests yet', '暂无请求')}</TableCell>
             <TableCell className="text-right align-top sm:align-middle"><DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [name])}><IconDotsVertical aria-hidden="true"/></Button></DropdownMenuTrigger>

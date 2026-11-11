@@ -58,6 +58,24 @@ import {
 } from './EvaluationComponents';
 import { EvaluationFormDialog } from './EvaluationFormDialog';
 
+const EVALUATION_LABELS: Record<string, string> = {
+  chat_completions: 'Chat Completions',
+  responses: 'Responses',
+  messages: 'Messages',
+  generate_content: 'GenerateContent',
+  check: 'Check',
+  matched: 'Matched',
+  mismatched: 'Mismatched',
+  unverified: 'Unverified',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  inconclusive: 'Inconclusive',
+};
+
+function formatEvalToken(value: string): string {
+  return EVALUATION_LABELS[value] ?? value;
+}
+
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace, url, params }) => {
     if (!workspace || params.slug) {
@@ -488,7 +506,7 @@ function EvaluationsView({
                       <TableCell className="whitespace-normal">
                         {safeText(row.task)}
                       </TableCell>
-                      <TableCell>{row.protocol}</TableCell>
+                      <TableCell>{uiT(formatEvalToken(row.protocol))}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {row.samples?.length ?? 0}
                       </TableCell>
@@ -625,7 +643,7 @@ function EvaluationsView({
               </p>
             </div>
             <p className="text-sm text-muted-foreground">
-              {uiT(detail.definition.protocol)} · {detail.definition.samples.length}{' '}
+              {uiT(formatEvalToken(detail.definition.protocol))} · {detail.definition.samples.length}{' '}
               {uiT('named samples · revision')} {detail.definition.revision}
               {uiT('. Runs retain their pinned definition.')}
             </p>
@@ -697,8 +715,8 @@ function EvaluationsView({
                   {detail.run.results.map((result) => (
                     <TableRow key={result.sample}>
                       <TableCell>{safeText(result.sample)}</TableCell>
-                      <TableCell>{uiT(result.input_match)}</TableCell>
-                      <TableCell>{uiT(result.judgment.verdict)}</TableCell>
+                      <TableCell>{uiT(formatEvalToken(result.input_match))}</TableCell>
+                      <TableCell>{uiT(formatEvalToken(result.judgment.verdict))}</TableCell>
                       <TableCell>
                         {formatModelAlias(result.attempts.find(attempt => attempt.attempt_id === result.evaluated_attempt_id)?.model ?? 'Unavailable')}
                         {(result.pool_selections ?? [])

@@ -161,11 +161,10 @@ export function ShellSidebar({
         },
       }}
       mobileStyle={{
-        left: 'var(--rail)',
+        left: 0,
         top: 0,
-        right: 0,
         bottom: 0,
-        width: 'min(var(--context), calc(100vw - var(--rail)))',
+        width: 'min(280px, calc(100vw - 32px))',
         height: 'auto',
       }}
     >
@@ -185,7 +184,6 @@ export function AdminProviderTabs({
   gatewayStatus: GatewayStatus;
 }) {
   const { t } = useLocale();
-  const uiT = (en: string) => t(en, en);
   const location = useLocation();
   const navigate = useNavigate();
   const supplierTabsRef = useRef<HTMLDivElement>(null);
@@ -216,7 +214,7 @@ export function AdminProviderTabs({
       className="mb-6 min-w-0"
     >
       <div ref={supplierTabsRef} className="max-w-full overflow-x-auto">
-        <TabsList variant="line" aria-label={uiT('Provider sections')}>
+        <TabsList variant="line" aria-label={t('Provider sections', '供应商详情分区')}>
           {[
             ['overview', t('Overview', '概览')],
             ['keys', t('API keys', 'API 密钥')],

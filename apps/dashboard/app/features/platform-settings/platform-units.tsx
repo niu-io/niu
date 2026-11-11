@@ -341,7 +341,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             <div>
               <h3 className="text-sm font-semibold">{uiT("1. Branded unit definition")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Current revision:")}{" "}{config.definition ? uiF("v{0} ({1}, {2} decimals)", [config.definition.revision, config.definition.name, config.definition.display_precision]) : uiT("Not published")}
+                {uiT("Active unit:")}{" "}{config.definition ? uiF("{0} ({1} decimal places)", [config.definition.name, config.definition.display_precision]) : uiT("Not published")}
               </p>
             </div>
             <form className="space-y-3" onSubmit={event => void handlePublishDefinition(event)}>
@@ -392,7 +392,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             <div>
               <h3 className="text-sm font-semibold">{uiT("2. Purchase conversion rule")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Defines how top-up payments in settlement currency convert into issued")}{" "}{defName}{" "}{uiT("Credits at checkout.")}</p>
+                {uiF("Defines how top-up payments in settlement currency convert into issued {0} at checkout.", [defName])}</p>
             </div>
             {config.purchase_rules.length > 0 ? (
               <ul className="space-y-1 text-xs text-muted-foreground">
@@ -478,10 +478,10 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             </div>
           </div>
 
-          {savedPreview && (
+          {savedPreview && !confirmMode && (
             <div className="rounded border bg-background p-3 text-xs space-y-1">
               <p className="font-medium">
-                {uiT("Saved preview bound to revision v")}{savedPreview.expected_revision}:{' '}
+                {uiT("Compatibility check:")}{' '}
                 {savedPreview.source_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")} →{' '}
                 {savedPreview.target_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")}
               </p>

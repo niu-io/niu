@@ -52,7 +52,8 @@ export const stamp = (value: string) =>
  */
 export function agentHandoffPrompt(routeWorkspace: string, task: string) {
   const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
-  return `Use Niu to ${task}. Use the Niu deployment at ${window.location.origin}${base} and workspace ${window.location.origin}${base}/workspaces/${encodeURIComponent(routeWorkspace)}. Read https://niu.io/docs/agents.md and inspect the selected workspace grants first. Verify the deployment and workspace during authorization.`;
+  const origin = `${window.location.origin}${base}`;
+  return `Use Niu to ${task}. Use the Niu deployment at ${origin} and workspace ${origin}/workspaces/${encodeURIComponent(routeWorkspace)}. Read ${origin}/docs/agents.md and inspect the selected workspace grants first. Verify the deployment and workspace during authorization.`;
 }
 
 export function CopyAgentPrompt({
@@ -112,7 +113,7 @@ export function ReviewEmptyState({
         {actions}
         <CopyAgentPrompt prompt={prompt} onError={onError} />
         <Button variant="outline" asChild>
-          <a href="/docs/install.md">{uiT('Connect your agent')}</a>
+          <Link to="/help/agents/">{uiT('Connect your agent')}</Link>
         </Button>
       </EmptyContent>
     </Empty>
@@ -174,7 +175,7 @@ export function ReviewPageShell({
       {(heading || description) && (
         <div>
           {heading && (
-            <h1 className="text-xl font-semibold break-words">{heading}</h1>
+            <h2 className="text-xl font-semibold break-words">{heading}</h2>
           )}
           {description && (
             <p className="mt-1 text-sm text-muted-foreground">{description}</p>

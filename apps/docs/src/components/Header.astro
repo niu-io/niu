@@ -38,22 +38,38 @@ const navZh: Record<string, string> = {
       event.newDocument.querySelector('[data-docs-search]')?.replaceChildren();
     }
   });
-  const moveSearchToBody = () => {
+  // Keep site-search inside .docs-header-tools so the header trigger button stays
+  // anchored across Astro ClientRouter transitions, while detaching ONLY its modal
+  // <dialog> into document.body so hidden mobile/embedded headers never suppress
+  // the open top-layer search dialog.
+  const ensureDialogInBody = () => {
     const search = document.querySelector('site-search');
-    if (search && search.parentElement !== document.body) document.body.appendChild(search);
+    const dialog =
+      search?.querySelector<HTMLDialogElement>('dialog') ??
+      document.querySelector<HTMLDialogElement>('dialog[aria-label="Search"], dialog:has(#starlight__search)');
+    if (dialog && dialog.parentElement !== document.body) {
+      dialog.dataset.docsSearchDialog = 'true';
+      document.body.appendChild(dialog);
+    }
+    return dialog;
   };
   document.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest('site-search button')) moveSearchToBody();
+    if (target?.closest('site-search button')) ensureDialogInBody();
+  }, true);
+  document.addEventListener('keydown', event => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      ensureDialogInBody();
+    }
   }, true);
   document.addEventListener('astro:page-load', () => {
+    ensureDialogInBody();
     const url = new URL(location.href);
     if (url.searchParams.get('search') !== '1') return;
     const trigger = document.querySelector<HTMLButtonElement>('site-search button');
     if (!trigger) return;
     url.searchParams.delete('search');
     history.replaceState(history.state, '', url.pathname + url.search + url.hash);
-    moveSearchToBody();
     trigger.click();
     const focusSearch = () => {
       const input = document.querySelector<HTMLInputElement>('#starlight__search .pagefind-ui__search-input');
