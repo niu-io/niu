@@ -11,14 +11,14 @@
 /* Workspace billing: group spending and limits as quiet solid-tone sections. */
 .billing-content .billing-balance-content { gap: 16px; }
 .billing-content .billing-balance-content > section { margin-top: 0; padding: 20px 22px; border-radius: var(--radius-panel); background: var(--card); }
-.billing-content .billing-balance-content > section h2 { margin: 0 0 4px; font-size: 15px; font-weight: 620; letter-spacing: -.01em; }
+.billing-content .billing-balance-content > section h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
 .billing-content .billing-balance-content > section p { font-size: 14px; }
 .billing-content .billing-spending { margin-top: 14px; font-size: 28px; letter-spacing: -.03em; }
-.billing-content .billing-spending-empty { margin-top: 14px; color: var(--foreground); font-weight: 560; }
+.billing-content .billing-spending-empty { margin-top: 14px; color: var(--foreground); font-weight: 500; }
 
 /* Overview: the recent-requests heading shares the chart section's edge and type scale. */
 .gateway-task-feed.is-compact .gateway-task-feed-heading { padding-inline: 0; }
-.gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 16px; font-weight: 640; letter-spacing: -.015em; }
+.gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 16px; font-weight: 600; letter-spacing: -.015em; }
 .gateway-task-feed.is-compact .gateway-feed-actions { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
 .gateway-task-feed.is-compact .gateway-feed-actions a { font-size: 14px; }
 .gateway-task-feed.is-compact > .gateway-first-use { max-width: 100%; }
@@ -52,7 +52,7 @@
 
 /* The staging payment notice stays one line. The longer explanation opens on demand. */
 .mock-payment-warning { padding-block: 0.45rem; }
-.mock-payment-warning [data-slot="alert-title"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 620; }
+.mock-payment-warning [data-slot="alert-title"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 
 .help-search-fab {
   position: fixed;

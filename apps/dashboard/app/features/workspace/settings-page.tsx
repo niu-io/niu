@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import {
-  Link,
   Navigate,
   useFetcher,
   useLocation,
@@ -247,7 +246,6 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="w-full min-w-0 space-y-10">
-      <Button variant="outline" asChild><Link to="../guardrails" relative="path">{t('Guardrails', '安全护栏')}</Link></Button>
       <section aria-labelledby="workspace-general-title" className="space-y-5">
         <h2 id="workspace-general-title" className="text-base font-semibold">
           {t('General', '常规设置')}

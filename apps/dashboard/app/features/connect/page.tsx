@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronsUpDown, Check, ChevronDown } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
+import { useBranding } from '@/shell/branding';
 import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,6 +19,7 @@ const ALL_PROTOCOLS = ['chat', 'responses', 'messages', 'content', 'decisions', 
 class RequestLoadError extends Error {}
 export default function ConnectAgent() {
   const context = useDashboardContext();
+  const { settings, logo } = useBranding();
   const { t, isZh } = useLocale();
   const [query, setQuery] = useSearchParams();
   const code = (query.get('code') ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
@@ -116,7 +118,7 @@ export default function ConnectAgent() {
   return <main className="min-h-screen bg-background px-5 py-12 sm:py-20">
     <section className="mx-auto w-full max-w-lg space-y-7" aria-labelledby="connect-title">
       <div className="flex items-center justify-between gap-3">
-        <a href="/" className="text-xl font-semibold">Niu</a>
+        <a href={import.meta.env.BASE_URL || '/'} className="inline-flex items-center gap-2 text-lg font-semibold"><img src={logo} alt="" className="size-6 shrink-0" /><span>{settings.display_name}</span></a>
         {context.session && <Button variant="ghost" size="sm" onClick={() => void context.signOut()}>{t('Sign out', '退出登录')}</Button>}
       </div>
       <header className="space-y-3"><h1 id="connect-title" className="text-2xl font-semibold">{t('Connect your agent', '连接你的 Agent')}</h1>
@@ -168,7 +170,7 @@ export default function ConnectAgent() {
               : <>
                 <Label>{t('Allowed models', '允许的模型')}</Label>
                 <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={pending} aria-label={t('Allowed models', '允许的模型')}>{selectedModels.length === 1 ? t('1 model selected', '已选择 1 个模型') : selectedModels.length ? t(`${selectedModels.length} models selected`, `已选择 ${selectedModels.length} 个模型`) : t('Choose models', '选择模型')}<ChevronsUpDown size={16} /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-w-[calc(100vw-2rem)]">
+                  <DropdownMenuContent align="start" className="max-h-80 w-[var(--radix-dropdown-menu-trigger-width)] max-w-[calc(100vw-2rem)] overflow-y-auto">
                     <div className="p-2"><Input aria-label={t('Filter models', '筛选模型')} placeholder={t('Filter models', '筛选模型')} value={modelQuery} onChange={event => setModelQuery(event.target.value)} onKeyDown={event => {
                       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                         event.preventDefault(); event.stopPropagation();
@@ -182,6 +184,7 @@ export default function ConnectAgent() {
                     {!catalog.models.some(model => { const title = catalogTitle(model); const q = modelQuery.trim().toLocaleLowerCase(); return model.toLocaleLowerCase().includes(q) || title.toLocaleLowerCase().includes(q); }) && <DropdownMenuItem disabled>{t('No matching models', '没有匹配的模型')}</DropdownMenuItem>}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {selectedModels.length === 0 && <p className="text-muted-foreground">{t('Select at least one allowed model above, or turn off model calls.', '请在上方至少选择一个允许的模型，或关闭模型调用。')}</p>}
                 <p className="text-muted-foreground">{t('Custom routing can use only these backing models.', '自定义路由仅可使用这些底层模型。')}</p>
               </>}
           </div>}

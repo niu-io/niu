@@ -267,13 +267,13 @@ export default function TopupFunding({ token, organization, canCreate, unitSnaps
       if (!availability.payment_methods.includes(method)) throw new Error('Choose an available payment method.');
       if (effectiveBillingMode === 'credits') {
         if (!activeRule) {
-          setError(`No Credits purchase conversion rule is published for ${availability.currency}.`);
+          setError(uiF("No Credits purchase conversion rule is published for {0}.", [availability.currency]));
           return;
         }
         const scaled = BigInt(amount_nanos) * BigInt(activeRule.numerator);
         const denom = BigInt(activeRule.denominator);
         if (scaled % denom !== 0n || scaled / denom <= 0n) {
-          setError(`This ${availability.currency} amount cannot be represented as a whole number of ${activeUnit?.name ?? 'Credits'} under the active conversion rule.`);
+          setError(uiF("This {0} amount cannot be represented as a whole number of {1} under the active conversion rule.", [availability.currency, activeUnit?.name ?? 'Credits']));
           return;
         }
       }
@@ -285,7 +285,7 @@ export default function TopupFunding({ token, organization, canCreate, unitSnaps
         idempotency_key: crypto.randomUUID(),
         quote_idempotency_key: effectiveBillingMode === 'credits' ? crypto.randomUUID() : undefined,
       };
-    } catch { setError(`Enter a positive ${availability.currency} amount with at most two decimal places and choose a payment method.`); return; }
+    } catch { setError(uiF("Enter a positive {0} amount with at most two decimal places and choose a payment method.", [availability.currency])); return; }
     const opened = preparePaymentWindow();
     setPaymentLaunch(null);
     const controller = new AbortController(); mutation.current = controller; setBusy(true);

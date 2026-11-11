@@ -136,4 +136,26 @@ describe('Global Activity',()=>{
   expect(screen.queryByRole('alert')).toBeNull();
  });
 
+ it('displays Credits unit charges instead of Unknown on cross-workspace logs',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    const path=String(input);
+    if(path==='/api/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    return Response.json({
+      data:[{
+        ...request,
+        attempt_id:'unit-charged-attempt',
+        customer_charge_status:'charged',
+        customer_charge_currency:null,
+        customer_charge_nanos:null,
+        customer_unit_charge:{unit_name:'Credits',display_precision:2,net_atoms:'1250000000'},
+      }],
+      summary:{...summary('0','USD'),customer_charges:[],customer_unit_charges:[{unit_name:'Credits',display_precision:2,net_atoms:'1250000000'}]},
+      next_cursor:null,
+    });
+  }));
+  open('/activity/logs');
+  expect((await screen.findAllByText('1.25 Credits')).length).toBeGreaterThanOrEqual(1);
+  expect(screen.queryByText('Unknown')).toBeNull();
+ });
+
 });

@@ -2,7 +2,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/
 import { translateUI, readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { IconChevronDown, IconHistory, IconRefresh } from '@tabler/icons-react';
+import { IconChevronDown, IconHistory, IconRefresh, IconSearch } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
@@ -10,6 +10,7 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
@@ -27,7 +28,10 @@ function actionName(action: string) {
     vendor_model_created: 'Model route created', vendor_model_updated: 'Model route updated',
     vendor_model_seeded: 'Model route imported', provider_created: 'Provider created', supplier_associated: 'Provider associated', provider_associated: 'Provider associated',
   };
-  return translateUI(names[action] ?? 'Other action');
+  const known = names[action];
+  if (known) return translateUI(known);
+  const cleaned = action.replace(/_/g, ' ').trim();
+  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : translateUI('Other action');
 }
 function roleName(role:string) {const labels:Record<string,string>={owner:'Owner',admin:'Administrator',viewer:'Viewer'};return translateUI(labels[role]??'Unknown');}
 function actorName(event: PlatformAuditEvent) {
@@ -102,7 +106,7 @@ function AuditLogs({ token }: { token: string }) {
   const needle = query.trim().toLowerCase();
   const visibleRows = rows?.filter(event => !needle || [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle));
   return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
-    <p className="text-sm text-muted-foreground">{uiT("Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.")}</p>
+    <p className="text-sm text-muted-foreground">{uiT("Recorded account, access, Provider, and configuration changes.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Audit category")}>{translateUI(categories[category])}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
@@ -111,7 +115,36 @@ function AuditLogs({ token }: { token: string }) {
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
       <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-        <Input value={query} onChange={event => setQuery(event.target.value)} placeholder={uiT("Search events")} aria-label={uiT("Search audit events")} className="max-w-sm" />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size={query.trim() ? "sm" : "icon"}
+              aria-label={uiT("Search audit events")}
+              title={uiT("Search audit events")}
+              className={query.trim() ? "text-primary bg-accent" : undefined}
+            >
+              <IconSearch size={16} />
+              {query.trim() && <span className="max-w-32 truncate">{query.trim()}</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
+            <Input
+              autoFocus
+              type="search"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder={uiT("Search events")}
+              aria-label={uiT("Search audit events")}
+            />
+            {query && (
+              <Button variant="ghost" size="sm" onClick={() => setQuery("")}>
+                {uiT("Clear search")}
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
         <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
       </div>
     </div>

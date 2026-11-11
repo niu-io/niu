@@ -57,7 +57,7 @@ const sidebarBreakpoint = 960;
 
 export default function AppLayout() {
   const { t, format: uiF } = useLocale();
-  const uiT = (en: string) => t(en, en);
+  const uiT = (en: string) => t(en);
   const { settings: branding, logo } = useBranding();
   const revalidator = useRevalidator();
   const revalidatorRef = useRef(revalidator);
@@ -485,17 +485,6 @@ export default function AppLayout() {
     }
   }, [location.pathname, location.search]);
   const generationsHref = lastGenerationsHref;
-
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('[role="menu"], [role="dialog"]')) {
-        setSidebarOpen(false);
-        toggleRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, []);
 
   useEffect(() => {
     const closeOnCompactViewport = () => {

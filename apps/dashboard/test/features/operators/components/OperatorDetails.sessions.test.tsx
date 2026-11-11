@@ -1,8 +1,14 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import OperatorDetails from '@/features/operators/components/OperatorDetails';
 import type { OperatorSession } from '@/features/operators/api';
+import { saveLocale } from '@/shell/locale';
+
+afterEach(() => {
+  cleanup();
+  saveLocale('en');
+});
 
 it('shows active sessions before optional expired and revoked history', async () => {
   const now = Math.floor(Date.now() / 1000);
@@ -25,4 +31,18 @@ it('shows active sessions before optional expired and revoked history', async ()
   expect(within(table).getAllByText('Revoked')).toBeTruthy();
   await user.click(screen.getByRole('button', {name:'Hide past sessions (2)'}));
   expect(within(table).getAllByRole('row')).toHaveLength(2);
+});
+
+it('keeps active sessions and revoke action visible in zh-CN locale', () => {
+  saveLocale('zh-CN');
+  const now = Math.floor(Date.now() / 1000);
+  const sessions: OperatorSession[] = [
+    {id:'expired',operator_id:'member',created_at:'2026-01-01T00:00:00Z',expires_at_unix:now-3600,revoked:false},
+    {id:'active',operator_id:'member',created_at:'2026-01-01T00:00:00Z',expires_at_unix:now+7200,revoked:false},
+  ];
+  render(<OperatorDetails operator={{id:'member',name:'Example',role:'admin',organization_id:'org',project_id:null,revoked:false}} organizations={[]} projects={[]} sessions={sessions} sessionsLoading={false} events={[]} eventsLoading={false} hasMoreEvents={false} busy={false} credential={null} confirmTarget={null} canChangeRole={false} roleRefreshError="" onSaveRole={vi.fn()} onReloadRole={vi.fn()} onDismissCredential={vi.fn()} onIssueSession={vi.fn()} onConfirm={vi.fn()} onRevokeSession={vi.fn()} onRevokeOperator={vi.fn()} onLoadMoreEvents={vi.fn()}/>);
+  const table = screen.getByRole('table');
+  expect(within(table).getAllByRole('row')).toHaveLength(2);
+  expect(within(table).getAllByText('生效中').length).toBeGreaterThan(0);
+  expect(within(table).getByRole('button', {name: '撤销'})).toBeTruthy();
 });

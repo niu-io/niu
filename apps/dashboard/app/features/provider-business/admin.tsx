@@ -4,18 +4,11 @@ import ProviderModels from './ProviderModels';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useProviderParams, providerPathSegment } from '@/shell/provider-route';
-import { IconSearch } from '@tabler/icons-react';
+import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconDots as Dots, IconPlus as Plus, IconSearch, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconPlus as Plus } from "@tabler/icons-react";
-import { IconDots as Dots } from "@tabler/icons-react";
-import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
-import { IconUsers } from "@tabler/icons-react";
-import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { useDashboardContext } from "@/shell/dashboard-context";
 import ProviderEditor, { type ProviderConnectionCreate } from "@/features/providers/components/ProviderEditor";
 import PageHeader from "@/components/PageHeader";
@@ -25,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError } from "@/features/providers/api";
+import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError, type ProviderConnection, type ProviderModel } from "@/features/providers/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
@@ -290,6 +283,18 @@ function Administration({ token }: { token: string }) {
   const [notice, setNotice] = useState("");
   const [offerId, setOfferId] = useState("");
   const [offerSnapshot, setOfferSnapshot] = useState<ProviderOffer | null>(null);
+  const [configuredAliases, setConfiguredAliases] = useState<string[]>([]);
+  useEffect(() => {
+    if (dialog !== "offer" || offerId || !selected || !token) { setConfiguredAliases([]); return; }
+    const controller = new AbortController();
+    void cachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/vendors?supplier=${encodeURIComponent(selected)}`, { signal: controller.signal })
+      .then(async res => {
+        const scoped = (res?.data ?? []).filter(c => (c.provider ?? c.supplier)?.id === selected);
+        const pages = await Promise.all(scoped.map(c => cachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(c.id)}/models`, { signal: controller.signal }).catch(() => ({ data: [] as ProviderModel[] }))));
+        if (!controller.signal.aborted) setConfiguredAliases([...new Set(pages.flatMap(p => (p?.data ?? []).filter(m => !m.capabilities?.video_schema).map(m => m.alias)))].sort());
+      }).catch(() => { if (!controller.signal.aborted) setConfiguredAliases([]); });
+    return () => controller.abort();
+  }, [dialog, offerId, selected, token]);
   useEffect(() => {
     const controller = new AbortController();
     const force = lastProvidersRevision.current !== revision;
@@ -443,16 +448,10 @@ function Administration({ token }: { token: string }) {
         <Plus size={16} />
         <span>{uiT("Manage portal access")}</span>
       </Button>
-    ) : section === "models" && pricingTab === "text" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}>
-        <Plus size={16} />
-        <span>{uiT("Set agreed rates")}</span>
-      </Button>
-    ) : section === "settlements" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}>
-        <Plus size={16} />
-        <span>{uiT("Record payment")}</span>
-      </Button>
+    ) : !internal && section === "models" && pricingTab === "text" && textOffers.length > 0 ? (
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button>
+    ) : !internal && section === "settlements" ? (
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}><Plus size={16} /><span>{uiT("Record payment")}</span></Button>
     ) : null;
   function nanos(value: string) {
     if (!/^\d+(\.\d{1,9})?$/.test(value.trim()))
@@ -693,27 +692,27 @@ function Administration({ token }: { token: string }) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{uiT("Model alias")}</TableHead>
-                      <TableHead>{uiT("Input / 1M tokens")}</TableHead>
-                      <TableHead>{uiT("Cache read / 1M tokens")}</TableHead>
-                      <TableHead>{uiT("Output / 1M tokens")}</TableHead>
+                      <TableHead className="text-right">{uiT("Input / 1M tokens")}</TableHead>
+                      <TableHead className="text-right">{uiT("Cache read / 1M tokens")}</TableHead>
+                      <TableHead className="text-right">{uiT("Output / 1M tokens")}</TableHead>
 
                       <TableHead>{uiT("Offer status")}</TableHead>
-                      {section === "models" && <TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
+                      {section === "models" && <TableHead className="supplier-offer-actions text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {visibleOffers.map((offer) => (
                       <TableRow key={offer.id}>
                         <TableCell>{offer.model_alias}<dl className="mt-3 grid gap-2 text-sm sm:hidden">
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd>{money(offer.prompt_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd>{money(offer.completion_rate, offer.currency)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.prompt_rate, offer.currency)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd className="tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.completion_rate, offer.currency)}</dd></div>
 
                           <div><dt className="text-xs text-muted-foreground">{uiT("Offer status")}</dt><dd>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</dd></div>
                         </dl></TableCell>
-                        <TableCell>{money(offer.prompt_rate, offer.currency)}</TableCell>
-                        <TableCell>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
-                        <TableCell>{money(offer.completion_rate, offer.currency)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{money(offer.prompt_rate, offer.currency)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
+                        <TableCell className="text-right tabular-nums">{money(offer.completion_rate, offer.currency)}</TableCell>
 
                         <TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell>
                         {section === "models" && <TableCell className="supplier-offer-actions"><DropdownMenu>
@@ -729,8 +728,9 @@ function Administration({ token }: { token: string }) {
                 </ShadcnTable>
               </div>
             ) : (
-              <div className="provider-empty-state">
+              <div className="provider-empty-state space-y-3">
                 <strong>{uiT("No agreed model rates")}</strong>
+                {!internal && <div><Button variant="outline" size="sm" disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button></div>}
               </div>
             )}
             </TabsContent>
@@ -753,15 +753,15 @@ function Administration({ token }: { token: string }) {
           </div>}
           {section === "usage" && <>
             {(Boolean(data?.consumption?.length) || (Array.isArray(data?.media_consumption) && data.media_consumption.length === 0)) && <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>}
-            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Accrued charges")}</TableHead><TableHead>{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
-              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
+            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead><TableHead className="text-right">{uiT("Accrued charges")}</TableHead><TableHead className="text-right">{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
+              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell className="text-right tabular-nums">{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell className="text-right tabular-nums">{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell><TableCell className="text-right tabular-nums">{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
             </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
             <MediaConsumption records={data?.media_consumption} administrator />
           </>}
           {section === "settlements" && <>
             <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
-            {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead>{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
-              {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
+            {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
+              {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
             </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
           </>}
         </section>
@@ -839,16 +839,11 @@ function Administration({ token }: { token: string }) {
           {dialog === "offer" && (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-offer-alias">{uiT("Existing upstream model alias")}</Label>
-                <Input
-                  id="supplier-offer-alias"
-                  disabled={busy || offerLoad?.loading}
-                  required
-                  maxLength={200}
-                  value={alias}
-                  readOnly={Boolean(offerId)}
-                  onChange={(event) => setAlias(event.target.value)}
-                />
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="supplier-offer-alias">{uiT("Existing upstream model alias")}</Label>
+                  {!offerId && configuredAliases.length > 0 && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="sm" disabled={busy || offerLoad?.loading}><span>{uiT("Choose configured model")}</span><ChevronDown size={14} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-64 overflow-y-auto"><DropdownMenuRadioGroup value={alias} onValueChange={setAlias}>{configuredAliases.map(item => <DropdownMenuRadioItem key={item} value={item}>{item}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+                </div>
+                <Input id="supplier-offer-alias" disabled={busy || offerLoad?.loading} required maxLength={200} value={alias} readOnly={Boolean(offerId)} onChange={(event) => setAlias(event.target.value)} />
               </div>
               <p className="text-sm text-muted-foreground">{uiT("Prices in")}{" "}{currency || uiT("the platform currency (configure in Admin)")}.</p>
               <div className="grid gap-2">

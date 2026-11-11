@@ -196,11 +196,16 @@ export default function ShellHeader({
                       if (next) selectWorkspace(next);
                     }}
                   >
-                    {workspaces.map(item => (
-                      <DropdownMenuRadioItem key={item.id} value={item.id}>
-                        {workspaceDisplayName(item.name)}
-                      </DropdownMenuRadioItem>
-                    ))}
+                    {workspaces.map(item => {
+                      const displayName = workspaceDisplayName(item.name);
+                      const hasDuplicateName = workspaces.filter(candidate => workspaceDisplayName(candidate.name) === displayName).length > 1;
+                      const orgLabel = hasDuplicateName && item.organization_name ? ` · ${item.organization_name}` : '';
+                      return (
+                        <DropdownMenuRadioItem key={item.id} value={item.id}>
+                          {displayName}{orgLabel}
+                        </DropdownMenuRadioItem>
+                      );
+                    })}
                   </DropdownMenuRadioGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>

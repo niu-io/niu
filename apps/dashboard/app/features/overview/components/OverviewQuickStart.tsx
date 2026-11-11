@@ -28,9 +28,9 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
       ? { to: '/admin/providers', label: uiT("Connect provider"), detail: uiT("Connect a Provider and import its models.") }
       : { to: modelsHref, label: uiT("Browse models"), detail: uiT("Ask a platform administrator to make a model available.") };
   const steps: Step[] = [
+    firstStep,
     { to: '/help/guides/api-quickstart/', label: uiT("Read the API quickstart"), detail: uiT("Use HTTP or SDK examples with your workspace key.") },
     { to: `${workspaceRoot}/executions`, label: uiT("View requests"), detail: uiT("Inspect each request after your first call.") },
-    firstStep,
   ];
   const title = uiT("Connect your agent", "连接你的 Agent");
   const description = hasModels

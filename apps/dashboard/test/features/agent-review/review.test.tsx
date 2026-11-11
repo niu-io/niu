@@ -435,7 +435,7 @@ test("workspace member can create a custom routed model directly from the empty 
   );
   await user.click(screen.getByLabelText("Model alias"));
   await user.type(screen.getByPlaceholderText("Search models…"), "gpt-4.1-mini");
-  await user.click(screen.getByRole("option", { name: /Use exact alias/ }));
+  await user.click(screen.getByRole("menuitem", { name: /Use exact alias/ }));
   await user.click(
     screen.getAllByRole("button", { name: "Create routing rule" }).at(-1)!,
   );

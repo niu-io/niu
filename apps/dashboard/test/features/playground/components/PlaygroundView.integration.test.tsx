@@ -104,7 +104,7 @@ describe('Global Chat', () => {
     const prompt=await screen.findByLabelText('Prompt for all selected models');
     await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
     await user.type(prompt,'Keep this draft');
-    expect(await screen.findByText('This API key is invalid. Choose another or create a new one to continue.')).toBeTruthy();
+    expect(await screen.findByText('Create an API key to start using models in this workspace.')).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Create API key'}));
     expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});

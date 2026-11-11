@@ -134,8 +134,9 @@ describe('dashboard route layout', () => {
     mockHealth();
     const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
-    const navigation = await screen.findByRole('tablist', { name: 'Admin sections' }, { timeout: 10000 });
-    expect(within(navigation).getByRole('tab', { name: 'Payment gateways' })).toBeTruthy();
+    const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' }, { timeout: 10000 });
+    expect(within(navigation).getByRole('link', { name: 'Payment gateways' })).toBeTruthy();
+    expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
     const breadcrumb = within(await screen.findByLabelText('Breadcrumb'));
     expect(breadcrumb.queryByText('Admin')).toBeNull();
@@ -144,7 +145,7 @@ describe('dashboard route layout', () => {
     await user.click(within(tabs).getByRole('tab', { name: 'API keys' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
     await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys' }).getAttribute('aria-selected')).toBe('true'));
-    await user.click(within(navigation).getByRole('tab', { name: 'Payment gateways' }));
+    await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
@@ -928,20 +929,26 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('navigation',{name:'Admin navigation'})).toBeNull();
   });
 
-  it('adds Admin without removing customer areas for a platform administrator', async () => {
+  it('switches to explicit Platform admin scope and returns to customer areas for a platform administrator', async () => {
     mockHealth();
     const previousFetch = globalThis.fetch;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/api/v1/session'
       ? Response.json({ data: { kind: 'operator', operator: { role: 'owner', organization_id: 'org', project_id: null }, provider_memberships: [], permissions: { read: true, write: true, manage_operators: true, platform_admin: true } } })
       : previousFetch(input, init)));
-    renderAt('/admin/providers');
-    await screen.findByRole('tablist', { name: 'Admin sections' });
-    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    const router = renderAt('/admin/providers');
+    const adminNav = await screen.findByRole('navigation', { name: 'Admin navigation' });
+    expect(within(adminNav).getByRole('link', { name: 'Providers', exact: true }).getAttribute('data-active')).toBe('true');
+    expect(within(adminNav).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/admin/settings');
+    expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
+    expect(screen.queryByText('Administrator access required')).toBeNull();
+    const backLink = screen.getByRole('link', { name: 'Back to workspace', exact: true });
+    await userEvent.click(backLink);
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/workspaces\//));
+    const navigation = await screen.findByRole('navigation', { name: 'Main navigation' });
     for (const name of ['Overview', 'Generations', 'Models']) {
       expect(within(navigation).getByRole('link', { name, exact: true })).toBeTruthy();
     }
     expect(screen.getByRole('link', { name: 'Admin', exact: true })).toBeTruthy();
-    expect(screen.queryByText('Administrator access required')).toBeNull();
   });
 
   it('names the global not-found page and offers workspace recovery', async () => {

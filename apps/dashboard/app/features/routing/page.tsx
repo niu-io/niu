@@ -119,11 +119,6 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
               : uiT('Use candidate models')}
           </p>
           <PoolStrategySummary strategy={pool.strategy} />
-          <p className="mt-2 text-sm text-muted-foreground">
-            {uiT(
-              'Saved configuration does not prove live model access or task quality.',
-            )}
-          </p>
         </div>
       </div>
       <h2 className="font-medium">{uiT('Candidate models')}</h2>

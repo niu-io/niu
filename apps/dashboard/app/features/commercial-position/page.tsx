@@ -7,42 +7,18 @@ import { useLocale } from '@/shell/ui-locale';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import {
-  IconArrowDownRight,
-  IconArrowUpRight,
-  IconCalendarStats,
-  IconChevronDown,
-  IconFileTypePdf,
-  IconMinus,
-  IconRefresh,
-} from '@tabler/icons-react';
+import { IconArrowDownRight, IconArrowUpRight, IconCalendarStats, IconChevronDown, IconFileTypePdf, IconMinus, IconRefresh } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useBranding } from '@/shell/branding';
 import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge'; import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import type {
-  CommercialPosition,
-  CommercialPositionRow,
-  CustomerFinancialSummary,
-} from '@niu-io/sdk/admin';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import type { CommercialPosition, CommercialPositionRow, CustomerFinancialSummary } from '@niu-io/sdk/admin';
 
 type PeriodMode = 'mtd' | 'month' | 'range' | 'rolling';
 
@@ -1024,9 +1000,14 @@ function CommercialStatement({ token }: { token: string }) {
             </article>
           </div>
 
-          {/* Layer 2: Financial Statements (Income Statement + Cash Flow & Wallet Position) */}
-          <div className="grid grid-cols-1 gap-6">
-            {/* Table 1: Statement of Operations (Income Statement) */}
+          {/* Layer 2: Tabbed Financial Statements (all force-mounted for instant switch & full PDF print) */}
+          <Tabs defaultValue="operations" className="space-y-4">
+            <TabsList variant="line" className="commercial-print-hide" aria-label={uiT("Financial statement sections")}>
+              <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
+              <TabsTrigger value="cash">{uiT("Cash & wallet position")}</TabsTrigger>
+              <TabsTrigger value="unit-economics">{uiT("Unit economics")}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="operations" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
@@ -1121,8 +1102,9 @@ function CommercialStatement({ token }: { token: string }) {
                 </TableBody>
               </Table>
             </div>
+            </TabsContent>
 
-            {/* Table 2: Cash Flow, Payables & Wallet Balance Sheet */}
+            <TabsContent value="cash" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
@@ -1134,7 +1116,7 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal [&_tr>*:last-child]:hidden sm:[&_tr>*:last-child]:table-cell">
+              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">{uiT("Measure")}</TableHead>
@@ -1245,9 +1227,9 @@ function CommercialStatement({ token }: { token: string }) {
                 </p>
               )}
             </div>
-          </div>
+            </TabsContent>
 
-          {/* Layer 3: Unit Economics by Provider & Model */}
+            <TabsContent value="unit-economics" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1277,7 +1259,7 @@ function CommercialStatement({ token }: { token: string }) {
               <Empty className="min-h-36 rounded-xl border border-dashed border-border/60 bg-muted/20 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
                 {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
-              <Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
+              <div className="table-wrap"><Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{uiT("Provider / model")}</TableHead>
@@ -1486,9 +1468,11 @@ function CommercialStatement({ token }: { token: string }) {
                     );
                   })}
                 </TableBody>
-              </Table>
+              </Table></div>
             )}
           </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Print-only formal document footer */}
           <footer className="commercial-print-only commercial-print-footer hidden">

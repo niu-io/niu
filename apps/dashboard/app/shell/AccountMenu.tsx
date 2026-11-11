@@ -6,8 +6,7 @@ import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconSun as Sun } from "@tabler/icons-react";
 import { IconMoon as Moon } from "@tabler/icons-react";
 import { IconDeviceDesktop as Monitor } from "@tabler/icons-react";
-import { IconBuildings as Building2 } from "@tabler/icons-react";
-import { FolderKey } from "lucide-react";
+import { IconBuildings as Building2, IconFolder } from "@tabler/icons-react";
 import { IconSparkles } from "@tabler/icons-react";
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconBook as CircleHelp } from "@tabler/icons-react";
@@ -54,13 +53,13 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
   const roles = context.roleSwitch;
 
   return <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
-      {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="gap-2 px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-1" aria-label={uiT("Account menu")}>{profile ? <Avatar className="size-6"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6" aria-hidden="true">{avatarInitial}</span>}<span className="max-w-24 truncate text-sm font-medium group-data-[collapsible=icon]:hidden">{label}</span><ChevronDown size={16} className="group-data-[collapsible=icon]:hidden" /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
+      {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start gap-2 px-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0" aria-label={uiT("Account menu")} title={label}>{profile ? <Avatar className="size-6 shrink-0"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6 shrink-0" aria-hidden="true">{avatarInitial}</span>}<span className="min-w-0 flex-1 truncate text-left text-sm font-medium group-data-[collapsible=icon]:hidden">{label}</span><ChevronDown size={16} className="shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
         {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
       </DropdownMenuTrigger>}
         <DropdownMenuContent className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
           {mobile && showDestinations && <>
             {!supplierOnly && <>
-              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><FolderKey />{t('Workspace', '工作空间')}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><IconFolder />{t('Workspace', '工作空间')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/generations"><IconSparkles />{t('Generations', '生成对话')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />{t('Activity', '活动')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
@@ -102,6 +101,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           </>}
           {organizationSwitchError && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(organizationSwitchError)}</DropdownMenuLabel>}
           {!supplierOnly && organization && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref('organization'))} onFocus={() => prefetchRouteIntent(settingsHref('organization'))} onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref('organization')}><Building2 size={18}/>{t('Organization settings', '组织设置')}</Link></DropdownMenuItem>}
+          {!supplierOnly && token && (!showDestinations || !mobile) && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/activity')} onFocus={() => prefetchRouteIntent('/activity')} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine size={18}/>{t('Activity', '跨空间活动')}</Link></DropdownMenuItem>}
           <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onFocus={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(!token || installation ? 'appearance' : 'account')}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>
           {!token && <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/login')} onFocus={() => prefetchRouteIntent('/login')} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}><KeyRound size={18}/>{t('Sign in', '登录')}</Link></DropdownMenuItem></>}
           <DropdownMenuSeparator />

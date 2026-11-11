@@ -12,13 +12,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { request } from '@/features/providers/api';
-import { amountFromNanos } from '@/lib/money';
+import { money } from '@/lib/money';
 import type { CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant } from '@niu-io/sdk/admin';
 import type { Editor } from './page';
 
 const base=(organization:string,currency:string)=>`/api/v1/organizations/${encodeURIComponent(organization)}/billing/accounts/${currency}/grants`;
 const date=(value:string)=>new Intl.DateTimeFormat(readLocale(),{dateStyle:'medium',timeStyle:'short',timeZone:'UTC',hourCycle:'h23'}).format(new Date(value));
-const amount=(row:IssuedCustomerBalanceGrant)=>`${amountFromNanos(row.amount_nanos)} ${row.currency}`;
+const amount=(row:IssuedCustomerBalanceGrant)=>money(row.amount_nanos, row.currency);
 
 /** All original grants, including those issued before preparation existed. */
 export function IssuedGiftHistory({token,organization,currency,onCorrect}:{token:string;organization:string;currency:string;onCorrect:(row:IssuedCustomerBalanceGrant)=>void}) {

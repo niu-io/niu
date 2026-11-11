@@ -33,9 +33,17 @@ function displayScope(operator: Operator, organizations: NamedResource[], projec
   return organization + ' · ' + workspaceDisplayName(workspace);
 }
 
-function expiryState(session: OperatorSession) {
-  if (session.revoked) return translateUI('Revoked');
-  if (session.expires_at_unix * 1000 <= Date.now()) return translateUI('Expired');
+type SessionStatus = 'revoked' | 'expired' | 'active';
+
+function sessionStatus(session: OperatorSession): SessionStatus {
+  if (session.revoked) return 'revoked';
+  if (session.expires_at_unix * 1000 <= Date.now()) return 'expired';
+  return 'active';
+}
+
+function expiryStateLabel(status: SessionStatus) {
+  if (status === 'revoked') return translateUI('Revoked');
+  if (status === 'expired') return translateUI('Expired');
   return translateUI('Active');
 }
 
@@ -119,8 +127,8 @@ export default function OperatorDetails({ operator, organizations, projects, ses
     <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">{uiT("Select a user")}</h2><p>{uiT("Review their role, create an access token, or revoke their access.")}</p></div>
   </section>;
 
-  const activeSessions = sessions.filter(item => expiryState(item) === 'Active');
-  const pastSessions = sessions.filter(item => expiryState(item) !== 'Active');
+  const activeSessions = sessions.filter(item => sessionStatus(item) === 'active');
+  const pastSessions = sessions.filter(item => sessionStatus(item) !== 'active');
   const historyExpanded = expandedHistoryFor === operator.id;
   const visibleSessions = historyExpanded ? [...activeSessions, ...pastSessions] : activeSessions;
 
@@ -183,13 +191,14 @@ export default function OperatorDetails({ operator, organizations, projects, ses
           : <>{activeSessions.length === 0 && <div className="operator-session-empty">{uiT("No active sessions.", "没有有效的访问会话。")}</div>}{pastSessions.length > 0 && <Button type="button" variant="ghost" size="sm" aria-expanded={historyExpanded} onClick={() => setExpandedHistoryFor(historyExpanded ? null : operator.id)}>{historyExpanded ? uiT("Hide past sessions", "隐藏历史会话") : uiT("Show past sessions", "显示历史会话")} ({pastSessions.length})<ChevronDown aria-hidden="true" className={historyExpanded ? 'rotate-180' : ''} /></Button>}{visibleSessions.length > 0 && <div className="table-wrap"><Table>
             <TableHeader><TableRow><TableHead>{uiT("Created")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Expires")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-28"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
             <TableBody>{visibleSessions.map(item => {
-              const state = expiryState(item);
+              const status = sessionStatus(item);
+              const stateLabel = expiryStateLabel(status);
               const confirming = confirmTarget?.kind === 'session' && confirmTarget.id === item.id;
               return <TableRow key={item.id}>
-                <TableCell>{new Date(item.created_at).toLocaleString(readUILocale())}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></dd></div></dl></TableCell>
+                <TableCell>{new Date(item.created_at).toLocaleString(readUILocale())}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + status}>{stateLabel}</span></dd></div></dl></TableCell>
                 <TableCell className="hidden sm:table-cell">{formatExpiry(item.expires_at_unix)}</TableCell>
-                <TableCell className="hidden sm:table-cell"><span className={'operator-session-state state-' + state.toLowerCase()}>{uiT(state)}</span></TableCell>
-                <TableCell>{state === 'Active' && !operator.revoked
+                <TableCell className="hidden sm:table-cell"><span className={'operator-session-state state-' + status}>{stateLabel}</span></TableCell>
+                <TableCell>{status === 'active' && !operator.revoked
                   ? confirming
                     ? <span className="operator-confirm-actions"><Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => onRevokeSession(item.id)}>{uiT("Confirm revoke")}</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onConfirm(null)}>{uiT("Cancel")}</Button></span>
                     : <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onConfirm({ kind: 'session', id: item.id })}><Ban size={14} />{uiT("Revoke")}</Button>

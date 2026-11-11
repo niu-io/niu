@@ -145,16 +145,20 @@ it('renders a structured financial statement with period comparisons, active mod
   // Executive KPI cards and Statement of Operations load under Financial statements
   expect(await screen.findByRole('region', { name: 'Financial statements' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Cash receipts, payables & wallet position' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
   expect(screen.getByText('25.0% margin')).toBeTruthy();
 
   // Financial figures are formatted to 4 decimal places with $ symbol
   expect(screen.getAllByText('$0.8000').length).toBeGreaterThan(0);
+
+  // Switch to Cash & wallet position tab
+  await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
+  expect(screen.getByRole('heading', { name: 'Cash receipts, payables & wallet position' })).toBeTruthy();
   expect(screen.getAllByText('$100.0000').length).toBeGreaterThan(0);
   expect(screen.getAllByText('$99.2000').length).toBeGreaterThan(0);
 
-  // Active model is shown by default with full-precision offer quote (In $0.003 · Out $2.40 / 1M)
+  // Switch to Unit economics tab: active model is shown by default with full-precision offer quote
+  await user.click(screen.getByRole('tab', { name: 'Unit economics' }));
+  expect(screen.getByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
   const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
   expect(within(unitTable).getByColumnHeader ? true : within(unitTable).getByText('Customer cash applied')).toBeTruthy();
   expect(within(unitTable).getByText('Customer unpaid credit')).toBeTruthy();
