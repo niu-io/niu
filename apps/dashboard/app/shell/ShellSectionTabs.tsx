@@ -37,22 +37,25 @@ export default function ShellSectionTabs({ context }: {
       context.session?.kind === 'installation' ||
       (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role))
     );
+    const accountPath = personal ? '/settings/account' : '/settings/appearance';
     entries = [
       ...(context.organization ? [{ path: '/settings/organization', label: t('Organization', '组织') }] : []),
       ...(context.organization && context.session?.permissions?.manage_operators ? [{ path: '/settings/members', label: t('Members', '成员管理') }] : []),
       ...(billing ? [{ path: '/settings/billing', label: t('Credits', '额度与充值') }] : []),
-      { path: personal ? '/settings/account' : '/settings/appearance', label: personal ? t('Account', '账户') : t('Preferences', '偏好设置') },
+      { path: accountPath, label: personal ? t('Account', '账户') : t('Preferences', '偏好设置') },
     ];
+    if (location.pathname === '/settings/about' || (personal && location.pathname === '/settings/appearance')) selected = accountPath;
   } else if (/^\/workspaces\/[^/]+\/(settings|guardrails|billing)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
     label = t('Workspace settings sections', '工作空间设置页面');
+    const internal = context.session?.operating_mode === 'internal';
     entries = [
       { path: `${routeWorkspaceBase}/settings`, label: t('General', '常规设置') },
-      { path: `${routeWorkspaceBase}/billing`, label: t('Billing', '账单与费率') },
+      ...(!internal ? [{ path: `${routeWorkspaceBase}/billing`, label: t('Billing', '账单与费率') }] : []),
       { path: `${routeWorkspaceBase}/guardrails`, label: t('Guardrails', '安全护栏') },
     ];
     selected = location.pathname.includes('/guardrails')
       ? `${routeWorkspaceBase}/guardrails`
-      : location.pathname.includes('/billing')
+      : location.pathname.includes('/billing') && !internal
         ? `${routeWorkspaceBase}/billing`
         : `${routeWorkspaceBase}/settings`;
   } else if (/^\/workspaces\/[^/]+\/(assets|library|video)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
@@ -62,23 +65,6 @@ export default function ShellSectionTabs({ context }: {
       { path: `${routeWorkspaceBase}/assets`, label: t('Assets', '素材库') },
     ];
     selected = `${routeWorkspaceBase}/assets`;
-  } else if (
-    (location.pathname === '/models' || location.pathname === '/models/' || /^\/workspaces\/[^/]+\/(routing|evaluations)(\/|$)/.test(location.pathname)) &&
-    context.token &&
-    routeWorkspaceBase
-  ) {
-    label = t('Model sections', '模型与评估页面');
-    const catalogPath = workspaceSlug ? `/models?workspace=${encodeURIComponent(workspaceSlug)}` : '/models';
-    entries = [
-      { path: catalogPath, label: t('Catalog', '模型目录') },
-      { path: `${routeWorkspaceBase}/routing`, label: t('Routing', '模型路由') },
-      { path: `${routeWorkspaceBase}/evaluations`, label: t('Evaluations', '评估') },
-    ];
-    selected = location.pathname.includes('/routing')
-      ? `${routeWorkspaceBase}/routing`
-      : location.pathname.startsWith('/workspaces/')
-        ? `${routeWorkspaceBase}/evaluations`
-        : catalogPath;
   }
 
   if (!entries.length) return null;
@@ -93,7 +79,7 @@ export default function ShellSectionTabs({ context }: {
     }}
     className="mb-6 min-w-0 shrink-0"
   >
-    <div className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label={label}>
+    <div className="max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={label}>
       {entries.map(item => <TabsTrigger key={item.path} value={item.path}>{item.label}</TabsTrigger>)}
     </TabsList></div>
   </Tabs>;

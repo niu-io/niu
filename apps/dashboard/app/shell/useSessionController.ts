@@ -201,10 +201,21 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     const revision = connectionRevision.current;
     void (async () => {
       const configured = await fetch('/api/v1/auth/config', { signal: controller.signal, cache: 'no-store' });
-      if (configured.ok && (await configured.json()).password_login === true) {
-        if (controller.signal.aborted || revision !== connectionRevision.current) return;
-        await authenticate('niu-browser-member-session', true);
-        return null;
+      if (configured.ok) {
+        const authConfig = (await configured.json()) as {
+          password_login?: boolean;
+          browser_token_login?: boolean;
+          demo_login?: boolean;
+        };
+        if (
+          authConfig.password_login === true ||
+          authConfig.browser_token_login === true ||
+          authConfig.demo_login === true
+        ) {
+          if (controller.signal.aborted || revision !== connectionRevision.current) return;
+          await authenticate('niu-browser-member-session', true);
+          return null;
+        }
       }
       return null;
     })()

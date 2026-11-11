@@ -1754,7 +1754,7 @@ function RoutingView({
                       {candidate.alias.trim() && (
                         <Link
                           className="text-xs text-muted-foreground underline underline-offset-2"
-                          to={`/models/${encodeURIComponent(candidate.alias.trim())}?workspace=${encodeURIComponent(routeWorkspace)}`}
+                          to={`/workspaces/${encodeURIComponent(routeWorkspace)}/models/${candidate.alias.trim().split('/').map(encodeURIComponent).join('/')}`}
                         >
                           {t('Inspect model details', '查看模型详情')}
                         </Link>

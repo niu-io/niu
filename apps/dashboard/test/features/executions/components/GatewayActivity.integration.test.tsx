@@ -133,13 +133,14 @@ it('requests a short overview preview while preserving totals and access to the 
   const { container } = render(<MemoryRouter initialEntries={['/workspaces/demo']}><GatewayActivity compact token="test" models={[]} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   await screen.findByRole('button', {name:'model-9'});
   expect(screen.getByText('61')).toBeTruthy();
-  expect(screen.getByText('All time · 10 recent shown')).toBeTruthy();
+  expect(screen.getByText('All time')).toBeTruthy();
+  expect(screen.getByText('Showing latest 10')).toBeTruthy();
   expect(screen.getByRole('region', {name:'Workspace request totals'})).toBeTruthy();
   expect(container.querySelectorAll('.gateway-activity-summary article')).toHaveLength(4);
   expect(screen.getByRole('heading', {name:'Requests over time'})).toBeTruthy();
   expect(screen.queryByRole('heading', {name:'Requests by model'})).toBeNull();
   expect(within(screen.getByRole('region', {name:'Recent requests'})).getAllByRole('row')).toHaveLength(11);
-  expect(screen.getByRole('link', {name:/View activity/}).getAttribute('href')).toBe('/workspaces/demo/usage');
+  expect(screen.getByRole('link', {name:/Workspace usage/}).getAttribute('href')).toBe('/workspaces/demo/usage');
   expect(screen.getByRole('link', {name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions');
   expect(screen.queryByRole('button', {name:'Load older requests'})).toBeNull();
   for (const heading of ['Customer charge breakdown', 'Top API keys', 'Delivery status', 'Model usage']) {
@@ -159,7 +160,7 @@ it('offers first-use guidance instead of zeroed analytics when a workspace has n
   expect(container.querySelector('.gateway-activity-summary')).toBeNull();
   expect(screen.queryByRole('heading', {name:'Requests over time'})).toBeNull();
   expect(screen.queryByRole('heading', {name:'Model usage'})).toBeNull();
-  expect(screen.getByRole('link', {name:/View activity/}).getAttribute('href')).toBe('/workspaces/demo/usage');
+  expect(screen.getByRole('link', {name:/Workspace usage/}).getAttribute('href')).toBe('/workspaces/demo/usage');
   expect(screen.getByRole('link', {name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions');
 });
 

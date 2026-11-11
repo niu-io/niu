@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
 import { resolveProvider } from '@/shell/provider-route';
+import { workspaceModelsHref } from '@/shell/workspace-route';
 import ProviderAdministration from '@/features/provider-business/admin';
 import { Navigate, useLocation, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import ProviderList from './ProviderList';
@@ -57,14 +58,14 @@ export default function ProvidersRoute() {
   if (section && !validSections.has(section)) {
     return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}${location.search}${location.hash}`} />;
   }
-  if (context.session?.operating_mode === 'internal' && section === 'settlements') {
+  if (context.session?.operating_mode === 'internal' && (section === 'settlements' || section === 'members')) {
     return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}`} />;
   }
   if (section === "settings") return <ProviderSettings key={activeProviderId} />;
   if (section !== "keys") return <ProviderAdministration />;
   return <ConnectGate>
     {({ token, session, refreshWorkspace }) => session
-      ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" providerSlug={activeProviderId} />
+      ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath={workspaceModelsHref(context.workspace, context.workspaces)} providerSlug={activeProviderId} organizationId={context.organization?.id} />
       : <section className="panel vendor-loading"><FormSectionSkeleton fields={2} label={uiT("Checking session permissions…")} /></section>}
   </ConnectGate>;
 }

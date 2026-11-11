@@ -9,12 +9,18 @@ export function TableSkeleton({
   columns = 5,
   rows = 6,
   headers,
+  columnClassNames,
+  cellWidths,
+  tableClassName,
   className,
 }: {
   label: string;
   columns?: number;
   rows?: number;
   headers?: string[];
+  columnClassNames?: Array<string | undefined>;
+  cellWidths?: string[];
+  tableClassName?: string;
   className?: string;
 }) {
   const colCount = headers?.length ?? columns;
@@ -25,11 +31,11 @@ export function TableSkeleton({
       className={cn('w-full min-w-0', className)}
     >
       {label && <span className="mb-2 block text-sm text-muted-foreground">{label}</span>}
-      <Table>
+      <Table className={tableClassName}>
         <TableHeader>
           <TableRow>
             {Array.from({ length: colCount }, (_, colIndex) => (
-              <TableHead key={colIndex}>
+              <TableHead key={colIndex} className={columnClassNames?.[colIndex]}>
                 {headers ? (
                   headers[colIndex]
                 ) : (
@@ -43,11 +49,15 @@ export function TableSkeleton({
           {Array.from({ length: rows }, (_, rowIndex) => (
             <TableRow key={rowIndex}>
               {Array.from({ length: colCount }, (__, colIndex) => (
-                <TableCell key={colIndex}>
+                <TableCell key={colIndex} className={columnClassNames?.[colIndex]}>
                   <Skeleton
                     className={cn(
                       'h-4 max-w-full',
-                      CELL_WIDTHS[(colIndex + rowIndex) % CELL_WIDTHS.length],
+                      columnClassNames?.[colIndex]?.includes('text-right') && 'ml-auto',
+                      cellWidths?.[colIndex] ??
+                        (colIndex === colCount - 1 && columnClassNames?.[colIndex]?.includes('text-right')
+                          ? 'w-8'
+                          : CELL_WIDTHS[(colIndex + rowIndex) % CELL_WIDTHS.length]),
                     )}
                   />
                 </TableCell>

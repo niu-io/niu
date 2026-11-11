@@ -161,7 +161,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
             );
           });
         }
-        if (url === '/api/v1/workspaces/ws-alpha/keys') {
+        if (url === '/api/v1/workspaces/ws-alpha/keys' || url.startsWith('/api/v1/workspaces/ws-alpha/keys?')) {
           return Response.json({
             data: [
               {
@@ -235,7 +235,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     vi.stubGlobal(
       'fetch',
       createBaseFetchMock((url, init) => {
-        if (url === '/api/v1/workspaces/ws-alpha/keys' && (!init?.method || init.method === 'GET')) {
+        if ((url === '/api/v1/workspaces/ws-alpha/keys' || url.startsWith('/api/v1/workspaces/ws-alpha/keys?')) && (!init?.method || init.method === 'GET')) {
           keysEndpointCalls += 1;
           return Response.json({
             data: [
@@ -282,7 +282,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(
       peekQuery<{ data: Array<{ name: string }> }>(
         'niu-browser-member-session',
-        '/api/v1/workspaces/ws-alpha/keys',
+        '/api/v1/workspaces/ws-alpha/keys?limit=50',
       )?.data[0]?.name,
     ).toBe('Agent Key v2');
   });
@@ -454,5 +454,62 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/alpha/billing'));
     expect(router.state.location.search).toBe('?period=30d');
     expect(router.state.location.hash).toBe('#breakdown');
+  });
+
+  it('renders TableSkeleton instead of No API keys yet while /workspaces/:workspace/keys is loading (niu-xa7o)', async () => {
+    let resolveKeys: ((res: Response) => void) | undefined;
+    let keysRequests = 0;
+
+    vi.stubGlobal(
+      'fetch',
+      createBaseFetchMock(url => {
+        if (url === '/api/v1/workspaces/ws-alpha/keys?limit=50') {
+          keysRequests += 1;
+          return new Promise<Response>(resolve => {
+            resolveKeys = resolve;
+          });
+        }
+        return null;
+      }),
+    );
+
+    const router = createDashboardMemoryRouter(['/workspaces/alpha'], buildAppRoutes());
+    const { container } = render(<RouterProvider router={router} />);
+    await screen.findByRole('heading', { name: 'Overview' }, { timeout: 5000 });
+
+    await act(async () => {
+      await router.navigate('/workspaces/alpha/keys');
+    });
+
+    expect(router.state.location.pathname).toBe('/workspaces/alpha/keys');
+    expect(screen.getByText('Loading keys…')).toBeTruthy();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    expect(screen.queryByText('No API keys yet')).toBeNull();
+    expect(keysRequests).toBe(1);
+
+    await act(async () => {
+      resolveKeys?.(
+        Response.json({
+          data: [
+            {
+              id: 'key-skeleton-test',
+              slug: 'skeleton-verified-key',
+              name: 'Skeleton Verified Key',
+              allowed_models: ['*'],
+              expires_at_ms: null,
+              last_used_at_ms: null,
+              revoked: false,
+              expired: false,
+            },
+          ],
+          next_cursor: null,
+        }),
+      );
+    });
+
+    expect(await screen.findByText('Skeleton Verified Key')).toBeTruthy();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
+    expect(screen.queryByText('No API keys yet')).toBeNull();
+    expect(keysRequests).toBe(1);
   });
 });

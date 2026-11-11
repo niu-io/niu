@@ -71,7 +71,8 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           <DropdownMenuLabel className="account-identity">
             <Avatar className="size-9 shrink-0" aria-hidden="true"><AvatarImage src={profile?.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar>
             <div className="account-identity-details"><strong>{label}</strong>
-            <span>{profile?.email || (installation ? t('Administrator token session', '管理员令牌会话') : token ? t('Account settings', '账户设置') : t('Sign in', '登录'))}</span></div>
+            <span>{profile?.email || (installation ? t('Administrator token session', '管理员令牌会话') : token ? t('Account settings', '账户设置') : t('Sign in', '登录'))}</span>
+            {roles && roles.available.length > 1 && <span className="text-xs text-muted-foreground">{roles.active === 'admin' ? t('Platform administrator mode', '平台管理员模式') : t('User mode', '普通用户模式')}</span>}</div>
           </DropdownMenuLabel>
           {roles && roles.available.length > 1 && <>
             <DropdownMenuSeparator />
@@ -85,6 +86,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
                 <span>{role === 'admin' ? t('Platform administrator', '平台管理员') : t('User', '普通用户')}</span>
               </DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
+            {roles.active === 'admin' && !location.pathname.startsWith('/admin') && <DropdownMenuItem asChild><Link onClick={() => { setAccountMenuOpen(false); if (compactNavigation) setOpenMobile(false); }} to="/admin/providers"><IconShieldLock />{t('Open Admin console', '打开管理后台')}</Link></DropdownMenuItem>}
           </>}
           {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(roles.error)}</DropdownMenuLabel>}
           {!supplierOnly && token && organizations.length > 0 && <>
@@ -101,7 +103,9 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           </>}
           {organizationSwitchError && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(organizationSwitchError)}</DropdownMenuLabel>}
           {!supplierOnly && organization && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref('organization'))} onFocus={() => prefetchRouteIntent(settingsHref('organization'))} onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref('organization')}><Building2 size={18}/>{t('Organization settings', '组织设置')}</Link></DropdownMenuItem>}
-          {!supplierOnly && token && (!showDestinations || !mobile) && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/activity')} onFocus={() => prefetchRouteIntent('/activity')} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine size={18}/>{t('Activity', '跨空间活动')}</Link></DropdownMenuItem>}
+          {(!supplierOnly && organization) && <DropdownMenuSeparator />}
+          <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Account & preferences', '个人账户与偏好')}</DropdownMenuLabel>
+          {!supplierOnly && token && (!showDestinations || !mobile) && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/activity')} onFocus={() => prefetchRouteIntent('/activity')} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine size={18}/>{t('Activity', '活动')}</Link></DropdownMenuItem>}
           <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onFocus={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(!token || installation ? 'appearance' : 'account')}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>
           {!token && <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/login')} onFocus={() => prefetchRouteIntent('/login')} onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}><KeyRound size={18}/>{t('Sign in', '登录')}</Link></DropdownMenuItem></>}
           <DropdownMenuSeparator />
@@ -134,7 +138,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </>}
-          {appearance.error && <><DropdownMenuLabel className="text-destructive">{appearance.error}</DropdownMenuLabel><DropdownMenuItem onSelect={appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</DropdownMenuItem></>}
+          {appearance.error && <><DropdownMenuLabel className="text-destructive whitespace-normal">{uiT(appearance.error)}</DropdownMenuLabel><DropdownMenuItem onSelect={appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</DropdownMenuItem></>}
           {token && <><DropdownMenuSeparator/><DropdownMenuItem onSelect={signOut}><LogOut/>{t('Sign out', '退出登录')}</DropdownMenuItem></>}
         </DropdownMenuContent>
     </DropdownMenu>;

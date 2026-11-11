@@ -29,7 +29,7 @@ describe('organization switching', () => {
         { id: 'project-1', name: 'Shared name', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Shared name', organization_id: 'org-2', organization_name: 'Research' },
       ] });
-      if (path.endsWith('/keys')) return json({ data: [] });
+      if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       return json({ data: [] });
     }));
     const user = userEvent.setup();
@@ -46,7 +46,7 @@ describe('organization switching', () => {
     await screen.findByRole('heading', { name: 'Organization', level: 1 });
     expect(await screen.findByDisplayValue('Research')).toBeTruthy();
     expect(screen.queryByText('Acme', { exact: true })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Users for Shared name' }).getAttribute('href')).toBe('/settings/members?workspace=shared-name-project2');
+    expect(screen.getByRole('link', { name: 'Members for Shared name' }).getAttribute('href')).toBe('/settings/members?workspace=shared-name-project2');
     await user.click(screen.getByRole('link', { name: 'Shared name', exact: true }));
     await screen.findByRole('heading', { name: 'Overview' });
     await user.click(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'API keys', exact: true }));
@@ -179,7 +179,7 @@ describe('organization switching', () => {
       }
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path.startsWith('/api/v1/operators')) return json({ data: [] });
-      if (path.endsWith('/keys')) return json({ data: [] });
+      if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       return json({ data: [] });
     }));
 

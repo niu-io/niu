@@ -99,7 +99,7 @@ export default function ProviderAdministration() {
 }
 function Administration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const { session } = useDashboardContext();
+  const { session, organization } = useDashboardContext();
   const internal = session?.operating_mode === 'internal';
   const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
@@ -435,13 +435,7 @@ function Administration({ token }: { token: string }) {
   }
 
   const selectedBusiness = businesses.find(item => item.id === selected);
-  const sectionTitle = {
-    overview: "Overview",
-    usage: "Usage",
-    members: "Members",
-    models: "Models",
-    settlements: "Settlements",
-  }[section] ?? uiT("Providers");
+  const sectionTitle = uiT({ overview: "Overview", usage: "Usage", members: "Members", models: "Models", settlements: "Settlements" }[section] ?? "Providers");
   const sectionAction =
     section === "members" ? (
       <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage portal access")} title={uiT("Manage portal access")} disabled={!data} onClick={() => open("membership")}>
@@ -580,7 +574,7 @@ function Administration({ token }: { token: string }) {
       // a second creation of the already persisted business/configuration.
       setDialog("");
       setSearch(current => { current.delete("create"); return current; }, { replace: true });
-      setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
+      setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : internal ? "Provider created. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
       const ownership = await request<{ data: { id: string } }>(token, `/api/v1/vendors/${encodeURIComponent(created.data.id)}/provider`, "GET");
       setSelected(ownership.data.id);
     } catch (reason) {
@@ -598,7 +592,7 @@ function Administration({ token }: { token: string }) {
   const sectionDescription = {
     overview: internal ? 'Connect an API key and discover models for internal use.' : 'Connect API access and model routes, then manage commercial rates and payments.',
     models: internal ? 'Manage model connections and availability.' : 'Model connections, availability and commercial offers.',
-    usage: 'Provider usage and accrued purchase charges over the last 90 days.',
+    usage: internal ? 'Provider usage over the last 90 days.' : 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
     members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
   }[section];
@@ -630,7 +624,7 @@ function Administration({ token }: { token: string }) {
 
       {notice && (
         <p role="status" className="provider-message">
-          {notice}
+          {uiT(notice)}
         </p>
       )}
       {error && !dialog && (
@@ -642,8 +636,7 @@ function Administration({ token }: { token: string }) {
         <section className="panel provider-access-message">
           <Building2 size={28} aria-hidden="true" />
           <h2>{uiT("No providers yet")}</h2>
-          <p>
-            {uiT("Add a provider to manage its models, pricing, and payments.")}</p>
+          <p>{internal ? uiT("Add a provider to manage its API keys and models.") : uiT("Add a provider to manage its models, pricing, and payments.")}</p>
           <Button onClick={() => open("create")}><Plus size={16} />{uiT("Add provider")}</Button>
         </section>
       ) : (
@@ -753,10 +746,10 @@ function Administration({ token }: { token: string }) {
           </div>}
           {section === "usage" && <>
             {(Boolean(data?.consumption?.length) || (Array.isArray(data?.media_consumption) && data.media_consumption.length === 0)) && <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>}
-            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead><TableHead className="text-right">{uiT("Accrued charges")}</TableHead><TableHead className="text-right">{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
-              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell className="text-right tabular-nums">{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell className="text-right tabular-nums">{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell><TableCell className="text-right tabular-nums">{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
+            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead>{!internal && <><TableHead className="text-right">{uiT("Accrued charges")}</TableHead><TableHead className="text-right">{uiT("Unpaid")}</TableHead></>}</TableRow></TableHeader><TableBody>
+              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell className="text-right tabular-nums">{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell className="text-right tabular-nums">{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell>{!internal && <><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell><TableCell className="text-right tabular-nums">{money(row.unpaid_nanos,row.currency)}</TableCell></>}</TableRow>)}
             </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
-            <MediaConsumption records={data?.media_consumption} administrator />
+            <MediaConsumption records={data?.media_consumption} administrator internal={internal} />
           </>}
           {section === "settlements" && <>
             <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
@@ -798,7 +791,7 @@ function Administration({ token }: { token: string }) {
           {offerLoad?.loading && <ListRowsSkeleton rows={2} label={uiT("Loading current agreed rates…")} />}
           {(offerLoad?.conflict || !offerLoad?.ready) && !offerLoad?.loading && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void loadOfferDetails(offerId, offerLoad?.conflict ? alias : "", Boolean(offerId) || Boolean(offerLoad?.conflict))}>{uiT("Reload saved rates")}</Button><p className="text-sm text-muted-foreground">{offerId || offerLoad?.conflict ? uiT("Reloading replaces your unsaved changes.") : uiT("Reloading preserves your unsaved values.")}</p></div>}
         </>}
-        {dialog === "create" ? <ProviderEditor token={token} connection={null} disabled={busy} onCreate={createProvider} onSave={async () => {}} /> : (<form
+        {dialog === "create" ? <ProviderEditor token={token} connection={null} operatingMode={session?.operating_mode} organizationId={organization?.id} disabled={busy} onCreate={createProvider} onSave={async () => {}} /> : (<form
           onSubmit={(event) => void submit(event)}
           className="provider-admin-form"
         >

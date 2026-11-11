@@ -483,7 +483,10 @@ export default function AppLayout() {
       setLastGenerationsHref('/generations');
     }
   }, [location.pathname, location.search]);
-  const generationsHref = lastGenerationsHref;
+  const defaultGenerationsHref = activeContextWorkspace
+    ? `/generations?workspace=${encodeURIComponent(workspacePathSegment(activeContextWorkspace, workspaces))}`
+    : '/generations';
+  const generationsHref = lastGenerationsHref === '/generations' ? defaultGenerationsHref : lastGenerationsHref;
 
   useEffect(() => {
     const closeOnCompactViewport = () => {
@@ -634,6 +637,7 @@ export default function AppLayout() {
             logo={logo}
             activeWorkspacePath={activeWorkspacePath}
             activePath={activePath}
+            organization={organization}
             workspace={effectiveActiveWorkspace}
             workspaces={workspaces}
             selectWorkspace={selectWorkspace}

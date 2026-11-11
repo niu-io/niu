@@ -12,14 +12,14 @@ const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, 
 it('searches and opens a model without losing the catalog filter on return', async () => {
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><Link to="/models">Models breadcrumb</Link><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
-  await user.type(screen.getByRole('textbox', { name: 'Filter model routes' }), 'model-24');
+  await user.type(screen.getByRole('textbox', { name: 'Search models by name or ID' }), 'model-24');
   expect(screen.queryByRole('link', { name: 'Model 0', exact: true })).toBeNull();
   await user.click(screen.getByRole('link', { name: 'Model 24', exact: true }));
   expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
   expect(screen.getByRole('link', { name: 'Create an API key' }).getAttribute('href')).toBe('/workspaces/default/keys/new');
   await user.click(screen.getByRole('link', { name: 'Models breadcrumb' }));
-  expect((screen.getByRole('textbox', { name: 'Filter model routes' }) as HTMLInputElement).value).toBe('model-24');
+  expect((screen.getByRole('textbox', { name: 'Search models by name or ID' }) as HTMLInputElement).value).toBe('model-24');
 });
 it('appends results instead of replacing pages and opens deep-linked details', async () => {
   const user = userEvent.setup();
@@ -48,7 +48,7 @@ it('provides a working catalog recovery action for an unavailable model', async 
   render(<MemoryRouter initialEntries={['/models/openai/unavailable']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
   expect(screen.getByText('Model unavailable')).toBeTruthy();
   await user.click(screen.getByRole('link', { name: 'Browse models' }));
-  expect(screen.getByRole('textbox', { name: 'Filter model routes' })).toBeTruthy();
+  expect(screen.getByRole('textbox', { name: 'Search models by name or ID' })).toBeTruthy();
   expect(screen.getAllByRole('article')).toHaveLength(20);
 });
 
@@ -57,12 +57,12 @@ it('clears both a developer filter and an unmatched search to recover the catalo
   render(<MemoryRouter initialEntries={['/models']}><SidebarProvider><ModelTable models={models} /></SidebarProvider></MemoryRouter>);
   const developer = screen.getByRole('checkbox', { name: 'OpenAI', exact: true });
   await user.click(developer);
-  await user.type(screen.getByRole('textbox', { name: 'Filter model routes' }), 'unavailable-example');
+  await user.type(screen.getByRole('textbox', { name: 'Search models by name or ID' }), 'unavailable-example');
   expect(screen.getByText('No matching models')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(developer.getAttribute('aria-checked')).toBe('false');
-  expect(document.activeElement).toBe(screen.getByRole('textbox', {name:'Filter model routes'}));
-  expect((screen.getByRole('textbox', { name: 'Filter model routes' }) as HTMLInputElement).value).toBe('');
+  expect(document.activeElement).toBe(screen.getByRole('textbox', {name:'Search models by name or ID'}));
+  expect((screen.getByRole('textbox', { name: 'Search models by name or ID' }) as HTMLInputElement).value).toBe('');
   expect(screen.getAllByRole('article')).toHaveLength(20);
 });
 
@@ -84,7 +84,7 @@ it('preserves developer filters when their group is collapsed with the keyboard'
   await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('true');
   expect(screen.getByRole('checkbox',{name:'OpenAI',exact:true}).getAttribute('aria-checked')).toBe('true');
-  await user.type(screen.getByRole('textbox',{name:'Filter model routes'}),'model-24');
+  await user.type(screen.getByRole('textbox',{name:'Search models by name or ID'}),'model-24');
   expect(screen.getByText('1 model')).toBeTruthy();
   expect(screen.queryByText('1 models')).toBeNull();
 });
@@ -134,12 +134,13 @@ it('omits internal route publication labels from the customer catalog', () => {
   expect(screen.queryByText('Public catalog')).toBeNull();
 });
 
-it('sorts the visible names naturally instead of hidden route aliases',async()=>{
-  const entries=[{...models[0],id:'z/first',catalog:{name:'Alpha 2'}},
-    {...models[1],id:'a/second',catalog:{name:'Alpha 10'}},
-    {...models[2],id:'b/third',catalog:{name:'alpha 1'}}];
+it('sorts the visible names naturally and by context length',async()=>{
+  const entries=[{...models[0],id:'z/first',catalog:{name:'Alpha 2',context_length:64000}},
+    {...models[1],id:'a/second',catalog:{name:'Alpha 10',context_length:200000}},
+    {...models[2],id:'b/third',catalog:{name:'alpha 1',context_length:32000}}];
   const user=userEvent.setup();
-  render(<MemoryRouter><SidebarProvider><ModelTable models={entries}/></SidebarProvider></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/models?sort=context']}><SidebarProvider><ModelTable models={entries}/></SidebarProvider></MemoryRouter>);
+  expect(screen.getAllByRole('article').map(row=>within(row).getAllByRole('link')[0].textContent)).toEqual(['Alpha 10','Alpha 2','alpha 1']);
   await user.click(screen.getByRole('button',{name:'Sort models'}));
   await user.click(screen.getByRole('menuitemradio',{name:'Name: A–Z'}));
   expect(screen.getAllByRole('article').map(row=>within(row).getAllByRole('link')[0].textContent)).toEqual(['alpha 1','Alpha 2','Alpha 10']);
@@ -303,4 +304,15 @@ it('explains Video estimation without presenting token prices for a Video-only m
  expect(screen.queryByText('Output price')).toBeNull();
  expect(screen.getByText(/Video cost depends on the request settings/)).toBeTruthy();
  expect(screen.getByRole('link',{name:'Try in Video'})).toBeTruthy();
+});
+
+it('restores developer, provider, and capability filters from URL parameters and preserves them on detail links',()=>{
+ const catalog=[
+  {id:'anthropic/claude-sonnet-4',provider:'openrouter',public_catalog:true,catalog:{name:'Claude Sonnet 4',input_modalities:['text','image'],output_modalities:['text']}},
+  {id:'openai/gpt-4o',provider:'openrouter',public_catalog:true,catalog:{name:'GPT-4o',input_modalities:['text','image'],output_modalities:['text']}},
+ ];
+ render(<MemoryRouter initialEntries={['/models?dev=anthropic&input=image']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={catalog}/></SidebarProvider>}/></Routes></MemoryRouter>);
+ expect(screen.getAllByRole('article')).toHaveLength(1);
+ const detailLink = screen.getByRole('link',{name:'Claude Sonnet 4'});
+ expect(detailLink.getAttribute('href')).toBe('/models/anthropic/claude-sonnet-4?input=image&dev=anthropic');
 });

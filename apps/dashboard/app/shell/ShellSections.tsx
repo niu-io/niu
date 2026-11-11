@@ -213,7 +213,7 @@ export function AdminProviderTabs({
       }
       className="mb-6 min-w-0"
     >
-      <div ref={supplierTabsRef} className="max-w-full overflow-x-auto">
+      <div ref={supplierTabsRef} className="max-w-full overflow-x-auto overflow-y-hidden">
         <TabsList variant="line" aria-label={t('Provider sections', '供应商详情分区')}>
           {[
             ['overview', t('Overview', '概览')],
@@ -224,7 +224,7 @@ export function AdminProviderTabs({
             ['members', t('Members', '成员')],
             ['settings', t('Settings', '设置')],
           ]
-            .filter(([value]) => operatingMode !== 'internal' || !['settlements'].includes(value))
+            .filter(([value]) => operatingMode !== 'internal' || !['settlements', 'members'].includes(value))
             .map(([value, label]) => {
               const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${
                 value === 'overview' ? '' : '/' + value

@@ -19,15 +19,18 @@ export const shouldRevalidate = routeShouldRevalidate;
 export default function ActivityRoute() {
   useOptionalRouteLoaderData();
   const { t } = useLocale();
-  const { workspace } = useDashboardContext();
+  const { workspace, session } = useDashboardContext();
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
+  const isInternalMode = session?.operating_mode === 'internal';
   return <ConnectGate>
-    {({ token, models }) => <><div className="mb-4 flex justify-end"><Button variant="outline" asChild><Link to="../billing" relative="path">{t('Workspace statements', '工作空间账单')}</Link></Button></div><GatewayActivity
+    {({ token, models }) => <GatewayActivity
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}
       models={models.map(model => model.id)}
       initialScope={scope}
       statisticsOnly
-    /></>}
+      hideBillingLink={isInternalMode}
+      headerAction={!isInternalMode ? <Button variant="outline" size="sm" asChild><Link to="../billing" relative="path">{t('Workspace billing', '工作空间计费')}</Link></Button> : undefined}
+    />}
   </ConnectGate>;
 }

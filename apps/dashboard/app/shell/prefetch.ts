@@ -9,7 +9,7 @@ import { canManagePlatform } from './dashboard-context';
 import { getActiveSessionSnapshot, type RouteHandle, type RouterSessionSnapshot } from './router-context';
 import { resolveWorkspacePathSegment } from './workspace-route';
 import { prefetchGet } from '@/lib/api-client';
-import { workspaceKeyPath } from '@/features/keys/api';
+import { workspaceKeyPagePath, workspaceKeyPath } from '@/features/keys/api';
 
 export type LazyRouteModule = {
   default: React.ComponentType;
@@ -155,6 +155,7 @@ export function preloadRouteChunk(pathname: string): void {
     if (parts.length === 1) { void routeImporters.workspaces(); return; }
     const section = parts[2] ?? '';
     if (!section) void routeImporters.overview();
+    else if (section === 'models') void routeImporters.models();
     else if (section === 'routing') void routeImporters.routing();
     else if (section === 'events') void routeImporters.eventSubscriptions();
     else if (section === 'evaluations') void routeImporters.evaluations();
@@ -284,12 +285,16 @@ export function prefetchRouteData(
     const section = parts[2] ?? '';
     if (!section) {
       prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
+    } else if (section === 'models') {
+      const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
+      prefetchGet(token, `/api/v1/models${q}`, { persist: true });
     } else if (section === 'keys') {
-      prefetchGet(token, workspaceKeyPath(ws.id));
       if (parts[3] && parts[3] !== 'new') {
+        prefetchGet(token, workspaceKeyPath(ws.id));
         prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
         prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
       } else {
+        prefetchGet(token, workspaceKeyPagePath(ws.id));
         prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
       }
     } else if (section === 'usage' || section === 'executions') {
@@ -353,7 +358,7 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
     preloadRouteChunk('/workspaces/default/billing');
     preloadRouteChunk('/workspaces/default/guardrails');
     preloadRouteChunk('/workspaces/default/assets');
-    preloadRouteChunk('/models');
+    preloadRouteChunk('/workspaces/default/models');
     preloadRouteChunk('/generations');
     preloadRouteChunk('/activity');
 
@@ -361,6 +366,7 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
     prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
     prefetchGet(snapshot.token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/assets`);
+    prefetchGet(snapshot.token, workspaceKeyPagePath(ws.id));
     prefetchGet(snapshot.token, workspaceKeyPath(ws.id));
     if (canManagePlatform(snapshot.session)) {
       preloadRouteChunk('/admin/providers');

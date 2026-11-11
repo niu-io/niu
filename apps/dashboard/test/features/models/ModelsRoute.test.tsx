@@ -17,11 +17,9 @@ it('keeps unread and failed catalogs distinct from an empty catalog and provides
  expect(state.context.refreshModels).toHaveBeenCalledTimes(1);
 });
 
-it('shows the current workspace scope and lets users change it even when the catalog fails',async()=>{
- render(<ModelsRoute/>);const user=userEvent.setup();
- expect(screen.getByRole('button',{name:'Filter by workspace'}).textContent).toContain('Current workspace');
- await user.click(screen.getByRole('button',{name:'Filter by workspace'}));
- expect(screen.getByRole('menuitemradio',{name:'Current workspace'}).getAttribute('aria-checked')).toBe('true');
- await user.click(screen.getByRole('menuitemradio',{name:'Production'}));
- expect(state.context.selectWorkspace).toHaveBeenCalledWith(state.context.workspaces[1]);
+it('relies on the workspace shell switcher without rendering a duplicate in-page workspace dropdown',()=>{
+ state.context.modelsLoading=false;state.context.modelsError='Could not load the model catalog.';
+ render(<ModelsRoute/>);
+ expect(screen.queryByRole('button',{name:'Filter by workspace'})).toBeNull();
+ expect(screen.getByRole('button',{name:'Refresh'})).toBeTruthy();
 });

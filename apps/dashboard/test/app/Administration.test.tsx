@@ -66,20 +66,30 @@ it.each([
   }
 });
 
-it('offers administrator mode when the account has the grant but the session is in user mode', () => {
+it('offers administrator mode when the account has the grant but the session is in user mode', async () => {
   const customerOwner = {
     kind: 'operator',
     operator: { id: 'op-owner', role: 'owner', organization_id: 'org-1', project_id: null },
     permissions: { read: true, write: true, manage_operators: true, platform_admin: false },
   } as AdminSession;
-  mount(customerOwner, '/admin/providers', {
-    available: ['user', 'admin'],
-    active: 'user',
-    saving: false,
-    error: '',
-    setRole: vi.fn(async () => true),
-  });
+  const setRole = vi.fn(async () => true);
+  const context: Partial<DashboardContext> = {
+    session: customerOwner,
+    workspace: { id: 'ws-1', organization_id: 'org-1', name: 'Production', slug: 'production' },
+    workspaces: [{ id: 'ws-1', organization_id: 'org-1', name: 'Production', slug: 'production' }],
+    roleSwitch: {
+      available: ['user', 'admin'],
+      active: 'user',
+      saving: false,
+      error: '',
+      setRole,
+    },
+  };
+  const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [{ path: '/admin', Component: Administration, children: [{ path: 'payments', element: <p>Payment gateways loaded</p> }] }] }], { initialEntries: ['/admin/payments'] });
+  render(<RouterProvider router={router} />);
   expect(screen.getByText(/assigned, but this session is in User mode/)).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Switch to administrator mode' })).toBeTruthy();
-  expect(screen.queryByText('Provider directory loaded')).toBeNull();
+  expect(screen.getByRole('link', { name: 'Open workspace' }).getAttribute('href')).toBe('/workspaces/production');
+  expect(screen.queryByText('Payment gateways loaded')).toBeNull();
+  screen.getByRole('button', { name: 'Switch to administrator mode' }).click();
+  expect(setRole).toHaveBeenCalledWith('admin');
 });

@@ -20,7 +20,7 @@ it('shows the seeded default project as a workspace without changing its existin
     if (path === '/api/v1/workspaces') return json({ data: [
       { id: 'workspace-default', name: 'Default project', organization_id: 'org-default', organization_name: 'Personal workspace' },
     ] });
-    if (path.endsWith('/keys')) return json({ data: [] });
+    if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
     throw new Error(`Unexpected request: ${path}`);
   }));
 

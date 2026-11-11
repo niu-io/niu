@@ -8,6 +8,7 @@ import {
 import {
   getActiveNavigationHash,
   providerSectionPath,
+  resolveModelsRedirectTarget,
   shouldDeferLegacyRedirect,
 } from './legacy-redirect-route';
 
@@ -247,19 +248,14 @@ export function workspaceSectionRedirectLoader(section: string) {
   };
 }
 
-export function WorkspaceModelsRedirect() {
-  const { workspace, '*': model } = useParams();
+export function LegacyModelsRedirect() {
+  const { '*': model } = useParams();
   const location = useLocation();
-  const query = new URLSearchParams(location.search);
-  if (workspace) query.set('workspace', workspace);
-  return <Navigate to={`/models${model ? '/' + model : ''}?${query.toString()}${location.hash}`} replace />;
+  return <Navigate to={resolveModelsRedirectTarget(model, location.search, location.hash)} replace />;
 }
 
-export function workspaceModelsRedirectLoader({ request, params, context }: LoaderFunctionArgs) {
+export function legacyModelsRedirectLoader({ request, params, context }: LoaderFunctionArgs) {
   if (shouldDeferLegacyRedirect(request, context)) return null;
   const url = parseRequestUrl(request);
-  const query = new URLSearchParams(url.search);
-  if (params.workspace) query.set('workspace', params.workspace);
-  const model = params['*'];
-  return redirect(`/models${model ? '/' + model : ''}?${query.toString()}${url.hash || getActiveNavigationHash()}`);
+  return redirect(resolveModelsRedirectTarget(params['*'], url.search, url.hash || getActiveNavigationHash(), context));
 }

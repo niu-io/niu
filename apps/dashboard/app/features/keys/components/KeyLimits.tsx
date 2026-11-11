@@ -20,9 +20,9 @@ export default function KeyLimits({ token, projectKey, keyPath, onInspectRequest
   const reservedTokens = typeof tokenRate?.reserved_tokens === 'string' && /^\d+$/.test(tokenRate.reserved_tokens) ? BigInt(tokenRate.reserved_tokens) : 0n;
   const showConcurrency = activeRequests > 0;
   const showTokens = unboundedRequests > 0 || reservedTokens > 0n;
-  return <Card>
-    <CardHeader><CardTitle>{uiT("Usage")}</CardTitle></CardHeader>
-    <CardContent>
+  return <Card className="rounded-none border-x-0 border-b-0 border-t bg-transparent px-0 py-6 shadow-none">
+    <CardHeader className="px-0"><CardTitle>{uiT("Usage")}</CardTitle></CardHeader>
+    <CardContent className="px-0">
       <KeyTokenUsage token={token} endpoint={keyPath} />
       {concurrency && activeRequests > 0 && <p className="mt-3 text-xs text-muted-foreground">{activeRequests.toLocaleString(readUILocale())}{" "}{uiT("unresolved requests at last refresh.")}</p>}
       {tokenRate && <p className="mt-1 text-xs text-muted-foreground">{tokenRate.committed_tokens === null ? uiT("Committed usage unknown") : uiF("{0} tokens committed", [BigInt(tokenRate.committed_tokens).toLocaleString(readUILocale())])}{" "}{uiT("at last refresh.")}{unboundedRequests > 0 ? uiF(" {0} {1} no usage estimate.", [unboundedRequests, unboundedRequests === 1 ? uiT("request has") : uiT("requests have")]) : ''}</p>}

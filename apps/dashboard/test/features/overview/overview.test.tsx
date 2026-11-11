@@ -21,7 +21,7 @@ vi.mock('../../../app/features/executions/components/GatewayActivity', () => ({
 function quickStart(overrides: Partial<Parameters<typeof OverviewQuickStart>[0]> = {}) {
   return <MemoryRouter><OverviewQuickStart
     workspaceRoot="/workspaces/demo"
-    modelsHref="/models?workspace=demo"
+    modelsHref="/workspaces/demo/models"
     canWrite
     canManagePlatform={false}
     hasModels
@@ -53,7 +53,7 @@ describe('workspace overview quick start', () => {
 
   it('points other members without models at the workspace model catalog', () => {
     render(quickStart({hasModels: false}));
-    expect(screen.getByRole('link', {name: 'Browse models'}).getAttribute('href')).toBe('/models?workspace=demo');
+    expect(screen.getByRole('link', {name: 'Browse models'}).getAttribute('href')).toBe('/workspaces/demo/models');
     expect(screen.getByText('A platform administrator must connect a Provider and publish models before this workspace can send requests.')).toBeTruthy();
   });
 });

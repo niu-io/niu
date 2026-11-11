@@ -36,7 +36,6 @@
 .dashboard-page-header h1 { margin: 0; color: var(--foreground); font-size: 16px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; }
 .breadcrumbs { display: flex; min-width: 0; align-items: center; font-size: 14px; gap: 12px; }
 .breadcrumbs > span:first-child { color: var(--muted-foreground); white-space: nowrap; }
-.breadcrumbs .crumb-divider { color: var(--border); }
 .breadcrumbs .dashboard-route-title { font-size: 16px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-route-title a { color: inherit; text-decoration: none; }
 .dashboard-route-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -46,8 +45,8 @@
 .page-heading.page-actions { justify-content: flex-end; }
 .model-route-title h2 { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 600; letter-spacing: -.03em; overflow-wrap: anywhere; }
 .dashboard-login-shell { min-height: 100dvh; }
-.dashboard-login { display: flex; flex-direction: column; min-height: 100dvh; color: var(--foreground); background-color: var(--background); background-image: radial-gradient(680px 420px at 50% 42%, color-mix(in oklab, #ed8645 6%, transparent), transparent 72%); }
-.dark .dashboard-login, :root[data-theme='dark'] .dashboard-login { background-image: radial-gradient(720px 460px at 50% 42%, color-mix(in oklab, #ed8645 8%, transparent), transparent 74%); }
+.dashboard-login { display: flex; flex-direction: column; min-height: 100dvh; color: var(--foreground); background-color: var(--background); background-image: radial-gradient(680px 420px at 50% 42%, color-mix(in oklab, var(--primary) 6%, transparent), transparent 72%); }
+.dark .dashboard-login, :root[data-theme='dark'] .dashboard-login { background-image: radial-gradient(720px 460px at 50% 42%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 74%); }
 .dashboard-login-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; max-width: 1200px; margin-inline: auto; padding: 20px clamp(20px, 4vw, 40px); }
 .dashboard-login-brand { display: inline-flex; align-items: center; gap: 9px; flex-shrink: 0; white-space: nowrap; margin: 0; color: var(--foreground); font-size: 16px; font-weight: 600; letter-spacing: -.025em; text-decoration: none; transition: opacity 140ms ease; }
 .dashboard-login-brand:hover { opacity: .86; }
@@ -68,7 +67,7 @@
 .dashboard-login-form [data-slot="input"] { height: 40px; min-height: 40px; padding-inline: 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, var(--border)); background: color-mix(in srgb, var(--card) 86%, var(--background)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%), 0 1px 2px rgb(0 0 0 / 8%); font-size: 14px; transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
 .dashboard-login-form [data-slot="input"]::placeholder { color: color-mix(in srgb, var(--muted-foreground) 56%, transparent); }
 .dashboard-login-form [data-slot="input"]:hover:not(:disabled):not(:focus-visible) { border-color: color-mix(in srgb, var(--foreground) 22%, var(--border)); }
-.dashboard-login-form [data-slot="input"]:focus-visible { border-color: color-mix(in oklab, #ed8645 68%, var(--ring)); background: var(--card); box-shadow: 0 0 0 3px color-mix(in oklab, #ed8645 18%, transparent); }
+.dashboard-login-form [data-slot="input"]:focus-visible { border-color: color-mix(in oklab, var(--primary) 68%, var(--ring)); background: var(--card); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent); }
 .dashboard-login-hint { margin: 2px 0 0; color: var(--muted-foreground); font-size: 12.5px; line-height: 1.45; }
 .dashboard-login-access-help { margin-top: 12px; }
 .dashboard-login-status { margin: 0; padding: 9px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--info) 26%, var(--border)); background: color-mix(in srgb, var(--info) 8%, var(--card)); color: var(--foreground); font-size: 13px; line-height: 1.45; }
@@ -87,7 +86,7 @@
 .dashboard-login-demo-caption { margin: 0; text-align: center; color: var(--muted-foreground); font-size: 12.5px; line-height: 1.45; }
 
 .page-heading .eyebrow { display: none; }
-.panel,.organization-settings-card { border: 0; border-radius: var(--radius-panel); box-shadow: none; background: var(--card); }
+.panel { border: 0; border-radius: var(--radius-panel); box-shadow: none; background: var(--card); }
 .panel-heading { padding: 20px 24px; border: 0; }
 .panel-heading h2 { font-size: 18px; }
 .panel-heading p, .connect-panel p { font-size: 14px; line-height: 1.65; }
@@ -98,14 +97,9 @@ td { font-size: 14px; border-color: color-mix(in srgb, var(--border) 55%, transp
 .connect-panel strong { font-size: 16px; }
 .connect-panel form { flex-wrap: wrap; gap: 10px; }
 .connect-panel input { width: min(360px, 100%); min-height: 42px; }
-.overview-workflow { padding: 24px; }
-.overview-workflow-icon { background: transparent; color: var(--foreground); }
-.overview-workflow h2 { font-size: 18px; }
-.overview-workflow p { font-size: 15px; line-height: 1.65; }
 .dashboard-skip { position: fixed; top: -100px; left: 80px; z-index: 100; padding: 12px 20px; background: var(--foreground); color: var(--background); border-radius: 10px; }
 .dashboard-skip:focus { top: 12px; }
 a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary:focus-visible:not([data-slot]) { outline: 2px solid var(--ring); outline-offset: 3px; }
-@media (max-width: 1100px) {.overview-workflow p { min-height: 0; }}
 @media (max-width: 959px) {
   .sidebar { position: fixed; top: var(--dashboard-header-height); bottom: 0; left: var(--rail); width: min(270px, calc(100vw - var(--rail))); box-shadow: 20px 0 60px #00000018; }
   .sidebar nav { margin-top: 0; }
@@ -114,7 +108,6 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
   .dashboard-page-header { padding: 8px 16px; }
   .page-content { padding: 24px 20px 48px; }}
 @media (max-width: 580px) {
-  .app-rail { display: flex; padding-inline: 5px; }
   .dashboard-page-header { gap: 10px; padding: 8px 13px; }
   .dashboard-page-header h1 { font-size: 16px; }
   .sidebar-toggle { flex-basis: 34px; width: 34px; height: 34px; }
@@ -126,7 +119,6 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
   .dashboard-login-stage { padding: 16px 16px 48px; }
   .dashboard-login-card { padding: 0; }
   .page-content { padding: 16px 16px 40px; }
-  .overview-workflow { padding: 18px; }
   .connect-panel { flex-direction: column; padding: 18px; }}
 .overview-primary-actions { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
 .cost-connect { padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
@@ -191,11 +183,6 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .playground-result-notice { padding: 12px 14px; border-radius: 9px; background: color-mix(in srgb, var(--warning) 8%, var(--card)); }
 @media (max-width: 780px) { .playground-result-grid { grid-template-columns: 1fr; }}
 @media (max-width: 580px) {.playground-results-heading { align-items: flex-start; flex-direction: column; }.playground-result-card-heading { align-items: flex-start; flex-direction: column; }}
-.models-page-heading .page-heading-action { flex: 0 0 auto; }
-@media (max-width: 620px) {
-  .models-page-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
-  .models-page-heading .page-heading-action, .models-page-heading .page-heading-action > a { width: 100%; }
-  .models-page-heading .page-heading-action > a { justify-content: center; }}
 
 .account-trigger { border: 0; cursor: pointer; }
 .account-menu { width: min(280px, calc(100vw - 24px)); background: var(--popover); color: var(--popover-foreground); border-radius: var(--radius-overlay); box-shadow: var(--shadow-overlay); }
@@ -209,7 +196,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 /* One-time invitation acceptance uses the sign-in shell so the recipient
    reviews organization, scope and role before accepting. */
 .invitation-org { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.invitation-avatar { display: grid; flex-shrink: 0; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 50%; background: color-mix(in oklab, #ed8645 14%, var(--card)); color: #b9511d; font-size: 20px; font-weight: 600; }
+.invitation-avatar { display: grid; flex-shrink: 0; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 50%; background: color-mix(in oklab, var(--primary) 14%, var(--card)); color: var(--primary); font-size: 20px; font-weight: 600; }
 .invitation-lead { margin: 0; font-size: 15px; line-height: 1.55; }
 .invitation-facts { display: grid; gap: 10px; margin: 0; padding: 14px; border-radius: 10px; background: color-mix(in srgb, var(--muted) 58%, transparent); }
 .invitation-footnote { margin: 0; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent); color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }

@@ -308,7 +308,7 @@ export function useWorkspaceController({
         /* URL remains the source of truth. */
       }
       const knownWorkspaces = workspaces.some(item => item.id === next.id) ? workspaces : [...workspaces, next];
-      if (usesSelectedWorkspace && !settingsArea && !workspaceDirectoryArea) {
+      if ((usesSelectedWorkspace && !settingsArea && !workspaceDirectoryArea) || location.pathname === '/settings/members') {
         const search = new URLSearchParams(location.search);
         search.set('workspace', workspacePathSegment(next, knownWorkspaces));
         navigate(
@@ -408,6 +408,7 @@ export function useWorkspaceController({
               nextSearch.delete('keyId');
               nextSearch.delete('workspace');
               if (nextSearch.has('organization') && next.slug) nextSearch.set('organization', next.slug);
+              if (nextSearch.has('org') && next.slug) nextSearch.set('org', next.slug);
               navigate(
                 {
                   pathname: `/workspaces/default${nestedPath ? `/${nestedPath}` : '/'}`,
@@ -420,6 +421,7 @@ export function useWorkspaceController({
               const nextSearch = new URLSearchParams(curLoc.search);
               nextSearch.delete('workspace');
               if (nextSearch.has('organization') && next.slug) nextSearch.set('organization', next.slug);
+              if (nextSearch.has('org') && next.slug) nextSearch.set('org', next.slug);
               navigate(
                 {
                   pathname: curLoc.pathname,
@@ -875,7 +877,8 @@ export function useWorkspaceController({
 
   useEffect(() => {
     if (!token || workspaceLoading || !authorityWorkspacesReady) return;
-    const requestedOrgParam = new URLSearchParams(location.search).get('organization');
+    const searchParams = new URLSearchParams(location.search);
+    const requestedOrgParam = searchParams.get('organization') ?? searchParams.get('org');
     if (!requestedOrgParam) {
       lastSyncedOrgParamRef.current = null;
     } else if (

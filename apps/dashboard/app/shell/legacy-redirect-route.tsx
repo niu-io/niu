@@ -7,6 +7,26 @@ import {
   type Params,
 } from 'react-router';
 import { readRouterSessionSnapshot } from './router-context';
+import { workspacePathSegment } from './workspace-route';
+
+export function resolveModelsRedirectTarget(
+  modelParam: string | undefined,
+  search: string,
+  hash: string,
+  context?: unknown,
+): string {
+  const query = new URLSearchParams(search);
+  const explicitWorkspace = query.get('workspace')?.trim();
+  query.delete('workspace');
+  const snapshot = readRouterSessionSnapshot(context);
+  const fallbackWs = snapshot.activeWorkspace ?? snapshot.workspaces[0] ?? null;
+  const wsSegment =
+    explicitWorkspace ||
+    (fallbackWs ? workspacePathSegment(fallbackWs, snapshot.workspaces) : 'default');
+  const cleanModel = (modelParam ?? '').replace(/^\/+|\/+$/g, '');
+  const modelSuffix = cleanModel ? `/${cleanModel}` : '';
+  return `/workspaces/${encodeURIComponent(wsSegment)}/models${modelSuffix}${query.size ? `?${query.toString()}` : ''}${hash}`;
+}
 
 let activeNavigationHash = '';
 
@@ -51,6 +71,7 @@ export function resolveLegacyRedirectTarget(
   search: string,
   hash: string,
   params: Params<string>,
+  context?: unknown,
 ): string {
   const clean = stripBasePath(pathname).replace(/\/+$/, '') || '/';
   const suffix = `${search}${hash}`;
@@ -61,6 +82,10 @@ export function resolveLegacyRedirectTarget(
   }
   if (clean === '/chat') {
     return `/generations${suffix}`;
+  }
+  if (parts[0] === 'models') {
+    const model = params['*'] ?? parts.slice(1).join('/');
+    return resolveModelsRedirectTarget(model, search, hash, context);
   }
 
   if (
@@ -137,7 +162,7 @@ export function resolveLegacyRedirectTarget(
       const providerId = params.providerId ?? decodeURIComponent(parts[2]);
       const actionSec = parts[3];
       if (actionSec === 'members') {
-        return `/admin/providers/${encodeURIComponent(providerId)}/settings${suffix}`;
+        return `/admin/providers/${encodeURIComponent(providerId)}/members${suffix}`;
       }
       if (actionSec === 'api-keys' || actionSec === 'configuration') {
         return `/admin/providers/${encodeURIComponent(providerId)}/keys${suffix}`;
@@ -171,12 +196,6 @@ export function resolveLegacyRedirectTarget(
     if (section === 'library') {
       return `/workspaces/${encodeURIComponent(ws)}/assets${suffix}`;
     }
-    if (section === 'models') {
-      const query = new URLSearchParams(search);
-      if (ws) query.set('workspace', ws);
-      const model = params['*'] ?? parts.slice(3).join('/');
-      return `/models${model ? '/' + model : ''}?${query.toString()}${hash}`;
-    }
     if (section === 'playground') {
       const sp = new URLSearchParams(search);
       if (ws) sp.set('workspace', ws);
@@ -203,7 +222,11 @@ export function shouldDeferLegacyRedirect(
   context?: LoaderFunctionArgs['context'],
 ): boolean {
   const url = new URL(request.url, 'http://localhost');
-  if ((stripBasePath(url.pathname).replace(/\/+$/, '') || '/') === '/') return false;
+  const clean = stripBasePath(url.pathname).replace(/\/+$/, '') || '/';
+  if (clean === '/') return false;
+  if ((clean === '/models' || clean.startsWith('/models/')) && new URLSearchParams(url.search).get('workspace')?.trim()) {
+    return false;
+  }
   const snapshot = readRouterSessionSnapshot(context);
   return !snapshot.token || snapshot.workspaces.length === 0;
 }
@@ -217,7 +240,7 @@ export function clientLoader({ request, params, context }: LoaderFunctionArgs) {
     url.hash ||
     activeNavigationHash ||
     (typeof window !== 'undefined' ? window.location.hash : '');
-  return redirect(resolveLegacyRedirectTarget(url.pathname, url.search, hash, params));
+  return redirect(resolveLegacyRedirectTarget(url.pathname, url.search, hash, params, context));
 }
 
 export default function LegacyRedirectRoute() {

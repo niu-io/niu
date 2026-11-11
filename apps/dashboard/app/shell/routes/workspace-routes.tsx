@@ -8,11 +8,9 @@ import { bindLazy } from '../lazy-route';
 import {
   LegacyPathRedirect,
   WorkspaceChatRedirect,
-  WorkspaceModelsRedirect,
   WorkspaceSectionRedirect,
   legacyPathRedirectLoader,
   workspaceChatRedirectLoader,
-  workspaceModelsRedirectLoader,
   workspaceSectionRedirectLoader,
 } from '../legacy-redirects';
 import { routeImporters } from '../prefetch';
@@ -66,9 +64,13 @@ export const workspaceRoute: RouteObject = {
       }),
     },
     {
+      id: 'workspace-models',
       path: 'models/*',
-      loader: workspaceModelsRedirectLoader,
-      element: <WorkspaceModelsRedirect />,
+      lazy: bindLazy(routeImporters.models, {
+        destination: 'Workspace',
+        navTo: 'models',
+        title: { en: 'Models', zh: '模型' },
+      }),
     },
     {
       path: 'providers-admin',
@@ -82,19 +84,19 @@ export const workspaceRoute: RouteObject = {
     },
     {
       path: 'provider-capabilities/:provider',
-      loader: legacyPathRedirectLoader('../assets/materials'),
-      element: <LegacyPathRedirect to="../assets/materials" />,
+      loader: legacyPathRedirectLoader('../assets?tab=materials'),
+      element: <LegacyPathRedirect to="../assets?tab=materials" />,
     },
     {
       path: 'video',
-      loader: legacyPathRedirectLoader('../assets/materials'),
-      element: <LegacyPathRedirect to="../assets/materials" />,
+      loader: legacyPathRedirectLoader('../assets?tab=materials'),
+      element: <LegacyPathRedirect to="../assets?tab=materials" />,
     },
     {
       id: 'workspace-video-provider',
       path: 'video/:provider/:section?',
-      loader: legacyPathRedirectLoader('../assets/materials'),
-      element: <LegacyPathRedirect to="../assets/materials" />,
+      loader: legacyPathRedirectLoader('../assets?tab=materials'),
+      element: <LegacyPathRedirect to="../assets?tab=materials" />,
     },
     {
       id: 'workspace-keys-new',
@@ -172,7 +174,7 @@ export const workspaceRoute: RouteObject = {
       lazy: bindLazy(routeImporters.workspaceUsage, {
         destination: 'Workspace',
         navTo: 'usage',
-        title: { en: 'Activity', zh: '活动' },
+        title: { en: 'Usage', zh: '用量' },
       }),
     },
     {

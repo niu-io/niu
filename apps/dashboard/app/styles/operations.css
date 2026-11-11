@@ -17,11 +17,11 @@
 .gateway-request-table .provider-logo { width:18px; height:18px; border:0; background:transparent; border-radius:0; }
 .gateway-request-table tbody tr:focus-visible { outline:2px solid var(--ring); outline-offset:-2px; }
 .request-histogram { padding:8px 16px 12px; border-bottom:1px solid var(--border); }
-.request-histogram-heading, .request-histogram-axis { display:flex; align-items:center; justify-content:space-between; color:var(--muted-foreground); font-size:11px; }
+.request-histogram-heading, .request-histogram-axis { display:flex; align-items:center; justify-content:space-between; color:color-mix(in oklab, var(--foreground) 76%, transparent); font-size:11px; }
 .request-histogram > svg { display:block; width:100%; height:64px; color:var(--primary); }
 .request-histogram-bar { transition:opacity .12s ease; }
 .request-histogram-bar:hover { opacity:1; }
-.request-histogram-axis { gap:16px; margin-top:8px; font-size:10px; }
+.request-histogram-axis { gap:16px; margin-top:8px; font-size:11px; }
 @media (max-width: 580px) {
   .app-shell { --rail: 0px; --dashboard-header-height: 56px; }
   .niu-workspace-sidebar-mobile { --rail: 0px; }}
@@ -41,20 +41,6 @@
     clip-path: inset(0 100% 0 0);
     visibility: hidden;
     pointer-events: none;
-  }}
-@media (min-width: 641px) and (max-width: 959px) {
-  .app-shell:has(> [data-slot="sidebar"][data-state="expanded"]) .dashboard-page-header {
-    height: auto;
-    flex-basis: auto;
-    min-height: var(--dashboard-header-height);
-    flex-wrap: wrap;
-    padding-block: 10px;
-  }
-  .app-shell:has(> [data-slot="sidebar"][data-state="expanded"]) .dashboard-page-actions {
-    flex-basis: 100%;
-    margin-left: 0;
-    justify-content: flex-start;
-    flex-wrap: wrap;
   }}
 
 .guardrails-page { width: 100%; max-width: none; }
@@ -147,22 +133,6 @@
 .mobile-product-navigation { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--background); }
 .mobile-product-navigation > a { display: flex; align-items: center; }
 .mobile-product-navigation img { width: 30px; height: 30px; object-fit: contain; }
-
-.key-table .key-name-link { max-width: 220px; white-space: normal; overflow-wrap: anywhere; }
-.key-table .key-name-link svg { flex-shrink: 0; }
-.key-table .key-model-summary { max-width: 220px; }
-.key-list { container-type: inline-size; }
-/* Adapt to the available canvas, including expanded navigation.
-   Keep expiry and last use; model access and limits move to the key detail page first. */
-@container (max-width: 900px) {
-  .key-table :is(th, td):nth-child(2),
-  .key-table :is(th, td):nth-child(3) { display: none; }
-  .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
-@container (max-width: 720px) {
-  .key-table { min-width: 0; width: 100%; }
-  .key-table .key-table-metadata { display: none; }
-  .key-table td:first-child { min-width: 0; }
-  .key-table .key-name-link { max-width: none; }}
 
 /* Flat section surfaces: navigation and content are separated by tone.
    Reserve elevation for floating controls; retain table and input affordances. */

@@ -485,7 +485,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   if (!canManage) {
     const isViewer = session.operator?.role === 'viewer';
     return <>
-      {!embedded && <PageHeader title={uiT("Users")} />}
+      {!embedded && <PageHeader title={uiT("Members")} />}
       <section className="panel operator-denied" role="status">
         <span className="operator-denied-icon"><ShieldCheck size={19} /></span>
         <div><h2>{uiT("Owner access required")}</h2><p>{isViewer
@@ -497,17 +497,16 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   }
 
   const actions = <div className="operator-page-actions">
-    <Button type="button" variant="ghost" className="header-icon-action" aria-label={uiT("Refresh users")} title={uiT("Refresh users")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} /><span>{uiT("Refresh")}</span></Button>
+    <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh members", "刷新成员")} title={uiT("Refresh members", "刷新成员")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} className={loading ? 'animate-spin' : undefined} /></Button>
     <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
   </div>;
 
   return <>
-    {!embedded && <PageHeader title={uiT("Users")} action={actions} />}
-    {error && <div className="operator-error" role="alert"><span>{error}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
+    <PageHeader title={uiT("Members")} action={actions} />
+    {error && <div className="operator-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
 
     <div className="operator-directory-region">
       <OperatorDirectory
-        actions={embedded ? actions : undefined}
         operators={visibleOperators}
         organizations={organizations}
         projects={projects}
@@ -541,7 +540,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     )}
     <Dialog open={Boolean(selectedOperator)} onOpenChange={open => { if (!open && !busy) { setOpenedRoleContext(''); setRoleRefreshError(''); setSelectedOperatorId(''); setCredential(null); setConfirmTarget(null); } }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { if (detailTriggerRef.current?.isConnected) { event.preventDefault(); detailTriggerRef.current.focus(); } }}>
-        <DialogHeader><DialogTitle>{uiT("User access")}</DialogTitle><DialogDescription>{uiT("Access sessions for")}{" "}{selectedOperator?.name}{uiT(". Revoke a session to end that connection.")}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{uiT("Member access", "成员访问权限")}</DialogTitle><DialogDescription>{uiF("Access sessions for {0}. Revoke a session to end that connection.", [selectedOperator?.name ?? ""])}</DialogDescription></DialogHeader>
       {selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id
         ? (roleOpenError
           ? <div className="space-y-3"><p role="alert">{uiT(roleOpenError)}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>

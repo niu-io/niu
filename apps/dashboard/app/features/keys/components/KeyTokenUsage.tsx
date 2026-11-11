@@ -70,10 +70,10 @@ function UsageWindow({ token, endpoint }: { token: string; endpoint: string }) {
     return () => controller.abort();
   }, [token, usagePath, reload]);
   const metrics = usage ? [
-    ['Requests', usage.requests.toLocaleString(readUILocale())],
-    ['Total tokens', usage.unknown_usage_requests > 0 ? 'Unknown' : (BigInt(usage.known_prompt_tokens) + BigInt(usage.known_completion_tokens)).toLocaleString(readUILocale())],
-    ['Known input', BigInt(usage.known_prompt_tokens).toLocaleString(readUILocale())],
-    ['Known output', BigInt(usage.known_completion_tokens).toLocaleString(readUILocale())],
+    [uiT('Requests'), usage.requests.toLocaleString(readUILocale())],
+    [uiT('Total tokens'), usage.unknown_usage_requests > 0 ? uiT('Unknown') : (BigInt(usage.known_prompt_tokens) + BigInt(usage.known_completion_tokens)).toLocaleString(readUILocale())],
+    [uiT('Known input'), BigInt(usage.known_prompt_tokens).toLocaleString(readUILocale())],
+    [uiT('Known output'), BigInt(usage.known_completion_tokens).toLocaleString(readUILocale())],
   ] : [];
   return <section className="pt-4" aria-label={uiT("Recent token usage")}>
     <div className="flex items-start justify-between gap-3">
@@ -85,7 +85,7 @@ function UsageWindow({ token, endpoint }: { token: string; endpoint: string }) {
       </Button>
     </div>
     {loading ? <div className="mt-3"><MetricStripSkeleton count={4} label={uiT("Loading token usage…")} /></div>
-      : error ? <p role="alert" className="mt-3 text-sm text-destructive">{uiT("Token usage unavailable.")}{" "}{error}</p>
+      : error ? <p role="alert" className="mt-3 text-sm text-destructive">{uiT("Token usage unavailable.")}{" "}{uiT(error)}</p>
       : usage && <>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">{metrics.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{value}</dd></div>)}</dl>
         {usage.unknown_usage_requests > 0 && <p className="mt-3 text-xs text-muted-foreground">{usage.unknown_usage_requests.toLocaleString(readUILocale())} {usage.unknown_usage_requests === 1 ? uiT("request has") : uiT("requests have")}{" "}{uiT("no complete reported token usage. Known subtotals exclude these requests.")}</p>}

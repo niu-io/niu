@@ -46,7 +46,7 @@ Use the shadcn CLI as the source for standard UI primitives. Use its installed `
 
 ## Icons
 
-Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the rail, sidebar and account menu.
+Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the sidebar and account menu.
 
 Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `sparkles`; Chat sessions use Tabler `message-chatbot`; `sparkle-highlight` is another suitable candidate for generative AI actions. Do not limit icon selection to Lucide or add Phosphor or IconPark.
 
@@ -80,7 +80,7 @@ Before delivery, compare the rendered result directly against both the reference
 
 ## Navigation hierarchy
 
-For a feature that needs two navigation levels, use sidebar items for the first-level sections and tabs within the selected section for the second level. Keep the product rail for top-level product areas; do not use rail items as the feature's first-level section list. Use the installed shadcn Sidebar and Tabs primitives directly, preserve clear active states, and verify the hierarchy and access to both levels at narrow widths.
+Use a single left sidebar for primary navigation; do not add a separate outer product rail alongside the sidebar. Keep the brand mark and workspace switcher in the sidebar header, primary destinations in the main sidebar list, and Docs, Admin access (when authorized), and the account menu in the sidebar footer. For a feature that needs two navigation levels, use sidebar items for the first-level sections and tabs within the selected section for the second level. Tuck secondary, low-frequency, or scenario-specific capabilities into their parent feature's tabs or advanced sections rather than promoting them to top-level sidebar items. Use the installed shadcn Sidebar and Tabs primitives directly, preserve clear active states, and verify the hierarchy and access to both levels at narrow widths.
 
 ## Surface styling
 

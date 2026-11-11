@@ -20,7 +20,7 @@ export default function PlatformSettingsRoute() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'general' | 'units')}>
-          <TabsList aria-label={uiT("Platform settings")}>
+          <TabsList variant="line" aria-label={uiT("Platform settings")}>
             <TabsTrigger value="general">{uiT("General")}</TabsTrigger>
             <TabsTrigger value="units">{uiT("Branded Credits & billing mode")}</TabsTrigger>
           </TabsList>

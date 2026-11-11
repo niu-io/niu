@@ -74,6 +74,10 @@ export function workspaceKeyPath(workspaceId: string) {
   return `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/keys`;
 }
 
+export function workspaceKeyPagePath(workspaceId: string, limit = 50, after?: string) {
+  return `${workspaceKeyPath(workspaceId)}?limit=${limit}${after ? `&after=${encodeURIComponent(after)}` : ''}`;
+}
+
 export function projectKeyPath(organization: string, project: string) {
   return `/api/v1/organizations/${encodeURIComponent(organization)}/projects/${encodeURIComponent(project)}/keys`;
 }

@@ -123,15 +123,16 @@ describe('Global Chat', () => {
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('Keep my unsent work'));
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
-  it('opens Video from the task category without offering it as a single example task', async () => {
+  it('opens Video via a distinct mode switch link without offering it as a prompt filter tab', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
       <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
     </MemoryRouter></SidebarProvider>);
-    await screen.findByRole('tab', {name:'Video'});
+    const videoLink = await screen.findByRole('link', {name:'Switch to Video mode'});
+    expect(videoLink.getAttribute('href')).toContain('new=video');
+    expect(screen.queryByRole('tab', {name:'Video'})).toBeNull();
     expect(screen.queryByRole('button', {name:/Video generation/})).toBeNull();
-    await userEvent.click(screen.getByRole('tab', {name:'Video'}));
-    // The router carries the generation type, not a text example prompt.
+    await userEvent.click(videoLink);
     expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('');
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
@@ -174,13 +175,21 @@ describe('Global Chat', () => {
     renderPlayground();
     await addComparisonModel(user);
     await user.click(screen.getByRole('button', {name:'Choose models',exact:true}));
-    await user.click(screen.getByRole('button', {name:'balanced',exact:true}));
-    await user.click(screen.getByRole('button', {name:'unused',exact:true}));
-    expect((screen.getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', {name:'strong',exact:true}));
-    expect((screen.getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(false);
-    await user.click(screen.getByRole('button', {name:'spare',exact:true}));
-    await user.click(screen.getByRole('button', {name:'Close dialog',exact:true}));
+    const dialog = screen.getByRole('dialog', {name:'Choose models'});
+    expect(within(dialog).getByText('2 of 4 selected')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', {name:'balanced',exact:true}));
+    await user.click(within(dialog).getByRole('button', {name:'unused',exact:true}));
+    expect(within(dialog).getByText('4 of 4 selected')).toBeTruthy();
+    expect((within(dialog).getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByRole('button', {name:'Remove strong',exact:true}));
+    expect(within(dialog).getByText('3 of 4 selected')).toBeTruthy();
+    expect((within(dialog).getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(within(dialog).getByRole('button', {name:'spare',exact:true}));
+    await user.type(within(dialog).getByLabelText('Search models'), 'spa');
+    expect(within(dialog).getByRole('button', {name:'spare',exact:true})).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', {name:'Clear search',exact:true}));
+    await user.click(within(dialog).getByRole('button', {name:'Done',exact:true}));
+    expect(screen.queryByRole('dialog', {name:'Choose models'})).toBeNull();
     expect(screen.getByRole('button', {name:'Edit comparison models (4 selected)'})).toBeTruthy();
   });
   it('returns focus to the archive button after archived chats closes', async () => {
@@ -975,10 +984,10 @@ describe('Global Chat', () => {
     expect(within(modelTrigger).getByText('fast')).toBeTruthy();
     await addComparisonModel(user);
     expect(screen.getByRole('button', { name: /Car wash/i })).toBeTruthy();
-    expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(5);
+    expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('tablist',{name:'Generation type'})).toBeNull();
     await user.click(screen.getByRole('tab',{name:'All tasks'}));
-    expect(screen.getByRole('tab',{name:'Video'})).toBeTruthy();
+    expect(screen.getByRole('link',{name:'Switch to Video mode'})).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Choose models' }));
     await user.click(screen.getByRole('button', { name: 'balanced' }));
@@ -1333,7 +1342,7 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
   renderPlayground([]);
   expect(await screen.findByRole('heading', {name: 'What would you like to create?'})).toBeTruthy();
   expect(screen.getByText('No text models are available. Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
-  expect(screen.getByRole('tab',{name:'Video'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Switch to Video mode'})).toBeTruthy();
   expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });
 

@@ -1,5 +1,6 @@
 /* Developer payment mode must not imply that inference is free. */
 .mock-payment-warning { width: auto; margin: 16px clamp(16px, 3cqw, 32px) 0; border-color: color-mix(in srgb, var(--warning) 24%, var(--border)); background: color-mix(in srgb, var(--warning) 7%, var(--background)); color: var(--foreground); }
+[data-slot="card-content"] .mock-payment-warning, [data-slot="dialog-content"] .mock-payment-warning { margin: 0; }
 .mock-payment-warning [data-slot="alert-description"] { color: var(--foreground); }
 
 /* Lifecycle badges: a status dot distinguishes active keys and users from revoked or expired ones. */

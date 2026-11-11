@@ -62,11 +62,11 @@ type Version = {
 const accessDescription = (access: Access) =>
   access.mode === "allow_list"
     ? access.values?.join(", ") || translateUI("Block all (empty allowlist)")
-    : {
+    : translateUI({
         inherit: "No additional restriction",
         allow_all: "Allow all",
         deny_all: "Block all",
-      }[access.mode];
+      }[access.mode]);
 type Page = { data: Revision[]; next_cursor: number | null };
 
 export default function GuardrailHistory({
@@ -409,7 +409,7 @@ export default function GuardrailHistory({
                         <strong>
                           {rule.action === "block" ? uiT("Block") : uiT("Redact")}
                         </strong>
-                        : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? uiT("Pattern name unavailable") : <code>{rule.pattern}</code>}
+                        : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
                       </li>
                     ))}
                   </ul>
@@ -429,7 +429,7 @@ export default function GuardrailHistory({
                           <strong>
                             {version.policy.output?.mode === "observe_only" ? uiT("Observe") : rule.action === "block" ? uiT("Block") : uiT("Redact")}
                           </strong>
-                          : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? uiT("Pattern name unavailable") : <code>{rule.pattern}</code>}
+                          : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
                         </li>
                       ))}
                     </ul>

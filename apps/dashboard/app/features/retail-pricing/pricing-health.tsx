@@ -24,8 +24,8 @@ export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
       {checks?.map((check, index) => <div key={index} className="space-y-1">
         {(check.provider || check.route) && <p className="font-medium break-words">{[check.provider, check.route].filter(Boolean).join(' · ')}</p>}
         {check.status === 'below_cost' && <p className="font-medium">{uiT("Selling unit rates are below Provider cost. Review the selling price or Provider quote.")}</p>}
-        {check.dimensions.map((item, i) => <p key={i}>{item.dimension} · {item.minimum_input_tokens === '0' ? uiT("Base rate") : uiF("From {0} input tokens", [BigInt(item.minimum_input_tokens).toLocaleString(readUILocale())])}</p>)}
-        {check.message && <p className="text-muted-foreground">{check.message}</p>}
+        {check.dimensions.map((item, i) => <p key={i}>{uiT(item.dimension)} · {item.minimum_input_tokens === '0' ? uiT("Base rate") : uiF("From {0} input tokens", [BigInt(item.minimum_input_tokens).toLocaleString(readUILocale())])}</p>)}
+        {check.message && <p className="text-muted-foreground">{uiT(check.message)}</p>}
       </div>)}
       <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/providers">{uiT("Review Provider prices")}</Link></Button>
     </div></DialogContent></Dialog>

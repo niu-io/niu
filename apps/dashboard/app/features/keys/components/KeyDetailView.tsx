@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
+import PageHeader from '@/components/PageHeader';
 import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import KeyGuardrails from './KeyGuardrails';
@@ -71,6 +72,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const [revealedSecret, setRevealedSecret] = useState('');
   const [secretVisible, setSecretVisible] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedRotatedSecret, setCopiedRotatedSecret] = useState(false);
   const [guardrailRefresh, setGuardrailRefresh] = useState(0);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const restoreEditFocus = useRef(false);
@@ -87,6 +89,14 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     setRevealedSecret('');setSecretVisible(false);setCopiedSecret(false);
     return () => { revokeController.current?.abort(); };
   }, [token, collectionPath, keyId]);
+
+  useEffect(() => {
+    if (initialData && revision === 0) {
+      setKeys(initialData.data);
+      setLoadedScope(scopeIdentity);
+      setLoading(false);
+    }
+  }, [initialData, revision, scopeIdentity]);
 
   useEffect(() => {
     if (!collectionPath) { setLoading(false); return; }
@@ -116,14 +126,6 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   useEffect(() => {
     if (key?.slug && key.slug !== keyId) navigate({pathname: `${root}/keys/${encodeURIComponent(key.slug)}`, search:location.search, hash:location.hash}, {replace:true});
   }, [key?.slug, keyId, root, location.search, location.hash, navigate]);
-
-  useEffect(() => {
-    const headerTitle = document.querySelector<HTMLElement>('.dashboard-page-header .dashboard-route-title');
-    if (!headerTitle || !key?.name) return;
-    const previous = headerTitle.textContent;
-    headerTitle.textContent = key.name;
-    return () => { headerTitle.textContent = previous; };
-  }, [key?.name]);
 
   const getKeyRpm = (item?: ProjectKey) => item?.request_rate_limit?.requests_per_minute ?? item?.requests_per_minute ?? null;
   const getKeyConc = (item?: ProjectKey) => item?.concurrency_limit?.max_concurrent_requests ?? item?.max_concurrent_requests ?? null;
@@ -225,13 +227,14 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const keyPath = key && adminCollectionPath ? `${adminCollectionPath}/${encodeURIComponent(key.id)}` : '';
 
   return <>
-    {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{error}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
-    {notice && <p role="status" className="key-revoke-notice"><Check size={15} />{notice}</p>}
-    {loading && !key && <section className="panel key-detail-card"><FormSectionSkeleton fields={3} label={uiT("Loading key…")} /></section>}
-    {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="panel key-detail-card key-not-found"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
+    <PageHeader title={key?.name ?? uiT("API key")} syncRouteTitle={Boolean(key?.name)} action={key ? <Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge> : undefined} />
+    {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{uiT(error)}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
+    {notice && <p role="status" className="key-revoke-notice"><Check size={15} />{uiT(notice)}</p>}
+    {(loading || (Boolean(collectionPath) && loadedScope !== scopeIdentity && !loadFailed)) && !key && <section className="key-detail-card border-0 bg-transparent p-0 shadow-none"><FormSectionSkeleton fields={3} label={uiT("Loading key…")} /></section>}
+    {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="key-detail-card key-not-found border-0 bg-muted/40 p-6 shadow-none"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
     {key && <>
-      <section className="panel key-detail-card" aria-label={uiT("API key details")}>
-        <div className="key-detail-heading"><div><span className="key-detail-icon"><KeyRound size={18} /></span><div><h2>{key.name}</h2></div></div><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></div>
+      <section className="key-detail-card border-0 bg-transparent p-0 pb-6 shadow-none" aria-label={uiT("API key details")}>
+        <h2 className="sr-only">{key.name}</h2>
         {editing && initialScope && keyPath && <KeySettingsEditor
           token={token}
           projectKey={key}
@@ -305,11 +308,11 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         onExternalRequestClose={()=>setCapacityRequest(null)}
       />}
     </>}
-    <Dialog open={Boolean(rotatedSecret)} onOpenChange={open => { if (!open) setRotatedSecret(''); }}>
+    <Dialog open={Boolean(rotatedSecret)} onOpenChange={open => { if (!open) { setRotatedSecret(''); setCopiedRotatedSecret(false); } }}>
       <DialogContent>
         <DialogHeader><DialogTitle>{uiT("Save the replacement API key")}</DialogTitle><DialogDescription>{uiT("The previous secret no longer works. You can also reveal and copy this secret anytime from the key details.")}</DialogDescription></DialogHeader>
         <div className="grid gap-2"><Label htmlFor="rotated-key-secret">{uiT("API key secret")}</Label><Input id="rotated-key-secret" readOnly value={rotatedSecret} className="font-mono text-xs" /></div>
-        <DialogFooter><Button variant="outline" onClick={() => setRotatedSecret('')}>{uiT("Close")}</Button><Button onClick={() => void navigator.clipboard.writeText(rotatedSecret)}><Copy size={15} />{uiT("Copy secret")}</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={() => { setRotatedSecret(''); setCopiedRotatedSecret(false); }}>{uiT("Close")}</Button><Button onClick={() => { void navigator.clipboard.writeText(rotatedSecret).then(() => { setCopiedRotatedSecret(true); window.setTimeout(() => setCopiedRotatedSecret(false), 1800); }).catch(() => undefined); }}>{copiedRotatedSecret ? <Check size={15} /> : <Copy size={15} />}{copiedRotatedSecret ? uiT("Copied") : uiT("Copy secret")}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;

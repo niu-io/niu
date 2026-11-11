@@ -13,15 +13,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { request, defaultApiBase, providerAdapterApiLabels, type ProviderConnection, type ProviderAdapter, type ProviderConnectionWrite } from '../api';
 import IntegrationSettings from './IntegrationSettings';
 
-export type ProviderConnectionCreate = { name: string; adapter: ProviderAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string };
+export type ProviderConnectionCreate = { name: string; adapter: ProviderAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string; access_scope?: 'internal' | 'personal'; personal_organization_id?: string };
 export type VendorCreate = ProviderConnectionCreate;
 
-export default function ProviderEditor({ token, initialProviderId, initialSupplierId, connection, vendor, disabled, onCreate, onSave }: {
+export default function ProviderEditor({ token, initialProviderId, initialSupplierId, connection, vendor, operatingMode, organizationId, disabled, onCreate, onSave }: {
   token: string;
   initialProviderId?: string | null;
   initialSupplierId?: string | null;
   connection?: ProviderConnection | null;
   vendor?: ProviderConnection | null;
+  operatingMode?: string;
+  organizationId?: string;
   disabled: boolean;
   onCreate: (input: ProviderConnectionCreate) => Promise<void>;
   onSave: (input: ProviderConnectionWrite) => Promise<void>;
@@ -72,7 +74,15 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
     if (disabled || ownershipUnavailable || !name.trim() || !apiBase.trim()) return;
     if (!activeConnection) {
       if (!apiKey) return;
-      await onCreate({ name: name.trim(), adapter, api_base: apiBase.trim(), api_key: apiKey, enabled: true, ...(providerId ? { supplier_id: providerId } : { create_supplier: true }) });
+      await onCreate({
+        name: name.trim(),
+        adapter,
+        api_base: apiBase.trim(),
+        api_key: apiKey,
+        enabled: true,
+        ...(providerId ? { supplier_id: providerId } : { create_supplier: true }),
+        ...(operatingMode === 'internal' && organizationId ? { access_scope: 'internal', personal_organization_id: organizationId } : {}),
+      });
       setName('');
       setApiKey('');
       return;
@@ -112,7 +122,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
     <form className="vendor-editor-form" onSubmit={submit}>
       <div className="vendor-editor-fields">
         {!activeConnection && <div className="space-y-2">
-          <Label htmlFor="vendor-provider">Provider</Label>
+          <Label htmlFor="vendor-provider">{uiT("Provider")}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button id="vendor-provider" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(defaultProviderId) || providerLoading || Boolean(providerError)}>{providerLoading ? uiT("Loading providers…") : providerId ? selectedProvider?.name ?? uiT("Provider unavailable") : uiT("New provider")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={providerId} onValueChange={setProviderId}>
@@ -120,12 +130,15 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
               {providers.map(provider => <DropdownMenuRadioItem key={provider.id} value={provider.id}>{provider.name}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
-          {providerError && <div role="alert">{providerError}<Button type="button" variant="ghost" size="sm" onClick={() => setProviderRetry(value => value + 1)}>{uiT("Retry")}</Button></div>}
+          {providerError && <div role="alert">{uiT(providerError)}<Button type="button" variant="ghost" size="sm" onClick={() => setProviderRetry(value => value + 1)}>{uiT("Retry")}</Button></div>}
         </div>}
-        <Label htmlFor="vendor-name">{providerId || activeConnection ? uiT("API key name") : uiT("Provider name")}
+        <div className="space-y-2">
+          <Label htmlFor="vendor-name">{providerId || activeConnection ? uiT("API key name") : uiT("Provider name")}</Label>
           <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder={uiT("e.g. Primary inference")} required disabled={disabled} />
-        </Label>
-        <Label htmlFor="vendor-adapter">{uiT("API format")}<DropdownMenu>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="vendor-adapter">{uiT("API format")}</Label>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(activeConnection)}>{providerAdapterApiLabels[adapter]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as ProviderAdapter)}>
               <DropdownMenuRadioItem value="openrouter">{uiT("OpenRouter API")}</DropdownMenuRadioItem>
@@ -135,12 +148,15 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
               <DropdownMenuRadioItem value="ark">{uiT("Ark-compatible API")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
-        </Label>
-        <Label htmlFor="vendor-api-base">{uiT("API base URL")}<Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
-        </Label>
-        <Label htmlFor="vendor-api-key">{activeConnection ? uiT("Replace provider API key (optional)") : uiT("Provider API key")}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="vendor-api-base">{uiT("API base URL")}</Label>
+          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="vendor-api-key">{activeConnection ? uiT("Replace provider API key (optional)") : uiT("Provider API key")}</Label>
           <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={activeConnection ? uiT("Leave blank to keep the current credential") : uiT("Paste a provider key")} required={!activeConnection} disabled={disabled} />
-        </Label>
+        </div>
       </div>
 
       <div className="vendor-editor-notes">

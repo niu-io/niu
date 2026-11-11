@@ -232,9 +232,9 @@ describe('dashboard route layout', () => {
       }
       return originalFetch(input,init);
     }));
-    const router=renderAt('/models?workspace=default');
+    const router=renderAt('/workspaces/default/models');
     await screen.findByText('$1.00/M input tokens');
-    await act(async()=>{await router.navigate('/models?workspace=production');});
+    await act(async()=>{await router.navigate('/workspaces/production/models');});
     await screen.findByText('$2.00/M input tokens');
     expect(screen.queryByText('$1.00/M input tokens')).toBeNull();
     expect(scopedRequests).toContain('default');
@@ -447,14 +447,14 @@ describe('dashboard route layout', () => {
     expect(screen.queryByText('Unexpected Application Error!')).toBeNull();
   });
 
-  it('redirects legacy model details to the global catalog with workspace context', async () => {
+  it('redirects legacy /models details to the canonical workspace model route', async () => {
     mockHealth();
-    const router = renderAt('/workspaces/demo-workspace/models/openai/example?sort=name');
+    const router = renderAt('/models/openai/example?workspace=demo-workspace&sort=name');
 
     await screen.findByLabelText('Breadcrumb');
-    await waitFor(() => expect(router.state.location.pathname).toBe('/models/openai/example'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/demo-workspace/models/openai/example'));
     expect(new URLSearchParams(router.state.location.search).get('sort')).toBe('name');
-    expect(new URLSearchParams(router.state.location.search).get('workspace')).toBe('demo-workspace');
+    expect(new URLSearchParams(router.state.location.search).get('workspace')).toBeNull();
     await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
   });
 
@@ -544,8 +544,14 @@ describe('dashboard route layout', () => {
     await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
     expect(nav.closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('icon');
     await user.click(within(nav).getByRole('link', { name: 'Models', exact: true }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/models'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/models'));
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Models' }).getAttribute('data-active')).toBe('true'));
+    const sidebarFooter = document.querySelector('[data-slot="sidebar-footer"]');
+    expect(sidebarFooter).toBeTruthy();
+    await user.click(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Connect your agent', exact: true }));
+    expect(await screen.findByRole('dialog', { name: 'Connect your agent' })).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Connect your agent' })).toBeNull());
   });
 
 
@@ -607,7 +613,7 @@ describe('dashboard route layout', () => {
       if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
       if (path === '/api/v1/workspaces') return workspaceResponse;
-      if (path.endsWith('/keys')) return json({ data: [] });
+      if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       throw new Error(`Unexpected request: ${path}`);
     }));
     const user = userEvent.setup();
@@ -616,7 +622,7 @@ describe('dashboard route layout', () => {
     await signIn(user);
     await waitFor(() => expect(calls).toContain('/api/v1/workspaces'));
     expect(router.state.location.pathname).toBe(originalPath);
-    expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
+    expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toEqual([]);
 
     finishLoading(json({ data: [
       { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
@@ -625,11 +631,11 @@ describe('dashboard route layout', () => {
     if (workspaceId === 'missing') {
       expect(await screen.findByRole('heading', { name: 'This workspace link can’t be opened' })).toBeTruthy();
       expect(router.state.location.pathname).toBe(originalPath);
-      expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
+      expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toEqual([]);
     } else {
       expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
       expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
-      await waitFor(() => expect(calls.filter(path => path.endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys'));
+      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50'));
     }
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
@@ -651,7 +657,7 @@ describe('dashboard route layout', () => {
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
-      if (path.endsWith('/keys')) return json({ data: [] });
+      if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       throw new Error(`Unexpected request: ${path}`);
     }));
     const user = userEvent.setup();
@@ -666,9 +672,9 @@ describe('dashboard route layout', () => {
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy());
-    expect([...new Set(calls.filter(path => path.endsWith('/keys')))]).toEqual([
-      '/api/v1/workspaces/project-1/keys',
-      '/api/v1/workspaces/project-2/keys',
+    expect([...new Set(calls.filter(path => path.split('?')[0].endsWith('/keys')))]).toEqual([
+      '/api/v1/workspaces/project-1/keys?limit=50',
+      '/api/v1/workspaces/project-2/keys?limit=50',
     ]);
   });
 
@@ -685,7 +691,7 @@ describe('dashboard route layout', () => {
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
-      if (path.endsWith('/keys')) return json({ data: [] });
+      if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       throw new Error(`Unexpected request: ${path}`);
     }));
     const user = userEvent.setup();
@@ -719,8 +725,8 @@ describe('dashboard route layout', () => {
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
-      if (path === '/api/v1/workspaces/project-1/keys') { firstKeyRequestSignal = init?.signal as AbortSignal; return firstKeys; }
-      if (path === '/api/v1/workspaces/project-2/keys') return json({ data: [
+      if (path.split('?')[0] === '/api/v1/workspaces/project-1/keys') { firstKeyRequestSignal = init?.signal as AbortSignal; return firstKeys; }
+      if (path.split('?')[0] === '/api/v1/workspaces/project-2/keys') return json({ data: [
         { id: 'second-key', name: 'Second workspace key', allowed_models: ['fast'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false },
       ] });
       throw new Error(`Unexpected request: ${path}`);
@@ -762,7 +768,7 @@ describe('dashboard route layout', () => {
       if (path === '/api/v1/workspaces' && method === 'POST') return json({
         id: 'project-2', name: 'Research project', organization_id: 'org-1', organization_name: 'Acme',
       });
-      if (path.endsWith('/keys')) return json({ data: [] });
+      if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       throw new Error(`Unexpected request: ${method} ${path}`);
     }));
 
@@ -782,9 +788,9 @@ describe('dashboard route layout', () => {
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
     expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', slug: 'research-project', organization_id: 'org-1' }));
-    const keyRequests = calls.filter(call => call.path.endsWith('/keys')).map(call => call.path);
-    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys');
-    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys');
+    const keyRequests = calls.filter(call => call.path.split('?')[0].endsWith('/keys')).map(call => call.path);
+    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50');
+    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50');
   });
 
   it('verifies session permissions before loading operator administration', async () => {
@@ -943,13 +949,19 @@ describe('dashboard route layout', () => {
     expect(within(adminNav).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/admin/settings');
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByText('Administrator access required')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Connect your agent', exact: true })).toBeNull();
     const backLink = screen.getByRole('link', { name: 'Back to workspace', exact: true });
     await userEvent.click(backLink);
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/workspaces\//));
     const navigation = await screen.findByRole('navigation', { name: 'Main navigation' });
+    const navLinks = within(navigation).getAllByRole('link');
+    expect(navLinks[0]?.getAttribute('aria-label')).toBe('Overview');
     for (const name of ['Overview', 'Generations', 'Models']) {
       expect(within(navigation).getByRole('link', { name, exact: true })).toBeTruthy();
     }
+    const sidebarFooter = document.querySelector('[data-slot="sidebar-footer"]');
+    expect(sidebarFooter).toBeTruthy();
+    expect(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Connect your agent', exact: true })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Admin', exact: true })).toBeTruthy();
   });
 

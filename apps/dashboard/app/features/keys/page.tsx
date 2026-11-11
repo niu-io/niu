@@ -4,7 +4,7 @@ import ConnectGate from '@/shell/ConnectGate';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useModelPopularity } from '@/shell/useModelPopularity';
 import type { RouteHandle } from '@/shell/router-context';
-import { workspaceKeyPath, type ProjectKey } from './api';
+import { workspaceKeyPagePath, type ProjectKey } from './api';
 import KeysView from './components/KeysView';
 
 export const handle: RouteHandle = {
@@ -14,20 +14,20 @@ export const handle: RouteHandle = {
 };
 
 export function clientLoader(args: LoaderFunctionArgs) {
-  return loadCriticalRouteEndpoint<{ data: ProjectKey[] }>(args, ({ workspace }) => ({
-    endpoint: workspace ? workspaceKeyPath(workspace.id) : null,
+  return loadCriticalRouteEndpoint<{ data: ProjectKey[]; next_cursor?: string | null }>(args, ({ workspace }) => ({
+    endpoint: workspace ? workspaceKeyPagePath(workspace.id) : null,
   }));
 }
 
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function KeysRoute() {
-  const loaderSnapshot = useOptionalRouteLoaderData<{ data: ProjectKey[] }>();
+  const loaderSnapshot = useOptionalRouteLoaderData<{ data: ProjectKey[]; next_cursor?: string | null }>();
   const { workspace, models: configuredModels, token } = useDashboardContext();
   const ranked = useModelPopularity(configuredModels, token, workspace?.organization_id, workspace?.id);
-  const loaderKeys =
+  const loaderPage =
     loaderSnapshot?.status === 'ready' && loaderSnapshot.workspaceId === (workspace?.id ?? null)
-      ? loaderSnapshot.data.data
+      ? loaderSnapshot.data
       : undefined;
   return <ConnectGate>
     {({ token, session }) => <KeysView
@@ -36,7 +36,8 @@ export default function KeysRoute() {
       models={ranked.models}
       initialScope={workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null}
       canWrite={session?.permissions.write === true}
-      loaderKeys={loaderKeys}
+      loaderKeys={loaderPage?.data}
+      loaderNextCursor={loaderPage?.next_cursor ?? null}
     />}
   </ConnectGate>;
 }

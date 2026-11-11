@@ -149,8 +149,10 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ini
         {!catalogLoading && !catalogError && catalog.length > 0 && <p className="text-xs text-muted-foreground">{catalog.length} {catalog.length === 1 ? uiT("model") : uiT("models")}{" "}{uiT("reported by the upstream catalog")}</p>}
         {catalogError && <div className="grid justify-items-start gap-2 text-sm text-muted-foreground" role="status">{uiT("The Provider catalog could not be loaded:")}{" "}{uiT(catalogError)}{" "}{uiT("You can still enter an upstream model ID.")}{onRetryCatalog && <Button type="button" variant="outline" size="sm" disabled={disabled || catalogLoading} onClick={onRetryCatalog}>{uiT("Retry model catalog")}</Button>}</div>}
       </div>
-      <Label htmlFor="model-alias">{uiT("Niu model alias")}<Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder={uiT("e.g. fast or team/model")} required disabled={disabled || Boolean(model)} />
-      </Label>
+      <div className="min-w-0 space-y-2">
+        <Label htmlFor="model-alias">{uiT("Niu model alias")}</Label>
+        <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder={uiT("e.g. fast or team/model")} required disabled={disabled || Boolean(model)} />
+      </div>
 
     </div>
     {capabilities.catalog && <div className="space-y-1 text-sm text-muted-foreground">
@@ -158,7 +160,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ini
       {capabilities.catalog.name && <p>{capabilities.catalog.name}</p>}
       <p>{uiT("Context:")}{" "}{capabilities.catalog.context_length?.toLocaleString(readUILocale()) ?? uiT("Not reported")}{" "}{uiT("· Maximum output:")}{" "}{capabilities.catalog.max_completion_tokens?.toLocaleString(readUILocale()) ?? uiT("Not reported")}</p>
       <p>{uiT("Inputs:")}{" "}{capabilities.catalog.input_modalities?.join(', ') || uiT("Not reported")}{" "}{uiT("· Outputs:")}{" "}{capabilities.catalog.output_modalities?.join(', ') || uiT("Not reported")}</p>
-      {model && JSON.stringify(model.capabilities.catalog) !== JSON.stringify(capabilities.catalog) && <p>{uiT("This replaces the saved catalog metadata for this route. Existing purchase rates and customer prices are preserved.")}</p>}
+      {model && JSON.stringify(model.capabilities.catalog) !== JSON.stringify(capabilities.catalog) && <p>{personal || internalShared ? uiT("This replaces the saved catalog metadata for this route.") : uiT("This replaces the saved catalog metadata for this route. Existing purchase rates and customer prices are preserved.")}</p>}
     </div>}
     <div className="model-route-switches">
       <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>{uiT("Enabled for inference")}</strong><small>{uiT("Disabled mappings remain in the directory.")}</small></span></Label>
@@ -184,7 +186,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ini
       </div>
     </fieldset>
     <div className="model-form-footer">
-      <span>{model ? uiT("The alias remains stable for existing clients.") : uiT("Pricing remains unset until it is configured separately.")}</span>
+      <span>{model ? uiT("The alias remains stable for existing clients.") : personal || internalShared ? uiT("Upstream fees are billed directly by the Provider.") : uiT("Pricing remains unset until it is configured separately.")}</span>
       <div>
         {model && <Button type="button" variant="ghost" disabled={disabled} onClick={onCancel}>{uiT("Cancel")}</Button>}
         <Button type="submit" disabled={disabled || !alias.trim() || !upstreamModel.trim()}>{disabled ? uiT("Saving…") : model ? uiT("Save changes") : uiT("Add model")}</Button>

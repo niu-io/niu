@@ -1,6 +1,4 @@
 /* Model routes are a working catalog: select a route to see its real alias and next steps. */
-.model-search { display: flex; min-width: 0; flex: 1; align-items: center; gap: 9px; color: var(--muted-foreground); }
-.model-search input { min-width: 0; }
 .model-no-results { margin: 0; padding: 20px 16px; color: var(--muted-foreground); font-size: 14px; }
 .model-route-detail { display: flex; min-width: 0; flex-direction: column; padding: 24px; }
 .model-route-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

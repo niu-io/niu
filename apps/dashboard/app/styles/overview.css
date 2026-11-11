@@ -83,8 +83,8 @@
 .gateway-task-empty pre { width: min(100%, 570px); margin: 17px 0 3px; padding: 14px 17px; overflow: auto; border: 1px solid var(--border); border-radius: 11px; background: var(--muted); text-align: left; }
 .gateway-task-empty pre code { font-size: 14px; line-height: 1.65; }
 .gateway-first-use-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; width: 100%; margin: 23px 0 6px; text-align: left; }
-.gateway-first-use-steps>a, .gateway-first-use-steps>div { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-content: start; align-items: center; column-gap: 10px; row-gap: 6px; min-height: 114px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; color: var(--foreground); text-decoration: none; background: color-mix(in srgb, var(--card) 80%, var(--muted)); }
-.gateway-first-use-steps>a:hover { border-color: color-mix(in srgb, var(--primary) 42%, var(--border)); background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+.gateway-first-use-steps>a, .gateway-first-use-steps>div { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-content: start; align-items: center; column-gap: 10px; row-gap: 6px; min-height: 114px; padding: 14px; border: 1px solid transparent; border-radius: 12px; color: var(--foreground); text-decoration: none; background: color-mix(in srgb, var(--muted) 65%, transparent); transition: background .15s ease, border-color .15s ease; }
+.gateway-first-use-steps>a:hover { border-color: color-mix(in srgb, var(--primary) 35%, transparent); background: color-mix(in srgb, var(--primary) 6%, var(--muted)); }
 .gateway-first-use-steps>*>span { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 9px; color: var(--primary); background: color-mix(in srgb, var(--primary) 11%, var(--card)); font-size: 14px; font-weight: 700; }
 .gateway-first-use-steps>*>strong { font-size: 14px; font-weight: 600; }
 .gateway-first-use-steps>*>small { grid-column: 2; color: var(--muted-foreground); font-size: 14px; line-height: 1.4; }
@@ -287,16 +287,7 @@
 /* Evidence-first overview. Keep Niu's brand tokens and use quiet, open surfaces. */
 :root { --dashboard-shadow-sm: 0 1px 2px color-mix(in srgb, var(--foreground) 4%, transparent), 0 10px 30px color-mix(in srgb, var(--foreground) 4%, transparent); }
 .panel { border-color: color-mix(in srgb, var(--border) 68%, transparent); border-radius: 14px; box-shadow: var(--dashboard-shadow-sm); }
-.overview-workflow { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; margin: 0; padding: 16px 17px 13px; }
-.overview-workflow-icon { display: grid; width: 31px; height: 31px; place-items: center; margin-bottom: 13px; border-radius: 9px; color: var(--primary); background: color-mix(in srgb, var(--accent) 72%, var(--card)); }
-.overview-workflow h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
-.overview-workflow p { min-height: 45px; margin: 6px 0 9px; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; }
-.overview-workflow .button { margin-left: -9px; }
 button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:focus-visible:not([data-slot]) { outline: 2px solid var(--ring); outline-offset: 2px; }
-@media (max-width: 680px) {
-  .overview-workflow { padding: 13px 14px 10px; }
-  .overview-workflow-icon { margin-bottom: 9px; }
-  .overview-workflow p { min-height: 0; }}
 
 /* Owner-visible invitation directory. Secrets are never recoverable here. */
 .operator-invitations { display: grid; gap: 12px; margin-top: 10px; }
