@@ -6,16 +6,8 @@ import {
 } from '../legacy-redirects';
 import { routeImporters } from '../prefetch';
 
-/** Account-scoped surfaces: docs, models, settings, activity and chat. */
+/** Account-scoped surfaces: models, settings, activity and chat. */
 export const accountRoutes: RouteObject[] = [
-    {
-    id: 'help',
-    path: 'help/*',
-    lazy: bindLazy(routeImporters.help, {
-      destination: 'Global',
-      title: { en: 'Docs', zh: '文档' },
-    }),
-  },
   {
     id: 'models',
     path: 'models/*',

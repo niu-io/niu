@@ -13,7 +13,7 @@ The live test uses your existing Niu browser session and the selected key's opaq
 
 A completed stream does not establish settled billing. The panel reads saved request diagnostics separately; pending or unavailable charges remain explicit. Stopping the browser wait does not establish upstream cancellation. Check **Logs** before sending a new request after an uncertain outcome.
 
-Use [the interactive API reference](/help/api/) for other request shapes. Select a workspace key there to attach your session to same-origin inference requests; clear the connection to use manually supplied credentials. Copied application examples use `$NIU_API_KEY`, not the browser session.
+Use the [API explorer](/docs/api/explorer/) for other request shapes. Select a workspace key to attach your browser session to same-origin inference requests. Clear the connection to use manually supplied credentials. Copied application examples use `$NIU_API_KEY`.
 
 Use a **workspace API key** from your workspace's **API keys** page. Your installation administrator is responsible for configuring model supply and pricing. Provider credentials and installation administrator tokens are not application keys.
 
@@ -91,7 +91,7 @@ Preserve the response's error body and request-correlation headers for investiga
 
 流式传输完成并不等同于账单已结算。面板会单独读取已保存的请求诊断信息；待处理或不可用的费用会明确标出。停止浏览器端等待并不代表上游请求已取消。在请求结果不确定时，请先检查 **Logs**（日志）再决定是否发送新请求。
 
-如需测试其他请求格式，请使用[交互式 API 参考文档](/help/api/)。在那里选择一个工作空间密钥即可将你的会话附加到同源推理请求中；清除连接则可使用手动提供的凭证。复制出的应用程序示例代码使用的是 `$NIU_API_KEY`，而非浏览器会话。
+如需测试其他请求格式，请打开 [API 浏览器](/docs/api/explorer/)。选择工作空间密钥后，即可通过当前会话发起同源推理请求。清除连接后可以手动提供凭证。复制的应用程序示例使用 `$NIU_API_KEY`。
 
 请使用来自工作空间 **API keys**（API 密钥）页面的**工作空间 API 密钥**。你的实例管理员负责配置模型供应与定价。模型供应商凭证和实例管理员令牌不能作为应用程序密钥使用。
 

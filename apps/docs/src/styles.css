@@ -621,29 +621,16 @@ dialog[data-docs-search-dialog]::backdrop {
   }
 }
 
-/* Embedded Help mode inside Niu Dashboard */
-:root[data-docs-embedded] .header {
-  display: none;
-}
-.docs-embedded-name {
-  display: none;
-}
-:root[data-docs-embedded] .docs-brand img,
-:root[data-docs-embedded] .docs-public-name,
-:root[data-docs-embedded] .public-session,
-:root[data-docs-embedded] .docs-mobile-public .public-session {
-  display: none;
-}
-:root[data-docs-embedded] .docs-embedded-name {
-  display: inline;
-}
-:root[data-docs-embedded] .docs-header-tools {
-  margin-inline-start: auto;
-}
-
 /* API & SDK Reference visualization */
 :root[data-api-reference] {
   --sl-content-width: 54rem;
+}
+:root:has(.docs-api-explorer) {
+  --sl-content-width: 100%;
+}
+@media (min-width: 50rem) {
+  :root:has(.docs-api-explorer) { --sl-sidebar-width: 0rem; }
+  :root:has(.docs-api-explorer) .sidebar-pane { display: none; }
 }
 .sl-markdown-content .docs-generated-notice {
   display: inline-block;
@@ -1470,16 +1457,6 @@ a[data-slot='button'][data-variant='outline']:hover {
   font-weight: 550;
 }
 .sidebar-content a[aria-current='page']::before { content: none; }
-/* Embedded Help shares the dashboard canvas; its title occupies one compact
-   toolbar rather than a second public-site masthead. Keep search reachable. */
-:root[data-docs-embedded] {
-  --sl-sidebar-width: 16rem;
-  --sl-nav-height: 0px;
-}
-:root[data-docs-embedded] .header { position: relative; height: auto; border-bottom: 0; }
-:root[data-docs-embedded] .main-frame { padding-top: 0; }
-:root[data-docs-embedded] .docs-embedded-name { font-size: 14px; font-weight: 600; }
-:root[data-docs-embedded] .sidebar-content { padding-top: 12px; }
 .sidebar-content ul ul { border-inline-start: 0; padding-inline-start: 0; margin-inline-start: 0; }
 
 /* Starlight draws nested tree guides on list items, not only the list. */

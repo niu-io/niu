@@ -9,6 +9,7 @@ import {
   IconCpu as Cpu,
   IconCreditCard,
   IconDeviceDesktop,
+  IconExternalLink,
   IconHistory,
   IconMoon,
   IconPalette,
@@ -119,17 +120,24 @@ export function ShellAccount() {
   if (!value) return null;
   const adminScope = (pathname === '/admin' || pathname.startsWith('/admin/')) && canManagePlatform(value.context.session);
   const workspaceAreas = Boolean(value.context.session?.operator || value.context.session?.kind === 'installation');
+  const docsLabel = t('Docs', '文档');
+  const docsLinkLabel = t('Docs (opens in a new tab)', '文档（在新标签页打开）');
   const footerLinks = adminScope
-    ? [
-        { to: '/help/', label: t('Docs', '文档'), icon: IconBook, active: pathname.startsWith('/help') },
-        ...(workspaceAreas ? [{ to: value.workspacePath, label: t('Back to workspace', '返回工作空间'), icon: IconArrowLeft, active: false }] : []),
-      ]
-    : [
-        { to: '/help/', label: t('Docs', '文档'), icon: IconBook, active: pathname.startsWith('/help') },
-        ...(canManagePlatform(value.context.session) ? [{ to: '/admin/providers', label: t('Admin', '管理后台'), icon: IconShieldLock, active: pathname.startsWith('/admin') }] : []),
-      ];
+    ? workspaceAreas ? [{ to: value.workspacePath, label: t('Back to workspace', '返回工作空间'), icon: IconArrowLeft, active: false }] : []
+    : canManagePlatform(value.context.session) ? [{ to: '/admin/providers', label: t('Admin', '管理后台'), icon: IconShieldLock, active: pathname.startsWith('/admin') }] : [];
   return <SidebarFooter className="gap-2 p-3">
-    <SidebarMenu>{footerLinks.map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild tooltip={item.label} isActive={item.active}><ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span>{item.label}</span></ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild tooltip={docsLinkLabel}>
+          <a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={docsLinkLabel}>
+            <IconBook aria-hidden="true" />
+            <span>{docsLabel}</span>
+            <IconExternalLink className="ml-auto text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" />
+          </a>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      {footerLinks.map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild tooltip={item.label} isActive={item.active}><ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span>{item.label}</span></ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}
+    </SidebarMenu>
     <div className="flex items-center gap-1 border-t border-sidebar-border pt-2 group-data-[collapsible=icon]:flex-col-reverse group-data-[collapsible=icon]:items-center">
       <div className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none"><AccountMenu context={value.context} workspacePath={value.workspacePath} supplierArea={pathname.startsWith('/admin/providers')} mobile showDestinations={false} /></div>
       <DropdownMenu>

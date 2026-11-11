@@ -34,6 +34,24 @@ async fn canonical_public_root(uri: axum::http::Uri) -> Redirect {
     Redirect::permanent(&destination)
 }
 
+async fn redirect_legacy_help(uri: axum::http::Uri) -> Redirect {
+    let article = uri
+        .path()
+        .strip_prefix("/help")
+        .unwrap_or_default()
+        .trim_start_matches('/');
+    let article = match article.trim_end_matches('/') {
+        "api" | "api/rest" => "api/explorer/",
+        _ => article,
+    };
+    let mut destination = format!("/docs/{article}");
+    if let Some(query) = uri.query() {
+        destination.push('?');
+        destination.push_str(query);
+    }
+    Redirect::permanent(&destination)
+}
+
 fn from_directories<S: Clone + Send + Sync + 'static>(
     site_dir: Option<&str>,
     catalog_dir: &str,
@@ -53,11 +71,9 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         // Directory entries must survive a browser reload just like scoped workspace pages.
         .route_service("/workspaces", ServeFile::new(dashboard_index.clone()))
         .route_service("/workspaces/", ServeFile::new(dashboard_index.clone()))
-        .route("/help", get(|| async { Redirect::temporary("/help/") }))
-        .route_service(
-            "/help/",
-            ServeFile::new(format!("{dashboard_dir}/index.html")),
-        );
+        .route("/help", get(redirect_legacy_help))
+        .route("/help/", get(redirect_legacy_help))
+        .route("/help/{*article}", get(redirect_legacy_help));
     for path in [
         "/login",
         "/connect",
@@ -122,10 +138,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             ServeDir::new(format!("{catalog_dir}/catalog-assets")),
         )
         .nest_service("/assets", ServeDir::new(format!("{dashboard_dir}/assets")))
-        .nest(
-            "/help",
-            Router::new().fallback_service(ServeFile::new(format!("{dashboard_dir}/index.html"))),
-        )
         .nest("/docs", docs)
         .nest("/workspaces", workspaces);
 
@@ -258,8 +270,6 @@ async fn static_cache_headers(
     next: axum::middleware::Next,
 ) -> Response {
     let path = request.uri().path().to_owned();
-    // Help embeds our documentation, never authenticated management pages.
-    let same_origin_help = path == "/docs" || path.starts_with("/docs/");
     let is_immutable_asset = path.starts_with("/_astro/")
         || path.starts_with("/assets/")
         || path.starts_with("/_catalog/");
@@ -289,19 +299,11 @@ async fn static_cache_headers(
         );
         headers.insert(
             axum::http::header::X_FRAME_OPTIONS,
-            axum::http::HeaderValue::from_static(if same_origin_help {
-                "SAMEORIGIN"
-            } else {
-                "DENY"
-            }),
+            axum::http::HeaderValue::from_static("DENY"),
         );
         headers.insert(
             axum::http::header::CONTENT_SECURITY_POLICY,
-            axum::http::HeaderValue::from_static(if same_origin_help {
-                "frame-ancestors 'self'"
-            } else {
-                "frame-ancestors 'none'"
-            }),
+            axum::http::HeaderValue::from_static("frame-ancestors 'none'"),
         );
         headers.insert(
             axum::http::header::REFERRER_POLICY,
@@ -315,15 +317,7 @@ async fn static_cache_headers(
         );
         headers.insert(
             axum::http::header::HeaderName::from_static("content-security-policy-report-only"),
-            if same_origin_help {
-                axum::http::HeaderValue::from_str(
-                    &DASHBOARD_CSP_REPORT_ONLY
-                        .replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
-                )
-                .unwrap_or_else(|_| axum::http::HeaderValue::from_static("frame-ancestors 'self'"))
-            } else {
-                axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY)
-            },
+            axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY),
         );
     } else if is_immutable_asset && response.status().is_success() {
         response

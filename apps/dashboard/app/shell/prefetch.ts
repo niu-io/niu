@@ -74,7 +74,6 @@ export const routeImporters = {
   evaluations: memoImport('evaluations', () => import('@/features/evaluations/page')),
   eventSubscriptions: memoImport('eventSubscriptions', () => import('@/features/event-subscriptions/page')),
   routePools: memoImport('routePools', () => import('@/features/route-pools/page')),
-  help: memoImport('help', () => import('@/features/help/page')),
   models: memoImport('models', () => import('@/features/models/page')),
   accountSettings: memoImport('accountSettings', () => import('@/features/account/settings-page')),
   globalActivity: memoImport('globalActivity', () => import('@/features/activity/global-page')),
@@ -127,7 +126,6 @@ export function preloadRouteChunk(pathname: string): void {
   if (parts[0] === 'installation') { void routeImporters.installation(); return; }
   if (parts[0] === 'invite') { void routeImporters.invite(); return; }
   if (parts[0] === 'connect') { void routeImporters.connect(); return; }
-  if (parts[0] === 'help') { void routeImporters.help(); return; }
   if (parts[0] === 'models') { void routeImporters.models(); return; }
   if (parts[0] === 'settings') { void routeImporters.accountSettings(); return; }
   if (parts[0] === 'activity') { void routeImporters.globalActivity(); return; }

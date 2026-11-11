@@ -3,9 +3,6 @@
   (() => {
     document.documentElement.toggleAttribute('data-docs-home', /^\/docs\/?$/.test(location.pathname));
     document.documentElement.toggleAttribute('data-api-reference', /\/api(?:\/|$)/.test(location.pathname));
-    let embeddedHelp = false;
-    try { embeddedHelp = window.parent !== window && window.parent.location.origin === location.origin && new URLSearchParams(location.search).get('embed') === 'help'; } catch {}
-    document.documentElement.toggleAttribute('data-docs-embedded', embeddedHelp);
     let theme = 'system';
     let loc = '';
     try {

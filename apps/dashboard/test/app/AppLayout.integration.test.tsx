@@ -278,11 +278,13 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('heading', { name: 'API keys', level: 1 })).toBeNull();
   });
 
-  it('does not highlight workspace Overview when Documentation is selected', async () => {
-    mockHealth(); renderAt('/help/');
-    const nav = within(await screen.findByRole('navigation', { name: 'Main navigation' }));
-    expect(nav.queryByRole('link', { name: 'Overview', exact: true })?.getAttribute('data-active')).not.toBe('true');
-    expect(screen.getByRole('link', { name: 'Docs', exact: true }).getAttribute('data-active')).toBe('true');
+  it('links to standalone Docs in a new tab without selecting a dashboard route', async () => {
+    mockHealth(); renderAt('/workspaces/default');
+    const docs = await screen.findByRole('link', { name: 'Docs (opens in a new tab)' });
+    expect(docs.getAttribute('href')).toBe('/docs/');
+    expect(docs.getAttribute('target')).toBe('_blank');
+    expect(docs.getAttribute('rel')).toBe('noopener');
+    expect(docs.getAttribute('data-active')).toBe('false');
   });
 
 

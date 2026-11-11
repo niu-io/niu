@@ -208,9 +208,9 @@ settings; rendered review and HTTPS browser qualification remain open.
 or `"dark"` as the value of `color_mode`. Every member role can change its own
 preference; installation tokens and caller-supplied member targets are rejected.
 The default is `system`. Preferences are stored in PostgreSQL separately from
-profile revisions, and browser storage is only a disposable cache. Dashboard and
-embedded docs controls share this saved preference. Browser-cookie writes use
-the same Origin checks as profile changes; responses are non-cacheable and
+profile revisions, and browser storage is only a disposable cache. Standalone
+Docs reads the color mode cached by the dashboard in the same browser.
+Browser-cookie writes use the same Origin checks as profile changes; responses are non-cacheable and
 request bodies are limited to 1 KiB. Installation-only display choices have no
 personal account to save to and remain local.
 

@@ -113,7 +113,7 @@ export function ReviewEmptyState({
         {actions}
         <CopyAgentPrompt prompt={prompt} onError={onError} />
         <Button variant="outline" asChild>
-          <Link to="/help/agents/">{uiT('Connect your agent')}</Link>
+          <a href={`${import.meta.env.BASE_URL}docs/agents/`}>{uiT('Connect your agent')}</a>
         </Button>
       </EmptyContent>
     </Empty>

@@ -34,7 +34,7 @@ describe('workspace overview quick start', () => {
     render(quickStart());
     expect(screen.getByRole('heading', {name: 'Connect your agent'})).toBeTruthy();
     expect(screen.getByRole('link', {name: 'Create an API key'}).getAttribute('href')).toBe('/workspaces/demo/keys');
-    expect(screen.getByRole('link', {name: 'Read the API quickstart'}).getAttribute('href')).toBe('/help/guides/api-quickstart/');
+    expect(screen.getByRole('link', {name: 'Read the API quickstart'}).getAttribute('href')).toBe('/docs/guides/api-quickstart/');
     expect(screen.getByRole('link', {name: 'View requests'}).getAttribute('href')).toBe('/workspaces/demo/executions');
   });
 

@@ -14,7 +14,7 @@ import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { settingsHref } from '@/features/account/settings-routes';
 import { prefetchRouteIntent } from './prefetch';
 import { workspaceModelsHref } from './workspace-route';
-import { IconChartLine, IconLanguage, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
+import { IconChartLine, IconExternalLink, IconLanguage, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -65,7 +65,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
             {platformAdmin && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/admin/providers"><IconShieldLock />{t('Admin', '管理后台')}</Link></DropdownMenuItem>}
-            <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />{t('Docs', '文档')}</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><CircleHelp />{t('Docs', '文档')}<IconExternalLink className="ml-auto" aria-hidden="true" /></a></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}
           <DropdownMenuLabel className="account-identity">

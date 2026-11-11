@@ -63,7 +63,7 @@ Once running on port `2555`:
 - **Default Entry (`/`)**: Redirects to `/workspaces/default/` (or `/installation` before first-time setup and `/login` when unauthenticated, with direct links to `/models/` and `/docs/`).
 - **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKENS` secret to connect upstream Providers and import models. Resale deployments additionally configure customer pricing, platform currency and payment/funding arrangements.
 - **Public Model Catalog (`/models/`)**: Browse routes enabled for `public_catalog`.
-- **Developer Documentation (`/docs/` & `/help/`)**: Read setup, routing, and API guides.
+- **Developer Documentation (`/docs/`)**: Read setup, routing, and API guides.
 
 ### 2. Optional Resale Funding & Inference
 

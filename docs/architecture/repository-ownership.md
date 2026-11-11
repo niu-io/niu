@@ -30,6 +30,6 @@ Public header geometry and navigation are owned by `branding/public-header.css` 
 
 Both `niu-io/cloud` and `niu-io/enterprise` compose independently versioned private plugins from `niu-io/plugins` alongside the public core and its built-in open-source plugins. The plugin boundary, capability facets, `plugin-sdk`, manifest registration, health checks and tenant context are specified in [Enterprise and Cloud plugin composition](enterprise-composition.md). Community operation requires no private plugin or license service.
 
-`/docs/` serves standalone public documentation. `/help/` is a dashboard route inside the shared application layout. It embeds the standalone documentation artifact; article navigation updates the dashboard router while retaining its rail and account controls. Dashboard Help links use `/help/`, while public links and canonical URLs use `/docs/`. Neither documentation route requires authentication.
+`/docs/` serves standalone public documentation. The dashboard sidebar opens it in a new tab. The Gateway redirects legacy `/help/` URLs to the corresponding `/docs/` pages and routes the former interactive API reference to `/docs/api/explorer/`. Reading documentation does not require authentication.
 
 Hosted product comparisons at `/compare/` belong to the independently built website artifact. Community installations without `NIU_SITE_DIR` redirect those entries to the bundled technical documentation comparisons under `/docs/compare/`; they require no website source.

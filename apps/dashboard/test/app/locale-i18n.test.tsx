@@ -17,7 +17,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import AccountMenu from '@/shell/AccountMenu';
 import { SettingsContent } from '@/features/account/settings-shell';
 import LoginRoute from '@/features/login/page';
-import PublicHeader from '../../../docs/src/components/PublicHeader';
+import ThemeMenu from '../../../docs/src/components/ThemeMenu';
 import WorkspaceKeyConnection from '../../../docs/src/components/live-api/WorkspaceKeyConnection';
 import type { DashboardContext } from '@/shell/dashboard-context';
 
@@ -136,14 +136,10 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     languageGetter.mockRestore();
   });
 
-  it('persists locale changes, updates documentElement.lang, and localizes PublicHeader with Niu brand', async () => {
+  it('persists locale changes from the Docs language menu and updates documentElement.lang', async () => {
     const user = userEvent.setup();
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({}), { status: 401 }));
 
-    render(<PublicHeader path="/docs/quickstart/" />);
-    expect(screen.getByRole('link', { name: 'Niu home' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'AgentDoc' })).toBeTruthy();
+    render(<ThemeMenu />);
 
     expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('EN');
     await user.click(screen.getByRole('button', { name: 'Language' }));
@@ -153,9 +149,6 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(document.documentElement.lang).toBe('zh-CN');
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
     expect(screen.getByRole('button', { name: '界面语言' }).textContent).toContain('中文');
-    expect(screen.getByRole('link', { name: 'Niu 首页' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '文档' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'AgentDoc' })).toBeTruthy();
   });
 
   it('switches language from Settings -> Appearance and AccountMenu using shadcn DropdownMenu', async () => {

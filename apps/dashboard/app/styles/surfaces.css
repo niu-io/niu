@@ -52,18 +52,18 @@
 .app-shell [data-slot="sidebar-inner"] { border-right: 0; }
 .app-shell .main-panel { width: auto; min-height: 0; min-width: 0; flex: 1 1 0; margin: 0; container-type: inline-size; }
 /* Size management gutters from the canvas left after navigation (32px desktop, 24px intermediate, 16px narrow). */
-.app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
+.app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
 .app-shell .main-panel > .dashboard-page-header {
   padding-inline: 32px;
 }
 @media (max-width: 1100px) {
-  .app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
+  .app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
   .app-shell .main-panel > .dashboard-page-header {
     padding-inline: 24px;
   }
 }
 @media (max-width: 580px) {
-  .app-shell .main-panel > .page-content:not(.help-content):not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
+  .app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
   .app-shell .main-panel > .dashboard-page-header {
     padding-inline: 16px;
   }
@@ -245,18 +245,14 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .page-content:has(.billing-empty), .billing-content:has(.billing-empty), .billing-content [data-slot="tabs-content"]:has(.billing-empty), .billing-content .panel:has(> .billing-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .billing-empty { display: flex; flex: 0 0 auto; min-height: 240px; align-items: center; justify-content: center; text-align: center; }
 
-.app-shell .page-content.help-content,
 .app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider)) { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 0; height: auto; overflow: hidden; }
-.help-content > .gateway-route-content:not([hidden]),
-.help-content > .gateway-route-content > div:not([hidden]),
 .page-content > .gateway-route-content:not([hidden]):has(> div:not([hidden]) > :is(.generations-layout, .generations-provider)),
 .page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout) { display: flex; flex: 1; min-width: 0; min-height: 0; }
-.help-frame { display: block; flex: 1; width: 100%; min-height: 100dvh; height: 100%; border: 0; }
 
 /* Empty states center in the remaining page or pane, below its controls. */
-.app-shell .page-content:not(.help-content) { display: flex; flex-direction: column; }
-.page-content:not(.help-content) > .gateway-route-content:not([hidden]),
-.page-content:not(.help-content) > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.app-shell .page-content { display: flex; flex-direction: column; }
+.page-content > .gateway-route-content:not([hidden]),
+.page-content > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
 .empty-region:has([data-slot="empty"]) { display: flex; flex: 0 0 auto; flex-direction: column; min-width: 0; }
 .gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 0 0 auto; }
 .provider-admin-panel:has(> [data-slot="empty"]),.vendor-detail-panel:has(> .vendor-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }

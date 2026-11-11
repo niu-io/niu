@@ -1,31 +1,13 @@
-import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import WorkspaceKeyConnection, { type DocsKeySelection } from '../../../../docs/src/components/live-api/WorkspaceKeyConnection';
-import { useNavigate } from 'react-router';
+import WorkspaceKeyConnection, { type DocsKeySelection } from './WorkspaceKeyConnection';
 import { ApiReferenceReact, type AnyApiReferenceConfiguration } from '@scalar/api-reference-react';
-import { useDashboardContext, type DashboardContext } from '../../shell/dashboard-context';
-import PublicHeader from '../../../../docs/src/components/PublicHeader';
-import { useLocale } from '../../shell/locale';
-import '../../../../../branding/public-header.css';
+import { useLocale } from '../../../../dashboard/app/shell/locale';
 import '@scalar/api-reference-react/style.css';
 import './api-reference.css';
 
 /** Scalar owns documentation navigation, schema rendering and code samples. */
-export default function ApiReference({
-  embedded = true,
-  token: propToken,
-}: {
-  embedded?: boolean;
-  token?: string;
-} = {}) {
-  const { t: uiT } = useUILocale();
+export default function ApiReference() {
   const { t, locale } = useLocale();
-  const navigate = useNavigate();
-  const context = useDashboardContext() as DashboardContext | undefined;
-  const sessionToken = propToken ?? context?.token;
-  const authToken = sessionToken || 'niu-browser-member-session';
-  const authTokenRef = useRef(authToken);
-  authTokenRef.current = authToken;
   const [selection, setSelection] = useState<DocsKeySelection | null>(null);
   const selectedKey = useRef(selection); selectedKey.current = selection;
   const [mode, setMode] = useState<'dark' | 'light'>(() => document.documentElement.classList.contains('dark') ? 'dark' : 'light');
@@ -35,13 +17,14 @@ export default function ApiReference({
     return () => observer.disconnect();
   }, []);
   const configuration = useMemo<AnyApiReferenceConfiguration>(() => ({
-    url: `${import.meta.env.BASE_URL}docs/openapi/public.json`,
+    url: '/docs/openapi/public.json',
     layout: 'modern',
     theme: 'none',
     forceDarkModeState: mode,
     hideDarkModeToggle: true,
     withDefaultFonts: false,
     showSidebar: true,
+    searchHotKey: 'i',
     showDeveloperTools: 'never',
     modelsSectionLabel: t('Schemas', '数据结构 (Schemas)'),
     localization: { locale: locale === 'zh-CN' ? 'zh-CN' : 'en' },
@@ -59,35 +42,23 @@ export default function ApiReference({
       }
       if (!['GET', 'HEAD'].includes(request.method) && !selected.canWrite) throw new Error('Your role does not permit request execution.');
       request.headers.delete('x-niu-api-key');
-      request.headers.set('authorization', `Bearer ${authTokenRef.current}`);
+      request.headers.set('authorization', 'Bearer niu-browser-member-session');
       request.headers.set('x-niu-key-id', selected.keyId);
     },
     telemetry: false,
     agent: {disabled:true},
     defaultHttpClient: {targetKey:'shell', clientKey:'curl'},
   }), [mode, t, locale]);
-  return <div className="niu-api-documentation" onClick={event => {
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const link = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
-    if (!link || link.target || link.hasAttribute('download')) return;
-    const url = new URL(link.href, window.location.href);
-    if (url.origin !== window.location.origin || !url.pathname.startsWith('/docs/')) return;
-    // Keep documentation navigation inside the authenticated Niu shell.
-    if (url.pathname.startsWith('/docs/openapi/')) return;
-    event.preventDefault();
-    navigate('/help/' + url.pathname.slice('/docs/'.length) + url.search + url.hash);
-  }}>
-    {!embedded && <PublicHeader path="/docs/api/rest/" />}
-    <section className="niu-api-connection-bar" aria-label={uiT("Connect API reference")}>
+  return <div className="niu-api-documentation not-content">
+    <section className="niu-api-connection-bar" aria-label={t("Connect API reference", "连接 API 参考")}>
       <WorkspaceKeyConnection
         onChange={setSelection}
-        token={sessionToken}
         description={t(
           'Same-origin inference APIs only · key secret stays on the server · requests can incur real charges',
           '仅限同源推理 API · 密钥明文保存在服务端 · 请求可能产生真实费用',
         )}
       />
     </section>
-    <div className="niu-api-reference" aria-label={uiT("Niu OpenAPI reference")}><ApiReferenceReact configuration={configuration} /></div>
+    <div className="niu-api-reference" aria-label={t("Niu OpenAPI reference", "Niu OpenAPI 参考")}><ApiReferenceReact configuration={configuration} /></div>
   </div>;
 }

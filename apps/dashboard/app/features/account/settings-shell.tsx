@@ -1,6 +1,6 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
-import { Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router';
+import { Navigate, Link, useLocation, useNavigate } from 'react-router';
 import AccountProfile from './AccountProfile';
 import PasswordSettings from './PasswordSettings';
 import AccountBilling from '@/features/billing/AccountBilling';
@@ -14,7 +14,7 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
 import { useLocale, type Locale } from '@/shell/ui-locale';
 import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconCreditCard, IconLanguage, IconUsers, IconBuildings } from '@tabler/icons-react';
-import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
+import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconExternalLink } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
 import { settingsHref } from './settings-routes';
@@ -91,7 +91,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('License', '开源许可')}</dt><dd>MIT</dd></div>
       </dl>
       <nav aria-label={uiT("Product resources")} className="grid gap-1 sm:grid-cols-2">
-        <Button asChild variant="ghost" className="justify-start"><NavLink to="/help/"><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconChevronRight className="ml-auto text-muted-foreground" aria-hidden="true"/></NavLink></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '版本发布说明')}</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈问题')}</a></Button>

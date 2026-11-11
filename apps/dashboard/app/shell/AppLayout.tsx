@@ -119,7 +119,6 @@ export default function AppLayout() {
     usesSelectedWorkspace,
     loginArea,
     inviteArea,
-    helpArea,
     activityArea,
     activePath,
     scopedNavigation,
@@ -501,10 +500,10 @@ export default function AppLayout() {
   }, []);
 
   useEffect(() => {
-    if (!loginArea && !helpArea && !token && sessionChecked) {
+    if (!loginArea && !token && sessionChecked) {
       navigate('/login', { state: { from: location.pathname + location.search + location.hash }, replace: true });
     }
-  }, [loginArea, helpArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
+  }, [loginArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
 
   const previousPathnameRef = useRef(location.pathname);
   useEffect(() => {
@@ -541,13 +540,13 @@ export default function AppLayout() {
   );
   const gatewayOutage = (
     <GatewayOutageDialog
-      open={!helpArea && gatewayStatus === 'offline'}
+      open={gatewayStatus === 'offline'}
       checking={gateway.checking}
       onRetry={() => void gateway.check()}
     />
   );
 
-  if (!loginArea && !helpArea && !token) {
+  if (!loginArea && !token) {
     return (
       <>
         {gatewayOutage}
@@ -647,14 +646,14 @@ export default function AppLayout() {
             title={title}
           />
         )}
-        <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
-          {!helpArea && gatewayStatus === 'checking' && (
+        <div className="page-content" id="dashboard-content" tabIndex={-1}>
+          {gatewayStatus === 'checking' && (
             <WorkspaceShellSkeleton label={t('Connecting to your workspace…', '正在连接工作空间…')} />
           )}
           {gatewayOutage}
           {signOutFailure}
-          {(helpArea || gateway.everConnected) && (
-            <div className="gateway-route-content" hidden={!helpArea && gatewayStatus !== 'online'}>
+          {gateway.everConnected && (
+            <div className="gateway-route-content" hidden={gatewayStatus !== 'online'}>
               <ShellSectionTabs context={context} />
               {adminSupplierId && (
                 <AdminProviderTabs
@@ -664,11 +663,7 @@ export default function AppLayout() {
                 />
               )}
                 <div>
-                  {helpArea ? (
-                    <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">{t('Loading page…', '正在加载页面…')}</p>}>
-                      <Outlet context={context} />
-                    </Suspense>
-                  ) : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? (
+                  {token && !supplierArea && !settingsArea && effectiveWorkspaceError ? (
                     <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={reloadWorkspaces} />
                   ) : token && !supplierArea && !settingsArea && (workspaceLoading || !authorityWorkspacesReady) ? (
                     <WorkspaceShellSkeleton label={t('Loading workspace…', '正在加载工作空间…')} />

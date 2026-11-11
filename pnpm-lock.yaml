@@ -56,9 +56,6 @@ importers:
       '@niu-io/sdk':
         specifier: workspace:*
         version: link:../../sdks/javascript
-      '@scalar/api-reference-react':
-        specifier: 0.9.80
-        version: 0.9.80(react@19.3.0)(tailwindcss@4.3.3)(typescript@6.0.3)(zod@4.6.5)
       '@tabler/icons-react':
         specifier: ^3.48.0
         version: 3.48.0(react@19.3.0)
@@ -162,6 +159,9 @@ importers:
       '@astrojs/starlight':
         specifier: 0.42.4
         version: 0.42.4(astro@7.3.5(@types/node@24.13.6)(jiti@2.7.0)(yaml@2.9.1))(typescript@6.0.3)
+      '@scalar/api-reference-react':
+        specifier: 0.9.80
+        version: 0.9.80(react@19.3.0)(tailwindcss@4.3.3)(typescript@6.0.3)(zod@4.6.5)
       '@tabler/icons-react':
         specifier: ^3.48.0
         version: 3.48.0(react@19.3.0)

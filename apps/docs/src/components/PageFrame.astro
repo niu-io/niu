@@ -66,6 +66,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       'Gateway load testing': '网关负载测试',
       'Local development': '本地开发',
       'REST specification': 'REST 接口规范',
+      'API explorer': 'API 浏览器',
       'REST API specification': 'REST API 接口规范',
       'Model discovery': '模型发现',
       'Chat completions': '对话补全',
@@ -136,7 +137,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   })();
 </script>
 <script>
-  import { navigate, type TransitionBeforeSwapEvent } from 'astro:transitions/client';
+  import type { TransitionBeforeSwapEvent } from 'astro:transitions/client';
 
   const SIDEBAR_AND_TITLE_ZH: Record<string, string> = {
     // Sidebar groups & public nav
@@ -199,6 +200,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     'Gateway load testing': '网关负载测试',
     'Local development': '本地开发',
     'REST specification': 'REST 接口规范',
+    'API explorer': 'API 浏览器',
     'REST API specification': 'REST API 接口规范',
     'Model discovery': '模型发现',
     'Chat completions': '对话补全',
@@ -709,10 +711,6 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     newDoc.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
     newDoc.documentElement.toggleAttribute('data-docs-home', /^\/docs\/?$/.test(event.to.pathname));
     newDoc.documentElement.toggleAttribute('data-api-reference', /\/api(?:\/|$)/.test(event.to.pathname));
-    newDoc.documentElement.toggleAttribute(
-      'data-docs-embedded',
-      document.documentElement.hasAttribute('data-docs-embedded'),
-    );
 
     // Pre-localize incoming document tree before swap & View Transition snapshot
     applyDocsLocale(newDoc);
@@ -724,50 +722,4 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   window.addEventListener('storage', syncDocsSurface);
   document.addEventListener('astro:after-swap', syncDocsSurface);
   document.addEventListener('astro:page-load', syncDocsSurface);
-
-  if (document.documentElement.hasAttribute('data-docs-embedded')) {
-    // The dashboard owns browser history; Astro swaps articles without blanking
-    // the iframe or rebuilding the documentation shell.
-    window.addEventListener('message', (event) => {
-      if (event.origin !== location.origin || event.source !== parent) return;
-      if (event.data?.type === 'niu-docs-theme' && (event.data.theme === 'system' || event.data.theme === 'light' || event.data.theme === 'dark')) {
-        const dark = event.data.theme === 'dark' || (event.data.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-        return;
-      }
-      if (event.data?.type === 'niu-docs-locale' && (event.data.locale === 'en' || event.data.locale === 'zh-CN')) {
-        document.documentElement.dataset.locale = event.data.locale;
-        document.documentElement.lang = event.data.locale;
-        window.dispatchEvent(new CustomEvent('niu:locale', { detail: event.data.locale }));
-        syncDocsSurface();
-        return;
-      }
-      if (event.data?.type !== 'niu-docs-navigate' || typeof event.data.path !== 'string') return;
-      const url = new URL(event.data.path, location.origin);
-      if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
-        url.searchParams.set('embed', 'help');
-        void navigate(url.pathname + url.search + url.hash, { history: 'replace' });
-      }
-    });
-    window.addEventListener('click', (event) => {
-      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null;
-      if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
-      const url = new URL(link.href, location.href);
-      url.searchParams.delete('embed');
-      if (url.origin === location.origin && link.classList.contains('docs-brand') && url.pathname === '/') {
-        event.preventDefault();
-        parent.postMessage({ type: 'niu-docs-navigation', path: '/docs/' }, location.origin);
-      } else if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
-        event.preventDefault();
-        parent.postMessage({ type: 'niu-docs-navigation', path: url.pathname + url.search + url.hash }, location.origin);
-      } else if (url.origin === location.origin) {
-        link.target = '_top';
-      } else {
-        link.target = '_blank';
-        link.rel = 'noopener';
-      }
-    }, { capture: true });
-  }
 </script>

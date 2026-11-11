@@ -88,7 +88,6 @@ export default [
       redirectRoute('legacy-supplier-accounts', 'supplier-accounts'),
       redirectRoute('legacy-supplier-accounts-manage', 'supplier-accounts/manage/:section'),
       redirectRoute('legacy-supplier-accounts-portal', 'supplier-accounts/:provider/:section?'),
-      route('help/*', 'features/help/page.tsx', { id: 'help' }),
       route('models/*', 'features/models/page.tsx', { id: 'models' }),
       route('settings/:section?', 'features/account/settings-page.tsx', { id: 'account-settings' }),
       route('activity/:section?', 'features/activity/global-page.tsx', { id: 'global-activity' }),

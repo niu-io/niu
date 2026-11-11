@@ -68,7 +68,6 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     location.pathname.startsWith('/models/');
   const loginArea = location.pathname === '/login' || location.pathname === '/installation';
   const inviteArea = location.pathname === '/invite' || location.pathname.startsWith('/invite/');
-  const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
 
   const searchParams = new URLSearchParams(location.search);
@@ -132,8 +131,6 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
             ? location.pathname === '/installation'
               ? t('Installation administration', '实例管理')
               : t('Sign in', '登录')
-            : helpArea
-              ? t('Docs', '文档')
               : supplierArea
                 ? ({
                     customers: t('Customers', '客户管理'),
@@ -196,7 +193,6 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     usesSelectedWorkspace,
     loginArea,
     inviteArea,
-    helpArea,
     activityArea,
     activePath,
     scopedNavigation,
