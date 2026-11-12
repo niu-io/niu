@@ -34,6 +34,7 @@
 .generations-session-content { position:relative; display:flex; min-width:0; min-height:0; flex:1; overflow:hidden; }
 .generations-session-primary { display:flex; flex-direction:column; min-width:0; min-height:0; flex:1 1 0; overflow:hidden; }
 .generations-toolbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; flex-shrink:0; min-height:var(--dashboard-header-height); padding:10px 16px; border-bottom:1px solid var(--border); }
+.generations-toolbar:not(:has(> .playground-header-navigation)) { grid-template-columns:minmax(0,1fr) auto; }
 .generations-toolbar :where(h1) { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
 .generations-toolbar-actions { display:flex; align-items:center; gap:8px; min-width:0; }
 .generations-toolbar .playground-toolbar-actions { display:flex; }

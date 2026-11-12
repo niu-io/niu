@@ -7,6 +7,8 @@ import {
   IconCreditCard,
   IconExternalLink,
   IconHistory,
+  IconLayoutSidebarLeftCollapse as PanelLeftClose,
+  IconLayoutSidebarLeftExpand as PanelLeftOpen,
   IconPalette,
   IconPlugConnected,
   IconRoute,
@@ -14,8 +16,9 @@ import {
   IconSparkles,
   IconUsers,
 } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
 import AgentConnection from './AgentConnection';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, type RefObject } from 'react';
 import { useLocation } from 'react-router';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { navigation } from './navigation';
@@ -30,14 +33,69 @@ import { workspaceDisplayName } from './workspace-route';
 export const ShellNavigationContext = createContext<{ context: DashboardContext; workspacePath: string; modelsHref: string; generationsHref: string; onCreateWorkspace?: () => void } | null>(null);
 
 /** Stable product destinations across every route. */
-export function ShellNavigation() {
+export function ShellNavigation({
+  toggleRef,
+  adminArea = false,
+  activityArea = false,
+  settingsArea = false,
+  supplierArea = false,
+}: {
+  toggleRef?: RefObject<HTMLButtonElement | null>;
+  adminArea?: boolean;
+  activityArea?: boolean;
+  settingsArea?: boolean;
+  supplierArea?: boolean;
+} = {}) {
   const value = useContext(ShellNavigationContext);
   const { t, isZh } = useLocale();
   const { settings, logo } = useBranding();
   const { pathname } = useLocation();
+  const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
   if (!value) return null;
   const { context, workspacePath, generationsHref } = value;
   const adminScope = (pathname === '/admin' || pathname.startsWith('/admin/')) && canManagePlatform(context.session);
+  const expanded = isMobile ? openMobile : state === 'expanded';
+  const targetArea = adminArea || adminScope
+    ? t('admin navigation')
+    : activityArea
+      ? t('activity navigation')
+      : settingsArea
+        ? t('settings navigation')
+        : supplierArea
+          ? t('provider navigation')
+          : t('workspace navigation');
+  const controlsId = adminArea || adminScope
+    ? 'admin-navigation'
+    : activityArea
+      ? 'activity-navigation'
+      : settingsArea
+        ? 'settings-navigation'
+        : supplierArea
+          ? 'supplier-navigation'
+          : 'workspace-navigation';
+  const toggleButton = (
+    <Button
+      ref={!isMobile ? toggleRef : undefined}
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="sidebar-toggle sidebar-header-toggle"
+      onClick={toggleSidebar}
+      aria-expanded={expanded}
+      aria-controls={controlsId}
+      aria-label={`${expanded ? t('Collapse') : t('Expand')} ${targetArea}`}
+      title={expanded ? t('Collapse navigation', '收起导航') : t('Expand navigation', '展开导航')}
+    >
+      {expanded ? (
+        <PanelLeftClose aria-hidden="true" />
+      ) : (
+        <>
+          <img src={logo} alt="" className="sidebar-toggle-logo size-5 shrink-0" />
+          <PanelLeftOpen aria-hidden="true" className="sidebar-toggle-expand-icon" />
+        </>
+      )}
+    </Button>
+  );
   if (adminScope) {
     const adminEntries = [
       { to: '/admin/providers', label: t('Providers', '模型供应商'), icon: IconPlugConnected },
@@ -52,11 +110,12 @@ export function ShellNavigation() {
       { to: '/admin/settings', label: t('Settings', '实例设置'), icon: IconAdjustmentsHorizontal },
     ].filter(item => context.session?.operating_mode !== 'internal' || !['/admin/customers', '/admin/reports', '/admin/pricing', '/admin/payments'].includes(item.to));
     return <>
-      <SidebarHeader className="px-3 pt-3 pb-2">
-        <div className="flex h-10 items-center gap-2.5 rounded-lg px-2.5 font-semibold text-sidebar-foreground group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" title={t('Platform admin', '管理后台')}>
+      <SidebarHeader className="sidebar-header-row flex-row items-center justify-between gap-1 px-3 pt-3 pb-2 group-data-[collapsible=icon]:justify-center">
+        <div className="sidebar-header-brand flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden" title={t('Platform admin', '管理后台')}>
           <IconShieldLock className="size-5 shrink-0 text-primary" aria-hidden="true" />
-          <span className="truncate text-sm group-data-[collapsible=icon]:hidden">{t('Platform admin', '管理后台')}</span>
+          <span className="truncate text-sm">{t('Platform admin', '管理后台')}</span>
         </div>
+        {toggleButton}
       </SidebarHeader>
       <SidebarContent className="px-3">
         <nav aria-label={t('Admin navigation', '管理后台导航')}><SidebarMenu>{adminEntries.map(item => {
@@ -94,9 +153,12 @@ export function ShellNavigation() {
     );
   }
   return <>
-    <SidebarHeader className="px-3 pt-3 pb-2">
-      {!workspaceAreas && <a href={import.meta.env.BASE_URL} className="flex h-10 items-center gap-2 px-2 font-semibold group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"><img className="size-6 shrink-0" src={logo} alt="" /><span className="group-data-[collapsible=icon]:hidden">{settings.display_name}</span></a>}
-      {workspaceAreas && <WorkspaceSwitcher logo={logo} context={context} onCreateWorkspace={value.onCreateWorkspace ?? (() => {})} creationAvailable={Boolean(value.onCreateWorkspace)} />}
+    <SidebarHeader className="sidebar-header-row flex-row items-center justify-between gap-1 px-3 pt-3 pb-2 group-data-[collapsible=icon]:justify-center">
+      <div className="sidebar-header-brand min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+        {!workspaceAreas && <a href={import.meta.env.BASE_URL} className="flex h-10 items-center gap-2 px-2 font-semibold"><img className="size-6 shrink-0" src={logo} alt="" /><span className="truncate">{settings.display_name}</span></a>}
+        {workspaceAreas && <WorkspaceSwitcher logo={logo} context={context} onCreateWorkspace={value.onCreateWorkspace ?? (() => {})} creationAvailable={Boolean(value.onCreateWorkspace)} />}
+      </div>
+      {toggleButton}
     </SidebarHeader>
     <SidebarContent className="px-3">
       <nav aria-label={t('Main navigation', '主导航')}><SidebarMenu>{entries.map(item => <SidebarMenuItem key={item.to}>

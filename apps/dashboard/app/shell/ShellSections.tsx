@@ -168,7 +168,13 @@ export function ShellSidebar({
         height: 'auto',
       }}
     >
-      <ShellNavigation />
+      <ShellNavigation
+        toggleRef={toggleRef}
+        adminArea={adminArea}
+        activityArea={activityArea}
+        settingsArea={settingsArea}
+        supplierArea={supplierArea}
+      />
       <ShellAccount />
     </Sidebar>
   );

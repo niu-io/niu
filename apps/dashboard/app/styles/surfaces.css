@@ -332,12 +332,18 @@
 .gateway-request-table tbody td { color: var(--foreground); font-variant-numeric: tabular-nums; }
 .gateway-table-status { padding: 2px 6px; font-size: 11px; }
 
-/* The compact workspace switcher remains operable and centered in the 64px icon sidebar. */
-.niu-workspace-sidebar .workspace-switcher-trigger { min-height: 40px; padding: 8px 10px; }
+/* The compact workspace switcher and collapse/expand control live in the sidebar header. */
+:is(.niu-workspace-sidebar, .niu-workspace-sidebar-mobile) .workspace-switcher-trigger { min-height: 40px; padding: 8px 10px; }
 .app-shell > [data-collapsible="icon"] [data-slot="sidebar-header"] { align-items: center; }
 .app-shell > [data-collapsible="icon"] [data-slot="sidebar-content"] { align-items: center; }
 .app-shell > [data-collapsible="icon"] [data-slot="sidebar-menu"] { align-items: center; }
-.app-shell > [data-collapsible="icon"] .workspace-switcher { display: flex; justify-content: center; }
-.app-shell > [data-collapsible="icon"] .workspace-switcher-trigger { width: 40px; height: 40px; min-height: 40px; justify-content: center; padding: 10px; }
-.app-shell > [data-collapsible="icon"] .workspace-switcher-copy,
-.app-shell > [data-collapsible="icon"] .workspace-switcher-trigger > svg:last-child { display: none; }
+.app-shell > [data-collapsible="icon"] .sidebar-header-brand { display: none; }
+.app-shell > [data-collapsible="icon"] .sidebar-header-toggle { width: 40px; height: 40px; flex: 0 0 40px; }
+.sidebar-header-toggle .sidebar-toggle-logo { display: block; width: 20px; height: 20px; object-fit: contain; }
+.sidebar-header-toggle .sidebar-toggle-expand-icon { display: none; }
+.sidebar-header-toggle:hover .sidebar-toggle-logo,
+.sidebar-header-toggle:focus-visible .sidebar-toggle-logo,
+.niu-workspace-sidebar:hover .sidebar-header-toggle .sidebar-toggle-logo { display: none; }
+.sidebar-header-toggle:hover .sidebar-toggle-expand-icon,
+.sidebar-header-toggle:focus-visible .sidebar-toggle-expand-icon,
+.niu-workspace-sidebar:hover .sidebar-header-toggle .sidebar-toggle-expand-icon { display: block; }

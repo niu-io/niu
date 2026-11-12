@@ -52,6 +52,7 @@ function WorkspaceSidebarToggle({
   const { t: uiT } = useUILocale();
   const { t } = useLocale();
   const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
+  if (!isMobile && !modelsArea) return null;
   const expanded = isMobile ? openMobile : state === 'expanded';
   const targetArea = adminArea
     ? uiT("admin navigation")

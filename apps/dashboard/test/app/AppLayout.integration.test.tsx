@@ -541,8 +541,15 @@ describe('dashboard route layout', () => {
     const user = userEvent.setup();
     const router = renderAt('/workspaces/default/');
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
-    await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
+    const collapseButton = screen.getByRole('button', { name: 'Collapse workspace navigation' });
+    expect(collapseButton.closest('[data-slot="sidebar-header"]')).toBeTruthy();
+    expect(collapseButton.closest('.dashboard-page-header')).toBeNull();
+    await user.click(collapseButton);
     expect(nav.closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('icon');
+    const expandButton = screen.getByRole('button', { name: 'Expand workspace navigation' });
+    expect(expandButton.closest('[data-slot="sidebar-header"]')).toBeTruthy();
+    expect(expandButton.querySelector('.sidebar-toggle-logo')).toBeTruthy();
+    expect(expandButton.querySelector('.sidebar-toggle-expand-icon')).toBeTruthy();
     await user.click(within(nav).getByRole('link', { name: 'Models', exact: true }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/models'));
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Models' }).getAttribute('data-active')).toBe('true'));
@@ -552,6 +559,8 @@ describe('dashboard route layout', () => {
     expect(await screen.findByRole('dialog', { name: 'Connect your agent' })).toBeTruthy();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Connect your agent' })).toBeNull());
+    await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
+    expect(nav.closest('[data-slot="sidebar"]')?.getAttribute('data-state')).toBe('expanded');
   });
 
 
