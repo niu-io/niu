@@ -17,6 +17,7 @@ import VideoResult from '../video/VideoResult';
 import VideoBilling from '../video/VideoBilling';
 import VideoLifecycle from '../video/VideoLifecycle';
 import { videoStatusLabel } from '../video/status';
+import { openGenerationsAssetsPanel } from './GenerationsLayout';
 import { openGenerationsContextRun, useRegisterVideoTurnRun, type GenerationContextRun, type GenerationContextRunState } from './GenerationsContextPanel';
 import './generations.css';
 import '../video/video.css';
@@ -224,7 +225,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
           : <Button variant="outline" onClick={() => void continueSavedRequest()} disabled={intentBusy}>{intentBusy ? uiT("Opening…") : uiT("Continue saved request")}</Button>}
       </div>
       : <p className="video-muted">{statusMessage || uiT("No request or task is linked to this instruction.")}</p>)}
-    {task?.state === 'succeeded' && client && scope && <VideoResult key={`${scope.projectId}/${task.id}`} client={client} scope={scope} task={task.id} keyId={canWrite ? keyId : undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`} />}
+    {task?.state === 'succeeded' && client && scope && <VideoResult key={`${scope.projectId}/${task.id}`} client={client} scope={scope} task={task.id} keyId={canWrite ? keyId : undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`} onOpenLibrary={openGenerationsAssetsPanel} />}
     {task && task.state !== 'succeeded' && <div className="video-artifact-placeholder">
       {(task.state === 'queued' || task.state === 'running') && <Loader className="animate-spin" />}
       <h3 role="status">{task.state === 'queued' ? uiT("Waiting to generate") : task.state === 'running' ? uiT("Generating your video…") : task.state === 'failed' ? uiT("Video generation failed") : uiT("Waiting for a confirmed status")}</h3>

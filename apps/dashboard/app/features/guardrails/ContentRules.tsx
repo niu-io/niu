@@ -277,7 +277,7 @@ export default function ContentRules({
             {uiT("The 32-rule limit has been reached.")}</p>
         )}
         {!custom.length && (
-          <p className="guardrails-muted rounded-lg border border-dashed border-border/70 bg-muted/20 px-3.5 py-2.5">{uiT("No custom patterns.")}</p>
+          <p className="guardrails-muted rounded-lg bg-muted/55 px-3.5 py-2.5">{uiT("No custom patterns.")}</p>
         )}
         {custom.map(({ rule, index }, number) => (
           <div key={index} className="guardrails-custom-pattern">

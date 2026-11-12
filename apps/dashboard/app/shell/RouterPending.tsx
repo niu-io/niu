@@ -3,7 +3,7 @@ import logo from '../../../../branding/assets/niu-mark.png';
 
 export default function RouterPending() {
   const { t: uiT } = useUILocale();
-  return <main className="route-loading" role="status" aria-label={uiT("Opening Niu Dashboard")} aria-live="polite">
+  return <main className="route-loading" role="status" aria-label={uiT("Opening Niu Dashboard")} aria-live="polite" suppressHydrationWarning>
     <span
       className="route-loading-mark"
       aria-hidden="true"

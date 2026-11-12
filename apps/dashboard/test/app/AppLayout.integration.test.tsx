@@ -989,6 +989,55 @@ describe('dashboard route layout', () => {
     expect(await screen.findByRole('link', { name: 'Return to overview' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Switch workspace page' })).toBeNull();
   });
+
+  it('switches workspace pages from the mobile sidebar without unmounting before navigation or linking header brand to marketing root', async () => {
+    const previousInnerWidth = window.innerWidth;
+    const previousMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 390 });
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width') ? 390 <= Number(/(\d+)px/.exec(query)?.[1] ?? 0) : false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    try {
+      mockHealth();
+      const router = renderAt('/workspaces/default');
+      const user = userEvent.setup();
+      const toggle = await screen.findByRole('button', { name: 'Expand workspace navigation' });
+      const brandLink = screen.getByRole('link', { name: 'Niu home' });
+      expect(brandLink.getAttribute('href')).toBe('/workspaces/default');
+
+      await user.click(toggle);
+      const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
+      const modelsLink = within(nav).getByRole('link', { name: 'Models', exact: true });
+      expect(modelsLink.getAttribute('data-slot')).toBe('sidebar-menu-button');
+
+      await user.click(modelsLink);
+      await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/models'));
+      await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
+
+      await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
+      const reopenedNav = await screen.findByRole('navigation', { name: 'Main navigation' });
+      await user.click(within(reopenedNav).getByRole('link', { name: 'API keys', exact: true }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/keys'));
+      await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
+
+      await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
+      const keysNav = await screen.findByRole('navigation', { name: 'Main navigation' });
+      await user.click(within(keysNav).getByRole('link', { name: 'Generations', exact: true }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/generations'));
+      const generationsBrand = await screen.findByRole('link', { name: 'Niu home' });
+      expect(generationsBrand.getAttribute('href')).toBe('/workspaces/default');
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: previousInnerWidth });
+      window.matchMedia = previousMatchMedia;
+    }
+  });
 });
 
 it.each(['routing', 'evaluations'].flatMap(section => [false, true].map(unavailable => ({section, unavailable}))))('keeps $section management reachable with payment readiness unavailable=$unavailable', async ({section, unavailable}) => {

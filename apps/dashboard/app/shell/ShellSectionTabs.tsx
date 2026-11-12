@@ -58,13 +58,6 @@ export default function ShellSectionTabs({ context }: {
       : location.pathname.includes('/billing') && !internal
         ? `${routeWorkspaceBase}/billing`
         : `${routeWorkspaceBase}/settings`;
-  } else if (/^\/workspaces\/[^/]+\/(assets|library|video)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
-    label = t('Generations sections', '生成与素材页面');
-    entries = [
-      { path: '/generations', label: t('Sessions', '对话会话') },
-      { path: `${routeWorkspaceBase}/assets`, label: t('Assets', '素材库') },
-    ];
-    selected = `${routeWorkspaceBase}/assets`;
   }
 
   if (!entries.length) return null;

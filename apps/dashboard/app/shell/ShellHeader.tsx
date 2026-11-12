@@ -182,9 +182,9 @@ export default function ShellHeader({
         />
       )}
       {phoneNavigation && hasSidebar && (
-        <a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [brandingName])}>
+        <ProductRailLink className="mobile-header-brand" to={activeWorkspacePath} aria-label={uiF("{0} home", [brandingName])}>
           <img src={logo} alt="" />
-        </a>
+        </ProductRailLink>
       )}
       {destination === 'Workspace' && !workspaceDirectoryArea && !supplierArea && !adminArea ? (
         <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">

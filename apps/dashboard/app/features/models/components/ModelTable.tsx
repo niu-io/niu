@@ -49,7 +49,8 @@ function ModelFilterButton({ activeCount = 0 }: { activeCount?: number }) {
 
 function ModelFilterCloseButton() {
   const { t: uiT } = useUILocale();
-  const { toggleSidebar } = useSidebar();
+  const { isMobile, toggleSidebar } = useSidebar();
+  if (isMobile) return null;
   return (
     <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Close filters")} onClick={toggleSidebar}>
       <X size={15} aria-hidden="true" />
@@ -327,7 +328,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
               </Label>)}</div>
             </CollapsibleContent>
           </Collapsible>)}
-          <Collapsible className="models-filter-group border-t border-border/60 pt-2 mt-2" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
+          <Collapsible className="models-filter-group pt-2 mt-1" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
           <p className="text-xs text-muted-foreground">{uiT("Inferred from model identifiers; not verified.")}</p><div className="models-filter-options">
             {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelDeveloper(model)?.id === identity.id).length}</span></Label>)}
           </div>

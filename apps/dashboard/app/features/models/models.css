@@ -18,18 +18,19 @@
 .models-search > svg { position: absolute; left: 12px; color: var(--muted-foreground); pointer-events: none; }
 .models-search input { padding-left: 36px; }
 .models-sort-menu { flex: 0 0 168px; width: 168px; margin-left: auto; }
-.models-results-heading { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: var(--muted-foreground); font-size: 13px; border-bottom: 1px solid var(--border); }
-.models-cards { display: flex; flex-direction: column; }
-.models-card { padding: 16px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; min-width: 0; }
+.models-results-heading { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding-block: 4px; color: var(--muted-foreground); font-size: 13px; border-bottom: 0; }
+.models-cards { display: flex; flex-direction: column; gap: 8px; }
+.models-card { padding: 16px 18px; border: 0; border-radius: 14px; background: var(--card); min-width: 0; transition: background-color 140ms ease; }
+.models-card:hover { background: color-mix(in srgb, var(--accent) 42%, var(--card)); }
 .models-card-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
 .models-card-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .models-card-heading a { border: 0; padding: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 15px; font-weight: 600; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 .models-card-heading a:hover { text-decoration: underline; }
-.models-card-rates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--muted-foreground); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.models-card-rates > span + span { border-left: 1px solid var(--border); padding-left: 12px; }
+.models-card-rates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--muted-foreground); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.models-card-rates > span + span::before { content: "·"; margin-right: 10px; opacity: .55; }
 .models-card p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--muted-foreground); overflow-wrap: anywhere; }
-.models-card-meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; color: var(--muted-foreground); font-size: 12px; }
-.models-card-meta > span + span { border-left: 1px solid var(--border); padding-left: 14px; }
+.models-card-meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted-foreground); font-size: 12px; }
+.models-card-meta > span + span::before { content: "·"; margin-right: 12px; opacity: .55; }
 .models-card-meta a { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: var(--foreground); font-weight: 500; }
 .models-card-meta a:hover { text-decoration: underline; }
 .models-load-more { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 24px 0; color: var(--muted-foreground); font-size: 12px; }
@@ -39,13 +40,13 @@
   .models-browse { gap: 0; }
   .models-toolbar { gap: 8px; }
   .models-sort-menu { flex: 0 0 140px; width: 140px; }
-  .models-card { padding: 14px 0; }
+  .models-card { padding: 14px 16px; }
   .models-card-meta a { margin-left: 0; }
 }
 
 /* Global navigation stays left; filters own an independent right panel. */
 .models-browse > [data-slot="sidebar"] { order: 2; }
-.models-sidebar[data-slot="sidebar-container"] { top: var(--dashboard-header-height); height: calc(100dvh - var(--dashboard-header-height)); border: 0; border-left: 1px solid var(--border); }
+.models-sidebar[data-slot="sidebar-container"] { top: var(--dashboard-header-height); height: calc(100dvh - var(--dashboard-header-height)); border: 0; }
 .models-browse [data-slot="sidebar-gap"] { width: 256px; }
 
 .models-filter-group { padding-bottom: 24px; }
@@ -64,8 +65,8 @@
 @media (max-width: 580px) {
   .models-search { flex: 1 1 100%; max-width: none; }
   .models-sort-menu { flex: 1 1 auto; width: auto; margin-left: 0; }
-  .models-card-rates > span + span,
-  .models-card-meta > span + span { border-left: 0; padding-left: 0; }
+  .models-card-rates > span + span::before,
+  .models-card-meta > span + span::before { content: none; }
   .models-card-meta a { flex-basis: 100%; }
 }
 

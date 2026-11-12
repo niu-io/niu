@@ -4,7 +4,7 @@ import {MemoryRouter,useLocation} from 'react-router';
 import VideoSessionView from '@/features/generations/VideoSessionView';
 import type {DashboardContext} from '@/shell/dashboard-context';
 vi.mock('@/shell/branding',()=>({useBranding:()=>({settings:{display_name:'Niu'}})}));
-vi.mock('@/features/generations/GenerationsLayout',()=>({GenerationSessionBindings:({title}:{title:string})=><h1>{title}</h1>}));
+vi.mock('@/features/generations/GenerationsLayout',()=>({GenerationSessionBindings:({title}:{title:string})=><h1>{title}</h1>,openGenerationsAssetsPanel:vi.fn()}));
 const id='11111111-1111-4111-8111-111111111111';
 const workspace={id:'22222222-2222-4222-8222-222222222222',organization_id:'33333333-3333-4333-8333-333333333333',slug:'review',name:'Review'};
 const context={token:'member',workspace,workspaces:[workspace]} as DashboardContext;

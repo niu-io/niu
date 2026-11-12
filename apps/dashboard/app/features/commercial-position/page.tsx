@@ -929,7 +929,7 @@ function CommercialStatement({ token }: { token: string }) {
                 {formatDeltaBadge(uiT, recognizedRevenue, priorRecognizedRevenue, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {uiT("Gross usage")}{" "}{formatFinancialMoney(nominalConsumption, currency)}{" "}{uiT("· Gifts & refunds")}{' '}
                 {consumedGifts + customerRefunds >= 50_000n ? '-' : ''}
                 {formatFinancialMoney(consumedGifts + customerRefunds, currency)}
@@ -953,7 +953,7 @@ function CommercialStatement({ token }: { token: string }) {
                 )}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {uiT("Settled")}{" "}{formatFinancialMoney(currentCohort.settledPayable, currency)}{" "}{uiT("· Unpaid")}{' '}
                 {formatFinancialMoney(currentCohort.unpaidPayable, currency)}
               </p>
@@ -972,7 +972,7 @@ function CommercialStatement({ token }: { token: string }) {
                 {formatDeltaBadge(uiT, netContribution, priorNetContribution, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
                 {currentCohort.activeModelCount}{" "}{uiT("active")}{' '}
                 {currentCohort.activeModelCount === 1 ? uiT("model") : uiT("models")}
@@ -993,7 +993,7 @@ function CommercialStatement({ token }: { token: string }) {
                 {formatDeltaBadge(uiT, verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {uiT("Unused prepaid wallet:")}{' '}
                 {prepaidCash === null ? '—' : formatFinancialMoney(prepaidCash, currency)}
               </p>
@@ -1256,7 +1256,7 @@ function CommercialStatement({ token }: { token: string }) {
             </div>
 
             {displayedRows.length === 0 ? (
-              <Empty className="min-h-36 rounded-xl border border-dashed border-border/60 bg-muted/20 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
+              <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
                 {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
               <div className="table-wrap"><Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>

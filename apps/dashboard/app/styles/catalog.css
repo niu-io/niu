@@ -5,8 +5,8 @@
 .model-route-detail-heading .badge { display: inline-flex; align-items: center; gap: 7px; }
 .model-route-title { margin-top: 27px; }
 .model-route-title h1 { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 600; letter-spacing: -.035em; overflow-wrap: anywhere; }
-.model-route-facts { display: grid; gap: 0; margin: 22px 0; border-top: 1px solid var(--border); }
-.model-route-facts > div { display: grid; grid-template-columns: minmax(120px, 12rem) minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.model-route-facts { display: grid; gap: 6px; margin: 22px 0; border-top: 0; }
+.model-route-facts > div { display: grid; grid-template-columns: minmax(120px, 12rem) minmax(0, 1fr); gap: 16px; padding: 11px 14px; border-bottom: 0; border-radius: 10px; background: var(--card); }
 .model-route-facts dt { flex: 0 0 auto; color: var(--muted-foreground); font-size: 14px; }
 .model-route-facts dd { margin: 0; font-size: 14px; text-align: left; overflow-wrap: anywhere; }
 .model-route-cta { display: flex; flex-wrap: wrap; gap: 8px; }

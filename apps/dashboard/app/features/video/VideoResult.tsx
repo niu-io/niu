@@ -9,7 +9,7 @@ import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,Dr
 import {readVideoResultResponse,videoResultError} from './result';
 import {NiuAdminClient,type TenantScope,type GenerationTask} from '@niu-io/sdk/admin';
 
-export default function VideoResult({client,scope,task,keyId,canWrite,libraryHref}:{client:NiuAdminClient;scope:TenantScope;task:string;keyId?:string;canWrite:boolean;libraryHref?:string}) {
+export default function VideoResult({client,scope,task,keyId,canWrite,libraryHref,onOpenLibrary}:{client:NiuAdminClient;scope:TenantScope;task:string;keyId?:string;canWrite:boolean;libraryHref?:string;onOpenLibrary?:()=>void}) {
   const { t: uiT } = useUILocale();
   const authority=Boolean(canWrite&&keyId);
   type OutputKind='video'|'last_frame';
@@ -114,7 +114,7 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
     const capture=artifact.capture;
     const label=kind==='video'?uiT("Save to workspace"):uiT("Save last frame");
     if(capture?.availability==='deleted')return <DropdownMenuItem key={kind} disabled>{uiT("Workspace copy deleted")}</DropdownMenuItem>;
-    if(capture?.status==='stored')return libraryHref?<DropdownMenuItem key={kind} asChild><Link to={libraryHref}><Check/>{uiT("View in workspace library")}</Link></DropdownMenuItem>:<DropdownMenuItem key={kind} disabled><Check/>{uiT("Saved to workspace")}</DropdownMenuItem>;
+    if(capture?.status==='stored')return libraryHref?<DropdownMenuItem key={kind} asChild><Link to={libraryHref} onClick={event=>{if(onOpenLibrary){event.preventDefault();onOpenLibrary();}}}><Check/>{uiT("View in workspace library")}</Link></DropdownMenuItem>:<DropdownMenuItem key={kind} disabled><Check/>{uiT("Saved to workspace")}</DropdownMenuItem>;
     const checkOnly=Boolean(uncertain[kind]||capture?.status==='preparing'||(capture&&saveRequests.current[kind]?.id!==capture.id));
     return <DropdownMenuItem key={kind} disabled={(!canWrite&&!checkOnly)||busy||Boolean(saving)} onSelect={()=>void save(kind,checkOnly)} aria-label={`${checkOnly?uiT("Check save status"):label}${kind==='last_frame'?uiT("for last frame"):''}`}>
       {checkOnly?<RefreshCw/>:<FolderDown/>}{saving?.kind===kind?(saving.checking?uiT("Checking…"):uiT("Saving…")):checkOnly?uiT("Check save status"):capture?.status==='failed'?uiT("Retry save"):label}
@@ -132,7 +132,7 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
     {preview ? (preview.kind === 'video' ? <video className="video-preview" controls playsInline preload="metadata" src={preview.url} aria-label={uiT("Generated video")} onError={()=>setError('This browser could not play the video. You can download the file.')}/> : <img className="video-preview" src={preview.url} alt={uiT("Generated last frame")}/>) : <div className="video-artifact-placeholder">
       {busy||!availability&&!error ? <><LoaderCircle className="animate-spin"/><p role="status">{uiT("Loading video…")}</p></> : <><Film/><h3>{deleted||availability?.video==='deleted'?uiT("Video removed"):availability?.video==='expired'?uiT("Video preview expired"):uiT("Video preview unavailable")}</h3><p>{uiT("The generation completed, but its video is not currently available to view.")}</p>
       {authority&&availability&&<Button variant="secondary" disabled={busy} onClick={()=>void load('video',true)}><RefreshCw/>{uiT("Restore video")}</Button>}
-      {!authority&&availability&&<p>{uiT("A retained workspace copy or access to the original task is needed to restore this video.")}</p>}{libraryHref && <Button asChild variant="outline"><Link to={libraryHref}>{uiT("View Assets")}</Link></Button>}
+      {!authority&&availability&&<p>{uiT("A retained workspace copy or access to the original task is needed to restore this video.")}</p>}{libraryHref && <Button asChild variant="outline"><Link to={libraryHref} onClick={event=>{if(onOpenLibrary){event.preventDefault();onOpenLibrary();}}}>{uiT("View Assets")}</Link></Button>}
       {!availability&&error&&<Button variant="secondary" onClick={()=>{setError('');setMetadataRevision(value=>value+1);}}>{uiT("Try again")}</Button>}</>}
     </div>}
     {error&&<p role="alert" className="video-error">{uiT(error)}</p>}

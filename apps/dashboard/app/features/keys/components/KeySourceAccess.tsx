@@ -6,9 +6,9 @@ import type { ProjectKey } from '../api';
 export default function KeySourceAccess({ projectKey }: { projectKey: ProjectKey }) {
   const { t: uiT, format: uiF } = useUILocale();
   const cidrs = projectKey.ip_policy ? projectKey.ip_policy.allowed_cidrs : projectKey.allowed_cidrs ?? null;
-  return <Card className="rounded-none border-x-0 border-b-0 border-t bg-transparent px-0 py-6 shadow-none">
-    <CardHeader className="px-0"><CardTitle>{uiT("Source IP access")}</CardTitle><CardDescription>{uiT("Control which IP addresses can use this API key.")}</CardDescription></CardHeader>
-    <CardContent className="px-0">
+  return <Card className="py-5">
+    <CardHeader><CardTitle>{uiT("Source IP access")}</CardTitle><CardDescription>{uiT("Control which IP addresses can use this API key.")}</CardDescription></CardHeader>
+    <CardContent>
       <p className="text-sm">{cidrs === null || cidrs === undefined ? uiT("Allow all sources") : cidrs.length ? (cidrs.length === 1 ? uiT("1 allowed network") : uiF("{0} allowed networks", [cidrs.length])) : uiT("Block all sources")}</p>
       {cidrs?.length ? <ul className="mt-3 space-y-1 text-sm text-muted-foreground">{cidrs.map(network => <li key={network} className="break-all font-mono">{network}</li>)}</ul> : null}
     </CardContent>

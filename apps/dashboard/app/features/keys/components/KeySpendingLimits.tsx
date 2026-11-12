@@ -22,11 +22,11 @@ export default function KeySpendingLimits({ projectKey }: { projectKey: ProjectK
   const unitName = unit?.unit?.name ?? uiT("Credits");
   const unitPrecision = unit?.unit?.display_precision ?? 2;
   const hasAny = rows.length > 0 || showUnit;
-  return <Card className="rounded-none border-x-0 border-b-0 border-t bg-transparent px-0 py-6 shadow-none">
-    <CardHeader className="px-0"><CardTitle>{uiT("Spending limits")}</CardTitle><CardDescription>{uiT("Lifetime customer spending allowances. Account and workspace limits still apply.")}</CardDescription></CardHeader>
-    <CardContent className="space-y-4 px-0">
-      {!hasAny && <Empty className="min-h-32"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available for this key yet.")}</EmptyDescription></EmptyHeader></Empty>}
-      {showUnit && unit && <div className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
+  return <Card className="py-5">
+    <CardHeader><CardTitle>{uiT("Spending limits")}</CardTitle><CardDescription>{uiT("Lifetime customer spending allowances. Account and workspace limits still apply.")}</CardDescription></CardHeader>
+    <CardContent className="space-y-3">
+      {!hasAny && <Empty className="min-h-32 rounded-xl bg-muted/55"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available for this key yet.")}</EmptyDescription></EmptyHeader></Empty>}
+      {showUnit && unit && <div className="space-y-2 rounded-xl bg-muted/55 p-3.5">
         <h3 className="font-medium">{unitName}</h3>
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
           <div className="min-w-0"><dt className="text-muted-foreground">{uiT("Lifetime limit")}</dt><dd className="break-words">{unit.limit_atoms === null ? uiT("Unlimited") : formatUnitAtoms(unit.limit_atoms, unitName, unitPrecision)}</dd></div>
@@ -34,7 +34,7 @@ export default function KeySpendingLimits({ projectKey }: { projectKey: ProjectK
           <div className="min-w-0"><dt className="text-muted-foreground">{uiT("Remaining allowance")}</dt><dd className="break-words">{unit.remaining_atoms === null ? uiT("Unlimited") : formatUnitAtoms(unit.remaining_atoms, unitName, unitPrecision)}</dd></div>
         </dl>
       </div>}
-      {rows.map(row => <div key={row.currency} className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
+      {rows.map(row => <div key={row.currency} className="space-y-2 rounded-xl bg-muted/55 p-3.5">
         <h3 className="font-medium">{row.currency}</h3>
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
           <div className="min-w-0"><dt className="text-muted-foreground">{uiT("Lifetime limit")}</dt><dd className="break-words">{row.limit_nanos === null ? uiT("Unlimited") : money(row.limit_nanos, row.currency)}</dd></div>

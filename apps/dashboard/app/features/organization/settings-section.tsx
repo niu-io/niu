@@ -76,7 +76,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
     }
   }
 
-  return <div className="organization-settings w-full min-w-0 divide-y divide-border/60">
+  return <div className="organization-settings w-full min-w-0 space-y-4">
     <PageHeader
       title={t('Organization', '组织')}
       action={context.openCreateOrganization ? (
@@ -87,7 +87,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       ) : undefined}
     />
     {!organization ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No organization is available. Create a workspace to get started.")}</EmptyDescription></EmptyHeader></Empty> : <>
-      <section className="space-y-4 pb-6" aria-labelledby="organization-details-title">
+      <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-details-title">
         <h2 id="organization-details-title" className="sr-only">{uiT("General")}</h2>
         <dl className="organization-details">
           {!(canCreate && context.renameOrganization) && <div><dt>{uiT("Organization name")}</dt><dd>{organization.name}</dd></div>}
@@ -121,12 +121,12 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         {renameError ? <p role="alert" className="text-sm text-destructive">{uiT(renameError)}</p> : null}
         {renameSaved ? <p role="status" className="text-sm text-muted-foreground">{t('Organization name saved.', '组织名称已保存。')}</p> : null}
       </section>
-      <section className="space-y-4 py-6" aria-labelledby="organization-workspaces-title">
+      <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-workspaces-title">
         <div className="organization-section-heading"><div><h2 id="organization-workspaces-title" className="text-base font-semibold">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button>}</div>
-        {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button></EmptyContent>}</Empty>}
+        {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-40 rounded-xl bg-muted/55"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button></EmptyContent>}</Empty>}
       </section>
       {session?.kind === 'operator' && context.joinOrganization && (
-        <section className="space-y-3 pt-6" aria-labelledby="organization-join-title">
+        <section className="space-y-3 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-join-title">
           <div className="space-y-1">
             <h2 id="organization-join-title" className="text-base font-semibold">{t('Join an existing organization', '加入已有组织')}</h2>
             <p className="text-sm text-muted-foreground">
