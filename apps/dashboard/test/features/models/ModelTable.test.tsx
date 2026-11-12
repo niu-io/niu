@@ -103,10 +103,10 @@ it('does not turn an imported distributor into a model developer', () => {
   expect(within(providerFilters).getByRole('checkbox',{name:'BabelArk',exact:true})).toBeTruthy();
   const thirdParty = screen.getByRole('link',{name:'Third-party model'}).closest('article')!;
   expect(within(thirdParty).queryByText(/^Developer:/)).toBeNull();
-  expect(within(thirdParty).getByText('via BabelArk')).toBeTruthy();
+  expect(within(thirdParty).queryByText(/^via /)).toBeNull();
   const direct = screen.getByRole('link',{name:'DeepSeek Chat'}).closest('article')!;
-  expect(within(direct).getByText('Developer: DeepSeek')).toBeTruthy();
-  expect(within(direct).getByText('via BabelArk')).toBeTruthy();
+  expect(within(direct).queryByText(/^Developer:/)).toBeNull();
+  expect(within(direct).queryByText(/^via /)).toBeNull();
   view.unmount();
   render(<MemoryRouter initialEntries={['/models/babelark/third-party-model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={imported}/></SidebarProvider>}/></Routes></MemoryRouter>);
   expect(screen.getByRole('complementary',{name:'babelark/third-party-model route details'})).toBeTruthy();
@@ -203,7 +203,6 @@ it('keeps developer and provider facets separate without treating access namespa
   const developers=within(screen.getByRole('region',{name:'Inferred developer filters'}));
   const connections=within(screen.getByRole('region',{name:'Provider filters'}));
   expect(developers.getByText('Inferred from model identifiers; not verified.')).toBeTruthy();
-  expect(screen.getAllByText(/Developer:/).length).toBeGreaterThan(0);
   expect(developers.queryByRole('checkbox',{name:/byok|fastrouter|team/i})).toBeNull();
   expect(connections.queryByRole('checkbox',{name:/byok/i})).toBeNull();
   expect(developers.getByRole('checkbox',{name:'ByteDance'})).toBeTruthy();
@@ -214,7 +213,7 @@ it('keeps developer and provider facets separate without treating access namespa
   await user.click(connections.getByRole('checkbox',{name:'FastRouter'}));
   expect(screen.getAllByRole('article')).toHaveLength(1);
   expect(screen.getByRole('link',{name:'Claude Haiku',exact:true})).toBeTruthy();
-  expect(screen.getAllByText('Developer: Anthropic').length).toBeGreaterThan(0);
+  expect(screen.getByText('Developer: Anthropic')).toBeTruthy();
   expect(screen.getByText('Provider: FastRouter')).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
   expect(screen.getAllByRole('article')).toHaveLength(4);

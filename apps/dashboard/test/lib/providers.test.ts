@@ -43,6 +43,10 @@ describe('model developer and provider boundaries', () => {
     expect(modelIdentity({id:'babelark-video/wan3.0-video'}).id).toBe('qwen');
     expect(modelIdentity({id:'qiniu/meituan/longcat-flash-lite'}).id).toBe('meituan');
     expect(modelIdentity({id:'qiniu/longcat-flash-lite'}).id).toBe('meituan');
+    expect(modelIdentity({id:'conatus'}).id).toBe('qiniu');
+    expect(modelIdentity({id:'qiniu/conatus-free'}).id).toBe('qiniu');
+    expect(modelIdentity({id:'qiniu/conatus-pro', catalog:{name:'Qiniu: Conatus Pro'}}).id).toBe('qiniu');
+    expect(modelIdentity({id:'custom-route', catalog:{name:'Conatus Free'}}).id).toBe('qiniu');
   });
   it('does not fabricate developers from arbitrary aliases or providers', () => {
     for(const id of ['byok/private','fastrouter/custom','babelark/custom','qiniu/custom','my-team/private-model','fastrouter','babelark','qiniu','byok']) {
@@ -85,5 +89,8 @@ describe('model developer and provider boundaries', () => {
     expect(catalogTitle('anthropic/claude-3-5-sonnet-20241022')).toBe('Claude 3.5 Sonnet');
     expect(catalogTitle('video-model')).toBe('video-model');
     expect(catalogTitle('model-9')).toBe('model-9');
+    expect(catalogTitle({id:'openai/gpt-4.1-mini', catalog:{name:'OpenAI: GPT-4.1 Mini'}})).toBe('GPT-4.1 Mini');
+    expect(catalogTitle({id:'x-ai/grok-4.7', catalog:{name:'SpaceXAI: Grok 4.7'}})).toBe('Grok 4.7');
+    expect(catalogTitle({id:'qiniu/conatus-free', catalog:{name:'Qiniu: Conatus Free'}})).toBe('Conatus Free');
   });
 });
