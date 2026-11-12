@@ -358,15 +358,23 @@ impl Store {
             .await?)
     }
 
-    /// One statement provides a consistent view of the filtered range. Fetch
-    /// one extra row so the caller can reject, rather than silently truncate,
-    /// an export exceeding the declared 10,000-row bound.
+    /// Check the limit before enrichment, within the same read snapshot as
+    /// the export, so an oversized selection fails without materializing rows.
     pub async fn gateway_activity_export(
         &self,
         scope: TenantScope,
         filter: &GatewayActivityFilter,
     ) -> Result<Vec<GatewayActivityExportEntry>, StoreError> {
         let mut snapshot = self.begin_activity_read().await?;
+        let mut count = QueryBuilder::new(
+            "SELECT count(*)::bigint FROM (SELECT 1 FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id",
+        );
+        push_activity_scope_and_filters(&mut count, scope, filter);
+        count.push(" LIMIT 10001) bounded");
+        let matching: i64 = count.build_query_scalar().fetch_one(&mut *snapshot).await?;
+        if matching > 10_000 {
+            return Err(StoreError::RequestExportTooLarge);
+        }
         let mut query = QueryBuilder::new(
             "SELECT to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              o.model_alias AS model, k.name AS key_name, t.http_status, a.execution, a.usage_confidence, \
@@ -395,7 +403,6 @@ impl Store {
         );
         push_activity_scope_and_filters(&mut query, scope, filter);
         push_activity_order(&mut query, filter.sort);
-        query.push(" LIMIT 10001");
         let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
         snapshot.commit().await?;
         Ok(rows)
