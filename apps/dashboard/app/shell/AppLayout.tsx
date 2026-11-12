@@ -22,6 +22,7 @@ import { useBranding } from './branding';
 import type { DashboardContext, GatewayStatus } from './dashboard-context';
 import { prefetchRouteIntent, scheduleWorkspaceWarmup } from './prefetch';
 import { resolveProvider } from './provider-route';
+import ProductRailLink from './ProductRailLink';
 import { ProviderNav } from './ProviderNav';
 import AppError from './route-error';
 import {
@@ -614,9 +615,9 @@ export default function AppLayout() {
       <SidebarInset className="main-panel">
         {phoneNavigation && !hasSidebar && !isGlobalChat && (
           <nav className="mobile-product-navigation" aria-label={uiT('Product navigation')}>
-            <a href={import.meta.env.BASE_URL} aria-label={uiF('{0} home', [branding.display_name])}>
+            <ProductRailLink to={activeWorkspacePath} aria-label={uiF('{0} home', [branding.display_name])}>
               <img src={logo} alt="" />
-            </a>
+            </ProductRailLink>
             <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile />
           </nav>
         )}

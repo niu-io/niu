@@ -11,7 +11,7 @@
 .gateway-activity-summary article > span svg { flex-shrink: 0; margin-top: 2px; }
 .gateway-activity-summary article > small { font-size: 12px; line-height: 1.55; }
 .gateway-task-feed, .activity-model-breakdown, .activity-key-breakdown { margin-top: 20px; }
-.page-error { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px; margin-block: 16px; border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--destructive); }
+.page-error { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px; margin-block: 16px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--destructive) 8%, var(--card)); color: var(--destructive); }
 .model-route-title h1, .model-route-facts dd { overflow-wrap: anywhere; }
 .vendor-detail-panel { margin-top: 0; }
 .organization-settings .page-heading .eyebrow { display: block; margin: 0 0 8px; font-size: 13px; letter-spacing: 0; font-weight: 500; color: var(--muted-foreground); }
@@ -67,8 +67,8 @@
 /* The canvas owns the first content inset; legacy panels must not add another one. */
 .gateway-route-content > div:not([hidden]) > .panel:first-child { margin-top: 0; }
 
-.app-shell [data-slot="sheet-overlay"] { inset: 0; }
-.app-shell [data-slot="sheet-content"].niu-workspace-sidebar-mobile { border-color: var(--sidebar-border); box-shadow: 18px 0 42px color-mix(in srgb, #000 24%, transparent); }
+[data-slot="sheet-overlay"] { inset: 0; }
+[data-slot="sheet-content"].niu-workspace-sidebar-mobile { border: 0; background: var(--sidebar); box-shadow: var(--shadow-overlay); }
 .workspace-sidebar-content { gap: 0; }
 .workspace-nav-menu { gap: 3px; padding: 0 10px 10px; }
 .workspace-nav-menu .nav-item { height: 40px; min-height: 40px; gap: 10px; padding: 0 12px; border-radius: var(--radius-control); color: var(--sidebar-foreground); font-size: 14px; font-weight: 400; }
@@ -83,8 +83,8 @@
 .playground-chat-main,.playground-transcript,.playground-composer { background: var(--background); }
 .playground-toolbar-actions { gap: 7px; }
 .playground-transcript { overflow-x: hidden; overflow-y: auto; align-items: stretch; padding: 26px clamp(18px, 3.5vw, 48px); }
-.playground-composer { z-index: 2; gap: 0; padding: 14px clamp(18px, 3vw, 42px) 18px; border-top: 1px solid color-mix(in srgb, var(--border) 62%, transparent); }
-.playground-composer-surface { width: min(980px, 100%); justify-self: center; padding: 13px 15px 11px; border-color: var(--border); border-radius: 16px; background: var(--card); box-shadow: 0 7px 24px color-mix(in srgb, var(--foreground) 5%, transparent); }
+.playground-composer { z-index: 2; gap: 0; padding: 14px clamp(18px, 3vw, 42px) 18px; border-top: 0; }
+.playground-composer-surface { width: min(980px, 100%); justify-self: center; padding: 13px 15px 11px; border: 0; border-radius: 20px; background: var(--popover); box-shadow: var(--shadow-composer); }
 .playground-composer textarea { min-height: 62px; font-size: 15px; }
 .playground-composer-actions { justify-content: flex-end; }
 /* Keep the first-run surface compact, scannable, and aligned with the conversation controls. */
@@ -104,8 +104,8 @@
 .playground-starter span { grid-column: 1; font-size: 13px; }
 .playground-starter > svg { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--muted-foreground); transition: transform .16s ease, color .16s ease; }
 .playground-starter:hover > svg { transform: translateX(2px); color: var(--foreground); }
-.playground-composer { border-top-color: color-mix(in srgb, var(--border) 46%, transparent); }
-.playground-composer-surface { box-shadow: 0 8px 24px color-mix(in srgb, #000 8%, transparent); }
+.playground-composer { border-top: 0; }
+.playground-composer-surface { box-shadow: var(--shadow-composer); }
 @media (max-width: 1199px) {
   .playground-starters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .playground-starter:nth-child(7) { grid-column: auto; }}
@@ -127,7 +127,7 @@
   .playground-composer { padding: 10px 12px 12px; }}
 
 /* Shared provider identity across connection and model directories. */
-.provider-logo { display: inline-flex; width: 40px; height: 40px; flex: 0 0 40px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--foreground); }
+.provider-logo { display: inline-flex; width: 40px; height: 40px; flex: 0 0 40px; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: var(--muted); color: var(--foreground); box-shadow: var(--shadow-subtle); }
 .provider-logo img { display: block; width: 24px; height: 24px; object-fit: contain; }
 .provider-logo-small { width: 28px; height: 28px; flex-basis: 28px; border-radius: 7px; }
 .provider-logo-small img { width: 19px; height: 19px; }
@@ -193,7 +193,7 @@
 .provider-admin-form { display: grid; gap: 18px; }
 .provider-admin-form label { display: grid; gap: 7px; font-size: 13px; }
 .provider-admin-form p { margin: 0; font-size: 13px; color: var(--muted-foreground); line-height: 1.6; }
-.provider-admin-form textarea { padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--background); }
+.provider-admin-form textarea { padding: 10px 12px; border: 0; border-radius: 10px; background: var(--muted); }
 .billing-rates { margin-top: 24px; }
 .billing-description { margin: 8px 0 18px; }
 .billing-detail-dialog { width: min(1000px, calc(100vw - 32px)); }
@@ -202,7 +202,7 @@
 .provider-ledger { min-width: 680px; }
 .provider-ledger .supplier-offer-actions { position: sticky; right: 0; width: 60px; padding: 8px 12px; background: var(--card); text-align: right; }
 .provider-ledger th { letter-spacing: 0; }
-.provider-payment-selection { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.provider-payment-selection { min-width: 0; border: 0; border-radius: 12px; padding: 14px; background: var(--muted); }
 .provider-payment-selection p + p { margin-top: 8px; }
 .provider-payment-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 /* Mobile sidebar is portalled outside the shell; retain the same layout tokens. */
@@ -253,7 +253,7 @@
 .key-page-error { margin: 0 0 14px; color: var(--destructive); font-size: 14px; }
 .key-revoke-notice { display: flex; align-items: center; gap: 7px; color: var(--success); font-size: 13px; }
 .key-detail-card { margin-bottom: 16px; }
-.key-detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0 0; padding-top: 17px; border-top: 1px solid var(--border); }
+.key-detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; border-top: 0; background: transparent; }
 .key-detail-facts dt { color: var(--muted-foreground); font-size: 12px; }
 .key-detail-facts dd { margin: 5px 0 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
 .key-revoke-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
@@ -296,8 +296,8 @@
 .playground-chat-title { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
 .playground-transcript { grid-area: 2 / 1; padding-bottom: 180px; }
 .playground-composer { grid-area: 2 / 1; align-self: end; border: 0; background: transparent; pointer-events: none; padding: 12px clamp(14px, 3vw, 36px) 16px; }
-.playground-composer-surface { position: relative; pointer-events: auto; width: 100%; border-radius: 22px; padding: 14px 14px 10px; gap: 8px; box-shadow: 0 4px 16px color-mix(in srgb, var(--foreground) 6%, transparent); }
-.playground-composer-surface:focus-within { border-color: color-mix(in srgb, var(--foreground) 30%, var(--border)); }
+.playground-composer-surface { position: relative; pointer-events: auto; width: 100%; border: 0; border-radius: 22px; padding: 14px 14px 10px; gap: 8px; background: var(--popover); box-shadow: var(--shadow-composer); transition: box-shadow 160ms ease; }
+.playground-composer-surface:focus-within { box-shadow: var(--shadow-composer), 0 0 0 2px color-mix(in oklab, var(--ring) 28%, transparent); }
 .playground-composer textarea { min-height: 52px; padding: 2px 4px 6px; box-shadow: none; border-radius: 0; }
 .playground-composer textarea:focus-visible { box-shadow: none; }
 .playground-composer-actions { gap: 6px; }
@@ -323,7 +323,7 @@
   .dashboard-page-actions { max-width: 100%; }
   .dashboard-page-actions .page-heading-action { width: auto; }
   .dashboard-page-actions .page-heading-action > a { width: auto; }}
-.gateway-task-feed:not(.is-compact) { margin-top: 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; overflow: hidden; }
+.gateway-task-feed:not(.is-compact) { margin-top: 0; border: 0; border-radius: var(--radius-panel); background: transparent; overflow: hidden; }
 .gateway-task-feed:not(.is-compact) .gateway-task-feed-heading { padding: 12px 14px; min-height: 0; }
 .gateway-task-feed:not(.is-compact) .gateway-task-feed-heading h2 { font-size: 16px; font-weight: 600; letter-spacing: -.015em; }
 .gateway-request-table { min-width: 760px; }
@@ -333,11 +333,13 @@
 .gateway-table-status { padding: 2px 6px; font-size: 11px; }
 
 /* The compact workspace switcher remains operable and centered in the 64px icon sidebar. */
-.niu-workspace-sidebar .workspace-switcher-trigger { min-height: 40px; padding: 8px 10px; }
+.niu-workspace-sidebar .workspace-switcher-trigger { min-height: 36px; padding: 6px 10px; }
 .app-shell > [data-collapsible="icon"] [data-slot="sidebar-header"] { align-items: center; }
 .app-shell > [data-collapsible="icon"] [data-slot="sidebar-content"] { align-items: center; }
+.app-shell > [data-collapsible="icon"] [data-slot="sidebar-content"] > nav { width: 100%; }
 .app-shell > [data-collapsible="icon"] [data-slot="sidebar-menu"] { align-items: center; }
+.app-shell > [data-collapsible="icon"] [data-slot="sidebar-footer"] { padding-inline: 0; align-items: center; }
 .app-shell > [data-collapsible="icon"] .workspace-switcher { display: flex; justify-content: center; }
-.app-shell > [data-collapsible="icon"] .workspace-switcher-trigger { width: 40px; height: 40px; min-height: 40px; justify-content: center; padding: 10px; }
+.app-shell > [data-collapsible="icon"] .workspace-switcher-trigger { width: 36px; height: 36px; min-height: 36px; justify-content: center; gap: 0; padding: 0; }
 .app-shell > [data-collapsible="icon"] .workspace-switcher-copy,
 .app-shell > [data-collapsible="icon"] .workspace-switcher-trigger > svg:last-child { display: none; }

@@ -2,7 +2,7 @@ import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { validateSavedVideoReferences } from './request';
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
-import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
+import { GenerationSessionBindings, openGenerationsAssetsPanel } from '@/features/generations/GenerationsLayout';
 import { openGenerationsContextRun, type GenerationContextRunState, type GenerationsContextPanelData } from '@/features/generations/GenerationsContextPanel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate, useLocation } from 'react-router';
@@ -608,7 +608,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             {selected && !job && detailError && <Button variant="outline" onClick={reloadSaved} disabled={Boolean(busy)}>{uiT("Reload status")}</Button>}
             {!selected ? <p className="video-muted">{submissionStopped ? uiT("This request was not dispatched. Resolve the admission error before starting a new generation.") : intentDocument?.submission_state==='saved' ? uiT("This saved request has not been submitted."):uiT("Submit a video or select a saved job.")}</p> : !job && !detailError ? <FormSectionSkeleton fields={2} label={uiT("Loading saved video…")} /> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>{uiT("The outcome is unresolved. Do not resubmit this generation.")}</p>}
-                  {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={job.id} keyId={base ? keyId:undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`}/>}
+                  {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={job.id} keyId={base ? keyId:undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`} onOpenLibrary={openGenerationsAssetsPanel}/>}
 
               {job.status !== 'succeeded' && <div className="video-artifact-placeholder">{(job.status==='queued'||job.status==='running')&&<Loader className="animate-spin"/>}<h3 role="status">{job.status==='queued'?uiT("Waiting to generate"):job.status==='running'?uiT("Generating your video…"):job.status==='failed'?uiT("Video generation failed"):uiT("Waiting for a confirmed status")}</h3><p>{job.status==='queued'?uiT("Your request is queued. This conversation updates automatically."):job.status==='running'?uiT("Your video will appear here when it is ready."):job.status==='failed'?uiT("Open video details to inspect the recorded failure."):uiT("The original task is being checked. Do not submit it again.")}</p></div>}
               <Button type="button" variant="ghost" size="icon" className="video-details-trigger" aria-label={uiT("Video details")} onClick={() => openGenerationsContextRun(activeRunKey)}><InfoCircle size={18}/></Button>

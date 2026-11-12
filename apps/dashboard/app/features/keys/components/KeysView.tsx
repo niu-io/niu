@@ -650,7 +650,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
           </div>}
         </div>
         {dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}
-        <footer className="niu-modal-actions sticky bottom-0 z-10 border-t bg-background pt-3"><Button type="button" variant="ghost" disabled={busy} onClick={() => {if (generationReturn.current) navigate(generationReturn.current); else setDialog(null);}}>{generationReturn.current ? uiT("Return to chat") : uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
+        <footer className="niu-modal-actions sticky bottom-0 z-10 border-0 bg-popover pt-3"><Button type="button" variant="ghost" disabled={busy} onClick={() => {if (generationReturn.current) navigate(generationReturn.current); else setDialog(null);}}>{generationReturn.current ? uiT("Return to chat") : uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
       </form>}
       {dialog?.kind === 'secret' && issued && <div className="niu-modal-form key-issued-view">
         <div className="key-once-notice"><Check size={17} /><span>{uiT("API key ready. You can also reveal and copy it anytime from the API keys list.")}</span></div>

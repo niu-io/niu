@@ -588,7 +588,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
             ? uiT("Record rule matches without blocking or changing responses.")
             : uiT("Inspect complete generated text before delivery.")}
         </p>
-        <p className="rounded-lg border border-border/70 bg-muted/25 px-3.5 py-2.5 text-xs text-muted-foreground">
+        <p className="rounded-lg bg-muted/55 px-3.5 py-2.5 text-xs text-muted-foreground">
           {draft.output?.mode === "observe_only"
             ? uiT("Observe-only checks record matches without changing the response. Mandatory enforcement still applies. Streaming, tools, structured output and Embeddings are unsupported.")
             : uiT("Buffered full-text inspection holds the response until checks finish. Streaming, tools, structured output and Embeddings are blocked when output rules are active.")}

@@ -38,7 +38,7 @@ export function charge(dimension: string, amount: string) {
 export function EvaluationMetrics({ summary }: { summary: EvaluationSummary }) {
   const { t: uiT, format: uiF } = useUILocale();
   return (
-    <div className="grid gap-5 border-b py-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-5 rounded-[var(--radius-panel)] bg-card p-5 sm:grid-cols-2 lg:grid-cols-4">
       <div>
         <p className="text-sm text-muted-foreground">
           {uiT('Accepted samples')}

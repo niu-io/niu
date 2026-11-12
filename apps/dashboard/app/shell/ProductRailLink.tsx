@@ -1,4 +1,4 @@
-import { NavLink, type NavLinkProps } from 'react-router';
+import { NavLink, useLocation, useResolvedPath, type NavLinkProps } from 'react-router';
 import { useSidebar } from '@/components/ui/sidebar';
 import { prefetchRouteIntent } from './prefetch';
 
@@ -18,6 +18,12 @@ export default function ProductRailLink({
   ...props
 }: ProductRailLinkProps) {
   const { isMobile, setOpenMobile } = useSidebar();
+  const location = useLocation();
+  const resolved = useResolvedPath(to);
+  const isSameDestination =
+    resolved.pathname === location.pathname &&
+    resolved.search === location.search &&
+    resolved.hash === location.hash;
 
   return (
     <NavLink
@@ -34,7 +40,9 @@ export default function ProductRailLink({
       onClick={event => {
         onActivate?.();
         onClick?.(event);
-        if (!event.defaultPrevented && isMobile) setOpenMobile(false);
+        if (!event.defaultPrevented && isMobile && isSameDestination) {
+          window.requestAnimationFrame(() => setOpenMobile(false));
+        }
       }}
     >
       {children}

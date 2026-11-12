@@ -2,13 +2,21 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type CSSProperties, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconMessageChatbot, IconVideo, IconX } from '@tabler/icons-react';
+import { IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconMessageChatbot, IconPhoto, IconVideo, IconX } from '@tabler/icons-react';
 import { useBranding } from '@/shell/branding';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarProvider, useSidebar } from '@/components/ui/sidebar';
+import { WorkspaceLibrary } from '@/features/library/page';
 import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import SessionHistory from './SessionHistory';
 import GenerationsContextPanel, { GenerationsContextTrigger, OPEN_CONTEXT_EVENT, type GenerationsContextPanelData, type OpenContextEventDetail } from './GenerationsContextPanel';
 import './generations.css';
+
+export const OPEN_ASSETS_EVENT = 'niu:generations-assets-open';
+
+export function openGenerationsAssetsPanel() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(OPEN_ASSETS_EVENT));
+}
 
 type Content = { title?: string; actions?: ReactNode; onNewSession?: () => void; onArchive?: (event: MouseEvent<HTMLButtonElement>) => void; notice?: ReactNode; history: ComponentProps<typeof SessionHistory>; extra?: ReactNode; trigger: RefObject<HTMLButtonElement | null>; contextPanel?: GenerationsContextPanelData; sessionKey?: string };
 const Host = createContext<((content: Content) => void) | null>(null);
@@ -80,6 +88,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
   const { isMobile, openMobile, open, setOpen, setOpenMobile } = useSidebar();
   const [content, setContent] = useState<Content | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
+  const [assetsOpen, setAssetsOpen] = useState(false);
   const [contextTab, setContextTab] = useState<'runs' | 'deliverables'>('runs');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const publish = useMemo(() => (next: Content) => setContent(next), []);
@@ -92,30 +101,55 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
 
   const handleToggleHistory = useCallback(() => {
     const currentlyOpen = isMobile ? openMobile : open;
-    if (!currentlyOpen) setContextOpen(false);
+    if (!currentlyOpen) {
+      setContextOpen(false);
+      setAssetsOpen(false);
+    }
     if (isMobile) setOpenMobile(!currentlyOpen);
     else setOpen(!currentlyOpen);
   }, [isMobile, openMobile, open, setOpen, setOpenMobile]);
 
   const handleContextOpenChange = useCallback((nextOpen: boolean) => {
-    if (nextOpen) closeHistory();
+    if (nextOpen) {
+      closeHistory();
+      setAssetsOpen(false);
+    }
     setContextOpen(nextOpen);
+  }, [closeHistory]);
+
+  const handleAssetsOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      closeHistory();
+      setContextOpen(false);
+    }
+    setAssetsOpen(nextOpen);
   }, [closeHistory]);
 
   useEffect(() => {
     const onOpenContext = (event: Event) => {
       const detail = (event as CustomEvent<OpenContextEventDetail>).detail;
       closeHistory();
+      setAssetsOpen(false);
       setContextOpen(true);
       if (detail?.tab) setContextTab(detail.tab);
       if (detail?.runId) setSelectedRunId(detail.runId);
     };
+    const onOpenAssets = () => {
+      closeHistory();
+      setContextOpen(false);
+      setAssetsOpen(true);
+    };
     window.addEventListener(OPEN_CONTEXT_EVENT, onOpenContext);
-    return () => window.removeEventListener(OPEN_CONTEXT_EVENT, onOpenContext);
+    window.addEventListener(OPEN_ASSETS_EVENT, onOpenAssets);
+    return () => {
+      window.removeEventListener(OPEN_CONTEXT_EVENT, onOpenContext);
+      window.removeEventListener(OPEN_ASSETS_EVENT, onOpenAssets);
+    };
   }, [closeHistory]);
   useEffect(() => {
     if (content?.contextPanel?.initialRunId) {
       closeHistory();
+      setAssetsOpen(false);
       setSelectedRunId(content.contextPanel.initialRunId);
       setContextTab('runs');
       setContextOpen(true);
@@ -134,12 +168,15 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
     search.has('job'),
   );
   const workspace = content?.history.context.workspace;
+  const token = content?.history.context.token ?? '';
+  const session = content?.history.context.session;
   const workspaces = content?.history.context.workspaces ?? (workspace ? [workspace] : []);
   const workspaceSlug = workspace ? workspacePathSegment(workspace, workspaces) : '';
+  const workspaceHomePath = workspaceSlug ? `/workspaces/${encodeURIComponent(workspaceSlug)}` : '/workspaces/default';
   const workspaceSuffix = workspaceSlug ? `&workspace=${encodeURIComponent(workspaceSlug)}` : '';
 
   return <Host.Provider value={publish}><div className="generations-layout"><div className="generations-session">
-    <header className="generations-toolbar"><div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.isMobile ? navigation.openMobile : navigation.open}>{(navigation.isMobile ? navigation.openMobile : navigation.open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={uiT("Niu home")}><img src={logo} alt="" /></a></div><div className="flex min-w-0 flex-col justify-center gap-0 sm:flex-row sm:items-center sm:justify-start sm:gap-2"><h1 className="truncate max-sm:text-sm max-sm:leading-tight">{content?.title ?? uiT("New generation")}</h1>{workspace && workspaceSlug && <Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}`} className="inline-flex max-w-full sm:max-w-44 shrink-0 truncate items-center text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground sm:rounded-md sm:bg-muted/60 sm:px-2 sm:py-0.5 sm:text-xs sm:hover:bg-muted">{uiT(workspaceDisplayName(workspace.name))}</Link>}</div><div className="generations-toolbar-actions">
+    <header className="generations-toolbar"><div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.isMobile ? navigation.openMobile : navigation.open}>{(navigation.isMobile ? navigation.openMobile : navigation.open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><Link className="mobile-header-brand" to={workspaceHomePath} aria-label={uiT("Niu home")}><img src={logo} alt="" /></Link></div><div className="flex min-w-0 flex-col justify-center gap-0 sm:flex-row sm:items-center sm:justify-start sm:gap-2"><h1 className="truncate max-sm:text-sm max-sm:leading-tight">{content?.title ?? uiT("New generation")}</h1>{workspace && workspaceSlug && <Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}`} className="inline-flex max-w-full sm:max-w-44 shrink-0 truncate items-center text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground sm:rounded-md sm:bg-muted/60 sm:px-2 sm:py-0.5 sm:text-xs sm:hover:bg-muted">{uiT(workspaceDisplayName(workspace.name))}</Link>}</div><div className="generations-toolbar-actions">
       <fieldset className="generations-mode-switch inline-flex" aria-label={uiT("Generation mode", "生成模式")}>
         <Button variant={!inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 sm:px-2.5 text-xs" asChild>
           <Link to={`/generations?new=1${workspaceSuffix}`} aria-label={uiT("Chat", "对话")}><IconMessageChatbot size={14} aria-hidden="true" /><span className="max-[440px]:sr-only">{uiT("Chat", "对话")}</span></Link>
@@ -148,11 +185,58 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
           <Link to={`/generations?new=video${workspaceSuffix}`} aria-label={uiT("Video", "视频")}><IconVideo size={14} aria-hidden="true" /><span className="max-[440px]:sr-only">{uiT("Video", "视频")}</span></Link>
         </Button>
       </fieldset>
-      {workspaceSlug && <Button variant="ghost" size="sm" className="max-sm:hidden" asChild><Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}/assets`}>{uiT("Assets", "素材库")}</Link></Button>}
       {content?.actions}
+      {workspace && token && (
+        <Button
+          type="button"
+          variant={assetsOpen ? 'secondary' : 'outline'}
+          className="generations-context-trigger"
+          onClick={() => handleAssetsOpenChange(!assetsOpen)}
+          aria-label={uiT("Toggle assets panel", "切换素材库面板")}
+          aria-controls="generations-assets-panel"
+          aria-expanded={assetsOpen}
+        >
+          <IconPhoto size={16} aria-hidden="true" />
+          <span>{uiT("Assets", "素材库")}</span>
+        </Button>
+      )}
       <Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="icon" onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory /></Button>
       {content?.contextPanel && <GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} />}
     </div></header>
-    <div className="generations-session-content"><div className="generations-session-primary">{children}</div>{content?.contextPanel && <GenerationsContextPanel sessionKey={content.sessionKey} panel={content.contextPanel} open={contextOpen} onOpenChange={handleContextOpenChange} activeTab={contextTab} onTabChange={setContextTab} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />}</div>
+    <div className="generations-session-content"><div className="generations-session-primary">{children}</div>{assetsOpen && workspace && token && (
+      <aside
+        id="generations-assets-panel"
+        className="generations-context-panel"
+        aria-label={uiT("Workspace assets", "工作空间素材库")}
+      >
+        <div className="generations-context-header">
+          <div className="min-w-0">
+            <h2 className="generations-context-title">{uiT("Assets", "素材库")}</h2>
+            <p className="generations-context-subtitle">
+              {uiT("Saved workspace media and reference files", "已保存的工作空间媒体与参考文件")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={uiT("Close assets panel", "关闭素材库面板")}
+            onClick={() => handleAssetsOpenChange(false)}
+          >
+            <IconX size={16} />
+          </Button>
+        </div>
+        <div className="generations-context-body">
+          <WorkspaceLibrary
+            key={`${token}:${workspace.id}:${session?.permissions.write}`}
+            token={token}
+            scope={{ organizationId: workspace.organization_id, projectId: workspace.id }}
+            canWrite={Boolean(session?.permissions.write)}
+            workspaceSlug={workspaceSlug}
+            compact
+          />
+        </div>
+      </aside>
+    )}{content?.contextPanel && <GenerationsContextPanel sessionKey={content.sessionKey} panel={content.contextPanel} open={contextOpen} onOpenChange={handleContextOpenChange} activeTab={contextTab} onTabChange={setContextTab} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />}</div>
   </div><GenerationsSidebar content={content} toggle={toggle} /></div></Host.Provider>;
 }
