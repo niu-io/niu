@@ -368,9 +368,12 @@ impl Store {
         filter: &GatewayActivityFilter,
     ) -> Result<Vec<GatewayActivityExportEntry>, StoreError> {
         let mut snapshot = self.begin_activity_read().await?;
-        let mut count = QueryBuilder::new(
-            "SELECT count(*)::bigint FROM (SELECT 1 FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id",
-        );
+        let mut count = QueryBuilder::new("SELECT count(*)::bigint FROM (SELECT 1 FROM attempts a");
+        if filter.model_alias.is_some() || filter.search.is_some() {
+            // Match the operation by its scoped key rather than joining both
+            // entire workspace ranges when PostgreSQL underestimates a new workspace.
+            count.push(" JOIN LATERAL (SELECT model_alias FROM operations WHERE id=a.operation_id AND organization_id=a.organization_id AND project_id=a.project_id OFFSET 0) o ON true");
+        }
         push_activity_scope_and_filters(&mut count, scope, filter);
         count.push(" LIMIT 10001) bounded");
         let matching: i64 = count.build_query_scalar().fetch_one(&mut *snapshot).await?;
