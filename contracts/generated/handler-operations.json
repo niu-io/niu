@@ -6602,6 +6602,18 @@
         ],
         "parameters": [
           {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
             "name": "workspace",
             "in": "path",
             "required": true,
@@ -8924,6 +8936,18 @@
         ],
         "parameters": [
           {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
             "name": "organization",
             "in": "path",
             "required": true,
@@ -9471,6 +9495,15 @@
           }
         ],
         "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           {
             "name": "http_status",
             "in": "query",
@@ -50691,6 +50724,15 @@
           }
         ],
         "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           {
             "name": "http_status",
             "in": "query",

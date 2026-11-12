@@ -2645,11 +2645,19 @@ pub async fn projects(
     Ok(Json(json!({"data": projects})))
 }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyListStatus {
+    Active,
+    Inactive,
+}
+
 #[derive(Deserialize, Default)]
 pub struct KeyListQuery {
     pub(crate) after: Option<Uuid>,
     pub(crate) limit: Option<u16>,
     pub(crate) reveal: Option<bool>,
+    pub(crate) status: Option<KeyListStatus>,
 }
 
 /// ```openapi
@@ -2665,6 +2673,7 @@ pub struct KeyListQuery {
 ///       }
 ///     ],
 ///     "parameters": [
+///       {"name":"status","in":"query","description":"Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.","schema":{"type":"string","enum":["active","inactive"]}},
 ///       {
 ///         "name": "organization",
 ///         "in": "path",
@@ -2962,7 +2971,7 @@ pub async fn keys(
         organization_id,
         project_id,
     };
-    if query.limit.is_some() || query.after.is_some() {
+    if query.limit.is_some() || query.after.is_some() || query.status.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
             return Err(ApiError::invalid_request(
@@ -2971,7 +2980,14 @@ pub async fn keys(
         }
         let (data, next_cursor) = state
             .store
-            .key_directory_page(scope, query.after, limit)
+            .key_directory_page(
+                scope,
+                query.after,
+                limit,
+                query
+                    .status
+                    .map(|status| matches!(status, KeyListStatus::Active)),
+            )
             .await
             .map_err(ApiError::from_store)?;
         return Ok(Json(json!({"data": data, "next_cursor": next_cursor})));
@@ -3202,6 +3218,7 @@ pub async fn costs(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayActivityQuery {
+    q: Option<String>,
     operation_id: Option<Uuid>,
     http_status: Option<String>,
     sort: Option<String>,
@@ -3286,7 +3303,20 @@ pub(super) fn gateway_activity_filter(
             ));
         }
     };
+    let search = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if search
+        .is_some_and(|value| value.chars().count() > 128 || value.chars().any(char::is_control))
+    {
+        return Err(ApiError::invalid_request(
+            "Search must contain at most 128 characters and no control characters",
+        ));
+    }
     Ok(niu_storage::GatewayActivityFilter {
+        search: search.map(str::to_owned),
         operation_id: query.operation_id,
         sort,
         delivery_status,
@@ -3840,6 +3870,7 @@ pub async fn gateway_request(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {"name":"q","in":"query","description":"Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.","schema":{"type":"string","maxLength":128}},
 ///       {
 ///         "name": "http_status",
 ///         "in": "query",

@@ -544,30 +544,14 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                 ? t('Try clearing the search query or switching the scope filter.', '请尝试清空搜索关键词或切换范围筛选。')
                 : t('Start by choosing the Provider model routes this pool should use.', '首先选择该模型池要组合的 Provider 模型路由。')}
             </EmptyDescription></EmptyHeader>
-            <EmptyContent>
-              {pools.length > 0 ? (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setFilter('');
-                    setScopeFilter('all');
-                  }}
-                >
-                  {t('Clear filters', '清空筛选')}
-                </Button>
-              ) : (
-                <Button
-                  aria-label={uiT("Create model pool")}
-                  onClick={event => {
-                    dialogTriggerRef.current = event.currentTarget;
-                    setEditing('new');
-                  }}
-                >
-                  <IconPlus className="size-4" />
-                  {t('Create model pool', '创建模型池')}
-                </Button>
-              )}
-            </EmptyContent>
+            {pools.length > 0 && <EmptyContent>
+              <Button variant="outline" onClick={() => {
+                setFilter('');
+                setScopeFilter('all');
+              }}>
+                {t('Clear filters', '清空筛选')}
+              </Button>
+            </EmptyContent>}
           </Empty>
         )
       )}

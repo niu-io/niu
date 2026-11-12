@@ -20,6 +20,7 @@ impl ApiError {
             return Self::from_store(mapped);
         }
         match error {
+            niu_storage::StoreError::RequestExportTooLarge => Self::export_too_large(),
             niu_storage::StoreError::InvalidVendor => {
                 Self::invalid_request("Invalid vendor or model configuration")
             }

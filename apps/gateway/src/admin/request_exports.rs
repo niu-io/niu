@@ -39,9 +39,6 @@ pub async fn csv(
         )
         .await
         .map_err(ApiError::from_store)?;
-    if rows.len() > 10_000 {
-        return Err(ApiError::export_too_large());
-    }
     let mut csv = String::from(
         "Time (UTC),Model,API key,Delivery HTTP status,Provider status,Usage confidence,Input tokens,Output tokens,Customer charge status,Customer currency,Customer charge nanounits,Customer unit,Customer unit charge atoms,Observed duration ms,Timing complete,Cached input tokens,Cache-write input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status,Transport phase\r\n",
     );

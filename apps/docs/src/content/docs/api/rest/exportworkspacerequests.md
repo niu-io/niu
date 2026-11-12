@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/requests/export`
 
-Requires workspace read access. Uses one database statement for the filtered range, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
+Requires workspace read access. Checks the row limit and reads the filtered range in one consistent database snapshot, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
 
 Operation: `exportWorkspaceRequests`.
 
@@ -33,6 +33,17 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/pr
 ```
 
 ## Parameters
+
+### q
+
+Location: **query**. Optional. Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
+
+```json
+{
+  "type": "string",
+  "maxLength": 128
+}
+```
 
 ### http_status
 
@@ -214,4 +225,4 @@ More than 10000 requests match; narrow the filters.
 
 ## Behavior and supported scope
 
-Requires workspace read access. Uses one database statement for the filtered range, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
+Requires workspace read access. Checks the row limit and reads the filtered range in one consistent database snapshot, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.

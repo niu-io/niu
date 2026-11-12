@@ -1598,6 +1598,7 @@ listWorkspaceKeys(scope: TenantScope | string, options?: RequestOptions): Promis
 iterateWorkspaceKeys(scope: TenantScope | string, query?: {
     after?: string;
     limit?: number;
+    status?: 'active' | 'inactive';
 }, options?: RequestOptions): AsyncGenerator<WorkspaceKeyDetail>;
 ```
 
@@ -1608,6 +1609,7 @@ iterateWorkspaceKeys(scope: TenantScope | string, query?: {
 listWorkspaceKeyPage(scope: TenantScope | string, query?: {
     after?: string;
     limit?: number;
+    status?: 'active' | 'inactive';
 }, options?: RequestOptions): Promise<WorkspaceKeyDetailPage>;
 ```
 

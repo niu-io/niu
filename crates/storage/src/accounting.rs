@@ -111,6 +111,7 @@ pub enum GatewayDeliveryFilter {
 
 #[derive(Debug, Clone, Default)]
 pub struct GatewayActivityFilter {
+    pub search: Option<String>,
     pub operation_id: Option<Uuid>,
     pub from_ms: Option<i64>,
     pub to_ms: Option<i64>,
@@ -277,6 +278,18 @@ fn push_activity_scope_and_filters<'a>(
         .push_bind(scope.organization_id)
         .push(" AND a.project_id = ")
         .push_bind(scope.project_id);
+    if let Some(search) = filter.search.as_deref() {
+        // Literal substring search over customer-visible request metadata.
+        query.push(" AND (strpos(lower(concat_ws(' ', o.model_alias, a.provider_model, a.public_reference)), lower(")
+            .push_bind(search)
+            .push(")) > 0 OR strpos(translate(lower(concat_ws(' ', o.model_alias, a.provider_model)), '-_', '  '), translate(lower(")
+            .push_bind(search)
+            .push("), '-_', '  ')) > 0 OR EXISTS (SELECT 1 FROM api_keys search_key WHERE search_key.organization_id=a.organization_id AND search_key.project_id=a.project_id AND search_key.id=a.api_key_id AND strpos(lower(search_key.name), lower(")
+            .push_bind(search)
+            .push(")) > 0) OR EXISTS (SELECT 1 FROM request_timings search_timing WHERE search_timing.attempt_id=a.id AND search_timing.http_status IS NOT NULL AND strpos(lower('HTTP ' || search_timing.http_status::text), lower(")
+            .push_bind(search)
+            .push(")) > 0))");
+    }
     if let Some(operation_id) = filter.operation_id {
         query.push(" AND a.operation_id = ").push_bind(operation_id);
     }
@@ -347,15 +360,27 @@ impl Store {
             .await?)
     }
 
-    /// One statement provides a consistent view of the filtered range. Fetch
-    /// one extra row so the caller can reject, rather than silently truncate,
-    /// an export exceeding the declared 10,000-row bound.
+    /// Check the limit before enrichment, within the same read snapshot as
+    /// the export, so an oversized selection fails without materializing rows.
     pub async fn gateway_activity_export(
         &self,
         scope: TenantScope,
         filter: &GatewayActivityFilter,
     ) -> Result<Vec<GatewayActivityExportEntry>, StoreError> {
         let mut snapshot = self.begin_activity_read().await?;
+        let mut count = QueryBuilder::new("SELECT count(*)::bigint FROM (SELECT 1 FROM attempts a");
+        if filter.model_alias.is_some() || filter.search.is_some() {
+            // The composite foreign key guarantees matching tenant scope.
+            // Join on the unique operation ID to avoid a workspace-range
+            // nested loop when statistics underestimate a new workspace.
+            count.push(" JOIN operations o ON o.id=a.operation_id");
+        }
+        push_activity_scope_and_filters(&mut count, scope, filter);
+        count.push(" LIMIT 10001) bounded");
+        let matching: i64 = count.build_query_scalar().fetch_one(&mut *snapshot).await?;
+        if matching > 10_000 {
+            return Err(StoreError::RequestExportTooLarge);
+        }
         let mut query = QueryBuilder::new(
             "SELECT to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              o.model_alias AS model, k.name AS key_name, t.http_status, a.execution, a.usage_confidence, \
@@ -373,7 +398,7 @@ impl Store {
              rtc.reasoning_output_tokens::text AS reasoning_output_tokens, \
              rfr.choices AS finish_reasons, \
              CASE WHEN f.attempt_id IS NULL THEN NULL ELSE jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) END AS failure \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             FROM attempts a JOIN operations o ON o.id=a.operation_id \
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
@@ -384,7 +409,6 @@ impl Store {
         );
         push_activity_scope_and_filters(&mut query, scope, filter);
         push_activity_order(&mut query, filter.sort);
-        query.push(" LIMIT 10001");
         let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
         snapshot.commit().await?;
         Ok(rows)
