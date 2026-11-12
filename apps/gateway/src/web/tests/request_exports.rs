@@ -336,6 +336,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     );
     for query in [
         "?http_status=502",
+        "?q=HtTp%20502",
         "?status=delivery_failed",
         "?http_status=502&status=confirmed_completed",
     ] {
@@ -359,7 +360,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     let known = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/requests?limit=1&http_status=502",
+                "/admin/v1/organizations/{}/projects/{}/requests?limit=1&q=HtTp%20502",
                 scope.organization_id, scope.project_id
             ))
             .header("authorization", format!("Bearer {}", viewer.token))
@@ -375,6 +376,8 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         known["data"][0]["finish_reasons"],
         json!([{"index":0,"reason":"length"}])
     );
+    assert_eq!(known["summary"]["request_count"], 1);
+    assert!(known["next_cursor"].is_null());
     let response = router(state.clone())
         .oneshot(
             Request::get(format!(

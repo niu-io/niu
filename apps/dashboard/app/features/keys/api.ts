@@ -74,8 +74,10 @@ export function workspaceKeyPath(workspaceId: string) {
   return `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/keys`;
 }
 
-export function workspaceKeyPagePath(workspaceId: string, limit = 50, after?: string) {
-  return `${workspaceKeyPath(workspaceId)}?limit=${limit}${after ? `&after=${encodeURIComponent(after)}` : ''}`;
+export type KeyStatusFilter = "all" | "active" | "inactive";
+
+export function workspaceKeyPagePath(workspaceId: string, limit = 50, after?: string, status: KeyStatusFilter = "active") {
+  return `${workspaceKeyPath(workspaceId)}?limit=${limit}${status === "all" ? "" : `&status=${status}`}${after ? `&after=${encodeURIComponent(after)}` : ''}`;
 }
 
 export function projectKeyPath(organization: string, project: string) {

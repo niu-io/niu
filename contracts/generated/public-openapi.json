@@ -15495,6 +15495,15 @@
         ],
         "parameters": [
           {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "name": "http_status",
             "in": "query",
             "description": "Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.",
@@ -60758,6 +60767,18 @@
         ],
         "parameters": [
           {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
             "name": "organization",
             "in": "path",
             "required": true,
@@ -61595,6 +61616,15 @@
         ],
         "parameters": [
           {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "name": "http_status",
             "in": "query",
             "description": "Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.",
@@ -61759,6 +61789,15 @@
           }
         ],
         "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           {
             "name": "http_status",
             "in": "query",
@@ -68317,6 +68356,18 @@
           }
         ],
         "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
           {
             "name": "workspace",
             "in": "path",

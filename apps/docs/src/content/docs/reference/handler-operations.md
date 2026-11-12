@@ -6844,6 +6844,20 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`status` (query, optional)
+
+Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "inactive"
+  ]
+}
+```
+
 `workspace` (path, required)
 
 ```json
@@ -9599,6 +9613,20 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`status` (query, optional)
+
+Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "inactive"
+  ]
+}
+```
+
 `organization` (path, required)
 
 ```json
@@ -9912,6 +9940,17 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`q` (query, optional)
+
+Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+
+```json
+{
+  "type": "string",
+  "maxLength": 128
+}
+```
 
 `http_status` (query, optional)
 
@@ -52484,6 +52523,17 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`q` (query, optional)
+
+Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+
+```json
+{
+  "type": "string",
+  "maxLength": 128
+}
+```
 
 `http_status` (query, optional)
 

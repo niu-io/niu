@@ -17,7 +17,7 @@
 .models-search { display: flex; align-items: center; flex: 1 1 260px; max-width: 440px; position: relative; min-width: 0; }
 .models-search > svg { position: absolute; left: 12px; color: var(--muted-foreground); pointer-events: none; }
 .models-search input { padding-left: 36px; }
-.models-sort-menu { flex: 0 0 168px; width: 168px; margin-left: auto; }
+.models-sort-menu { flex: 0 0 168px; width: 168px; }
 .models-results-heading { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding-block: 4px; color: var(--muted-foreground); font-size: 13px; border-bottom: 0; }
 .models-cards { display: flex; flex-direction: column; gap: 8px; }
 .models-card { padding: 16px 18px; border: 0; border-radius: 14px; background: var(--card); min-width: 0; transition: background-color 140ms ease; }

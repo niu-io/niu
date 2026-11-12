@@ -1094,7 +1094,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   return <div className="playground-view">
     <div className="playground-chat-layout">
       <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions">
-            <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
+            <Button type="button" variant={managedKey || selectedKey ? "outline" : "default"} className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
           </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
@@ -1226,7 +1226,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             <p role="status">{uiT("Create an API key to start using models in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></p>
           </div>}
           {!noAvailableKeys && !managedKey && !selectedKey && !keyBlocked && <div className="playground-composer-notices">
-            <p role="status">{uiT("Select an API key to send messages in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button></p>
+            <p role="status">{uiT("Select an API key to send messages in this workspace.")}</p>
           </div>}
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}

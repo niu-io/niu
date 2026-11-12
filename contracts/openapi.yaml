@@ -2557,6 +2557,10 @@ paths:
       security:
         - adminBearerAuth: []
       parameters:
+        - name: q
+          in: query
+          description: Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+          schema: { type: string, maxLength: 128 }
         - name: http_status
           in: query
           description: Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.

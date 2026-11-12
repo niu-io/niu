@@ -111,6 +111,7 @@ pub enum GatewayDeliveryFilter {
 
 #[derive(Debug, Clone, Default)]
 pub struct GatewayActivityFilter {
+    pub search: Option<String>,
     pub operation_id: Option<Uuid>,
     pub from_ms: Option<i64>,
     pub to_ms: Option<i64>,
@@ -277,6 +278,16 @@ fn push_activity_scope_and_filters<'a>(
         .push_bind(scope.organization_id)
         .push(" AND a.project_id = ")
         .push_bind(scope.project_id);
+    if let Some(search) = filter.search.as_deref() {
+        // Literal substring search over customer-visible request metadata.
+        query.push(" AND (strpos(lower(concat_ws(' ', o.model_alias, a.provider_model, a.public_reference)), lower(")
+            .push_bind(search)
+            .push(")) > 0 OR EXISTS (SELECT 1 FROM api_keys search_key WHERE search_key.organization_id=a.organization_id AND search_key.project_id=a.project_id AND search_key.id=a.api_key_id AND strpos(lower(search_key.name), lower(")
+            .push_bind(search)
+            .push(")) > 0) OR EXISTS (SELECT 1 FROM request_timings search_timing WHERE search_timing.attempt_id=a.id AND search_timing.http_status IS NOT NULL AND strpos(lower('HTTP ' || search_timing.http_status::text), lower(")
+            .push_bind(search)
+            .push(")) > 0))");
+    }
     if let Some(operation_id) = filter.operation_id {
         query.push(" AND a.operation_id = ").push_bind(operation_id);
     }

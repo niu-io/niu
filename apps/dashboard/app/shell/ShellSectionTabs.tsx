@@ -50,7 +50,7 @@ export default function ShellSectionTabs({ context }: {
     const internal = context.session?.operating_mode === 'internal';
     entries = [
       { path: `${routeWorkspaceBase}/settings`, label: t('General', '常规设置') },
-      ...(!internal ? [{ path: `${routeWorkspaceBase}/billing`, label: t('Billing', '账单与费率') }] : []),
+      ...(!internal ? [{ path: `${routeWorkspaceBase}/billing`, label: t('Billing and rates', '账单与费率') }] : []),
       { path: `${routeWorkspaceBase}/guardrails`, label: t('Guardrails', '安全护栏') },
     ];
     selected = location.pathname.includes('/guardrails')
