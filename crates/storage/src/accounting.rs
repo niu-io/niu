@@ -370,9 +370,10 @@ impl Store {
         let mut snapshot = self.begin_activity_read().await?;
         let mut count = QueryBuilder::new("SELECT count(*)::bigint FROM (SELECT 1 FROM attempts a");
         if filter.model_alias.is_some() || filter.search.is_some() {
-            // Match the operation by its scoped key rather than joining both
-            // entire workspace ranges when PostgreSQL underestimates a new workspace.
-            count.push(" JOIN LATERAL (SELECT model_alias FROM operations WHERE id=a.operation_id AND organization_id=a.organization_id AND project_id=a.project_id OFFSET 0) o ON true");
+            // The composite foreign key guarantees matching tenant scope.
+            // Join on the unique operation ID to avoid a workspace-range
+            // nested loop when statistics underestimate a new workspace.
+            count.push(" JOIN operations o ON o.id=a.operation_id");
         }
         push_activity_scope_and_filters(&mut count, scope, filter);
         count.push(" LIMIT 10001) bounded");
@@ -397,7 +398,7 @@ impl Store {
              rtc.reasoning_output_tokens::text AS reasoning_output_tokens, \
              rfr.choices AS finish_reasons, \
              CASE WHEN f.attempt_id IS NULL THEN NULL ELSE jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) END AS failure \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             FROM attempts a JOIN operations o ON o.id=a.operation_id \
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
