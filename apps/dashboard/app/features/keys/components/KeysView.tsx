@@ -7,7 +7,7 @@ import { IconPencil as Pencil } from '@tabler/icons-react';
 import { IconFilter as ListFilter } from '@tabler/icons-react';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
@@ -136,12 +136,10 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const [visibleSecretIds, setVisibleSecretIds] = useState<Record<string, boolean>>({});
   const [dialogError, setDialogError] = useState('');
   const root = workspacePath(location.pathname);
-  const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
-  const firstPagePath = initialScope ? workspaceKeyPagePath(initialScope.projectId, 50, undefined, keyStatusFilter) : '';
-  const currentScopeIdentity = `${token}:${firstPagePath}`;
-  const isInitialPending = Boolean(collectionPath) && (workspaceLoading || (loadedScope !== currentScopeIdentity && !error));
+  const collectionPath = initialCollectionPath;
+  const isInitialPending = Boolean(collectionPath) && (workspaceLoading || (loadedScope !== scopeIdentity && !error));
   const isPending = loading || isInitialPending;
-  const visibleKeys = loadedScope === currentScopeIdentity ? keys : [];
+  const visibleKeys = loadedScope === scopeIdentity ? keys : [];
   const canIssue = canWrite && Boolean(workspace);
   const hintKey = keyMutationHintKey(session?.operator?.id ?? 'installation', `${initialScope?.organizationId ?? ''}:${initialScope?.projectId ?? ''}`);
   const [pendingRequest, setPendingRequest] = useState<PendingKeyMutation | null>(null);
@@ -166,45 +164,44 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const mutationController = useRef<AbortController | null>(null);
   useEffect(() => () => mutationController.current?.abort(), [collectionPath, token, canWrite]);
 
-  async function reload(force = true, after?: string) {
+  const reload = useCallback(async (force = true) => {
     loadController.current?.abort();
     pageController.current?.abort();
     setLoadingMore(false);
-    if (!collectionPath || !initialScope) return;
+    if (!initialPagePath) return;
     const controller = new AbortController();
     loadController.current = controller;
-    const pagePath = workspaceKeyPagePath(initialScope.projectId, 50, after, keyStatusFilter);
     const cached = !force
-      ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath)
+      ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath)
       : undefined;
     if (cached) {
       setKeys(cached.data);
       setNextCursor(cached.next_cursor ?? null);
-      setLoadedScope(currentScopeIdentity);
+      setLoadedScope(scopeIdentity);
       setLoading(false);
     } else {
       setLoading(true);
     }
     setError('');
     try {
-      const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath, {
+      const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath, {
         signal: controller.signal,
         force,
       });
       if (!controller.signal.aborted) {
         setKeys(value.data);
         setNextCursor(value.next_cursor ?? null);
-        setLoadedScope(currentScopeIdentity);
+        setLoadedScope(scopeIdentity);
       }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load API keys.');
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }
+  }, [initialPagePath, token, scopeIdentity]);
 
   async function loadMore() {
-    if (!collectionPath || !initialScope || !nextCursor || loadingMore || isPending || loadedScope !== currentScopeIdentity) return;
+    if (!collectionPath || !initialScope || !nextCursor || loadingMore || isPending || loadedScope !== scopeIdentity) return;
     const controller = new AbortController();
     pageController.current = controller;
     setLoadingMore(true);
@@ -223,21 +220,9 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   }
 
   useEffect(() => {
-    const cached = firstPagePath
-      ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, firstPagePath)
-      : undefined;
-    if (cached) {
-      setKeys(cached.data);
-      setNextCursor(cached.next_cursor ?? null);
-      setLoadedScope(currentScopeIdentity);
-    } else if (!loaderKeys || keyStatusFilter !== "active") {
-      setKeys([]);
-      setNextCursor(null);
-      setLoadedScope('');
-    }
     void reload(false);
     return () => { loadController.current?.abort(); pageController.current?.abort(); };
-  }, [collectionPath, firstPagePath, token, currentScopeIdentity]);
+  }, [reload]);
 
   useEffect(() => {
     setDialog(null); setIssued(null); setBusy(false); setPendingRequest(null); setRequestNotice(null); setChecking(false);
@@ -539,11 +524,11 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       </Alert>;
     })()}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">{uiT("Choose a workspace from the sidebar to manage its keys.")}</p>}
-    {workspace && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (keys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !keys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button ref={refreshButtonRef} type="button" variant="ghost" size="icon" aria-label={uiT("Refresh API keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
+    {workspace && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (visibleKeys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !visibleKeys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button ref={refreshButtonRef} type="button" variant="ghost" size="icon" aria-label={uiT("Refresh API keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
     {!canWrite && workspace && <p className="key-read-only">{uiT("You have read-only access.")}</p>}
     {error && <p className="key-error" role="alert">{uiT(error)}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>{uiT("Try again")}</Button></p>}
     {(workspace || workspaceLoading) && <section className="key-list" aria-label={uiT("API keys")} aria-busy={isPending}>
-      {(isPending || workspaceLoading) && !keys.length && <div className="table-wrap"><TableSkeleton tableClassName="key-table" rows={4} label="" headers={[uiT("Key"), uiT("Model access"), uiT("Limits"), uiT("Expires"), uiT("Last used"), uiT("Status"), ...(canWrite ? [uiT("Actions")] : [])]} columnClassNames={[undefined, 'key-table-metadata', 'key-table-metadata', 'key-table-metadata', 'key-table-usage', undefined, ...(canWrite ? ['text-right'] : [])]} cellWidths={['w-32', 'w-28', 'w-20', 'w-20', 'w-24', 'w-14', ...(canWrite ? ['w-6'] : [])]} /></div>}
+      {(isPending || workspaceLoading) && !visibleKeys.length && <div className="table-wrap"><TableSkeleton tableClassName="key-table" rows={4} label="" headers={[uiT("Key"), uiT("Model access"), uiT("Limits"), uiT("Expires"), uiT("Last used"), uiT("Status"), ...(canWrite ? [uiT("Actions")] : [])]} columnClassNames={[undefined, 'key-table-metadata', 'key-table-metadata', 'key-table-metadata', 'key-table-usage', undefined, ...(canWrite ? ['text-right'] : [])]} cellWidths={['w-32', 'w-28', 'w-20', 'w-20', 'w-24', 'w-14', ...(canWrite ? ['w-6'] : [])]} /></div>}
       {!isPending && !workspaceLoading && !error && keyStatusFilter === "all" && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No API keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader>{canIssue && <EmptyContent><Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button></EmptyContent>}</Empty>}
       {!isPending && !workspaceLoading && !error && keyStatusFilter !== 'all' && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{keyStatusFilter === 'active' ? uiT("No active API keys") : uiT("No revoked or expired keys")}</EmptyTitle></EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2">{keyStatusFilter === 'active' && canIssue && <Button onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button>}<Button variant="outline" onClick={() => {setKeyStatusFilter('all'); filterTriggerRef.current?.focus();}}>{uiT("Show all keys")}</Button></EmptyContent></Empty>}
       {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>{uiT("Key")}</TableHead><TableHead className="key-table-metadata">{uiT("Model access")}</TableHead><TableHead className="key-table-metadata">{uiT("Limits")}</TableHead><TableHead className="key-table-metadata">{uiT("Expires")}</TableHead><TableHead className="key-table-usage">{uiT("Last used")}</TableHead><TableHead>{uiT("Status")}</TableHead>{showActions && <TableHead className="text-right">{uiT("Actions")}</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
