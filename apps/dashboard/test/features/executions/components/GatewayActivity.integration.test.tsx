@@ -713,7 +713,7 @@ describe('gateway activity', () => {
     expect(chart.textContent).toContain('2 requests');
     expect(screen.queryByText(/Latest .* loaded requests/)).toBeNull();
     expect(screen.queryByText('Niu base URL')).toBeNull();
-    expect(screen.getByText('Provider · provider-fast-v2')).toBeTruthy();
+    expect(screen.queryByText('Provider · provider-fast-v2')).toBeNull();
     expect(screen.getByRole('columnheader', { name: 'Customer charge' })).toBeTruthy();
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
 

@@ -17,7 +17,7 @@ const definitions = [
   ['openrouter', 'OpenRouter', 'openrouter', ['openrouter']],
   ['fastrouter', 'FastRouter', 'fastrouter', ['fastrouter']],
   ['babelark', 'BabelArk', 'babelark', ['babelark']],
-  ['qiniu', 'Qiniu', 'qiniu-color', ['qiniu']],
+  ['qiniu', 'Qiniu', 'qiniu-color', ['qiniu', 'conatus']],
   ['aion-labs', 'Aion Labs', 'aionlabs', ['aion-labs']],
   ['amazon', 'Amazon', 'aws', ['amazon']],
   ['arcee-ai', 'Arcee AI', 'arcee', ['arcee-ai']],
@@ -74,7 +74,7 @@ const modelFamilyTokens = new Set([
   'mixtral', 'codestral', 'devstral', 'pixtral',
   'kimi', 'moonshot', 'glm', 'chatglm', 'minimax', 'grok',
   'nemotron', 'seedance', 'seedream', 'doubao',
-  'longcat', 'hunyuan', 'ernie', 'kling',
+  'longcat', 'hunyuan', 'ernie', 'kling', 'conatus',
 ]);
 export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | undefined {
   for (const source of [model.upstream_model, model.id, model.catalog?.name]) {
@@ -86,12 +86,14 @@ export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | un
     for (let index = parts.length - 1; index >= 0; index -= 1) {
       const segment = parts[index];
       if (routingNamespaces.has(segment)) continue;
+      if (matchesAliasPrefix(segment, 'conatus')) return providers.find(provider => provider.id === 'qiniu');
       const known = identifyProvider(segment);
       if (known && !distributorIds.has(known.id)) return known;
     }
     const basename = parts[parts.length - 1] ?? '';
     for (const token of basename.split(/[-_.: ]+/)) {
       const clean = token.replace(/\d.*$/, '');
+      if (token === 'conatus' || clean === 'conatus') return providers.find(provider => provider.id === 'qiniu');
       if (modelFamilyTokens.has(token) || (clean.length >= 3 && modelFamilyTokens.has(clean))) {
         const known = identifyProvider(token);
         if (known && !distributorIds.has(known.id)) return known;
@@ -139,7 +141,17 @@ export function catalogTitle(model: { id: string; catalog?: { name?: string | nu
       .join(' ');
   }
   const name = model.catalog?.name?.trim();
-  if (name && name !== model.id && !name.includes('/')) return name;
+  if (name && name !== model.id && !name.includes('/')) {
+    const colonIndex = name.indexOf(':');
+    if (colonIndex > 0) {
+      const prefix = name.slice(0, colonIndex).trim();
+      const rest = name.slice(colonIndex + 1).trim();
+      if (rest && (identifyProvider(prefix) || /^(?:SpaceXAI|Alibaba|Volcengine|01\.AI|Bytedance|Zhipu|Zhipu AI)$/i.test(prefix))) {
+        return rest;
+      }
+    }
+    return name;
+  }
   return catalogTitle(model.id);
 }
 

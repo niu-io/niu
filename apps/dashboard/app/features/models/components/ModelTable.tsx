@@ -16,7 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
+import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -372,12 +372,11 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
         <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
         {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
           {visible.map(model => {
-            const cardTitle = disambiguatedCatalogTitle(model, models);
+            const cardTitle = catalogTitle(model);
             const rawDesc = model.catalog?.description;
             const showDesc = Boolean(rawDesc && (isZh || !/\p{Script=Han}/u.test(rawDesc)));
             const isFreeUnit = showUnitPricing(model) && model.customer_unit_pricing?.prompt_rate === '0' && model.customer_unit_pricing?.completion_rate === '0';
             const isFreeCurrency = !showUnitPricing(model) && model.customer_pricing != null && model.customer_pricing.prompt_rate === '0' && model.customer_pricing.completion_rate === '0';
-            const developer = modelDeveloper(model);
             const contextText = model.catalog?.context_length != null
               ? `${new Intl.NumberFormat(readUILocale(), { notation: 'compact' }).format(model.catalog.context_length)} ${uiT("context")}`
               : null;
@@ -393,8 +392,6 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
             {showDesc && <p className="models-description">{rawDesc}</p>}
             <div className="models-card-meta">
               {tags.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{uiT(tag)}</Badge>)}</div>}
-              {developer && <span>{uiT("Developer:")}{" "}{developer.name}</span>}
-              {modelProviderName(model) && <span>{uiT("via")}{" "}{modelProviderName(model)}</span>}
               {hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
               {canTryUnverifiedChat(model) && <Link to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
               {isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
