@@ -496,6 +496,23 @@ describe('dashboard route layout', () => {
     await user.click(screen.getByRole('button', { name: 'Retry workspace access' }));
     await waitFor(() => expect(calls.filter(path => path === '/api/v1/workspaces').length).toBe(callsBeforeRetry + 1));
   });
+  it('explains a temporary workspace outage and retries the same workspace', async () => {
+    const user = userEvent.setup();
+    mockHealth();
+    const healthyFetch = globalThis.fetch;
+    let workspaceServiceReady = false;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) =>
+      String(input) === '/api/v1/organizations' && !workspaceServiceReady
+        ? Promise.resolve(new Response('Service unavailable', {status: 503}))
+        : healthyFetch(input, init)));
+    const router = renderAt('/workspaces/production/settings');
+    expect(await screen.findByText('The workspace service is temporarily unavailable. Try again in a moment.')).toBeTruthy();
+    expect(screen.queryByText(/check the gateway version/i)).toBeNull();
+    workspaceServiceReady = true;
+    await user.click(screen.getByRole('button', {name: 'Retry workspace access'}));
+    expect(await screen.findByRole('heading', {name: 'Settings', level: 1})).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/workspaces/production/settings');
+  });
   it('renders the workspace overview and connects the sidebar to real routes', async () => {
     mockHealth();
     const user = userEvent.setup();
