@@ -4785,7 +4785,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Enter a positive {0} amount with at most two decimal places and choose a payment method.": "请输入最多保留两位小数的正数 {0} 金额，并选择支付方式。",
   "Search requests…": "搜索请求…",
   "Search requests": "搜索请求",
-  "Search by model ID, API key name, request reference, or HTTP status": "按模型 ID、API 密钥名称、请求编号或 HTTP 状态搜索",
+  "Search by model, API key name, request reference, or HTTP status": "按模型、API 密钥名称、请求编号或 HTTP 状态搜索",
   "Adjust or clear the search to see more requests.": "修改或清除搜索条件以查看更多请求。",
   "No revoked or expired keys": "没有已撤销或过期的密钥",
   "Show all keys": "显示所有密钥",

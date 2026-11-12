@@ -9938,7 +9938,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 `q` (query, optional)
 
-Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
 
 ```json
 {
@@ -52521,7 +52521,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 `q` (query, optional)
 
-Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
 
 ```json
 {

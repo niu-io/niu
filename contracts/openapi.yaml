@@ -2559,7 +2559,7 @@ paths:
       parameters:
         - name: q
           in: query
-          description: Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+          description: Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
           schema: { type: string, maxLength: 128 }
         - name: http_status
           in: query

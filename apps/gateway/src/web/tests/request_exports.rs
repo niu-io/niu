@@ -674,7 +674,7 @@ async fn request_search_matches_older_rows_before_pagination(pool: PgPool) {
             assert!(value["next_cursor"].is_null());
         }
     }
-    let response = export(state, scope, &viewer.token, "?q=ARCHIVED").await;
+    let response = export(state, scope, &viewer.token, "?q=ARCHIVED%20MODEL").await;
     assert_eq!(response.status(), StatusCode::OK);
     let csv = response.into_body().collect().await.unwrap().to_bytes();
     assert_eq!(std::str::from_utf8(&csv).unwrap().lines().count(), 3);

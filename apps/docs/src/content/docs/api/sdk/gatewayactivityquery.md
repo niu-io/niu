@@ -9,7 +9,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type GatewayActivityQuery = {
-    /** Literal case-insensitive search of customer-visible request metadata. */
+    /** Case-insensitive search of customer-visible request metadata. */
     q?: string;
     limit?: number;
     after?: string;

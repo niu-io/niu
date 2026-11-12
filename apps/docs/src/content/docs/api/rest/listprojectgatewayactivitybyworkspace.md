@@ -36,7 +36,7 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/requests
 
 ### q
 
-Location: **query**. Optional. Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.
+Location: **query**. Optional. Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
 
 ```json
 {

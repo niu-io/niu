@@ -3870,7 +3870,7 @@ pub async fn gateway_request(
 ///       }
 ///     ],
 ///     "parameters": [
-///       {"name":"q","in":"query","description":"Case-insensitive literal search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range.","schema":{"type":"string","maxLength":128}},
+///       {"name":"q","in":"query","description":"Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.","schema":{"type":"string","maxLength":128}},
 ///       {
 ///         "name": "http_status",
 ///         "in": "query",

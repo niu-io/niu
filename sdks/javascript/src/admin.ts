@@ -1349,7 +1349,7 @@ export type GatewayChargeSummary = {
 };
 export type GatewayActivityPage = { data: GatewayActivityEntry[]; next_cursor: string | null; summary: GatewayActivitySummary };
 export type GatewayActivityQuery = {
-  /** Literal case-insensitive search of customer-visible request metadata. */
+  /** Case-insensitive search of customer-visible request metadata. */
   q?: string;
   limit?: number; after?: string; fromMs?: number; toMs?: number;
   sort?: 'time_desc' | 'time_asc' | 'latency_desc' | 'input_desc' | 'output_desc';
