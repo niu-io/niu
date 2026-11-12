@@ -399,7 +399,8 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         value["summary"]["token_categories"],
         serde_json::json!({
             "cached_input_tokens":null,"cached_input_requests":0,"cached_input_unknown_requests":150,
-            "reasoning_output_tokens":null,"reasoning_output_requests":0,"reasoning_output_unknown_requests":150
+            "reasoning_output_tokens":null,"reasoning_output_requests":0,"reasoning_output_unknown_requests":150,
+            "cache_write_input_tokens":null,"cache_write_input_requests":0,"cache_write_input_unknown_requests":150
         })
     );
     assert!(value["data"][0]["cached_input_tokens"].is_null());
