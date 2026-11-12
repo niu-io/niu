@@ -30,7 +30,7 @@ export default function ActivityRoute() {
       initialScope={scope}
       statisticsOnly
       hideBillingLink={isInternalMode}
-      headerAction={!isInternalMode ? <Button variant="outline" size="sm" asChild><Link to="../billing" relative="path">{t('Workspace billing', '工作空间计费')}</Link></Button> : undefined}
+      headerAction={!isInternalMode ? <Button variant="outline" size="sm" asChild><Link to="../billing" relative="path">{t('Billing and rates', '账单与费率')}</Link></Button> : undefined}
     />}
   </ConnectGate>;
 }

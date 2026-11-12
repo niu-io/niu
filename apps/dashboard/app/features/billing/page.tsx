@@ -291,7 +291,7 @@ function BillingView({ token, organization, project, headerAction }: { token: st
   }
 
   return <>
-    <PageHeader title={uiT("Billing")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
+    <PageHeader title={uiT("Billing and rates", "账单与费率")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{uiT(error)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !data ? <WorkspaceShellSkeleton label={uiT("Loading billing…")} /> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
       <div className="flex flex-wrap items-center justify-between gap-2">

@@ -525,7 +525,7 @@ impl Store {
         let scope = principal.scope;
         let id = principal.key_id;
         let key: KeyView = sqlx::query_as(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= transaction_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -649,7 +649,7 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let key: Option<KeyView> = sqlx::query_as(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= transaction_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -869,7 +869,7 @@ impl Store {
     }
 
     pub async fn list_keys(&self, scope: TenantScope) -> Result<Vec<KeyView>, StoreError> {
-        self.key_directory_selection(scope, None, None).await
+        self.key_directory_selection(scope, None, None, None).await
     }
 
     pub async fn list_key_details(
@@ -885,8 +885,9 @@ impl Store {
         scope: TenantScope,
         after: Option<Uuid>,
         limit: u16,
+        active: Option<bool>,
     ) -> Result<(Vec<serde_json::Value>, Option<Uuid>), StoreError> {
-        let (keys, next) = self.key_directory_page(scope, after, limit).await?;
+        let (keys, next) = self.key_directory_page(scope, after, limit, active).await?;
         let details = self.enrich_key_views(scope, keys).await?;
         Ok((details, next))
     }
@@ -897,12 +898,13 @@ impl Store {
         scope: TenantScope,
         after: Option<Uuid>,
         limit: u16,
+        active: Option<bool>,
     ) -> Result<(Vec<KeyView>, Option<Uuid>), StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidKey);
         }
         let mut rows = self
-            .key_directory_selection(scope, after, Some(i64::from(limit) + 1))
+            .key_directory_selection(scope, after, Some(i64::from(limit) + 1), active)
             .await?;
         let more = rows.len() > usize::from(limit);
         rows.truncate(usize::from(limit));
@@ -919,6 +921,7 @@ impl Store {
         scope: TenantScope,
         after: Option<Uuid>,
         limit: Option<i64>,
+        active: Option<bool>,
     ) -> Result<Vec<KeyView>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let cursor: Option<(String, Uuid)> = if let Some(id) = after {
@@ -929,7 +932,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,invocation_allowed,invocation_protocols,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= transaction_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,invocation_allowed,invocation_protocols,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
         );
         query
             .push(" WHERE k.organization_id=")
@@ -943,6 +946,11 @@ impl Store {
                 .push("::timestamptz,")
                 .push_bind(id)
                 .push(")");
+        }
+        if let Some(active) = active {
+            query
+                .push(" AND (k.revoked_at IS NULL AND k.expires_at > transaction_timestamp()) = ")
+                .push_bind(active);
         }
         query.push(" ORDER BY k.created_at,k.id");
         if let Some(limit) = limit {

@@ -58,8 +58,8 @@ describe('global settings routes',()=>{
  it('links to canonical Settings over the current product page',async()=>{
   current=context();mockRequests();render(<MemoryRouter><SidebarProvider><AccountMenu context={current} workspacePath="/workspaces/default"/></SidebarProvider><Routes><Route path="/settings/:section" element={<SettingsPage/>}/><Route path="/" element={null}/></Routes></MemoryRouter>);
   const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Account menu'}));
-  expect(screen.getByRole('menuitem',{name:'Settings',exact:true}).getAttribute('href')).toBe('/settings/account');
-  expect(screen.getByRole('menuitem',{name:'Settings',exact:true})).toBeTruthy();
+  expect(screen.getByRole('menuitem',{name:'Account settings',exact:true}).getAttribute('href')).toBe('/settings/account');
+  expect(screen.getByRole('menuitem',{name:'Account settings',exact:true})).toBeTruthy();
  });
  it('opens usable appearance settings for installation administrators',async()=>{
   current={...context(),session:{kind:'installation',operator:null}} as DashboardContext;

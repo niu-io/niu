@@ -1349,6 +1349,8 @@ export type GatewayChargeSummary = {
 };
 export type GatewayActivityPage = { data: GatewayActivityEntry[]; next_cursor: string | null; summary: GatewayActivitySummary };
 export type GatewayActivityQuery = {
+  /** Case-insensitive search of customer-visible request metadata. */
+  q?: string;
   limit?: number; after?: string; fromMs?: number; toMs?: number;
   sort?: 'time_desc' | 'time_asc' | 'latency_desc' | 'input_desc' | 'output_desc';
   modelAlias?: string; operationId?: string; httpStatus?: number | 'unknown';
@@ -2677,7 +2679,7 @@ export class NiuAdminClient {
   }
 
   /** Iterate authorized key details without materializing the complete directory. */
-  iterateWorkspaceKeys(scope: TenantScope | string, query: { after?: string; limit?: number } = {}, options: RequestOptions = {}): AsyncGenerator<WorkspaceKeyDetail> {
+  iterateWorkspaceKeys(scope: TenantScope | string, query: { after?: string; limit?: number; status?: 'active' | 'inactive' } = {}, options: RequestOptions = {}): AsyncGenerator<WorkspaceKeyDetail> {
     return iterateCursorItems(async after => {
       const page = await this.listWorkspaceKeyPage(scope, { ...query, after }, options);
       return { data: page.data, nextCursor: page.next_cursor };
@@ -2685,10 +2687,11 @@ export class NiuAdminClient {
   }
 
   /** Explicit bounded page; the complete-directory method remains compatible. */
-  listWorkspaceKeyPage(scope: TenantScope | string, query: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<WorkspaceKeyDetailPage> {
+  listWorkspaceKeyPage(scope: TenantScope | string, query: { after?: string; limit?: number; status?: 'active' | 'inactive' } = {}, options?: RequestOptions): Promise<WorkspaceKeyDetailPage> {
     const limit = query.limit ?? 50;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Key page limit must be between 1 and 100');
     const parameters = new URLSearchParams({ limit: String(limit) });
+    if (query.status !== undefined) parameters.set('status', query.status);
     if (query.after !== undefined) parameters.set('after', uuid(query.after));
     return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys?${parameters}`, undefined, options);
   }
@@ -4465,6 +4468,7 @@ export class NiuAdminClient {
 
 function gatewayActivityParameters(query: GatewayActivityQuery): URLSearchParams {
   const parameters = new URLSearchParams();
+  if (query.q?.trim()) parameters.set('q', query.q.trim());
   if (query.httpStatus !== undefined) {
     if (query.httpStatus !== 'unknown' && (!Number.isInteger(query.httpStatus) || query.httpStatus < 100 || query.httpStatus > 599)) throw new Error('httpStatus must be an integer from 100 to 599 or unknown');
     parameters.set('http_status', String(query.httpStatus));

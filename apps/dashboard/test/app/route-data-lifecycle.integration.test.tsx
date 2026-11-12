@@ -282,7 +282,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(
       peekQuery<{ data: Array<{ name: string }> }>(
         'niu-browser-member-session',
-        '/api/v1/workspaces/ws-alpha/keys?limit=50',
+        '/api/v1/workspaces/ws-alpha/keys?limit=50&status=active',
       )?.data[0]?.name,
     ).toBe('Agent Key v2');
   });
@@ -463,7 +463,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     vi.stubGlobal(
       'fetch',
       createBaseFetchMock(url => {
-        if (url === '/api/v1/workspaces/ws-alpha/keys?limit=50') {
+        if (url === '/api/v1/workspaces/ws-alpha/keys?limit=50&status=active') {
           keysRequests += 1;
           return new Promise<Response>(resolve => {
             resolveKeys = resolve;

@@ -246,7 +246,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production?period=month#activity');
     await screen.findByRole('heading', {name:'Overview',level:1});
     await userEvent.click(screen.getByRole('button',{name:'Account menu'}));
-    await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
+    await userEvent.click(screen.getByRole('menuitem',{name:'Appearance',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(await screen.findByRole('tablist',{name:'Settings sections'})).toBeTruthy();
@@ -644,7 +644,7 @@ describe('dashboard route layout', () => {
     } else {
       expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
       expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
-      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50'));
+      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50&status=active'));
     }
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
@@ -682,8 +682,8 @@ describe('dashboard route layout', () => {
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy());
     expect([...new Set(calls.filter(path => path.split('?')[0].endsWith('/keys')))]).toEqual([
-      '/api/v1/workspaces/project-1/keys?limit=50',
-      '/api/v1/workspaces/project-2/keys?limit=50',
+      '/api/v1/workspaces/project-1/keys?limit=50&status=active',
+      '/api/v1/workspaces/project-2/keys?limit=50&status=active',
     ]);
   });
 
@@ -798,8 +798,8 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
     expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', slug: 'research-project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.split('?')[0].endsWith('/keys')).map(call => call.path);
-    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50');
-    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50');
+    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50&status=active');
+    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50&status=active');
   });
 
   it('verifies session permissions before loading operator administration', async () => {

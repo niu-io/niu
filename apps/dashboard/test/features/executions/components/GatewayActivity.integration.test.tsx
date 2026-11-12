@@ -685,6 +685,31 @@ describe('gateway activity', () => {
     expect(taskOutcome({ execution_id: 'exec-conflict', source: 'agent', record_id: 'conflict', coverage: 'complete', outcomes: [{ authority: 'deterministic_validator', result: 'accepted' }, { authority: 'human_acceptance', result: 'rejected' }] })).toBe('Conflicting evidence');
   });
 
+  it('searches the full range and uses only the matching cursor on subsequent pages', async () => {
+    const fetcher = vi.fn<typeof fetch>(async input => {
+      const url = new URL(String(input), window.location.origin);
+      const { searchParams } = url;
+      if (url.pathname.endsWith('/keys')) return Response.json({data: []});
+      if (searchParams.get('q') === 'archived') {
+        return searchParams.get('after') === 'match-1'
+          ? Response.json({data: [makeRequest('match-2', null, 'archived/older')], next_cursor: null, summary})
+          : Response.json({data: [makeRequest('match-1', null, 'archived/first')], next_cursor: 'match-1', summary});
+      }
+      return Response.json({data: [makeRequest('latest', null, 'current')], next_cursor: 'latest', summary});
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const user = userEvent.setup();
+    render(<MemoryRouter><GatewayActivity token="search-pagination" models={[]} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
+    await screen.findByRole('button', {name: 'current'});
+    await user.type(screen.getByRole('searchbox', {name: 'Search requests'}), 'archived');
+    await screen.findByRole('row', {name: /^first ·/});
+    expect(screen.queryByRole('button', {name: 'current'})).toBeNull();
+    await user.click(screen.getByRole('button', {name: 'Load older requests'}));
+    await screen.findByRole('row', {name: /^older ·/});
+    expect(fetcher.mock.calls.some(([path]) => String(path).includes('q=archived&limit=100&after=match-1'))).toBe(true);
+    expect(fetcher.mock.calls.some(([path]) => String(path).includes('after=latest'))).toBe(false);
+  });
+
   it('shows gateway requests as a filterable log and pages older evidence without mixing in workspace statistics', async () => {
     const first = makeRequest('attempt-new', 'task-history', 'fast', {
       execution_id: 'execution-1', source: 'sample-agent', record_id: 'record-1', coverage: 'partial',
@@ -697,7 +722,13 @@ describe('gateway activity', () => {
       calls.push({ path, init });
       const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body } as Response);
       if (path.endsWith('/keys')) return ok({ data: [{ id: 'key-1', name: 'Dev key', allowed_models: ['fast'], revoked: false, expired: false }] });
-      if (path === `${base}/requests?limit=100`) return ok({ data: [first], next_cursor: 'attempt-new', summary });
+      if (path === `${base}/requests?limit=100`) return ok({
+        data: [first], next_cursor: 'attempt-new',
+        summary: {...summary, request_histogram: [
+          ...summary.request_histogram,
+          {start_ms: 1767225601000, end_ms: 1767225602000, request_count: 1},
+        ]},
+      });
       if (path === `${base}/requests?limit=100&after=attempt-new`) return ok({ data: [second], next_cursor: null, summary });
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -711,6 +742,8 @@ describe('gateway activity', () => {
     expect(container.querySelector('.gateway-activity-summary')).toBeNull();
     const chart = screen.getByRole('img', {name: 'Requests over time'});
     expect(chart.textContent).toContain('2 requests');
+    const [firstBar, secondBar] = chart.querySelectorAll('rect');
+    expect(Number(secondBar.getAttribute('x'))).toBeGreaterThan(Number(firstBar.getAttribute('x')));
     expect(screen.queryByText(/Latest .* loaded requests/)).toBeNull();
     expect(screen.queryByText('Niu base URL')).toBeNull();
     expect(screen.queryByText('Provider · provider-fast-v2')).toBeNull();
