@@ -25,6 +25,7 @@ export default function WorkspaceRecovery({ problem, onRetry }: {
   </section>;
 
   const versionMismatch = problem.kind === 'api' && problem.status === 404;
+  const temporarilyUnavailable = problem.kind === 'api' && [502, 503, 504].includes(problem.status);
   const unauthorized = problem.kind === 'api' && problem.status === 401;
   const forbidden = problem.kind === 'api' && problem.status === 403;
   const heading = versionMismatch
@@ -40,9 +41,11 @@ export default function WorkspaceRecovery({ problem, onRetry }: {
       ? t('Sign in again to access your workspaces.', '请重新登录以访问您的工作空间。')
       : forbidden
         ? t('Ask your organization administrator for workspace access.', '请联系您的组织管理员获取工作空间访问权限。')
-        : problem.kind === 'network'
-          ? t('The dashboard could not reach the workspace management API. Check the gateway process, then retry.', '控制台无法连接到工作空间管理 API，请检查网关进程后重试。')
-          : t('The gateway returned a response the dashboard could not use. Check the gateway version and retry.', '网关返回了控制台无法识别的响应，请检查网关版本后重试。');
+        : temporarilyUnavailable
+          ? t('The workspace service is temporarily unavailable. Try again in a moment.', '工作空间服务暂不可用，请稍后重试。')
+          : problem.kind === 'network'
+            ? t('The dashboard could not reach the workspace management API. Check the gateway process, then retry.', '控制台无法连接到工作空间管理 API，请检查网关进程后重试。')
+            : t('The gateway returned a response the dashboard could not use. Check the gateway version and retry.', '网关返回了控制台无法识别的响应，请检查网关版本后重试。');
 
   return <section className="workspace-recovery" role="alert" aria-labelledby="workspace-recovery-title">
     <div className={`workspace-recovery-icon${versionMismatch || unauthorized || forbidden ? ' is-warning' : ''}`}><AlertTriangle aria-hidden="true" size={22} /></div>
