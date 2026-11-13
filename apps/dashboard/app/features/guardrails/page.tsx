@@ -327,7 +327,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       <div className="guardrails-policy-summary">
         <div>
           <h2>{uiT("Workspace policy")}</h2>
-          <p className="guardrails-muted">{uiT("This policy applies to every workspace API key.")}</p>
+          <p className="guardrails-muted">{uiT(head ? "This policy applies to every workspace API key." : "When saved, this policy applies to every workspace API key.")}</p>
         </div>
         <Badge variant="secondary">
           {head ? uiF("{0} · Version {1}", [uiT("Active"), head.revision]) : uiT("Not configured")}
