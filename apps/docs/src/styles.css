@@ -1257,7 +1257,7 @@ dialog[data-docs-search-dialog]::backdrop {
 /* Intermediate desktop width (800px - 1151px) */
 @media (max-width: 71.999rem) {
   .docs-home-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
   }
   .docs-home-paths {

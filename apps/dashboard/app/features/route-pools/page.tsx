@@ -107,9 +107,9 @@ function formatRatePerMillion(nanosStr: string | null | undefined, currency: str
 }
 
 function poolScopeLabel(organizationId: string | null, organizations: Organization[], t: (en: string, zh: string) => string) {
-  if (!organizationId) return t('Shared pool', '平台共享池');
+  if (!organizationId) return t('Shared custom model', '平台共享自定义模型');
   const match = organizations.find(item => item.id === organizationId);
-  return match?.name ? match.name : t('Organization-scoped pool', '企业专属模型池');
+  return match?.name ? match.name : t('Organization-scoped custom model', '企业专属自定义模型');
 }
 
 function computeWinningTierShares(candidates: ModelRoutePoolCandidate[]): Map<string, number> {
@@ -167,8 +167,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
 
   const scopeLabels: Record<ScopeFilter, string> = {
     all: t('All scopes', '全部范围'),
-    shared: t('Shared pools', '平台共享池'),
-    organization: t('Organization pools', '企业专属池'),
+    shared: t('Shared custom models', '平台共享自定义模型'),
+    organization: t('Organization custom models', '组织专属自定义模型'),
   };
 
   async function loadPools(after?: string, force = true) {
@@ -192,7 +192,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           );
       if (controller.signal.aborted) return;
       if (!Array.isArray(result.data) || (after && result.next_after === after)) {
-        throw new Error(t('Model pool page did not advance. Refresh pools.', '模型池分页未推进，请刷新列表。'));
+        throw new Error(t('Custom model page did not advance. Refresh the list.', '自定义模型分页未推进，请刷新列表。'));
       }
       setPools(current => (after ? [...current, ...result.data.filter(row => !current.some(item => item.alias === row.alias))] : result.data));
       setCursor(result.has_more ? result.next_after : null);
@@ -200,7 +200,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       if (!after) invalidateQueries(path);
       if (!controller.signal.aborted) {
         setFailedCursor(after);
-        setError(reason instanceof Error ? reason.message : t('Model pools could not be loaded.', '无法加载模型池列表。'));
+        setError(reason instanceof Error ? reason.message : t('Custom models could not be loaded.', '无法加载自定义模型列表。'));
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
@@ -241,7 +241,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             </Button>
             <Button
               disabled={loading}
-              aria-label={uiT("Create model pool")}
+              aria-label={uiT("Create custom model", "创建自定义模型")}
               onClick={event => {
                 dialogTriggerRef.current = event.currentTarget;
                 setNotice('');
@@ -249,7 +249,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               }}
             >
               <IconPlus className="size-4" />
-              {t('Create model pool', '创建模型池')}
+              {t('Create custom model', '创建自定义模型')}
             </Button>
           </div>
         }
@@ -272,20 +272,20 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             <h2 className="font-semibold">{t('Routing rules, billing modes & audit', '条件路由、计费模式与策略审计')}</h2>
             <p>
               {t(
-                'Callers invoke the pool alias directly as the model field in /v1/chat/completions, /v1/responses, /v1/messages, or /v1/embeddings.',
-                '调用方可在 /v1/chat/completions、/v1/responses、/v1/messages 或 /v1/embeddings 中直接将该模型池别名作为 model 参数调用。',
+                'Callers invoke the custom model alias directly as the model field in /v1/chat/completions, /v1/responses, /v1/messages, or /v1/embeddings.',
+                '调用方可在 /v1/chat/completions、/v1/responses、/v1/messages 或 /v1/embeddings 中直接将该自定义模型别名作为 model 参数调用。',
               )}
             </p>
             <p>
               {t(
-                'Ordered routing rules match request attributes (vision, tools, structured output, reasoning, token bounds) first; unmatched traffic uses the default pool candidates. Highest priority wins and weights split traffic.',
+                'Ordered routing rules match request attributes (vision, tools, structured output, reasoning, token bounds) first; unmatched traffic uses the default candidates. Highest priority wins and weights split traffic.',
                 '系统按顺序匹配条件分流规则（视觉输入、工具调用、结构化输出、推理、Token 区间），未命中的请求回退到默认候选模型。最高优先级层级胜出并按权重分配流量。',
               )}
             </p>
             <p>
               {t(
-                'Choose Unified pool price to sell the pool as a custom model at one retail tariff, or Per-candidate price to bill customers at whichever candidate model handled the request.',
-                '可选择“按模型池统一定价”将其作为自定义模型售卖，或选择“按命中候选模型分别计费”按实际命中的底层模型扣费。',
+                'Choose Unified custom model price to sell this model at one retail tariff, or Per-candidate price to bill customers at whichever candidate model handled the request.',
+                '可选择“按自定义模型统一定价”将其作为自定义模型售卖，或选择“按命中候选模型分别计费”按实际命中的底层模型扣费。',
               )}
             </p>
           </PopoverContent>
@@ -296,8 +296,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               type="button"
               variant={filter.trim() ? 'secondary' : 'outline'}
               size={filter.trim() ? 'sm' : 'icon'}
-              aria-label={filter.trim() ? uiF("Filter model pools: {0}", [filter.trim()]) : uiT("Filter model pools")}
-              title={t('Filter model pools', '筛选模型池')}
+              aria-label={filter.trim() ? `${t("Filter custom models", "筛选自定义模型")}: ${filter.trim()}` : uiT("Filter custom models", "筛选自定义模型")}
+              title={t('Filter custom models', '筛选自定义模型')}
             >
               <IconSearch size={16} aria-hidden="true" />
               {filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}
@@ -307,8 +307,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             <Input
               autoFocus
               type="search"
-              aria-label={uiT("Filter model pools")}
-              placeholder={t('Filter by pool or candidate alias', '按模型池名称或候选模型筛选')}
+              aria-label={uiT("Filter custom models", "筛选自定义模型")}
+              placeholder={t('Filter by custom model or candidate alias', '按自定义模型名称或候选模型筛选')}
               value={filter}
               onChange={event => setFilter(event.target.value)}
             />
@@ -322,13 +322,13 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" aria-label={uiT("Pool scope filter")}>
+            <Button variant="outline" aria-label={uiT("Custom model scope filter", "筛选自定义模型范围")}>
               {scopeLabels[scopeFilter]}
               <IconChevronDown size={16} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuLabel>{t('Pool scope', '模型池范围')}</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('Custom model scope', '自定义模型范围')}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={scopeFilter} onValueChange={value => setScopeFilter(value as ScopeFilter)}>
               {(Object.entries(scopeLabels) as Array<[ScopeFilter, string]>).map(([value, label]) => (
                 <DropdownMenuRadioItem key={value} value={value}>
@@ -341,7 +341,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
 
         <Button variant="outline" disabled={loading} onClick={() => void loadPools()}>
           <IconRefresh size={16} />
-          {t('Refresh pools', '刷新列表')}
+          {t('Refresh custom models', '刷新列表')}
         </Button>
       </div>}
 
@@ -356,19 +356,19 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>{uiT(error)}</span>
             <Button variant="outline" size="sm" disabled={loading} onClick={() => void loadPools(failedCursor)}>
-              {t('Retry pools', '重试')}
+              {t('Retry custom models', '重试')}
             </Button>
           </AlertDescription>
         </Alert>
       )}
 
       {loading && pools.length === 0 ? (
-        <TableSkeleton columns={5} rows={5} label={t('Loading model pools…', '正在加载模型池…')} />
+        <TableSkeleton columns={5} rows={5} label={t('Loading custom models…', '正在加载自定义模型…')} />
       ) : visiblePools.length > 0 ? (
-        <Table aria-label={uiT("Model pools")}>
+        <Table aria-label={uiT("Custom models", "自定义模型")}>
           <TableHeader className="max-sm:sr-only">
             <TableRow>
-              <TableHead>{t('Pool alias & identity', '模型池别名与标识')}</TableHead>
+              <TableHead>{t('Custom model alias & identity', '自定义模型别名与标识')}</TableHead>
               <TableHead className="hidden md:table-cell">{t('Scope & billing', '范围与计费策略')}</TableHead>
               <TableHead>{t('Routing & candidate routes', '分流规则与候选模型')}</TableHead>
               <TableHead className="hidden sm:table-cell">{t('Status', '状态')}</TableHead>
@@ -392,7 +392,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               const billingLabel =
                 pool.billing_mode === 'candidate_tariff'
                   ? t('Per-candidate billing', '按命中模型分别计费')
-                  : t('Unified pool price', '按模型池统一定价');
+                  : t('Unified custom model price', '按自定义模型统一定价');
               return (
                 <TableRow key={pool.alias} className="max-sm:block max-sm:space-y-2.5 max-sm:py-3.5">
                   <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
@@ -427,7 +427,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         ? t('Private to organization', '仅限该企业内调用')
                         : pool.billing_mode === 'candidate_tariff'
                           ? t('Charges each request by the selected candidate tariff', '按实际命中的候选模型售价计费')
-                          : t('Charges requests using this pool alias tariff', '作为独立自定义模型统一计费')}
+                          : t('Charges requests using this custom model tariff', '作为独立自定义模型统一计费')}
                     </p>
                   </TableCell>
                   <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
@@ -476,14 +476,14 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         variant="outline"
                         size="sm"
                         disabled={loading}
-                        aria-label={uiT("Edit pool")}
+                        aria-label={uiT("Edit custom model", "编辑自定义模型")}
                         onClick={event => {
                           dialogTriggerRef.current = event.currentTarget;
                           setNotice('');
                           setEditing(pool);
                         }}
                       >
-                        {t('Edit pool', '编辑')}
+                        {t('Edit custom model', '编辑')}
                       </Button>
                       <Button
                         variant="outline"
@@ -536,13 +536,13 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           <Empty>
             <EmptyHeader><EmptyMedia variant="icon"><IconRoute size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>
               {pools.length > 0
-                ? t('No model pools match the current filter.', '没有符合当前筛选条件的模型池。')
-                : t('No model pools configured yet.', '尚未配置任何模型池。')}
+                ? t('No custom models match the current filter.', '没有符合当前筛选条件的自定义模型。')
+                : t('No custom models configured yet.', '尚未配置任何自定义模型。')}
             </EmptyTitle>
             <EmptyDescription>
               {pools.length > 0
                 ? t('Try clearing the search query or switching the scope filter.', '请尝试清空搜索关键词或切换范围筛选。')
-                : t('Start by choosing the Provider model routes this pool should use.', '首先选择该模型池要组合的 Provider 模型路由。')}
+                : t('Start by choosing the Provider model routes this custom model should use.', '首先选择该自定义模型要组合的 Provider 模型路由。')}
             </EmptyDescription></EmptyHeader>
             {pools.length > 0 && <EmptyContent>
               <Button variant="outline" onClick={() => {
@@ -558,7 +558,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
 
       {cursor && (
         <Button variant="outline" disabled={loading} onClick={() => void loadPools(cursor)}>
-          {t('More model pools', '加载更多模型池')}
+          {t('More custom models', '加载更多自定义模型')}
         </Button>
       )}
 
@@ -844,11 +844,11 @@ function RoutePoolEditorDialog({
     if (busy || writeUncertain) return;
     const trimmedAlias = alias.trim();
     if (!trimmedAlias || trimmedAlias.length > 200 || !/^[!-~]+$/.test(trimmedAlias)) {
-      setFormError(t('Enter an ASCII pool alias between 1 and 200 characters without spaces.', '请输入 1 到 200 个字符且不含空格的 ASCII 模型池别名。'));
+      setFormError(t('Enter an ASCII model alias between 1 and 200 characters without spaces.', '请输入 1 到 200 个字符且不含空格的 ASCII 自定义模型别名。'));
       return;
     }
     if (trimmedAlias.startsWith('codex/')) {
-      setFormError(t('Pool aliases cannot start with codex/.', '模型池别名不能以 codex/ 开头。'));
+      setFormError(t('Model aliases cannot start with codex/.', '自定义模型别名不能以 codex/ 开头。'));
       return;
     }
     const normalizedCandidates: ModelRoutePoolCandidate[] = [];
@@ -860,7 +860,7 @@ function RoutePoolEditorDialog({
         return;
       }
       if (seenAliases.has(candidateAlias)) {
-        setFormError(t(`Duplicate candidate alias "${candidateAlias}". Each candidate model in a pool must be unique.`, `候选模型别名 "${candidateAlias}" 重复。同一模型池中的候选模型必须唯一。`));
+        setFormError(t(`Duplicate candidate alias "${candidateAlias}". Each candidate in a custom model must be unique.`, `候选模型别名 "${candidateAlias}" 重复。同一自定义模型中的候选模型必须唯一。`));
         return;
       }
       seenAliases.add(candidateAlias);
@@ -894,8 +894,8 @@ function RoutePoolEditorDialog({
         if (!rcAlias || !seenAliases.has(rcAlias)) {
           setFormError(
             t(
-              `Rule "${trimmedName}" candidate "${rcAlias || '(empty)'}" must also be listed in the pool's candidate models.`,
-              `规则“${trimmedName}”中的候选模型“${rcAlias || '(空)'}”必须包含在模型池的候选列表中。`,
+              `Rule "${trimmedName}" candidate "${rcAlias || '(empty)'}" must also be listed in the custom model's candidates.`,
+              `规则“${trimmedName}”中的候选模型“${rcAlias || '(空)'}”必须包含在自定义模型的候选列表中。`,
             ),
           );
           return;
@@ -955,8 +955,8 @@ function RoutePoolEditorDialog({
       await request<{ data: { revision: number } }>(token, '/api/v1/routing', 'PUT', payload);
       onSaved(
         t(
-          `Saved model pool "${trimmedAlias}".`,
-          `已保存并发布模型池“${trimmedAlias}”。`,
+          `Saved custom model "${trimmedAlias}".`,
+          `已保存并发布自定义模型“${trimmedAlias}”。`,
         ),
       );
     } catch (reason) {
@@ -965,8 +965,8 @@ function RoutePoolEditorDialog({
         setWriteUncertain(true);
         setFormError(
           t(
-            `Model pool "${trimmedAlias}" write could not be confirmed. Your draft is preserved. Check the saved state before trying again.`,
-            `无法确认模型池“${trimmedAlias}”是否已保存。草稿仍在，请先检查已保存的状态再重试。`,
+            `Custom model "${trimmedAlias}" write could not be confirmed. Your draft is preserved. Check the saved state before trying again.`,
+            `无法确认自定义模型“${trimmedAlias}”是否已保存。草稿仍在，请先检查已保存的状态再重试。`,
           ),
         );
         return;
@@ -976,12 +976,12 @@ function RoutePoolEditorDialog({
         setWriteUncertain(true);
         setFormError(
           t(
-            'This model pool changed in another session or already exists. Your draft is preserved; check the saved state.',
-            '该模型池已在其他会话中更改或已存在。草稿仍在，请检查已保存的状态。',
+            'This custom model changed in another session or already exists. Your draft is preserved; check the saved state.',
+            '该自定义模型已在其他会话中更改或已存在。草稿仍在，请检查已保存的状态。',
           ),
         );
       } else {
-        setFormError(reason instanceof Error ? reason.message : t('Could not save model pool.', '无法保存模型池。'));
+        setFormError(reason instanceof Error ? reason.message : t('Could not save custom model.', '无法保存自定义模型。'));
       }
     } finally {
       setBusy(false);
@@ -1006,7 +1006,7 @@ function RoutePoolEditorDialog({
         setBase(current);
         setWriteUncertain(false);
         setFormError('');
-        setRecoveryNotice(t('The previous save matches the saved model pool. Any later edits remain in this editor.', '前一次保存与已保存的模型池一致。之后的编辑仍保留在此处。'));
+        setRecoveryNotice(t('The previous save matches the saved custom model. Any later edits remain in this editor.', '前一次保存与已保存的自定义模型一致。之后的编辑仍保留在此处。'));
       } else if ((current?.revision ?? 0) === (base?.revision ?? 0)) {
         setWriteUncertain(false);
         setFormError('');
@@ -1014,8 +1014,8 @@ function RoutePoolEditorDialog({
       } else {
         setSavedConflict(current);
         setFormError(current
-          ? t('The saved model pool has changed. Compare it with your draft before choosing how to continue.', '已保存的模型池发生了变化。请将下方已保存配置与草稿比较，再决定如何继续。')
-          : t('The saved model pool no longer exists. Your draft is still here.', '已保存的模型池已不存在，草稿仍保留在此处。'));
+          ? t('The saved custom model has changed. Compare it with your draft before choosing how to continue.', '已保存的自定义模型发生了变化。请将下方已保存配置与草稿比较，再决定如何继续。')
+          : t('The saved custom model no longer exists. Your draft is still here.', '已保存的自定义模型已不存在，草稿仍保留在此处。'));
       }
     } catch {
       setFormError(t('The saved state could not be checked. Your draft is still here; try checking again.', '无法检查已保存的状态。草稿仍在，请重试检查。'));
@@ -1023,12 +1023,12 @@ function RoutePoolEditorDialog({
   }
 
   const billingModeLabels: Record<ModelRoutePoolBillingMode, string> = {
-    pool_tariff: t('Unified pool price (custom model)', '作为自定义模型统一定价'),
+    pool_tariff: t('Unified custom model price', '作为自定义模型统一定价'),
     candidate_tariff: t('Per-candidate model price (pass-through)', '按命中的候选模型分别计费'),
   };
 
   const defaultActionLabels: Record<ModelRoutePoolDefaultAction, string> = {
-    candidates: t('Fall back to default pool candidates', '回退到默认候选模型池'),
+    candidates: t('Fall back to default candidates', '回退到默认候选模型'),
     reject: t('Reject request when no rule matches', '无规则命中时直接拒绝请求'),
   };
 
@@ -1065,7 +1065,7 @@ function RoutePoolEditorDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{isNew ? t('Create model pool', '创建模型池') : uiF("Edit {0}", [base!.alias])}</DialogTitle>
+          <DialogTitle>{isNew ? t('Create custom model', '创建自定义模型') : uiF("Edit {0}", [base!.alias])}</DialogTitle>
           <DialogDescription>
             {isNew
               ? t(
@@ -1079,7 +1079,7 @@ function RoutePoolEditorDialog({
         <form onSubmit={event => void handleSubmit(event)} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="route-pool-alias">{t('Pool alias', 'Pool alias')}</Label>
+              <Label htmlFor="route-pool-alias">{t('Model alias', '模型别名')}</Label>
               <Input
                 id="route-pool-alias"
                 autoFocus={isNew}
@@ -1109,13 +1109,13 @@ function RoutePoolEditorDialog({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-72">
-                    <DropdownMenuLabel>{t('Select pool ownership', '选择模型池归属')}</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t('Select custom model ownership', '选择自定义模型归属')}</DropdownMenuLabel>
                     <DropdownMenuRadioGroup
                       value={organizationId ?? '__shared__'}
                       onValueChange={value => setOrganizationId(value === '__shared__' ? null : value)}
                     >
                       <DropdownMenuRadioItem value="__shared__">
-                        {t('Shared pool (all workspaces)', '平台共享池（所有工作空间）')}
+                        {t('Shared custom model (all workspaces)', '平台共享自定义模型（所有工作空间）')}
                       </DropdownMenuRadioItem>
                       {organizations.length > 0 && <DropdownMenuSeparator />}
                       {organizations.map(org => (
@@ -1133,8 +1133,8 @@ function RoutePoolEditorDialog({
               )}
               <p className="text-xs text-muted-foreground">
                 {organizationId
-                  ? t('Personal pools require candidate models owned by the same organization.', '企业专属池要求候选模型归属于同一企业。')
-                  : t('Shared pools require non-personal priced candidate model mappings.', '平台共享池要求使用已定价的平台模型映射。')}
+                  ? t('Organization-scoped custom models require candidates owned by the same organization.', '组织专属自定义模型要求候选模型归属于同一企业。')
+                  : t('Shared custom models require non-personal priced candidate model mappings.', '平台共享自定义模型要求使用已定价的平台模型映射。')}
               </p>
             </div>
           </div>
@@ -1171,7 +1171,7 @@ function RoutePoolEditorDialog({
                       <div>
                         <div className="font-medium">{billingModeLabels.pool_tariff}</div>
                         <div className="text-xs text-muted-foreground">
-                          {t('Charge customers at the pool alias retail tariff', '以模型池自身的零售价格向客户统一计费')}
+                          {t('Charge customers at the custom model retail tariff', '以自定义模型自身的零售价格向客户统一计费')}
                         </div>
                       </div>
                     </DropdownMenuRadioItem>
@@ -1189,7 +1189,7 @@ function RoutePoolEditorDialog({
               <p className="text-xs text-muted-foreground">
                 {billingMode === 'candidate_tariff'
                   ? t('Pure routing mode: each request binds the customer tariff of the candidate route that served it.', '纯技术分流模式：每次请求按实际命中的候选模型自身售价计费。')
-                  : t('Custom model mode: configure a retail price on this pool alias to charge one unified rate.', '自定义模型模式：为该模型池别名配置统一售价，底层按命中渠道结算成本。')}
+                  : t('Custom model mode: configure a retail price on this model alias to charge one unified rate.', '自定义模型模式：为该自定义模型别名配置统一售价，底层按命中渠道结算成本。')}
               </p>
             </div>
           </div>
@@ -1201,7 +1201,7 @@ function RoutePoolEditorDialog({
               rows={2}
               maxLength={4000}
               disabled={busy}
-              placeholder={t('Describe what this model pool optimizes for (e.g., multimodal routing, high availability, cost-tiered context).', '描述该模型池的用途或分流策略（例如：图文多模态分流、高可用容灾、长短上下文阶梯路由）。')}
+              placeholder={t('Describe what this custom model optimizes for (e.g., multimodal routing, high availability, cost-tiered context).', '描述该自定义模型的用途或分流策略（例如：图文多模态分流、高可用容灾、长短上下文阶梯路由）。')}
               value={description}
               onChange={event => setDescription(event.target.value)}
             />
@@ -1210,7 +1210,7 @@ function RoutePoolEditorDialog({
           <div className="flex flex-wrap gap-6">
             <Label className="flex items-center gap-2.5">
               <Checkbox checked={enabled} disabled={busy} onCheckedChange={value => setEnabled(value === true)} />
-              <span>{t('Enable model pool for request dispatch', '启用该模型池接收请求')}</span>
+              <span>{t('Enable custom model for request dispatch', '启用该自定义模型接收请求')}</span>
             </Label>
 
           </div>
@@ -1582,7 +1582,7 @@ function RoutePoolEditorDialog({
                       <div className="space-y-2 border-t pt-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-medium text-muted-foreground">
-                            {t('Rule target candidates (must belong to pool candidates above)', '命中该规则时使用的候选模型（须属于上方候选模型池）')}
+                            {t('Rule target candidates (must belong to the candidates above)', '命中该规则时使用的候选模型（须属于上方候选模型）')}
                           </span>
                           <Button
                             type="button"
@@ -1607,7 +1607,7 @@ function RoutePoolEditorDialog({
                                   disabled={busy}
                                   aria-label={uiF("Rule {0} candidate {1}", [ruleIndex + 1, rcIdx + 1])}
                                 >
-                                  <span className="truncate">{rc.alias || t('Select pool candidate', '选择池内候选模型')}</span>
+                                  <span className="truncate">{rc.alias || t('Select candidate', '选择候选模型')}</span>
                                   <IconChevronDown size={14} />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -1697,8 +1697,8 @@ function RoutePoolEditorDialog({
             </Alert>
           )}
           {savedConflict && (
-            <section className="space-y-3 rounded-md border p-4" aria-label={t('Saved model pool', '已保存的模型池')}>
-              <div><h3 ref={conflictHeading} tabIndex={-1} className="font-semibold">{t('Saved model pool', '已保存的模型池')}</h3><p className="text-sm text-muted-foreground">{t('Compare these saved settings with your draft above. Continuing will prepare your draft to replace the saved settings; it does not save yet.', '请将这些已保存的设置与上方草稿比较。选择继续将准备使用草稿替换已保存的设置，此时不会立即保存。')}</p></div>
+            <section className="space-y-3 rounded-md border p-4" aria-label={t('Saved custom model', '已保存的自定义模型')}>
+              <div><h3 ref={conflictHeading} tabIndex={-1} className="font-semibold">{t('Saved custom model', '已保存的自定义模型')}</h3><p className="text-sm text-muted-foreground">{t('Compare these saved settings with your draft above. Continuing will prepare your draft to replace the saved settings; it does not save yet.', '请将这些已保存的设置与上方草稿比较。选择继续将准备使用草稿替换已保存的设置，此时不会立即保存。')}</p></div>
               <dl className="grid gap-2 text-sm sm:grid-cols-2">
                 <div><dt className="text-muted-foreground">{t('Ownership scope', '归属范围')}</dt><dd>{poolScopeLabel(savedConflict.organization_id, organizations, t)}</dd></div>
                 <div><dt className="text-muted-foreground">{t('Display name', '显示名称')}</dt><dd>{savedConflict.display_name || '—'}</dd></div>
@@ -1709,7 +1709,7 @@ function RoutePoolEditorDialog({
               </dl>
               <div className="text-sm"><h4 className="font-medium">{t('Candidate models', '候选模型')}</h4><ul className="list-disc pl-5">{savedConflict.candidates.map((candidate, index) => <li key={index}>{candidate.alias} · {t('Priority', '优先级')} {candidate.priority} · {t('Weight', '权重')} {candidate.weight} · {candidate.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</li>)}</ul></div>
               <div className="text-sm"><h4 className="font-medium">{t('Conditional routing rules', '条件路由规则')}</h4>{(savedConflict.rules ?? []).length === 0 ? <p>{t('None', '无')}</p> : <ul className="space-y-2">{savedConflict.rules!.map((rule, index) => <li key={index}><p>{rule.name} · {rule.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</p><p className="text-muted-foreground">{Object.entries(rule.conditions).filter(([, value]) => value != null).map(([key, value]) => `${conditionLabels[key as keyof ModelRoutePoolRuleConditions] ?? key}: ${typeof value === 'boolean' ? (value ? t('Yes', '是') : t('No', '否')) : String(value)}`).join(' · ')}</p><ul className="list-disc pl-5">{rule.candidates.map((candidate, candidateIndex) => <li key={candidateIndex}>{candidate.alias} · {t('Priority', '优先级')} {candidate.priority} · {t('Weight', '权重')} {candidate.weight} · {candidate.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</li>)}</ul></li>)}</ul>}</div>
-              {savedConflict.organization_id === organizationId && !savedConflict.project_id ? <Button type="button" variant="outline" onClick={() => {setBase(savedConflict);setSavedConflict(null);setWriteUncertain(false);setFormError('');setRecoveryNotice(t('Your draft will replace the saved settings when you save. Another change before saving will be rejected.', '保存时草稿将替换已保存的设置。如果保存前发生其他更改，本次保存会被拒绝。'));}}>{t('Continue with my draft', '继续使用我的草稿')}</Button> : <p className="text-sm">{t('This saved pool has a different scope and cannot be replaced from this draft.', '已保存模型池的归属范围不同，无法使用此草稿替换。')}</p>}
+              {savedConflict.organization_id === organizationId && !savedConflict.project_id ? <Button type="button" variant="outline" onClick={() => {setBase(savedConflict);setSavedConflict(null);setWriteUncertain(false);setFormError('');setRecoveryNotice(t('Your draft will replace the saved settings when you save. Another change before saving will be rejected.', '保存时草稿将替换已保存的设置。如果保存前发生其他更改，本次保存会被拒绝。'));}}>{t('Continue with my draft', '继续使用我的草稿')}</Button> : <p className="text-sm">{t('This saved custom model has a different scope and cannot be replaced from this draft.', '已保存自定义模型的归属范围不同，无法使用此草稿替换。')}</p>}
             </section>
           )}
 
@@ -1718,7 +1718,7 @@ function RoutePoolEditorDialog({
               {t('Cancel', '取消')}
             </Button>
             <Button type="submit" disabled={busy || writeUncertain}>
-              {busy ? t('Saving…', '正在保存…') : isNew ? uiT("Create model pool") : uiT("Save changes")}
+              {busy ? t('Saving…', '正在保存…') : isNew ? uiT("Create custom model", "创建自定义模型") : uiT("Save changes")}
             </Button>
           </DialogFooter>
         </form>
@@ -1806,8 +1806,8 @@ function RoutePoolPreviewDialog({
           <DialogTitle>{t(`Routing preview · ${pool.alias}`, `路由分流预览 · ${pool.alias}`)}</DialogTitle>
           <DialogDescription>
             {t(
-              'Simulate how this model pool evaluates routing rules, candidate eligibility, and traffic shares without dispatching upstream requests.',
-              '在不发起真实上游请求的情况下，模拟测试该模型池的分流规则命中、候选模型可用性与流量分配比例。',
+              'Simulate how this custom model evaluates routing rules, candidate eligibility, and traffic shares without dispatching upstream requests.',
+              '在不发起真实上游请求的情况下，模拟测试该自定义模型的分流规则命中、候选模型可用性与流量分配比例。',
             )}
           </DialogDescription>
         </DialogHeader>
@@ -1905,12 +1905,12 @@ function RoutePoolPreviewDialog({
                       ? t(`Matched rule: ${result.matched_rule.name}`, `命中分流规则：${result.matched_rule.name}`)
                       : result.used_default_action === 'reject'
                         ? t('No rule matched · Rejected by default action', '未命中规则 · 按默认策略拒绝请求')
-                        : t('Using default pool candidates', '使用默认候选模型池')}
+                        : t('Using default candidates', '使用默认候选模型')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {result.billing_mode === 'candidate_tariff'
                       ? t('Billing mode: Per-candidate model tariff', '计费模式：按实际命中的候选模型售价分别计费')
-                      : t('Billing mode: Unified pool tariff', '计费模式：作为自定义模型按模型池统一售价计费')}
+                      : t('Billing mode: Unified custom model tariff', '计费模式：按自定义模型统一售价计费')}
                   </p>
                 </div>
                 <Badge variant={result.eligible_candidates.length > 0 ? 'secondary' : 'outline'}>
@@ -1997,7 +1997,7 @@ function RoutePoolAuditDialog({
       );
       setAudit(response.data);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t('Pool audit could not be loaded.', '无法加载模型池策略审计数据。'));
+      setError(reason instanceof Error ? reason.message : t('Routing audit could not be loaded.', '无法加载自定义模型策略审计数据。'));
     } finally {
       setLoading(false);
     }
@@ -2028,8 +2028,8 @@ function RoutePoolAuditDialog({
           <DialogTitle>{t(`Strategy & billing audit · ${pool.alias}`, `路由策略与计费审计 · ${pool.alias}`)}</DialogTitle>
           <DialogDescription>
             {t(
-              'Audit whether this pooling strategy is commercially and operationally sound: tariff readiness, candidate margin health, configured weight % vs. observed traffic %, latency, and net margin.',
-              '审计该模型池策略的合理性：售价配置完备度、候选渠道毛利倒挂检测、配置权重占比与实际命中流量对比、延迟表现及净毛利贡献。',
+              'Audit whether this routing strategy is commercially and operationally sound: tariff readiness, candidate margin health, configured weight % vs. observed traffic %, latency, and net margin.',
+              '审计该自定义模型策略的合理性：售价配置完备度、候选渠道毛利倒挂检测、配置权重占比与实际命中流量对比、延迟表现及净毛利贡献。',
             )}
           </DialogDescription>
         </DialogHeader>
@@ -2074,15 +2074,15 @@ function RoutePoolAuditDialog({
                 <p className="mt-1 font-medium">
                   {audit.billing_mode === 'candidate_tariff'
                     ? t('Per-candidate model price', '按命中候选模型分别计费')
-                    : t('Unified pool price (custom model)', '作为自定义模型统一定价')}
+                    : t('Unified custom model price', '作为自定义模型统一定价')}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {audit.billing_mode === 'pool_tariff'
                     ? audit.pool_tariff.has_retail_tariff
-                      ? `${t('Pool rate:', '模型池售价：')} ${formatRatePerMillion(audit.pool_tariff.prompt_rate, audit.pool_tariff.currency)} / ${formatRatePerMillion(audit.pool_tariff.completion_rate, audit.pool_tariff.currency)}`
+                      ? `${t('Custom model rate:', '自定义模型售价：')} ${formatRatePerMillion(audit.pool_tariff.prompt_rate, audit.pool_tariff.currency)} / ${formatRatePerMillion(audit.pool_tariff.completion_rate, audit.pool_tariff.currency)}`
                       : audit.pool_tariff.has_credits_tariff
-                        ? t('Credits tariff configured on pool', '已配置积分售价')
-                        : t('No retail tariff configured on pool alias yet', '尚未为该模型池配置统一售价')
+                        ? t('Credits tariff configured on custom model', '已配置积分售价')
+                        : t('No retail tariff configured on custom model yet', '尚未为该自定义模型配置统一售价')
                     : t('Uses each candidate route retail/Credits tariff', '直接沿用所命中候选模型的售价')}
                 </p>
               </div>
@@ -2259,14 +2259,14 @@ function RoutePoolHistoryDialog({
         controller.signal,
       );
       if (controller.signal.aborted) return;
-      if (!Array.isArray(result.data)) throw new Error(t('Model pool history could not be read.', '无法读取模型池历史版本。'));
+      if (!Array.isArray(result.data)) throw new Error(t('Custom model history could not be read.', '无法读取自定义模型历史版本。'));
       setRevisions(current =>
         beforeRevision ? [...current, ...result.data.filter(row => !current.some(item => item.revision === row.revision))] : result.data,
       );
       setHasMore(result.data.length === 100 && (result.data.at(-1)?.revision ?? 0) > 1);
     } catch (reason) {
       if (!controller.signal.aborted) {
-        setError(reason instanceof Error ? reason.message : t('Model pool history unavailable.', '模型池历史版本不可用。'));
+        setError(reason instanceof Error ? reason.message : t('Custom model history unavailable.', '自定义模型历史版本不可用。'));
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
@@ -2331,7 +2331,7 @@ function RoutePoolHistoryDialog({
                     <Badge variant="outline" className="font-normal">
                       {entry.billing_mode === 'candidate_tariff'
                         ? t('Per-candidate billing', '按命中模型分别计费')
-                        : t('Unified pool price', '按模型池统一定价')}
+                        : t('Unified custom model price', '按自定义模型统一定价')}
                     </Badge>
                   )}
                 </div>
