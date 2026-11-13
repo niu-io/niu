@@ -362,7 +362,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Light": "浅色",
   "Dark": "深色",
   "System": "跟随系统",
-  "About Niu": "关于 Niu",
+  "About Niu": "关于牛元",
   "Version": "版本",
   "Development build": "开发构建版",
   "Release date": "发布日期",

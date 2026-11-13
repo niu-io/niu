@@ -1,3 +1,5 @@
+import SettingsDialog from '@/features/account/settings-dialog';
+import { useSettingsBackground } from './settings-background';
 import ShellSectionTabs from './ShellSectionTabs';
 import { ShellNavigationContext, SidebarRouteDismiss } from './ShellNavigation';
 import {
@@ -12,7 +14,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { Navigate, Outlet, useNavigate, useRevalidator } from 'react-router';
-import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
+import { FormSectionSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { legacySettingsTarget } from '@/features/account/settings-routes';
 import { reconcileActiveRouteLoad } from '@/lib/route-data';
@@ -112,21 +114,12 @@ export default function AppLayout() {
     matches,
     isGlobalChat,
     settingsArea,
-    adminArea,
     supplierArea,
-    supplierManagement,
     adminSupplierId,
     workspaceDirectoryArea,
     usesSelectedWorkspace,
     loginArea,
     inviteArea,
-    activityArea,
-    activePath,
-    scopedNavigation,
-    activeNavigation,
-    title,
-    destination,
-    platform,
   } = routeMeta;
 
   const {
@@ -436,6 +429,12 @@ export default function AppLayout() {
     ],
   );
 
+  const canKeepSettingsBackground = Boolean(token) && gatewayStatus === 'online' && gateway.everConnected && (supplierArea || (!effectiveWorkspaceError && !workspaceLoading && authorityWorkspacesReady));
+  const settingsBackground = useSettingsBackground(routeMeta, authorityKey, context, activeWorkspacePath, canKeepSettingsBackground);
+  const shown = settingsBackground.shown;
+  // Route metadata already localizes labels; resource names must stay verbatim.
+  const shownTitle = shown.title;
+
   const sidebarViewportWidth = useRef(typeof window !== 'undefined' ? window.innerWidth : sidebarBreakpoint);
   const [phoneNavigation, setPhoneNavigation] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 580,
@@ -567,7 +566,7 @@ export default function AppLayout() {
   }
 
   return (
-    <ShellNavigationContext.Provider value={{context: {...context, workspace: activeContextWorkspace ?? effectiveActiveWorkspace}, workspacePath: activeWorkspacePath, modelsHref, generationsHref, onCreateWorkspace: () => setWorkspaceCreateOpen(true)}}><SidebarProvider
+    <>{settingsBackground.wrap(<ShellNavigationContext.Provider value={{context: {...context, workspace: activeContextWorkspace ?? effectiveActiveWorkspace}, workspacePath: activeWorkspacePath, modelsHref, generationsHref, onCreateWorkspace: () => setWorkspaceCreateOpen(true)}}><SidebarProvider
       open={sidebarOpen}
       onOpenChange={setSidebarOpen}
       className="app-shell"
@@ -599,56 +598,56 @@ export default function AppLayout() {
         <ShellSidebar
           sidebarRef={sidebarRef}
           toggleRef={toggleRef}
-          adminArea={adminArea}
-          activityArea={activityArea}
-          settingsArea={settingsArea}
-          supplierArea={supplierArea}
-          contextual={activityArea || settingsArea || supplierManagement || destination === 'Workspace'}
+          adminArea={shown.adminArea}
+          activityArea={shown.activityArea}
+          settingsArea={shown.settingsArea}
+          supplierArea={shown.supplierArea}
+          contextual={shown.activityArea || shown.settingsArea || shown.supplierManagement || shown.destination === 'Workspace'}
           creationAvailable
           context={context}
           activeWorkspacePath={activeWorkspacePath}
           models={models}
-          activePath={activePath}
+          activePath={shown.activePath}
           onCreateWorkspace={() => setWorkspaceCreateOpen(true)}
         />
       )}
       <SidebarInset className="main-panel">
-        {phoneNavigation && !hasSidebar && !isGlobalChat && (
+        {phoneNavigation && !hasSidebar && !shown.isGlobalChat && (
           <nav className="mobile-product-navigation" aria-label={uiT('Product navigation')}>
             <ProductRailLink to={activeWorkspacePath} aria-label={uiF('{0} home', [branding.display_name])}>
               <img src={logo} alt="" />
             </ProductRailLink>
-            <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile />
+            <AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={shown.supplierArea} mobile />
           </nav>
         )}
-        {!isGlobalChat && (
+        {!shown.isGlobalChat && (
           <ShellHeader
             toggleRef={toggleRef}
             hasSidebar={hasSidebar}
             modelFiltersAvailable={modelFiltersAvailable}
-            supplierArea={supplierArea}
-            supplierManagement={supplierManagement}
-            destination={destination}
-            settingsArea={settingsArea}
-            activityArea={activityArea}
-            adminArea={adminArea}
-            workspaceDirectoryArea={workspaceDirectoryArea}
+            supplierArea={shown.supplierArea}
+            supplierManagement={shown.supplierManagement}
+            destination={shown.destination}
+            settingsArea={shown.settingsArea}
+            activityArea={shown.activityArea}
+            adminArea={shown.adminArea}
+            workspaceDirectoryArea={shown.workspaceDirectoryArea}
             phoneNavigation={phoneNavigation}
             brandingName={branding.display_name}
             logo={logo}
             activeWorkspacePath={activeWorkspacePath}
-            activePath={activePath}
+            activePath={shown.activePath}
             organization={organization}
             workspace={effectiveActiveWorkspace}
             workspaces={workspaces}
             selectWorkspace={selectWorkspace}
-            activeNavigation={activeNavigation}
-            scopedNavigation={scopedNavigation}
-            adminSupplierId={adminSupplierId}
+            activeNavigation={shown.activeNavigation}
+            scopedNavigation={shown.scopedNavigation}
+            adminSupplierId={shown.adminSupplierId}
             adminSupplierName={adminSupplierName}
-            platform={platform}
+            platform={shown.platform}
             modelsHref={modelsHref}
-            title={title}
+            title={shownTitle}
           />
         )}
         <div className="page-content" id="dashboard-content" tabIndex={-1}>
@@ -659,10 +658,10 @@ export default function AppLayout() {
           {signOutFailure}
           {gateway.everConnected && (
             <div className="gateway-route-content" hidden={gatewayStatus !== 'online'}>
-              <ShellSectionTabs context={context} />
-              {adminSupplierId && (
+              {(!settingsArea || settingsBackground.hasBackground) && <ShellSectionTabs context={context} />}
+              {shown.adminSupplierId && (
                 <AdminProviderTabs
-                  adminSupplierId={adminSupplierId}
+                  adminSupplierId={shown.adminSupplierId}
                   operatingMode={session?.operating_mode}
                   gatewayStatus={gatewayStatus}
                 />
@@ -674,7 +673,7 @@ export default function AppLayout() {
                     <WorkspaceShellSkeleton label={t('Loading workspace…', '正在加载工作空间…')} />
                   ) : (
                     <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">{t('Loading page…', '正在加载页面…')}</p>}>
-                      <Outlet key={principalKey || 'anonymous'} context={context} />
+                      <div key={authorityKey || 'anonymous'}>{settingsBackground.content ?? (settingsBackground.pendingReturn ? <WorkspaceShellSkeleton label={t('Opening workspace…', '正在打开工作空间…')} /> : null)}</div>
                     </Suspense>
                   )}
                 </div>
@@ -682,6 +681,6 @@ export default function AppLayout() {
           )}
         </div>
       </SidebarInset>
-    </SidebarProvider></ShellNavigationContext.Provider>
+    {(settingsArea || settingsBackground.openingSettings) && settingsBackground.renderModal(<SettingsDialog context={context} pendingSection={settingsBackground.pendingSection}>{settingsBackground.openingSettings ? <FormSectionSkeleton fields={3} label={t('Opening settings…', '正在打开设置…')} /> : settingsBackground.settingsOutlet}</SettingsDialog>)}</SidebarProvider></ShellNavigationContext.Provider>)}</>
   );
 }

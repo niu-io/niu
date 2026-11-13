@@ -350,7 +350,7 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
   let cancelled = false;
   const run = () => {
     if (cancelled) return;
-    // Warm top-frequency sibling route chunks & data in background idle time.
+    // Warm code in idle time; data prefetch stays tied to link intent.
     preloadRouteChunk('/workspaces/default');
     preloadRouteChunk('/workspaces/default/keys');
     preloadRouteChunk('/workspaces/default/usage');
@@ -362,16 +362,9 @@ export function scheduleWorkspaceWarmup(snapshot: RouterSessionSnapshot): () => 
     preloadRouteChunk('/generations');
     preloadRouteChunk('/activity');
 
-    prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
-    prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
-    prefetchGet(snapshot.token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
-    prefetchGet(snapshot.token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/assets`);
-    prefetchGet(snapshot.token, workspaceKeyPagePath(ws.id));
-    prefetchGet(snapshot.token, workspaceKeyPath(ws.id));
     if (canManagePlatform(snapshot.session)) {
       preloadRouteChunk('/admin/providers');
       preloadRouteChunk('/admin/reports');
-      prefetchGet(snapshot.token, '/api/v1/providers', { persist: true });
     }
   };
 
