@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams, type LoaderFunctionArgs } from 'react
 import { pinyin } from 'pinyin-pro';
 import {
   IconChevronDown,
+  IconDots,
   IconEdit,
   IconHistory,
   IconPlus,
@@ -488,6 +489,7 @@ function RoutingView({
   const [poolDialogOpen, setPoolDialogOpen] = useState(false);
   const [deletePoolTarget, setDeletePoolTarget] =
     useState<WorkspaceModelPool | null>(null);
+  const routingActionsRef = useRef<HTMLButtonElement>(null);
   const [deletingPool, setDeletingPool] = useState(false);
   const [deletePoolError, setDeletePoolError] = useState('');
   const [editingPool, setEditingPool] = useState<WorkspaceModelPool | null>(null);
@@ -956,17 +958,22 @@ function RoutingView({
                 <IconEdit size={16} />
                 {t('Edit routing', '编辑路由配置')}
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  setDeletePoolError('');
-                  setDeletePoolTarget(detail.pool!);
-                }}
-              >
-                <IconTrash size={16} />
-                {t('Delete routing rule', '删除路由规则')}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button ref={routingActionsRef} variant="ghost" size="icon-sm" aria-label={t('Routing actions', '路由操作')}>
+                    <IconDots size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" collisionPadding={12}>
+                  <DropdownMenuItem variant="destructive" onSelect={() => {
+                    setDeletePoolError('');
+                    setDeletePoolTarget(detail.pool!);
+                  }}>
+                    <IconTrash size={16} />
+                    {t('Delete routing rule', '删除路由规则')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </>
@@ -1868,7 +1875,12 @@ function RoutingView({
           }
         }}
       >
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={(event) => {
+          if (routingActionsRef.current?.isConnected) {
+            event.preventDefault();
+            routingActionsRef.current.focus();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>
               {t('Delete routing rule?', '删除路由规则？')}
