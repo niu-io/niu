@@ -2109,6 +2109,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Max output tokens": "最大输出 Token 数",
   "Enter a positive whole number.": "请输入正整数。",
   "Temperature": "温度",
+  "Lower values generally make responses more predictable; higher values increase variety.": "较低的值通常使回答更可预测；较高的值会增加回答的多样性。",
   "Enter a temperature from 0 to 2.": "请输入 0 至 2 之间的温度。",
   "System instructions": "系统指令",
   "Restore a Chat or Video session to Generations history.": "将对话或视频会话恢复至生成历史。",
