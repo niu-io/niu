@@ -1,11 +1,11 @@
-.generations-layout { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:minmax(0,1fr); width:100%; height:100%; min-width:0; min-height:0; flex:1 1 0; overflow:hidden; }
+.generations-layout { display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-rows:minmax(0,1fr); width:100%; height:100%; min-width:0; min-height:0; flex:1 1 0; overflow:hidden; }
 .generations-session { display:flex; min-width:0; min-height:0; overflow:hidden; }
 .generations-session .playground-chat-layout, .generations-session .video-shell { grid-template-columns:minmax(0,1fr); }
 .generations-history .generations-history-heading, .niu-workspace-sidebar .generations-history-heading, .niu-workspace-sidebar-mobile .generations-history-heading { display:flex; flex-direction:row; align-items:center; justify-content:space-between; }
 .generations-history-heading h2 { margin:0; }
 .generations-history [data-slot="sidebar-content"] { display:flex; flex-direction:column; }
 .generations-mode-switch { align-items:center; gap:2px; margin:0; min-width:0; border:0; padding:2px; border-radius:var(--radius-control); background:var(--muted); }
-@media(max-width:1100px) { .generations-layout { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:959px) { .generations-layout { grid-template-columns:minmax(0,1fr); } }
 
 /* Both session types use the established chat text hierarchy. */
 .generations-layout { --generation-body-size:15px; --generation-body-leading:1.55; }
@@ -118,15 +118,10 @@
 .playground-status-trigger { cursor: pointer; background: transparent; border: 0; padding: 0; font: inherit; display: inline-flex; align-items: center; border-radius: 999px; }
 .playground-status-trigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
-/* Right-docked session history panel: 320px docked above 1100px, overlay at <=1100px. */
+/* Session history docks at desktop widths and uses a drawer on narrow screens. */
 .generations-layout { --context: 320px; }
-.generations-layout .generations-history[data-slot="sidebar-container"] { top: 0; right: 0; bottom: 0; left: auto; width: 320px; height: 100%; border-left: 0; }
-.generations-layout [data-collapsible="offcanvas"] .generations-history[data-slot="sidebar-container"] { right: -320px; visibility: hidden; pointer-events: none; }
-@media (min-width: 960px) and (max-width: 1100px) {
-  .generations-layout { --context: 0px; }
-  .generations-layout > [data-slot="sidebar"] > [data-slot="sidebar-gap"] { width: 0; flex-basis: 0; }
-  .generations-layout .generations-history[data-slot="sidebar-container"] { z-index: 25; box-shadow: var(--shadow-overlay); }
-}
+.generations-layout .generations-history[data-slot="sidebar-container"] { top: 0; left: 0; bottom: 0; right: auto; width: 320px; height: 100%; border-left: 0; }
+.generations-layout [data-collapsible="offcanvas"] .generations-history[data-slot="sidebar-container"] { left: -320px; visibility: hidden; pointer-events: none; }
 
 /* Keep the session identity and primary controls visible on narrow canvases. */
 .generations-more-actions { display: none; }
