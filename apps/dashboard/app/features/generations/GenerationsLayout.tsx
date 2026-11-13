@@ -45,7 +45,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
     <SidebarHeader className="sidebar-heading generations-history-heading">
       <h2 className="sidebar-heading-row">{uiT("Generations")}</h2>
       {!isMobile && (
-        <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" aria-label={uiT("Close generation history", "关闭历史会话")} onClick={() => setOpen(false)}>
+        <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" aria-label={uiT("Close generation history", "关闭历史会话")} onClick={() => { setOpen(false); toggle.current?.focus(); }}>
           <IconX size={15} />
         </Button>
       )}
