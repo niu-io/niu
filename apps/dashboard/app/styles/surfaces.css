@@ -228,7 +228,7 @@
 
 .app-shell .page-content:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider)) { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 0; height: auto; overflow: hidden; }
 .page-content > .gateway-route-content:not([hidden]):has(> div:not([hidden]) > :is(.generations-layout, .generations-provider)),
-.page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> .generations-layout) { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> :is(.generations-layout, .generations-provider)) { display: flex; flex: 1; min-width: 0; min-height: 0; }
 
 /* Empty states center in the remaining page or pane, below its controls. */
 .app-shell .page-content { display: flex; flex-direction: column; }
@@ -256,7 +256,7 @@
 .key-detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; border-top: 0; background: transparent; }
 .key-detail-facts dt { color: var(--muted-foreground); font-size: 12px; }
 .key-detail-facts dd { margin: 5px 0 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
-.key-revoke-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.key-revoke-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .key-revoke-actions [role=group] { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .key-revoke-actions [role=group] > span { margin-right: 3px; color: var(--destructive); font-size: 13px; }
 .key-not-found { display: flex; align-items: center; gap: 12px; }
@@ -349,3 +349,7 @@
 .sidebar-header-toggle:hover .sidebar-toggle-expand-icon,
 .sidebar-header-toggle:focus-visible .sidebar-toggle-expand-icon,
 .niu-workspace-sidebar:hover .sidebar-header-toggle .sidebar-toggle-expand-icon { display: block; }
+
+@media (max-width: 380px) {
+  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { max-width: 56px; }
+}
