@@ -235,12 +235,17 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
     return `/generations?${query}`;
   }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);
+  const [modelIdFeedback, setModelIdFeedback] = useState<{model:string; copied:boolean} | null>(null);
+  const modelIdCopyRevision = useRef(0);
+  const modelIdCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyRevision = useRef(0);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     copyRevision.current += 1;
+    modelIdCopyRevision.current += 1;
     setCopyFeedback(null);
-    return () => {copyRevision.current += 1;if (copyTimer.current) clearTimeout(copyTimer.current);};
+    setModelIdFeedback(null);
+    return () => {copyRevision.current += 1;modelIdCopyRevision.current += 1;if (copyTimer.current) clearTimeout(copyTimer.current);if (modelIdCopyTimer.current) clearTimeout(modelIdCopyTimer.current);};
   }, [selectedId]);
   const copyError = copyFeedback?.model === selectedId ? copyFeedback.error : '';
   const copied = copyFeedback?.model === selectedId && copyFeedback.copied;
@@ -300,6 +305,24 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
     } catch {
       if (copyRevision.current !== revision) return;
       setCopyFeedback({model:selected.id,error:'Select and copy the example below; clipboard access is unavailable.',copied:false});
+    }
+  }
+
+  async function copyModelId() {
+    if (!selected) return;
+    const revision = ++modelIdCopyRevision.current;
+    if (modelIdCopyTimer.current) clearTimeout(modelIdCopyTimer.current);
+    setModelIdFeedback(null);
+    try {
+      await navigator.clipboard.writeText(selected.id);
+      if (modelIdCopyRevision.current !== revision) return;
+      setModelIdFeedback({model:selected.id,copied:true});
+      modelIdCopyTimer.current = window.setTimeout(() => {
+        if (modelIdCopyRevision.current === revision) setModelIdFeedback(null);
+      }, 1600);
+    } catch {
+      if (modelIdCopyRevision.current !== revision) return;
+      setModelIdFeedback({model:selected.id,copied:false});
     }
   }
 
@@ -406,7 +429,9 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
     </div>}
     {selected ? <aside className="model-route-detail" aria-label={uiF("{0} route details", [selected.id])}>
       <Button asChild variant="ghost" size="sm" className="mb-2 w-fit px-0"><Link to={catalogPath + catalogSearch}><ArrowLeft size={15} />{uiT("All models")}</Link></Button>
-      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code></div>
+      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><h2 className="min-w-0 break-words text-lg font-semibold">{catalogTitle(selected)}</h2></div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2"><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code><Button type="button" variant="ghost" size="sm" aria-label={uiT("Copy model ID", "复制模型 ID")} onClick={() => void copyModelId()}><Clipboard size={14} aria-hidden="true" />{modelIdFeedback?.model === selected.id && modelIdFeedback.copied ? uiT("Copied") : uiT("Copy")}</Button></div>
+      {modelIdFeedback?.model === selected.id && !modelIdFeedback.copied && <p role="alert" className="error-text">{uiT("Clipboard access is unavailable. Select and copy the model ID instead.", "无法访问剪贴板，请选择并复制模型 ID。")}</p>}
       {selected.catalog?.description && <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
