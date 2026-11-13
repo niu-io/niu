@@ -42,7 +42,7 @@
       "reason": "Shared cache core owns authority isolation, request generations and invalidation. Splitting would scatter a single consistency contract; keep as one reviewed module."
     },
     "app/features/evaluations/page.tsx": {
-      "lines": 887,
+      "lines": 897,
       "reason": "Evaluation run page. Split pending with the evaluation components under niu-4rp.15."
     }
   }
