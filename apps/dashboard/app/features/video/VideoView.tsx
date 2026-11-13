@@ -124,7 +124,9 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const [pendingSubmit,setPendingSubmit]=useState(false);
   const [waitingForImages,setWaitingForImages]=useState(false);
   const [unquotedConfirmation,setUnquotedConfirmation]=useState<{body:string;generation:number;job:string;intent:string}|null>(null);
-  const [loading,setLoading]=useState(true);
+  const [keysLoading,setKeysLoading]=useState(true);
+  const [modelsLoading,setModelsLoading]=useState(false);
+  const loading=keysLoading||modelsLoading;
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
   const [catalogError,setCatalogError]=useState('');
@@ -254,14 +256,15 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
     if(busy==='create')return;
     const controller=new AbortController();
     const cachedKeys=token&&scopePath?peekQuery<{data:ProjectKey[]}>(token,scopePath,{persist:true}):undefined;
+    setKeysLoading(true);
     if(cachedKeys){
       const active=cachedKeys.data.filter(key=>!key.revoked && !key.expired);
-      setKeys(active);setAllKeys(cachedKeys.data);setKeysScope(keyScopeIdentity);setLoading(false);
+      setKeys(active);setAllKeys(cachedKeys.data);setKeysScope(keyScopeIdentity);
     } else {
-      setLoading(true); setKeys([]);setAllKeys([]);setKeysScope('');
+      setKeys([]);setAllKeys([]);setKeysScope('');
     }
     setKeysError('');
-    if (!scopePath) {setLoading(false);return;}
+    if (!scopePath) {setKeysLoading(false);return;}
     void keyRequest<{data:ProjectKey[]}>(token,scopePath,'GET',undefined,controller.signal).then(payload=>{
       if(controller.signal.aborted)return;
       primeQuery(token,scopePath,payload,{persist:true});
@@ -275,7 +278,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         const preferredDefault=active.find(key=>(key.ip_policy?key.ip_policy.allowed_cidrs:key.allowed_cidrs)==null)??active[0];
         return active.some(key=>key.id===current)?current:preferredDefault?.id??'';
       });
-    }).catch(error=>{if(!controller.signal.aborted)setKeysError(message(error));}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    }).catch(error=>{if(!controller.signal.aborted)setKeysError(message(error));}).finally(()=>{if(!controller.signal.aborted)setKeysLoading(false);});
     return()=>controller.abort();
     // URL key restoration applies only when loading this workspace.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -298,8 +301,8 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
     if(changedScope)setModels(cachedModels??[]);
     setQuote(null);
     setCatalogError('');
-    if (!base) return;
-    setLoading(changedScope && !cachedModels);
+    if (!base) {setModelsLoading(false);return;}
+    setModelsLoading(changedScope && !cachedModels);
     void Promise.allSettled([
       request<VideoModelList>(token,base,'/v1/video/models',undefined,controller.signal),
     ]).then(([catalog])=>{
@@ -318,7 +321,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         loadedBase.current=base;
       }
       else setCatalogError(message(catalog.reason));
-    }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    }).finally(()=>{if(!controller.signal.aborted)setModelsLoading(false);});
     return()=>controller.abort();
   },[token,base,revision]);
   const requestedModel=search.get('model');
@@ -551,7 +554,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const fallbackActiveKey=keys.find(k=>k.id!==keyId&&(k.ip_policy?k.ip_policy.allowed_cidrs:k.allowed_cidrs)==null)??keys.find(k=>k.id!==keyId);
   const savedPromptText=submittedPrompt.trim() || intentDocument?.request?.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n').trim() || '';
   const promptTitle=savedPromptText.split('\n').map(line=>line.trim()).find(Boolean)?.slice(0,120);
-  const composerCover=!workspace||loading?null:keysError?'keys':historicalReadOnly?'history':keyIpRestricted?'ip':!keysError&&!keys.length?'nokey':keys.length>0&&!model&&!error&&!keysError&&!catalogError?'model':null;
+  const composerCover=!workspace?null:loading?'loading':keysError?'keys':historicalReadOnly?'history':keyIpRestricted?'ip':!keysError&&!keys.length?'nokey':keys.length>0&&!model&&!error&&!keysError&&!catalogError?'model':null;
   const composerReturnTo=`${location.pathname}${location.search}`;
   const rawResultModel=job?.model ?? intentDocument?.model ?? '';
   const resultModelLabel=rawResultModel ? catalogTitle(rawResultModel) : uiT("Video");
@@ -656,6 +659,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             {(model || composerCover) && <Button type="submit" size="icon" aria-label={waitingForImages ? uiT("Waiting for image upload to finish…") : quoteMatches || unquotedOwnerFunded || canWrite ? uiT("Generate video") : uiT("Estimate")} title={waitingForImages ? uiT("Waiting for image upload to finish…") : quoteMatches || unquotedOwnerFunded || canWrite ? uiT("Generate video") : uiT("Estimate generation cost")} disabled={!base || !form.body || (Boolean(busy) && busy !== 'estimate') || uncertain || restoringIntent || ((quoteMatches || unquotedOwnerFunded) && !canWrite) || submissionStopped || Boolean(composerCover)}><ArrowUp size={20}/></Button>}
             </div>
             </div>
+            {composerCover==='loading'&&<div className="composer-cover" role="status"><p>{uiT("Loading video setup…", "正在加载视频配置…")}</p></div>}
             {composerCover==='keys'&&<div className="composer-cover" role="status"><p>{uiT("API keys unavailable")}</p><div className="composer-cover-actions"><Button type="button" onClick={reloadSaved}>{uiT("Retry")}</Button></div></div>}
             {composerCover==='history'&&<div className="composer-cover" role="status"><p>{originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : uiT("Select an active API key to continue.")}</p><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></div></div>}
             {composerCover==='ip'&&<div className="composer-cover" role="status"><p>{uiF("{0} is restricted to allowed source IP addresses",[originalKey?.name??uiT("This API key")])}</p><p className="video-muted">{originalKeyAllowedCidrs!==undefined&&originalKeyAllowedCidrs!==null?(originalKeyAllowedCidrs.length>0?`${uiF("Allowed source networks: {0}",[originalKeyAllowedCidrs.join(', ')])} · `:`${uiT("Current policy: Block all source IP addresses")} · `):''}{uiT("Your current network is not in this key’s source IP allowlist. Choose another API key, or add your current IP address to this key’s source IP policy.")}</p><div className="composer-cover-actions">{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}{originalKey&&<Button asChild variant="outline"><Link to={`${workspacePath}/keys/${encodeURIComponent(originalKey.slug||originalKey.id)}`}>{uiT("Configure source IP access")}</Link></Button>}<Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>{uiT("Manage API keys")}</Link></Button><Button type="button" variant="ghost" onClick={reloadSaved}>{uiT("Recheck access")}</Button></div></div>}
