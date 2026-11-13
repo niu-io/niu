@@ -83,14 +83,14 @@ describe('RoutePoolsPage', () => {
     expect(container.textContent).not.toContain('11111111-1111-4111-8111-111111111111');
 
     // Secondary search popover filter
-    await user.click(screen.getByRole('button', { name: 'Filter model pools' }));
-    const searchInput = await screen.findByRole('searchbox', { name: 'Filter model pools' });
+    await user.click(screen.getByRole('button', { name: 'Filter custom models' }));
+    const searchInput = await screen.findByRole('searchbox', { name: 'Filter custom models' });
     await user.type(searchInput, 'claude-sonnet-4');
     expect(screen.queryByText('acme-private-sonnet')).toBeNull();
-    expect(within(screen.getByRole('table', { name: 'Model pools' })).getByText('claude-sonnet-4')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'Custom models' })).getByText('claude-sonnet-4')).toBeTruthy();
 
-    // Edit pool
-    await user.click(screen.getByRole('button', { name: 'Edit pool' }));
+    // Edit custom model
+    await user.click(screen.getByRole('button', { name: 'Edit custom model' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('heading', { name: 'Edit claude-sonnet-4' })).toBeTruthy();
     await user.click(within(dialog).getByLabelText('Candidate model #1'));
@@ -124,8 +124,8 @@ describe('RoutePoolsPage', () => {
       throw new Error(`Unexpected request: ${path}`);
     });
     render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
-    await screen.findByText('No model pools configured yet.');
-    await user.click(screen.getAllByRole('button', {name:'Create model pool'})[0]);
+    await screen.findByText('No custom models configured yet.');
+    await user.click(screen.getAllByRole('button', {name:'Create custom model'})[0]);
     await user.click(within(await screen.findByRole('dialog')).getByLabelText('Candidate model #1'));
     await user.type(screen.getByLabelText('Search candidate models 1'), 'last-provider-model');
     expect(await screen.findByRole('menuitemradio', {name:/last-provider-model/})).toBeTruthy();
@@ -144,13 +144,13 @@ describe('RoutePoolsPage', () => {
       throw new Error(`Unexpected request: ${path}`);
     });
     render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
-    await screen.findByText('No model pools configured yet.');
-    await user.click(screen.getAllByRole('button', {name:'Create model pool'})[0]);
+    await screen.findByText('No custom models configured yet.');
+    await user.click(screen.getAllByRole('button', {name:'Create custom model'})[0]);
     expect(await screen.findByText(/Some Provider models could not be loaded/)).toBeTruthy();
-    await user.type(screen.getByLabelText('Pool alias'), 'draft-pool');
+    await user.type(screen.getByLabelText('Model alias'), 'draft-pool');
     await user.click(screen.getByRole('button', {name:'Retry loading models'}));
     await waitFor(() => expect(screen.queryByText(/Some Provider models could not be loaded/)).toBeNull());
-    expect((screen.getByLabelText('Pool alias') as HTMLInputElement).value).toBe('draft-pool');
+    expect((screen.getByLabelText('Model alias') as HTMLInputElement).value).toBe('draft-pool');
     await user.click(screen.getByLabelText('Candidate model #1'));
     expect(await screen.findByRole('menuitemradio', {name:/recovered-model/})).toBeTruthy();
   });
@@ -184,37 +184,37 @@ describe('RoutePoolsPage', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText('No model pools configured yet.');
-    await user.click(screen.getAllByRole('button', { name: 'Create model pool' })[0]);
+    await screen.findByText('No custom models configured yet.');
+    await user.click(screen.getAllByRole('button', { name: 'Create custom model' })[0]);
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Pool alias'), 'gpt-5');
+    await user.type(within(dialog).getByLabelText('Model alias'), 'gpt-5');
     await user.click(within(dialog).getByLabelText('Candidate model #1'));
     await user.type(screen.getByLabelText('Search candidate models 1'), 'openai-gpt-5');
     await user.click(screen.getByRole('menuitem', { name: 'Use existing alias “openai-gpt-5”' }));
-    await user.click(within(dialog).getByRole('button', { name: 'Create model pool' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Create custom model' }));
 
     expect(await screen.findByText(/write could not be confirmed/i)).toBeTruthy();
     expect(screen.getByRole('dialog')).toBeTruthy();
-    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).value).toBe('gpt-5');
-    expect((within(dialog).getByRole('button', {name: 'Create model pool'}) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText('Model alias') as HTMLInputElement).value).toBe('gpt-5');
+    expect((within(dialog).getByRole('button', {name: 'Create custom model'}) as HTMLButtonElement).disabled).toBe(true);
     await user.click(within(dialog).getByRole('button', {name:'Check saved state'}));
     await screen.findByText(/saved state could not be checked/);
     expect(writes.length).toBe(1);
     await user.click(within(dialog).getByRole('button', {name:'Check saved state'}));
     await screen.findByText(/No newer saved changes were found/);
-    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).value).toBe('gpt-5');
-    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText('Model alias') as HTMLInputElement).value).toBe('gpt-5');
+    expect((within(dialog).getByLabelText('Model alias') as HTMLInputElement).disabled).toBe(true);
     expect((within(dialog).getByRole('button', {name:'Ownership scope'}) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(within(dialog).getByRole('button', {name:'Create model pool'}));
+    await user.click(within(dialog).getByRole('button', {name:'Create custom model'}));
     await screen.findByText(/changed in another session/);
     await user.click(within(dialog).getByRole('button', {name:'Check saved state'}));
-    await screen.findByText(/saved model pool has changed/);
-    expect((within(dialog).getByRole('button', {name:'Create model pool'}) as HTMLButtonElement).disabled).toBe(true);
-    const saved = within(dialog).getByRole('region', {name:'Saved model pool'});
+    await screen.findByText(/saved custom model has changed/);
+    expect((within(dialog).getByRole('button', {name:'Create custom model'}) as HTMLButtonElement).disabled).toBe(true);
+    const saved = within(dialog).getByRole('region', {name:'Saved custom model'});
     expect(within(saved).getByText(/other-model/)).toBeTruthy();
     await user.click(within(saved).getByRole('button', {name:'Continue with my draft'}));
     expect((within(dialog).getByRole('button', {name:'Save changes'}) as HTMLButtonElement).disabled).toBe(false);
-    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).value).toBe('gpt-5');
+    expect((within(dialog).getByLabelText('Model alias') as HTMLInputElement).value).toBe('gpt-5');
     expect(writes.length).toBe(2);
     await user.click(within(dialog).getByRole('button', {name:'Save changes'}));
     await waitFor(() => expect(writes.length).toBe(3));
@@ -233,20 +233,20 @@ describe('RoutePoolsPage', () => {
       throw new Error(`Unexpected request: ${method} ${path}`);
     });
     render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
-    await screen.findByText('No model pools configured yet.');
-    await user.click(screen.getAllByRole('button',{name:'Create model pool'})[0]);
+    await screen.findByText('No custom models configured yet.');
+    await user.click(screen.getAllByRole('button',{name:'Create custom model'})[0]);
     const dialog=await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Pool alias'),'gpt-5');
+    await user.type(within(dialog).getByLabelText('Model alias'),'gpt-5');
     await user.click(within(dialog).getByLabelText('Candidate model #1'));
     await user.type(screen.getByLabelText('Search candidate models 1'),'model-one');
     await user.click(screen.getByRole('menuitem',{name:'Use existing alias “model-one”'}));
-    await user.click(within(dialog).getByRole('button',{name:'Create model pool'}));
+    await user.click(within(dialog).getByRole('button',{name:'Create custom model'}));
     await screen.findByText(/write could not be confirmed/);
     await user.type(within(dialog).getByLabelText('Display name (optional)'),'Later draft');
     await user.click(within(dialog).getByRole('button',{name:'Check saved state'}));
-    await screen.findByText(/previous save matches the saved model pool/);
+    await screen.findByText(/previous save matches the saved custom model/);
     expect((within(dialog).getByLabelText('Display name (optional)') as HTMLInputElement).value).toBe('Later draft');
-    expect((within(dialog).getByLabelText('Pool alias') as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText('Model alias') as HTMLInputElement).disabled).toBe(true);
     expect((within(dialog).getByRole('button',{name:'Save changes'}) as HTMLButtonElement).disabled).toBe(false);
   });
 

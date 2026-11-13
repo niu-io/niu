@@ -75,7 +75,7 @@ export function GenerationSessionBindings(content: Content) {
 export default function GenerationsLayout({ children }: { children: ReactNode }) {
   const navigation = useSidebar();
   return <SidebarProvider
-    defaultOpen={typeof window !== 'undefined' && window.matchMedia('(min-width: 1101px)').matches}
+    defaultOpen={typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1101px)').matches ?? window.innerWidth >= 1101)}
     className="generations-provider min-h-0 min-w-0 flex-1"
     style={{ '--sidebar-width': '320px', '--sidebar-width-mobile': '320px' } as CSSProperties}
   ><GenerationsCanvas navigation={navigation}>{children}</GenerationsCanvas></SidebarProvider>;
