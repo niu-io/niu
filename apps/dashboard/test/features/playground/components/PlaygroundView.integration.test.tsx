@@ -128,7 +128,7 @@ describe('Global Chat', () => {
     render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
       <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
     </MemoryRouter></SidebarProvider>);
-    const videoLink = await screen.findByRole('link', {name:'Switch to Video mode'});
+    const videoLink = await screen.findByRole('link', {name:'Video',exact:true});
     expect(videoLink.getAttribute('href')).toContain('new=video');
     expect(screen.queryByRole('tab', {name:'Video'})).toBeNull();
     expect(screen.queryByRole('button', {name:/Video generation/})).toBeNull();
@@ -987,7 +987,7 @@ describe('Global Chat', () => {
     expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('tablist',{name:'Generation type'})).toBeNull();
     await user.click(screen.getByRole('tab',{name:'All tasks'}));
-    expect(screen.getByRole('link',{name:'Switch to Video mode'})).toBeTruthy();
+    expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Choose models' }));
     await user.click(screen.getByRole('button', { name: 'balanced' }));
@@ -1342,7 +1342,7 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
   renderPlayground([]);
   expect(await screen.findByRole('heading', {name: 'What would you like to create?'})).toBeTruthy();
   expect(screen.getByText('No text models are available. Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
-  expect(screen.getByRole('link',{name:'Switch to Video mode'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
   expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });
 

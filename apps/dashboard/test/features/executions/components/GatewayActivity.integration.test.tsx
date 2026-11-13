@@ -620,7 +620,7 @@ describe('gateway activity', () => {
     expect(screen.queryByText('Task evidence')).toBeNull();
     expect(prompt.hasAttribute('readonly')).toBe(true);
     expect(screen.queryByText('1,437 ms')).toBeNull();
-    if (complete) expect(screen.getAllByText('1,486 ms')).toHaveLength(2);
+    if (complete) expect(within(screen.getByRole('region', {name: 'Request detail content'})).getByText('1,486 ms')).toBeTruthy();
     else {
       expect(screen.queryByText('1,486 ms')).toBeNull();
       expect(screen.getByText(/Response interrupted/)).toBeTruthy();
