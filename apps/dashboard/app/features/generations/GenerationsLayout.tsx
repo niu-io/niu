@@ -1,9 +1,9 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type CSSProperties, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { IconDotsVertical, IconLayoutSidebarRight, IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconMessageChatbot, IconPhoto, IconVideo, IconX } from '@tabler/icons-react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { IconDotsVertical, IconLayoutSidebarRight, IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconPhoto, IconX } from '@tabler/icons-react';
 import { useBranding } from '@/shell/branding';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { WorkspaceLibrary } from '@/features/library/page';
@@ -52,7 +52,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
     </SidebarHeader>
     <SidebarContent className="playground-history-list" aria-label={uiT("Saved sessions")}>
       <div className="playground-history-controls">
-        <Button variant="outline" className="generations-new-generation" disabled={content?.history.disabled} onClick={() => { content?.onNewSession?.(); const video = Boolean(content?.history.activeVideoSession); navigate(video ? `/generations?new=video${workspaceQuery}` : `/generations?new=1${workspaceQuery}`); if (isMobile) setOpenMobile(false); }}><IconPlus size={16} />{uiT("New generation")}</Button>
+        <Button variant="outline" className="generations-new-generation" disabled={content?.history.disabled} onClick={() => { content?.onNewSession?.(); navigate(`/generations?new=1${workspaceQuery}`); if (isMobile) setOpenMobile(false); }}><IconPlus size={16} />{uiT("New generation")}</Button>
       </div>
       {content?.notice}
       <div ref={attachList} style={{ display: 'contents' }} />
@@ -75,7 +75,7 @@ export function GenerationSessionBindings(content: Content) {
 export default function GenerationsLayout({ children }: { children: ReactNode }) {
   const navigation = useSidebar();
   return <SidebarProvider
-    defaultOpen={false}
+    defaultOpen={typeof window !== 'undefined' && window.matchMedia('(min-width: 1101px)').matches}
     className="generations-provider min-h-0 min-w-0 flex-1"
     style={{ '--sidebar-width': '320px', '--sidebar-width-mobile': '320px' } as CSSProperties}
   ><GenerationsCanvas navigation={navigation}>{children}</GenerationsCanvas></SidebarProvider>;
@@ -84,8 +84,6 @@ export default function GenerationsLayout({ children }: { children: ReactNode })
 function GenerationsCanvas({ children, navigation }: { children: ReactNode; navigation: ReturnType<typeof useSidebar> }) {
   const { t: uiT } = useUILocale();
   const { logo } = useBranding();
-  const location = useLocation();
-  const navigate = useNavigate();
   const toggle = useRef<HTMLButtonElement>(null);
   const { isMobile, openMobile, open, setOpen, setOpenMobile } = useSidebar();
   const [content, setContent] = useState<Content | null>(null);
@@ -158,35 +156,15 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
     }
   }, [content?.contextPanel?.initialRunId, closeHistory]);
 
-  const search = new URLSearchParams(location.search);
-  const inVideoMode = Boolean(
-    content?.history.activeVideo ||
-    content?.history.activeVideoSession ||
-    location.pathname.startsWith('/generations/video-') ||
-    location.pathname.startsWith('/generations/runs/') ||
-    search.get('new') === 'video' ||
-    search.has('video-session') ||
-    search.has('intent') ||
-    search.has('job'),
-  );
   const workspace = content?.history.context.workspace;
   const token = content?.history.context.token ?? '';
   const session = content?.history.context.session;
   const workspaces = content?.history.context.workspaces ?? (workspace ? [workspace] : []);
   const workspaceSlug = workspace ? workspacePathSegment(workspace, workspaces) : '';
   const workspaceHomePath = workspaceSlug ? `/workspaces/${encodeURIComponent(workspaceSlug)}` : '/workspaces/default';
-  const workspaceSuffix = workspaceSlug ? `&workspace=${encodeURIComponent(workspaceSlug)}` : '';
 
   return <Host.Provider value={publish}><div className="generations-layout"><div className="generations-session">
     <header className="generations-toolbar">{navigation.isMobile && <div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.openMobile}>{navigation.openMobile ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><Link className="mobile-header-brand" to={workspaceHomePath} aria-label={uiT("Niu home")}><img src={logo} alt="" /></Link></div>}<div className="flex min-w-0 flex-col justify-center gap-0 overflow-hidden sm:flex-row sm:items-center sm:justify-start sm:gap-2"><h1 className="truncate max-sm:text-sm max-sm:leading-tight">{content?.title ?? uiT("New generation")}</h1>{workspace && workspaceSlug && <Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}`} className="inline-flex min-w-0 max-w-full sm:max-w-44 shrink truncate items-center text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground sm:rounded-md sm:bg-muted/60 sm:px-2 sm:py-0.5 sm:text-xs sm:hover:bg-muted">{uiT(workspaceDisplayName(workspace.name))}</Link>}</div><div className="generations-toolbar-actions">
-      <fieldset className="generations-mode-switch inline-flex" aria-label={uiT("Generation mode", "生成模式")}>
-        <Button variant={!inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 sm:px-2.5 text-xs" asChild>
-          <Link to={`/generations?new=1${workspaceSuffix}`} aria-label={uiT("Chat", "对话")}><IconMessageChatbot size={14} aria-hidden="true" /><span className="max-[440px]:sr-only">{uiT("Chat", "对话")}</span></Link>
-        </Button>
-        <Button variant={inVideoMode ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 sm:px-2.5 text-xs" asChild>
-          <Link to={`/generations?new=video${workspaceSuffix}`} aria-label={uiT("Video", "视频")}><IconVideo size={14} aria-hidden="true" /><span className="max-[440px]:sr-only">{uiT("Video", "视频")}</span></Link>
-        </Button>
-      </fieldset>
       {content?.actions}
       {workspace && token && (
         <Button
@@ -202,16 +180,11 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
           <span>{uiT("Assets", "素材库")}</span>
         </Button>
       )}
-      <Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="icon" onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory /></Button>
+      <Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="sm" className="gap-1.5 px-2" onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory size={16} /><span>{uiT("Sessions", "会话")}</span></Button>
       {content?.contextPanel && <span className="generations-secondary-action"><GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} /></span>}
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="generations-more-actions" aria-label={uiT("Generation actions", "生成操作")}><IconDotsVertical /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" collisionPadding={12}>
-          <DropdownMenuRadioGroup value={inVideoMode ? 'video' : 'chat'} onValueChange={value => navigate(`/generations?new=${value === 'video' ? 'video' : '1'}${workspaceSuffix}`)}>
-            <DropdownMenuRadioItem value="chat"><IconMessageChatbot />{uiT("Chat", "对话")}</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="video"><IconVideo />{uiT("Video", "视频")}</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-          {(workspace && token || content?.contextPanel) && <DropdownMenuSeparator />}
           {workspace && token && <DropdownMenuItem onSelect={() => handleAssetsOpenChange(!assetsOpen)}><IconPhoto />{uiT("Assets", "素材库")}</DropdownMenuItem>}
           {content?.contextPanel && <DropdownMenuItem onSelect={() => handleContextOpenChange(!contextOpen)}><IconLayoutSidebarRight />{uiT("Context", "上下文")}</DropdownMenuItem>}
         </DropdownMenuContent>

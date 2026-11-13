@@ -6,7 +6,7 @@ import { GenerationSessionBindings, openGenerationsAssetsPanel } from '@/feature
 import { openGenerationsContextRun, type GenerationContextRunState, type GenerationsContextPanelData } from '@/features/generations/GenerationsContextPanel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate, useLocation } from 'react-router';
-import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw, IconVideo } from '@tabler/icons-react';
+import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw, IconMessageChatbot, IconVideo } from '@tabler/icons-react';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
 import { catalogTitle } from '@/lib/providers';
 import { ScanFace } from 'lucide-react';
@@ -596,7 +596,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         {(keysError || intentError || error || (catalogError && !keyIpRestricted)) && <div role="alert" className="video-error">{uiT(keysError || intentError || error || catalogError)}<Button variant="ghost" onClick={reloadSaved} disabled={Boolean(busy) || loading}>{uiT("Reload")}</Button></div>}
         {!workspace ? <p>{uiT("Add an API key to generate videos.")}</p> : <>
         <div className="video-conversation playground-transcript" aria-label={uiT("Video conversation")}>
-          {!selected && !intentId ? <Empty className="video-welcome border-0 bg-transparent"><EmptyHeader><EmptyMedia variant="icon"><IconVideo size={20}/></EmptyMedia><EmptyTitle>{uiT("Create a video")}</EmptyTitle><EmptyDescription>{uiT("Describe the scene, camera movement, and lighting you want to bring to life.")}</EmptyDescription></EmptyHeader><EmptyContent className="max-w-xl flex-row flex-wrap justify-center gap-2">{[
+          {!selected && !intentId ? <Empty className="video-welcome border-0 bg-transparent"><div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}><Button variant="ghost" size="sm" asChild><Link to={`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(workspace, context.workspaces ?? [workspace]))}`}><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Link></Button><Button variant="secondary" size="sm" aria-pressed="true"><IconVideo size={16} />{uiT("Video", "视频")}</Button></div><EmptyHeader><EmptyMedia variant="icon"><IconVideo size={20}/></EmptyMedia><EmptyTitle>{uiT("Create a video")}</EmptyTitle><EmptyDescription>{uiT("Describe the scene, camera movement, and lighting you want to bring to life.")}</EmptyDescription></EmptyHeader><EmptyContent className="max-w-xl flex-row flex-wrap justify-center gap-2">{[
             { label: uiT("Aerial sunrise"), text: uiT("Wide aerial shot gliding over mist-covered pine mountains at golden hour, cinematic lighting, 4K.") },
             { label: uiT("Product macro"), text: uiT("Slow-motion macro dolly shot of a brushed aluminum watch on wet slate with soft studio rim light.") },
             { label: uiT("Neon street walk"), text: uiT("Tracking shot following a courier walking through a rain-slicked neon alleyway at night, shallow depth of field.") },
