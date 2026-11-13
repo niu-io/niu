@@ -145,6 +145,7 @@ export function ShellSidebar({
           setOpenMobile(false);
         },
         onCloseAutoFocus: event => {
+          if (document.querySelector('[data-global-settings-dialog]')) { event.preventDefault(); return; }
           if (toggleRef.current?.isConnected) {
             event.preventDefault();
             toggleRef.current.focus();
