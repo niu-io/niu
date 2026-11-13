@@ -94,7 +94,6 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {!supplierOnly && token && (!showDestinations || !mobile) && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/activity')} onFocus={() => prefetchRouteIntent('/activity')} onClick={dismissMobileSidebar} to="/activity"><IconChartLine size={18}/>{t('Activity', '活动')}</Link></DropdownMenuItem>}
           <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onFocus={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onClick={dismissMobileSidebar} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(!token || installation ? 'appearance' : 'account')}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>
           {!token && <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/login')} onFocus={() => prefetchRouteIntent('/login')} onClick={dismissMobileSidebar} to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}><KeyRound size={18}/>{t('Sign in', '登录')}</Link></DropdownMenuItem></>}
-          <DropdownMenuSeparator />
           {token && <><DropdownMenuSeparator/><DropdownMenuItem onSelect={signOut}><LogOut/>{t('Sign out', '退出登录')}</DropdownMenuItem></>}
         </DropdownMenuContent>
     </DropdownMenu>;
