@@ -125,10 +125,7 @@
   .billing-invoices th:nth-child(3), .billing-invoices td:nth-child(3) { display: none; }
   .billing-mobile-status { display: block; margin-top: 6px; color: var(--muted-foreground); font-size: 12px; }}
 
-@media (max-width: 640px) {
-  .billing-rates .provider-ledger { min-width: 0; width: 100%; table-layout: fixed; }
-  .billing-rates .provider-ledger th:first-child { width: 44%; }
-  .billing-rates .provider-ledger th, .billing-rates .provider-ledger td { padding-inline: 8px; white-space: normal; overflow-wrap: anywhere; }}
+/* Rate comparisons retain readable columns and scroll inside the Table primitive. */
 
 .mobile-product-navigation { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--background); }
 .mobile-product-navigation > a { display: flex; align-items: center; }

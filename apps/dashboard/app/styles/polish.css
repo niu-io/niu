@@ -54,3 +54,5 @@
 /* The staging payment notice stays one line. The longer explanation opens on demand. */
 .mock-payment-warning { padding-block: 0.45rem; }
 .mock-payment-warning [data-slot="alert-title"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.billing-topups .mock-payment-warning { margin-inline: 0; }
+:is(.billing-topups, .billing-topup-dialog) .mock-payment-warning [data-slot="alert-title"] { white-space: normal; }
