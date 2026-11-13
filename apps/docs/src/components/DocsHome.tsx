@@ -18,7 +18,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
   const [deployment, setDeployment] = useState<string | null>(null);
   useEffect(() => { setDeployment(window.location.origin); }, []);
   const setupPrompt = deployment
-    ? `Install and configure Niu for ${deployment} by following https://niu.io/docs/install.md. Verify the deployment and workspace during authorization.`
+    ? `Install and configure Niu for ${deployment} by following ${deployment}/docs/install.md. Verify the deployment and workspace during authorization.`
     : "Install and configure Niu by following https://niu.io/docs/install.md. Specify your Niu deployment and verify it during authorization.";
   const references = [
     {
