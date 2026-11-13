@@ -96,12 +96,15 @@
 .gateway-request-table.has-column-controls { min-width: 920px; }
 .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 6px; }
 .gateway-request-table.has-column-controls tbody th small { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gateway-request-table.has-column-controls td:nth-last-child(2) { max-width: none; overflow: visible; text-overflow: unset; }
+.gateway-request-table.has-column-controls td.request-column-key { max-width: 120px; white-space: normal; overflow-wrap: anywhere; }
 .gateway-request-table.has-column-controls td:last-child { width: 32px; padding: 0; }
 .gateway-request-table thead .request-column-controls { position: sticky; right: 0; width: 32px; padding: 2px; background: var(--background); }
 @container (max-width: 860px) {
-  .gateway-request-table:where(.has-column-controls) { min-width: 0; width: 100%; }
-  .gateway-request-table:where(.has-column-controls) :where(.request-column-latency, .request-column-input, .request-column-output, .request-column-key) { display: none; }}
+  .gateway-request-table.has-column-controls.has-default-columns { min-width: 0; width: 100%; table-layout: fixed; }
+  .gateway-request-table.has-column-controls .request-column-time { width: 170px; white-space: normal; }
+  .gateway-request-table.has-column-controls .request-column-status { width: 110px; }
+  .gateway-request-table.has-column-controls .request-column-charge { width: 115px; }
+}
 @media (max-width: 600px) {
   .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 8px; font-size: 12px; }
   .gateway-request-table.has-column-controls thead .request-column-controls { padding: 2px; }}

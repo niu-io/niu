@@ -600,7 +600,9 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
             <DialogTitle>{issuedInvitation ? uiT("Invitation created", "邀请已创建") : uiT("Invite member", "邀请成员")}</DialogTitle>
             <DialogDescription>{issuedInvitation
               ? uiT("Copy the one-time link now. No email was sent.", "请立即复制一次性链接。系统未发送邮件。")
-              : uiF("Invite a member to {0}.", [workspaceDisplayName(projects.find(item => item.id === (lockedProject || project))?.name ?? '') || uiT("this workspace", "此工作空间")])}</DialogDescription>
+              : lockedProject
+                ? uiF("Invite a member to {0}.", [workspaceDisplayName(projects.find(item => item.id === lockedProject)?.name ?? '') || uiT("this workspace", "此工作空间")])
+                : uiT("Choose the scope and role for this invitation.", "选择此邀请的访问范围和角色。")}</DialogDescription>
           </div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
