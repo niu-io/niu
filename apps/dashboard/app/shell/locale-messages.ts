@@ -3233,6 +3233,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "· Expired": "· 已过期",
   "Native tool discovery is incomplete. Retry discovery or choose a discovered context.": "原生工具发现未完成，请重试发现或选择已发现上下文。",
   "No native model context was discovered for this key.": "未发现此密钥的原生模型上下文。",
+  "No models supporting Provider materials were found for this key. Choose another key or review your workspace models.": "未找到此密钥可用的支持 Provider 素材的模型。请选择其他密钥或查看工作空间模型。",
+  "Add an API key and choose a supported model to read Provider materials.": "添加 API 密钥并选择受支持的模型，以查看 Provider 素材。",
   "Choose an API key and model to read its materials.": "选择 API 密钥和模型以读取材料。",
   "Choose group": "选择分组",
   "Untitled material": "未命名材料",

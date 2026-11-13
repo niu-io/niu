@@ -106,6 +106,7 @@ export default function VolcengineView({
     !key ? '' : key.revoked ? ` ${uiT('· Revoked')}` : key.expired ? ` ${uiT('· Expired')}` : data.ipRestrictedKeyIds.includes(key.id) ? ` ${uiT('· Source IP restricted')}` : '';
   const workspaceSlug = data.workspace ? workspacePathSegment(data.workspace, data.workspaces ?? [data.workspace]) : 'default';
   const workspaceKeysHref = `/workspaces/${encodeURIComponent(workspaceSlug)}/keys`;
+  const workspaceModelsHref = `/workspaces/${encodeURIComponent(workspaceSlug)}/models`;
   const restrictedTargetKey = data.selectedKeyIpRestricted
     ? chosenKeyRecord
     : !chosenKey && data.ipRestrictedKeys.length === 1
@@ -535,7 +536,13 @@ export default function VolcengineView({
         {data.discoveryErrors.map(error => <p key={error}>{error}</p>)}
         <Button variant="outline" disabled={contextLocked} onClick={data.retry}>{uiT('Retry discovery')}</Button>
       </div>}
-      {!nativeContext && !data.discoveryLoading && !chosenModel && !data.selectedKeyIpRestricted && <p className="text-sm text-muted-foreground">{chosenKey && modelChoices.length === 0 ? data.discoveryErrors.length > 0 ? uiT('Native tool discovery is incomplete. Retry discovery or choose a discovered context.') : uiT('No native model context was discovered for this key.') : uiT('Choose an API key and model to read its materials.')}</p>}
+      {!nativeContext && !data.discoveryLoading && !chosenModel && !data.selectedKeyIpRestricted && <div className="space-y-2 text-sm">
+        <p className="text-muted-foreground">{chosenKey && modelChoices.length === 0 ? data.discoveryErrors.length > 0 ? uiT('Native tool discovery is incomplete. Retry discovery or choose a discovered context.') : uiT('No models supporting Provider materials were found for this key. Choose another key or review your workspace models.') : data.contextKeys.length === 0 && data.discoveryErrors.length === 0 ? uiT('Add an API key and choose a supported model to read Provider materials.') : uiT('Choose an API key and model to read its materials.')}</p>
+        {data.discoveryErrors.length === 0 && ((chosenKey && modelChoices.length === 0) || data.contextKeys.length === 0) && <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceKeysHref}>{uiT('Manage API keys')}</Link> : <a href={workspaceKeysHref}>{uiT('Manage API keys')}</a>}</Button>
+          <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceModelsHref}>{uiT('View models')}</Link> : <a href={workspaceModelsHref}>{uiT('View models')}</a>}</Button>
+        </div>}
+      </div>}
       {data.error && <div role="alert" className="flex items-center justify-between gap-3 py-3 text-sm"><span>{uiT(data.error)}</span><Button variant="outline" onClick={data.retry}>{uiT('Retry')}</Button></div>}
       <TabsContent value="materials"><section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
