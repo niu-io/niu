@@ -621,7 +621,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       { signal: controller.signal, force: revision > 0 },
     )
       .then(value => { if (!controller.signal.aborted) { setKeys(value.data); setKeysScope(keyScope); } })
-      .catch(reason => { if (!controller.signal.aborted) { setKeys([]); setKeysScope(''); setKeyFilterError((reason as Error).message); } });
+      .catch(() => { if (!controller.signal.aborted) { setKeys([]); setKeysScope(''); setKeyFilterError('API key filter options are unavailable. Refresh requests to try again.'); } });
     return () => controller.abort();
   }, [token, organization, project, compact, statisticsOnly, Boolean(requestedKey), revision, keysCacheKey, keysPath, keyScope]);
 

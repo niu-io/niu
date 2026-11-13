@@ -4678,6 +4678,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Video request": "视频请求",
   "Invalid provider list": "模型供应商列表无效",
   "Activity could not be loaded ({0}). Try again.": "无法加载活动记录（{0}）。请重试。",
+  "API key filter options are unavailable. Refresh requests to try again.": "API 密钥筛选选项暂不可用。请刷新请求后重试。",
   "Could not load gateway activity ({0}).": "无法加载网关活动记录（{0}）。",
   "Could not export requests ({0}). Try again.": "无法导出请求（{0}）。请重试。",
   "Request failed ({0}).": "请求失败（{0}）。",

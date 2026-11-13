@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useNewChatAction } from '../useNewChatAction';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
 import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
 import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
@@ -395,6 +396,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   }, [routeParamSession, location.pathname]);
   const requestedSession = pathSession ?? new URLSearchParams(location.search).get('session');
   const startWithNewChat = new URLSearchParams(location.search).get('new') === '1';
+  const selectionLocationKey = useRef(location.key);
+  selectionLocationKey.current = location.key;
   const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
   const draftEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats/draft`;
   const cachedHistory = token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
@@ -570,7 +573,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState('');
   const [historyRevision, setHistoryRevision] = useState(0);
-  const draft=useChatDraft({token,endpoint:draftEndpoint,
+  const draft=useChatDraft({token,endpoint:draftEndpoint,modelsCustomized:customizedModels,
     identity:JSON.stringify([token,organization,workspaceId,session?.operator?.id]),
     enabled:Boolean(token&&organization&&workspaceId&&!historyLoading&&!historyError),
     value:{sessionId:activeComparisonId,prompt,models:selectedModels,attachments,settings:{systemPrompt,maxTokens,temperature,logPayloads}},
@@ -611,6 +614,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }});
   useEffect(() => {
     const controller = new AbortController();
+    const restoringLocationKey = location.key;
     const cached=token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
     const cachedDraftSnapshot=token ? peekQuery<ChatDraftSnapshot>(token,draftEndpoint) : undefined;
     setHistory(cached??[]);
@@ -677,6 +681,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           turns: item.turns?.map(turn => ({ ...turn, results: restoreResults(turn.results) })),
         }));
         setHistory(restored);
+        // History may finish after the user has selected another session or a new chat.
+        if (selectionLocationKey.current !== restoringLocationKey) return;
         const latestDraftSnapshot=token ? peekQuery<ChatDraftSnapshot>(token,draftEndpoint) : undefined;
         const initial=selectInitialComparison(restored,latestDraftSnapshot,requestedSession,startWithNewChat);
         if(initial) {
@@ -808,24 +814,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     } else if (!preferredKey && (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId))) setSelectedKeyId(keyChoices[0]?.id ?? '');
   }, [preferredKey, keyIds]);
 
-  // A new-generation URL is an action, not a permanent draft-restoration mode.
-  // Confirm the fresh composer before consuming it so reload restores that draft.
-  useEffect(() => {
-    if (!startWithNewChat || !draft.ready || draft.error) return;
-    let cancelled = false;
-    void draft.flush().then(saved => {
-      if (!saved || cancelled) return;
-      const params = new URLSearchParams(location.search);
-      params.delete('new');
-      params.delete('session');
-      const key = workspaceKeys.find(item => item.id === params.get('key') || item.slug === params.get('key'));
-      if (key?.slug) params.set('key', key.slug);
-      const query = params.toString();
-      const basePath = location.pathname.startsWith('/generations/') ? '/generations' : location.pathname;
-      navigate(`${basePath}${query ? `?${query}` : ''}${location.hash}`, {replace:true});
-    });
-    return () => {cancelled = true;};
-  }, [startWithNewChat, draft.ready, draft.error, location.search, navigate, workspaceKeys]);
+  useNewChatAction(startWithNewChat, draft, workspaceKeys, startNewComparison);
 
 
   useEffect(() => {
@@ -1097,7 +1086,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             <Button type="button" variant={managedKey || selectedKey ? "outline" : "default"} className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
-          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
+          </div>} onNewSession={startWithNewChat ? startNewComparison : undefined} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
               <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? uiT("Exporting…") : uiT("Export")}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />{uiT("Delete")}</DropdownMenuItem></DropdownMenuContent>
               </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />

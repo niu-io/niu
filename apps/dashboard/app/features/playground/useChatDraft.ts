@@ -48,8 +48,8 @@ export function clearPrefetchedChatDraft(token: string, endpoint: string) {
 }
 
 /** Backend-owned composer state. No browser storage participates in persistence. */
-export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
-  token:string;endpoint:string;identity:string;enabled:boolean;value:ChatDraft;restore:(draft:ChatDraft)=>ChatDraft|void;
+export function useChatDraft({token,endpoint,identity,enabled,value,restore,modelsCustomized}: {
+  token:string;endpoint:string;identity:string;enabled:boolean;value:ChatDraft;restore:(draft:ChatDraft)=>ChatDraft|void;modelsCustomized?:{readonly current:boolean};
 }) {
   const current=useRef(value);current.current=value;
   const onRestore=useRef(restore);onRestore.current=restore;
@@ -97,7 +97,7 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
       return active;
     };
     control.current={flush,retry:()=>{failed=false;void flush();}};
-    const initialValue=JSON.stringify(current.current);
+    const initialValue=current.current;
     setState({ready:false,saving:false,error:'',conflict:false});
     const prefetchKey=`${token}:${endpoint}`;
     const prefetched=prefetchedDrafts.get(prefetchKey);
@@ -108,7 +108,10 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
       .then(saved=>{
         if (!valid()) return;
         revision=saved.revision;
-        const localChanged=JSON.stringify(current.current)!==initialValue;
+        // Catalog bootstrap may choose a default model without a user edit.
+        const initialSerialized=JSON.stringify(initialValue);
+        const localChanged=JSON.stringify(current.current)!==initialSerialized &&
+          (modelsCustomized?.current !== false || JSON.stringify({...current.current,models:initialValue.models})!==initialSerialized);
         if(saved.payload) {
           confirmed=localChanged?'':JSON.stringify(saved.payload);
           if (!localChanged) {
