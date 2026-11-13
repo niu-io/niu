@@ -216,8 +216,8 @@ export default function InviteMemberForm({
         </Label>
         <p className="text-sm text-muted-foreground">
           {uiT(
-            'The recipient must already have a Niu account with this email. They sign in, review this access, and accept once. No password or access token is shared.',
-            '收件人必须已有使用此邮箱的 Niu 账户。对方登录并确认后即可一次性接受，无需分享密码或访问令牌。',
+            'The recipient must already have a Niu account with this email. After creating the invitation, copy and share the link; no email is sent. They sign in, review access, and accept once. No password or access token is shared.',
+            '收件人必须已有使用此邮箱的 Niu 账户。创建邀请后，请复制并分享链接；系统不会发送邮件。对方登录并确认后即可一次性接受，无需分享密码或访问令牌。',
           )}
         </p>
         <div className="operator-create-footer">
