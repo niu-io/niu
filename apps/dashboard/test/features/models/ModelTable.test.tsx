@@ -281,7 +281,7 @@ it('distinguishes direct Provider billing from missing platform prices without c
 it('keeps platform funding separate from an absent price', () => {
   const model = {...models[0], billing_source: 'niu_credits' as const};
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByText(/Uses Niu credits/)).toBeTruthy();
+  expect(screen.getByText(/Niu charges, when applicable, use workspace credits/)).toBeTruthy();
   expect(screen.getAllByText('Not published')).toHaveLength(2);
   expect(screen.queryByText(/Your Provider bills/)).toBeNull();
 });
@@ -301,7 +301,7 @@ it('explains Video estimation without presenting token prices for a Video-only m
  render(<MemoryRouter initialEntries={['/models/example/video']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
  expect(screen.queryByText('Input price')).toBeNull();
  expect(screen.queryByText('Output price')).toBeNull();
- expect(screen.getByText(/Video cost depends on the request settings/)).toBeTruthy();
+ expect(screen.getByText(/Video cost depends on request settings/)).toBeTruthy();
  expect(screen.getByRole('link',{name:'Try in Video'})).toBeTruthy();
 });
 

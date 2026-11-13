@@ -5,7 +5,10 @@ export function useRequestTableWidth() {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
     if (!node) return;
-    const update = () => setNarrow(node.clientWidth <= 860);
+    const update = () => {
+      const width = node.clientWidth;
+      if (width > 0) setNarrow(width <= 860);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(node);
