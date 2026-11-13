@@ -59,13 +59,13 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
           ? <MetricStripSkeleton count={2} label={t('Loading workspace members…', '正在加载工作空间成员…')} />
           : <div role="alert" className="space-y-3">
               <p>{t('This workspace membership scope is unavailable. Choose organization-wide members instead.', '此工作空间成员范围不可用，请改为查看组织范围成员。')}</p>
-              <Button asChild variant="secondary"><Link to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
+              <Button asChild variant="secondary"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
             </div>
       ) : context.session ? (
         <>
           {scopedWorkspace && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
             <p className="text-sm text-muted-foreground">{t('Showing members with access to this workspace.', '仅显示可访问此工作空间的成员。')}</p>
-            <Button asChild variant="ghost" size="sm"><Link to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
+            <Button asChild variant="ghost" size="sm"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
           </div>}
           <OperatorsView
             embedded
