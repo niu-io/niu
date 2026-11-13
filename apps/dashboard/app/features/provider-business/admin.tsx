@@ -741,7 +741,7 @@ function Administration({ token }: { token: string }) {
                 <div><span>{uiT("Accrued ·")}{" "}{balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
                 <div><span>{uiT("Unpaid")}</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
                 <div><span>{uiT("Paid")}</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
-              </div>) : <Empty className="provider-inline-empty min-h-32 rounded-xl border border-dashed border-border/60 bg-muted/20 py-6"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No provider charges recorded yet.")}</EmptyDescription></EmptyHeader></Empty>}
+              </div>) : <Empty className="provider-inline-empty min-h-32 rounded-xl bg-muted/55 py-6"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No provider charges recorded yet.")}</EmptyDescription></EmptyHeader></Empty>}
             </div>
           </div>}
           {section === "usage" && <>
@@ -882,7 +882,7 @@ function Administration({ token }: { token: string }) {
               <p>
                 {uiT("This records an external payment that has already completed. It does not initiate a transfer. Niu includes every unpaid earning in the selected currency through the cutoff.")}</p>
               {payableBalances.length === 0 ? (
-                <Empty className="provider-inline-empty min-h-28 rounded-xl border border-dashed border-border/60 bg-muted/20 py-5"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
+                <Empty className="provider-inline-empty min-h-28 rounded-xl bg-muted/55 py-5"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
               ) : (
                 <>
                   <div className="grid gap-2">

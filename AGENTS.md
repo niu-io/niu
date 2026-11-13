@@ -22,11 +22,11 @@ Before creating a review task, search for the existing finding/reference and upd
 
 Markdown holds durable requirements, review evidence, design decisions and dated verification records; link those records to the bead. Do not maintain a second live backlog, owner/status table or TODO checklist in Markdown. Historical review statuses remain dated evidence, with current execution state in Beads. Use GitHub Issues only when explicitly requested or needed for external/public discussion; link them to the bead instead of mirroring the backlog or automatically publishing review findings.
 
-Keep a task open while implementation awaits verification; use a `needs-verification` label when useful. Close it only with evidence matching its acceptance scope, or an explicit duplicate/rejected/superseded disposition. In the handoff record completed work, unverified behavior, blockers and the next action. Commit the Dolt working set and refresh the portable issue snapshot; report unpushed task state honestly. Beads does not authorize git commits, remote publication, delegation or product changes beyond the active task.
+Keep a task open while implementation awaits verification; use a `needs-verification` label when useful. Close it only with evidence matching its acceptance scope, or an explicit duplicate/rejected/superseded disposition. In the handoff record completed work, unverified behavior, blockers and the next action. Commit the Dolt working set, refresh the portable issue snapshot, and commit and push verified changes unless the user asks to keep them local; report any unpushed state honestly. Keep changes scoped to the active task.
 
 ## Branch model and production promotion
 
-Branch every product change from the current `release/<minor>` branch (currently `release/0.3`) and merge it back there. `main` is production and receives only a staging-accepted `release/<minor>`; never commit product changes to `main` directly, and never force-push `main` or a release branch. Create release tags on the release branch after staging acceptance. See [the branch model](docs/development/branching.md) for the flow, staging gate and cleanup rules.
+Branch every product change from the current `release/<minor>` branch (currently `release/0.3`), merge verified work back into `release/<minor>`, and push `release/<minor>` to `origin`. `main` is production and receives only a staging-accepted `release/<minor>`; never commit product changes to `main` directly, and never force-push `main` or a release branch. Create release tags on the release branch after staging acceptance. See [the branch model](docs/development/branching.md) for the flow, staging gate and cleanup rules.
 
 ## API route naming
 

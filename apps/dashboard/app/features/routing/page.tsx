@@ -103,7 +103,7 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
   const customerPrice = pool.strategy?.mode === 'customer_price';
   return (
     <div className="min-w-0 space-y-5">
-      <div className="grid gap-5 border-b py-5 sm:grid-cols-2">
+      <div className="grid gap-5 rounded-[var(--radius-panel)] bg-card p-5 sm:grid-cols-2">
         <div>
           <h2 className="font-medium">{safeText(pool.name)}</h2>
           <p className="mt-2 text-sm">
@@ -146,7 +146,7 @@ function PoolPolicyView({ pool }: { pool: WorkspaceModelPool }) {
         <>
           <h2 className="font-medium">{uiT('Routing rules')}</h2>
           {pool.rules?.map((rule) => (
-            <div key={rule.id} className="border-b py-3">
+            <div key={rule.id} className="space-y-2 rounded-[var(--radius-panel)] bg-card p-4">
               <p>
                 {safeText(rule.name ?? 'Rule')} ·{' '}
                 {rule.enabled ? uiT('Enabled') : uiT('Disabled')}

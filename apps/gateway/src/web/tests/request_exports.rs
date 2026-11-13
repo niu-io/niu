@@ -232,11 +232,11 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         text.lines()
             .next()
             .unwrap()
-            .ends_with("Cached input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status")
+            .ends_with("Cached input tokens,Cache-write input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status,Transport phase")
     );
     assert!(
         text.lines()
-            .any(|line| line.contains("\"9007199254740991\",\"0\""))
+            .any(|line| line.contains("\"9007199254740991\",\"\",\"0\""))
     );
     assert!(text.lines().skip(1).any(|line| line.ends_with("\"\",\"\"")));
     assert!(text.contains("\"9007199254740993\""));
@@ -336,6 +336,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     );
     for query in [
         "?http_status=502",
+        "?q=HtTp%20502",
         "?status=delivery_failed",
         "?http_status=502&status=confirmed_completed",
     ] {
@@ -359,7 +360,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     let known = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/requests?limit=1&http_status=502",
+                "/admin/v1/organizations/{}/projects/{}/requests?limit=1&q=HtTp%20502",
                 scope.organization_id, scope.project_id
             ))
             .header("authorization", format!("Bearer {}", viewer.token))
@@ -375,6 +376,8 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         known["data"][0]["finish_reasons"],
         json!([{"index":0,"reason":"length"}])
     );
+    assert_eq!(known["summary"]["request_count"], 1);
+    assert!(known["next_cursor"].is_null());
     let response = router(state.clone())
         .oneshot(
             Request::get(format!(
@@ -396,7 +399,8 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         value["summary"]["token_categories"],
         serde_json::json!({
             "cached_input_tokens":null,"cached_input_requests":0,"cached_input_unknown_requests":150,
-            "reasoning_output_tokens":null,"reasoning_output_requests":0,"reasoning_output_unknown_requests":150
+            "reasoning_output_tokens":null,"reasoning_output_requests":0,"reasoning_output_unknown_requests":150,
+            "cache_write_input_tokens":null,"cache_write_input_requests":0,"cache_write_input_unknown_requests":150
         })
     );
     assert!(value["data"][0]["cached_input_tokens"].is_null());
@@ -603,4 +607,75 @@ async fn request_sorting_covers_the_filtered_range_and_paginates_known_and_unkno
             .unwrap()
             .is_empty()
     );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn request_search_matches_older_rows_before_pagination(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let scope = state.store.default_workspace().await.unwrap();
+    let other = state
+        .store
+        .create_project(scope.organization_id, "Other search workspace")
+        .await
+        .unwrap();
+    let viewer = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Search reader",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    for workspace in [scope, scope, other] {
+        let (_, attempt) = state
+            .store
+            .prepare_gateway_attempt(workspace, "archived-model", None, "fixture")
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO request_timings(attempt_id,total_ms,complete,http_status) VALUES($1,10,true,502)")
+            .bind(attempt).execute(&pool).await.unwrap();
+    }
+    bulk(&pool, scope, 3).await;
+
+    let mut after = String::new();
+    let mut first_attempt = None;
+    for page in 0..2 {
+        let response = router(state.clone())
+            .oneshot(
+                Request::get(format!(
+                    "/api/v1/organizations/{}/projects/{}/requests?limit=1&q=HtTp%20502{after}",
+                    scope.organization_id, scope.project_id,
+                ))
+                .header("authorization", format!("Bearer {}", viewer.token))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let value: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(value["summary"]["request_count"], 2);
+        assert_eq!(value["data"].as_array().unwrap().len(), 1);
+        assert_eq!(value["data"][0]["model"], "archived-model");
+        if page == 0 {
+            first_attempt = Some(value["data"][0]["attempt_id"].clone());
+            after = format!("&after={}", value["next_cursor"].as_str().unwrap());
+        } else {
+            assert_ne!(first_attempt, Some(value["data"][0]["attempt_id"].clone()));
+            assert!(value["next_cursor"].is_null());
+        }
+    }
+    let response = export(state, scope, &viewer.token, "?q=ARCHIVED%20MODEL").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let csv = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(std::str::from_utf8(&csv).unwrap().lines().count(), 3);
 }

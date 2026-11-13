@@ -29,7 +29,7 @@ export default function WorkspaceAssetsRoute() {
     return (
       <>
         <PageHeader title={t('Assets', '素材库')} />
-        <Empty className="min-h-44 rounded-xl border border-dashed border-border/60 bg-muted/20 py-8">
+        <Empty className="min-h-44 py-8">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <IconSparkles size={18} aria-hidden="true" />

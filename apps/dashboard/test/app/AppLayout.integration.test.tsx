@@ -246,7 +246,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production?period=month#activity');
     await screen.findByRole('heading', {name:'Overview',level:1});
     await userEvent.click(screen.getByRole('button',{name:'Account menu'}));
-    await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
+    await userEvent.click(screen.getByRole('menuitem',{name:'Appearance',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(await screen.findByRole('tablist',{name:'Settings sections'})).toBeTruthy();
@@ -644,7 +644,7 @@ describe('dashboard route layout', () => {
     } else {
       expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
       expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
-      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50'));
+      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50&status=active'));
     }
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
@@ -682,8 +682,8 @@ describe('dashboard route layout', () => {
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy());
     expect([...new Set(calls.filter(path => path.split('?')[0].endsWith('/keys')))]).toEqual([
-      '/api/v1/workspaces/project-1/keys?limit=50',
-      '/api/v1/workspaces/project-2/keys?limit=50',
+      '/api/v1/workspaces/project-1/keys?limit=50&status=active',
+      '/api/v1/workspaces/project-2/keys?limit=50&status=active',
     ]);
   });
 
@@ -798,8 +798,8 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
     expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', slug: 'research-project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.split('?')[0].endsWith('/keys')).map(call => call.path);
-    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50');
-    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50');
+    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50&status=active');
+    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50&status=active');
   });
 
   it('verifies session permissions before loading operator administration', async () => {
@@ -988,6 +988,55 @@ describe('dashboard route layout', () => {
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
     expect(await screen.findByRole('link', { name: 'Return to overview' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Switch workspace page' })).toBeNull();
+  });
+
+  it('switches workspace pages from the mobile sidebar without unmounting before navigation or linking header brand to marketing root', async () => {
+    const previousInnerWidth = window.innerWidth;
+    const previousMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 390 });
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width') ? 390 <= Number(/(\d+)px/.exec(query)?.[1] ?? 0) : false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    try {
+      mockHealth();
+      const router = renderAt('/workspaces/default');
+      const user = userEvent.setup();
+      const toggle = await screen.findByRole('button', { name: 'Expand workspace navigation' });
+      const brandLink = screen.getByRole('link', { name: 'Niu home' });
+      expect(brandLink.getAttribute('href')).toBe('/workspaces/default');
+
+      await user.click(toggle);
+      const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
+      const modelsLink = within(nav).getByRole('link', { name: 'Models', exact: true });
+      expect(modelsLink.getAttribute('data-slot')).toBe('sidebar-menu-button');
+
+      await user.click(modelsLink);
+      await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/models'));
+      await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
+
+      await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
+      const reopenedNav = await screen.findByRole('navigation', { name: 'Main navigation' });
+      await user.click(within(reopenedNav).getByRole('link', { name: 'API keys', exact: true }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/keys'));
+      await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
+
+      await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
+      const keysNav = await screen.findByRole('navigation', { name: 'Main navigation' });
+      await user.click(within(keysNav).getByRole('link', { name: 'Generations', exact: true }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/generations'));
+      const generationsBrand = await screen.findByRole('link', { name: 'Niu home' });
+      expect(generationsBrand.getAttribute('href')).toBe('/workspaces/default');
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: previousInnerWidth });
+      window.matchMedia = previousMatchMedia;
+    }
   });
 });
 

@@ -49,7 +49,8 @@ function ModelFilterButton({ activeCount = 0 }: { activeCount?: number }) {
 
 function ModelFilterCloseButton() {
   const { t: uiT } = useUILocale();
-  const { toggleSidebar } = useSidebar();
+  const { isMobile, toggleSidebar } = useSidebar();
+  if (isMobile) return null;
   return (
     <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Close filters")} onClick={toggleSidebar}>
       <X size={15} aria-hidden="true" />
@@ -327,7 +328,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
               </Label>)}</div>
             </CollapsibleContent>
           </Collapsible>)}
-          <Collapsible className="models-filter-group border-t border-border/60 pt-2 mt-2" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
+          <Collapsible className="models-filter-group pt-2 mt-1" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
           <p className="text-xs text-muted-foreground">{uiT("Inferred from model identifiers; not verified.")}</p><div className="models-filter-options">
             {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelDeveloper(model)?.id === identity.id).length}</span></Label>)}
           </div>
@@ -405,7 +406,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
     </div>}
     {selected ? <aside className="model-route-detail" aria-label={uiF("{0} route details", [selected.id])}>
       <Button asChild variant="ghost" size="sm" className="mb-2 w-fit px-0"><Link to={catalogPath + catalogSearch}><ArrowLeft size={15} />{uiT("All models")}</Link></Button>
-      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><div className="model-route-title"><h2>{catalogTitle(selected)}</h2>{catalogTitle(selected) !== selected.id && <p className="model-developer-label">{selected.id}</p>}</div></div>
+      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code></div>
       {selected.catalog?.description && <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}

@@ -13,6 +13,7 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 
 const mockContext = {
   token: 'member',
+  session: { permissions: { read: true, write: true } },
   workspace: { id: 'ws-1', organization_id: 'org-1', slug: 'default', name: 'Default' },
   workspaces: [{ id: 'ws-1', organization_id: 'org-1', slug: 'default', name: 'Default' }],
 } as DashboardContext;
@@ -147,5 +148,35 @@ describe('GenerationsContextPanel', () => {
 
     expect(await screen.findByLabelText('Generation context')).toBeTruthy();
     expect(screen.getByText('Turn 1 · req-101')).toBeTruthy();
+  });
+
+  it('toggles the Assets (素材库) right-hand sidebar panel and keeps it mutually exclusive with Context', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <SidebarProvider>
+          <TestSurface />
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByLabelText('Workspace assets')).toBeNull();
+    expect(screen.queryByLabelText('Generation context')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Toggle assets panel' }));
+
+    expect(await screen.findByLabelText('Workspace assets')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Attach image' })).toBeTruthy();
+    expect(screen.queryByLabelText('Generation context')).toBeNull();
+
+    // Opening Context closes Assets
+    await user.click(screen.getByRole('button', { name: 'Toggle context panel' }));
+    expect(await screen.findByLabelText('Generation context')).toBeTruthy();
+    expect(screen.queryByLabelText('Workspace assets')).toBeNull();
+
+    // Opening Assets again closes Context
+    await user.click(screen.getByRole('button', { name: 'Toggle assets panel' }));
+    expect(await screen.findByLabelText('Workspace assets')).toBeTruthy();
+    expect(screen.queryByLabelText('Generation context')).toBeNull();
   });
 });

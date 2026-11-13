@@ -161,3 +161,61 @@ async fn interrupted_timing_preserves_unknown_headers_and_rejects_invalid_chrono
         .bind(attempt).fetch_one(&pool).await.unwrap();
     assert_eq!(saved, (None, None, None, 20, false));
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn key_status_filters_entire_workspace_before_pagination(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let scope = store.default_workspace().await.unwrap();
+    let first = store
+        .issue_key(scope, "First active", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let revoked = store
+        .issue_key(scope, "Revoked", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let expired = store
+        .issue_key(scope, "Expired", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let last = store
+        .issue_key(scope, "Last active", &["*".into()], 3600)
+        .await
+        .unwrap();
+    store.revoke_key(scope, revoked.id).await.unwrap();
+    sqlx::query("UPDATE api_keys SET expires_at=now()-interval '1 minute' WHERE id=$1")
+        .bind(expired.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let (active, next) = store
+        .key_directory_page(scope, None, 1, Some(true))
+        .await
+        .unwrap();
+    assert_eq!(active[0].id, first.id);
+    assert_eq!(next, Some(first.id));
+    let (active, next) = store
+        .key_directory_page(scope, next, 1, Some(true))
+        .await
+        .unwrap();
+    assert_eq!(active[0].id, last.id);
+    assert!(next.is_none());
+
+    let (inactive, next) = store
+        .key_directory_page(scope, None, 1, Some(false))
+        .await
+        .unwrap();
+    assert_eq!(inactive[0].id, revoked.id);
+    assert!(inactive[0].revoked);
+    assert_eq!(next, Some(revoked.id));
+    let (inactive, next) = store
+        .key_directory_page(scope, next, 1, Some(false))
+        .await
+        .unwrap();
+    assert_eq!(inactive[0].id, expired.id);
+    assert!(inactive[0].expired);
+    assert!(next.is_none());
+}

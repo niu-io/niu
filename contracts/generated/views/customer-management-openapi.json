@@ -7242,6 +7242,15 @@
         ],
         "parameters": [
           {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "name": "http_status",
             "in": "query",
             "description": "Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.",
@@ -23964,6 +23973,18 @@
         ],
         "parameters": [
           {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
             "name": "organization",
             "in": "path",
             "required": true,
@@ -24793,13 +24814,22 @@
       "get": {
         "operationId": "exportWorkspaceRequests",
         "summary": "Export filtered customer-safe request metadata as CSV",
-        "description": "Requires workspace read access. Uses one database statement for the filtered range, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.",
+        "description": "Requires workspace read access. Checks the row limit and reads the filtered range in one consistent database snapshot, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.",
         "security": [
           {
             "adminBearerAuth": []
           }
         ],
         "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           {
             "name": "http_status",
             "in": "query",
@@ -24965,6 +24995,15 @@
           }
         ],
         "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           {
             "name": "http_status",
             "in": "query",
@@ -26246,6 +26285,18 @@
           }
         ],
         "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
           {
             "name": "workspace",
             "in": "path",

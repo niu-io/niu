@@ -34,6 +34,20 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys" \
 
 ## Parameters
 
+### status
+
+Location: **query**. Optional. Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "inactive"
+  ]
+}
+```
+
 ### workspace
 
 Location: **path**. **Required.**

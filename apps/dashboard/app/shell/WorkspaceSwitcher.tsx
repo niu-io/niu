@@ -65,7 +65,10 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
         {!workspaceLoading && entries.length === 0 && <div className="workspace-switcher-empty">{t('No workspaces yet.', '暂无工作空间。')}</div>}
         {!workspaceLoading && <DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {
           const next = entries.find(item => item.id === id);
-          if (next) selectWorkspace(next);
+          if (next) {
+            selectWorkspace(next);
+            if (isMobile) window.requestAnimationFrame(() => setOpenMobile(false));
+          }
         }}>
           {entries.map(item => {
             const displayName = workspaceDisplayName(item.name);
@@ -77,7 +80,7 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
         </DropdownMenuRadioGroup>}
         {workspaceError && <div className="workspace-switcher-error" role="alert">{t('Workspace access is unavailable. Close this menu and retry.', '工作空间访问暂不可用，请关闭菜单后重试。')}</div>}
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild onSelect={() => { if (isMobile) setOpenMobile(false); }}>
+        <DropdownMenuItem asChild onSelect={() => { if (isMobile) window.requestAnimationFrame(() => setOpenMobile(false)); }}>
           <Link to="/workspaces"><IconList size={16} aria-hidden="true" />{t('All workspaces', '所有工作空间')}</Link>
         </DropdownMenuItem>
         {canCreate && !workspaceLoading && !workspaceError && <>

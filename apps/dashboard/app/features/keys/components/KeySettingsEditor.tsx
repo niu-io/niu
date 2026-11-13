@@ -239,14 +239,14 @@ export default function KeySettingsEditor({ token, projectKey, models, canWrite,
     } finally { if (!controller.signal.aborted) setSaving(false); }
   }
 
-  return <form className="grid gap-6 py-4" onSubmit={event => { event.preventDefault(); void save(); }}>
-    <section className="grid gap-4" aria-label={uiT("API key details")}>
+  return <form className="grid gap-4 py-1" onSubmit={event => { event.preventDefault(); void save(); }}>
+    <section className="grid gap-4 rounded-xl bg-muted/45 p-4" aria-label={uiT("API key details")}>
       <h3 className="text-sm font-medium">{uiT("API key details")}</h3>
       <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-name">{uiT("Name")}</Label><Input id="key-edit-name" value={name} maxLength={200} disabled={saving || conflict} onChange={event => setName(event.target.value)} autoFocus /></div>
       <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-models">{uiT("Model access")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="key-edit-models" type="button" variant="outline" className="justify-between" disabled={saving || conflict} aria-label={uiT("Model access")}>{selectedModels.includes('*') ? uiT("All configured models") : uiF("{0} model{1} selected", [selectedModels.length, selectedModels.length === 1 ? '' : 's'])}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto" align="start"><DropdownMenuCheckboxItem checked={selectedModels.includes('*')} onSelect={event => event.preventDefault()} onCheckedChange={checked => setSelectedModels(checked ? ['*'] : [])}>{uiT("All configured models")}</DropdownMenuCheckboxItem><DropdownMenuSeparator />{[...new Set([...models, ...selectedModels.filter(model => model !== '*')])].sort().map(model => <DropdownMenuCheckboxItem key={model} checked={selectedModels.includes(model)} onSelect={event => event.preventDefault()} onCheckedChange={checked => setSelectedModels(current => checked ? [...current.filter(value => value !== '*'), model] : current.filter(value => value !== model))}>{model}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
     </section>
 
-    <section className="grid gap-4 border-t pt-5" aria-label={uiT("Limits")}>
+    <section className="grid gap-4 rounded-xl bg-muted/45 p-4" aria-label={uiT("Limits")}>
       <div><h3 className="text-sm font-medium">{uiT("Limits")}</h3><p className="mt-1 text-sm text-muted-foreground">{uiT("Throughput limits for this API key.")}</p></div>
       {!canConfigureSpending && <p className="text-sm text-muted-foreground">{uiT("Only workspace owners can change key limits and policies.")}</p>}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -260,7 +260,7 @@ export default function KeySettingsEditor({ token, projectKey, models, canWrite,
       <p className="text-xs text-muted-foreground">{uiT("Leave blank for unlimited. Zero blocks new requests.")}</p>
     </section>
 
-    <section className="grid gap-4 border-t pt-5" aria-label={uiT("Source IP access")}>
+    <section className="grid gap-4 rounded-xl bg-muted/45 p-4" aria-label={uiT("Source IP access")}>
       <div><h3 className="text-sm font-medium">{uiT("Source IP access")}</h3><p className="mt-1 text-sm text-muted-foreground">{uiT("Control which IP addresses can use this API key.")}</p></div>
       <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-ip-mode">{uiT("Access")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="key-edit-ip-mode" type="button" variant="outline" className="justify-between" aria-label={uiT("Source IP access mode")} disabled={saving || conflict || !canConfigureSpending}>{uiT(modeNames[ipMode])}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-w-[calc(100vw-2rem)]"><DropdownMenuRadioGroup value={ipMode} onValueChange={value => setIpMode(value as IpMode)}><DropdownMenuRadioItem value="all">{uiT("Allow all sources")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="listed">{uiT("Allow listed sources")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="blocked">{uiT("Block all sources")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
       {ipMode === 'listed' && <div className="grid gap-2"><Label htmlFor="key-edit-cidrs">{uiT("Allowed addresses or CIDRs")}</Label><Textarea id="key-edit-cidrs" value={cidrs} rows={4} disabled={saving || conflict || !canConfigureSpending} onChange={event => setCidrs(event.target.value)} className="font-mono text-xs" /><p className="text-sm text-muted-foreground">{uiT("One IPv4 or IPv6 address or CIDR per line. Up to 64 entries, each up to 64 characters.")}</p>{cidrsInvalid && <p role="alert" className="text-sm text-destructive">{uiT("Enter between 1 and 64 addresses or CIDRs, each up to 64 characters.")}</p>}</div>}
@@ -268,7 +268,7 @@ export default function KeySettingsEditor({ token, projectKey, models, canWrite,
       <p className="text-sm text-muted-foreground">{uiT("When restricted, requests from unlisted addresses are rejected. Existing requests are not cancelled.")}</p>
     </section>
 
-    <section className="grid gap-4 border-t pt-5" aria-label={uiT("Spending limits")}>
+    <section className="grid gap-4 rounded-xl bg-muted/45 p-4" aria-label={uiT("Spending limits")}>
       <div><h3 className="text-sm font-medium">{uiT("Spending limits")}</h3><p className="mt-1 text-sm text-muted-foreground">{uiT("Lifetime customer spending allowances. Account and workspace limits still apply.")}</p></div>
       {!platformCurrency && !unitAccount && <p className="text-sm text-muted-foreground">{uiT("Spending limits will be available after the platform currency is configured in Admin.")}</p>}
       {spendingRow && <div className="grid gap-2"><Label htmlFor="key-edit-spending">{uiT("Lifetime limit (")}{spendingRow.currency})</Label><Input id="key-edit-spending" inputMode="decimal" autoComplete="off" value={spending} disabled={saving || conflict || !canConfigureSpending} onChange={event => setSpending(event.target.value)} aria-describedby="key-edit-spending-help" /><p id="key-edit-spending-help" className="text-sm text-muted-foreground">{uiT("Leave blank for unlimited. Zero blocks new paid requests in this currency. No periodic reset.")}</p><p className="text-sm text-muted-foreground">{uiT("Committed at last refresh:")}{" "}{money(spendingRow.committed_nanos, spendingRow.currency)}{uiT(". The limit must cover this amount.")}</p>{spendingError && <p role="alert" className="text-sm text-destructive">{spendingError}</p>}</div>}
@@ -276,7 +276,7 @@ export default function KeySettingsEditor({ token, projectKey, models, canWrite,
       <p className="text-xs text-muted-foreground">{uiT("This limit covers Niu customer charges and reserved requests. It does not cover charges paid directly to a Provider using your own API key. Manage those costs with the Provider.")}</p>
     </section>
 
-    <section className="grid gap-4 border-t pt-5" aria-label={uiT("Guardrails")}>
+    <section className="grid gap-4 rounded-xl bg-muted/45 p-4" aria-label={uiT("Guardrails")}>
       <div><h3 className="text-sm font-medium">{uiT("Guardrails")}</h3><p className="mt-1 text-sm text-muted-foreground">{uiT("Workspace rules always apply. This key can follow the current workspace policy or pin a saved version that adds fixed restrictions.")}</p></div>
       <Label htmlFor="key-edit-guardrail">{uiT("Key policy")}</Label>
       <DropdownMenu><DropdownMenuTrigger asChild><Button id="key-edit-guardrail" type="button" variant="outline" className="justify-between" disabled={saving || conflict || guardrailLoading || !guardrailLoaded} aria-label={uiT("Key Guardrails")}>{guardrailLoaded ? guardrailLabel : uiT("Loading saved versions…")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={choice} onValueChange={setChoice}><DropdownMenuRadioItem value="follow">{uiT("Follow workspace policy")}</DropdownMenuRadioItem>{versions.map(version => <DropdownMenuRadioItem key={version.revision} value={String(version.revision)}>{version.policy_name}{" "}{uiT("· Version")}{" "}{version.revision}{version.active ? " " + uiT("(workspace current)") : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>

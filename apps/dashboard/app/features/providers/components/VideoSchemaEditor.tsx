@@ -274,7 +274,7 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
     <DialogHeader><DialogTitle>{uiT("Video configuration")}</DialogTitle><DialogDescription>{modelAlias}{" "}{uiT("· Changes are saved with the model mapping. Configuration does not qualify a live route.")}</DialogDescription></DialogHeader>
     <form onSubmit={apply} className="grid min-w-0 gap-4">
       {!advanced && <div className="grid gap-5">
-        <section className="grid gap-3 rounded-lg border border-border p-3">
+        <section className="grid gap-3 rounded-xl bg-muted/55 p-3.5">
           <div className="grid gap-1">
             <h3 className="text-sm font-semibold">{uiT("Start from a template")}</h3>
             <p className="text-sm text-muted-foreground">{uiT("Templates prefill channel, request limits, MIME types and pixel mappings. They are starting points, not verified model capabilities. Review every value against the Provider contract.")}</p>
@@ -306,7 +306,7 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
           <legend className="text-sm font-semibold">{uiT("Supported inputs")}</legend>
           <p className="text-sm text-muted-foreground">{uiT("Choose the input kinds in the exact model and channel contract. Declaring a media input does not enable dispatch until transport, inspection and the exact contract are qualified.")}</p>
           <div className="grid gap-2 sm:grid-cols-2">
-            {(Object.keys(inputLabels) as InputName[]).map(name => <Label key={name} className="flex items-start gap-2 rounded-md border border-border p-3 font-normal"><Checkbox checked={inputs[name].enabled} onCheckedChange={value => toggleInput(name, value === true)} /><span className="grid gap-0.5"><strong>{uiT(inputLabels[name])}</strong><small className="text-muted-foreground">{uiT(inputHelp[name])}</small></span></Label>)}
+            {(Object.keys(inputLabels) as InputName[]).map(name => <Label key={name} className="flex items-start gap-2 rounded-xl bg-muted/55 p-3 font-normal"><Checkbox checked={inputs[name].enabled} onCheckedChange={value => toggleInput(name, value === true)} /><span className="grid gap-0.5"><strong>{uiT(inputLabels[name])}</strong><small className="text-muted-foreground">{uiT(inputHelp[name])}</small></span></Label>)}
           </div>
         </fieldset>
 
@@ -352,7 +352,7 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
         </section>
       </div>}
 
-      <Collapsible open={advanced} onOpenChange={setAdvanced} className="grid gap-3 rounded-lg border border-border p-3">
+      <Collapsible open={advanced} onOpenChange={setAdvanced} className="grid gap-3 rounded-xl bg-muted/55 p-3.5">
         <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="h-auto w-full justify-between px-0"><span className="grid gap-1 text-left"><span className="font-semibold">{uiT("Advanced schema overrides")}</span><span className="text-sm font-normal text-muted-foreground">{uiT("Edit raw byte limits, MIME types, control bounds and pixel mappings. These values are validated on apply.")}</span></span><ChevronDown size={16} className={advanced ? 'rotate-180 transition-transform' : 'transition-transform'}/></Button></CollapsibleTrigger>
         <CollapsibleContent className="pt-1">
           <Tabs value={tab} onValueChange={setTab}>

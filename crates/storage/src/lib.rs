@@ -483,6 +483,8 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("request export exceeds the row limit")]
+    RequestExportTooLarge,
     #[error("agent authorization polling interval exceeded")]
     AgentAuthorizationPollLimited,
     #[error("company balance account is not configured for the spending-limit currency")]

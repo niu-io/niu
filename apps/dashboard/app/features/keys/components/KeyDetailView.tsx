@@ -233,7 +233,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     {(loading || (Boolean(collectionPath) && loadedScope !== scopeIdentity && !loadFailed)) && !key && <section className="key-detail-card border-0 bg-transparent p-0 shadow-none"><FormSectionSkeleton fields={3} label={uiT("Loading key…")} /></section>}
     {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="key-detail-card key-not-found border-0 bg-muted/40 p-6 shadow-none"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
     {key && <>
-      <section className="key-detail-card border-0 bg-transparent p-0 pb-6 shadow-none" aria-label={uiT("API key details")}>
+      <section className="key-detail-card rounded-[var(--radius-panel)] border-0 bg-card p-6 shadow-none" aria-label={uiT("API key details")}>
         <h2 className="sr-only">{key.name}</h2>
         {editing && initialScope && keyPath && <KeySettingsEditor
           token={token}

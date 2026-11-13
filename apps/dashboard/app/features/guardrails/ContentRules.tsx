@@ -185,7 +185,7 @@ export default function ContentRules({
         </p>
       )}
       <section className="guardrails-section guardrails-content-section">
-        <h3>{uiT("Patterns")}</h3>
+        <h3>{stage === "input" ? uiT("Input patterns", "输入匹配模式") : uiT("Output patterns", "输出匹配模式")}</h3>
         <p className="guardrails-muted">
           {uiT("Versioned syntax patterns. These do not detect every secret or personal detail.")}</p>
         {presets.map((preset) => {
@@ -257,7 +257,7 @@ export default function ContentRules({
       </section>
       <section className="guardrails-section guardrails-content-section">
         <div className="guardrails-section-heading">
-          <h3>{uiT("Custom patterns")}</h3>
+          <h3>{stage === "input" ? uiT("Custom input patterns", "自定义输入匹配模式") : uiT("Custom output patterns", "自定义输出匹配模式")}</h3>
           <Button
             ref={addPatternButton}
             variant="outline"
@@ -277,7 +277,7 @@ export default function ContentRules({
             {uiT("The 32-rule limit has been reached.")}</p>
         )}
         {!custom.length && (
-          <p className="guardrails-muted rounded-lg border border-dashed border-border/70 bg-muted/20 px-3.5 py-2.5">{uiT("No custom patterns.")}</p>
+          <p className="guardrails-muted rounded-lg bg-muted/55 px-3.5 py-2.5">{uiT("No custom patterns.")}</p>
         )}
         {custom.map(({ rule, index }, number) => (
           <div key={index} className="guardrails-custom-pattern">
@@ -344,7 +344,7 @@ export default function ContentRules({
         {invalid && <p role="alert">{uiT(invalid)}</p>}
       </section>
       <section className="guardrails-section guardrails-content-section">
-        <h3>{uiT("Test your patterns")}</h3>
+        <h3>{stage === "input" ? uiT("Test input patterns", "测试输入匹配模式") : uiT("Test output patterns", "测试输出匹配模式")}</h3>
         <p className="guardrails-muted">
           {uiT("Tests only the rules shown here. Use synthetic text; nothing is saved or sent to a model.")}</p>
         <div className="flex flex-wrap items-center gap-2">

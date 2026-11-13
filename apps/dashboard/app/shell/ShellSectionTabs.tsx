@@ -50,7 +50,7 @@ export default function ShellSectionTabs({ context }: {
     const internal = context.session?.operating_mode === 'internal';
     entries = [
       { path: `${routeWorkspaceBase}/settings`, label: t('General', '常规设置') },
-      ...(!internal ? [{ path: `${routeWorkspaceBase}/billing`, label: t('Billing', '账单与费率') }] : []),
+      ...(!internal ? [{ path: `${routeWorkspaceBase}/billing`, label: t('Billing and rates', '账单与费率') }] : []),
       { path: `${routeWorkspaceBase}/guardrails`, label: t('Guardrails', '安全护栏') },
     ];
     selected = location.pathname.includes('/guardrails')
@@ -58,13 +58,6 @@ export default function ShellSectionTabs({ context }: {
       : location.pathname.includes('/billing') && !internal
         ? `${routeWorkspaceBase}/billing`
         : `${routeWorkspaceBase}/settings`;
-  } else if (/^\/workspaces\/[^/]+\/(assets|library|video)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
-    label = t('Generations sections', '生成与素材页面');
-    entries = [
-      { path: '/generations', label: t('Sessions', '对话会话') },
-      { path: `${routeWorkspaceBase}/assets`, label: t('Assets', '素材库') },
-    ];
-    selected = `${routeWorkspaceBase}/assets`;
   }
 
   if (!entries.length) return null;

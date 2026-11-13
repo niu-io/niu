@@ -361,6 +361,7 @@ fn require_owner_for_policy(auth: AdminAuthorization) -> Result<(), ApiError> {
 ///       }
 ///     ],
 ///     "parameters": [
+///       {"name":"status","in":"query","description":"Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.","schema":{"type":"string","enum":["active","inactive"]}},
 ///       {
 ///         "name": "workspace",
 ///         "in": "path",
@@ -792,7 +793,7 @@ pub async fn list_keys(
         },
     )
     .await?;
-    if query.limit.is_some() || query.after.is_some() {
+    if query.limit.is_some() || query.after.is_some() || query.status.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
             return Err(ApiError::invalid_request(
@@ -801,7 +802,14 @@ pub async fn list_keys(
         }
         let (mut data, next_cursor) = state
             .store
-            .key_detail_directory_page(scope, query.after, limit)
+            .key_detail_directory_page(
+                scope,
+                query.after,
+                limit,
+                query
+                    .status
+                    .map(|status| matches!(status, super::KeyListStatus::Active)),
+            )
             .await
             .map_err(ApiError::from_store)?;
         if reveal {
