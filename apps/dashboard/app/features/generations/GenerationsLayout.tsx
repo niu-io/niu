@@ -2,7 +2,8 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type CSSProperties, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconMessageChatbot, IconPhoto, IconVideo, IconX } from '@tabler/icons-react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import { IconDotsVertical, IconLayoutSidebarRight, IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconHistory, IconMessageChatbot, IconPhoto, IconVideo, IconX } from '@tabler/icons-react';
 import { useBranding } from '@/shell/branding';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { WorkspaceLibrary } from '@/features/library/page';
@@ -84,6 +85,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
   const { t: uiT } = useUILocale();
   const { logo } = useBranding();
   const location = useLocation();
+  const navigate = useNavigate();
   const toggle = useRef<HTMLButtonElement>(null);
   const { isMobile, openMobile, open, setOpen, setOpenMobile } = useSidebar();
   const [content, setContent] = useState<Content | null>(null);
@@ -190,7 +192,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
         <Button
           type="button"
           variant={assetsOpen ? 'secondary' : 'outline'}
-          className="generations-context-trigger"
+          className="generations-context-trigger generations-secondary-action"
           onClick={() => handleAssetsOpenChange(!assetsOpen)}
           aria-label={uiT("Toggle assets panel", "切换素材库面板")}
           aria-controls="generations-assets-panel"
@@ -201,7 +203,19 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
         </Button>
       )}
       <Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="icon" onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory /></Button>
-      {content?.contextPanel && <GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} />}
+      {content?.contextPanel && <span className="generations-secondary-action"><GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} /></span>}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="generations-more-actions" aria-label={uiT("Generation actions", "生成操作")}><IconDotsVertical /></Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" collisionPadding={12}>
+          <DropdownMenuRadioGroup value={inVideoMode ? 'video' : 'chat'} onValueChange={value => navigate(`/generations?new=${value === 'video' ? 'video' : '1'}${workspaceSuffix}`)}>
+            <DropdownMenuRadioItem value="chat"><IconMessageChatbot />{uiT("Chat", "对话")}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="video"><IconVideo />{uiT("Video", "视频")}</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          {(workspace && token || content?.contextPanel) && <DropdownMenuSeparator />}
+          {workspace && token && <DropdownMenuItem onSelect={() => handleAssetsOpenChange(!assetsOpen)}><IconPhoto />{uiT("Assets", "素材库")}</DropdownMenuItem>}
+          {content?.contextPanel && <DropdownMenuItem onSelect={() => handleContextOpenChange(!contextOpen)}><IconLayoutSidebarRight />{uiT("Context", "上下文")}</DropdownMenuItem>}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div></header>
     <div className="generations-session-content"><div className="generations-session-primary">{children}</div>{assetsOpen && workspace && token && (
       <aside

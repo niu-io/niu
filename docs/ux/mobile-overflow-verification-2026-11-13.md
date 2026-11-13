@@ -51,3 +51,15 @@ responses. These checks supplement the current-input browser evidence above; the
 do not establish staging acceptance. The source changes have not been committed,
 pushed or deployed. Model execution, payment processing and key rotation/revocation
 were outside this layout verification.
+
+## Header follow-up before staging
+
+Tracked by `niu-w5fa`, related to `niu-ly7e`. The operator reported crowded Chat and Logs headers during staging preparation and confirmed that secondary actions should move into a single overflow menu without further redesign.
+
+The integrated branch includes release source `007390f4`. Chat uses the installed DropdownMenu for Chat/Video selection and Assets/Context when the content canvas is at most 900px wide. API key and history remain directly available. Logs keeps its existing filter/date/action controls together and places its visible search field below on narrow canvases. The shared breadcrumb allocates more room to the current page at 320px.
+
+Reference inspection: OpenRouter Chat supplied the compact chat toolbar precedent; GitHub's public issue list supplied the narrow list title/actions plus separate search precedent. OpenRouter Activity redirected to sign-in, so its authenticated layout was not used as evidence. The ux-design interface guidance recommends collapsing secondary actions before adding header rows; ux-review visual guidance requires inspecting grouping, hierarchy and actual available width independently of functional behavior. Niu additionally requires direct shadcn menus and right-aligned selection checks.
+
+Current-input browser verification used the integrated local dashboard with the live staging backend: 320/390px Chat and Logs, 700px Logs, and 1024/1440px desktop. At 1024px, the navigation expanded to 240px and left a 784px content canvas; collapsed navigation left 960px. Logs remained one toolbar row on desktop and two on narrow canvases (80px total), with no document horizontal overflow. The 320px Logs title is readable. The Chat overflow menu was visually inspected open with aligned icons and right-hand checked state; Assets opened, history opened/dismissed, and the Video action navigated to the existing Video route. Logs Status and date panels were opened within the viewport. No model invocation, payment or key mutation was performed.
+
+Type checking, linting, production build and public-boundary inspection completed. Fixture commands executed by CI are disregarded; their results provide no verification signal. Hosted acceptance remains pending deployment of this exact change.

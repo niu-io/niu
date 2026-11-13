@@ -127,3 +127,11 @@
   .generations-layout > [data-slot="sidebar"] > [data-slot="sidebar-gap"] { width: 0; flex-basis: 0; }
   .generations-layout .generations-history[data-slot="sidebar-container"] { z-index: 25; box-shadow: var(--shadow-overlay); }
 }
+
+/* Keep the session identity and primary controls visible on narrow canvases. */
+.generations-more-actions { display: none; }
+@container (max-width: 900px) {
+  .generations-toolbar .generations-mode-switch,
+  .generations-toolbar .generations-secondary-action { display: none; }
+  .generations-toolbar .generations-more-actions { display: inline-flex; }
+}

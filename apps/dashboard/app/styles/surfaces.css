@@ -349,3 +349,7 @@
 .sidebar-header-toggle:hover .sidebar-toggle-expand-icon,
 .sidebar-header-toggle:focus-visible .sidebar-toggle-expand-icon,
 .niu-workspace-sidebar:hover .sidebar-header-toggle .sidebar-toggle-expand-icon { display: block; }
+
+@media (max-width: 380px) {
+  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { max-width: 56px; }
+}
