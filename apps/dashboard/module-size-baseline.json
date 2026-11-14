@@ -2,7 +2,7 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 4930,
+      "lines": 4931,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {

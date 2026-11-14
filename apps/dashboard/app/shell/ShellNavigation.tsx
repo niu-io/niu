@@ -73,7 +73,7 @@ export function ShellNavigation({
         : supplierArea
           ? 'supplier-navigation'
           : 'workspace-navigation';
-  const toggleButton = (
+  const toggleButton = !isMobile && (
     <Button
       ref={!isMobile ? toggleRef : undefined}
       type="button"
