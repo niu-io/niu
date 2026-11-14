@@ -10,7 +10,7 @@
       "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
     },
     "app/features/routing/page.tsx": {
-      "lines": 1922,
+      "lines": 1932,
       "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives."
     },
     "app/features/commercial-position/page.tsx": {
