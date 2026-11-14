@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from '@/features/providers/api';
-import { cacheTheme, cacheThemeOwner, readThemeOwner, type Theme } from './theme';
+import { applyTheme, cacheTheme, cacheThemeOwner, readTheme, readThemeOwner, type Theme } from './theme';
 
 function validMode(value: unknown): value is Theme {
   return value === 'light' || value === 'dark' || value === 'system';
@@ -8,6 +8,14 @@ function validMode(value: unknown): value is Theme {
 
 /** Synchronize shared theme controls with the signed-in member's saved preference. */
 export function useAccountAppearance(token: string, identity: string, personal: boolean, memberId = identity, deploymentDefault:Theme = 'system') {
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!media) return;
+    const update = () => applyTheme(readTheme());
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState({identity,ready:!personal,saving:false,error:''});
   useEffect(() => {

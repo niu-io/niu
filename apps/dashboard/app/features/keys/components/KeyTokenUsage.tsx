@@ -87,7 +87,7 @@ function UsageWindow({ token, endpoint }: { token: string; endpoint: string }) {
     {loading ? <div className="mt-3"><MetricStripSkeleton count={4} label={uiT("Loading token usage…")} /></div>
       : error ? <p role="alert" className="mt-3 text-sm text-destructive">{uiT("Token usage unavailable.")}{" "}{uiT(error)}</p>
       : usage && <>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">{metrics.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{value}</dd></div>)}</dl>
+        {usage.requests > 0 && <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">{metrics.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{value}</dd></div>)}</dl>}
         {usage.unknown_usage_requests > 0 && <p className="mt-3 text-xs text-muted-foreground">{usage.unknown_usage_requests.toLocaleString(readUILocale())} {usage.unknown_usage_requests === 1 ? uiT("request has") : uiT("requests have")}{" "}{uiT("no complete reported token usage. Known subtotals exclude these requests.")}</p>}
         {usage.requests === 0 && <p className="mt-3 text-xs text-muted-foreground">{uiT("No requests dispatched in this window.")}</p>}
         <p className="mt-3 text-xs text-muted-foreground">{uiT("Dispatches in this window; TPM also includes unresolved reservations.")}</p>

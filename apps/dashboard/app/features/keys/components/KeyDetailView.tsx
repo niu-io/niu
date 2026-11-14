@@ -9,6 +9,7 @@ import { IconRefresh as RotateCw } from "@tabler/icons-react";
 import { IconCopy as Copy } from "@tabler/icons-react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -227,12 +228,13 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const keyPath = key && adminCollectionPath ? `${adminCollectionPath}/${encodeURIComponent(key.id)}` : '';
 
   return <>
-    <PageHeader title={key?.name ?? uiT("API key")} syncRouteTitle={Boolean(key?.name)} action={key ? <Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge> : undefined} />
+    <PageHeader title={key?.name ?? uiT("API key")} syncRouteTitle={Boolean(key?.name)} routeTitleKey={location.pathname} action={key ? <Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge> : undefined} />
     {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{uiT(error)}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
     {notice && <p role="status" className="key-revoke-notice"><Check size={15} />{uiT(notice)}</p>}
     {(loading || (Boolean(collectionPath) && loadedScope !== scopeIdentity && !loadFailed)) && !key && <section className="key-detail-card border-0 bg-transparent p-0 shadow-none"><FormSectionSkeleton fields={3} label={uiT("Loading key…")} /></section>}
     {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="key-detail-card key-not-found border-0 bg-muted/40 p-6 shadow-none"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
     {key && <>
+      {(key.revoked || key.expired) && <Alert className="mb-4"><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>{key.revoked ? uiT("This API key was revoked and cannot send new requests.", "此 API 密钥已撤销，无法发送新请求。") : uiT("This API key has expired and cannot send new requests.", "此 API 密钥已过期，无法发送新请求。")}</span>{canWrite && initialScope && <Button asChild variant="outline" size="sm"><Link to={`${root}/keys`} state={{createKey: true}}>{uiT("Create replacement key", "创建替代密钥")}</Link></Button>}</AlertDescription></Alert>}
       <section className="key-detail-card rounded-[var(--radius-panel)] border-0 bg-card p-6 shadow-none" aria-label={uiT("API key details")}>
         <h2 className="sr-only">{key.name}</h2>
         {editing && initialScope && keyPath && <KeySettingsEditor

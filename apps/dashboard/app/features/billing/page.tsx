@@ -1,3 +1,5 @@
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { currencyTariffColumns } from './tariff-columns';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -7,7 +9,7 @@ import { settingsHref } from '@/features/account/settings-routes';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '@niu-io/sdk/admin';
 import { useSearchParams } from 'react-router';
-import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
+import { IconReceipt, IconCurrencyDollar, IconDots } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { IconRefresh as RefreshCw } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -18,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { TableSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
@@ -146,7 +148,7 @@ export default function BillingRoute() {
   const organizationName = workspace.organization_name?.trim() || (organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
   const headerAction = !internal && matchingOrganization && canFund
-    ? <Button asChild variant="outline" size="sm"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button>
+    ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>
     : undefined;
   return <>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -289,6 +291,8 @@ function BillingView({ token, organization, project, headerAction }: { token: st
       if (mediaRequest.current === controller) { mediaRequest.current = null; if (!controller.signal.aborted) setMediaLoading(false); }
     }
   }
+
+  const rateColumns = currencyTariffColumns(data?.tariffs ?? []);
 
   return <>
     <PageHeader title={uiT("Billing and rates", "账单与费率")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
@@ -472,30 +476,31 @@ function BillingView({ token, organization, project, headerAction }: { token: st
           </section>
         )}
         {(data.billing_mode !== 'credits' || (data.tariffs ?? []).length > 0) && <section className="panel billing-rates">
-          <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{(data.tariffs ?? []).length > 0 && <p className="provider-intro billing-description">{uiT("Token rates per million · fees per request")}</p>}</div>
-          {(data.tariffs ?? []).length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
-          {data.billing_mode !== 'credits' && (data.tariffs ?? []).length ? <div className="table-wrap"><Table className="provider-ledger min-w-[44rem]" aria-label={uiT("Customer model rates")}>
-            <TableHeader><TableRow><TableHead className="min-w-44">{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Input")}</TableHead><TableHead className="text-right">{uiT("Cache read")}</TableHead><TableHead className="text-right">{uiT("Cache write")}</TableHead><TableHead className="text-right">{uiT("Output")}</TableHead><TableHead className="text-right">{uiT("Reasoning")}</TableHead><TableHead className="text-right">{uiT("Fixed fee / request")}</TableHead><TableHead className="text-right">{uiT("Minimum / request")}</TableHead></TableRow></TableHeader>
+          <div className="provider-panel-heading"><h2>{uiT("Model rates")}</h2>{(data.tariffs ?? []).length > 0 && <p className="provider-intro billing-description">{rateColumns.fixed || rateColumns.minimum ? uiT("Token rates per million · fees per request") : uiT("Token rates per million · no per-request fees")}</p>}</div>
+          {(data.tariffs ?? []).length > 0 && rateColumns.tiers && <p className="mb-4 px-6 text-sm text-muted-foreground">{uiT("Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.")}</p>}
+          {data.billing_mode !== 'credits' && (data.tariffs ?? []).length ? <div className="table-wrap"><Table className="provider-ledger billing-currency-rates" aria-label={uiT("Customer model rates")}>
+            {(!rateColumns.cacheRead || !rateColumns.cacheWrite || !rateColumns.reasoning) && <TableCaption>{uiT("Token categories without a configured rate are omitted.")}</TableCaption>}
+            <TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Input")}</TableHead>{rateColumns.cacheRead && <TableHead className="text-right">{uiT("Cache read")}</TableHead>}{rateColumns.cacheWrite && <TableHead className="text-right">{uiT("Cache write")}</TableHead>}<TableHead className="text-right">{uiT("Output")}</TableHead>{rateColumns.reasoning && <TableHead className="text-right">{uiT("Reasoning")}</TableHead>}{rateColumns.fixed && <TableHead className="text-right">{uiT("Fixed fee / request")}</TableHead>}{rateColumns.minimum && <TableHead className="text-right">{uiT("Minimum / request")}</TableHead>}</TableRow></TableHeader>
             <TableBody>{(data.tariffs ?? []).map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
-                <TableCell>{modelLabel(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
-                <TableCell className="text-right tabular-nums">{money(tariff.prompt_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{money(tariff.completion_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{categoryRate(tariff.reasoning_completion_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
-                <TableCell className="text-right tabular-nums">{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
+                <TableCell className="whitespace-normal">{modelLabel(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
+                <TableCell className="text-right tabular-nums">{tariff.prompt_rate === '0' ? uiT("Free") : money(tariff.prompt_rate, tariff.currency)}</TableCell>
+                {rateColumns.cacheRead && <TableCell className="text-right tabular-nums">{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>}
+                {rateColumns.cacheWrite && <TableCell className="text-right tabular-nums">{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>}
+                <TableCell className="text-right tabular-nums">{tariff.completion_rate === '0' ? uiT("Free") : money(tariff.completion_rate, tariff.currency)}</TableCell>
+                {rateColumns.reasoning && <TableCell className="text-right tabular-nums">{categoryRate(tariff.reasoning_completion_rate, tariff.currency)}</TableCell>}
+                {rateColumns.fixed && <TableCell className="text-right tabular-nums">{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>}
+                {rateColumns.minimum && <TableCell className="text-right tabular-nums">{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>}
               </TableRow>
               {tariff.context_tiers?.map(tier => <TableRow key={tier.minimum_input_tokens}>
-                <TableCell>{modelLabel(tariff.model_alias)}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
-                <TableCell className="text-right tabular-nums">{money(tier.prompt_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{categoryRate(tier.cached_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{categoryRate(tier.cache_write_prompt_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{money(tier.completion_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{categoryRate(tier.reasoning_completion_rate, tariff.currency)}</TableCell>
-                <TableCell className="text-right tabular-nums">{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
-                <TableCell className="text-right tabular-nums">{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>
+                <TableCell className="whitespace-normal">{modelLabel(tariff.model_alias)}<p className="mt-1 text-xs text-muted-foreground">{uiT("From")}{" "}{BigInt(tier.minimum_input_tokens).toLocaleString(readUILocale())}{" "}{uiT("input tokens (inclusive)")}</p></TableCell>
+                <TableCell className="text-right tabular-nums">{tier.prompt_rate === '0' ? uiT("Free") : money(tier.prompt_rate, tariff.currency)}</TableCell>
+                {rateColumns.cacheRead && <TableCell className="text-right tabular-nums">{categoryRate(tier.cached_prompt_rate, tariff.currency)}</TableCell>}
+                {rateColumns.cacheWrite && <TableCell className="text-right tabular-nums">{categoryRate(tier.cache_write_prompt_rate, tariff.currency)}</TableCell>}
+                <TableCell className="text-right tabular-nums">{tier.completion_rate === '0' ? uiT("Free") : money(tier.completion_rate, tariff.currency)}</TableCell>
+                {rateColumns.reasoning && <TableCell className="text-right tabular-nums">{categoryRate(tier.reasoning_completion_rate, tariff.currency)}</TableCell>}
+                {rateColumns.fixed && <TableCell className="text-right tabular-nums">{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : uiT("Unknown")}</TableCell>}
+                {rateColumns.minimum && <TableCell className="text-right tabular-nums">{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : uiT("Unknown")}</TableCell>}
               </TableRow>)}
             </Fragment>)}</TableBody>
           </Table></div> : <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No rates published")}</EmptyTitle><EmptyDescription>{uiT("Published customer prices appear here.")}</EmptyDescription></EmptyHeader></Empty>}

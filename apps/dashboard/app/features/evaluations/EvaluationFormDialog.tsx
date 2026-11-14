@@ -166,6 +166,7 @@ type SampleDraft = {
 export function EvaluationFormDialog({
   open,
   onOpenChange,
+  onCloseAutoFocus,
   editingDefinition,
   cacheScope,
   workspace,
@@ -174,6 +175,7 @@ export function EvaluationFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus: (event: Event) => void;
   editingDefinition: EvaluationDefinition | null;
   cacheScope: string;
   workspace: string;
@@ -394,7 +396,7 @@ export function EvaluationFormDialog({
         if (!saving) onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>
             {editingDefinition

@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams, type LoaderFunctionArgs } from 'react
 import { pinyin } from 'pinyin-pro';
 import {
   IconChevronDown,
+  IconDots,
   IconEdit,
   IconHistory,
   IconPlus,
@@ -488,6 +489,8 @@ function RoutingView({
   const [poolDialogOpen, setPoolDialogOpen] = useState(false);
   const [deletePoolTarget, setDeletePoolTarget] =
     useState<WorkspaceModelPool | null>(null);
+  const routingActionsRef = useRef<HTMLButtonElement>(null);
+  const poolEditorTriggerRef = useRef<HTMLButtonElement>(null);
   const [deletingPool, setDeletingPool] = useState(false);
   const [deletePoolError, setDeletePoolError] = useState('');
   const [editingPool, setEditingPool] = useState<WorkspaceModelPool | null>(null);
@@ -941,7 +944,7 @@ function RoutingView({
         <>
           {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'configure model routing for my task; inspect existing grants, costs, and evaluation evidence, explain tradeoffs, then verify the saved strategy')} onError={setError} />}
           {!slug && canWrite && (
-            <Button size="sm" variant="ghost" onClick={openCreatePoolDialog}>
+            <Button ref={poolEditorTriggerRef} size="sm" variant="ghost" onClick={openCreatePoolDialog}>
               <IconPlus size={16} />
               {t('Manual setup', '手动配置')}
             </Button>
@@ -949,6 +952,7 @@ function RoutingView({
           {slug && detail.pool && canWrite && (
             <>
               <Button
+                ref={poolEditorTriggerRef}
                 variant="outline"
                 size="sm"
                 onClick={() => openEditPoolDialog(detail.pool!)}
@@ -956,17 +960,22 @@ function RoutingView({
                 <IconEdit size={16} />
                 {t('Edit routing', '编辑路由配置')}
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  setDeletePoolError('');
-                  setDeletePoolTarget(detail.pool!);
-                }}
-              >
-                <IconTrash size={16} />
-                {t('Delete routing rule', '删除路由规则')}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button ref={routingActionsRef} variant="ghost" size="icon-sm" aria-label={t('Routing actions', '路由操作')}>
+                    <IconDots size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" collisionPadding={12}>
+                  <DropdownMenuItem variant="destructive" onSelect={() => {
+                    setDeletePoolError('');
+                    setDeletePoolTarget(detail.pool!);
+                  }}>
+                    <IconTrash size={16} />
+                    {t('Delete routing rule', '删除路由规则')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </>
@@ -1001,7 +1010,7 @@ function RoutingView({
               <TableBody>
                 {rows.map((row) => (
                   <TableRow key={row.slug}>
-                    <TableCell>
+                    <TableCell className="whitespace-normal break-words sm:whitespace-nowrap">
                       <Link
                         className="font-medium underline-offset-4 hover:underline"
                         to={`${base}/${encodeURIComponent(row.slug)}`}
@@ -1368,7 +1377,12 @@ function RoutingView({
           }
         }}
       >
-        <DialogContent className="max-h-[88dvh] min-w-0 overflow-x-hidden overflow-y-auto [&>*]:min-w-0 sm:max-w-2xl">
+        <DialogContent onCloseAutoFocus={(event) => {
+          if (poolEditorTriggerRef.current?.isConnected) {
+            event.preventDefault();
+            poolEditorTriggerRef.current.focus();
+          }
+        }} className="max-h-[88dvh] min-w-0 overflow-x-hidden overflow-y-auto [&>*]:min-w-0 sm:max-w-2xl">
           <DialogHeader className="pr-6">
             <DialogTitle>
               {editingPool
@@ -1389,10 +1403,13 @@ function RoutingView({
             <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-muted/30 p-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium">
-                  {t('Start with one model', '先从一个模型开始')}
+                  {editingPool ? t('Review saved routing settings', '检查已保存的路由设置') : t('Start with one model', '先从一个模型开始')}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {t(
+                  {editingPool ? t(
+                    'Review model choices and routing settings before saving changes. Advanced settings show the strategy, routing rules, priorities, and weights.',
+                    '保存更改前，请检查模型选择和路由设置。高级设置展示选择策略、路由规则、优先级和权重。',
+                  ) : t(
                     'Niu routes to the first enabled candidate, then falls back in order. Show advanced settings to add routing rules, choose a selection strategy, or adjust priority and weight.',
                     'Niu 会先路由到第一个启用的候选模型，再按顺序回退。需要条件分流规则、选择策略或调整优先级/权重时，再展开高级设置。',
                   )}
@@ -1868,7 +1885,12 @@ function RoutingView({
           }
         }}
       >
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={(event) => {
+          if (routingActionsRef.current?.isConnected) {
+            event.preventDefault();
+            routingActionsRef.current.focus();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>
               {t('Delete routing rule?', '删除路由规则？')}

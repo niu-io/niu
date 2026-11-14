@@ -23,7 +23,7 @@
 .playground-model-picker-list { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-height: 180px; overflow-y: auto; overscroll-behavior: contain; padding: 8px 12px; }
 .playground-model-picker-option { display: flex; width: 100%; height: auto; min-height: 44px; flex-shrink: 0; align-items: center; justify-content: flex-start; gap: 12px; padding: 9px 10px; border-radius: 10px; color: var(--foreground); background: transparent; font-size: 14px; font-weight: 400; line-height: 1.35; white-space: normal; text-align: left; cursor: pointer; }
 .playground-model-picker-option:hover { background: var(--accent); }
-.playground-model-picker-option[aria-pressed="true"] { background: color-mix(in srgb, var(--primary) 10%, var(--background)); }
+.playground-model-picker-option[aria-pressed="true"] { background: var(--muted); }
 .playground-model-picker-option:disabled { cursor: not-allowed; opacity: .45; }
 .playground-model-option-body { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; text-align: left; }
 .playground-model-option-title { font-size: 14px; font-weight: 500; line-height: 1.35; color: var(--foreground); overflow-wrap: anywhere; white-space: normal; }
@@ -61,7 +61,7 @@
 .playground-toolbar-actions { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 8px; }
 .playground-key-trigger { min-width: 0; max-width: 220px; gap: 8px; }
 .playground-key-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.playground-key-trigger > svg:first-child { flex: 0 0 auto; color: var(--primary); }
+.playground-key-trigger > svg:first-child { flex: 0 0 auto; }
 .playground-transcript { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 16px; overflow: auto; padding: 24px clamp(18px, 3.5vw, 46px) 28px; }
 .playground-starter-picker { display: grid; gap: 8px; }
 .playground-starter-categories { display: flex; gap: 5px; overflow-x: auto; }

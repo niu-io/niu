@@ -11,7 +11,7 @@ export function executionStatusLabel(value: string) {
 
 export function requestOutcomeLabel(item: { execution: string; timing?: { http_status?: number | null } | null; output_guardrail_outcome?: string | null }) {
   if (item.output_guardrail_outcome === 'blocked' || item.output_guardrail_outcome === 'indeterminate') return translateUI('Output withheld');
-  if (item.timing?.http_status != null && item.timing.http_status >= 400) return formatLocalizedMessage('Failed · HTTP {0}', [item.timing.http_status], readLocale());
+  if (item.timing?.http_status != null && item.timing.http_status >= 400) return formatLocalizedMessage('Failed · {0}', [item.timing.http_status], readLocale());
   const outcome = executionStatusLabel(item.execution);
   return item.output_guardrail_outcome === 'redacted' ? `${outcome} · ${translateUI('Redacted')}` : outcome;
 }

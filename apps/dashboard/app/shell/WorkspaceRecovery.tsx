@@ -56,7 +56,7 @@ export default function WorkspaceRecovery({ problem, onRetry }: {
       {problem.kind === 'api' && <div className="workspace-recovery-request">
         <span>{t('Request', '请求')}</span>
         <code>GET {problem.endpoint}</code>
-        <strong>HTTP {problem.status}</strong>
+        <strong>{problem.status}</strong>
       </div>}
       <div className="workspace-recovery-actions">
         <Button type="button" onClick={onRetry}><RefreshCw aria-hidden="true" size={16} />{t('Retry workspace access', '重试工作空间访问')}</Button>

@@ -198,6 +198,7 @@
 .billing-description { margin: 8px 0 18px; }
 .billing-detail-dialog { width: min(1000px, calc(100vw - 32px)); }
 .billing-detail-dialog .provider-ledger { min-width: 680px; }
+.billing-rates .billing-currency-rates { min-width: 0; }
 .niu-modal.billing-detail-dialog { max-width: min(1000px, calc(100vw - 32px)); }
 .provider-ledger { min-width: 680px; }
 .provider-ledger .supplier-offer-actions { position: sticky; right: 0; width: 60px; padding: 8px 12px; background: var(--card); text-align: right; }

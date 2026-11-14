@@ -156,7 +156,7 @@ describe("workspace Guardrails page", () => {
     const { writes, user } = setup({ initialPolicy: initial });
     await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
     await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Updated policy");
-    await user.click(screen.getByRole("button", { name: "Save all changes" }));
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
     await screen.findByRole("status");
     expect(writes).toEqual([{ expected_revision: 7, policy: { ...initial, name: "Updated policy" } }]);
   });
@@ -165,12 +165,12 @@ describe("workspace Guardrails page", () => {
     const { writes, user } = setup();
     await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
     await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Updated policy");
-    await user.click(screen.getByRole("button", { name: "Save all changes" }));
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
     await screen.findByRole("status");
     expect(writes).toEqual([
       { expected_revision: 7, policy: { ...policy, name: "Updated policy" } },
     ]);
-    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -180,14 +180,14 @@ describe("workspace Guardrails page", () => {
     setup({ failed: true });
     await screen.findByRole("alert");
     expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save all changes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save policy" })).toBeNull();
     expect(screen.getByRole("tab", { name: /^Policy/ })).toBeTruthy();
   });
 
   it("retains the draft on conflict and never automatically retries a write", async () => {
     const { writes, user } = setup({ conflict: true });
     await user.type(await screen.findByRole("textbox", { name: "Policy name" }), " changed");
-    await user.click(screen.getByRole("button", { name: "Save all changes" }));
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
     await waitFor(() =>
       expect(
         screen
@@ -200,7 +200,7 @@ describe("workspace Guardrails page", () => {
       "value",
       "Workspace policy changed",
     );
-    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty("disabled", true);
     await user.click(screen.getByRole("button", { name: "Reload" }));
     await waitFor(() =>
       expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty(
@@ -225,7 +225,7 @@ describe("workspace Guardrails page", () => {
       "disabled",
       true,
     );
-    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -238,7 +238,7 @@ describe("workspace Guardrails page", () => {
       inputSection().getByRole("button", { name: "Email addresses action" }),
     );
     await user.click(screen.getByRole("menuitemradio", { name: "Block", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Save all changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Save policy", exact: true }));
     await screen.findByText("Policy saved.");
     expect(writes).toEqual([
       {
@@ -257,7 +257,7 @@ describe("workspace Guardrails page", () => {
     await user.click(
       outputSection().getByRole("checkbox", { name: "API key prefixes" }),
     );
-    await user.click(screen.getByRole("button", { name: "Save all changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Save policy", exact: true }));
     await screen.findByText("Policy saved.");
     const { output: _output, ...withoutOutput } = policy;
     expect(writes).toEqual([{ expected_revision: 7, policy: withoutOutput }]);
@@ -269,7 +269,7 @@ describe("workspace Guardrails page", () => {
     await user.click(screen.getByRole("button", { name: "Output inspection mode" }));
     await user.click(screen.getByRole("menuitemradio", { name: "Observe only" }));
     await user.click(outputSection().getByRole("checkbox", { name: "Email addresses" }));
-    await user.click(screen.getByRole("button", { name: "Save all changes" }));
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
     await screen.findByRole("status");
     expect(writes).toMatchObject([
       {
@@ -290,7 +290,7 @@ describe("workspace Guardrails page", () => {
     const chooser = await screen.findByRole("button", { name: "Output inspection mode" });
     expect(chooser.textContent).toContain("Observe only");
     await user.click(outputSection().getByRole("checkbox", { name: "Email addresses" }));
-    await user.click(screen.getByRole("button", { name: "Save all changes" }));
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
     await screen.findByRole("status");
     expect(writes).toMatchObject([{ policy: { output: { mode: "observe_only" } } }]);
   });
@@ -310,7 +310,7 @@ describe("workspace Guardrails page", () => {
       "value",
       policy.name,
     );
-    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -326,7 +326,7 @@ describe("workspace Guardrails page", () => {
     expect(
       screen.getByRole("link", { name: "Policy name" }).getAttribute("href"),
     ).toBe("#policy-name");
-    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -346,7 +346,7 @@ describe("workspace Guardrails page", () => {
       inputSection().getByRole("button", { name: "Email addresses action" }),
     );
     await user.click(screen.getByRole("menuitemradio", { name: "Block", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Save all changes" }));
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
     await screen.findByRole("status");
     expect(writes).toEqual([
       {

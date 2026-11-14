@@ -7,7 +7,7 @@ export function useRequestTableWidth() {
     if (!node) return;
     const update = () => {
       const width = node.clientWidth;
-      if (width > 0) setNarrow(width <= 860);
+      if (width > 0) setNarrow(width <= 1120);
     };
     update();
     const observer = new ResizeObserver(update);

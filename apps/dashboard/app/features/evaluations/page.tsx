@@ -404,6 +404,7 @@ function EvaluationsView({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDefinition, setEditingDefinition] =
     useState<EvaluationDefinition | null>(null);
+  const formTrigger = useRef<HTMLButtonElement | null>(null);
 
   const description = error
     ? uiT('Return to the list or retry loading this resource.')
@@ -433,20 +434,23 @@ function EvaluationsView({
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => {
+              aria-label={t('Manual setup', '手动配置')}
+              onClick={(event) => {
+                formTrigger.current = event.currentTarget;
                 setEditingDefinition(null);
                 setDialogOpen(true);
               }}
             >
               <IconPlus size={16} />
-              {t('Manual setup', '手动配置')}
+              <span className="hidden sm:inline">{t('Manual setup', '手动配置')}</span>
             </Button>
           )}
           {slug && detail.definition && !run && canWrite && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
+              onClick={(event) => {
+                formTrigger.current = event.currentTarget;
                 setEditingDefinition(detail.definition!);
                 setDialogOpen(true);
               }}
@@ -537,8 +541,8 @@ function EvaluationsView({
             <ReviewEmptyState
               title={uiF('No {0} yet', [title.toLowerCase()])}
               description={t(
-                'Ask your coding agent to evaluate models against your task criteria within an authorized test budget. Review its recorded evidence here.',
-                '让编码 Agent 在授权测试预算内，按照任务验收标准评测模型，并在此查看记录的证据。',
+                'Ask your coding agent to evaluate models against your task criteria within an authorized test budget. Open an evaluation here to review its criteria, sample outcomes, input evidence, and known customer charges.',
+                '让编码 Agent 在授权测试预算内，按照任务验收标准评测模型。在此打开评估，查看评估标准、样本结果、输入证据和已知客户费用。',
               )}
               prompt={agentHandoffPrompt(
                 routeWorkspace,
@@ -869,6 +873,12 @@ function EvaluationsView({
       <EvaluationFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        onCloseAutoFocus={(event) => {
+          if (formTrigger.current?.isConnected) {
+            event.preventDefault();
+            formTrigger.current.focus();
+          }
+        }}
         editingDefinition={editingDefinition}
         cacheScope={cacheScope}
         workspace={workspace}

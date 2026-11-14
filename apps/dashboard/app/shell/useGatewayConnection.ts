@@ -22,7 +22,7 @@ export function useGatewayConnection(_route?: string) {
     pending.current = (async () => {
       try {
         const response = await fetch(`${import.meta.env.BASE_URL}healthz`, { signal: request.signal, cache: 'no-store' });
-        if (!response.ok) throw new Error(formatLocalizedMessage('Health check returned HTTP {0}.', [response.status], readLocale()));
+        if (!response.ok) throw new Error(formatLocalizedMessage('Health check returned status {0}.', [response.status], readLocale()));
         const value = await response.json() as Health;
         if (value.status !== 'ok') throw new Error('The gateway is responding but is not ready.');
         if (mounted.current && controller.current === request) { setHealth(value); setDetail(''); setEverConnected(true); }

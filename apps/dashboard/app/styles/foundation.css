@@ -1,20 +1,68 @@
 /* Use tonal separation between the canvas, navigation, and content. */
+/* Brand colors come from branding/rounded/manifest.json. Generic surfaces
+   stay neutral: accent is an interaction surface, not the brand action color. */
 :root {
+  --brand-orange: #FF914D;
+  --brand-ink: #45352F;
+  --brand-paper: #FAFAF9;
+  --brand-dark: #121314;
+  --brand-lettering: #EFE2DA;
   --background: #ececeb;
-  --sidebar: #f6f6f5;
-  --sidebar-accent: #ececeb;
+  --foreground: var(--brand-ink);
+  --sidebar: var(--brand-paper);
+  --sidebar-foreground: var(--brand-ink);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--brand-ink);
   --card: #ffffff;
+  --card-foreground: var(--brand-ink);
   --muted: #f5f5f5;
-  --popover: #ffffff;
+  --muted-foreground: color-mix(in srgb, var(--brand-ink) 80%, var(--brand-paper));
+  --popover: var(--brand-paper);
+  --popover-foreground: var(--brand-ink);
+  --primary: var(--brand-ink);
+  --primary-foreground: var(--brand-paper);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--brand-ink);
+  --accent: #ececeb;
+  --accent-foreground: var(--brand-ink);
+  --ring: var(--brand-ink);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--ring);
 }
 .dark,
 :root[data-theme='dark'] {
-  --background: #0c0c0c;
+  --background: var(--brand-dark);
+  --foreground: var(--brand-lettering);
   --sidebar: #141414;
-  --sidebar-accent: #242424;
+  --sidebar-foreground: var(--brand-lettering);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--brand-lettering);
   --card: #1c1c1c;
+  --card-foreground: var(--brand-lettering);
   --muted: #242424;
+  --muted-foreground: color-mix(in srgb, var(--brand-lettering) 74%, var(--brand-dark));
   --popover: #242424;
+  --popover-foreground: var(--brand-lettering);
+  --primary: var(--brand-orange);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--brand-lettering);
+  --accent: var(--muted);
+  --accent-foreground: var(--brand-lettering);
+  --ring: var(--brand-orange);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--ring);
+}
+/* Filled actions use the mark's tangerine and its original dark lettering.
+   Deployment-defined primary palettes continue to override this default. */
+:root:not([style*="--primary:"]) [data-slot="button"][data-variant="default"] {
+  background-color: var(--brand-orange);
+  color: var(--brand-ink);
+}
+:root:not([style*="--primary:"]) [data-slot="button"][data-variant="default"]:hover {
+  background-color: color-mix(in srgb, var(--brand-orange) 90%, var(--brand-paper));
 }
 :root { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--foreground); background: var(--background); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
@@ -167,7 +215,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .niu-modal .model-form-footer { margin-top: 0; }
 
 .niu-modal .operator-create-panel { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.niu-modal .operator-create-form { grid-template-columns: 1fr; padding: 0; }
+.niu-modal .operator-create-form { grid-template-columns: minmax(0, 1fr); padding: 0; }
 .niu-modal .operator-create-footer { border-top: 0; }
 .operator-dialog-error { padding: 0 25px 16px; }
 .overview-primary-actions { gap: 8px; }

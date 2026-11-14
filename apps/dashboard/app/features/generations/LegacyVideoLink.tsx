@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { resolveWorkspacePathSegment } from '@/shell/workspace-route';
 import { NiuAdminClient } from '@niu-io/sdk/admin';
@@ -17,7 +17,6 @@ export default function LegacyVideoLink({context,fallback,jobOverride}:{context:
   const { t: uiT } = useUILocale();
   const location=useLocation();
   const navigate=useNavigate();
-  const attempted=useRef('');
   const [settled,setSettled]=useState<'resolving'|'fallback'>('resolving');
   const client=useMemo(()=>context.token ? new NiuAdminClient({adminToken:context.token,baseURL:new URL('/api/v1',window.location.origin).href}) : null,[context.token]);
   const workspace=context.workspace;
@@ -28,8 +27,6 @@ export default function LegacyVideoLink({context,fallback,jobOverride}:{context:
   const requestedWorkspace=search.get('workspace')??'';
   const identity=`${intent}|${job}|${workspace?.id??''}|${compose}|${requestedWorkspace}`;
   useEffect(()=>{
-    if(attempted.current===identity)return;
-    attempted.current=identity;
     if(compose||!client||!workspace||(!intent&&!job)){setSettled('fallback');return;}
     // The shell applies an explicit workspace query before the result resolves.
     // Never resolve the old link against a different workspace's scope.

@@ -36,7 +36,7 @@
 .dashboard-page-header h1 { margin: 0; color: var(--foreground); font-size: 16px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; }
 .breadcrumbs { display: flex; min-width: 0; align-items: center; font-size: 14px; gap: 12px; }
 .breadcrumbs > span:first-child { color: var(--muted-foreground); white-space: nowrap; }
-.breadcrumbs .dashboard-route-title { font-size: 16px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumbs .dashboard-route-title { font-size: inherit; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-route-title a { color: inherit; text-decoration: none; }
 .dashboard-route-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding: 24px 32px 72px; }
@@ -163,7 +163,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .playground-metric-table thead th span { color: var(--foreground); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .playground-baseline-column { background: color-mix(in srgb, var(--accent) 62%, var(--card)); }
 .playground-metric-table .playground-baseline-column { border-left: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); }
-.playground-delta-heading, .playground-delta-cell { background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
+.playground-delta-heading, .playground-delta-cell { background: var(--muted); }
 .playground-delta-cell { font-weight: 600; }
 .playground-metric-table thead th:first-child, .playground-metric-table tbody th { position: sticky; left: 0; z-index: 1; background: var(--card); }
 .playground-metric-table thead th:first-child { z-index: 2; }
