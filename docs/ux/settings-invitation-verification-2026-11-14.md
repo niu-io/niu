@@ -88,3 +88,40 @@ focus, responsive open states, and the historical receipt remains required.
 The initial narrow menu screenshot was taken during its opening transition and
 does not establish the settled menu's visual quality. No email transport is
 configured, so email delivery remains unverified.
+
+## Hosted follow-up and narrow form correction
+
+Core `3ab183db92477fb161c895bd35cfb19de6bdc82c`, staging composition
+`ccff2b91b541fc3c033f915969e79012472626f0`, became live through deployment
+`dep-dbs1tu8n74is738kolhg` at 08:53:08 UTC. Fresh hosted verification found
+Invite inside the Settings action target and an empty underlying shell target.
+Pointer opening worked; Escape returned to Invite. Organization and workspace
+creation each returned focus to their own parent Settings button. Ordinary
+Logs retained Refresh requests in the normal shell header after leaving
+Settings. Canceling an unsaved workspace name from the original workspace
+switcher returned focus to that switcher.
+
+The settled Settings section menu was inspected at 320px: ordinary icon/text
+alignment and the selected check on the right were retained. The hosted
+historical invitation receipt at 390px displayed the corrected wording without
+overflow; Open workspace reached the actual unavailable-workspace recovery,
+and its recovery link returned to the available Default workspace. The hosted
+Create organization reference explicitly described the required session switch.
+
+That hosted pass also found a distinct form defect, tracked as `niu-mm90.57`.
+At 320px the invitation form's available width was 240px but its scroll width
+was 273px. Its organization-wide scope trigger supplied an intrinsic minimum
+to the `1fr` grid, clipping field edges, arrows and guidance. The earlier
+document-width check alone did not detect this internal clipping.
+
+The follow-up candidate uses `minmax(0, 1fr)` for the existing modal form and
+allows selected scope/role/expiry text to wrap inside the installed Button.
+It does not change shared menu item layout, permissions, values or issuance.
+Actual staging-backed local measurements at 320px were 240px client and scroll
+width, including selection of the longer Owner role. Closed-form, scope-menu,
+role-menu and expiry-menu screenshots were independently inspected. Right-side
+selection checks and text alignment remained intact. Escape returned to scope
+and expiry; selecting Owner returned focus to Role. At 390px the complete
+guidance and action fit; the wide form was also inspected. No new invitation
+was created. Dashboard static checks and production build completed for this
+follow-up; fresh hosted reflow acceptance remains pending.

@@ -111,11 +111,11 @@ export default function InviteMemberForm({
                   id="new-member-scope"
                   type="button"
                   variant="outline"
-                  className="w-full justify-between font-normal"
+                  className="h-auto min-h-9 w-full justify-between font-normal"
                   disabled={disabled}
                   aria-label={uiF('Scope: {0}', [selectedProjectName])}
                 >
-                  {selectedProjectName}
+                  <span className="min-w-0 whitespace-normal break-words text-left">{selectedProjectName}</span>
                   <ChevronDown size={16} aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
@@ -148,11 +148,11 @@ export default function InviteMemberForm({
                 id="new-member-role"
                 type="button"
                 variant="outline"
-                className="w-full justify-between font-normal"
+                className="h-auto min-h-9 w-full justify-between font-normal"
                 disabled={disabled}
                 aria-label={uiF('Role: {0}', [uiT(roleLabel)])}
               >
-                {uiT(roleLabel)}
+                <span className="min-w-0 whitespace-normal break-words text-left">{uiT(roleLabel)}</span>
                 <ChevronDown size={16} aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
@@ -189,11 +189,11 @@ export default function InviteMemberForm({
                 id="new-member-expiry"
                 type="button"
                 variant="outline"
-                className="w-full justify-between font-normal"
+                className="h-auto min-h-9 w-full justify-between font-normal"
                 disabled={disabled}
                 aria-label={uiF('Invitation expires in: {0}', [uiT(expiryLabel)])}
               >
-                {uiT(expiryLabel)}
+                <span className="min-w-0 whitespace-normal break-words text-left">{uiT(expiryLabel)}</span>
                 <ChevronDown size={16} aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
