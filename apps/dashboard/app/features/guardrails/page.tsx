@@ -266,9 +266,10 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     !canWrite ||
     saving ||
     !loaded ||
-    !changed ||
+    (!changed && head !== null) ||
     !draft.name.trim() ||
     Boolean(invalidRules);
+  const saveLabel = head ? uiT("Save policy") : uiT("Create policy");
   const modelChoices = [
     ...new Set([
       ...models.map((model) => model.id),
@@ -659,9 +660,9 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         title={uiT("Guardrails")}
         action={
           tab === "policy" && loaded ? (
-            <Button disabled={disabledSave} onClick={() => void save()} aria-label={uiT("Save all changes")}>
-              <span className="hidden sm:inline">{saving ? uiT("Saving…") : uiT("Save all changes")}</span>
-              <span className="sm:hidden">{saving ? uiT("Saving…") : uiT("Save")}</span>
+            <Button disabled={disabledSave} onClick={() => void save()} aria-label={saveLabel}>
+              <span className="hidden sm:inline">{saving ? uiT("Saving…") : saved ? uiT("Saved") : saveLabel}</span>
+              <span className="sm:hidden">{saving ? uiT("Saving…") : saved ? uiT("Saved") : head ? uiT("Save") : uiT("Create")}</span>
             </Button>
           ) : undefined
         }

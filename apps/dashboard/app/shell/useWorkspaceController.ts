@@ -308,6 +308,11 @@ export function useWorkspaceController({
         /* URL remains the source of truth. */
       }
       const knownWorkspaces = workspaces.some(item => item.id === next.id) ? workspaces : [...workspaces, next];
+      if ((location.pathname === '/generations' || location.pathname.startsWith('/generations/')) && next.id !== effectiveActiveWorkspace?.id) {
+        const search = new URLSearchParams({ workspace: workspacePathSegment(next, knownWorkspaces) });
+        navigate({ pathname: '/generations', search: `?${search}`, hash: '' }, { replace: true });
+        return;
+      }
       if ((usesSelectedWorkspace && !settingsArea && !workspaceDirectoryArea) || location.pathname === '/settings/members') {
         const search = new URLSearchParams(location.search);
         search.set('workspace', workspacePathSegment(next, knownWorkspaces));
