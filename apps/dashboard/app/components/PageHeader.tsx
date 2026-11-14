@@ -1,5 +1,7 @@
-import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+
+export const PageHeaderActionsTargetContext = createContext('dashboard-page-actions');
 
 export default function PageHeader({ title, syncRouteTitle, routeTitleKey, action, className }: {
   title: string;
@@ -9,10 +11,11 @@ export default function PageHeader({ title, syncRouteTitle, routeTitleKey, actio
   action?: ReactNode;
   className?: string;
 }) {
+  const targetId = useContext(PageHeaderActionsTargetContext);
   const [target, setTarget] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' ? document.getElementById('dashboard-page-actions') : null,
+    typeof document !== 'undefined' ? document.getElementById(targetId) : null,
   );
-  useLayoutEffect(() => { setTarget(document.getElementById('dashboard-page-actions')); }, []);
+  useLayoutEffect(() => { setTarget(document.getElementById(targetId)); }, [targetId]);
   useLayoutEffect(() => {
     if (!syncRouteTitle || !title) return;
     const headerTitle = document.querySelector<HTMLElement>('.dashboard-page-header .dashboard-route-title');

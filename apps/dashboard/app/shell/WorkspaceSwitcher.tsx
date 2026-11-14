@@ -145,7 +145,8 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
   return <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
     <DialogContent onOpenAutoFocus={() => { openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => {
       const opener = openerRef.current;
-      const target = opener?.isConnected && opener.getClientRects().length && !opener.closest('[role="dialog"]') ? opener : ['[aria-label="Create workspace"]', '.workspace-switcher-trigger', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
+      const closingDialog = event.target instanceof HTMLElement ? event.target : null;
+      const target = opener?.isConnected && opener.getClientRects().length && !closingDialog?.contains(opener) ? opener : ['[aria-label="Create workspace"]', '.workspace-switcher-trigger', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
     }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
@@ -221,7 +222,8 @@ export function OrganizationCreateDialog({ context, open, onOpenChange }: {
   return <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
     <DialogContent onOpenAutoFocus={() => { openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => {
       const opener = openerRef.current;
-      const target = opener?.isConnected && opener.getClientRects().length && !opener.closest('[role="dialog"]')
+      const closingDialog = event.target instanceof HTMLElement ? event.target : null;
+      const target = opener?.isConnected && opener.getClientRects().length && !closingDialog?.contains(opener)
         ? opener
         : ['[aria-label="Account menu"]', '[aria-label="Open navigation menu"]', '.sidebar-toggle']
             .flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))

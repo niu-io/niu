@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { SettingsNavigation, settingsNavigationEntries } from './settings-navigation';
 import { canonicalSettingsSection, settingsHref } from './settings-routes';
+import { PageHeaderActionsTargetContext } from '@/components/PageHeader';
 
 export default function SettingsDialog({context, children, pendingSection}: {context:DashboardContext;children:ReactNode;pendingSection?:string}) {
   const origin = useContext(SettingsOriginContext);
@@ -49,7 +50,7 @@ export default function SettingsDialog({context, children, pendingSection}: {con
       <div className="px-4 pb-3 sm:hidden"><DropdownMenu open={navigationOpen} onOpenChange={setNavigationOpen}><DropdownMenuTrigger asChild><Button ref={sectionTrigger} variant="outline" className="w-full justify-between" data-settings-section-trigger aria-label={t('Settings section', '设置分类')}>{selected?.label}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent className="w-64" align="start" onCloseAutoFocus={event => {event.preventDefault();sectionTrigger.current?.focus();}}><DropdownMenuRadioGroup value={canonical} onValueChange={value => { setNavigationOpen(false); navigate(settingsHref(value as Parameters<typeof settingsHref>[0]), {state:location.state,replace:true}); }}>{entries.map(item => <DropdownMenuRadioItem key={item.path} value={item.path}><item.icon />{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
       <SidebarProvider className="min-h-0 flex-1 overflow-hidden" style={{'--sidebar-width':'12rem'} as CSSProperties}>
         <Sidebar collapsible="none" className="hidden bg-muted/40 sm:flex"><SettingsNavigation context={context} section={canonical} /></Sidebar>
-        <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"><h2 className="mb-5 text-lg font-semibold">{selected?.label}</h2>{children}</div>
+        <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"><div className="mb-5 flex flex-wrap items-center gap-3"><h2 className="text-lg font-semibold">{selected?.label}</h2><div id="settings-page-actions" className="dashboard-page-actions" /></div><PageHeaderActionsTargetContext.Provider value="settings-page-actions">{children}</PageHeaderActionsTargetContext.Provider></div>
       </SidebarProvider>
     </DialogContent>
   </Dialog>;
