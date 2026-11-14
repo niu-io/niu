@@ -1,3 +1,4 @@
+import { keyChoiceLabels, type KeyFilterOption as KeyOption } from '@/features/keys/key-labels';
 import { executionStatusLabel as statusLabel, requestOutcomeLabel as requestStatus } from '@/lib/request-status';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { translateUI, readLocale, formatLocalizedMessage, useLocale as useUILocale } from '@/shell/ui-locale';
@@ -215,7 +216,6 @@ const requestColumns = [
   ['input', 'Input tokens'], ['output', 'Output tokens'], ['charge', 'Customer charge'], ['key', 'API key'],
 ] as const;
 type RequestColumn = typeof requestColumns[number][0];
-type KeyOption = { id: string; slug?: string; name: string; allowed_models: string[]; revoked: boolean; expired: boolean };
 
 async function get<T>(path: string, token: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal, headers: { authorization: `Bearer ${token}` } });
@@ -471,6 +471,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const keysCacheKey = keysPath;
   const initialCachedKeys = organization && project ? peekQuery<{ data: KeyOption[] }>(token, keysCacheKey) : undefined;
   const [keys, setKeys] = useState<KeyOption[]>(() => initialCachedKeys?.data ?? []);
+  const keyLabels = useMemo(() => keyChoiceLabels(keys), [keys]);
   const [keyFilterError, setKeyFilterError] = useState('');
   const keyScope = JSON.stringify([token, organization, project]);
   const [keysScope, setKeysScope] = useState(() => (initialCachedKeys ? keyScope : ''));
@@ -858,7 +859,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             <DropdownMenuContent align="end" collisionPadding={16} className={isMobile ? "w-72 max-w-[calc(100vw-32px)]" : "w-52"}>
               {([
                 ['model', uiT('Model'), [...new Set([...models, ...requests.map(item => item.model)])].map(value => ({ value, label: catalogTitle(value) }))],
-                ['keyId', uiT('API key'), keys.map(key => ({ value: key.id, label: key.name }))],
+                ['keyId', uiT('API key'), keys.map(key => ({ value: key.id, label: keyLabels.get(key.id)?.option ?? key.name }))],
                 ['status', uiT('Status'), ['confirmed_completed', 'output_withheld', 'delivery_failed', 'recorded_failure', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
                 ['httpStatus', uiT('HTTP status'), [...new Set(['unknown', ...(summary?.delivery_statuses ?? []).map(item => item.http_status === null ? 'unknown' : String(item.http_status)), ...(filters.httpStatus ? [filters.httpStatus] : [])])].map(value => ({value, label: value === 'unknown' ? uiT('Unknown') : `HTTP ${value}`}))],
               ] as Array<[keyof ActivityFilters, string, Array<{value: string; label: string}>]>).map(([field, label, options]) => isMobile ? mobileFilterField === null ? <DropdownMenuItem key={field} onSelect={event => { event.preventDefault(); setMobileFilterField(field); }}>{label}</DropdownMenuItem> : mobileFilterField === field ? <div key={field}>
@@ -871,7 +872,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
                 {field === 'status' && <p className="px-2 py-1 text-xs text-muted-foreground">{uiT("Status combines execution and delivery. Open a request to see its exact HTTP result.")}</p>}
               </div> : null : <DropdownMenuSub key={field}>
                 <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
-                <DropdownMenuPortal><DropdownMenuSubContent className="max-h-80 overflow-y-auto"><DropdownMenuRadioGroup value={filters[field] || '__all__'} onValueChange={value => { updateFilter(field, value === '__all__' ? '' : value); setFilterMenuOpen(false); }}>
+                <DropdownMenuPortal><DropdownMenuSubContent className={field === 'keyId' ? "max-h-80 w-80 max-w-[calc(100vw-32px)] overflow-y-auto" : "max-h-80 overflow-y-auto"}><DropdownMenuRadioGroup value={filters[field] || '__all__'} onValueChange={value => { updateFilter(field, value === '__all__' ? '' : value); setFilterMenuOpen(false); }}>
                   <DropdownMenuRadioItem value="__all__">{uiT("All")}</DropdownMenuRadioItem>{options.map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={() => setFilterMenuOpen(false)}>{option.label}{field === 'model' && option.label !== option.value && <span className="sr-only"> {option.value}</span>}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>{field === 'status' && <p className="px-2 py-1 text-xs text-muted-foreground">{uiT("Status combines execution and delivery. Open a request to see its exact HTTP result.")}</p>}</DropdownMenuSubContent></DropdownMenuPortal>
               </DropdownMenuSub>)}
@@ -890,7 +891,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           </DropdownMenu>}
           </div>
         </div>
-        {(filters.model || filters.keyId || filters.status || filters.httpStatus || filters.operationId) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus', 'operationId'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'operationId' ? uiT("Related requests") : field === 'keyId' ? keys.find(key => key.id === filters.keyId)?.name ?? uiT("API key") : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? uiT("Unknown delivery status") : `HTTP ${filters.httpStatus}` : <>{catalogTitle(filters.model)}{catalogTitle(filters.model) !== filters.model && <span className="sr-only"> {filters.model}</span>}</>}<X size={12} /><span className="sr-only">{uiT("Remove filter")}</span></Button>)}</div>}
+        {(filters.model || filters.keyId || filters.status || filters.httpStatus || filters.operationId) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus', 'operationId'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'operationId' ? uiT("Related requests") : field === 'keyId' ? keyLabels.get(filters.keyId)?.compact ?? uiT("API key") : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? uiT("Unknown delivery status") : `HTTP ${filters.httpStatus}` : <>{catalogTitle(filters.model)}{catalogTitle(filters.model) !== filters.model && <span className="sr-only"> {filters.model}</span>}</>}<X size={12} /><span className="sr-only">{uiT("Remove filter")}</span></Button>)}</div>}
         {keyFilterError && <p role="alert">{uiT(keyFilterError)}</p>}
         {exporting && <p role="status">{uiT("Preparing export…")}</p>}
         {exportError && <p role="alert">{uiT(exportError)}</p>}

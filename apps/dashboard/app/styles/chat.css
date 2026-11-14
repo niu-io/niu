@@ -61,7 +61,7 @@
 .playground-toolbar-actions { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 8px; }
 .playground-key-trigger { min-width: 0; max-width: 220px; gap: 8px; }
 .playground-key-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.playground-key-trigger > svg:first-child { flex: 0 0 auto; color: var(--primary); }
+.playground-key-trigger > svg:first-child { flex: 0 0 auto; }
 .playground-transcript { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 16px; overflow: auto; padding: 24px clamp(18px, 3.5vw, 46px) 28px; }
 .playground-starter-picker { display: grid; gap: 8px; }
 .playground-starter-categories { display: flex; gap: 5px; overflow-x: auto; }
