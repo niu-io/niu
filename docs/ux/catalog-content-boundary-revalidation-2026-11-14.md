@@ -44,3 +44,25 @@ and the design skill's progressive-disclosure and localization guidance. The
 visible gain is an English initial reading path with preserved, explicitly
 original source content. It does not resolve the absence of a professionally
 localized Provider description. Hosted candidate acceptance remains pending.
+
+## Hosted acceptance
+
+PR #175 is included in core `799bb7ce96fcd4841391ac4bdec6a6c02faf956b`,
+staging composition `b9544449b22dc26dadd51193745a10e233c2ad6d`.
+Deployment `dep-dbs2ajc9v7es73bgfl70` became live at 09:19:01 UTC; readiness
+returned 200. Fresh hosted 320px closed and keyboard-expanded views and a
+1440px closed view were visually inspected. The initial English view no longer
+led with the Chinese paragraph. A separate current models read returned 200;
+the expanded original text exactly matched its catalog description. Enter
+collapsed it with focus retained on the trigger; document width remained
+320px. Chinese at 390px retained its existing description preview without
+overflow. The interface language was restored to English, and BabelArk's
+existing English description remained visible without an unsupported Video
+trial. No model invocation, metadata or commercial change was used for this
+acceptance. This accepts presentation of original content, not a translation or
+an upstream availability promise.
+
+An earlier locale-verification navigation reached sign-in when the existing
+session lost validity. That interrupted run is excluded. The same configured
+account was signed in again without a password change, after which the Chinese
+preview and restoration to English were completed against the hosted source.
