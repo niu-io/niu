@@ -125,3 +125,27 @@ and expiry; selecting Owner returned focus to Role. At 390px the complete
 guidance and action fit; the wide form was also inspected. No new invitation
 was created. Dashboard static checks and production build completed for this
 follow-up; fresh hosted reflow acceptance remains pending.
+
+## Hosted reflow acceptance
+
+PR #176 is included in core `799bb7ce96fcd4841391ac4bdec6a6c02faf956b`,
+staging composition `b9544449b22dc26dadd51193745a10e233c2ad6d`.
+Deployment `dep-dbs2ajc9v7es73bgfl70` became live at 09:19:01 UTC; readiness
+returned 200. Fresh hosted 320px invitation form measurements were 240px
+client/scroll width and 320px document/viewport width. The organization-wide
+scope and longer Owner role wrapped fully with their arrows visible. Settled
+form, scope, role and expiry menu screenshots were each independently
+inspected. Shared icon/text alignment and right-side selected checks remained
+intact. Selecting Owner returned to Role; Escape returned to Scope and Expiry,
+and dismissing the unsent invitation returned to Invite inside Settings. No new
+invitation was submitted. The earlier actual successful acceptance and cleanup
+precede these presentation-only repairs and are not relabeled as a new hosted
+invitation issuance.
+
+Fresh hosted forms at 390px and 1440px were also visually inspected. Their
+client/scroll widths were respectively 310/310px and 464/464px. The 1024px
+Settings modal remained within the document and retained its local action
+target. Its width is independent of the obscured primary navigation; an
+attempted navigation-state setup did not retain a collapsed background, so it
+is not evidence for that variant. The ordinary model and usage lanes have
+their separately recorded expanded/collapsed navigation measurements.
