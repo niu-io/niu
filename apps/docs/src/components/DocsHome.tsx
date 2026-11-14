@@ -27,8 +27,13 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
       detail: t("Discover authority, operations, evidence and recovery.", "发现授权范围、操作、执行证据和恢复方式。"),
     },
     {
+      href: "/docs/inference.md",
+      name: t("Model inference", "模型推理"),
+      detail: t("Invoke chat, responses, messages, embeddings and video or wire app SDKs.", "按授权调用多协议模型接口，或接入业务应用 SDK。"),
+    },
+    {
       href: "/docs/pools.md",
-      name: t("Routing", "模型路由"),
+      name: t("Workspace routing", "工作空间路由"),
       detail: t("Preview, publish and inspect workspace routing policies.", "预览、发布并审阅工作空间路由策略。"),
     },
     {
@@ -120,8 +125,8 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
           </div>
           <p className="docs-home-setup-note">
             {t(
-              "Paste into Claude Code, Codex or DeepSeek Harness. The agent configures the integration and opens Niu for sign-in and authorization.",
-              "交给 Claude Code、Codex 或 DeepSeek Harness。Agent 配置接入，并打开 Niu 让你登录和审核权限。",
+              "Paste into Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or any coding agent. The agent configures the integration and opens Niu for sign-in and authorization.",
+              "交给 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或任意编码 Agent。Agent 会自动配置接入，并打开 Niu 让你登录和审核权限。",
             )}
           </p>
           {copyError && (

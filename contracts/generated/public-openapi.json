@@ -2661,11 +2661,9 @@
                 "properties": {
                   "client_name": {
                     "type": "string",
-                    "enum": [
-                      "Claude Code",
-                      "Codex",
-                      "DeepSeek Harness"
-                    ]
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "Self-reported coding-agent client name (trimmed printable characters, 1-80 characters; for example Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or a custom agent)."
                   },
                   "capabilities": {
                     "type": "array",
@@ -3035,7 +3033,7 @@
                   "invocation_protocols": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 6,
+                    "maxItems": 7,
                     "uniqueItems": true,
                     "items": {
                       "type": "string",
@@ -3045,10 +3043,28 @@
                         "messages",
                         "content",
                         "embeddings",
-                        "video"
+                        "video",
+                        "decisions"
                       ]
                     },
                     "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "maxItems": 6,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "pools:read",
+                        "pools:write",
+                        "events:read",
+                        "events:write",
+                        "evaluations:read",
+                        "evaluations:write"
+                      ]
+                    },
+                    "description": "Optional narrowed management capabilities approved by the human reviewer. When omitted, requested capabilities are preserved."
                   }
                 }
               }

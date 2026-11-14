@@ -1,43 +1,77 @@
 ---
 title: AgentDoc
-description: Machine-readable contracts for coding agents using Niu.
+description: Machine-readable contracts and universal device-authorization flows for coding agents using Niu.
 ---
 
 <div data-lang="en">
 
-AgentDoc provides machine-readable instructions and contracts for coding agents working with Niu. Use these contracts to discover, configure, verify and recover directly. The user sets goals and authority; retrieve Niu information yourself.
+AgentDoc provides machine-readable contracts and task workflows for coding agents working with Niu. Use these contracts to connect, discover models and grants, invoke supported interfaces, manage workspace routing, record attributed evaluations, and reconcile resource events directly. The user sets goals and approval boundaries; retrieve Niu information yourself.
 
-| Contract | Purpose |
-| --- | --- |
-| [Install and configure](/docs/agents/install/) | Host integration, account authorization and connection verification |
-| [Capability map](/docs/agents/capabilities/) | Availability, scope and operation discovery |
-| [Workspace routing](/docs/agents/pools/) | Preview, revision-checked management and execution evidence |
-| [Evaluations](/docs/agents/evaluations/) | Task samples, attributed judgments and matched comparisons |
-| [Resource events](/docs/agents/events/) | Subscription authority, delivery and reconciliation |
-| [REST API](/docs/api/rest/) | Generated request and response contracts |
-| [JavaScript SDK](/docs/api/sdk/) | Typed client references |
+## Connection Tracks
 
-Each contract opens as a rendered document. Switch between Markdown and Source to read or copy the original text. Raw `.md` links remain available for direct agent retrieval. Keep task quality, test spending, unknown charges and approval boundaries explicit. Platform events do not grant additional authority or guarantee that a sleeping host wakes.
+- **Track 1 — Universal Device-Auth + HTTP/MCP**: Any coding agent (`Cursor`, `Windsurf`, `Zed`, `OpenCode`, `Cline`, `Aider`, `Claude Code`, `Codex`, `DeepSeek Harness`, or custom harness) can connect against any Niu deployment using `POST /api/v1/auth/agents`, browser `/connect` approval, and standard HTTP or `@niu-io/mcp`.
+- **Track 2 — Native Host Bundles**: Prepackaged `v0.3.0` bundles for `Claude Code`, `Codex` (`niu-agent-marketplace.tar.gz`), and `DeepSeek Harness` (`niu-deepseek-harness.tar.gz`).
 
-For onboarding, product guides, administration and deployment, use [Docs](/docs/).
+## Universal Bootstrap Prompt
+
+Give a coding agent the deployment entry URL (`{ORIGIN}/llms.txt` or `/docs/install.md`), e.g.:
+
+```text
+Read https://niu.io/llms.txt and follow https://niu.io/docs/install.md to connect to Niu via /connect, inspect /v1/key and /v1/models, and confirm granted permissions before acting.
+```
+
+## Contract Index
+
+| Rendered Page | Raw Machine File | Purpose |
+| --- | --- | --- |
+| [Install and configure](/docs/agents/install/) | [/docs/install.md](/docs/install.md) | Track 1 universal device-auth, Track 2 host bundles, and `/connect` verification |
+| [Capability map](/docs/agents/capabilities/) | [/docs/agents.md](/docs/agents.md) | Authority discovery (`/v1/key`), model inventory, usage/cost boundaries, and error recovery |
+| [Model inference](/docs/agents/inference/) | [/docs/inference.md](/docs/inference.md) | Authorized HTTP/SDK/MCP calls (`chat`, `responses`, `messages`, `content`, `embeddings`, `decisions`, `video`) |
+| [Workspace routing](/docs/agents/pools/) | [/docs/pools.md](/docs/pools.md) ([/docs/routing.md](/docs/routing.md)) | Dry-run preview, v1/v2 `auto` routing strategies, revision locks, and selection diagnostics |
+| [Evaluations](/docs/agents/evaluations/) | [/docs/evaluations.md](/docs/evaluations.md) | Canonical v1 fingerprints, `x-niu-evaluation` binding, attributed runs, and matched comparisons |
+| [Resource events](/docs/agents/events/) | [/docs/events.md](/docs/events.md) | Authenticated pull stream (`list_workspace_events`), signed push receivers, and incident reconciliation |
+| [Machine index](/docs/llms.txt) | [/llms.txt](/llms.txt) | Concise deployment discovery map for automated harnesses |
+| [REST API](/docs/api/rest/) | [/docs/openapi/public.json](/docs/openapi/public.json) | Generated OpenAPI request, response, and scope contracts |
+| [JavaScript SDK](/docs/api/sdk/) | — | Typed `NiuClient` and `NiuAdminClient` interfaces |
+
+Switch between **Markdown** and **Source** above to preview or copy the clean `llms.txt` index or any contract's raw Markdown text. Keep task quality criteria, server spending limits, unknown customer charges, and human approval boundaries explicit.
+
+For human onboarding, console guides, and platform administration, visit [Docs](/docs/).
 
 </div>
 
 <div data-lang="zh" data-title-zh="AgentDoc">
 
-AgentDoc 为接入 Niu 的 coding agent 提供机器可读的指令与规范契约。请直接使用这些契约完成发现、配置、验证与恢复；人类用户仅设定目标与授权边界，请自行从 Niu 读取所需信息。
+AgentDoc 为接入 Niu 的 coding agent 提供机器可读的规范契约与任务工作流。智能体应直接使用这些契约完成设备授权连接、模型与权限发现、多协议推理、工作空间路由配置、可归因任务评估与资源事件对账；人类用户仅负责设定目标与授权边界，请勿让用户在控制台与对话之间手动搬运模型列表或 JSON。
 
-| 契约文档 | 用途说明 |
-| --- | --- |
-| [安装与配置](/docs/agents/install/) | 宿主接入、账号授权与连接验证 |
-| [能力概览](/docs/agents/capabilities/) | 能力可用性、权限范围与操作发现 |
-| [模型路由](/docs/agents/pools/) | 路由策略预演、带版本校验的更新与执行存证 |
-| [任务评估](/docs/agents/evaluations/) | 带指纹的任务样本、归因判定与横向对比 |
-| [资源事件](/docs/agents/events/) | 签名事件订阅权限、投递与对账 |
-| [REST API](/docs/api/rest/) | 自动生成的请求与响应接口契约 |
-| [JavaScript SDK](/docs/api/sdk/) | 类型化客户端参考 |
+## 双轨接入方式
 
-每份契约均可直接以渲染文档打开，并支持在 Markdown 与源码视图之间切换以阅读或复制原文；同时保留原始 `.md` 链接供 Agent 直接拉取。请始终明确任务质量标准、测试预算上限、未知费用与审批边界。平台事件通知不会授予额外权限，也不保证唤醒处于休眠状态的宿主。
+- **路径 1 — 通用设备授权 + HTTP/MCP**：任何具备 HTTP 能力的 coding agent（`Cursor`、`Windsurf`、`Zed`、`OpenCode`、`Cline`、`Aider`、`Claude Code`、`Codex`、`DeepSeek Harness` 或自研 Agent）均可通过 `POST /api/v1/auth/agents`、浏览器 `/connect` 审批与标准 HTTP 或 `@niu-io/mcp` 接入任意 Niu 部署。
+- **路径 2 — 原生宿主扩展包**：面向 `Claude Code`、`Codex`（`niu-agent-marketplace.tar.gz`）与 `DeepSeek Harness`（`niu-deepseek-harness.tar.gz`）的 `v0.3.0` 预打包原生集成。
+
+## 通用引导提示词
+
+将目标部署的入口提示词直接交给任意 coding agent（自建部署请替换域名）：
+
+```text
+请先阅读 https://niu.io/llms.txt 并按照 https://niu.io/docs/install.md 完成 /connect 设备授权接入，然后检查 /v1/key 与 /v1/models 确认实际授权范围与可用模型。
+```
+
+## 契约索引
+
+| 渲染阅读页 | 原始机器文档 | 用途说明 |
+| --- | --- | --- |
+| [安装与配置](/docs/agents/install/) | [/docs/install.md](/docs/install.md) | 通用 `/connect` 设备授权（路径 1）、原生宿主扩展包（路径 2）与连接验证 |
+| [能力概览](/docs/agents/capabilities/) | [/docs/agents.md](/docs/agents.md) | 权限发现（`/v1/key`）、模型目录、用量与费用边界及错误恢复语义 |
+| [模型推理](/docs/agents/inference/) | [/docs/inference.md](/docs/inference.md) | 已授权的多协议模型调用（`chat`/`responses`/`messages`/`content`/`embeddings`/`decisions`/`video`）与业务 SDK 集成 |
+| [工作空间路由](/docs/agents/pools/) | [/docs/pools.md](/docs/pools.md)（[/docs/routing.md](/docs/routing.md)） | 路由策略预演、v1/v2 `auto` 策略、乐观锁版本控制与选路诊断 |
+| [任务评估](/docs/agents/evaluations/) | [/docs/evaluations.md](/docs/evaluations.md) | 规范化请求指纹、`x-niu-evaluation` 绑定、可归因评估记录与匹配样本对比 |
+| [资源事件](/docs/agents/events/) | [/docs/events.md](/docs/events.md) | 认证拉取事件流（`list_workspace_events`）、HMAC 签名推送与故障事件对账 |
+| [机器导航索引](/docs/llms.txt) | [/llms.txt](/docs/llms.txt) | 面向自动化工具与宿主框架的简洁发现入口 |
+| [REST API](/docs/api/rest/) | [/docs/openapi/public.json](/docs/openapi/public.json) | 自动生成的 OpenAPI 请求、响应与权限契约 |
+| [JavaScript SDK](/docs/api/sdk/) | — | 类型化 `NiuClient` 与 `NiuAdminClient` 接口声明 |
+
+点击上方 **Markdown** / **Source** 标签即可直接查看或复制干净的 `llms.txt` 与原始 `.md` 源码。请始终明确任务验收标准、服务端消费限额、未知费用与人工审批边界。
 
 如需查看人工引导、产品指南、平台管理与部署文档，请访问 [文档首页](/docs/)。
 

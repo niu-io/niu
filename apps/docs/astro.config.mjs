@@ -48,7 +48,8 @@ export default defineConfig({
           // Starlight prefixes its /docs base onto local sidebar links.
           { label: 'Install and configure', slug: 'agents/install' },
           { label: 'Capability map', slug: 'agents/capabilities' },
-          { label: 'Model pools', slug: 'agents/pools' },
+          { label: 'Model inference', slug: 'agents/inference' },
+          { label: 'Workspace routing', slug: 'agents/pools' },
           { label: 'Evaluations', slug: 'agents/evaluations' },
           { label: 'Resource events', slug: 'agents/events' },
         ] },

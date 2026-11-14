@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { ChevronsUpDown, Check, ChevronDown } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { workspacePathSegment } from '@/shell/workspace-route';
+import { resolveWorkspacePathSegment, workspacePathSegment } from '@/shell/workspace-route';
 import { useBranding } from '@/shell/branding';
 import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,30 @@ import { request } from '@/lib/api-client';
 type Grant = { client_name: string; state: string; capabilities?: string[]; task?: string | null };
 const ALL_PROTOCOLS = ['chat', 'responses', 'messages', 'content', 'decisions', 'embeddings', 'video'];
 class RequestLoadError extends Error {}
+type ApprovedSummary = {
+  clientName: string;
+  workspaceName: string;
+  ttlLabel: string;
+  invocationAllowed: boolean;
+  models: string[];
+  protocols: string[];
+  capabilities: string[];
+};
+
+const TTL_OPTIONS = [
+  { seconds: 900, en: '15 minutes', zh: '15 分钟' },
+  { seconds: 3600, en: '1 hour', zh: '1 小时' },
+  { seconds: 28800, en: '8 hours', zh: '8 小时' },
+  { seconds: 86400, en: '24 hours', zh: '24 小时' },
+] as const;
+
 export default function ConnectAgent() {
   const context = useDashboardContext();
   const { settings, logo } = useBranding();
   const { t, isZh } = useLocale();
   const [query, setQuery] = useSearchParams();
   const code = (query.get('code') ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  const workspaceHint = (query.get('workspace') ?? '').trim();
   const [manualCode, setManualCode] = useState('');
   const [grant, setGrant] = useState<Grant | null>(null);
   const [workspaceId, setWorkspaceId] = useState('');
@@ -32,6 +50,9 @@ export default function ConnectAgent() {
   const [invocationProtocols, setInvocationProtocols] = useState<string[]>(ALL_PROTOCOLS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [ttlSeconds, setTtlSeconds] = useState<number>(3600);
+  const [approvedCapabilities, setApprovedCapabilities] = useState<string[]>([]);
+  const [approvedSummary, setApprovedSummary] = useState<ApprovedSummary | null>(null);
   const [catalog, setCatalog] = useState<{scope: string; status: 'loading' | 'ready' | 'error'; models: string[]}>({scope: '', status: 'loading', models: []});
   const [modelRetry, setModelRetry] = useState(0);
   const [modelQuery, setModelQuery] = useState('');
@@ -65,11 +86,12 @@ export default function ConnectAgent() {
   const headers = { authorization: `Bearer ${context.token}`, 'content-type': 'application/json' };
   useEffect(() => {
     const controller = new AbortController();
-    setGrant(null); setError(''); setLoading(true); setConsent(false); setInvocationAllowed(false); setSelectedModels([]); setInvocationProtocols(ALL_PROTOCOLS); setAdvancedOpen(false);
-    if (!validCode) { setError(t('Open the verification link supplied by your agent.', '请打开 Agent 提供的验证链接。')); setLoading(false); return; }
+    setGrant(null); setError(''); setLoading(true); setConsent(false); setInvocationAllowed(false); setSelectedModels([]); setInvocationProtocols(ALL_PROTOCOLS); setAdvancedOpen(false); setTtlSeconds(3600); setApprovedCapabilities([]); setApprovedSummary(null);
+    if (!code) { setLoading(false); return; }
+    if (!validCode) { setError(t('Enter the 12-character verification code supplied by your agent.', '请输入 Agent 提供的 12 位验证码。')); setLoading(false); return; }
     void fetch(`/api/v1/auth/agents/${code}`, { headers: { authorization: `Bearer ${context.token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new RequestLoadError(response.status === 401 ? t('Sign in again to review this connection.', '请重新登录以审核连接。') : response.status === 404 ? t('This request is unavailable or expired. Ask your agent to start again.', '请求不可用或已过期，请让 Agent 重新发起。') : t('Could not load the request. Try again.', '无法加载请求，请重试。')); return response.json(); })
-      .then(result => { if (!controller.signal.aborted) setGrant(result.data); })
+      .then(result => { if (!controller.signal.aborted) { setGrant(result.data); setApprovedCapabilities(result.data.capabilities ?? []); } })
       .catch(cause => { if (!controller.signal.aborted) setError(cause instanceof RequestLoadError ? cause.message : t('Could not load the request. Try again.', '无法加载请求，请重试。')); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -94,26 +116,47 @@ export default function ConnectAgent() {
   // ordinary connection review to the paid-invocation decision, while a
   // multi-workspace account still requires an explicit scope choice.
   useEffect(() => {
-    if (grant?.state === 'pending' && !workspaceId && context.workspaces.length === 1) {
+    if (grant?.state !== 'pending' || workspaceId) return;
+    if (workspaceHint) {
+      const hinted = resolveWorkspacePathSegment(workspaceHint, context.workspaces);
+      if (hinted) {
+        setWorkspaceId(hinted.id);
+        return;
+      }
+    }
+    if (context.workspaces.length === 1) {
       setWorkspaceId(context.workspaces[0].id);
     }
-  }, [grant?.state, workspaceId, context.workspaces]);
+  }, [grant?.state, workspaceId, workspaceHint, context.workspaces]);
   function submitManualCode(event: FormEvent) {
     event.preventDefault();
     const cleaned = manualCode.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
     if (!cleaned) return;
-    setQuery({ code: cleaned }, { replace: true });
+    setQuery(workspaceHint ? { code: cleaned, workspace: workspaceHint } : { code: cleaned }, { replace: true });
   }
   async function decide(approve: boolean) {
     if (pending || !grant || (approve && (!workspace || !consent || unsupported || !invocationReady))) return;
     setPending(true); setError('');
     try {
-      const response = await fetch(`/api/v1/auth/agents/${code}`, { method: 'POST', headers, body: JSON.stringify(approve && workspace ? { approve: true, organization_id: workspace.organization_id, workspace_id: workspace.id, allowed_models: invocationAllowed ? selectedModels : ['*'], ttl_seconds: 3600, invocation_allowed: invocationAllowed, invocation_protocols: invocationAllowed ? invocationProtocols : ALL_PROTOCOLS } : { approve: false }) });
+      const ttlOption = TTL_OPTIONS.find(item => item.seconds === ttlSeconds) ?? TTL_OPTIONS[1];
+      const response = await fetch(`/api/v1/auth/agents/${code}`, { method: 'POST', headers, body: JSON.stringify(approve && workspace ? { approve: true, organization_id: workspace.organization_id, workspace_id: workspace.id, allowed_models: invocationAllowed ? selectedModels : ['*'], ttl_seconds: ttlSeconds, invocation_allowed: invocationAllowed, invocation_protocols: invocationAllowed ? invocationProtocols : ALL_PROTOCOLS, ...(grant.capabilities?.length ? { capabilities: approvedCapabilities } : {}) } : { approve: false }) });
       if (!response.ok) throw new Error(t('The decision was not confirmed. Reload the request before trying again.', '未能确认操作结果，请重新加载请求后再试。'));
+      if (approve && workspace) {
+        setApprovedSummary({
+          clientName: grant.client_name,
+          workspaceName: workspace.name,
+          ttlLabel: t(ttlOption.en, ttlOption.zh),
+          invocationAllowed,
+          models: invocationAllowed ? [...selectedModels] : [],
+          protocols: invocationAllowed ? [...invocationProtocols] : [],
+          capabilities: [...approvedCapabilities],
+        });
+      }
       setGrant({ ...grant, state: approve ? 'approved' : 'denied' });
     } catch (cause) { setError(cause instanceof Error ? cause.message : t('Could not save your decision.', '无法保存决定。')); }
     finally { setPending(false); }
   }
+  const selectedTtlOption = TTL_OPTIONS.find(item => item.seconds === ttlSeconds) ?? TTL_OPTIONS[1];
   const terminal = grant && grant.state !== 'pending';
   const canApprove = context.session?.kind === 'operator' && context.session.permissions.write;
   return <main className="min-h-screen bg-background px-5 py-12 sm:py-20">
@@ -125,6 +168,29 @@ export default function ConnectAgent() {
       <header className="space-y-3"><h1 id="connect-title" className="text-2xl font-semibold">{t('Connect your agent', '连接你的 Agent')}</h1>
         <p className="text-sm text-muted-foreground">{t('Review the request from your coding agent. Your account password stays in Niu.', '审核 coding agent 的请求。账户密码仅用于登录 Niu。')}</p></header>
       {loading && <FormSectionSkeleton fields={2} label={t('Loading connection request…', '正在加载连接请求…')} />}
+      {!loading && !error && !grant && !code && (
+        <div className="space-y-4 text-sm">
+          <p className="text-muted-foreground">{t('Enter the 12-character verification code shown by your coding agent, or open the verification link it provided.', '请输入编码 Agent 显示的 12 位验证码，或直接打开其提供的验证链接。')}</p>
+          <form onSubmit={submitManualCode} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="agent-verification-code">{t('Verification code', '验证码')}</Label>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  id="agent-verification-code"
+                  value={manualCode}
+                  onChange={event => setManualCode(event.target.value)}
+                  placeholder={t('ABCD-1234-EF56', 'ABCD-1234-EF56')}
+                  className="max-w-xs font-mono uppercase"
+                  maxLength={20}
+                />
+                <Button type="submit" disabled={!manualCode.trim()}>
+                  {t('Continue', '继续')}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
       {error && (
         <div role="alert" className="space-y-4 text-sm">
           <p>{t(error)}</p>
@@ -151,14 +217,54 @@ export default function ConnectAgent() {
           {validCode && <Button variant="outline" disabled={pending} onClick={() => setRetry(value => value + 1)}>{t('Reload request', '重新加载请求')}</Button>}
         </div>
       )}
-      {terminal && <div role="status" className="space-y-3"><Check aria-hidden="true" /><h2 className="font-semibold">{grant.state === 'denied' ? t('Connection declined', '已拒绝连接') : t('Authorization approved', '已批准授权')}</h2><p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace API keys page.', '返回 Agent，它将验证连接。你可以在工作空间 API 密钥页面撤销签发的密钥。')}</p>{grant.state === 'approved' && workspace && <div><Button asChild variant="outline" size="sm"><Link to={`/workspaces/${workspacePathSegment(workspace, context.workspaces)}/keys`}>{t('Open API keys', '打开 API 密钥')}</Link></Button></div>}</div>}
+      {terminal && <div role="status" className="space-y-4 rounded-lg bg-muted/50 p-4">
+        <div className="flex items-start gap-2.5">
+          <Check className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div className="space-y-1">
+            <h2 className="font-semibold">{grant.state === 'denied' ? t('Connection declined', '已拒绝连接') : t('Authorization approved', '已批准授权')}</h2>
+            <p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace API keys page.', '返回 Agent，它将验证连接。你可以在工作空间 API 密钥页面撤销签发的密钥。')}</p>
+          </div>
+        </div>
+        {grant.state === 'approved' && approvedSummary && (
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <div><dt className="text-xs text-muted-foreground">{t('Agent client', 'Agent 客户端')}</dt><dd className="font-medium">{approvedSummary.clientName}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{t('Workspace', '工作空间')}</dt><dd className="font-medium">{approvedSummary.workspaceName}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{t('Session duration', '授权有效期')}</dt><dd className="font-medium">{approvedSummary.ttlLabel}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{t('Model calls', '模型调用')}</dt><dd className="font-medium">{approvedSummary.invocationAllowed ? t(`${approvedSummary.models.length} model(s)`, `已允许 ${approvedSummary.models.length} 个模型`) : t('Disabled (discovery only)', '已禁用（仅发现模型与读配置）')}</dd></div>
+            {approvedSummary.capabilities.length > 0 && (
+              <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">{t('Approved management access', '已批准的管理权限')}</dt><dd className="font-medium">{approvedSummary.capabilities.map(capability => capabilityLabels[capability] || capability).join(' · ')}</dd></div>
+            )}
+          </dl>
+        )}
+        {grant.state === 'approved' && workspace && <div><Button asChild variant="outline" size="sm"><Link to={`/workspaces/${workspacePathSegment(workspace, context.workspaces)}/keys`}>{t('Open API keys', '打开 API 密钥')}</Link></Button></div>}
+      </div>}
       {grant && !terminal && <>
         <p className="text-sm text-muted-foreground">{t('Check that this code matches the request in your agent:', '请确认此验证码与你的 Agent 中显示的一致：')} <code className="font-mono font-medium text-foreground">{code.match(/.{1,4}/g)?.join('-')}</code></p>
         <dl className="space-y-4 text-sm"><div><dt className="text-muted-foreground">{t('Client name (reported)', '客户端自报名称')}</dt><dd className="mt-1 font-medium">{grant.client_name}</dd></div><div><dt className="text-muted-foreground">{t('Signed in as', '当前账户')}</dt><dd className="mt-1">{context.session?.profile?.name || t('Your Niu account', '你的 Niu 账户')}</dd></div></dl>
         <div className="space-y-2"><Label>{t('Workspace', '工作空间')}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={pending || !canApprove}>{workspace?.name || t('Choose a workspace', '选择工作空间')}<ChevronsUpDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={workspaceId} onValueChange={value => { setWorkspaceId(value); setConsent(false); setInvocationAllowed(false); }}>{context.workspaces.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
         {workspace?.organization_name && <p className="text-sm text-muted-foreground">{t('Organization', '组织')}: {workspace.organization_name}</p>}
         {!canApprove && <p role="alert" className="text-sm">{t('Sign in with an account that can manage this workspace. Installation credentials cannot approve a personal agent connection.', '请使用有权管理该工作空间的账户登录。安装凭据不能批准个人 Agent 连接。')}</p>}
-        <div className="space-y-3 text-sm"><h2 className="font-medium">{t('Requested access · 1 hour', '请求权限 · 1 小时')}</h2><p>{t('Discover available workspace models and read request evidence. Model calls require separate approval below.', '发现工作空间可用模型并读取请求证据。模型调用需要在下方单独批准。')}</p><p className="text-muted-foreground">{t('This connection does not grant platform administration or access to other workspaces.', '此连接不授予平台管理权限或其他工作空间的访问权。')}</p></div>
+        <div className="space-y-2">
+          <Label>{t('Session duration', '授权有效期')}</Label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-between font-normal" disabled={pending || !canApprove} aria-label={t('Session duration', '授权有效期')}>
+                <span>{t(selectedTtlOption.en, selectedTtlOption.zh)}</span>
+                <ChevronsUpDown size={16} aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-(--radix-dropdown-menu-trigger-width)">
+              <DropdownMenuRadioGroup value={String(ttlSeconds)} onValueChange={(value) => { setTtlSeconds(Number(value)); setConsent(false); }}>
+                {TTL_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.seconds} value={String(option.seconds)}>
+                    {t(option.en, option.zh)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="space-y-3 text-sm"><h2 className="font-medium">{t(`Requested access · ${selectedTtlOption.en}`, `请求权限 · ${selectedTtlOption.zh}`)}</h2><p>{t('Discover available workspace models and read request evidence. Model calls require separate approval below.', '发现工作空间可用模型并读取请求证据。模型调用需要在下方单独批准。')}</p><p className="text-muted-foreground">{t('This connection does not grant platform administration or access to other workspaces.', '此连接不授予平台管理权限或其他工作空间的访问权。')}</p></div>
         <div className="space-y-2 text-sm">
           <div className="flex items-start gap-3"><Checkbox id="agent-invocation" checked={invocationAllowed} disabled={pending || !workspace || !canApprove} onCheckedChange={value => { setInvocationAllowed(value === true); setConsent(false); }} /><Label htmlFor="agent-invocation">{t('Allow model calls', '允许调用模型')}</Label></div>
           <p className="text-muted-foreground">{invocationAllowed
@@ -195,7 +301,7 @@ export default function ConnectAgent() {
             ? t('Model calls use existing workspace and key spending limits. This connection does not add a separate trial budget or cap owner-funded Provider expense.', '模型调用受现有工作空间和密钥限额约束。本次连接不新增独立试用预算，也不限制由所有者承担的上游费用。')
             : t('No model calls are authorized, so this connection cannot create inference charges.', '未授权模型调用，因此此连接不会产生推理费用。')}</p>
         </div>
-        {Boolean(grant.capabilities?.length) && <div className="space-y-1 text-sm"><p className="font-medium">{t('This connection also requests workspace management access:', '此连接还申请工作空间管理权限：')}</p><p className="text-muted-foreground">{(grant.capabilities ?? []).map(capability => capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')).join(' · ')}</p><p className="text-muted-foreground">{t('These permissions are fixed at approval. Review Advanced options for technical details.', '这些权限在批准时固定。技术细节请在高级选项中查看。')}</p></div>}
+        {Boolean(grant.capabilities?.length) && <div className="space-y-1 text-sm"><p className="font-medium">{t('This connection also requests workspace management access:', '此连接还申请工作空间管理权限：')}</p><p className="text-muted-foreground">{approvedCapabilities.length ? approvedCapabilities.map(capability => capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')).join(' · ') : t('All requested management permissions unchecked (discovery only).', '已取消勾选所有申请的管理权限（仅保留模型发现与读取）。')}</p><p className="text-muted-foreground">{t('You can narrow these permissions under Advanced options before authorizing.', '授权前可在高级选项中按需缩减这些权限范围。')}</p></div>}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <CollapsibleTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="-ml-2" aria-expanded={advancedOpen}>
@@ -210,7 +316,31 @@ export default function ConnectAgent() {
             </div>
             {Boolean(grant.capabilities?.length) && <div className="space-y-2">
               <h2 className="font-medium">{t('Additional management access', '额外管理权限')}</h2>
-              <ul className="list-disc space-y-1 pl-5">{grant.capabilities?.map(capability => <li key={capability}>{capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。')}</li>)}</ul>
+              <div className="space-y-2">{grant.capabilities?.map((capability) => {
+                const label = capabilityLabels[capability] || t('Unrecognized permission — decline this request.', '无法识别的权限，请拒绝此请求。');
+                const checked = approvedCapabilities.includes(capability);
+                const id = `agent-capability-${capability.replace(/[^a-z0-9]/gi, '-')}`;
+                return (
+                  <div key={capability} className="flex items-center gap-2">
+                    <Checkbox
+                      id={id}
+                      checked={checked}
+                      disabled={pending || !canApprove}
+                      onCheckedChange={(value) => {
+                        setApprovedCapabilities((current) =>
+                          value === true
+                            ? (grant.capabilities ?? []).filter((item) => item === capability || current.includes(item))
+                            : current.filter((item) => item !== capability),
+                        );
+                        setConsent(false);
+                      }}
+                    />
+                    <Label htmlFor={id} className="font-normal">
+                      {label}
+                    </Label>
+                  </div>
+                );
+              })}</div>
             </div>}
             {invocationAllowed && <div className="space-y-2">
               <h2 className="font-medium">{t('Model interfaces', '模型接口')}</h2>

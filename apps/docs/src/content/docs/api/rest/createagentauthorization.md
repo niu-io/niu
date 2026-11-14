@@ -51,11 +51,9 @@ No path, query, or header parameters are declared.
   "properties": {
     "client_name": {
       "type": "string",
-      "enum": [
-        "Claude Code",
-        "Codex",
-        "DeepSeek Harness"
-      ]
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Self-reported coding-agent client name (trimmed printable characters, 1-80 characters; for example Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or a custom agent)."
     },
     "capabilities": {
       "type": "array",

@@ -56,6 +56,37 @@ pub struct AgentAuthorizationView {
     pub task: Option<String>,
 }
 
+/// Validates and trims a coding-agent client name for browser device authorization.
+pub fn valid_agent_client_name(client_name: &str) -> Option<&str> {
+    let trimmed = client_name.trim();
+    let len = trimmed.chars().count();
+    if !(1..=80).contains(&len) || trimmed.chars().any(char::is_control) {
+        return None;
+    }
+    Some(trimmed)
+}
+
+/// Validates requested or approved agent management capabilities.
+pub fn valid_agent_capabilities(capabilities: &[String]) -> bool {
+    capabilities.len() <= 6
+        && capabilities.iter().all(|value| {
+            matches!(
+                value.as_str(),
+                "pools:read"
+                    | "pools:write"
+                    | "events:read"
+                    | "events:write"
+                    | "evaluations:read"
+                    | "evaluations:write"
+            )
+        })
+        && capabilities
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            == capabilities.len()
+}
+
 impl Store {
     pub async fn create_agent_authorization(
         &self,
@@ -74,6 +105,8 @@ impl Store {
             .await
     }
 
+    /// Creates a pending browser-authorized device request with bounded display task context.
+    ///
     /// The task is bounded, trimmed display context shown during review. It is
     /// never stored on the issued credential and never becomes an authority
     /// check, so wording differences cannot widen or narrow real grants.
@@ -83,24 +116,7 @@ impl Store {
         capabilities: &[String],
         task: Option<&str>,
     ) -> Result<AgentAuthorizationRequest, StoreError> {
-        if capabilities.len() > 6
-            || capabilities.iter().any(|value| {
-                !matches!(
-                    value.as_str(),
-                    "pools:read"
-                        | "pools:write"
-                        | "events:read"
-                        | "events:write"
-                        | "evaluations:read"
-                        | "evaluations:write"
-                )
-            })
-            || capabilities
-                .iter()
-                .collect::<std::collections::HashSet<_>>()
-                .len()
-                != capabilities.len()
-        {
+        if !valid_agent_capabilities(capabilities) {
             return Err(StoreError::InvalidKey);
         }
         let task = task.map(str::trim).filter(|value| !value.is_empty());
@@ -109,9 +125,7 @@ impl Store {
         }) {
             return Err(StoreError::InvalidKey);
         }
-        if !matches!(client_name, "Claude Code" | "Codex" | "DeepSeek Harness") {
-            return Err(StoreError::InvalidKey);
-        }
+        let client_name = valid_agent_client_name(client_name).ok_or(StoreError::InvalidKey)?;
         let device_secret = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let user_code = Uuid::new_v4().simple().to_string()[..12].to_uppercase();
         sqlx::query("INSERT INTO agent_authorizations(id,client_name,device_hash,user_code,requested_capabilities,requested_task,expires_at) VALUES ($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '10 minutes')")
@@ -198,16 +212,43 @@ impl Store {
         invocation_allowed: bool,
         invocation_protocols: &[String],
     ) -> Result<(), StoreError> {
+        self.approve_agent_authorization_with_capabilities_and_scope(
+            user_code,
+            scope,
+            actor,
+            models,
+            ttl_seconds,
+            invocation_allowed,
+            invocation_protocols,
+            None,
+        )
+        .await
+    }
+
+    /// Approves a pending agent authorization request with explicit scope, model interfaces, and optional narrowed management capabilities.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn approve_agent_authorization_with_capabilities_and_scope(
+        &self,
+        user_code: &str,
+        scope: TenantScope,
+        actor: Uuid,
+        models: &[String],
+        ttl_seconds: i64,
+        invocation_allowed: bool,
+        invocation_protocols: &[String],
+        capabilities: Option<&[String]>,
+    ) -> Result<(), StoreError> {
         if !(60..=86400).contains(&ttl_seconds)
             || models.is_empty()
             || models.iter().any(|m| m.is_empty() || m.len() > 200)
             || (models.iter().any(|m| m == "*") && models.len() != 1)
             || !valid_invocation_protocols(invocation_protocols)
+            || capabilities.is_some_and(|caps| !valid_agent_capabilities(caps))
         {
             return Err(StoreError::InvalidKey);
         }
-        let result=sqlx::query("UPDATE agent_authorizations SET state='approved',organization_id=$2,project_id=$3,approved_by=$4,approved_models=$5,credential_ttl_seconds=$6,invocation_allowed=$7,invocation_protocols=$8 WHERE user_code=$1 AND state='pending' AND expires_at>clock_timestamp() AND EXISTS(SELECT 1 FROM admin_operators o WHERE o.id=$4 AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=$2 AND (o.project_id IS NULL OR o.project_id=$3))")
-            .bind(user_code).bind(scope.organization_id).bind(scope.project_id).bind(actor).bind(models).bind(ttl_seconds).bind(invocation_allowed).bind(invocation_protocols).execute(&self.pool).await?;
+        let result=sqlx::query("UPDATE agent_authorizations SET state='approved',organization_id=$2,project_id=$3,approved_by=$4,approved_models=$5,credential_ttl_seconds=$6,invocation_allowed=$7,invocation_protocols=$8,approved_capabilities=$9 WHERE user_code=$1 AND state='pending' AND expires_at>clock_timestamp() AND EXISTS(SELECT 1 FROM admin_operators o WHERE o.id=$4 AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=$2 AND (o.project_id IS NULL OR o.project_id=$3))")
+            .bind(user_code).bind(scope.organization_id).bind(scope.project_id).bind(actor).bind(models).bind(ttl_seconds).bind(invocation_allowed).bind(invocation_protocols).bind(capabilities).execute(&self.pool).await?;
         if result.rows_affected() != 1 {
             return Err(StoreError::Conflict);
         }
@@ -276,7 +317,7 @@ impl Store {
         .await?;
         sqlx::query("UPDATE api_keys SET invocation_allowed=a.invocation_allowed,invocation_protocols=a.invocation_protocols FROM agent_authorizations a WHERE api_keys.id=$1 AND a.id=$2")
             .bind(issued.id).bind(id).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO agent_key_capabilities(key_id,capability,authorization_id) SELECT $2,unnest(requested_capabilities),id FROM agent_authorizations WHERE id=$1")
+        sqlx::query("INSERT INTO agent_key_capabilities(key_id,capability,authorization_id) SELECT $2,unnest(COALESCE(approved_capabilities, requested_capabilities)),id FROM agent_authorizations WHERE id=$1")
             .bind(id).bind(issued.id).execute(&mut *tx).await?;
         sqlx::query(
             "UPDATE agent_authorizations SET state='consumed',issued_key_id=$2 WHERE id=$1",

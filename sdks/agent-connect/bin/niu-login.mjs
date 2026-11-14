@@ -6,20 +6,20 @@ import {authorizeDevice} from '../src/auth/device.mjs';
 import {prepareCredentialStorage,saveCredential} from '../src/auth/credentials.mjs';
 
 const args=process.argv.slice(2);
-const options={origin:'https://niu.io',client:'Codex',credentials:join(homedir(),'.config','niu','credential.json'),open:true,capabilities:[],task:undefined};
+const options={origin:'https://niu.io',client:'Codex',credentials:join(homedir(),'.config','niu','credential.json'),open:true,capabilities:[],task:undefined,workspace:undefined};
 try {
  for(let i=0;i<args.length;i++) {
   const flag=args[i];
   if(flag==='--capability' && args[i+1]){options.capabilities.push(args[++i]);continue;}
   if(flag==='--no-open'){options.open=false;continue;}
-  const key=({'--origin':'origin','--client':'client','--credentials':'credentials','--task':'task'})[flag];
-  if(!key || !args[i+1] || args[i+1].startsWith('--')) throw new Error('Usage: niu-login [--origin URL] [--client NAME] [--credentials PATH] [--task TEXT] [--capability pools:read] [--no-open]');
+  const key=({'--origin':'origin','--client':'client','--credentials':'credentials','--task':'task','--workspace':'workspace'})[flag];
+  if(!key || !args[i+1] || args[i+1].startsWith('--')) throw new Error('Usage: niu-login [--origin URL] [--client NAME] [--workspace SLUG] [--credentials PATH] [--task TEXT] [--capability pools:read] [--no-open]');
   options[key]=args[++i];
  }
  await prepareCredentialStorage(options.credentials);
  const controller=new AbortController();
  process.once('SIGINT',()=>controller.abort());
- const credential=await authorizeDevice({baseURL:options.origin,clientName:options.client,capabilities:options.capabilities,task:options.task,signal:controller.signal,showVerification:async({url,code,task})=>{
+ const credential=await authorizeDevice({baseURL:options.origin,clientName:options.client,capabilities:options.capabilities,task:options.task,workspace:options.workspace,signal:controller.signal,showVerification:async({url,code,task})=>{
   process.stdout.write(`Review this Niu connection in your browser:\n${url}\nVerification code: ${code}\n${task?`Requested task: ${task}\n`:''}Waiting for your decision…\n`);
   if(options.open){
    const command=process.platform==='darwin'?'open':process.platform==='win32'?null:'xdg-open';
