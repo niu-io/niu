@@ -215,7 +215,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .niu-modal .model-form-footer { margin-top: 0; }
 
 .niu-modal .operator-create-panel { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.niu-modal .operator-create-form { grid-template-columns: 1fr; padding: 0; }
+.niu-modal .operator-create-form { grid-template-columns: minmax(0, 1fr); padding: 0; }
 .niu-modal .operator-create-footer { border-top: 0; }
 .operator-dialog-error { padding: 0 25px 16px; }
 .overview-primary-actions { gap: 8px; }
