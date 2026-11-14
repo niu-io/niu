@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import GatewayActivity, { taskOutcome } from '../../../../app/features/executions/components/GatewayActivity';
+import { saveLocale } from '../../../../app/shell/locale';
 
 const knownKeys = [{id:'key-1',name:'Build app',allowed_models:['*'],revoked:false,expired:false}];
 
@@ -1182,4 +1183,206 @@ it('keeps aggregate key usage visible when its public link cannot be resolved',a
  expect(screen.getByText('Build app')).toBeTruthy();
  expect(screen.getByText('Key link unavailable')).toBeTruthy();
  expect(screen.queryByRole('link',{name:'View requests',exact:true})).toBeNull();
+});
+
+it('explains Niu charges clearly on Overview for mixed own-key and pending requests', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(
+  String(input).endsWith('/keys')
+   ? { data: [] }
+   : {
+     data: [],
+     next_cursor: null,
+     summary: {
+      ...summary,
+      request_count: 68,
+      unresolved_customer_charge_count: 12,
+      unpriced_request_count: 0,
+      owner_funded_request_count: 49,
+      customer_charges: [{ currency: 'USD', amount_nanos: '0', charged_requests: 7 }],
+     },
+    },
+ )));
+ render(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ const totals = await screen.findByRole('region', { name: 'Workspace request totals' });
+ expect(within(totals).getByText('Niu charges')).toBeTruthy();
+ expect(await within(totals).findByText('Pending settlement')).toBeTruthy();
+ expect(within(totals).queryByText('$0.00')).toBeNull();
+ expect(within(totals).queryByText('Unresolved')).toBeNull();
+ expect(within(totals).getByText('12 requests awaiting settlement')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Inspect' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+ expect(within(totals).getByText('49 with own API keys (not billed by Niu; Provider charges may still apply)')).toBeTruthy();
+
+ const user = userEvent.setup();
+ const helpTrigger = within(totals).getByRole('button', { name: 'About Niu charges' });
+ await user.click(helpTrigger);
+ const helpDialog = await screen.findByText('How Niu charges work');
+ expect(helpDialog).toBeTruthy();
+ expect(screen.getByText('Totals show only settled charges billed through Niu.')).toBeTruthy();
+ expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+ expect(screen.getByRole('link', { name: 'Charge breakdown' }).getAttribute('href')).toBe('/workspaces/default/usage#charge-breakdown-title');
+ expect(screen.getByRole('link', { name: 'Billing and rates' }).getAttribute('href')).toBe('/workspaces/default/billing');
+ await user.keyboard('{Escape}');
+ expect(document.activeElement).toBe(helpTrigger);
+});
+
+it('shows settled Niu charges alongside unpriced and pending action links and hides billing links in internal mode', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(
+  String(input).endsWith('/keys')
+   ? { data: [] }
+   : {
+     data: [],
+     next_cursor: null,
+     summary: {
+      ...summary,
+      request_count: 15,
+      unresolved_customer_charge_count: 3,
+      unpriced_request_count: 2,
+      owner_funded_request_count: 0,
+      customer_charges: [{ currency: 'USD', amount_nanos: '12450000000', charged_requests: 10 }],
+     },
+    },
+ )));
+ const view = render(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ const totals = await screen.findByRole('region', { name: 'Workspace request totals' });
+ await within(totals).findByText('$12.45');
+ expect(within(totals).getByText('3 requests awaiting settlement')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Inspect' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+ expect(within(totals).getByText('2 requests without a customer rate')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Review rates' }).getAttribute('href')).toBe('/workspaces/default/billing?tab=rates');
+
+ view.rerender(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    hideBillingLink
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ expect(within(totals).queryByRole('link', { name: 'Review rates' })).toBeNull();
+ expect(within(totals).getByRole('link', { name: 'View breakdown' }).getAttribute('href')).toBe('/workspaces/default/usage#charge-breakdown-title');
+});
+
+it('localizes Niu charge summary, breakdown states, and request charge hints cleanly in zh-CN', async () => {
+ saveLocale('zh-CN');
+ try {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+   const path = String(input);
+   if (path.endsWith('/keys')) return Response.json({ data: [] });
+   if (path.endsWith('/guardrails') || path.includes('/payloads')) return Response.json({ data: null });
+   return Response.json({
+    data: [
+     {
+      ...makeRequest('pending-1', null, 'fast', null, { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'pending' }),
+      execution: 'may_have_executed',
+     },
+     {
+      ...makeRequest('own-key-1', null, 'slow', null, { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'owner_funded' }),
+     },
+    ],
+    next_cursor: null,
+    summary: {
+     ...summary,
+     request_count: 68,
+     unresolved_customer_charge_count: 12,
+     unpriced_request_count: 0,
+     owner_funded_request_count: 49,
+     customer_charges: [{ currency: 'USD', amount_nanos: '0', charged_requests: 7 }],
+    },
+   });
+  }));
+  render(
+   <MemoryRouter initialEntries={['/workspaces/default']}>
+    <GatewayActivity
+     compact
+     workspaceRoute="/workspaces/default"
+     token="test"
+     models={['fast', 'slow']}
+     initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+    />
+   </MemoryRouter>,
+  );
+  const totals = await screen.findByRole('region', { name: '工作空间请求合计' });
+  expect(within(totals).getByText('Niu 费用')).toBeTruthy();
+  expect(await within(totals).findByText('待结算')).toBeTruthy();
+  expect(within(totals).getByText('12 个请求待结算')).toBeTruthy();
+  expect(within(totals).getByRole('link', { name: '查看请求' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+  expect(within(totals).getByText('49 个请求使用自有 API 密钥（不经 Niu 扣费，Provider 仍可能计费）')).toBeTruthy();
+  expect(within(totals).queryByText(/未核定/)).toBeNull();
+
+  const user = userEvent.setup();
+  await user.click(within(totals).getByRole('button', { name: '了解 Niu 费用' }));
+  expect(await screen.findByText('Niu 费用说明')).toBeTruthy();
+  expect(screen.getByRole('link', { name: '查看待结算请求' })).toBeTruthy();
+  await user.keyboard('{Escape}');
+
+  await user.click(await screen.findByRole('button', { name: 'fast', exact: true }));
+  const pendingDialog = await screen.findByRole('dialog', { name: '请求详情' });
+  expect(within(pendingDialog).getByText('待结算')).toBeTruthy();
+  expect(within(pendingDialog).getByText('结果或用量尚未确认，暂未结算也不记为零费用。')).toBeTruthy();
+  await user.keyboard('{Escape}');
+
+  await user.click(await screen.findByRole('button', { name: 'slow', exact: true }));
+  const ownKeyDialog = await screen.findByRole('dialog', { name: '请求详情' });
+  expect(within(ownKeyDialog).getByText('使用自有 API 密钥，不由 Niu 扣费，费用以 Provider 为准。')).toBeTruthy();
+ } finally {
+  saveLocale('en');
+ }
+});
+
+it('shows No rate set headline when unpriced platform requests exist without settled or pending charges', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(
+  String(input).endsWith('/keys')
+   ? { data: [] }
+   : {
+     data: [],
+     next_cursor: null,
+     summary: {
+      ...summary,
+      request_count: 4,
+      unresolved_customer_charge_count: 0,
+      unpriced_request_count: 4,
+      owner_funded_request_count: 0,
+      customer_charges: [],
+     },
+    },
+ )));
+ render(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ const totals = await screen.findByRole('region', { name: 'Workspace request totals' });
+ await within(totals).findByText('No rate set');
+ expect(within(totals).getByText('4 requests without a customer rate')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Review rates' }).getAttribute('href')).toBe('/workspaces/default/billing?tab=rates');
 });

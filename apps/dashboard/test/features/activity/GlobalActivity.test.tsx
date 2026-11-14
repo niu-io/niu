@@ -158,4 +158,31 @@ describe('Global Activity',()=>{
   expect(screen.queryByText('Unknown')).toBeNull();
  });
 
+ it('renders shared Niu charges card and workspace charge states cleanly across workspaces',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    const path=String(input);
+    if(path==='/api/v1/workspaces')return Response.json({data:workspaces});
+    if(path.includes('/projects/a/'))return Response.json({
+      data:[],
+      summary:{request_count:5,usage_count:5,prompt_tokens:'100',completion_tokens:'50',customer_charges:[],unresolved_customer_charge_count:2,unpriced_request_count:0,owner_funded_request_count:3},
+      next_cursor:null,
+    });
+    return Response.json({
+      data:[],
+      summary:{request_count:4,usage_count:4,prompt_tokens:'80',completion_tokens:'40',customer_charges:[],unresolved_customer_charge_count:0,unpriced_request_count:1,owner_funded_request_count:3},
+      next_cursor:null,
+    });
+  }));
+  open();
+  const totals=await screen.findByRole('region',{name:'All workspace totals'});
+  expect(totals.textContent).toContain('Niu charges');
+  expect(totals.textContent).toContain('Pending settlement');
+  expect(totals.textContent).toContain('2 requests awaiting settlement');
+  expect(totals.textContent).toContain('1 request without a customer rate');
+  expect(totals.textContent).toContain('6 with own API keys (not billed by Niu; Provider charges may still apply)');
+  const inspectLink=await screen.findByRole('link',{name:'Inspect'});
+  expect(inspectLink.getAttribute('href')).toBe('/activity/logs');
+  expect(await screen.findByRole('cell',{name:'No rate set'})).toBeTruthy();
+ });
+
 });
