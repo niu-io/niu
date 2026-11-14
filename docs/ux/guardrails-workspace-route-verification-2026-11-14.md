@@ -20,7 +20,7 @@ An actual unsent review draft was entered and independently read from the backen
 
 ## Shared heading ownership
 
-Following a named key's View policy link previously left the visible h1 as API key while Guardrails content and the document title had loaded correctly. Imperative title cleanup restored text into a shared React-owned node. ShellHeader now keys its title node by pathname and PageHeader resynchronizes on pathname changes, so cleanup affects only the previous route's node.
+Following a named key's View policy link previously left the visible h1 as API key while Guardrails content and the document title had loaded correctly. Imperative title cleanup restored text into a shared React-owned node. ShellHeader now keys its title node by pathname and PageHeader resynchronizes on the pathname supplied by the key detail caller, so cleanup affects only the previous route's node.
 
 The local candidate showed the actual key name on detail and Guardrails after the real View policy link, Policy/History/Blocked requests navigation, and refresh. At 390 px, History measured document width 390 px and showed readable responsive rows; the 1024 px collapsed-navigation view measured 1024 px with the correct heading and reachable toolbar.
 

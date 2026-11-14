@@ -1,15 +1,14 @@
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router';
 
-export default function PageHeader({ title, syncRouteTitle, action, className }: {
+export default function PageHeader({ title, syncRouteTitle, routeTitleKey, action, className }: {
   title: string;
   syncRouteTitle?: boolean;
+  routeTitleKey?: string;
   eyebrow?: string;
   action?: ReactNode;
   className?: string;
 }) {
-  const { pathname } = useLocation();
   const [target, setTarget] = useState<HTMLElement | null>(() =>
     typeof document !== 'undefined' ? document.getElementById('dashboard-page-actions') : null,
   );
@@ -22,7 +21,7 @@ export default function PageHeader({ title, syncRouteTitle, action, className }:
     const previous = headerTitle.textContent;
     headerTitle.textContent = title;
     return () => { headerTitle.textContent = previous; };
-  }, [pathname, syncRouteTitle, title]);
+  }, [routeTitleKey, syncRouteTitle, title]);
   if (!action) return null;
   const actions = <div className={`page-heading-action${className ? ` ${className}` : ''}`}>{action}</div>;
   return target ? createPortal(actions, target) : <div className="page-heading page-actions">{actions}</div>;
