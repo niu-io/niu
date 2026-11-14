@@ -64,7 +64,7 @@ function RouteFallbackView({
   const detail = diagnosticText(
     error instanceof Error ? error.message : responseMessage || response?.statusText || description,
   );
-  const details = [effectiveStatus ? `HTTP ${effectiveStatus}` : error instanceof Error ? error.name : title, detail]
+  const details = [effectiveStatus ? String(effectiveStatus) : error instanceof Error ? error.name : title, detail]
     .filter(Boolean)
     .join('\n');
 

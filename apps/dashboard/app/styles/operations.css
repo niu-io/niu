@@ -310,7 +310,8 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 /* Keep narrow benchmark breadcrumbs readable; the analysis scope is explained in content. */
 
 /* Mobile sidebars use the Sheet primitive's single, consistently placed close control. */
-[data-slot="sidebar"][data-mobile="true"] > button { display: flex; align-items: center; justify-content: center; top: 18px; right: 18px; width: 36px; height: 36px; border-radius: var(--radius-control); opacity: 1; color: var(--muted-foreground); }
+[data-slot="sidebar"][data-mobile="true"] > button { display: flex; align-items: center; justify-content: center; top: 18px; right: 12px; width: 36px; height: 36px; border-radius: var(--radius-control); opacity: 1; color: var(--muted-foreground); }
+[data-slot="sidebar"][data-mobile="true"]:has([data-slot="sidebar-header"].sidebar-header-row) > button { top: calc((var(--dashboard-header-height, 56px) - 36px) / 2); }
 [data-slot="sidebar"][data-mobile="true"] > button:hover { background: var(--sidebar-accent); color: var(--foreground); }
 [data-slot="sidebar"][data-mobile="true"] [data-slot="sidebar-header"] { padding-right: 60px; }
 

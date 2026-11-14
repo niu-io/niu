@@ -98,6 +98,7 @@ export default function VolcengineView({
   const chosen = choices.find(choice => choice.module.model_alias === chosenModel);
   const modelChoices = [...new Set(choices.map(choice => choice.module.model_alias))];
   const chosenKeyRecord = data.contextKeys.find(key => key.id === chosenKey);
+  const noActiveKeys = data.contextKeys.every(key => key.revoked || key.expired);
   const modelLabel = (model: string) => {
     const active = choices.find(choice => choice.module.model_alias === model);
     return active ? active.module.display_name ?? active.module.context_label ?? model : model;
@@ -537,8 +538,9 @@ export default function VolcengineView({
         <Button variant="outline" disabled={contextLocked} onClick={data.retry}>{uiT('Retry discovery')}</Button>
       </div>}
       {!nativeContext && !data.discoveryLoading && !chosenModel && !data.selectedKeyIpRestricted && <div className="space-y-2 text-sm">
-        <p className="text-muted-foreground">{chosenKey && modelChoices.length === 0 ? data.discoveryErrors.length > 0 ? uiT('Native tool discovery is incomplete. Retry discovery or choose a discovered context.') : uiT('No models supporting Provider materials were found for this key. Choose another key or review your workspace models.') : data.contextKeys.length === 0 && data.discoveryErrors.length === 0 ? uiT('Add an API key and choose a supported model to read Provider materials.') : uiT('Choose an API key and model to read its materials.')}</p>
-        {data.discoveryErrors.length === 0 && ((chosenKey && modelChoices.length === 0) || data.contextKeys.length === 0) && <div className="flex flex-wrap gap-2">
+        {noActiveKeys && data.discoveryErrors.length === 0 && <p className="font-medium">{uiT('No active API keys')}</p>}
+        <p className="text-muted-foreground">{noActiveKeys && data.discoveryErrors.length === 0 ? uiT('Add an API key and choose a supported model to read Provider materials.') : chosenKey && modelChoices.length === 0 ? data.discoveryErrors.length > 0 ? uiT('Native tool discovery is incomplete. Retry discovery or choose a discovered context.') : uiT('No models supporting Provider materials were found for this key. Choose another key or review your workspace models.') : data.contextKeys.length === 0 && data.discoveryErrors.length === 0 ? uiT('Add an API key and choose a supported model to read Provider materials.') : uiT('Choose an API key and model to read its materials.')}</p>
+        {data.discoveryErrors.length === 0 && ((chosenKey && modelChoices.length === 0) || noActiveKeys) && <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceKeysHref}>{uiT('Manage API keys')}</Link> : <a href={workspaceKeysHref}>{uiT('Manage API keys')}</a>}</Button>
           <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceModelsHref}>{uiT('View models')}</Link> : <a href={workspaceModelsHref}>{uiT('View models')}</a>}</Button>
         </div>}

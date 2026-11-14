@@ -37,3 +37,7 @@ Viewport budget and visual judgment: at 1024 px expanded, the conversation occup
 The saved Video sibling also rendered within a 390 × 700 viewport without document-width overflow or resubmission. Logs retained its actual populated request list and ordinary management-page scrolling: a real wheel moved the main panel to 800 px. Thus restoring the Generations containment did not globally disable management-page scrolling.
 
 Public build and documentation workflows were invoked. Any fixture commands within those workflows are recorded only as executed, and their outcomes are disregarded. Hosted current-input gestures and independently measured final DOM bounds supply the scroll acceptance evidence.
+
+## Follow-up on core 4d13fcce
+
+At 390 × 640, real wheel input moved session history to 92.5 px while the underlying transcript stayed fixed and the document remained at zero. Escape returned focus to Sessions. A separate wheel gesture moved the transcript to 450.5 px; the composer remained at viewport bottom 640 px and document width stayed 390 px. At settled 1024 px layouts, expanded navigation left a 464 px canvas and collapsed navigation a 640 px canvas; the document remained 1024 px in both. This also exposed a remaining narrow-canvas identity clipping issue, reopened as `niu-w5fa` rather than silently treating the closed-state frame as header acceptance. The scroll correction itself remained intact.

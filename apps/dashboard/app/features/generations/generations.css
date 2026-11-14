@@ -129,3 +129,16 @@
   .generations-toolbar .generations-secondary-action { display: none; }
   .generations-toolbar .generations-more-actions { display: inline-flex; }
 }
+
+/* Sidebars reduce the canvas independently of the browser viewport. */
+@container (max-width: 640px) {
+  .generations-toolbar .generations-identity { flex-direction:column; align-items:stretch; gap:0; }
+  .generations-toolbar .generations-identity > a { padding:0; background:transparent; font-size:11px; }
+  .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice { flex:0 0 36px; width:36px; min-width:36px; max-width:none; height:36px; padding:0; justify-content:center; }
+  .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span { display:none; }
+}
+
+@container (max-width: 360px) {
+  .generations-toolbar .generations-history-trigger { width:36px; height:36px; padding:0; gap:0; }
+  .generations-toolbar .generations-history-trigger > span { display:none; }
+}

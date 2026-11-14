@@ -584,7 +584,7 @@ describe('gateway activity', () => {
       throw new Error(`Unexpected request: ${path}`);
     }));
     render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
-    expect((await screen.findByText('Failed · HTTP 502')).classList.contains('is-failed')).toBe(true);
+    expect((await screen.findByText('Failed · 502')).classList.contains('is-failed')).toBe(true);
     await userEvent.setup().click(screen.getByRole('button', { name: 'fast' }));
     expect(await screen.findByText('HTTP 502')).toBeTruthy();
     expect(screen.getByText('Provider status')).toBeTruthy();
