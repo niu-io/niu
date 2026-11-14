@@ -3967,6 +3967,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "{0} requests with own API keys": "{0} 个请求使用自有 API 密钥",
   "{0} requests unresolved": "{0} 个请求未核定",
   "The Provider rejected the request.": "Provider 拒绝了请求。",
+  "The upstream returned HTTP 429": "上游返回 HTTP 429",
   "This model is unavailable in the upstream account’s region.": "此模型在上游账户所在区域不可用。",
   "The upstream account is restricted for this service. Contact the Provider to restore access.": "上游账户已被限制使用此服务，请联系 Provider 恢复访问。",
   "The upstream request exceeded its deadline.": "上游请求超时。",

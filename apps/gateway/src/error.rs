@@ -676,7 +676,7 @@ impl ApiError {
                     401 | 403 => {
                         "The provider refused this request. Check credential access and regional model availability"
                     }
-                    429 => "The provider rate or spending limit was reached",
+                    429 => "The upstream returned HTTP 429",
                     _ => "The provider returned a non-success HTTP response",
                 }
             },
