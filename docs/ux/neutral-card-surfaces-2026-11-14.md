@@ -23,3 +23,10 @@ Manus tonal surface reference remains the established pattern; this correction
 adds no new layout or interaction. Visual observation supports the scoped fix,
 not a complete product or accessibility audit. Active generation progress and
 all unvisited routes remain outside this browser verification.
+
+Hosted follow-up: staging composition `7d59ca5` deployed core `cef0588b`;
+workflow 43556308628 reported SUCCESS. The deployed stylesheet changed to
+`root-Bwp-lQKB.css`. Independent `/readyz` returned `status: ok`. Actual hosted
+Models hover measured light accent `#ececeb` and dark accent `#242424`, with
+neutral card fills; both rendered screenshots were inspected. This confirms the
+scoped surface correction is live on staging, without production promotion.
