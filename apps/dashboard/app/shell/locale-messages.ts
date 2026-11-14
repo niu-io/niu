@@ -3024,6 +3024,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "No source IP changes recorded.": "暂无来源 IP 变更记录。",
   "No limit changes recorded.": "暂无限额变更记录。",
   "Policy unavailable": "策略不可用",
+  "Create": "创建",
+  "Create policy": "创建策略",
   "Save policy": "保存策略",
   "Time unavailable": "时间不可用",
   "Retry token usage": "重试加载 Token 用量",

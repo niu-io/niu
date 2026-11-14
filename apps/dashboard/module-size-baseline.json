@@ -2,7 +2,7 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 4921,
+      "lines": 4923,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {
@@ -22,8 +22,8 @@
       "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15."
     },
     "app/shell/useWorkspaceController.ts": {
-      "lines": 1130,
-      "reason": "Application-shell workspace controller. Session, workspace directory and recovery state are interdependent; split only with parity tests for shell recovery."
+      "lines": 1135,
+      "reason": "Application-shell workspace controller. Session, workspace directory and recovery state are interdependent; split only with parity tests for shell recovery. The scope-change branch drops old Generations resource URLs and restores the target backend draft."
     },
     "app/features/customers/unit-accounts.tsx": {
       "lines": 1027,

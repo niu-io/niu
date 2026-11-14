@@ -263,7 +263,7 @@ export default function ShellHeader({
               </>
             )}
             <BreadcrumbItem className="min-w-0">
-              <h1 className="dashboard-route-title">{title}</h1>
+              <h1 key={location.pathname} className="dashboard-route-title">{title}</h1>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -278,7 +278,7 @@ export default function ShellHeader({
             <BreadcrumbSeparator className="hidden sm:block" />
             {isProviderOverview ? (
               <BreadcrumbItem className="min-w-0">
-                <h1 className="dashboard-route-title truncate" aria-current="page">
+                <h1 key={location.pathname} className="dashboard-route-title truncate" aria-current="page">
                   {adminSupplierName || t('Loading Provider…', '正在加载供应商…')}
                 </h1>
               </BreadcrumbItem>
@@ -296,7 +296,7 @@ export default function ShellHeader({
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem className="min-w-0">
-                  <h1 className="dashboard-route-title truncate" aria-current="page">
+                  <h1 key={location.pathname} className="dashboard-route-title truncate" aria-current="page">
                     {title}
                   </h1>
                 </BreadcrumbItem>
@@ -333,7 +333,7 @@ export default function ShellHeader({
               </>
             )}
             <BreadcrumbItem className="min-w-0">
-              <h1 className="dashboard-route-title">
+              <h1 key={location.pathname} className="dashboard-route-title">
                 {destination === 'Models' && activePath.startsWith('models/') ? (
                   <NavLink to={modelsHref}>
                     {t('Models', '模型')}
