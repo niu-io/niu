@@ -263,6 +263,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
   }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
+  const showOriginalDescription = !isZh && /\p{Script=Han}/u.test(selected?.catalog?.description ?? '');
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
   const previousDescription = useRef<{model:string|null; open:boolean}>({model:null,open:false});
@@ -287,7 +288,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [selectedId, selected?.catalog?.description]);
+  }, [selectedId, selected?.catalog?.description, showOriginalDescription]);
   const baseUrl = apiBaseUrl();
 
   async function copyExample() {
@@ -432,10 +433,13 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
       <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><h2 className="min-w-0 break-words text-lg font-semibold">{catalogTitle(selected)}</h2></div>
       <div className="flex min-w-0 flex-wrap items-center gap-2"><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code><Button type="button" variant="ghost" size="sm" aria-label={uiT("Copy model ID", "复制模型 ID")} onClick={() => void copyModelId()}><Clipboard size={14} aria-hidden="true" />{modelIdFeedback?.model === selected.id && modelIdFeedback.copied ? uiT("Copied") : uiT("Copy")}</Button></div>
       {modelIdFeedback?.model === selected.id && !modelIdFeedback.copied && <p role="alert" className="error-text">{uiT("Clipboard access is unavailable. Select and copy the model ID instead.", "无法访问剪贴板，请选择并复制模型 ID。")}</p>}
-      {selected.catalog?.description && <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
+      {selected.catalog?.description && (showOriginalDescription ? <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
+        <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT('Hide original description', '收起原始说明') : uiT('Show original description', '查看原始说明')}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>
+        <CollapsibleContent id="model-description" className="break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></CollapsibleContent>
+      </Collapsible> : <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
-      </Collapsible>}
+      </Collapsible>)}
       <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
         ? uiT("Uses an administrator-managed upstream connection. Its owning account pays the Provider directly; this does not spend Niu credits. Upstream balance and model permissions still apply.")
         : selected.billing_source === 'niu_credits'
