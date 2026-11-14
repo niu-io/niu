@@ -128,6 +128,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             );
     }
     let app = app
+        .route_service("/llms.txt", ServeFile::new(format!("{docs_dir}/llms.txt")))
         .route_service("/docs/", ServeFile::new(format!("{docs_dir}/index.html")))
         .nest_service(
             "/_catalog",

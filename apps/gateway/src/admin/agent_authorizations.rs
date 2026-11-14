@@ -41,6 +41,8 @@ pub struct Decision {
     invocation_allowed: Option<bool>,
     /// Exact approved model interfaces. Required when invocation is allowed.
     invocation_protocols: Option<Vec<String>>,
+    /// Optional approved management capabilities. When omitted, requested capabilities are kept.
+    capabilities: Option<Vec<String>>,
 }
 
 fn code(value: &str) -> Result<(), ApiError> {
@@ -128,11 +130,9 @@ fn code(value: &str) -> Result<(), ApiError> {
 ///             "properties": {
 ///               "client_name": {
 ///                 "type": "string",
-///                 "enum": [
-///                   "Claude Code",
-///                   "Codex",
-///                   "DeepSeek Harness"
-///                 ]
+///                 "minLength": 1,
+///                 "maxLength": 80,
+///                 "description": "Self-reported coding-agent client name (trimmed printable characters, 1-80 characters; for example Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or a custom agent)."
 ///               },
 ///               "capabilities": {
 ///                 "type": "array",
@@ -196,7 +196,7 @@ pub async fn create(
         .await
         .map_err(|error| match error {
             niu_storage::StoreError::InvalidKey => ApiError::invalid_request(
-                "Use a supported agent client name (Claude Code, Codex, or DeepSeek Harness) and request only supported capabilities without duplicates",
+                "Provide a printable client_name (1-80 characters), optional task (max 200 characters), and only supported capabilities without duplicates",
             ),
             other => ApiError::from_store(other),
         })?;
@@ -420,7 +420,7 @@ pub async fn view(
 ///               "invocation_protocols": {
 ///                 "type": "array",
 ///                 "minItems": 1,
-///                 "maxItems": 6,
+///                 "maxItems": 7,
 ///                 "uniqueItems": true,
 ///                 "items": {
 ///                   "type": "string",
@@ -430,10 +430,28 @@ pub async fn view(
 ///                     "messages",
 ///                     "content",
 ///                     "embeddings",
-///                     "video"
+///                     "video",
+///                     "decisions"
 ///                   ]
 ///                 },
 ///                 "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
+///               },
+///               "capabilities": {
+///                 "type": "array",
+///                 "maxItems": 6,
+///                 "uniqueItems": true,
+///                 "items": {
+///                   "type": "string",
+///                   "enum": [
+///                     "pools:read",
+///                     "pools:write",
+///                     "events:read",
+///                     "events:write",
+///                     "evaluations:read",
+///                     "evaluations:write"
+///                   ]
+///                 },
+///                 "description": "Optional narrowed management capabilities approved by the human reviewer. When omitted, requested capabilities are preserved."
 ///               }
 ///             }
 ///           }
@@ -532,9 +550,18 @@ pub async fn decide(
             "Choose at least one supported model interface without duplicates",
         ));
     }
+    if input
+        .capabilities
+        .as_deref()
+        .is_some_and(|caps| !niu_storage::valid_agent_capabilities(caps))
+    {
+        return Err(ApiError::invalid_request(
+            "capabilities must contain only supported management scopes without duplicates",
+        ));
+    }
     state
         .store
-        .approve_agent_authorization_with_scope(
+        .approve_agent_authorization_with_capabilities_and_scope(
             &user_code,
             scope,
             actor.id,
@@ -542,6 +569,7 @@ pub async fn decide(
             ttl_seconds,
             invocation_allowed,
             &invocation_protocols,
+            input.capabilities.as_deref(),
         )
         .await
         .map_err(ApiError::from_store)?;

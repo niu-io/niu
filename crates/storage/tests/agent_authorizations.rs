@@ -1019,3 +1019,39 @@ async fn task_context_and_interface_scope_are_frozen_at_approval(pool: PgPool) {
         vec!["chat"]
     );
 }
+
+#[test]
+fn validates_universal_agent_client_names_and_capabilities() {
+    assert_eq!(
+        niu_storage::valid_agent_client_name("  Cursor  "),
+        Some("Cursor")
+    );
+    assert_eq!(
+        niu_storage::valid_agent_client_name("Claude Code"),
+        Some("Claude Code")
+    );
+    assert_eq!(
+        niu_storage::valid_agent_client_name("   "),
+        None
+    );
+    assert_eq!(
+        niu_storage::valid_agent_client_name("Agent\nName"),
+        None
+    );
+    let eighty_chars = "a".repeat(80);
+    assert_eq!(
+        niu_storage::valid_agent_client_name(&eighty_chars),
+        Some(eighty_chars.as_str())
+    );
+    let eighty_one_chars = "a".repeat(81);
+    assert_eq!(niu_storage::valid_agent_client_name(&eighty_one_chars), None);
+    assert!(niu_storage::valid_agent_capabilities(&[
+        "pools:read".into(),
+        "evaluations:read".into()
+    ]));
+    assert!(!niu_storage::valid_agent_capabilities(&[
+        "pools:read".into(),
+        "pools:read".into()
+    ]));
+    assert!(!niu_storage::valid_agent_capabilities(&["unknown:read".into()]));
+}

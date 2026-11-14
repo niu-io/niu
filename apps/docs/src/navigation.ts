@@ -9,7 +9,7 @@ export function documentationSection(path: string): 'Docs' | 'API' | 'SDK' | 'Co
 /** Classify explicit machine entry points; task guides remain human documentation. */
 export function documentationAudience(path: string): 'human' | 'agent' {
   const normalized = path.replace(/\/+$/, '');
-  return /^\/docs\/(?:agents(?:\/|$)|(?:install|agents|pools|evaluations|events)\.md$)/.test(normalized) ? 'agent' : 'human';
+  return /^\/docs\/(?:agents(?:\/|$)|llms\.txt$|(?:install|agents|inference|pools|routing|evaluations|events)\.md$)/.test(normalized) ? 'agent' : 'human';
 }
 
 /** One public Docs entry owns its API and SDK references as well. */

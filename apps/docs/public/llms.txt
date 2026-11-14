@@ -1,18 +1,34 @@
 # Niu — The Model Platform for Agents
 
-> Model information, request evidence and authorized management capabilities for coding agents. Agents own task completion and quality/cost decisions.
+> Niu gives coding agents and applications trustworthy model metadata, workspace routing policies, evaluation receipts, resource events, and multi-protocol inference under explicit human spending and scope boundaries.
 
-## Entry
+All paths below are deployment-relative against your active Niu origin (`{ORIGIN}`, for example `https://niu.io` or a self-hosted gateway URL).
 
-- [Install and authorize](https://niu.io/docs/install.md): Machine installation contract, candidate availability and browser handoff.
+## Core operating rules
 
-- [Agent capability entry](https://niu.io/docs/agents.md): Start here; scopes, current access limits and task-specific reference links.
-- [Build with Niu](https://niu.io/docs/guides/personal-assistant/): Optional human walkthrough and runnable source example.
-- [MCP](https://niu.io/docs/guides/mcp/): Current tools, resources and authentication.
-- [OpenAPI](https://niu.io/docs/openapi/public.json): Machine-readable REST contracts.
-- [SDK](https://niu.io/docs/api/sdk/): Generated TypeScript reference.
+- **Verify before acting**: Always call `GET /v1/key` (MCP: `inspect_key`) and `GET /v1/models` (MCP: `list_models`) after connecting. The public catalog (`/catalog/v1/models`) does not establish workspace access or model authorization.
+- **Model calls are opt-in**: Browser `/connect` approvals default `invocation_allowed` to `false`. Never attempt paid inference unless `invocation_allowed` is `true`, the target model alias is in `allowed_models`, and the endpoint matches `invocation_protocols`.
+- **Unknown is not zero**: Missing usage counts or missing customer prices mean *unknown*, never free. Customer billing surfaces exclude confidential Provider purchase costs and platform margins.
+- **Read back uncertain mutations**: Never blindly replay paid inference (`POST /v1/...`), evaluation runs, or secret-issuing webhook updates (`PUT /v1/events/{slug}`) after timeouts; inspect `/v1/generations/{id}`, `/v1/evaluations/{slug}/attempts`, `/v1/routing/{slug}`, or `/v1/events/{slug}` first.
+- **Protect secrets**: Never place `device_secret`, `NIU_API_KEY`, `signing_secret`, or passwords in URLs, source files, logs, or chat transcripts. Store client credentials in `0600` owner-only storage.
 
-- [Workspace model routing](https://niu.io/docs/pools.md): delegated candidate workflow (`pool/<slug>`), revisions, execution evidence and recovery limits.
-- [Workspace resource events](https://niu.io/docs/events.md): event cursors, scoped signed subscriptions, private signing credentials and delivery reconciliation.
+## Connection tracks
 
-- [Task evaluations](https://niu.io/docs/evaluations.md): explicit grants, input fingerprints, attributed judgments, comparable sample coverage and customer charges.
+- **Track 1 — Universal Coding-Agent Connection (any HTTP agent or editor)**: Works from Cursor, Windsurf, Zed, OpenCode, Claude Code, Codex, DeepSeek Harness, or custom agents via `POST /api/v1/auth/agents`, browser review at `/connect?code={user_code}`, polling `POST /api/v1/auth/agents/token`, direct REST calls to `/v1/...`, or standalone stdio MCP (`niu-io-mcp-0.1.0.tgz`).
+- **Track 2 — Native Host Bundles**: Prebuilt plugin bundles from Niu `v0.3.0` (`niu-agent-marketplace.tar.gz` for Claude Code & Codex; `niu-deepseek-harness.tar.gz` for DeepSeek Harness `0.2.1-rc.5` local macOS hosts) bundling `niu-login` and `niu-mcp`.
+
+## AgentDoc contracts
+
+- [Install and connect](/docs/install.md): Track 1 universal HTTP device flow, `/connect` workspace hints, `0600` credential persistence, Track 2 host bundles, and standalone MCP (`niu-io-mcp-0.1.0.tgz`).
+- [Agent capabilities and verification](/docs/agents.md): Post-connection `/v1/key` & `/v1/models` inspection, authorization boundaries, and HTTP <-> MCP parity.
+- [Model inference and app integration](/docs/inference.md): Multi-protocol endpoints (`/v1/chat/completions`, `/v1/responses`, `/v1/messages`, `/v1beta/models/{model}:generateContent`, `/v1/embeddings`, `/v1/decisions`, `/v1/video/jobs`), `pool/<slug>` aliases, SDK env vars, headers, and `GET /v1/generations/{id}` reconciliation.
+- [Workspace routing](/docs/routing.md): Delegated `pools:read` / `pools:write` policies (`pool/<slug>`), v1 `priority_weight`/`customer_price` and v2 `auto` strategies, dry-run preview, optimistic revisions, and selection logs (alias: `/docs/pools.md`).
+- [Task evaluations](/docs/evaluations.md): Canonical request fingerprinting (`POST /v1/evaluations/fingerprint`), versioned task/rubric definitions, attempt lookup, immutable run receipts, and sample-matched comparisons.
+- [Resource events and webhooks](/docs/events.md): Cursor-paginated event log (`GET /v1/events/log`), incident reconciliation (`GET /v1/incidents/{reference}`), and HMAC-SHA256 webhook subscriptions (`/v1/events/{slug}`).
+
+## Human guides and machine specs
+
+- [OpenAPI specification](/docs/openapi/public.json): Machine-readable OpenAPI schema for public REST endpoints.
+- [MCP guide](/docs/guides/mcp/): Local stdio MCP tool and resource reference (`@niu-io/mcp`).
+- [Build with Niu](/docs/guides/personal-assistant/): End-to-end coding-agent walkthrough and runnable sample app.
+- [TypeScript SDK](/docs/api/sdk/): Generated SDK reference.

@@ -57,11 +57,15 @@ test('task context is optional, bounded, and shown to the verification surface',
  assert.equal(Object.hasOwn(omitted,'task'),false);
 });
 
- test('DeepSeek Harness uses the same bounded browser handoff and rejects invented hosts',async()=>{
-  let n=0;let requested;
-  const credential=await authorizeDevice({baseURL:'https://niu.example',clientName:'DeepSeek Harness',showVerification:async value=>assert.equal(value.clientName,'DeepSeek Harness'),fetchImpl:async(url,options)=>{if(!n++){requested=JSON.parse(options.body);return response(201,start);}return response(200,{token,token_type:'Bearer'});}});
-  assert.equal(requested.client_name,'DeepSeek Harness');assert.equal(credential.token,token);
-  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Invented host'}),/Choose/);
+ test('Universal coding-agent hosts and workspace hints use bounded browser handoff while invalid names fail locally',async()=>{
+  let n=0;let requested;let verified;
+  const credential=await authorizeDevice({baseURL:'https://niu.example',clientName:'  Cursor  ',workspace:'team-alpha',showVerification:async value=>{verified=value;},fetchImpl:async(url,options)=>{if(!n++){requested=JSON.parse(options.body);return response(201,start);}return response(200,{token,token_type:'Bearer'});}});
+  assert.equal(requested.client_name,'Cursor');assert.equal(verified.clientName,'Cursor');assert.equal(credential.token,token);
+  assert.equal(new URL(verified.url).searchParams.get('workspace'),'team-alpha');
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'   '}),/printable client name/);
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Bad\nClient'}),/printable client name/);
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'x'.repeat(81)}),/printable client name/);
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Windsurf',workspace:'Team Alpha!'}),/workspace slug/);
  });
 
 

@@ -37,6 +37,7 @@ impl Fixture {
             ("dashboard/index.html", "workspace shell"),
             ("dashboard/assets/app.js", "workspace script"),
             ("docs/index.html", "public docs"),
+            ("docs/llms.txt", "llms index"),
             ("docs/getting-started/index.html", "getting started"),
             ("docs/404.html", "docs missing"),
         ] {
@@ -95,6 +96,8 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/models", "workspace shell"),
         ("/models/openai/example", "workspace shell"),
         ("/docs/", "public docs"),
+        ("/llms.txt", "llms index"),
+        ("/docs/llms.txt", "llms index"),
         ("/login", "workspace shell"),
         ("/login/", "workspace shell"),
         ("/installation", "workspace shell"),
@@ -248,6 +251,7 @@ async fn community_build_does_not_require_marketing_artifacts() {
         body(&app, "/favicon.ico", StatusCode::OK).await,
         "community favicon"
     );
+    assert_eq!(body(&app, "/llms.txt", StatusCode::OK).await, "llms index");
     for (path, target) in [
         ("/compare/", "/docs/compare/"),
         ("/compare/new-api/", "/docs/compare/new-api/"),

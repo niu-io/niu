@@ -20,7 +20,7 @@ pub use workspace_model_pools::WorkspaceModelPool;
 mod agent_authorizations;
 pub use agent_authorizations::{
     AgentAuthorizationRequest, AgentAuthorizationView, INVOCATION_PROTOCOLS,
-    valid_invocation_protocols,
+    valid_agent_capabilities, valid_agent_client_name, valid_invocation_protocols,
 };
 mod customer_unit_grants;
 mod customer_unit_limits;

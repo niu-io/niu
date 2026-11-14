@@ -887,3 +887,123 @@ async fn management_connection_denies_all_inference_protocols_before_execution(p
         assert!(body.to_string().contains("invocation"), "{path}: {body}");
     }
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn universal_clients_and_narrowed_capabilities_are_enforced(pool: PgPool) {
+    let mut state = test_state(None, pool);
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Universal client owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    let (status, _, _) = request(
+        &app,
+        "/api/v1/auth/agents",
+        None,
+        None,
+        json!({"client_name": "   "}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _, created) = request(
+        &app,
+        "/api/v1/auth/agents",
+        None,
+        None,
+        json!({
+            "client_name": " Cursor ",
+            "capabilities": ["pools:read", "pools:write", "evaluations:read"]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let code = created["user_code"].as_str().unwrap();
+    let (status, _, _) = request(
+        &app,
+        &format!("/api/v1/auth/agents/{code}"),
+        Some(&owner.token),
+        Some("https://niu.example.test"),
+        json!({
+            "approve": true,
+            "organization_id": scope.organization_id,
+            "workspace_id": scope.project_id,
+            "allowed_models": ["*"],
+            "ttl_seconds": 3600,
+            "invocation_allowed": false,
+            "invocation_protocols": ["decisions"],
+            "capabilities": ["pools:read", "evaluations:read"]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _, exchanged) = request(
+        &app,
+        "/api/v1/auth/agents/token",
+        None,
+        None,
+        json!({"device_secret": created["device_secret"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let token = exchanged["token"].as_str().unwrap();
+    let key_view = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/key")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(key_view.status(), StatusCode::OK);
+    let data: Value =
+        serde_json::from_slice(&to_bytes(key_view.into_body(), 16384).await.unwrap()).unwrap();
+    assert_eq!(
+        data["data"]["management_capabilities"],
+        json!(["pools:read", "evaluations:read"])
+    );
+    let denied_write = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/v1/routing/narrowed-out")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "slug": "narrowed-out",
+                        "name": "Narrowed out",
+                        "description": "Must be rejected",
+                        "enabled": true,
+                        "revision": 0,
+                        "candidates": [{"alias": "fast", "priority": 100, "weight": 1, "enabled": true}],
+                        "rules": [],
+                        "default_action": "candidates"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied_write.status(), StatusCode::FORBIDDEN);
+}
