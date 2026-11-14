@@ -1,0 +1,19 @@
+# Usage coverage and compact header — 2026-11-14
+
+Findings: `niu-mm90.18`, `niu-mm90.52`. Starting release: `ac32b535`. Revalidated the earlier Overview finding against current populated data: recent requests already use catalog names and consistent durations, the primary action opens Generations, and customer-charge uncertainty remains necessary. The remaining correction is explicit request units in usage-coverage and charge captions, shared with Usage and its model table. No computation, stored values, pricing boundary or navigation structure changes.
+
+## Reference and criteria
+
+The actual OpenRouter Activity route redirected to sign-in, so authenticated Activity behavior is not claimed as an inspected reference. The public OpenRouter Rankings page was inspected: its summary explicitly names the usage measure and date. This correction retains Niu's established metric layout, shared DropdownMenu composition and brand tokens; it introduces no new layout pattern. For the newly observed compact Usage action, the user's explicit instruction to place secondary actions in an overflow menu is the governing direction, using the existing Niu compact-header pattern.
+
+Applicable criteria: [NN/g consistency, visibility and recognition heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/), [WAI-ARIA menu button interactions](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/), and the ux-design verification distinction between function, rendered integrity and visual judgment. These establish review criteria, not evidence of runtime behavior.
+
+## Current-input local verification
+
+A separate authenticated staging summary read returned 200: 68 requests, 36 reporting usage and 32 unknown, 25,538 input and 1,162 output tokens; 49 requests used own keys and 12 customer charges were unresolved. Category-specific reporting was independently present: cached input 16,905 tokens with 27 reported / 41 unknown requests, and reasoning output 542 with 24 / 44. Actual candidate Overview choices rendered these respective counts; input/output and total choices retained the same request-coverage distinction. No synthetic data or model invocation was used.
+
+Desktop and 390 px frames were visually inspected, including the open token menu and its right-side check. Caption bounds did not overflow. Usage also rendered the shared units at 320 px. The pre-correction 320 px header's long Billing and rates action squeezed the entire workspace/title breadcrumb into an unreadable slash. Move that secondary action into the installed DropdownMenu below 640 px while keeping direct desktop access. The corrected Usage heading measured 41.7 px and remained fully visible. Its open menu was inspected; Escape returned focus to Usage actions, and choosing Billing and rates reached the same scoped billing route.
+
+At 1024 px, actual Usage summary width was 736 px with primary navigation expanded and 912 px collapsed. The document remained 1024 px wide; full frames were inspected for hierarchy, grouping and wrapping. The 320 px document stayed 320 px, and the menu stayed inside it. Metrics retain the existing visual emphasis, and detailed captions wrap normally rather than replacing unknown values with zeros.
+
+Fixture outcomes provide no evidence. Hosted acceptance follows deployment; the local candidate alone does not establish the deployed result.
