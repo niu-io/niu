@@ -328,12 +328,12 @@ export default function AcceptInvitationPage() {
           {alreadyJoined && (
             <>
               <p className="invitation-lead">
-                {uiT('You have already joined this organization.', '您已加入此组织。')}
+                {uiT('This invitation was already accepted by your account.', '您的账户已接受过此邀请。')}
               </p>
               <p className="text-sm text-muted-foreground">
                 {uiT(
-                  'Your saved role and scope apply. No additional membership was created.',
-                  '已保存的角色与范围已生效，未重复创建成员身份。',
+                  'Your current access is checked when you open the workspace. No additional membership was created.',
+                  '打开工作空间时会检查您当前的访问权限。系统未新增成员身份。',
                 )}
               </p>
               <div className="flex flex-wrap gap-2">
