@@ -3,6 +3,7 @@ import { useSettingsBackground } from './settings-background';
 import ShellSectionTabs from './ShellSectionTabs';
 import { ShellNavigationContext, SidebarRouteDismiss } from './ShellNavigation';
 import {
+  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -673,7 +674,7 @@ export default function AppLayout() {
                     <WorkspaceShellSkeleton label={t('Loading workspace…', '正在加载工作空间…')} />
                   ) : (
                     <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">{t('Loading page…', '正在加载页面…')}</p>}>
-                      <div key={authorityKey || 'anonymous'}>{settingsBackground.content ?? (settingsBackground.pendingReturn ? <WorkspaceShellSkeleton label={t('Opening workspace…', '正在打开工作空间…')} /> : null)}</div>
+                      <Fragment key={authorityKey || 'anonymous'}>{settingsBackground.content ?? (settingsBackground.pendingReturn ? <WorkspaceShellSkeleton label={t('Opening workspace…', '正在打开工作空间…')} /> : null)}</Fragment>
                     </Suspense>
                   )}
                 </div>
