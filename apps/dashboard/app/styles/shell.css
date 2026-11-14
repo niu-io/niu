@@ -163,7 +163,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .playground-metric-table thead th span { color: var(--foreground); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .playground-baseline-column { background: color-mix(in srgb, var(--accent) 62%, var(--card)); }
 .playground-metric-table .playground-baseline-column { border-left: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); }
-.playground-delta-heading, .playground-delta-cell { background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
+.playground-delta-heading, .playground-delta-cell { background: var(--muted); }
 .playground-delta-cell { font-weight: 600; }
 .playground-metric-table thead th:first-child, .playground-metric-table tbody th { position: sticky; left: 0; z-index: 1; background: var(--card); }
 .playground-metric-table thead th:first-child { z-index: 2; }
