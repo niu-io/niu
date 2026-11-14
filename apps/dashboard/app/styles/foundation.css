@@ -1,20 +1,68 @@
 /* Use tonal separation between the canvas, navigation, and content. */
+/* Colors come from branding/rounded/manifest.json. Tints mix those colors
+   with the existing light/dark artwork backgrounds rather than adding hues. */
 :root {
-  --background: #ececeb;
-  --sidebar: #f6f6f5;
-  --sidebar-accent: #ececeb;
+  --brand-orange: #FF914D;
+  --brand-ink: #45352F;
+  --brand-paper: #FAFAF9;
+  --brand-dark: #121314;
+  --brand-lettering: #EFE2DA;
+  --background: color-mix(in srgb, var(--brand-ink) 5%, var(--brand-paper));
+  --foreground: var(--brand-ink);
+  --sidebar: var(--brand-paper);
+  --sidebar-foreground: var(--brand-ink);
+  --sidebar-accent: color-mix(in srgb, var(--brand-ink) 7%, var(--brand-paper));
+  --sidebar-accent-foreground: var(--brand-ink);
   --card: #ffffff;
-  --muted: #f5f5f5;
-  --popover: #ffffff;
+  --card-foreground: var(--brand-ink);
+  --muted: color-mix(in srgb, var(--brand-ink) 4%, var(--brand-paper));
+  --muted-foreground: color-mix(in srgb, var(--brand-ink) 80%, var(--brand-paper));
+  --popover: var(--brand-paper);
+  --popover-foreground: var(--brand-ink);
+  --primary: var(--brand-ink);
+  --primary-foreground: var(--brand-paper);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--brand-ink);
+  --accent: color-mix(in srgb, var(--brand-orange) 16%, var(--brand-paper));
+  --accent-foreground: var(--brand-ink);
+  --ring: var(--brand-ink);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--ring);
 }
 .dark,
 :root[data-theme='dark'] {
-  --background: #0c0c0c;
-  --sidebar: #141414;
-  --sidebar-accent: #242424;
-  --card: #1c1c1c;
-  --muted: #242424;
-  --popover: #242424;
+  --background: var(--brand-dark);
+  --foreground: var(--brand-lettering);
+  --sidebar: color-mix(in srgb, var(--brand-lettering) 3%, var(--brand-dark));
+  --sidebar-foreground: var(--brand-lettering);
+  --sidebar-accent: color-mix(in srgb, var(--brand-orange) 12%, var(--brand-dark));
+  --sidebar-accent-foreground: var(--brand-lettering);
+  --card: color-mix(in srgb, var(--brand-lettering) 6%, var(--brand-dark));
+  --card-foreground: var(--brand-lettering);
+  --muted: color-mix(in srgb, var(--brand-lettering) 10%, var(--brand-dark));
+  --muted-foreground: color-mix(in srgb, var(--brand-lettering) 74%, var(--brand-dark));
+  --popover: color-mix(in srgb, var(--brand-lettering) 10%, var(--brand-dark));
+  --popover-foreground: var(--brand-lettering);
+  --primary: var(--brand-orange);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--brand-lettering);
+  --accent: color-mix(in srgb, var(--brand-orange) 18%, var(--brand-dark));
+  --accent-foreground: var(--brand-lettering);
+  --ring: var(--brand-orange);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--ring);
+}
+/* Filled actions use the mark's tangerine and its original dark lettering.
+   Deployment-defined primary palettes continue to override this default. */
+:root:not([style*="--primary:"]) [data-slot="button"][data-variant="default"] {
+  background-color: var(--brand-orange);
+  color: var(--brand-ink);
+}
+:root:not([style*="--primary:"]) [data-slot="button"][data-variant="default"]:hover {
+  background-color: color-mix(in srgb, var(--brand-orange) 90%, var(--brand-paper));
 }
 :root { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--foreground); background: var(--background); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
