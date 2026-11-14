@@ -196,7 +196,7 @@ export function ShellAccount() {
       {footerLinks.map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild tooltip={item.tooltip} isActive={item.active}><ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>{item.subtitle && <span className="ml-auto max-w-24 truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{item.subtitle}</span>}</ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}
     </SidebarMenu>
     <div className="flex items-center pt-1 group-data-[collapsible=icon]:justify-center">
-      <div className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none"><AccountMenu context={value.context} workspacePath={value.workspacePath} supplierArea={pathname.startsWith('/admin/providers')} mobile showDestinations={false} /></div>
+      <div className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none"><AccountMenu context={value.context} workspacePath={value.workspacePath} supplierArea={pathname.startsWith('/admin/providers')} mobile sidebar showDestinations={false} /></div>
     </div>
   </SidebarFooter>;
 }

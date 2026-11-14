@@ -15,7 +15,7 @@ import { settingsHref } from '@/features/account/settings-routes';
 import { prefetchRouteIntent } from './prefetch';
 import { workspaceModelsHref } from './workspace-route';
 import { IconChartLine, IconExternalLink, IconLanguage, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
-import { useSidebar } from '@/components/ui/sidebar';
+import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { applyTheme, readTheme, saveTheme, subscribeTheme, type Theme } from './theme';
@@ -23,7 +23,7 @@ import { useLocale, type Locale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 
-export default function AccountMenu({ context, workspacePath, supplierArea = false, mobile = false, showDestinations = true }: { context: DashboardContext; workspacePath: string; supplierArea?: boolean; mobile?: boolean; showDestinations?: boolean }) {
+export default function AccountMenu({ context, workspacePath, supplierArea = false, mobile = false, sidebar = false, showDestinations = true }: { context: DashboardContext; workspacePath: string; supplierArea?: boolean; mobile?: boolean; sidebar?: boolean; showDestinations?: boolean }) {
   const { t: uiT, format: uiF } = useUILocale();
   const {isMobile: compactNavigation, setOpenMobile} = useSidebar();
   const { locale, setLocale, t } = useLocale();
@@ -56,8 +56,19 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
     if (compactNavigation) window.requestAnimationFrame(() => setOpenMobile(false));
   };
 
+  const accountAvatar = <Avatar className={sidebar ? "size-[18px] shrink-0 text-[11px]" : "size-6 shrink-0"}>
+    <AvatarImage src={profile?.avatar_data_url ?? undefined} alt="" />
+    <AvatarFallback className={profile ? undefined : "bg-primary text-primary-foreground"}>{avatarInitial}</AvatarFallback>
+  </Avatar>;
+
   return <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
-      {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start gap-2 px-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0" aria-label={uiT("Account menu")} title={label}>{profile ? <Avatar className="size-6 shrink-0"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6 shrink-0" aria-hidden="true">{avatarInitial}</span>}<span className="min-w-0 flex-1 truncate text-left text-sm font-medium group-data-[collapsible=icon]:hidden">{label}</span><ChevronDown size={16} className="shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
+      {sidebar ? <DropdownMenuTrigger asChild>
+        <SidebarMenuButton className="h-9 font-medium" aria-label={uiT("Account menu")} title={label}>
+          <div className="shrink-0" aria-hidden="true">{accountAvatar}</div>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          <ChevronDown className="text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" />
+        </SidebarMenuButton>
+      </DropdownMenuTrigger> : mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start gap-2 px-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0" aria-label={uiT("Account menu")} title={label}>{profile ? <Avatar className="size-6 shrink-0"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6 shrink-0" aria-hidden="true">{avatarInitial}</span>}<span className="min-w-0 flex-1 truncate text-left text-sm font-medium group-data-[collapsible=icon]:hidden">{label}</span><ChevronDown size={16} className="shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label={uiT("Account menu")} title={t('Account', '账户')}>
         {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
       </DropdownMenuTrigger>}
         <DropdownMenuContent className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
