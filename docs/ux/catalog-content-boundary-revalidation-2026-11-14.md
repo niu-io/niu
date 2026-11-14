@@ -1,0 +1,9 @@
+# Catalog content boundary revalidation — 2026-11-14
+
+Finding: `niu-mm90.13`. Actual hosted core `894a3ea7`, staging composition `caa3a4d`, read-only review while the routing correction was building. No metadata, price or credential was changed and no model request was invoked.
+
+English model cards now use catalog display names and suppress raw Han-script descriptions. The Conatus detail still displays its original Chinese Provider paragraph without an English translation. This remains a content-language limitation; the review did not invent a translation of its conditional quota/commercial terms or infer that a description establishes current eligibility. The dedicated price and access explanation remain separate from upstream descriptive text.
+
+An independent current models GET returned 200. The sampled BabelArk Wan3 record declares descriptive catalog video output, but gateway generation capabilities explicitly declare chat false and video false. Therefore the current no-preview treatment is truthful. Reject the historical proposal to add a Video trial to every video-tagged card: it would promote descriptive metadata into unsupported runtime qualification. The Conatus record separately declares chat true and video false, consistent with its Generations entry. This is current metadata evidence, not a live upstream trial or a guarantee of successful generation.
+
+Applicable criteria: preserve [NN/g visibility and error prevention](https://www.nngroup.com/articles/ten-usability-heuristics/) and the UX review skill's requirement to distinguish unknown/negative runtime capability from descriptive catalog evidence. Niu's agent-oriented boundary requires trustworthy information and explicit authorization limits; it does not promise successful tasks merely from a catalog label. The remaining original-description language issue is tracked in Beads, rather than a second live Markdown backlog.
