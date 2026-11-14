@@ -299,6 +299,12 @@ export function useWorkspaceController({
   const selectWorkspace = useCallback(
     (next: Workspace) => {
       if (!usesSelectedWorkspace && next.id === (routeWorkspace ?? effectiveActiveWorkspace)?.id) return;
+      const knownWorkspaces = workspaces.some(item => item.id === next.id) ? workspaces : [...workspaces, next];
+      if ((location.pathname === '/generations' || location.pathname.startsWith('/generations/')) && next.id !== effectiveActiveWorkspace?.id) {
+        const search = new URLSearchParams({ workspace: workspacePathSegment(next, knownWorkspaces) });
+        navigate({ pathname: '/generations', search: `?${search}`, hash: '' }, { replace: true });
+        return;
+      }
       setSelectedOrganizationId(next.organization_id);
       setWorkspace(next);
       setWorkspaceError(null);
@@ -306,12 +312,6 @@ export function useWorkspaceController({
         window.localStorage.setItem('niu.active-workspace', next.id);
       } catch {
         /* URL remains the source of truth. */
-      }
-      const knownWorkspaces = workspaces.some(item => item.id === next.id) ? workspaces : [...workspaces, next];
-      if ((location.pathname === '/generations' || location.pathname.startsWith('/generations/')) && next.id !== effectiveActiveWorkspace?.id) {
-        const search = new URLSearchParams({ workspace: workspacePathSegment(next, knownWorkspaces) });
-        navigate({ pathname: '/generations', search: `?${search}`, hash: '' }, { replace: true });
-        return;
       }
       if ((usesSelectedWorkspace && !settingsArea && !workspaceDirectoryArea) || location.pathname === '/settings/members') {
         const search = new URLSearchParams(location.search);

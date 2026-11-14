@@ -55,7 +55,7 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore,mode
   const onRestore=useRef(restore);onRestore.current=restore;
   const [state,setState]=useState<DraftState>({ready:false,saving:false,error:'',conflict:false});
   const [load,setLoad]=useState(0);
-  const control=useRef<{flush:()=>Promise<boolean>;retry:()=>void}|null>(null);
+  const control=useRef<{flush:()=>Promise<boolean>;retry:()=>void;hasChanges:()=>boolean}|null>(null);
   const serialized=JSON.stringify(value);
   const liveIdentity=useRef(identity);liveIdentity.current=identity;
   useEffect(()=>{
@@ -96,8 +96,12 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore,mode
       })().finally(()=>{active=null;if(valid()&&!failed)setState({ready:true,saving:false,error:'',conflict:false});});
       return active;
     };
-    control.current={flush,retry:()=>{failed=false;void flush();}};
     const initialValue=current.current;
+    control.current={flush,retry:()=>{failed=false;void flush();},hasChanges:()=>{
+      if (ready) return JSON.stringify(current.current)!==confirmed;
+      const initial=JSON.stringify(initialValue);
+      return JSON.stringify(current.current)!==initial && (modelsCustomized?.current !== false || JSON.stringify({...current.current,models:initialValue.models})!==initial);
+    }};
     setState({ready:false,saving:false,error:'',conflict:false});
     const prefetchKey=`${token}:${endpoint}`;
     const prefetched=prefetchedDrafts.get(prefetchKey);
@@ -133,7 +137,7 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore,mode
     const timer=setTimeout(()=>void control.current?.flush(),500);
     return ()=>clearTimeout(timer);
   },[serialized,state.ready,state.error]);
-  return {...state,flush:(next?:ChatDraft)=>{
+  return {...state,hasUnsavedChanges:()=>control.current?.hasChanges()??false,flush:(next?:ChatDraft)=>{
     if(next){
       current.current=next;
       const cached=token && endpoint ? peekQuery<Snapshot>(token,endpoint) : undefined;
