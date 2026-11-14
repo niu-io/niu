@@ -1,3 +1,4 @@
+import { keyReference } from '../key-labels';
 import { formatLocalizedMessage, translateUI, readLocale as readUILocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { confirmedKeyValidationFailure, forgetKeyMutationHint, keyMutationHintKey, readKeyMutationHint, reconcileKeyMutation, rememberKeyMutationHint, submitKeyMutation, type PendingKeyMutation } from '../mutation-recovery';
@@ -141,7 +142,6 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const isPending = loading || isInitialPending;
   const visibleKeys = loadedScope === scopeIdentity ? keys : [];
   const keyNameCounts = new Map<string, number>();
-  const keyReference = (slug?: string) => slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{32}/i.test(slug) ? slug : null;
   for (const key of visibleKeys) keyNameCounts.set(key.name, (keyNameCounts.get(key.name) ?? 0) + 1);
   const canIssue = canWrite && Boolean(workspace);
   const hintKey = keyMutationHintKey(session?.operator?.id ?? 'installation', `${initialScope?.organizationId ?? ''}:${initialScope?.projectId ?? ''}`);

@@ -30,8 +30,8 @@
       "reason": "Customer unit-account editor. Split pending alongside the customer-account form extraction."
     },
     "app/features/executions/components/GatewayActivity.tsx": {
-      "lines": 1007,
-      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15."
+      "lines": 1008,
+      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15. Key reference/label derivation is extracted to features/keys/key-labels.ts; the view adds only its memoized lookup."
     },
     "app/features/provider-business/admin.tsx": {
       "lines": 1005,
