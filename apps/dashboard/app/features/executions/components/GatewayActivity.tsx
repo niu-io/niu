@@ -6,12 +6,13 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyCont
 import { FormSectionSkeleton, ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import ActivityCharts from './ActivityCharts';
+import ChargeSummaryCard, { formatSettledChargeTotals } from './ChargeSummaryCard';
+import { chargeGroups, unitLabel, type ChargeBreakdown, type UnitChargeBreakdown } from './charge-groups';
 import { useRequestTableWidth } from './useRequestTableWidth';
 import RequestTiming, { type RequestTimings } from './RequestTiming';
 import RequestGuardrails from './RequestGuardrails';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RequestContent from './RequestContent';
-import { visibleContent } from './request-content';
 import ProviderLogo from '@/components/ProviderLogo';
 import PageHeader from '@/components/PageHeader';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
@@ -109,23 +110,6 @@ type KeyUsage = {
   completion_tokens: string;
   unknown_usage_count: number;
 };
-type UnitChargeBreakdown = {
-  model_alias?: string;
-  api_key_id?: string | null;
-  key_name?: string | null;
-  definition_revision: string;
-  name?: string;
-  unit_name?: string;
-  display_precision: number;
-  atoms_per_unit: string;
-  charged_atoms: string;
-  restored_atoms: string;
-  net_atoms: string;
-  charged_requests: number;
-};
-function unitLabel(item: { name?: string; unit_name?: string }): string {
-  return item.name || item.unit_name || 'Credits';
-}
 type ActivitySummary = {
   token_categories?: {cached_input_tokens: string | null; cached_input_requests: number; cached_input_unknown_requests: number; reasoning_output_tokens: string | null; reasoning_output_requests: number; reasoning_output_unknown_requests: number};
   latency_percentiles?: {boundary: string; sample_count: number; p50_ms: number | null; p95_ms: number | null; p99_ms: number | null};
@@ -149,61 +133,6 @@ type ActivitySummary = {
   usage_by_key?: KeyUsage[];
   request_histogram?: Array<{start_ms: number; end_ms: number; request_count: number}>;
 };
-type ChargeBreakdown = {
-  model_alias?: string; api_key_id?: string | null; key_name?: string | null;
-  currency: string | null; amount_nanos: string | null; request_count: number;
-  charged_requests: number; owner_funded_requests?: number; unresolved_requests: number; unpriced_requests: number; not_charged_requests: number;
-};
-function chargeGroups(rows: ChargeBreakdown[], unitRows: UnitChargeBreakdown[], byKey: boolean) {
-  const groups = new Map<string, {identity: string; name: string; keyId: string | null; model: string; amounts: Map<string, bigint>; unitAmounts: Map<string, {unitName: string; displayPrecision: number; atoms: bigint}>; requests: number; charged: number; unresolved: number; unpriced: number; ownerFunded: number; notCharged: number}>();
-  for (const row of rows) {
-    const identity = byKey ? row.api_key_id ?? '' : row.model_alias ?? '';
-    const group = groups.get(identity) ?? {
-      identity, name: visibleContent(byKey ? row.key_name ?? (row.api_key_id ? 'Key name unavailable' : 'No API key recorded') : row.model_alias ?? 'Model unavailable'),
-      keyId: row.api_key_id ?? null, model: row.model_alias ?? '', amounts: new Map<string, bigint>(), unitAmounts: new Map(), requests: 0, charged: 0, unresolved: 0, unpriced: 0, ownerFunded: 0, notCharged: 0,
-    };
-    if (row.currency !== null && row.amount_nanos !== null) group.amounts.set(row.currency, (group.amounts.get(row.currency) ?? 0n) + BigInt(row.amount_nanos));
-    group.requests += row.request_count; group.charged += row.charged_requests;
-    group.ownerFunded += row.owner_funded_requests ?? 0;
-    group.unresolved += row.unresolved_requests; group.unpriced += row.unpriced_requests; group.notCharged += row.not_charged_requests;
-    groups.set(identity, group);
-  }
-  for (const unitRow of unitRows) {
-    const identity = byKey ? unitRow.api_key_id ?? '' : unitRow.model_alias ?? '';
-    const group = groups.get(identity) ?? {
-      identity, name: visibleContent(byKey ? unitRow.key_name ?? (unitRow.api_key_id ? 'Key name unavailable' : 'No API key recorded') : unitRow.model_alias ?? 'Model unavailable'),
-      keyId: unitRow.api_key_id ?? null, model: unitRow.model_alias ?? '', amounts: new Map<string, bigint>(), unitAmounts: new Map(), requests: 0, charged: 0, unresolved: 0, unpriced: 0, ownerFunded: 0, notCharged: 0,
-    };
-    const uName = unitLabel(unitRow);
-    const key = `${unitRow.definition_revision}:${uName}`;
-    const existing = group.unitAmounts.get(key);
-    group.unitAmounts.set(key, {
-      unitName: uName,
-      displayPrecision: unitRow.display_precision,
-      atoms: (existing?.atoms ?? 0n) + BigInt(unitRow.net_atoms),
-    });
-    groups.set(identity, group);
-  }
-  const currencies = [...new Set(rows.flatMap(row => row.currency === null ? [] : [row.currency]))];
-  const unitKeys = [...new Set(unitRows.map(row => `${row.definition_revision}:${unitLabel(row)}`))];
-  return [...groups.values()].sort((a, b) => {
-    if (unitKeys.length === 1 && currencies.length === 0) {
-      const av = a.unitAmounts.get(unitKeys[0])?.atoms;
-      const bv = b.unitAmounts.get(unitKeys[0])?.atoms;
-      if (av === undefined && bv !== undefined) return 1;
-      if (bv === undefined && av !== undefined) return -1;
-      if (av !== undefined && bv !== undefined && av !== bv) return av > bv ? -1 : 1;
-    }
-    // Rank only comparable amounts; never add or compare different currencies.
-    if (currencies.length === 1) {
-      const av = a.amounts.get(currencies[0]); const bv = b.amounts.get(currencies[0]);
-      if (av === undefined && bv !== undefined) return 1;
-      if (bv === undefined && av !== undefined) return -1;
-      if (av !== undefined && bv !== undefined && av !== bv) return av > bv ? -1 : 1;
-    }
-    return a.name.localeCompare(b.name);
-  });
-}
 type ActivityFilters = { from: string; to: string; model: string; keyId: string; status: string; httpStatus?: string; operationId?: string };
 const requestSorts = [
   ['time_desc', 'Newest first'], ['time_asc', 'Oldest first'],
@@ -221,11 +150,6 @@ async function get<T>(path: string, token: string, signal?: AbortSignal): Promis
   const response = await fetch(path, { signal, headers: { authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error(formatLocalizedMessage('Could not load gateway activity ({0}).', [response.status], readUILocale()));
   return await response.json() as T;
-}
-
-function customerChargeTotals(summary: ActivitySummary) {
-  const hasUnsettled = (summary.unresolved_customer_charge_count ?? 0) > 0 || (summary.unpriced_request_count ?? 0) > 0 || (summary.owner_funded_request_count ?? 0) > 0;
-  return [...(summary.customer_unit_charges ?? []).filter(item => !hasUnsettled || item.net_atoms !== '0').map(item => formatUnitAtoms(item.net_atoms, unitLabel(item), item.display_precision)), ...(summary.customer_charges ?? []).filter(item => !hasUnsettled || item.amount_nanos !== '0').map(item => money(item.amount_nanos, item.currency))];
 }
 
 function formatActivityDuration(duration: number | null) {
@@ -253,7 +177,7 @@ function requestCharge(request: GatewayRequest) {
   }
   switch (request.customer_charge_status) {
     case 'owner_funded': return translateUI('No Niu charge');
-    case 'pending': return translateUI('Unresolved');
+    case 'pending': return translateUI('Pending settlement');
     case 'unpriced': return translateUI('No rate');
     case 'not_charged': return translateUI('Not charged');
     default: return translateUI('Unknown');
@@ -781,13 +705,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     : tokenMetric === 'total'
       ? uiF("{0} requests reported · {1} unknown{2}", [aggregate.usage_count.toLocaleString(readUILocale()), (aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale()), aggregate.usage_count ? uiF(" · {0} prompt · {1} output", [BigInt(aggregate.prompt_tokens).toLocaleString(readUILocale()), BigInt(aggregate.completion_tokens).toLocaleString(readUILocale())]) : ''])
       : uiF("{0} requests reported · {1} unknown", [aggregate.usage_count.toLocaleString(readUILocale()), (aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale())]);
-  const customerTotals = customerChargeTotals(aggregate);
-  const chargeCoverage = [
-    aggregate.owner_funded_request_count ? uiF("{0} requests with own API keys", [aggregate.owner_funded_request_count]) : '',
-    aggregate.owner_funded_request_count ? uiT("Provider charges may still apply") : '',
-    aggregate.unresolved_customer_charge_count ? uiF("{0} requests unresolved", [aggregate.unresolved_customer_charge_count]) : '',
-    aggregate.unpriced_request_count ? uiF("{0} requests without a customer rate", [aggregate.unpriced_request_count]) : '',
-  ].filter(Boolean).join(' · ');
+  const customerTotals = formatSettledChargeTotals(aggregate);
   const averageDuration = summary?.average_duration_ms;
   const percentileTiming = summary?.latency_percentiles?.boundary === 'gateway_body_ms' ? summary.latency_percentiles : undefined;
   const latencyValue = latencyMetric === 'average' ? averageDuration : percentileTiming?.[`${latencyMetric}_ms`];
@@ -901,7 +819,19 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         <article className="panel"><span><Activity size={16} />{compact ? uiT("Requests") : uiT("Matching requests")}</span><strong>{summary ? aggregate.request_count.toLocaleString(readUILocale()) : '—'}</strong><small>{summary ? statisticsOnly ? uiT("Across matching requests") : (filters.from || filters.to ? uiF("{0} – {1}", [filters.from || uiT("Start"), filters.to || uiT("Now")]) : uiT("All time")) : loadingCaption}</small></article>
         <article className="panel"><span><Workflow size={16} /><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 shrink gap-1 whitespace-normal p-0 text-left text-xs font-normal" aria-label={uiT("Token metric")}>{uiT(tokenMetrics.find(([value]) => value === tokenMetric)?.[1] ?? "Token usage")}<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16}><DropdownMenuRadioGroup value={tokenMetric} onValueChange={setTokenMetric}>{tokenMetrics.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></span><strong>{tokenDisplay}</strong><small>{tokenCoverage}</small></article>
         <article className="panel"><span><Timer size={16} /><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 shrink gap-1 whitespace-normal p-0 text-left text-xs font-normal" aria-label={uiT("Latency metric")}>{uiT(latencyMetrics.find(([value]) => value === latencyMetric)?.[1] ?? "Average latency")}<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16}><DropdownMenuRadioGroup value={latencyMetric} onValueChange={setLatencyMetric}>{latencyMetrics.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></span><strong title={latencyValue != null && latencyValue >= 10_000 ? uiF("{0} ms", [latencyValue.toLocaleString(readUILocale())]) : undefined}>{latencyValue == null ? '—' : formatActivityDuration(latencyValue)}</strong><small>{latencySamples == null ? (loading && !summary ? uiT("Loading activity…") : uiT("Timing data unavailable")) : `${latencySamples.toLocaleString(readUILocale())} ${latencySamples === 1 ? uiT("complete gateway timing") : uiT("complete gateway timings")}`}</small></article>
-        <article className="panel"><span><Coins size={16} />{uiT("Customer charges")}</span><strong>{!summary ? '—' : !hasCustomerChargeData ? uiT("Unavailable") : customerTotals.length ? customerTotals.join(' · ') : aggregate.unresolved_customer_charge_count ? uiT("Unresolved") : aggregate.unpriced_request_count ? uiT("No rate") : aggregate.owner_funded_request_count ? uiT("No Niu charge") : '—'}</strong><small>{!summary ? loadingCaption : !hasCustomerChargeData ? uiT("Charge data unavailable for this gateway response") : chargeCoverage || uiT("Settled customer charges only")}</small></article>
+        <ChargeSummaryCard
+          summaryReady={Boolean(summary)}
+          loadingCaption={loadingCaption}
+          hasData={hasCustomerChargeData}
+          settledTotals={customerTotals}
+          unresolvedCount={aggregate.unresolved_customer_charge_count}
+          unpricedCount={aggregate.unpriced_request_count}
+          ownerFundedCount={aggregate.owner_funded_request_count ?? 0}
+          unresolvedHref={aggregate.unresolved_customer_charge_count > 0 ? requestEvidenceHref(workspaceRoot, { ...filters, status: 'may_have_executed' }) : undefined}
+          breakdownHref={compact && !statisticsOnly ? `${requestEvidenceHref(workspaceRoot, filters).replace(`${workspaceRoot}/executions`, `${workspaceRoot}/usage`)}#charge-breakdown-title` : undefined}
+          ratesHref={!hideBillingLink ? `${workspaceRoot}/billing?tab=rates` : undefined}
+          billingHref={!hideBillingLink ? `${workspaceRoot}/billing` : undefined}
+        />
       </section>}
 
       {!showFirstUse && !emptyKeyActivity && (statisticsOnly || compact) && !error && <ActivityCharts buckets={summary?.request_histogram} models={aggregate.usage_by_model} compact={compact} loading={loading}/> }
@@ -915,7 +845,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           <TableCell className="text-right tabular-nums">{group.unitAmounts.size || group.amounts.size ? <>
             {[...group.unitAmounts.entries()].map(([key, item]) => <div key={key}>{formatUnitAtoms(item.atoms.toString(), item.unitName, item.displayPrecision)}</div>)}
             {[...group.amounts].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amount]) => <div key={currency}>{money(amount.toString(), currency)}</div>)}
-          </> : group.unresolved ? uiT("Unresolved") : group.unpriced ? uiT("No rate") : group.ownerFunded ? uiT("No Niu charge") : uiT("Not charged")}<small className="block text-xs text-muted-foreground">{[group.ownerFunded ? `${group.ownerFunded.toLocaleString(readUILocale())} ${uiT("with own API keys", "使用自有 API 密钥")}` : '', group.charged ? `${group.charged.toLocaleString(readUILocale())} ${uiT("charged", "已计费")}` : '', group.unresolved ? `${group.unresolved.toLocaleString(readUILocale())} ${uiT("unresolved", "待结算")}` : '', group.unpriced ? `${group.unpriced.toLocaleString(readUILocale())} ${uiT("without rate", "未配置费率")}` : '', group.notCharged ? `${group.notCharged.toLocaleString(readUILocale())} ${uiT("not charged", "未计费")}` : ''].filter(Boolean).join(' · ')}</small></TableCell>
+          </> : group.unresolved ? uiT("Pending settlement", "待结算") : group.unpriced ? uiT("No rate set", "未配置费率") : group.ownerFunded ? uiT("No Niu charge") : uiT("Not charged")}<small className="block text-xs text-muted-foreground">{[group.ownerFunded ? `${group.ownerFunded.toLocaleString(readUILocale())} ${uiT("with own API keys", "使用自有 API 密钥")}` : '', group.charged ? `${group.charged.toLocaleString(readUILocale())} ${uiT("charged", "已计费")}` : '', group.unresolved ? `${group.unresolved.toLocaleString(readUILocale())} ${uiT("unresolved", "待结算")}` : '', group.unpriced ? `${group.unpriced.toLocaleString(readUILocale())} ${uiT("without rate", "未配置费率")}` : '', group.notCharged ? `${group.notCharged.toLocaleString(readUILocale())} ${uiT("not charged", "未计费")}` : ''].filter(Boolean).join(' · ')}</small></TableCell>
           <TableCell className="text-right tabular-nums">{group.requests.toLocaleString(readUILocale())}</TableCell>
         </TableRow>)}</TableBody></ShadcnTable>{groupedCharges.length > 10 && <div className="flex items-center justify-between gap-3 p-4 text-sm"><span className="text-muted-foreground">{allChargeGroups ? groupedCharges.length : 10}{" "}{uiT("of")}{" "}{groupedCharges.length} {chargeByKey ? uiT("API keys") : uiT("models")}</span><Button variant="ghost" size="sm" aria-expanded={allChargeGroups} onClick={() => setAllChargeGroups(value => !value)}>{allChargeGroups ? uiT("Show fewer") : uiT("Show all")}</Button></div>}{!groupedCharges.length && <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><Coins aria-hidden="true"/></EmptyMedia><EmptyTitle>{hasActivityFilters ? uiT("No matching requests") : uiT("No requests yet")}</EmptyTitle></EmptyHeader></Empty>}</div>}
       </section>}
@@ -977,7 +907,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         {selectedRequest && <div ref={detailSheet} role="region" tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2" aria-label={uiT("Request detail content")}>
           <div className="request-detail-metrics">
             <div><span>{requestDurationLabel(selectedRequest)}</span><strong>{requestLatency(selectedRequest)}</strong></div>
-            <div><span>{uiT("Customer charge")}</span><strong>{requestCharge(selectedRequest)}</strong>{selectedRequest.customer_unit_charge != null && BigInt(selectedRequest.customer_unit_charge.restored_atoms) > 0n && <small className="text-xs text-muted-foreground">{uiF("Refunded {0}", [formatUnitAtoms(selectedRequest.customer_unit_charge.restored_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)])}</small>}</div>
+            <div><span>{uiT("Customer charge")}</span><strong>{requestCharge(selectedRequest)}</strong>{selectedRequest.customer_unit_charge != null && BigInt(selectedRequest.customer_unit_charge.restored_atoms) > 0n && <small className="text-xs text-muted-foreground">{uiF("Refunded {0}", [formatUnitAtoms(selectedRequest.customer_unit_charge.restored_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)])}</small>}{selectedRequest.customer_charge_status === 'pending' && <small className="text-xs text-muted-foreground">{uiT("Outcome or usage is unconfirmed; not counted as zero.", "结果或用量尚未确认，暂未结算也不记为零费用。")}</small>}{selectedRequest.customer_charge_status === 'owner_funded' && <small className="text-xs text-muted-foreground">{uiT("Own API key used; your Provider bills directly.", "使用自有 API 密钥，不由 Niu 扣费，费用以 Provider 为准。")}</small>}</div>
             {selectedRequest.request_kind !== 'video' && <>
             <div><span>{uiT("Input tokens")}</span><strong className="break-all">{selectedRequest.prompt_tokens == null ? '—' : BigInt(selectedRequest.prompt_tokens).toLocaleString(readUILocale())}</strong><small className="text-xs text-muted-foreground">{uiT("Cached:")}{" "}{selectedRequest.cached_input_tokens == null ? uiT("Unknown") : BigInt(selectedRequest.cached_input_tokens).toLocaleString(readUILocale())}</small></div>
             <div><span>{uiT("Output tokens")}</span><strong className="break-all">{selectedRequest.completion_tokens == null ? '—' : BigInt(selectedRequest.completion_tokens).toLocaleString(readUILocale())}</strong><small className="text-xs text-muted-foreground">{uiT("Reasoning:")}{" "}{selectedRequest.reasoning_output_tokens == null ? uiT("Unknown") : BigInt(selectedRequest.reasoning_output_tokens).toLocaleString(readUILocale())}</small></div>

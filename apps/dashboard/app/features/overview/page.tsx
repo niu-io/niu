@@ -56,7 +56,7 @@ export default function OverviewRoute() {
         : <Button asChild><Link to={modelsHref} className="header-icon-action" aria-label={t('Browse models', '浏览模型')} title={t('Browse models', '浏览模型')}><Network aria-hidden="true" /><span>{t('Browse models', '浏览模型')}</span></Link></Button>}</div>} />
 
     <section className="cost-workbench" aria-label={uiT("Recent gateway requests")}>
-      {token ? <GatewayActivity compact emptyState={emptyState} workspaceRoute={workspaceRoot} key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
+      {token ? <GatewayActivity compact emptyState={emptyState} workspaceRoute={workspaceRoot} hideBillingLink={session?.operating_mode === 'internal'} key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
         <ConnectPrompt />
       </div>}
     </section>

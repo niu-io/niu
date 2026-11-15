@@ -673,3 +673,46 @@ it('localizes funding, recovery and warning drafts reactively without changing s
   await userEvent.click(screen.getByRole('button', {name: 'Cancel'}));
   expect(screen.getByText('¥1.00')).toBeTruthy();
 });
+
+it('separates pending settlement and missing rates headlines with direct action links on workspace Billing', async () => {
+  const { Route, Routes } = await import('react-router');
+  const scenario = (unresolved: string, unpriced: string) => ({
+    balances: [],
+    unresolved,
+    unpriced,
+    tariffs: [],
+    invoices: [],
+  });
+  let current = scenario('2', '3');
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: current })));
+  fixture.context = {
+    token: 'test',
+    workspace: { id: 'project', organization_id: 'org' },
+    session: { kind: 'operator' },
+    models: [{ id: 'qwen/text' }],
+  } as unknown as DashboardContext;
+  const view = render(
+    <MemoryRouter initialEntries={['/workspaces/demo/billing']}>
+      <Routes>
+        <Route path="/workspaces/:ws/billing" element={<BillingRoute />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText('Pending settlement · missing rates');
+  expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/demo/executions?status=may_have_executed');
+  const reviewRates = screen.getByRole('button', { name: 'Review rates' });
+  expect(reviewRates).toBeTruthy();
+
+  current = scenario('4', '0');
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  await screen.findByText('Pending settlement');
+  expect(screen.queryByRole('button', { name: 'Review rates' })).toBeNull();
+
+  current = scenario('0', '5');
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  await screen.findByText('No rate set');
+  expect(screen.queryByRole('link', { name: 'Inspect pending requests' })).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'Review rates' }));
+  await screen.findByRole('tabpanel', { name: 'Rates' });
+  view.unmount();
+});
