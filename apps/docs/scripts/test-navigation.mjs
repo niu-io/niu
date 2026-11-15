@@ -8,7 +8,7 @@ test('human audience retains tutorials and optional product references',()=>{
  for(const path of ['/docs/','/docs/getting-started/','/docs/guides/mcp/','/docs/configuration/models/','/docs/admin/']) assert.equal(documentationAudience(path),'human',path);
 });
 test('audience navigation and generated reference sections have distinct active states',()=>{
- assert(publicNavigationActive('/docs/agents/','AgentDoc'));
+ assert(publicNavigationActive('/docs/agents/','Agents'));
  assert(!publicNavigationActive('/docs/agents/','Docs'));
  assert(publicNavigationActive('/docs/configuration/models/','Docs'));
  assert(publicNavigationActive('/docs/api/rest/','API'));

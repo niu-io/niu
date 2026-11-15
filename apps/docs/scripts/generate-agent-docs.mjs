@@ -13,10 +13,10 @@ async function syncFile(targetPath, expected) {
     try {
       actual = await readFile(target, 'utf8');
     } catch {
-      throw new Error(`Missing generated AgentDoc file: ${targetPath}`);
+      throw new Error(`Missing generated agent contract file: ${targetPath}`);
     }
     if (actual !== expected) {
-      throw new Error(`Regenerate AgentDoc: ${targetPath}`);
+      throw new Error(`Regenerate agent contracts: ${targetPath}`);
     }
   } else {
     await writeFile(target, expected);

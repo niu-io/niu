@@ -17,7 +17,7 @@ All paths below are deployment-relative against your active Niu origin (`{ORIGIN
 - **Track 1 — Universal Coding-Agent Connection (any HTTP agent or editor)**: Works from Cursor, Windsurf, Zed, OpenCode, Claude Code, Codex, DeepSeek Harness, or custom agents via `POST /api/v1/auth/agents`, browser review at `/connect?code={user_code}`, polling `POST /api/v1/auth/agents/token`, direct REST calls to `/v1/...`, or standalone stdio MCP (`niu-io-mcp-0.1.0.tgz`).
 - **Track 2 — Native Host Bundles**: Prebuilt plugin bundles from Niu `v0.3.0` (`niu-agent-marketplace.tar.gz` for Claude Code & Codex; `niu-deepseek-harness.tar.gz` for DeepSeek Harness `0.2.1-rc.5` local macOS hosts) bundling `niu-login` and `niu-mcp`.
 
-## AgentDoc contracts
+## Agent contracts
 
 - [Install and connect](/docs/install.md): Track 1 universal HTTP device flow, `/connect` workspace hints, `0600` credential persistence, Track 2 host bundles, and standalone MCP (`niu-io-mcp-0.1.0.tgz`).
 - [Agent capabilities and verification](/docs/agents.md): Post-connection `/v1/key` & `/v1/models` inspection, authorization boundaries, and HTTP <-> MCP parity.
