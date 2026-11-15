@@ -424,3 +424,66 @@ async fn static_asset_prefixes_emit_public_cache_control() {
         }
     }
 }
+
+#[tokio::test]
+async fn register_and_zh_routes_resolve_cleanly() {
+    let fixture = Fixture::new();
+    for with_site in [true, false] {
+        let app = fixture.router(with_site);
+        for path in ["/register", "/register/"] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{path} with_site={with_site}"
+            );
+        }
+        for (path, expected_location) in [
+            ("/zh", "/"),
+            ("/zh/", "/"),
+            ("/zh/docs", "/docs/?lang=zh-CN"),
+            ("/zh/docs/", "/docs/?lang=zh-CN"),
+            ("/zh/docs/agents/", "/docs/agents/?lang=zh-CN"),
+            (
+                "/zh/docs/agents/?tab=api",
+                "/docs/agents/?tab=api&lang=zh-CN",
+            ),
+            ("/zh/docs/install.md", "/docs/install.md"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::TEMPORARY_REDIRECT,
+                "{path} with_site={with_site}"
+            );
+            assert_eq!(
+                response.headers()["location"],
+                expected_location,
+                "{path} with_site={with_site}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn zh_root_prefers_website_zh_artifact_when_present() {
+    let fixture = Fixture::new();
+    let zh_dir = fixture.0.join("website/zh");
+    std::fs::create_dir_all(&zh_dir).unwrap();
+    std::fs::write(zh_dir.join("index.html"), "chinese marketing").unwrap();
+
+    let app = fixture.router(true);
+    let response = app
+        .oneshot(Request::builder().uri("/zh/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+}

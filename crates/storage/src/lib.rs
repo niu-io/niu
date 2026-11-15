@@ -39,6 +39,7 @@ pub use customer_unit_tariffs::{
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,
 };
+pub use niu_metered_cost::CreditConversion;
 pub use payment_verification::PaymentReadinessFacts;
 mod platform_currency;
 mod workspace_asset_video_dispatch;
@@ -124,6 +125,7 @@ mod balance_policy_history;
 mod balance_reservations;
 mod financial_recovery;
 mod financial_transactions;
+pub(crate) use financial_transactions::{commit_tx, rollback_tx};
 mod supplier_configuration_usage;
 pub mod trigger_error;
 pub use financial_recovery::FinancialRecoveryFailure;
@@ -896,7 +898,7 @@ impl Store {
             .bind(limit)
             .fetch_all(&mut *tx)
             .await?;
-        tx.commit().await?;
+        commit_tx(tx).await?;
         Ok(rows)
     }
 
@@ -916,7 +918,7 @@ impl Store {
         &self,
         prepaid: bool,
     ) -> Result<TenantScope, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("LOCK TABLE default_workspace IN EXCLUSIVE MODE")
             .execute(&mut *tx)
             .await?;
@@ -952,7 +954,7 @@ impl Store {
                 (organization_id, project_id)
             }
         };
-        tx.commit().await?;
+        commit_tx(tx).await?;
         Ok(TenantScope {
             organization_id,
             project_id,
@@ -1034,7 +1036,7 @@ impl Store {
             .await
         {
             Ok(result) => {
-                tx.commit().await?;
+                commit_tx(tx).await?;
                 Ok(result.rows_affected() == 1)
             }
             Err(sqlx::Error::Database(error)) if error.code().as_deref() == Some("23503") => {
@@ -1351,7 +1353,7 @@ impl Store {
                         .and_then(|d| d.try_downcast_ref::<sqlx::postgres::PgDatabaseError>())
                         .and_then(|d| d.detail())
                         .and_then(|detail| serde_json::from_str::<serde_json::Value>(detail).ok());
-                    tx.rollback().await?;
+                    rollback_tx(tx).await?;
                     if let Some(metadata) = metadata {
                         for (scope, key) in rejection_scopes {
                             if metadata["organization_id"] == scope.organization_id.to_string()
@@ -1384,7 +1386,7 @@ impl Store {
                     .await?;
             }
         }
-        tx.commit().await?;
+        commit_tx(tx).await?;
 
         if rows.len() != admission_count {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
@@ -1646,7 +1648,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
-        tx.commit().await?;
+        commit_tx(tx).await?;
         Ok(())
     }
 

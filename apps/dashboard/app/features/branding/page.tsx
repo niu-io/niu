@@ -37,6 +37,28 @@ const labelsZh: Record<BrandingToken, string> = {
   accent: '强调背景色',
   'accent-foreground': '强调文本色',
 };
+const defaultTokenHex: Record<'light' | 'dark', Record<BrandingToken, string>> = {
+  light: {
+    background: '#ececeb',
+    foreground: '#45352F',
+    primary: '#45352F',
+    'primary-foreground': '#FAFAF9',
+    sidebar: '#FAFAF9',
+    'sidebar-foreground': '#45352F',
+    accent: '#ececeb',
+    'accent-foreground': '#45352F',
+  },
+  dark: {
+    background: '#121314',
+    foreground: '#EFE2DA',
+    primary: '#FF914D',
+    'primary-foreground': '#45352F',
+    sidebar: '#141414',
+    'sidebar-foreground': '#EFE2DA',
+    accent: '#242424',
+    'accent-foreground': '#EFE2DA',
+  },
+};
 const copy = (value: BrandingSettings): BrandingSettings => ({ ...value, light: { ...value.light }, dark: { ...value.dark } });
 
 export default function BrandingPage() {
@@ -116,7 +138,7 @@ export default function BrandingPage() {
   const previewColors = previewPalette(draft, palette) as CSSProperties;
   const defaultAppearanceLabel = draft.default_appearance === 'light' ? t('Light', '浅色') : draft.default_appearance === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
   return <section className="w-full min-w-0">
-    {!saved ? <>{error ? <div role="alert"><p>{error}</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>{t('Retry', '重试')}</Button></div> : <FormSectionSkeleton fields={3} label={t('Loading branding settings…', '正在加载品牌与主题设置…')} />}</> : <form noValidate onSubmit={event => void save(event)}>
+    {!saved ? <>{error ? <div role="alert"><p>{error}</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>{t('Retry', '重试')}</Button></div> : <FormSectionSkeleton fields={3} label={t('Loading branding settings…', '正在加载品牌与主题设置…')} />}</> : <form className="max-w-3xl" noValidate onSubmit={event => void save(event)}>
       <Tabs value={tab} onValueChange={value => { const next = new URLSearchParams(search); value === 'theme' ? next.set('tab', 'theme') : next.delete('tab'); setSearch(next, { replace: true }); }}>
         <div className="flex flex-wrap items-center justify-between gap-3"><TabsList variant="line"><TabsTrigger value="branding">{t('Branding', '品牌标识')}</TabsTrigger><TabsTrigger value="theme">{t('Theme', '主题外观')}</TabsTrigger></TabsList><Button type="button" variant="outline" onClick={() => setPreview(true)}><IconPalette />{t('Preview', '预览')}</Button></div>
         <TabsContent value="branding" className="space-y-7 pt-6">
@@ -125,7 +147,7 @@ export default function BrandingPage() {
         </TabsContent>
         <TabsContent value="theme" className="space-y-7 pt-6">
           <div className="flex flex-wrap items-start justify-between gap-3"><div><Label>{t('Default appearance', '默认外观模式')}</Label><p className="mt-1 text-sm text-muted-foreground">{t('Applies before sign-in and to members without a saved preference.', '适用于未登录界面以及尚未保存个人外观偏好的成员。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={busy} aria-label={uiT("Default appearance")}>{defaultAppearanceLabel}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={draft.default_appearance} onValueChange={value => setDraft({ ...draft, default_appearance: value as BrandingSettings['default_appearance'] })}>{(['system', 'light', 'dark'] as const).map(value => <DropdownMenuRadioItem key={value} value={value}>{value === 'light' ? t('Light', '浅色') : value === 'dark' ? t('Dark', '深色') : t('System', '跟随系统')}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-          <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-medium">{t('Colors', '配色方案')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('Leave blank to inherit Niu. Text pairs need at least 4.5:1 contrast.', '留空则继承 Niu 默认配色。文本与背景需满足至少 4.5:1 的对比度。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-label={uiT("Edit color palette")}>{palette === 'light' ? t('Light', '浅色') : t('Dark', '深色')}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={palette} onValueChange={value => setPalette(value as 'light' | 'dark')}><DropdownMenuRadioItem value="light">{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t('Dark', '深色')}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div><div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">{brandingTokens.map(key => <div className="space-y-2" key={key}><Label htmlFor={'color-' + key}>{isZh ? labelsZh[key] : translateUI(labelsEn[key])}</Label><div className="flex items-center gap-2"><Input type="color" aria-label={isZh ? labelsZh[key] : translateUI(labelsEn[key])} className="h-9 w-12 shrink-0 p-1" disabled={busy} value={draft[palette][key] ?? '#000000'} onChange={event => { const colors = { ...draft[palette] }; colors[key] = event.target.value; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /><Input id={'color-' + key} placeholder={t('Default', '默认')} maxLength={7} pattern="#[0-9a-fA-F]{6}" disabled={busy} value={draft[palette][key] ?? ''} onChange={event => { const colors = { ...draft[palette] }; if (event.target.value) colors[key] = event.target.value; else delete colors[key]; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /></div></div>)}</div></div>
+          <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-medium">{t('Colors', '配色方案')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('Leave blank to inherit Niu. Text pairs need at least 4.5:1 contrast.', '留空则继承 Niu 默认配色。文本与背景需满足至少 4.5:1 的对比度。')}</p></div><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-label={uiT("Edit color palette")}>{palette === 'light' ? t('Light', '浅色') : t('Dark', '深色')}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={palette} onValueChange={value => setPalette(value as 'light' | 'dark')}><DropdownMenuRadioItem value="light">{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t('Dark', '深色')}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div><div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">{brandingTokens.map(key => <div className="space-y-2" key={key}><Label htmlFor={'color-' + key}>{isZh ? labelsZh[key] : translateUI(labelsEn[key])}</Label><div className="flex items-center gap-2"><Input type="color" aria-label={isZh ? labelsZh[key] : translateUI(labelsEn[key])} className="h-9 w-11 shrink-0 cursor-pointer overflow-hidden rounded-md p-0.5 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-[4px] [&::-webkit-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-[4px] [&::-moz-color-swatch]:border-0" disabled={busy} value={draft[palette][key] ?? defaultTokenHex[palette][key]} onChange={event => { const colors = { ...draft[palette] }; colors[key] = event.target.value; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /><Input id={'color-' + key} placeholder={defaultTokenHex[palette][key]} maxLength={7} pattern="#[0-9a-fA-F]{6}" disabled={busy} value={draft[palette][key] ?? ''} onChange={event => { const colors = { ...draft[palette] }; if (event.target.value) colors[key] = event.target.value; else delete colors[key]; setDraft({ ...draft, [palette]: colors }); setNotice(''); }} /></div></div>)}</div></div>
         </TabsContent>
       </Tabs>
       {(error || reloadNeeded) && <div role="alert" className="mt-5 space-y-2"><p className="text-destructive">{error || t('These settings changed. Reload before saving.', '这些设置已在其他位置发生变更，请重新加载后再保存。')}</p>{reloadNeeded && <Button type="button" variant="outline" disabled={busy} onClick={() => { setError(''); setNotice(''); setAttempt(value => value + 1); }}>{t('Reload saved settings', '重新加载已保存设置')}</Button>}</div>}

@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import NiuBrand from '@/components/NiuBrand';
 import { useBranding } from '@/shell/branding';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { workspaceDisplayName } from '@/shell/workspace-route';
+import { organizationDisplayName, workspaceDisplayName } from '@/shell/workspace-route';
 import {
   AdminRequestError,
   formatDateTime,
@@ -233,11 +233,11 @@ export default function AcceptInvitationPage() {
         <section className="dashboard-login-card invitation-card" aria-label={uiT('Organization invitation', '组织邀请')}>
           <div className="invitation-org">
             <span className="invitation-avatar" aria-hidden="true">
-              {preview.organization_name.trim().charAt(0).toUpperCase() || <IconUsers size={22} />}
+              {organizationDisplayName(preview.organization_name).charAt(0).toUpperCase() || <IconUsers size={22} />}
             </span>
             <div className="min-w-0">
               <p className="eyebrow">{uiT('INVITATION', '邀请')}</p>
-              <h1 className="break-words">{preview.organization_name}</h1>
+              <h1 className="break-words">{organizationDisplayName(preview.organization_name)}</h1>
               <p className="text-sm text-muted-foreground">{scopeLabel(preview, uiT)}</p>
             </div>
             <Badge variant="outline" className="lifecycle-badge ml-auto" data-tone={status === 'pending' ? 'active' : 'inactive'}>

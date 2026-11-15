@@ -4,7 +4,7 @@ import ProviderModels from './ProviderModels';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useProviderParams, providerPathSegment } from '@/shell/provider-route';
-import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconDots as Dots, IconPlus as Plus, IconSearch, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
+import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconDots as Dots, IconPlus as Plus, IconReceipt, IconSearch, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
@@ -674,7 +674,7 @@ function Administration({ token }: { token: string }) {
           {(section === "overview" || section === "models") && <>
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {!internal && <TabsList variant="line" className="mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
+            {!internal && <div className="mb-4 max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList></div>}
             <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin} offers={internal ? [] : data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} commercialEnabled={!internal} onEnableOffer={id => open("offer-enable", id)} onOffer={(modelAlias, media) => { if (media) { setPricingTab("media"); setMediaRateModel(modelAlias); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
             <TabsContent value="text">
             {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 pb-4"><div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={offerSearch} type="search" className="pl-9" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
@@ -755,7 +755,7 @@ function Administration({ token }: { token: string }) {
             <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
             {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
               {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
+            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
           </>}
         </section>
       )}
@@ -882,7 +882,7 @@ function Administration({ token }: { token: string }) {
               <p>
                 {uiT("This records an external payment that has already completed. It does not initiate a transfer. Niu includes every unpaid earning in the selected currency through the cutoff.")}</p>
               {payableBalances.length === 0 ? (
-                <Empty className="provider-inline-empty min-h-28 rounded-xl bg-muted/55 py-5"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
+                <Empty className="provider-inline-empty min-h-28 rounded-xl bg-muted/55 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
               ) : (
                 <>
                   <div className="grid gap-2">

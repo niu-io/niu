@@ -259,7 +259,7 @@ impl Store {
         .bind(&proof_vec)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     /// Current scope/key/policy are required even for previously approved bytes.
@@ -276,7 +276,7 @@ impl Store {
         let scope = principal.scope();
         let result=sqlx::query_as("SELECT c.ciphertext,s.content_type,s.content_sha256,s.byte_length FROM inspected_image_sources s JOIN inspected_image_source_content c ON c.source_id=s.id JOIN image_processing_approvals a ON a.id=s.approval_id WHERE s.id=$1 AND s.organization_id=$2 AND s.project_id=$3 AND s.key_id=$4 AND s.expires_at>clock_timestamp() AND EXISTS(SELECT 1 FROM inspected_image_source_approvals p WHERE p.source_id=s.id AND p.approval_id=s.approval_id) AND a.workspace_revision IS NOT DISTINCT FROM $5 AND a.key_policy_revision IS NOT DISTINCT FROM $6 AND a.key_assignment_revision IS NOT DISTINCT FROM $7 AND NOT EXISTS(SELECT 1 FROM inspected_image_source_erasures e WHERE e.source_id=s.id)")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(snapshot.workspace_revision).bind(snapshot.key_policy_revision).bind(snapshot.key_assignment_revision).fetch_optional(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
     /// Read current scoped content, authenticate it and verify the immutable
@@ -340,7 +340,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(inserted)
     }
 
@@ -426,7 +426,7 @@ impl Store {
             .await?;
         let changed=sqlx::query("INSERT INTO asset_image_source_access(token_sha256,consent_id,expires_at) SELECT $1,d.id,LEAST(statement_timestamp()+interval '60 seconds',d.expires_at,s.expires_at,a.expires_at,key.expires_at) FROM asset_image_ingestion_consents d JOIN asset_image_ingestion_claims claim ON claim.consent_id=d.id JOIN inspected_image_sources s ON s.id=d.source_id JOIN inspected_image_source_content content ON content.source_id=s.id JOIN api_keys key ON key.id=s.key_id JOIN asset_group_create_intents i ON i.id=d.group_intent_id JOIN asset_operation_authorizations a ON a.id=d.authorization_id JOIN vendors v ON v.id=i.vendor_id AND v.revision=i.vendor_revision JOIN vendor_asset_management_credentials c ON c.vendor_id=i.vendor_id AND c.revision=i.credential_revision WHERE d.id=$2 AND s.organization_id=$3 AND s.project_id=$4 AND s.key_id=$5 AND d.expires_at>clock_timestamp() AND s.expires_at>clock_timestamp() AND a.expires_at>clock_timestamp() AND a.operation='CreateAsset' AND c.credential_ciphertext IS NOT NULL AND NOT EXISTS(SELECT 1 FROM asset_image_ingestion_consent_revocations r WHERE r.consent_id=d.id) AND NOT EXISTS(SELECT 1 FROM inspected_image_source_erasures e WHERE e.source_id=s.id) AND NOT EXISTS(SELECT 1 FROM asset_operation_authorization_revocations r WHERE r.authorization_id=a.id) AND NOT EXISTS(SELECT 1 FROM vendor_asset_management_revocations r WHERE r.vendor_id=i.vendor_id AND r.through_revision>=i.credential_revision) ON CONFLICT DO NOTHING")
             .bind(digest.as_slice()).bind(consent).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).execute(&mut *tx).await?.rows_affected()==1;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(changed.then_some(AssetImageSourceAccess { token }))
     }
 
@@ -589,7 +589,7 @@ impl Store {
             upstream_project: project,
             credential_ciphertext: row.get("credential_ciphertext"),
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedAssetImageIngestion {
             consent_id: consent,
             credential,
@@ -691,7 +691,7 @@ impl Store {
         id: Uuid,
     ) -> Result<bool, StoreError> {
         let scope = principal.scope();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let found: Option<Uuid> = sqlx::query_scalar("SELECT s.id FROM inspected_image_sources s JOIN api_keys k ON k.id=s.key_id WHERE s.id=$1 AND s.organization_id=$2 AND s.project_id=$3 AND s.key_id=$4 AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() FOR UPDATE OF s")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).fetch_optional(&mut *tx).await?;
         if found.is_none() {
@@ -702,7 +702,7 @@ impl Store {
             .bind(id)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(inserted)
     }
 }

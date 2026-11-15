@@ -39,11 +39,11 @@ describe('global settings routes',()=>{
   current={...context(),organization:null,organizations:[],workspaceLoading:true};mockRequests();
   const rendered=render(view('/settings/billing'));
   expect(screen.getByRole('status').textContent).toContain('Loading billing account');
-  expect(screen.queryByText(/Only company owners and administrators can manage shared credits/)).toBeNull();
+  expect(screen.queryByText(/Only organization owners and administrators can manage shared credits/)).toBeNull();
   const reload=vi.fn();current={...current,workspaceLoading:false,reloadWorkspaces:reload};
   rendered.rerender(view('/settings/billing'));
   expect(screen.getByRole('alert').textContent).toContain('Could not load your billing account');
-  expect(screen.queryByText(/Only company owners and administrators can manage shared credits/)).toBeNull();
+  expect(screen.queryByText(/Only organization owners and administrators can manage shared credits/)).toBeNull();
  });
  it('shows the signed-in account identity rather than its permission role',async()=>{
   current=context();current.session!.profile={name:'Demo',email:'demo@niu.io',avatar_data_url:null,revision:0};
@@ -58,8 +58,8 @@ describe('global settings routes',()=>{
  it('links to canonical Settings over the current product page',async()=>{
   current=context();mockRequests();render(<MemoryRouter><SidebarProvider><AccountMenu context={current} workspacePath="/workspaces/default"/></SidebarProvider><Routes><Route path="/settings/:section" element={<SettingsPage/>}/><Route path="/" element={null}/></Routes></MemoryRouter>);
   const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Account menu'}));
-  expect(screen.getByRole('menuitem',{name:'Account settings',exact:true}).getAttribute('href')).toBe('/settings/account');
-  expect(screen.getByRole('menuitem',{name:'Account settings',exact:true})).toBeTruthy();
+  expect(screen.getByRole('menuitem',{name:'Settings',exact:true}).getAttribute('href')).toBe('/settings/account');
+  expect(screen.getByRole('menuitem',{name:'Settings',exact:true})).toBeTruthy();
  });
  it('opens usable appearance settings for installation administrators',async()=>{
   current={...context(),session:{kind:'installation',operator:null}} as DashboardContext;
@@ -74,7 +74,7 @@ describe('global settings routes',()=>{
  });
  it('does not request organization funds for workspace-scoped owners',async()=>{
   current=context('scoped-workspace');const fetcher=mockRequests();render(view('/settings/billing'));
-  expect(screen.getByText(/Only company owners and administrators can manage shared credits/)).toBeTruthy();
+  expect(screen.getByText(/Only organization owners and administrators can manage shared credits/)).toBeTruthy();
   await waitFor(()=>expect(fetcher.mock.calls.length).toBeGreaterThan(0));
   expect(fetcher.mock.calls.some(call=>String(call[0]).includes('/billing/'))).toBe(false);
  });

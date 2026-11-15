@@ -45,17 +45,18 @@ describe('canonical organization settings', () => {
   it('renders organization general details and links to the dedicated members and credits sections', async () => {
     const router = renderAt('/settings/organization');
 
-    expect(await screen.findByRole('heading', { name: 'Organization', level: 1 })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'General' })).toBeTruthy();
-    expect(screen.getByDisplayValue('Acme')).toBeTruthy();
-    expect(screen.getByText('acme', { exact: true })).toBeTruthy();
-    expect(screen.getByLabelText('Update organization name')).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Members' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Credits' })).toBeTruthy();
-    expect(screen.queryByRole('table')).toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: 'Settings' });
+    expect(await within(dialog).findByRole('heading', { name: 'Organization', exact: true })).toBeTruthy();
+    expect(await within(dialog).findByRole('heading', { name: 'General' })).toBeTruthy();
+    expect(within(dialog).getByDisplayValue('Acme')).toBeTruthy();
+    expect(within(dialog).getByText('acme', { exact: true })).toBeTruthy();
+    expect(within(dialog).getByLabelText('Update organization name')).toBeTruthy();
+    const settingsNav = within(dialog).getByRole('navigation', { name: 'Settings navigation' });
+    expect(within(settingsNav).getByRole('link', { name: 'Members' }).getAttribute('href')).toBe('/settings/members');
+    expect(within(settingsNav).getByRole('link', { name: 'Credits' }).getAttribute('href')).toBe('/settings/billing');
+    expect(within(dialog).queryByRole('table')).toBeNull();
     expect(router.state.location.pathname).toBe('/settings/organization');
-    const settingsNav = screen.getByRole('tablist', { name: 'Settings sections' });
-    expect(within(settingsNav).getByRole('tab', { name: 'Organization' }).getAttribute('aria-selected')).toBe('true');
+    expect(within(settingsNav).getByRole('link', { name: 'Organization' }).getAttribute('aria-current')).toBe('page');
   });
 
   it('redirects the workspace organization page to the canonical Settings destination', async () => {
@@ -66,8 +67,9 @@ describe('canonical organization settings', () => {
     expect(new URLSearchParams(router.state.location.search).get('organization')).toBe('acme');
     expect(router.state.location.hash).toBe('#members');
     expect((router.state.location.state as { settingsReturnTo?: string } | null)?.settingsReturnTo).toBe('/workspaces/default/organization?filter=active#members');
-    expect(await screen.findByRole('heading', { name: 'Organization', level: 1 })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'General' })).toBeTruthy();
+    const dialog = await screen.findByRole('dialog', { name: 'Settings' });
+    expect(await within(dialog).findByRole('heading', { name: 'Organization', exact: true })).toBeTruthy();
+    expect(await within(dialog).findByRole('heading', { name: 'General' })).toBeTruthy();
   });
 
   it('redirects workspace Users to a workspace-scoped Members section without widening the scope', async () => {

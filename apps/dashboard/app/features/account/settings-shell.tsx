@@ -6,7 +6,7 @@ import PasswordSettings from './PasswordSettings';
 import AccountBilling from '@/features/billing/AccountBilling';
 import OperatorsView from '@/features/operators/components/OperatorsView';
 import { OrganizationSettings } from '@/features/organization/settings-section';
-import { resolveWorkspacePathSegment, workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
+import { organizationDisplayName, resolveWorkspacePathSegment, workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import type { DashboardContext } from '@/shell/dashboard-context';
@@ -91,9 +91,9 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       </dl>
       <nav aria-label={uiT("Product resources")} className="grid gap-1 sm:grid-cols-2">
         <Button asChild variant="ghost" className="justify-start"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '版本发布说明')}</a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub</a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈问题')}</a></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '版本发布说明')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈问题')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
       </nav>
       <nav aria-label={uiT("Legal resources")} className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-muted-foreground">
         <a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconLicense size={14} aria-hidden="true"/>{t('License', '许可证')}</a>
@@ -125,14 +125,14 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       <h2 className="sr-only">{t('Credits', '额度与充值')}</h2>
       <p className="text-sm text-muted-foreground">{t('Manage shared funds, add money, and review payment orders and balance activity.', '管理共享资金、充值额度，并查看支付订单与余额变动明细。')}</p>
     </header>}
-    {['billing', 'payments'].includes(section) && context.organization && <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{context.organization.name} · {t('Shared across workspaces', '跨工作空间共享')}</span>{context.workspace && <Link className="underline underline-offset-4 hover:text-foreground" to={`/workspaces/${encodeURIComponent(workspacePathSegment(context.workspace, context.workspaces))}/billing`}>{t('View workspace billing', '查看工作空间计费')}</Link>}</p>}
+    {['billing', 'payments'].includes(section) && context.organization && <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{organizationDisplayName(context.organization.name)} · {t('Shared across workspaces', '跨工作空间共享')}</span>{context.workspace && <Link className="underline underline-offset-4 hover:text-foreground" to={`/workspaces/${encodeURIComponent(workspacePathSegment(context.workspace, context.workspaces))}/billing`}>{t('View workspace billing', '查看工作空间计费')}</Link>}</p>}
     {['billing', 'payments'].includes(section) && (canViewBilling
       ? context.organization
         ? <AccountBilling section="all" key={context.token + context.organization.id} token={context.token} organization={context.organization.id} canConfigure={Boolean(context.session?.permissions?.write)}/>
         : context.workspaceLoading
           ? <MetricStripSkeleton count={2} label={t('Loading billing account…', '正在加载计费账户…')} />
           : <div role="alert" className="space-y-3"><p>{t('Could not load your billing account.', '无法加载您的计费账户。')}</p><Button variant="secondary" onClick={context.reloadWorkspaces}>{t('Retry', '重试')}</Button></div>
-      : <p className="text-muted-foreground">{t('Only company owners and administrators can manage shared credits. Contact your company owner to add credits.', '仅组织所有者与管理员可管理共享额度，请联系组织所有者进行充值。')}</p>)}
+      : <p className="text-muted-foreground">{t('Only organization owners and administrators can manage shared credits. Contact your organization owner to add credits.', '仅组织所有者与管理员可管理共享额度，请联系组织所有者进行充值。')}</p>)}
   </div>;
 }
 

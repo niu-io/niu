@@ -244,3 +244,60 @@ it('keeps current-period totals visible when the comparison period fails and ret
   expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
   expect(priorRequests()).toHaveLength(4);
 });
+
+it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfacing simulated wallet exclusions', async () => {
+  const microSummary = {
+    ...sampleSummary,
+    recognized_revenue_nanos: '12345',
+    nominal_consumption_nanos: '12345',
+    known_revenue_subtotal_nanos: '12345',
+    balance_credit_sources: {
+      prepaid_cash_nanos: null,
+      outstanding_credit_nanos: null,
+      known_prepaid_cash_subtotal_nanos: '0',
+      known_outstanding_credit_subtotal_nanos: '0',
+      uncovered_accounts: '1',
+      simulated_funding_accounts: '1',
+      attributed_accounts: '0',
+      legacy_balance_accounts: '0',
+    },
+  };
+  const microPosition = {
+    ...samplePosition,
+    data: [
+      {
+        ...samplePosition.data[0],
+        customer_charge_nanos: '12345',
+        net_revenue_nanos: '12345',
+        cash_applied_nanos: '12345',
+        offers: [
+          {
+            ...samplePosition.data[0].offers[0],
+            prompt_rate: '1',
+            completion_rate: '1',
+          },
+        ],
+      },
+    ],
+  };
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
+    Response.json(String(input).includes('/commercial-position') ? microPosition : microSummary)));
+  const user = userEvent.setup();
+
+  render(
+    <MemoryRouter initialEntries={['/admin/reports']}>
+      <CommercialPositionPage />
+    </MemoryRouter>,
+  );
+
+  expect((await screen.findAllByText('<$0.0001')).length).toBeGreaterThan(0);
+  expect(screen.getByText(/\$0\.0000 · simulated excluded/)).toBeTruthy();
+
+  await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
+  expect(screen.getByText(/Verified subtotal: \$0\.0000/)).toBeTruthy();
+
+  await user.click(screen.getByRole('tab', { name: 'Unit economics' }));
+  const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
+  expect(within(unitTable).getByText('In <$0.000001 · Out <$0.000001 / 1M')).toBeTruthy();
+  expect(within(unitTable).queryByText(/\$0\.000000001/)).toBeNull();
+});

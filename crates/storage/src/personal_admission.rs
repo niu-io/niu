@@ -32,7 +32,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let attempt = admission.attempt_id;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
         Self::insert_route_generation(&mut *tx, attempt, admission.route_generation).await?;
         if let Some(binding) = &admission.evaluation {
@@ -67,7 +67,7 @@ impl Store {
             &admission.dispatch_provider,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((admission.operation_id, attempt))
     }
 }

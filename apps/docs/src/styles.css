@@ -8,6 +8,7 @@
 @source '../../dashboard/app/components/ui/table.tsx';
 @source './components/ThemeMenu.tsx';
 @source './components/DocsHome.tsx';
+@source './components/OriginPrompt.tsx';
 @source './components/CopyPageButton.tsx';
 @source './components/SessionLink.tsx';
 @source './components/MobileMenuTools.tsx';

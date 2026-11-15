@@ -139,7 +139,9 @@ fn projection_with_images(
     if schema.validate().is_err()
         || schema.model_alias != alias
         || schema.upstream_model != upstream_model
-        || (schema.channel != "ark-direct-v1" && schema.channel != niu_media::openrouter::REVISION)
+        || (schema.channel != "ark-direct-v1"
+            && schema.channel != niu_media::openrouter::REVISION
+            && schema.channel != niu_media::babelark_video::REVISION)
         || schema.required_controls.iter().any(|v| v == "callback_url")
     {
         return None;
@@ -147,19 +149,21 @@ fn projection_with_images(
     let text = schema.inputs.get("text")?;
     let output = schema.output.as_ref();
     let openrouter = schema.channel == niu_media::openrouter::REVISION;
-    // Personal Ark requests can use configured controls without a qualified
-    // output estimator. Unknown output is explicit; customer pricing and the
-    // OpenRouter adapter retain their existing metering requirements.
+    let babelark = schema.channel == niu_media::babelark_video::REVISION;
+    let seconds_channel = openrouter || babelark;
+    // Personal Ark and BabelArk requests can use configured controls without a
+    // qualified output estimator. Unknown output is explicit; customer pricing
+    // and the OpenRouter adapter retain their existing metering requirements.
     if (output.is_none() && (!owner_funded || openrouter))
         || output.is_some_and(|output| {
             output.estimator.meter()
-                != if openrouter {
+                != if seconds_channel {
                     "seconds"
                 } else {
                     "video_tokens"
                 }
         })
-        || (openrouter
+        || (seconds_channel
             && (!owner_funded
                 || schema.controls.keys().any(|key| {
                     !matches!(key.as_str(), "duration" | "resolution" | "ratio" | "seed")
@@ -211,7 +215,7 @@ fn projection_with_images(
     });
     // Ordinary references follow the selected Provider schema; local inspection
     // is an explicit customer policy, not a prerequisite for Provider URLs.
-    if !openrouter && text_permitted {
+    if schema.channel == "ark-direct-v1" && text_permitted {
         for kind in ["image_url", "audio_url", "video_url"] {
             let Some(rule) = schema.inputs.get(kind) else {
                 continue;
@@ -237,7 +241,7 @@ fn projection_with_images(
                 "role_required":rule.role_required,"requires_text":false});
         }
     }
-    if !openrouter
+    if schema.channel == "ark-direct-v1"
         && let (Some(rule), Some((items, bytes, width, height, decoded))) =
             (schema.inputs.get("image_url"), image_limits)
     {
@@ -374,5 +378,53 @@ mod tests {
             projection("video", "private-upstream", &capabilities(), true).unwrap()["mode"],
             "owner_funded"
         );
+    }
+
+    #[test]
+    fn babelark_video_discovery_matches_owner_funded_seconds_or_unmetered_contract() {
+        let mut caps = capabilities();
+        caps["video_schema"]["channel"] = json!(niu_media::babelark_video::REVISION);
+        caps["video_schema"]["controls"] = json!({
+            "resolution": {"kind": "choice", "values": ["720P", "1080P"], "default": "720P"},
+            "ratio": {"kind": "choice", "values": ["16:9", "9:16"], "default": "16:9"},
+            "duration": {"kind": "integer", "minimum": 5, "maximum": 10, "default": 5},
+            "seed": {"kind": "integer", "minimum": 0, "maximum": 1000, "default": 0}
+        });
+        // Reject mismatched SeedancePixelsV1 meter
+        assert!(projection("video", "private-upstream", &caps, true).is_none());
+
+        // Accept omitted output on personal owner-funded BabelArk route, text-only
+        caps["video_schema"]
+            .as_object_mut()
+            .unwrap()
+            .remove("output");
+        assert!(projection("video", "private-upstream", &caps, false).is_none());
+        let projected = projection_with_images(
+            "video",
+            "private-upstream",
+            &caps,
+            true,
+            Some((1, 1024, 1024, 1024, 4096)),
+            true,
+        )
+        .expect("owner-funded babelark video route should project without estimator");
+        assert_eq!(projected["mode"], "owner_funded");
+        assert_eq!(projected["input_types"], json!(["text"]));
+        assert!(projected.get("image_url").is_none());
+        assert!(projected["output"].is_null());
+
+        // Accept OutputSecondsV1 estimator
+        caps["video_schema"]["output"] = json!({
+            "specifications": [{"resolution": "720P", "ratio": "16:9", "width": 1280, "height": 720}],
+            "estimator": "OutputSecondsV1",
+            "estimator_revision": "private-estimator-revision"
+        });
+        let metered = projection("video", "private-upstream", &caps, true).unwrap();
+        assert_eq!(metered["output"]["meter"], "seconds");
+
+        // Reject unsupported controls like frames_per_second
+        caps["video_schema"]["controls"]["frames_per_second"] =
+            json!({"kind": "integer", "minimum": 24, "maximum": 60, "default": 24});
+        assert!(projection("video", "private-upstream", &caps, true).is_none());
     }
 }

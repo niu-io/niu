@@ -88,7 +88,7 @@ impl Store {
         {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor_revision: i64 =
             sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
                 .bind(vendor)
@@ -110,7 +110,7 @@ impl Store {
             .bind(vendor).bind(revision).bind(upstream_project).bind(credential_ciphertext)
             .bind(if expected_vendor_revision.is_some() { "installation" } else { "unknown" })
             .execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 
@@ -147,7 +147,7 @@ impl Store {
         if expected_revision <= 0 {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query_scalar::<_, Uuid>("SELECT id FROM vendors WHERE id=$1 FOR UPDATE")
             .bind(vendor)
             .fetch_optional(&mut *tx)
@@ -168,7 +168,7 @@ impl Store {
         } else {
             0
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(erased)
     }
 }

@@ -93,7 +93,7 @@ impl Store {
             .bind(id)
             .fetch_one(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 
@@ -212,7 +212,7 @@ impl Store {
             .bind(next)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(definition_result(next, input.name, input.display_precision))
     }
 
@@ -287,7 +287,7 @@ impl Store {
             .bind(next)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(rule_result(next, &input))
     }
 }

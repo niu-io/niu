@@ -241,7 +241,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       {visibleText.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{uiT("Text model tariffs (per 1M tokens)")}</h3>
-          <Table className="table-fixed min-w-[42rem] [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits text tariffs")}>
+          <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits text tariffs")}>
             <TableHeader>
               <TableRow>
                 <TableHead>{uiT("Model")}</TableHead>
@@ -288,7 +288,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       {visibleMedia.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{uiT("Video tariffs")}</h3>
-          <Table className="table-fixed min-w-[42rem] [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits media tariffs")}>
+          <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits media tariffs")}>
             <TableHeader>
               <TableRow>
                 <TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Media specification")}</TableHead>

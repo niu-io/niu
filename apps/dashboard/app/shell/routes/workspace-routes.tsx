@@ -13,6 +13,9 @@ import {
   workspaceChatRedirectLoader,
   workspaceSectionRedirectLoader,
 } from '../legacy-redirects';
+import LegacyRedirectRoute, {
+  clientLoader as legacyRedirectLoader,
+} from '../legacy-redirect-route';
 import { routeImporters } from '../prefetch';
 import type { RouteHandle } from '../router-context';
 
@@ -137,6 +140,20 @@ export const workspaceRoute: RouteObject = {
         destination: 'Workspace',
         navTo: 'settings',
         title: { en: 'Settings', zh: '设置' },
+      }),
+    },
+    {
+      id: 'legacy-workspace-members',
+      path: 'members',
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
+    },
+    {
+      id: 'workspace-events',
+      path: 'events/:slug?',
+      lazy: bindLazy(routeImporters.eventSubscriptions, {
+        destination: 'Workspace',
+        title: { en: 'Event subscriptions', zh: '事件订阅' },
       }),
     },
     {

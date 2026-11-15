@@ -13,6 +13,7 @@ import { IconReceipt, IconCurrencyDollar, IconDots } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { IconRefresh as RefreshCw } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
+import { organizationDisplayName } from '@/shell/workspace-route';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
 import PageHeader from '@/components/PageHeader';
@@ -145,7 +146,7 @@ export default function BillingRoute() {
   const internal = session?.operating_mode === 'internal';
   const canFund = session?.kind === 'installation' || (session?.operator?.organization_id === workspace?.organization_id && session?.operator?.project_id === null && ['owner','admin'].includes(session.operator.role));
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
-  const organizationName = workspace.organization_name?.trim() || (organization?.id === workspace.organization_id ? organization.name : '') || '';
+  const organizationName = organizationDisplayName(workspace.organization_name) || organizationDisplayName(organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
   const headerAction = !internal && matchingOrganization && canFund
     ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>

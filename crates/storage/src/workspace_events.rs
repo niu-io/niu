@@ -81,7 +81,7 @@ impl Store {
         let row = sqlx::query("SELECT b.incident_id,b.organization_id,b.project_id,b.reference,b.opened_sequence,i.resolved_at IS NOT NULL AS resolved FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.opened_sequence IS NULL OR (i.resolved_at IS NOT NULL AND b.resolved_sequence IS NULL) ORDER BY b.created_at,b.incident_id,b.organization_id,b.project_id FOR UPDATE OF b SKIP LOCKED LIMIT 1")
             .fetch_optional(&mut *tx).await?;
         let Some(row) = row else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(false);
         };
         let scope = TenantScope {
@@ -107,7 +107,7 @@ impl Store {
             sqlx::query("UPDATE incident_workspace_events SET resolved_sequence=$4 WHERE incident_id=$1 AND organization_id=$2 AND project_id=$3")
                 .bind(incident).bind(scope.organization_id).bind(scope.project_id).bind(sequence).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
 
@@ -200,7 +200,7 @@ impl Store {
         let event_id = Uuid::new_v4();
         sqlx::query("INSERT INTO workspace_events(organization_id,project_id,sequence,id,event_type,resource_kind,resource_slug,resource_revision,target_subscription_id) VALUES($1,$2,$3,$4,'subscription.test','subscription',$5,$6,$7)")
             .bind(scope.organization_id).bind(scope.project_id).bind(sequence).bind(event_id).bind(slug).bind(revision).bind(id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(
             serde_json::json!({"id":event_id,"sequence":sequence.to_string(),"type":"subscription.test","subscription_revision":revision,"delivery":"queued"}),
         )
@@ -311,7 +311,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO workspace_event_subscription_history(subscription_id,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4)")
             .bind(id).bind(saved.revision).bind(configuration).bind(principal.key_id()).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     /// Offline/startup inventory only; never a customer projection.
@@ -403,7 +403,7 @@ impl Store {
         let event = sqlx::query("SELECT sequence,jsonb_build_object('id',id,'sequence',sequence::text,'type',event_type,'schema_version',1,'occurred_at',created_at,'resource',(jsonb_build_object('kind',resource_kind,'slug',resource_slug,'revision',resource_revision) || CASE WHEN resource_run IS NOT NULL THEN jsonb_build_object('run',resource_run) ELSE '{}'::jsonb END)) AS event FROM workspace_events WHERE organization_id=$1 AND project_id=$2 AND sequence>$3 AND ((target_subscription_id IS NULL AND $5::jsonb ? event_type) OR target_subscription_id=$4) ORDER BY sequence LIMIT 1")
             .bind(scope.organization_id).bind(scope.project_id).bind(cursor).bind(subscription).bind(row.try_get::<Value,_>("configuration")?["event_types"].clone()).fetch_optional(&mut *tx).await?;
         let Some(event) = event else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         let sequence: i64 = event.try_get("sequence")?;
@@ -419,7 +419,7 @@ impl Store {
                 // An eighth attempt may still be in flight. Do not replace it
                 // before its lease expires merely because the count is bounded.
                 if state == "sending" && !delivery.try_get::<bool, _>("expired")? {
-                    tx.commit().await?;
+                    crate::commit_tx(tx).await?;
                     return Ok(None);
                 }
                 sqlx::query("UPDATE workspace_event_deliveries SET state='failed',failure_kind='exhausted',lease_id=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE id=$1").bind(id).execute(&mut *tx).await?;
@@ -429,13 +429,13 @@ impl Store {
                 .bind(sequence)
                 .execute(&mut *tx)
                 .await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         }
         if (state == "sending" && !delivery.try_get::<bool, _>("expired")?)
             || !delivery.try_get::<bool, _>("due")?
         {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         }
         let lease = Uuid::new_v4();
@@ -454,7 +454,7 @@ impl Store {
             sequence,
             attempt: attempt + 1,
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(claim))
     }
     /// Recheck just before dispatch. Revocation prevents new attempts, but an
@@ -511,7 +511,7 @@ impl Store {
             sqlx::query("UPDATE workspace_event_subscriptions SET cursor=GREATEST(cursor,$2) WHERE id=$1 AND revision=$3")
                 .bind(claim.subscription_id).bind(claim.sequence).bind(claim.subscription_revision).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn event_deliveries(

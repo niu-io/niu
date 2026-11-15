@@ -43,12 +43,15 @@ export function providerSectionPath(section: string): string {
     ? 'keys'
     : section === 'consumption'
       ? 'usage'
-      : section;
+      : section === 'offers'
+        ? 'models'
+        : section;
 }
 
 const ADMIN_PROVIDER_STATIC_SECTIONS = new Set([
   'overview',
   'models',
+  'offers',
   'usage',
   'consumption',
   'settlements',
@@ -56,6 +59,7 @@ const ADMIN_PROVIDER_STATIC_SECTIONS = new Set([
   'keys',
   'api-keys',
   'configuration',
+  'settings',
 ]);
 
 function stripBasePath(pathname: string): string {
@@ -138,6 +142,7 @@ export function resolveLegacyRedirectTarget(
     if (sub === 'route-pools' || sub === 'model-pools' || sub === 'pools') return `/admin/routing${suffix}`;
     if (sub === 'payment-gateways') return `/admin/payments${suffix}`;
     if (sub === 'audit-logs') return `/admin/audit${suffix}`;
+    if (sub === 'authentication' || sub === 'oauth') return `/admin/settings${suffix}`;
 
     if (
       parts.length === 3 &&
@@ -151,9 +156,13 @@ export function resolveLegacyRedirectTarget(
       const provider = sp.get('provider') ?? sp.get('supplier');
       sp.delete('provider');
       sp.delete('supplier');
+      if (section === 'offers' && provider && !sp.has('view')) {
+        sp.set('view', 'text');
+      }
+      const nextSection = section === 'offers' ? 'models' : providerSectionPath(section);
       return `${
         provider
-          ? `/admin/providers/${encodeURIComponent(provider)}/${providerSectionPath(section)}`
+          ? `/admin/providers/${encodeURIComponent(provider)}/${nextSection}`
           : '/admin/providers'
       }${sp.size ? '?' + sp.toString() : ''}${hash}`;
     }
@@ -163,6 +172,11 @@ export function resolveLegacyRedirectTarget(
       const actionSec = parts[3];
       if (actionSec === 'members') {
         return `/admin/providers/${encodeURIComponent(providerId)}/members${suffix}`;
+      }
+      if (actionSec === 'offers') {
+        const sp = new URLSearchParams(search);
+        if (!sp.has('view')) sp.set('view', 'text');
+        return `/admin/providers/${encodeURIComponent(providerId)}/models${sp.size ? '?' + sp.toString() : ''}${hash}`;
       }
       if (actionSec === 'api-keys' || actionSec === 'configuration') {
         return `/admin/providers/${encodeURIComponent(providerId)}/keys${suffix}`;
@@ -211,6 +225,11 @@ export function resolveLegacyRedirectTarget(
       const slug = params.slug ?? (parts[3] ? decodeURIComponent(parts[3]) : '');
       const slugSuffix = slug ? `/${encodeURIComponent(slug)}` : '';
       return `/workspaces/${encodeURIComponent(ws)}/routing${slugSuffix}${suffix}`;
+    }
+    if (section === 'members') {
+      const sp = new URLSearchParams(search);
+      sp.set('workspace', ws);
+      return `/settings/members?${sp.toString()}${hash}`;
     }
   }
 

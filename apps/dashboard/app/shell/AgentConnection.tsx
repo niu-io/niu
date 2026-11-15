@@ -160,7 +160,7 @@ export default function AgentConnection({ context, sidebar = false }: { context:
 
         <div className="space-y-1.5">
           <Label htmlFor="agent-setup-request">{t('Agent setup request', 'Agent 接入请求')}</Label>
-          <Textarea id="agent-setup-request" readOnly rows={7} value={prompt} aria-label={t('Agent setup request', 'Agent 接入请求')} />
+          <Textarea id="agent-setup-request" readOnly rows={7} className="resize-none" value={prompt} aria-label={t('Agent setup request', 'Agent 接入请求')} />
         </div>
 
         {copied && <p role="status" className="text-sm text-foreground">{t('Paste the request into your coding agent to continue.', '将接入请求粘贴到编码 Agent 中继续。')}</p>}

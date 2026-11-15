@@ -15,7 +15,7 @@ impl Store {
         let row: Option<(Uuid, Vec<u8>)> = sqlx::query_as("SELECT attempt_id,request_digest FROM media_submission_keys WHERE organization_id=$1 AND project_id=$2 AND key_digest=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(key_digest)
             .fetch_optional(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         match row {
             Some((attempt, saved)) if saved == request_digest => Ok(Some(attempt)),
             Some(_) => Err(StoreError::Conflict),
@@ -66,7 +66,7 @@ impl Store {
             if saved != request_digest {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok((original, false));
         }
         let operation = Uuid::new_v4();
@@ -83,7 +83,7 @@ impl Store {
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(operation)
             .bind(model).bind(revision).execute(&mut *tx).await?;
         Self::insert_route_generation(&mut *tx, attempt, generation).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((attempt, true))
     }
 }

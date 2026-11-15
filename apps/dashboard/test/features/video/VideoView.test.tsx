@@ -278,9 +278,10 @@ it('keeps a typed prompt and explicitly chosen model when a slow draft restore a
     return delegate(input,init);
   }));
   mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
   const prompt=await screen.findByLabelText('Prompt');
   await user.type(prompt,'Typed before the draft settled');
-  await user.click(await screen.findByRole('button',{name:'Video model'}));
+  await user.click(screen.getByRole('button',{name:'Video model'}));
   await user.click(await screen.findByRole('menuitemradio',{name:'Other video model'}));
   expect(screen.getByRole('button',{name:'Video model'}).textContent).toContain('Other video model');
   await act(async()=>{releaseDraft(Response.json({data:{revision:1,content_state:'retained',expires_at_ms:'1800000000000',payload:{keyId:key,sessionId:null,model:model.id,prompt:'Saved draft prompt',controls:{duration:9},references:[]}}}));await pendingDraft;});

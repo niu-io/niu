@@ -261,7 +261,7 @@ impl Store {
             generation,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(map)
     }
 
@@ -384,7 +384,7 @@ impl Store {
         }
         // No network operation occurs until this transaction definitively commits.
         let allowed = Self::mark_dispatched_using(&mut tx, p, attempt).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if allowed {
             Ok(())
         } else {

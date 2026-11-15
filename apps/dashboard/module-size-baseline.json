@@ -2,11 +2,11 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 4935,
+      "lines": 4954,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {
-      "lines": 2396,
+      "lines": 2380,
       "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
     },
     "app/features/routing/page.tsx": {
@@ -14,11 +14,11 @@
       "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives."
     },
     "app/features/commercial-position/page.tsx": {
-      "lines": 1572,
-      "reason": "Financial report page owns filters, chart series and table sections. Split report state from JSX under niu-4rp.15."
+      "lines": 1458,
+      "reason": "Financial report page owns filters, chart series and table sections. Period helpers extracted to period.ts; split remaining report sections under niu-4rp.15."
     },
     "app/features/playground/components/PlaygroundView.tsx": {
-      "lines": 1347,
+      "lines": 1344,
       "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog."
     },
     "app/shell/useWorkspaceController.ts": {
@@ -30,8 +30,8 @@
       "reason": "Customer unit-account editor. Split pending alongside the customer-account form extraction."
     },
     "app/features/executions/components/GatewayActivity.tsx": {
-      "lines": 938,
-      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15. Key reference/label derivation is extracted to features/keys/key-labels.ts, charge grouping to charge-groups.ts, and charge summary card to ChargeSummaryCard.tsx; the view adds only its memoized lookup."
+      "lines": 875,
+      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15. Key reference/label derivation is extracted to features/keys/key-labels.ts, charge grouping to charge-groups.ts, charge summary card to ChargeSummaryCard.tsx, and request detail sheet to GatewayRequestDetailSheet.tsx; the view adds only its memoized lookup."
     },
     "app/features/provider-business/admin.tsx": {
       "lines": 1005,

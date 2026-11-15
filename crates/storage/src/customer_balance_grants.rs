@@ -81,7 +81,7 @@ impl Store {
         let mut tx = self.begin_bounded_financial_snapshot().await?;
         let result =
             Self::customer_balance_grant_result_in_tx(&mut tx, organization, grant).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 
@@ -194,7 +194,7 @@ impl Store {
                 } else {
                     None
                 };
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 Ok((id, result))
             } else {
                 Err(StoreError::Conflict)
@@ -285,7 +285,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((id, result))
     }
 }
@@ -341,7 +341,7 @@ impl Store {
                 let unique = error.as_database_error().is_some_and(|e| e.code().is_some_and(|c| c=="23505"));
                 if unique { StoreError::Conflict } else { crate::trigger_error::map(error) }
             })?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -386,7 +386,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(serde_json::json!({"data":rows,"next_before":next}))
     }
 }

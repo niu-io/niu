@@ -125,7 +125,7 @@ export default function ProviderList() {
     <div className="empty-region space-y-5 py-5">
       <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Manage upstream supply for customer billing. Commercial offers and customer prices are required.") : uiT("Connect Providers for your internal workspaces. You pay each Provider directly.")}</p>
 
-      <h2 className="text-base font-semibold">{uiT("Configured Providers")}</h2>
+      <h2 className="text-[15px] font-semibold">{uiT("Configured Providers")}</h2>
       {error && !dialog && <p role="alert">{uiT(error)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
       {loading ? <TableSkeleton columns={3} rows={5} label={uiT("Loading Providers…")} /> : !visible.length ? !error && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconPlugConnected size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No Providers yet. Choose one below to connect.")}</EmptyDescription></EmptyHeader></Empty> : <ul className="space-y-2" aria-label={uiT("Configured Providers")}>
         {visible.map(provider => { const availability = providerAvailability(provider, session?.operating_mode); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/providers/${encodeURIComponent(provider.id)}`); }; return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5">
@@ -135,7 +135,7 @@ export default function ProviderList() {
         </li>; })}
       </ul>}
       <section aria-labelledby="provider-presets-title" className="space-y-3">
-        <h2 id="provider-presets-title" className="text-base font-semibold">{uiT("Available Providers")}</h2>
+        <h2 id="provider-presets-title" className="text-[15px] font-semibold">{uiT("Available Providers")}</h2>
         <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Choose a Provider and save its API key. Commercial offers and customer prices are required before selling.") : uiT("Choose a Provider and enter its API key to import models. You pay the Provider directly.")}</p>
         {presetError && <p role="alert">{uiT(presetError)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
         {presetsLoading ? <TableSkeleton columns={2} rows={5} label={uiT("Loading Providers…")} /> : <ul className="space-y-2" aria-label={uiT("Available Providers")}>

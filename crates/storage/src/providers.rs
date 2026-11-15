@@ -299,7 +299,7 @@ impl Store {
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id) VALUES($1,'provider_created',$1,$2,$3)")
             .bind(id).bind(actor_kind).bind(actor_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -350,7 +350,7 @@ impl Store {
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id,provider_label) VALUES($1,'supplier_profile_updated',$1,$2,$3,$4)").bind(provider).bind(actor_kind).bind(actor_id).bind(input.name.trim()).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(profile)
     }
 
@@ -392,7 +392,7 @@ impl Store {
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id) VALUES($1,'supplier_deleted',$1,$2,$3)")
             .bind(provider).bind(actor_kind).bind(actor_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -412,7 +412,7 @@ impl Store {
         actor: Option<Uuid>,
         preserves_pending_orders: bool,
     ) -> Result<i64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(716553)")
             .execute(&mut *tx)
             .await?;
@@ -433,7 +433,7 @@ impl Store {
             .ok_or(StoreError::Conflict)?;
         sqlx::query("INSERT INTO payment_gateway_configuration(gateway,revision,ciphertext) VALUES('epay',$1,$2) ON CONFLICT(gateway) DO UPDATE SET revision=EXCLUDED.revision,ciphertext=EXCLUDED.ciphertext,updated_at=now()").bind(revision).bind(ciphertext).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO payment_gateway_configuration_events(gateway,revision,actor_operator_id) VALUES('epay',$1,$2)").bind(revision).bind(actor).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 
@@ -523,7 +523,7 @@ impl Store {
         .bind(active.then_some(role))
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -937,9 +937,9 @@ impl Store {
         upstream: &str,
         endpoint: Option<&str>,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::bind_provider_offer_in_tx(&mut tx, scope, attempt, alias, upstream, endpoint).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -975,7 +975,7 @@ impl Store {
     pub async fn accrue_provider_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::accrue_provider_earning_in_tx(&mut tx, attempt).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1153,7 +1153,7 @@ impl Store {
         let (remaining_unpaid_nanos, remaining_entry_count) =
             unpaid_provider_totals_outside_period(&mut tx, provider, currency, from_ms, cutoff_ms)
                 .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ProviderSettlementPreview {
             currency: currency.to_owned(),
             from_ms,
@@ -1251,7 +1251,7 @@ impl Store {
             let (remaining_unpaid_nanos, remaining_entry_count) =
                 unpaid_provider_totals(&mut tx, provider, &prior_currency).await?;
             let entry_count = settlement_entry_count(entries.len())?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(ProviderSettlementResult {
                 id,
                 currency: prior_currency,
@@ -1342,7 +1342,7 @@ impl Store {
         let (remaining_unpaid_nanos, remaining_entry_count) =
             unpaid_provider_totals(&mut tx, provider, &currency).await?;
         let entry_count = settlement_entry_count(sorted.len())?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(ProviderSettlementResult {
             id,
             currency,
@@ -1406,7 +1406,7 @@ impl Store {
             .fetch_all(&mut *tx)
             .await?;
         let media_consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'meter',e.billing_meter,'currency',e.currency,'rate_revision',p.rate_revision,'resolution',p.snapshot->'tariff'->'dimensions'->>'resolution','reference_video',p.snapshot->'tariff'->'dimensions'->'reference_video','amount_units',p.snapshot->'tariff'->>'amount_units','decimal_places',p.snapshot->'tariff'->'decimal_places','per_quantity',p.snapshot->'tariff'->'per_quantity','requests',COUNT(*)::text,'quantity',SUM((e.meter_quantity->>'numerator')::numeric)::text,'quantity_denominator',e.meter_quantity->>'denominator','amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN supplier_media_attempt_pricing p ON p.attempt_id=e.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter<>'text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,e.billing_meter,e.currency,p.rate_revision,p.snapshot,e.meter_quantity->>'denominator' ORDER BY o.model_alias,p.rate_revision,e.meter_quantity->>'denominator'").bind(provider).bind(days).fetch_all(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         let mut response = json!({"id":provider,"name":name,"days":days,"balances":balances,"traffic":traffic,"daily":daily,"offers":offers,"offers_has_more":offers_has_more,"consumption":consumption,"media_consumption":media_consumption,"settlements":settlements});
         if let Some(earnings) = earnings
             && let Some(obj) = response.as_object_mut()

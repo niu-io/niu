@@ -24,7 +24,15 @@ function isWorkspaceNavItemActive(itemTo: string, activePath: string): boolean {
     );
   }
   if (itemTo === 'settings') {
-    return activePath === 'settings';
+    return (
+      activePath === 'settings' ||
+      activePath === 'guardrails' ||
+      activePath.startsWith('guardrails/') ||
+      activePath === 'billing' ||
+      activePath.startsWith('billing/') ||
+      activePath === 'events' ||
+      activePath.startsWith('events/')
+    );
   }
   const clean = itemTo.replace(/^\/+|\/+$/g, '');
   return activePath === itemTo || activePath.startsWith(`${clean}/`);

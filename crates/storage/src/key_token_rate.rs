@@ -64,7 +64,7 @@ impl Store {
         let next =
             Self::set_key_token_rate_policy_in_tx(&mut tx, scope, key, maximum, expected, actor)
                 .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 

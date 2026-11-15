@@ -44,7 +44,7 @@ impl Store {
         if item_index > 99 {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let account: Option<Uuid> =
             sqlx::query_scalar("SELECT id FROM vendors WHERE id=$1 FOR UPDATE")
                 .bind(vendor)
@@ -85,7 +85,7 @@ impl Store {
         }
         let credential = sqlx::query_as::<_, AssetManagementCredentialRevision>("SELECT vendor_id,revision,upstream_project,credential_ciphertext FROM vendor_asset_management_credentials WHERE vendor_id=$1 AND revision=$2 AND upstream_project=$3 AND credential_ciphertext IS NOT NULL")
             .bind(vendor).bind(revision).bind(project).fetch_one(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedAssetLookup {
             lookup_id,
             authorization_id,
@@ -155,7 +155,7 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM asset_lookup_claims WHERE id=$1 FOR UPDATE")
             .bind(lookup_id)
             .fetch_optional(&mut *tx)
@@ -171,7 +171,7 @@ impl Store {
             sqlx::query("INSERT INTO asset_lookup_results(lookup_id,ciphertext) SELECT $1,$2 WHERE NOT EXISTS(SELECT 1 FROM asset_lookup_result_deletions WHERE lookup_id=$1)")
                 .bind(lookup_id).bind(bytes).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
 
@@ -202,7 +202,7 @@ impl Store {
         vendor: Uuid,
         lookup_id: Uuid,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let found:Option<Uuid>=sqlx::query_scalar("SELECT claim.id FROM asset_lookup_claims claim JOIN asset_listing_claims listing ON listing.id=claim.listing_id JOIN asset_group_create_intents i ON i.id=listing.intent_id WHERE claim.id=$1 AND i.organization_id=$2 AND i.project_id=$3 AND i.vendor_id=$4 FOR UPDATE OF claim")
             .bind(lookup_id).bind(scope.organization_id).bind(scope.project_id).bind(vendor).fetch_optional(&mut *tx).await?;
         if found.is_none() {
@@ -210,7 +210,7 @@ impl Store {
         }
         let changed=sqlx::query("INSERT INTO asset_lookup_result_deletions(lookup_id) VALUES($1) ON CONFLICT DO NOTHING").bind(lookup_id).execute(&mut *tx).await?.rows_affected()==1;
         sqlx::query("UPDATE asset_lookup_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE lookup_id=$1 AND ciphertext IS NOT NULL").bind(lookup_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(changed)
     }
     pub async fn purge_expired_asset_lookup_results(&self) -> Result<(), StoreError> {

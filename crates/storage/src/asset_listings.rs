@@ -73,7 +73,7 @@ impl Store {
         if !(1..=100).contains(&maximum_items) {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT vendor_id FROM asset_group_create_intents WHERE organization_id=$1 AND project_id=$2 AND id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(intent).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
@@ -116,7 +116,7 @@ impl Store {
         if inserted != 1 {
             return Ok(None);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedAssetListing {
             listing_id,
             authorization_id,
@@ -192,7 +192,7 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM asset_listing_claims WHERE id=$1 FOR UPDATE")
             .bind(listing_id)
             .fetch_optional(&mut *tx)
@@ -208,7 +208,7 @@ impl Store {
             sqlx::query("INSERT INTO asset_listing_results(listing_id,ciphertext) SELECT $1,$2 WHERE NOT EXISTS(SELECT 1 FROM asset_listing_result_deletions WHERE listing_id=$1)")
                 .bind(listing_id).bind(ciphertext).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
     /// Original grant/account/key must still be current. No new upstream read.
@@ -250,7 +250,7 @@ impl Store {
         vendor: Uuid,
         listing_id: Uuid,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let id: Option<Uuid> = sqlx::query_scalar("SELECT r.id FROM asset_listing_claims r JOIN asset_group_create_intents i ON i.id=r.intent_id WHERE r.id=$1 AND i.organization_id=$2 AND i.project_id=$3 AND i.vendor_id=$4 FOR UPDATE OF r")
             .bind(listing_id).bind(scope.organization_id).bind(scope.project_id).bind(vendor).fetch_optional(&mut *tx).await?;
         if id.is_none() {
@@ -260,7 +260,7 @@ impl Store {
             .bind(listing_id).execute(&mut *tx).await?.rows_affected()==1;
         sqlx::query("UPDATE asset_listing_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE listing_id=$1 AND ciphertext IS NOT NULL")
             .bind(listing_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(changed)
     }
 

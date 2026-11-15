@@ -57,14 +57,14 @@ describe('dashboard route layout', () => {
     expect(router.state.location.pathname).toBe('/login');
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
   });
-  it('renders Settings in the existing app shell without a nested modal sidebar', async () => {
+  it('renders Settings in a global dialog with section navigation', async () => {
     mockHealth();
     const router = renderAt('/settings/appearance');
-    const settingsNavigation = await screen.findByRole('tablist', { name: 'Settings sections' });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(settingsNavigation).getByRole('tab', { name: 'Preferences' }).getAttribute('aria-selected')).toBe('true');
-    expect(await screen.findByRole('button', { name: 'Color mode' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Appearance', level: 1 })).toBeTruthy();
+    const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
+    const settingsNavigation = within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' });
+    expect(within(settingsNavigation).getByRole('link', { name: 'Appearance' }).getAttribute('aria-current')).toBe('page');
+    expect(await within(settingsDialog).findByRole('button', { name: 'Color mode' })).toBeTruthy();
+    expect(within(settingsDialog).getByRole('heading', { name: 'Appearance', level: 2 })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/appearance');
   });
   it('redirects a legacy ?settings route to canonical Settings and keeps its scope', async () => {
@@ -74,8 +74,8 @@ describe('dashboard route layout', () => {
     expect(router.state.location.search).toBe('?filter=active');
     expect(router.state.location.hash).toBe('#details');
     expect(router.state.location.state?.settingsReturnTo).toBe('/workspaces/default?filter=active#details');
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(await screen.findByRole('button', { name: 'Color mode' })).toBeTruthy();
+    const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
+    expect(await within(settingsDialog).findByRole('button', { name: 'Color mode' })).toBeTruthy();
   });
   it('preserves the verified identity when focus revalidation has a network failure', async () => {
     mockHealth();
@@ -246,26 +246,28 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production?period=month#activity');
     await screen.findByRole('heading', {name:'Overview',level:1});
     await userEvent.click(screen.getByRole('button',{name:'Account menu'}));
-    await userEvent.click(screen.getByRole('menuitem',{name:'Appearance',exact:true}));
+    await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(await screen.findByRole('tablist',{name:'Settings sections'})).toBeTruthy();
+    const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
+    expect(within(settingsDialog).getByRole('navigation',{name:'Settings navigation'})).toBeTruthy();
     expect(router.state.location.state?.settingsReturnTo).toBe('/workspaces/production?period=month#activity');
-    await userEvent.click(screen.getByRole('link',{name:'About Niu',exact:true}));
-    expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
+    await userEvent.click(within(settingsDialog).getByRole('link',{name:'About Niu',exact:true}));
+    expect(await within(settingsDialog).findByRole('region',{name:'About Niu'})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/about');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production'));
     expect(screen.getByRole('link',{name:'Overview',exact:true}).getAttribute('href')).toBe('/workspaces/production');
   });
 
   it('opens direct Settings URLs in the app shell without a Settings rail entry',async()=>{
     mockHealth();const router=renderAt('/settings/appearance');
-    const settingsNavigation=await screen.findByRole('tablist',{name:'Settings sections'});
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(settingsNavigation).getByRole('tab',{name:'Preferences'}).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByRole('button',{name:'Color mode'})).toBeTruthy();
-    expect(within(settingsNavigation).queryByRole('tab',{name:'Settings',exact:true})).toBeNull();
-    await userEvent.click(screen.getByRole('link',{name:'About Niu',exact:true}));
-    expect(await screen.findByRole('region',{name:'About Niu'})).toBeTruthy();
+    const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
+    const settingsNavigation=within(settingsDialog).getByRole('navigation',{name:'Settings navigation'});
+    expect(within(settingsNavigation).getByRole('link',{name:'Appearance'}).getAttribute('aria-current')).toBe('page');
+    expect(within(settingsDialog).getByRole('button',{name:'Color mode'})).toBeTruthy();
+    expect(document.querySelector('[aria-label="Main navigation"] a[href="/settings"]')).toBeNull();
+    await userEvent.click(within(settingsDialog).getByRole('link',{name:'About Niu',exact:true}));
+    expect(await within(settingsDialog).findByRole('region',{name:'About Niu'})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/settings/about');
   });
 
@@ -491,7 +493,7 @@ describe('dashboard route layout', () => {
 
     expect(await screen.findByRole('heading', { name: 'This dashboard and gateway are out of sync' })).toBeTruthy();
     expect(screen.getByText('GET /api/v1/workspaces')).toBeTruthy();
-    expect(screen.getByText('HTTP 404')).toBeTruthy();
+    expect(screen.getByText('404')).toBeTruthy();
     const callsBeforeRetry = calls.filter(path => path === '/api/v1/workspaces').length;
     await user.click(screen.getByRole('button', { name: 'Retry workspace access' }));
     await waitFor(() => expect(calls.filter(path => path === '/api/v1/workspaces').length).toBe(callsBeforeRetry + 1));
@@ -590,7 +592,7 @@ describe('dashboard route layout', () => {
     trigger.focus();
     await user.keyboard('{Enter}');
     expect(await screen.findByRole('menuitem', { name: 'Sign out' })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: /^Theme: / })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Settings', exact: true })).toBeTruthy();
     expect(screen.queryByRole('menuitemradio', { name: 'Light' })).toBeNull();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();

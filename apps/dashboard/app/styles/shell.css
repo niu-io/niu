@@ -33,10 +33,10 @@
 .nav-icon { width: 19px; height: 19px; flex-shrink: 0; color: var(--muted-foreground); }
 .main-panel { display: flex; width: calc(100% - var(--rail)); height: 100vh; height: 100dvh; min-height: 100vh; min-width: 0; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; margin-left: var(--rail); background: var(--background); }
 .dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 0; background: var(--background); }
-.dashboard-page-header h1 { margin: 0; color: var(--foreground); font-size: 16px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; }
+.dashboard-page-header h1 { margin: 0; color: var(--foreground); font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
 .breadcrumbs { display: flex; min-width: 0; align-items: center; font-size: 14px; gap: 12px; }
 .breadcrumbs > span:first-child { color: var(--muted-foreground); white-space: nowrap; }
-.breadcrumbs .dashboard-route-title { font-size: inherit; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumbs .dashboard-route-title { font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-route-title a { color: inherit; text-decoration: none; }
 .dashboard-route-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding: 24px 32px 72px; }
@@ -122,7 +122,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
   .connect-panel { flex-direction: column; padding: 18px; }}
 .overview-primary-actions { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
 .cost-connect { padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
-.cost-workbench .page-heading h2 { font-size: 22px; font-weight: 600; letter-spacing: -.025em; margin: 0; }
+.cost-workbench .page-heading h2 { font-size: 16px; font-weight: 600; letter-spacing: -.02em; margin: 0; }
 .cost-connect .connect-panel { padding: 0; }
 .cost-connect .empty-icon { display: none; }
 .cost-workbench .gateway-activity-summary { margin-top: 0; }

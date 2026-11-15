@@ -7,8 +7,8 @@ info:
     search by operation or path, and expand the request and response schemas for exact fields.
 
     ## Getting started
-    Use the [HTTP quickstart](/help/guides/api-quickstart/) for your first model request,
-    or the [JavaScript SDK guide](/help/guides/sdk-quickstart/) for typed clients.
+    Use the [HTTP quickstart](/docs/guides/api-quickstart/) for your first model request,
+    or the [JavaScript SDK guide](/docs/guides/sdk-quickstart/) for typed clients.
     [Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).
 
     ## Authentication and scope

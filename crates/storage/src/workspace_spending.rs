@@ -63,7 +63,7 @@ impl Store {
         expected_revision: i64,
         actor: Option<OperatorAuditActor>,
     ) -> Result<i64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::set_workspace_limit_in_tx(
             &mut tx,
             scope,
@@ -73,7 +73,7 @@ impl Store {
             actor,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(expected_revision + 1)
     }
 

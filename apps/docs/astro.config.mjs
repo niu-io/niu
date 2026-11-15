@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { satteri } from '@astrojs/markdown-satteri';
 import scrollableTables from './scripts/scrollable-tables.mjs';
 
+const publicOrigin = (process.env.NIU_PUBLIC_ORIGIN?.trim() || 'https://niu.io').replace(/\/+$/, '');
+
 export default defineConfig({
-  site: 'https://niu.io',
+  site: publicOrigin,
   base: '/docs',
   markdown: { processor: satteri({ hastPlugins: [scrollableTables()] }) },
   vite: { plugins: [tailwindcss()], resolve: { alias: { '@': fileURLToPath(new URL('../dashboard/app', import.meta.url)) } } },
@@ -22,7 +24,7 @@ export default defineConfig({
       },
       favicon: '/niu-mark-32.png',
       head: [
-        { tag: 'meta', attrs: { property: 'og:image', content: 'https://niu.io/docs/niu-social-en-dark.png' } },
+        { tag: 'meta', attrs: { property: 'og:image', content: `${publicOrigin}/docs/niu-social-en-dark.png` } },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/docs/apple-touch-icon.png' } },
       ],
       social: [

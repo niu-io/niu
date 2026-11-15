@@ -148,7 +148,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
         // the turn in place. Standalone jobs use the runs path.
         const sessionReference=!sessionsFailed&&item.sessionId ? savedSessions.find(session=>session.id===item.sessionId)?.reference : undefined;
         const readableReference=item.reference&&/^run-[1-9][0-9]{0,18}$/.test(item.reference) ? item.reference : undefined;
-        return {type:'video' as const,id:item.id,reference:item.reference,title:`Video · ${catalogTitle(item.model)}`,created:Number(item.created_at_ms),href:sessionReference ? `/generations/${encodeURIComponent(sessionReference)}${readableReference?`#${encodeURIComponent(readableReference)}`:''}` : `/generations/runs/${encodeURIComponent(item.reference??item.id)}${keyQuery(item)}`};
+        return {type:'video' as const,id:item.id,reference:item.reference,title:uiF("Video · {0}",[catalogTitle(item.model)]),created:Number(item.created_at_ms),href:sessionReference ? `/generations/${encodeURIComponent(sessionReference)}${readableReference?`#${encodeURIComponent(readableReference)}`:''}` : `/generations/runs/${encodeURIComponent(item.reference??item.id)}${keyQuery(item)}`};
       }),
     ];
     return rows.sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));

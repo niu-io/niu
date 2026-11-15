@@ -347,7 +347,7 @@ impl Store {
         .bind(order)
         .fetch_one(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
 
         let ranges_json: Vec<Value> = prefix
             .ranges
@@ -462,7 +462,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
             let receipt = load_reversal_receipt(&mut tx, order, id).await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(Some(receipt));
         }
 
@@ -528,7 +528,7 @@ impl Store {
         }
 
         let receipt = load_reversal_receipt(&mut tx, order, reversal_id).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(receipt))
     }
 }

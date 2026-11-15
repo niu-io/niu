@@ -294,7 +294,7 @@ impl Store {
         }
         if state == "pending" {
             sqlx::query("UPDATE agent_authorizations SET next_poll_at=clock_timestamp()+interval '5 seconds' WHERE id=$1").bind(id).execute(&mut *tx).await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         }
         if state != "approved" {
@@ -326,7 +326,7 @@ impl Store {
         .bind(issued.id)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(issued))
     }
     pub async fn agent_key_has_capability(

@@ -144,7 +144,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO output_guardrail_observations(organization_id,project_id,attempt_id,outcome,reason,elapsed_ms) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(outcome).bind(reason).bind(elapsed_ms).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -159,7 +159,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO output_guardrail_decisions(organization_id,project_id,attempt_id,outcome,reason,elapsed_ms) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(outcome).bind(reason).bind(elapsed_ms).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -228,7 +228,7 @@ impl Store {
     ) -> Result<Option<GuardrailSnapshot>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let result = Self::guardrail_snapshot_using(&mut *snapshot, scope, key).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(result)
     }
     pub(crate) async fn guardrail_snapshot_using<'e, E>(
@@ -388,7 +388,7 @@ impl Store {
         if mode == KeyGuardrailAssignmentMode::Active && policy_revision.is_some() {
             return Err(StoreError::Conflict);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let active: Option<uuid::Uuid> = sqlx::query_scalar("SELECT id FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp() FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut *tx).await?;
         if active.is_none() {
@@ -404,7 +404,7 @@ impl Store {
         let revision = revision.ok_or(StoreError::Conflict)?;
         sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor,mode) VALUES ($1,$2,$3,$4,$5,$6,$7)")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(revision).bind(policy_revision).bind(actor).bind(mode.as_str()).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 
@@ -489,7 +489,7 @@ impl Store {
         if expected_revision < 0 || expected_revision == i64::MAX || !policy.is_object() {
             return Err(StoreError::Conflict);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
 
@@ -501,7 +501,7 @@ impl Store {
         sqlx::query("INSERT INTO workspace_guardrail_revisions (organization_id,project_id,revision,policy,activated_by,restored_from_revision) VALUES ($1,$2,$3,$4,$5,$6)")
             .bind(scope.organization_id).bind(scope.project_id).bind(revision).bind(policy).bind(actor).bind(restored_from_revision)
             .execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 

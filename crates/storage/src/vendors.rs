@@ -1173,10 +1173,7 @@ impl Store {
     /// Includes personal ownership, pool definitions and cooldown eligibility.
     /// This is a per-read snapshot, not a published registry generation.
     pub async fn vendor_catalog_inputs(&self) -> Result<VendorCatalogInputs, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let RouteRegistryInputs { routes, pools, .. } =
             Self::routing_registry_inputs_in_tx(&mut tx).await?;
         let unavailable: Vec<String> = sqlx::query_scalar(
@@ -1189,7 +1186,7 @@ impl Store {
         )
         .fetch_all(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(VendorCatalogInputs {
             routes,
             unavailable: unavailable.into_iter().collect(),

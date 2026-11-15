@@ -135,7 +135,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         let issued =
             Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -152,7 +152,7 @@ impl Store {
         let issued =
             Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
         Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -174,7 +174,7 @@ impl Store {
         let digest = Sha256::digest(intent.to_string().as_bytes()).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
         if let Some(id) = Self::recover_key_request_in_tx(&mut tx, scope, request, &digest).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(KeyMutationResult { id, token: None });
         }
         let issued =
@@ -182,7 +182,7 @@ impl Store {
         Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
         Self::record_key_request_in_tx(&mut tx, scope, request, "create", &digest, issued.id)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(KeyMutationResult {
             id: issued.id,
             token: Some(issued.token),
@@ -198,13 +198,13 @@ impl Store {
         let digest = Sha256::digest(format!("rotate:{old}").as_bytes()).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
         if let Some(id) = Self::recover_key_request_in_tx(&mut tx, scope, request, &digest).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(KeyMutationResult { id, token: None });
         }
         let issued = Self::rotate_key_in_tx(&mut tx, scope, old).await?;
         Self::record_key_request_in_tx(&mut tx, scope, request, "rotate", &digest, issued.id)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(KeyMutationResult {
             id: issued.id,
             token: Some(issued.token),
@@ -280,7 +280,7 @@ impl Store {
             .await?;
         }
         Self::apply_key_policies_in_tx(&mut tx, scope, id, policies, actor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -677,7 +677,10 @@ impl Store {
         let key_ids: Vec<Uuid> = keys.iter().map(|k| k.id).collect();
         let mut snapshot = self.begin_bounded_financial_snapshot().await?;
         let rows = sqlx::query(
-            "WITH selected_keys AS (
+            "WITH as_of AS (
+                SELECT statement_timestamp() AS ts
+            ),
+            selected_keys AS (
                 SELECT sel.ord, k.id, k.spending_root_id, k.organization_id
                 FROM unnest($3::uuid[]) WITH ORDINALITY AS sel(id, ord)
                 JOIN api_keys k ON k.organization_id=$1 AND k.project_id=$2 AND k.id=sel.id
@@ -686,38 +689,245 @@ impl Store {
                 SELECT DISTINCT spending_root_id, organization_id
                 FROM selected_keys
             ),
+            root_keys AS MATERIALIZED (
+                SELECT dr.spending_root_id, k.organization_id, k.project_id, k.id
+                FROM distinct_roots dr
+                JOIN api_keys k ON k.spending_root_id=dr.spending_root_id
+            ),
+            root_attempts AS MATERIALIZED (
+                SELECT k.spending_root_id, k.organization_id, k.project_id, a.id AS attempt_id
+                FROM root_keys k
+                JOIN attempts a
+                  ON a.api_key_id=k.id
+                 AND a.organization_id=k.organization_id
+                 AND a.project_id=k.project_id
+                UNION
+                SELECT k.spending_root_id, k.organization_id, k.project_id, a.id AS attempt_id
+                FROM root_keys k
+                JOIN inspected_guardrail_bindings b ON b.key_id=k.id
+                JOIN attempts a
+                  ON a.id=b.attempt_id
+                 AND a.organization_id=k.organization_id
+                 AND a.project_id=k.project_id
+                UNION
+                SELECT k.spending_root_id, k.organization_id, k.project_id, a.id AS attempt_id
+                FROM root_keys k
+                JOIN gateway_retry_policies rp ON rp.key_id=k.id
+                JOIN attempts a
+                  ON a.operation_id=rp.operation_id
+                 AND a.organization_id=k.organization_id
+                 AND a.project_id=k.project_id
+            ),
+            org_accounts AS MATERIALIZED (
+                SELECT a.id, a.organization_id, a.currency
+                FROM customer_balance_accounts a
+                WHERE a.organization_id=$1
+            ),
+            money_charges AS MATERIALIZED (
+                SELECT ra.spending_root_id, e.account_id, -SUM(e.amount_nanos)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_balance_entries e ON e.attempt_id=ra.attempt_id
+                JOIN org_accounts oa ON oa.id=e.account_id
+                WHERE e.kind='charge'
+                GROUP BY ra.spending_root_id, e.account_id
+            ),
+            money_refunds AS MATERIALIZED (
+                SELECT ra.spending_root_id, c.account_id, SUM(r.amount_nanos)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_balance_entries c ON c.attempt_id=ra.attempt_id
+                JOIN org_accounts oa ON oa.id=c.account_id
+                JOIN customer_balance_entries r ON r.reverses_entry_id=c.id
+                WHERE c.kind='charge'
+                  AND r.account_id=c.account_id
+                  AND r.kind='refund'
+                GROUP BY ra.spending_root_id, c.account_id
+            ),
+            money_reserved AS MATERIALIZED (
+                SELECT ra.spending_root_id,
+                       r.account_id,
+                       SUM(GREATEST(r.amount_nanos, COALESCE(m.amount_nanos, 0)))::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_balance_reservations r ON r.attempt_id=ra.attempt_id
+                JOIN org_accounts oa ON oa.id=r.account_id
+                LEFT JOIN customer_media_charges m ON m.attempt_id=r.attempt_id
+                WHERE r.released_at IS NULL
+                  AND NOT EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.attempt_id=r.attempt_id AND e.kind='charge')
+                GROUP BY ra.spending_root_id, r.account_id
+            ),
+            root_spending_limits AS MATERIALIZED (
+                SELECT
+                    r.spending_root_id,
+                    COALESCE(
+                        jsonb_agg(
+                            jsonb_build_object(
+                                'currency', a.currency,
+                                'limit_nanos', l.limit_nanos::text,
+                                'revision', l.revision::text,
+                                'committed_nanos', (
+                                    COALESCE(mc.amount, 0) - COALESCE(mr.amount, 0) + COALESCE(mres.amount, 0)
+                                )::text,
+                                'remaining_nanos', CASE
+                                    WHEN l.limit_nanos IS NULL THEN NULL
+                                    ELSE GREATEST(
+                                        l.limit_nanos::numeric - (
+                                            COALESCE(mc.amount, 0) - COALESCE(mr.amount, 0) + COALESCE(mres.amount, 0)
+                                        ),
+                                        0
+                                    )::text
+                                END
+                            )
+                            ORDER BY a.currency
+                        ) FILTER (WHERE a.id IS NOT NULL),
+                        '[]'::jsonb
+                    ) AS spending_limits
+                FROM distinct_roots r
+                LEFT JOIN org_accounts a ON a.organization_id=r.organization_id
+                LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=r.spending_root_id AND l.account_id=a.id
+                LEFT JOIN money_charges mc ON mc.spending_root_id=r.spending_root_id AND mc.account_id=a.id
+                LEFT JOIN money_refunds mr ON mr.spending_root_id=r.spending_root_id AND mr.account_id=a.id
+                LEFT JOIN money_reserved mres ON mres.spending_root_id=r.spending_root_id AND mres.account_id=a.id
+                GROUP BY r.spending_root_id
+            ),
+            latest_unit_definition AS MATERIALIZED (
+                SELECT jsonb_build_object(
+                    'definition_revision', d.revision::text,
+                    'name', d.name,
+                    'display_precision', d.display_precision,
+                    'atoms_per_unit', '1000000000'
+                ) AS unit_json
+                FROM customer_unit_definitions d
+                ORDER BY d.revision DESC
+                LIMIT 1
+            ),
+            unit_charged AS MATERIALIZED (
+                SELECT ra.spending_root_id, SUM(s.charged_atoms)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_unit_reservations r ON r.attempt_id=ra.attempt_id
+                JOIN customer_unit_resolutions s ON s.attempt_id=r.attempt_id
+                WHERE ra.organization_id=$1
+                  AND ra.project_id=$2
+                  AND r.organization_id=$1
+                  AND r.project_id=$2
+                  AND s.kind='charge'
+                GROUP BY ra.spending_root_id
+            ),
+            unit_restored AS MATERIALIZED (
+                SELECT ra.spending_root_id, SUM(rest.end_atom-rest.first_atom)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_unit_reservations r ON r.attempt_id=ra.attempt_id
+                JOIN customer_unit_resolutions s ON s.attempt_id=r.attempt_id
+                JOIN customer_unit_restorations rest ON rest.attempt_id=s.attempt_id
+                WHERE ra.organization_id=$1
+                  AND ra.project_id=$2
+                  AND r.organization_id=$1
+                  AND r.project_id=$2
+                  AND s.kind='charge'
+                GROUP BY ra.spending_root_id
+            ),
+            unit_pending AS MATERIALIZED (
+                SELECT ra.spending_root_id,
+                       SUM(GREATEST(
+                           r.maximum_atoms::numeric + COALESCE(e.additional_atoms, 0),
+                           COALESCE(c.charged_atoms, mc.charged_atoms, 0)::numeric
+                       )) AS amount
+                FROM root_attempts ra
+                JOIN customer_unit_reservations r ON r.attempt_id=ra.attempt_id
+                LEFT JOIN customer_unit_reservation_extensions e ON e.attempt_id=r.attempt_id
+                LEFT JOIN customer_unit_text_charges c ON c.attempt_id=r.attempt_id
+                LEFT JOIN customer_unit_media_charges mc ON mc.attempt_id=r.attempt_id
+                WHERE ra.organization_id=$1
+                  AND ra.project_id=$2
+                  AND r.organization_id=$1
+                  AND r.project_id=$2
+                  AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions s WHERE s.attempt_id=r.attempt_id)
+                GROUP BY ra.spending_root_id
+            ),
+            active_requests_by_root AS MATERIALIZED (
+                SELECT k.spending_root_id, count(*)::bigint AS active_requests
+                FROM root_keys k
+                JOIN attempts a ON a.api_key_id=k.id
+                WHERE a.dispatched_at IS NOT NULL
+                  AND a.execution='may_have_executed'
+                  AND a.completed_at IS NULL
+                  AND NOT EXISTS(SELECT 1 FROM request_failures rf WHERE rf.attempt_id=a.id AND rf.kind<>'response_stream_cancelled')
+                GROUP BY k.spending_root_id
+            ),
+            token_known AS MATERIALIZED (
+                SELECT k.spending_root_id,
+                       sum(a.prompt_tokens::numeric + a.completion_tokens::numeric) AS known_tokens
+                FROM root_keys k
+                CROSS JOIN as_of
+                JOIN attempts a ON a.api_key_id=k.id
+                WHERE a.dispatched_at IS NOT NULL
+                  AND a.execution='confirmed_completed'
+                  AND a.usage_confidence='provider_reported'
+                  AND a.prompt_tokens IS NOT NULL
+                  AND a.completion_tokens IS NOT NULL
+                  AND a.completed_at > as_of.ts - interval '60 seconds'
+                GROUP BY k.spending_root_id
+            ),
+            token_pending AS MATERIALIZED (
+                SELECT k.spending_root_id,
+                       COALESCE(sum(b.token_bound::numeric), 0) AS reserved_tokens,
+                       count(*) FILTER (WHERE b.token_bound IS NULL)::bigint AS unbounded_requests
+                FROM root_keys k
+                CROSS JOIN as_of
+                JOIN attempts a ON a.api_key_id=k.id
+                LEFT JOIN key_attempt_token_bounds b ON b.attempt_id=a.id
+                LEFT JOIN request_failures rf ON rf.attempt_id=a.id
+                LEFT JOIN request_timings rt ON rt.attempt_id=a.id
+                WHERE a.dispatched_at IS NOT NULL
+                  AND a.execution<>'confirmed_not_executed'
+                  AND NOT (
+                      a.execution='confirmed_completed'
+                      AND a.usage_confidence='provider_reported'
+                      AND a.prompt_tokens IS NOT NULL
+                      AND a.completion_tokens IS NOT NULL
+                  )
+                  AND NOT (
+                      rf.attempt_id IS NOT NULL
+                      AND niu_request_failure_releases_tpm_immediately(rf.kind, rf.upstream_http_status, rf.transport_phase)
+                  )
+                  AND (
+                      COALESCE(
+                          a.completed_at,
+                          rf.recorded_at,
+                          CASE
+                              WHEN rf.attempt_id IS NOT NULL THEN
+                                  a.dispatched_at + (COALESCE(rt.total_ms, 0) * interval '1 millisecond')
+                          END
+                      ) IS NULL
+                      OR COALESCE(
+                          a.completed_at,
+                          rf.recorded_at,
+                          CASE
+                              WHEN rf.attempt_id IS NOT NULL THEN
+                                  a.dispatched_at + (COALESCE(rt.total_ms, 0) * interval '1 millisecond')
+                          END
+                      ) > as_of.ts - interval '60 seconds'
+                  )
+                GROUP BY k.spending_root_id
+            ),
+            token_window AS MATERIALIZED (
+                SELECT k.spending_root_id,
+                       count(a.id)::bigint AS requests,
+                       count(a.id) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL)::bigint AS known_usage_requests,
+                       count(a.id) FILTER(WHERE a.usage_confidence IS DISTINCT FROM 'provider_reported' OR a.prompt_tokens IS NULL OR a.completion_tokens IS NULL)::bigint AS unknown_usage_requests,
+                       COALESCE(sum(a.prompt_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL), 0)::text AS known_prompt_tokens,
+                       COALESCE(sum(a.completion_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL), 0)::text AS known_completion_tokens
+                FROM root_keys k
+                CROSS JOIN as_of
+                JOIN attempts a ON a.api_key_id=k.id
+                WHERE a.dispatched_at > as_of.ts - interval '60 seconds'
+                  AND a.dispatched_at <= as_of.ts
+                GROUP BY k.spending_root_id
+            ),
             root_policies AS MATERIALIZED (
                 SELECT
                     r.spending_root_id,
-                    COALESCE((
-                        SELECT jsonb_agg(
-                            jsonb_build_object(
-                                'currency', amounts.currency,
-                                'limit_nanos', amounts.limit_nanos::text,
-                                'revision', amounts.revision::text,
-                                'committed_nanos', amounts.committed::text,
-                                'remaining_nanos', CASE WHEN amounts.limit_nanos IS NULL THEN NULL ELSE GREATEST(amounts.limit_nanos::numeric-amounts.committed,0)::text END
-                            )
-                            ORDER BY amounts.currency
-                        )
-                        FROM (
-                            SELECT a.currency, l.limit_nanos, l.revision, niu_customer_key_committed(r.spending_root_id, a.id) AS committed
-                            FROM customer_balance_accounts a
-                            LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=r.spending_root_id AND l.account_id=a.id
-                            WHERE a.organization_id=r.organization_id
-                        ) amounts
-                    ), '[]'::jsonb) AS spending_limits,
+                    COALESCE(rsl.spending_limits, '[]'::jsonb) AS spending_limits,
                     jsonb_build_object(
-                        'unit', (
-                            SELECT jsonb_build_object(
-                                'definition_revision', d.revision::text,
-                                'name', d.name,
-                                'display_precision', d.display_precision,
-                                'atoms_per_unit', '1000000000'
-                            )
-                            FROM customer_unit_definitions d
-                            ORDER BY d.revision DESC LIMIT 1
-                        ),
+                        'unit', (SELECT unit_json FROM latest_unit_definition),
                         'limit_atoms', ukl.limit_atoms::text,
                         'revision', ukl.revision::text,
                         'definition_revision', ukl.definition_revision::text,
@@ -732,48 +942,47 @@ impl Store {
                     jsonb_build_object(
                         'max_concurrent_requests', conc.max_concurrent_requests,
                         'revision', conc.revision::text,
-                        'active_requests', (
-                            SELECT count(*)
-                            FROM attempts a
-                            JOIN api_keys lineage ON lineage.id=a.api_key_id
-                            WHERE lineage.spending_root_id=r.spending_root_id
-                              AND a.dispatched_at IS NOT NULL
-                              AND a.execution='may_have_executed'
-                        )
+                        'active_requests', COALESCE(ar.active_requests, 0)
                     ) AS concurrency_limit,
                     jsonb_build_object(
                         'tokens_per_minute', tpm.tokens_per_minute,
                         'revision', tpm.revision::text,
-                        'snapshot_at', statement_timestamp(),
-                        'known_tokens', b.known_tokens::text,
-                        'reserved_tokens', b.reserved_tokens::text,
-                        'unbounded_requests', b.unbounded_requests,
-                        'committed_tokens', CASE WHEN b.unbounded_requests=0 THEN (b.known_tokens+b.reserved_tokens)::text END
+                        'snapshot_at', as_of.ts,
+                        'known_tokens', COALESCE(tk.known_tokens, 0)::text,
+                        'reserved_tokens', COALESCE(tp.reserved_tokens, 0)::text,
+                        'unbounded_requests', COALESCE(tp.unbounded_requests, 0),
+                        'committed_tokens', CASE
+                            WHEN COALESCE(tp.unbounded_requests, 0)=0
+                            THEN (COALESCE(tk.known_tokens, 0) + COALESCE(tp.reserved_tokens, 0))::text
+                        END
                     ) AS token_rate_limit,
-                    (
-                        SELECT jsonb_build_object(
-                            'window_seconds', 60,
-                            'window_end', statement_timestamp(),
-                            'requests', count(a.id),
-                            'known_usage_requests', count(a.id) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),
-                            'unknown_usage_requests', count(a.id) FILTER(WHERE a.usage_confidence IS DISTINCT FROM 'provider_reported' OR a.prompt_tokens IS NULL OR a.completion_tokens IS NULL),
-                            'known_prompt_tokens', COALESCE(sum(a.prompt_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text,
-                            'known_completion_tokens', COALESCE(sum(a.completion_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text
-                        )
-                        FROM api_keys lineage
-                        LEFT JOIN attempts a ON a.api_key_id=lineage.id
-                            AND a.dispatched_at>statement_timestamp()-interval '60 seconds'
-                            AND a.dispatched_at<=statement_timestamp()
-                        WHERE lineage.spending_root_id=r.spending_root_id
+                    jsonb_build_object(
+                        'window_seconds', 60,
+                        'window_end', as_of.ts,
+                        'requests', COALESCE(tw.requests, 0),
+                        'known_usage_requests', COALESCE(tw.known_usage_requests, 0),
+                        'unknown_usage_requests', COALESCE(tw.unknown_usage_requests, 0),
+                        'known_prompt_tokens', COALESCE(tw.known_prompt_tokens, '0'),
+                        'known_completion_tokens', COALESCE(tw.known_completion_tokens, '0')
                     ) AS token_usage_window
                 FROM distinct_roots r
+                CROSS JOIN as_of
+                LEFT JOIN root_spending_limits rsl ON rsl.spending_root_id=r.spending_root_id
                 LEFT JOIN customer_unit_key_spending_limits ukl ON ukl.organization_id=r.organization_id AND ukl.project_id=$2 AND ukl.spending_root_id=r.spending_root_id
-                CROSS JOIN LATERAL (SELECT niu_customer_unit_key_committed(r.organization_id, $2, r.spending_root_id) AS committed) unit_committed
+                LEFT JOIN unit_charged uc ON uc.spending_root_id=r.spending_root_id
+                LEFT JOIN unit_restored ur ON ur.spending_root_id=r.spending_root_id
+                LEFT JOIN unit_pending up ON up.spending_root_id=r.spending_root_id
+                CROSS JOIN LATERAL (
+                    SELECT (COALESCE(uc.amount, 0) - COALESCE(ur.amount, 0) + COALESCE(up.amount, 0))::numeric AS committed
+                ) unit_committed
                 LEFT JOIN key_ip_policies ip ON ip.spending_root_id=r.spending_root_id
                 LEFT JOIN key_request_rate_limits rpm ON rpm.spending_root_id=r.spending_root_id
                 LEFT JOIN key_concurrency_limits conc ON conc.spending_root_id=r.spending_root_id
+                LEFT JOIN active_requests_by_root ar ON ar.spending_root_id=r.spending_root_id
                 LEFT JOIN key_token_rate_limits tpm ON tpm.spending_root_id=r.spending_root_id
-                CROSS JOIN LATERAL niu_key_token_budget(r.spending_root_id, NULL, statement_timestamp()) b
+                LEFT JOIN token_known tk ON tk.spending_root_id=r.spending_root_id
+                LEFT JOIN token_pending tp ON tp.spending_root_id=r.spending_root_id
+                LEFT JOIN token_window tw ON tw.spending_root_id=r.spending_root_id
             )
             SELECT
                 sk.id,
@@ -793,7 +1002,7 @@ impl Store {
         .bind(&key_ids)
         .fetch_all(&mut *snapshot)
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
 
         let mut by_id: std::collections::HashMap<Uuid, sqlx::postgres::PgRow> = rows
             .into_iter()
@@ -960,7 +1169,7 @@ impl Store {
         // can probe attempts for every workspace key before the final sort/limit.
         query.push(") k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true ORDER BY k.created_at,k.id");
         let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(rows)
     }
 
@@ -986,7 +1195,7 @@ impl Store {
             actor,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
@@ -1041,7 +1250,7 @@ impl Store {
     pub async fn rotate_key(&self, scope: TenantScope, old: Uuid) -> Result<IssuedKey, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let issued = Self::rotate_key_in_tx(&mut tx, scope, old).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -1090,7 +1299,7 @@ impl Store {
             sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'revoked')")
                 .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1113,7 +1322,7 @@ impl Store {
         .bind(scope.project_id)
         .fetch_all(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         let secrets: std::collections::HashMap<Uuid, String> = rows.into_iter().collect();
         for detail in details {
             let Some(obj) = detail.as_object_mut() else {
@@ -1153,22 +1362,22 @@ impl Store {
             Self::mark_dispatched_with_rate_denial_audit(&mut tx, principal, id, true).await?;
         match outcome {
             1 => {
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 Ok(())
             }
             -1 => {
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 // The audited denial committed without authorizing transport.
                 Err(StoreError::GuardrailAdmissionConflict)
             }
             -2 => {
                 // Diagnostic failure must not change the original rejection
                 // or authorize another dispatch / audit writer retry.
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 Err(StoreError::KeyRequestRateDisabled)
             }
             -3 => {
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 Err(StoreError::KeyRequestRateExceeded)
             }
             _ => Err(StoreError::Conflict),

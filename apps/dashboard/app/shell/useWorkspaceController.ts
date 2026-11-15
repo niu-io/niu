@@ -249,7 +249,7 @@ export function useWorkspaceController({
             }
             return (await response.json()) as { data: T[] };
           },
-          { persist: true, force, awaitRevalidate: true, signal: controller.signal },
+          { persist: true, force, awaitRevalidate: true, background: true, signal: controller.signal },
         );
       } catch (reason) {
         if (reason instanceof ApiRequestError) {

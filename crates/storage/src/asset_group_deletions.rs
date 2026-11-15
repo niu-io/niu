@@ -56,7 +56,7 @@ impl Store {
         scope: TenantScope,
         consent: Uuid,
     ) -> Result<Option<ClaimedAssetGroupDeletion>, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT i.vendor_id FROM asset_group_deletion_consents d JOIN asset_group_create_intents i ON i.id=d.intent_id WHERE d.id=$1 AND i.organization_id=$2 AND i.project_id=$3")
             .bind(consent).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
@@ -81,7 +81,7 @@ impl Store {
         if !inserted {
             return Ok(None);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedAssetGroupDeletion {
             consent_id: consent,
             authorization_id: binding.authorization_id,
@@ -141,7 +141,7 @@ impl Store {
         if !input.confirm_cascade || !(1..=900).contains(&input.valid_for_seconds) {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT vendor_id FROM asset_group_create_intents WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND state='succeeded' AND upstream_group_id IS NOT NULL")
             .bind(input.intent_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
@@ -166,7 +166,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(inserted)
     }
 
@@ -178,7 +178,7 @@ impl Store {
         consent: Uuid,
         actor: OperatorAuditActor,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT i.vendor_id FROM asset_group_deletion_consents c JOIN asset_group_create_intents i ON i.id=c.intent_id WHERE c.id=$1 AND i.organization_id=$2 AND i.project_id=$3")
             .bind(consent).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
@@ -191,7 +191,7 @@ impl Store {
         let (kind, actor_id) = actor.kind_and_id();
         let inserted = sqlx::query("INSERT INTO asset_group_deletion_consent_revocations(consent_id,actor_kind,actor_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING")
             .bind(consent).bind(kind).bind(actor_id).execute(&mut *tx).await?.rows_affected()==1;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(inserted)
     }
 }

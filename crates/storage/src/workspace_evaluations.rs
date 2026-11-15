@@ -177,7 +177,7 @@ impl Store {
         let value = serde_json::to_value(&saved).map_err(|_| StoreError::InvalidObservation)?;
         sqlx::query("INSERT INTO workspace_evaluations(organization_id,project_id,slug,revision,configuration) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,slug) DO UPDATE SET revision=EXCLUDED.revision,configuration=EXCLUDED.configuration").bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(&value).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO workspace_evaluation_history(organization_id,project_id,slug,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4,$5,$6)").bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(value).bind(principal.key_id()).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     pub async fn set_evaluation_definition_for_scope(
@@ -230,7 +230,7 @@ impl Store {
             .bind(None::<Uuid>)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     /// Lexical attempt cursor pages the current set. Restart from the first page

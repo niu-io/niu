@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { applyTheme, cacheTheme, readTheme, readThemeOwner, setDeploymentPalette, type Theme } from './theme';
-import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { fetchQuery, peekQuery, primeQuery } from '@/lib/query-cache';
 import defaultLogo from '../../../../branding/assets/niu-mark.png';
 import tokenCss from '../../../../branding/tokens.css?raw';
 
@@ -53,14 +53,26 @@ export function BrandingProvider({children}:{children:ReactNode}) {
     setConfigurationState(next);
   }, []);
   useEffect(()=>{
-    let controller:AbortController | undefined;
+    const controller = new AbortController();
     async function load() {
-      controller?.abort(); const current = new AbortController(); controller=current;
       try {
-        const response = await fetch('/v1/branding',{cache:'no-store',signal:current.signal});
-        if (!response.ok) return; // Keep the last good display settings; see the catch below.
-        const saved = parseBranding(await response.json());
-        if (!current.signal.aborted) setConfiguration(saved);
+        const saved = await fetchQuery<BrandingConfiguration>(
+          'public',
+          BRANDING_CACHE_KEY,
+          async signal => {
+            const response = await fetch('/v1/branding', { cache: 'no-store', signal });
+            if (!response.ok) throw new Error('Branding unavailable');
+            return parseBranding(await response.json());
+          },
+          {
+            persist: true,
+            freshMs: 0,
+            awaitRevalidate: true,
+            background: true,
+            signal: controller.signal,
+          },
+        );
+        if (!controller.signal.aborted) setConfiguration(saved);
       } catch {
         // Display-only preferences keep the last good settings. Authentication
         // is independent, the next focus retries, and Admin Branding reports its
@@ -68,7 +80,7 @@ export function BrandingProvider({children}:{children:ReactNode}) {
       }
     }
     void load(); window.addEventListener('focus',load);
-    return ()=>{controller?.abort();window.removeEventListener('focus',load);};
+    return ()=>{controller.abort();window.removeEventListener('focus',load);};
   },[setConfiguration]);
   useEffect(()=>{
     const settings = configuration.settings;

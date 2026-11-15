@@ -14,11 +14,11 @@ Niu provides machine-readable contracts and task workflows for coding agents. Us
 
 ## Universal Bootstrap Prompt
 
+import { OriginPrompt } from '../../components/OriginPrompt';
+
 Give a coding agent the deployment entry URL (`{ORIGIN}/llms.txt` or `/docs/install.md`), e.g.:
 
-```text
-Read https://niu.io/llms.txt and follow https://niu.io/docs/install.md to connect to Niu via /connect, inspect /v1/key and /v1/models, and confirm granted permissions before acting.
-```
+<OriginPrompt client:load locale="en" />
 
 ## Contract Index
 
@@ -51,11 +51,9 @@ Niu 牛元为接入的 coding agent 提供机器可读的规范契约与任务�
 
 ## 通用引导提示词
 
-将目标部署的入口提示词直接交给任意 coding agent（自建部署请替换域名）：
+将下方已按当前部署地址生成的入口提示词直接交给任意 coding agent：
 
-```text
-请先阅读 https://niu.io/llms.txt 并按照 https://niu.io/docs/install.md 完成 /connect 设备授权接入，然后检查 /v1/key 与 /v1/models 确认实际授权范围与可用模型。
-```
+<OriginPrompt client:load locale="zh" />
 
 ## 契约索引
 

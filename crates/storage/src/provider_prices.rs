@@ -13,7 +13,7 @@ impl Store {
         if !evidence.is_object() || evidence.to_string().len() > 2 * 1024 * 1024 {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR SHARE",
         )
@@ -30,7 +30,7 @@ impl Store {
         }
         let saved:Value=sqlx::query_scalar("INSERT INTO provider_price_evidence(provider_id,adapter,integration_revision,evidence) VALUES($1,$2,$3,$4) RETURNING jsonb_build_object('revision',revision::text,'adapter',adapter,'integration_revision',integration_revision,'evidence',evidence,'captured_at_ms',(extract(epoch FROM captured_at)*1000)::bigint)")
             .bind(provider).bind(adapter).bind(expected_integration_revision).bind(evidence).fetch_one(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     pub async fn provider_price_evidence(

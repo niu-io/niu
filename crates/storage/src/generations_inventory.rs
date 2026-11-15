@@ -83,7 +83,7 @@ impl Store {
             .bind(limit + 1)
             .fetch_one(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if !valid {
             return Err(StoreError::InvalidMediaQuery);
         }
@@ -168,7 +168,7 @@ impl Store {
             .bind(id)
             .fetch_optional(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
     pub async fn generation_artifact(
@@ -193,7 +193,7 @@ impl Store {
             .bind(kind)
             .fetch_optional(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 }

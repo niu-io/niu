@@ -39,8 +39,8 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={[{ id: 'fast' }, { id: 'careful' }]} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
   expect(await screen.findByText('No active API keys')).toBeTruthy();
-  expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(2);
-  await user.click(screen.getAllByRole('button', { name: 'New API key' })[1]);
+  expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: 'New API key' }));
   await user.type(screen.getByLabelText('Name'), 'My application');
   expect(screen.queryByText('Models this key can call')).toBeNull();
   expect(screen.queryByRole('checkbox')).toBeNull();
@@ -439,7 +439,7 @@ it('shows a confirmed retry rejection as a non-blocking notice',async()=>{
  expect(await screen.findByLabelText('Name')).toBeTruthy();
 });
 
-it('shows an inline New API key button right inside the No active API keys empty state', async () => {
+it('keeps the single primary New API key action in the header while showing Show all keys inside No active API keys', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({
     data: [],
   })));
@@ -448,11 +448,10 @@ it('shows an inline New API key button right inside the No active API keys empty
 
   expect(await screen.findByText('No active API keys')).toBeTruthy();
   const keyListSection = screen.getByRole('region', { name: 'API keys' });
-  const inlineNewKeyButton = within(keyListSection).getByRole('button', { name: 'New API key' });
-  expect(inlineNewKeyButton).toBeTruthy();
+  expect(within(keyListSection).queryByRole('button', { name: 'New API key' })).toBeNull();
   expect(within(keyListSection).getByRole('button', { name: 'Show all keys' })).toBeTruthy();
 
-  await user.click(inlineNewKeyButton);
+  await user.click(screen.getByRole('button', { name: 'New API key' }));
   expect(await screen.findByRole('dialog', { name: 'Create an API key' })).toBeTruthy();
 });
 

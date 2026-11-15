@@ -170,7 +170,7 @@
   .provider-members-summary { min-height: 100px; padding: 20px 16px; }
   .provider-ledger th, .provider-ledger td { padding-inline: 16px; }}
 .provider-admin-panel { padding: 0; margin: 0; }
-.provider-admin-panel h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.provider-admin-panel h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
 .provider-admin-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px 12px; }
 .provider-admin-section-heading > span:not([data-slot="badge"]) { color: var(--muted-foreground); font-size: 14px; }
 .provider-admin-panel > h2 { margin: 20px 24px 12px; }
@@ -232,9 +232,10 @@
 .page-content > .gateway-route-content:not([hidden]) > div:not([hidden]):has(> :is(.generations-layout, .generations-provider)) { display: flex; flex: 1; min-width: 0; min-height: 0; }
 
 /* Empty states center in the remaining page or pane, below its controls. */
-.app-shell .page-content { display: flex; flex-direction: column; }
+.app-shell .page-content { display: flex; flex-direction: column; min-width: 0; }
 .page-content > .gateway-route-content:not([hidden]),
-.page-content > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.page-content > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; max-width: 100%; }
+.page-content > .gateway-route-content > [data-slot="tabs"] { min-width: 0; max-width: 100%; }
 .empty-region:has([data-slot="empty"]) { display: flex; flex: 0 0 auto; flex-direction: column; min-width: 0; }
 .gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 0 0 auto; }
 .provider-admin-panel:has(> [data-slot="empty"]),.vendor-detail-panel:has(> .vendor-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
@@ -326,8 +327,8 @@
   .dashboard-page-actions .page-heading-action > a { width: auto; }}
 .gateway-task-feed:not(.is-compact) { margin-top: 0; border: 0; border-radius: var(--radius-panel); background: transparent; overflow: hidden; }
 .gateway-task-feed:not(.is-compact) .gateway-task-feed-heading { padding: 12px 14px; min-height: 0; }
-.gateway-task-feed:not(.is-compact) .gateway-task-feed-heading h2 { font-size: 16px; font-weight: 600; letter-spacing: -.015em; }
-.gateway-request-table { min-width: 760px; }
+.gateway-task-feed:not(.is-compact) .gateway-task-feed-heading h2 { font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+.gateway-request-table { min-width: 0; }
 .gateway-request-table th, .gateway-request-table td { padding: 11px 12px; font-size: 13px; }
 .gateway-request-table thead th { font-size: 12px; font-weight: 500; background: var(--muted); }
 .gateway-request-table tbody td { color: var(--foreground); font-variant-numeric: tabular-nums; }

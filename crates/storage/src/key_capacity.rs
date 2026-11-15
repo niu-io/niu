@@ -25,7 +25,7 @@ impl Store {
             .bind(limit)
             .fetch_optional(&mut *snapshot)
             .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         if let Some(row) = value.as_mut() {
             if row["cursor_valid"] != true {
                 return Err(StoreError::Conflict);

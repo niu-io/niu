@@ -3,11 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Link, MemoryRouter, Route, Routes, useParams, useLocation } from 'react-router';
+import { Link, Route, Routes, createMemoryRouter, RouterProvider, useParams, useLocation } from 'react-router';
 import SessionView from '../../../../app/features/playground/components/PlaygroundView';
 
 import GenerationsLayout from '@/features/generations/GenerationsLayout';
-import type { ComponentProps } from 'react';
+import { createContext, useContext, useState, type ComponentProps, type ReactNode } from 'react';
+const MemoryRouterChildrenContext = createContext<ReactNode>(null);
+function MemoryRouterOutlet() { return <>{useContext(MemoryRouterChildrenContext)}</>; }
+function MemoryRouter({ initialEntries, children }: { initialEntries?: string[]; children: ReactNode }) {
+  const [router] = useState(() => createMemoryRouter([{ path: '*', element: <MemoryRouterOutlet /> }], { initialEntries }));
+  return <MemoryRouterChildrenContext.Provider value={children}><RouterProvider router={router} /></MemoryRouterChildrenContext.Provider>;
+}
 function PlaygroundView(props: ComponentProps<typeof SessionView>) { return <GenerationsLayout><SessionView {...props} /></GenerationsLayout>; }
 
 vi.mock('../../../../app/shell/dashboard-context', () => ({ useDashboardContext: () => ({
@@ -203,18 +209,24 @@ describe('Global Chat', () => {
     expect(screen.queryByRole('dialog', { name: 'Archived sessions' })).toBeNull();
   });
 
-  it('keeps the composer editable when the saved draft cannot be loaded', async () => {
+  it('waits for draft confirmation on load failure and unlocks after retrying', async () => {
     const fallback = vi.fn(async () => jsonResponse({data: []}));
+    let failDraftRead = true;
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/chats/draft')
-      ? Promise.resolve(new Response(null, {status: 503}))
+      ? (failDraftRead
+        ? Promise.resolve(new Response(null, {status: 503}))
+        : Promise.resolve(jsonResponse({data: {revision: 0, payload: null}})))
       : fallback(input, init)));
     const user = userEvent.setup();
     renderPlayground(['fast']);
     const prompt = await screen.findByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
-    await waitFor(() => expect(prompt.disabled).toBe(false));
     expect(await screen.findByText('Could not load your saved draft.')).toBeTruthy();
-    await user.type(prompt, 'Still editable');
-    expect(prompt.value).toBe('Still editable');
+    expect(prompt.disabled).toBe(true);
+    failDraftRead = false;
+    await user.click(screen.getByRole('button', { name: 'Retry loading draft' }));
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Recovered after retry');
+    expect(prompt.value).toBe('Recovered after retry');
   });
 
   it('lets settings close after a draft conflict without discarding local edits',async()=>{

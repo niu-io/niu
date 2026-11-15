@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from '@/features/providers/api';
+import { fetchQuery } from '@/lib/query-cache';
 import { applyTheme, cacheTheme, cacheThemeOwner, readTheme, readThemeOwner, type Theme } from './theme';
 
 function validMode(value: unknown): value is Theme {
@@ -7,18 +8,22 @@ function validMode(value: unknown): value is Theme {
 }
 
 /** Synchronize shared theme controls with the signed-in member's saved preference. */
-export function useAccountAppearance(token: string, identity: string, personal: boolean, memberId = identity, deploymentDefault:Theme = 'system') {
+export function useAccountAppearance(token: string, identity: string, personal: boolean, memberId = identity, deploymentDefault:Theme = 'system', sessionChecked = true) {
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (!media) return;
     const update = () => applyTheme(readTheme());
     update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
   }, []);
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState({identity,ready:!personal,saving:false,error:''});
   useEffect(() => {
+    if (!sessionChecked) {
+      setState({identity,ready:false,saving:false,error:''});
+      return;
+    }
     if (!personal) {cacheThemeOwner('');cacheTheme(deploymentDefault);setState({identity,ready:true,saving:false,error:''});return;}
     const controller = new AbortController();
     let ready = false;
@@ -79,7 +84,12 @@ export function useAccountAppearance(token: string, identity: string, personal: 
     };
     window.addEventListener('niu-theme-change',changed);
     window.addEventListener('storage',storageChanged);
-    void request<{data:{color_mode:Theme}}>(token,'/api/v1/auth/preferences','GET',undefined,controller.signal).then(result=>{
+    void fetchQuery<{ data: { color_mode: Theme } }>(
+      token,
+      '/api/v1/auth/preferences',
+      signal => request<{ data: { color_mode: Theme } }>(token, '/api/v1/auth/preferences', 'GET', undefined, signal),
+      { force: revision > 0, freshMs: 0, awaitRevalidate: true, background: true, signal: controller.signal },
+    ).then(result=>{
       if (controller.signal.aborted) return;
       if (!validMode(result.data?.color_mode)) throw new Error('Invalid appearance response');
       confirmed = result.data.color_mode;
@@ -95,6 +105,6 @@ export function useAccountAppearance(token: string, identity: string, personal: 
       window.removeEventListener('niu-theme-change',changed);
       window.removeEventListener('storage',storageChanged);
     };
-  }, [token,identity,personal,memberId,revision,deploymentDefault]);
+  }, [token,identity,personal,memberId,revision,deploymentDefault,sessionChecked]);
   return {...(state.identity === identity ? state : {ready:!personal,saving:false,error:''}),reload:()=>setRevision(value=>value+1)};
 }

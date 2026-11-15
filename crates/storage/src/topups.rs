@@ -51,7 +51,7 @@ impl Store {
                 .bind(cursor.as_ref().map(|value| value.1))
                 .fetch_all(&mut *snapshot)
                 .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         let next = if rows.len() > 100 {
             rows.truncate(100);
             rows.last()
@@ -78,7 +78,7 @@ impl Store {
             .bind(None::<Uuid>)
             .fetch_optional(&mut *snapshot)
             .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(view)
     }
 
@@ -131,7 +131,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO customer_topup_closures(order_id,platform_reference) VALUES($1,$2) ON CONFLICT DO NOTHING").bind(order).bind(platform_reference).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -193,7 +193,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         let result = sqlx::query("INSERT INTO payment_query_limits(aggregator,merchant,next_query_at) VALUES($1,$2,clock_timestamp()+interval '3 seconds') ON CONFLICT(aggregator,merchant) DO UPDATE SET next_query_at=clock_timestamp()+interval '3 seconds' WHERE payment_query_limits.next_query_at<=clock_timestamp()")
             .bind(aggregator).bind(merchant).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result.rows_affected() == 1)
     }
 
@@ -232,7 +232,7 @@ impl Store {
         }
         let result = sqlx::query("INSERT INTO customer_topup_creation_claims(order_id) VALUES($1) ON CONFLICT DO NOTHING")
             .bind(order).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result.rows_affected() == 1)
     }
 
@@ -494,7 +494,7 @@ impl Store {
             }
             if let Some(build) = checkout {
                 Self::complete_local_epay_checkout(&mut tx, &prior, build, evidence).await?;
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
             }
             return Ok(prior);
         }
@@ -535,7 +535,7 @@ impl Store {
         if let Some(build) = checkout {
             Self::complete_local_epay_checkout(&mut tx, &order, build, evidence).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(order)
     }
 
@@ -592,7 +592,7 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)?;
         Self::save_epay_checkout_in_tx(&mut tx, organization, order, checkout_url).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -742,7 +742,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -849,7 +849,7 @@ impl Store {
             .execute(&mut *tx)
             .await?;
             Self::record_verified_signed_notification_digests(&mut tx, order).await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(lot);
         }
         sqlx::query("SELECT id FROM customer_balance_accounts WHERE id=$1 FOR NO KEY UPDATE")
@@ -865,7 +865,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO customer_topup_settlements(order_id,organization_id,account_id,currency,entry_id) VALUES($1,$2,$3,$4,$5)").bind(order).bind(organization).bind(saved.account_id).bind(&saved.currency).bind(entry).execute(&mut *tx).await?;
         Self::record_verified_signed_notification_digests(&mut tx, order).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(entry)
     }
 

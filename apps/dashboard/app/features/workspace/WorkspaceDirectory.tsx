@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { IconBuildings, IconDotsVertical, IconPlus, IconSettings, IconList, IconKey, IconUsers } from '@tabler/icons-react';
 import type { DashboardContext } from '@/shell/dashboard-context';
-import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
+import { organizationDisplayName, workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import { WorkspaceCreateDialog } from '@/shell/WorkspaceSwitcher';
 import { useLocale } from '@/shell/ui-locale';
 import PageHeader from '@/components/PageHeader';
@@ -48,7 +48,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
           const path = `/workspaces/${workspacePathSegment(workspace, context.workspaces)}`;
           return <TableRow key={workspace.id}>
             <TableCell className="whitespace-normal min-w-48"><Link to={path} className="font-medium hover:underline break-words">{name}</Link>{workspace.is_default && <Badge variant="secondary" className="ml-2">{t('Default', '默认')}</Badge>}
-              <p className="mt-1 text-xs text-muted-foreground">{workspace.organization_name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{organizationDisplayName(workspace.organization_name)}</p>
 
               {workspace.created_at_ms != null && <p className="mt-1 text-xs text-muted-foreground">{isZh ? `创建于 ${date(workspace.created_at_ms)}` : uiF("Created {0}", [date(workspace.created_at_ms)])}</p>}
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:hidden">
@@ -66,7 +66,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
                 <DropdownMenuItem asChild><Link to={`${path}/settings`}><IconSettings/>{t('Workspace settings', '工作空间设置')}</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to={`${path}/executions`}><IconList/>{t('View logs', '查看请求日志')}</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to={`${path}/keys`}><IconKey/>{t('API keys', 'API 密钥')}</Link></DropdownMenuItem>
-                {context.session?.permissions.manage_operators && <DropdownMenuItem asChild><Link to={`${path}/members`}><IconUsers/>{t('Members', '成员')}</Link></DropdownMenuItem>}
+                {context.session?.permissions.manage_operators && <DropdownMenuItem asChild><Link to={`/settings/members?workspace=${encodeURIComponent(workspacePathSegment(workspace, context.workspaces))}`}><IconUsers/>{t('Members', '成员')}</Link></DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu></TableCell>
           </TableRow>;

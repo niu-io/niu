@@ -17,8 +17,8 @@ export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
   const missing = checks?.some(check => check.status === 'missing_provider_price');
   const unknown = !checks?.length || checks.some(check => check.status === 'comparison_unavailable');
   const label = below ? uiT("Below Provider cost") : missing ? uiT("Provider price missing") : unknown ? uiT("Comparison unavailable") : uiT("No lower unit rates");
-  return <div className="flex min-w-36 max-w-sm flex-wrap items-center gap-1 whitespace-normal">
-    <Badge variant={below || missing ? 'destructive' : 'outline'} className="whitespace-normal">{(below || missing) && <IconAlertTriangle size={14} />}{label}</Badge>
+  return <div className="flex min-w-0 sm:min-w-36 max-w-sm flex-wrap items-center gap-1 whitespace-normal">
+    <Badge variant={below || missing ? 'destructive' : 'outline'} className="h-auto max-w-full whitespace-normal break-words text-left">{(below || missing) && <IconAlertTriangle size={14} />}{label}</Badge>
     <Dialog><DialogTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Price check details")} title={uiT("Price check details")}><IconInfoCircle /></Button></DialogTrigger><DialogContent className="w-[calc(100vw-2rem)] max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{label}</DialogTitle><DialogDescription>{uiT("Current configuration advice. Refresh after changing prices. Below-cost rates do not block publication.")}</DialogDescription></DialogHeader><div className="space-y-3 text-sm">
       {!checks?.length && <p>{uiT("Refresh prices to load current Provider comparisons.")}</p>}
       {checks?.map((check, index) => <div key={index} className="space-y-1">

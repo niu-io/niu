@@ -346,7 +346,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((models, next))
     }
     pub(crate) async fn provider_asset_key_using(
@@ -423,7 +423,7 @@ impl Store {
     ) -> Result<WorkspaceProviderAssetRoute, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let route = Self::provider_asset_route_using(&mut tx, p, model).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(route)
     }
     pub(crate) async fn provider_asset_route_check_using(
@@ -506,7 +506,7 @@ impl Store {
         if let Some(v) = &v {
             Self::provider_asset_key_using(&mut tx, p, &v.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v.filter(|v| v.status != "deleted"))
     }
     pub async fn workspace_provider_asset(
@@ -519,7 +519,7 @@ impl Store {
         if let Some(v) = &v {
             Self::provider_asset_key_using(&mut tx, p, &v.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v.filter(|v| v.status != "deleted"))
     }
     pub async fn workspace_provider_asset_operation(
@@ -532,7 +532,7 @@ impl Store {
         if let Some(v) = &v {
             Self::provider_asset_key_using(&mut tx, p, &v.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v)
     }
     pub async fn workspace_provider_asset_operation_bundle(
@@ -550,7 +550,7 @@ impl Store {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let scope = p.scope();
         let Some(operation) = Self::provider_operation_using(&mut tx, scope, id).await? else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         Self::provider_asset_key_using(&mut tx, p, &operation.model, false).await?;
@@ -564,7 +564,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some((operation, group, asset)))
     }
     /// Saved operations only: absence is not proof that a request was not sent.
@@ -590,7 +590,7 @@ impl Store {
         if let Some(value) = &data {
             Self::provider_asset_key_using(&mut tx, p, &value.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(data)
     }
 
@@ -654,7 +654,7 @@ impl Store {
             .bind(id)
             .fetch_optional(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(value)
     }
     pub async fn historical_workspace_provider_asset_operations(
@@ -707,7 +707,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
     pub async fn workspace_provider_asset_operations(
@@ -755,7 +755,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
 
@@ -797,7 +797,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
     pub async fn workspace_provider_assets(
@@ -848,7 +848,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
 }
@@ -1184,7 +1184,7 @@ impl Store {
         if let Some(o) = body.as_object_mut() {
             o.remove("_niu_kind");
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPrepared {
             operation,
             group,
@@ -1254,7 +1254,7 @@ impl Store {
             sqlx::query("UPDATE workspace_provider_asset_operations SET status='not_sent',updated_at=now() WHERE id=$1 AND status='prepared'")
                 .bind(id).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn claim_workspace_provider_asset_operation(
@@ -1281,7 +1281,7 @@ impl Store {
                 sqlx::query("UPDATE workspace_provider_asset_groups SET status='unknown',updated_at=now() WHERE id=$1").bind(op.group_id).execute(&mut *tx).await?;
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(claimed)
     }
 }
@@ -1375,7 +1375,7 @@ impl Store {
             }
         };
         sqlx::query("UPDATE workspace_provider_asset_operations SET status=$2,http_status=$3,request_id=$4,diagnostic=COALESCE(diagnostic,$5),updated_at=now() WHERE id=$1").bind(id).bind(status).bind(http).bind(request).bind(diagnostic).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn observe_workspace_provider_asset_group(
@@ -1405,7 +1405,7 @@ impl Store {
         let v = Self::provider_group_using(&mut tx, s, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v)
     }
     pub async fn observe_workspace_provider_asset(
@@ -1438,7 +1438,7 @@ impl Store {
         let v = Self::provider_asset_using(&mut tx, s, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v)
     }
 }

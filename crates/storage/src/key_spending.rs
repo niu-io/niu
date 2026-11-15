@@ -22,7 +22,7 @@ impl Store {
         let mut snapshot = self.begin_bounded_financial_snapshot().await?;
         let rows = sqlx::query_scalar("WITH amounts AS MATERIALIZED (SELECT a.currency,l.limit_nanos,l.revision,niu_customer_key_committed(k.spending_root_id,a.id) AS committed FROM api_keys k JOIN customer_balance_accounts a ON a.organization_id=k.organization_id LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=k.spending_root_id AND l.account_id=a.id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3) SELECT jsonb_build_object('currency',currency,'limit_nanos',limit_nanos::text,'revision',revision::text,'committed_nanos',committed::text,'remaining_nanos',CASE WHEN limit_nanos IS NULL THEN NULL ELSE GREATEST(limit_nanos::numeric-committed,0)::text END) FROM amounts ORDER BY currency")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(rows)
     }
 
@@ -40,7 +40,7 @@ impl Store {
         let mut snapshot = self.begin_bounded_financial_snapshot().await?;
         let rows = sqlx::query_scalar("SELECT jsonb_build_object('currency',h.currency,'revision',h.revision::text,'limit_nanos',h.limit_nanos::text,'recorded_at',h.recorded_at,'actor_kind',h.actor_kind,'actor_name',h.actor_name) FROM customer_key_limit_history h JOIN api_keys k ON k.spending_root_id=h.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 AND h.currency=$4 AND ($5::bigint IS NULL OR h.revision<$5) ORDER BY h.revision DESC LIMIT $6")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(currency).bind(before).bind(limit).fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(rows)
     }
 
@@ -61,7 +61,7 @@ impl Store {
             &mut tx, scope, key, currency, amount, expected, actor,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 

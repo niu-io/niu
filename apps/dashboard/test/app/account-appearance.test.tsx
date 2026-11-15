@@ -112,4 +112,23 @@ describe('saved account appearance', () => {
     expect(readTheme()).toBe('dark');
     expect(view.result.current.error).toBe('');
   });
+
+  it('preserves cached light theme while sessionChecked is false before authentication settles', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    localStorage.setItem('niu-dashboard-theme', 'light');
+    localStorage.setItem('niu-dashboard-theme-owner', 'first');
+    const fetcher = vi.fn(async () => Response.json({ data: { color_mode: 'light' } }));
+    vi.stubGlobal('fetch', fetcher);
+    const view = renderHook(
+      ({ checked, personal }) => useAccountAppearance(personal ? 'member' : '', personal ? 'first' : 'anonymous', personal, personal ? 'first' : 'anonymous', 'system', checked),
+      { initialProps: { checked: false, personal: false } },
+    );
+    expect(readTheme()).toBe('light');
+    expect(view.result.current.ready).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+    view.rerender({ checked: true, personal: true });
+    await waitFor(() => expect(view.result.current.ready).toBe(true));
+    expect(readTheme()).toBe('light');
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
 });

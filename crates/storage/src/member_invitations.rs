@@ -364,7 +364,7 @@ impl Store {
         .fetch_one(&mut *tx)
         .await?;
         let invitation = row.view()?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(CreatedMemberInvitation { invitation, token })
     }
 
@@ -431,7 +431,7 @@ impl Store {
             return Err(StoreError::InvitationAlreadyAccepted);
         }
         if revoked {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(());
         }
         sqlx::query(
@@ -442,7 +442,7 @@ impl Store {
         .execute(&mut *tx)
         .await?;
         insert_invitation_event(&mut tx, invitation_id, "canceled", actor, organization_id).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -595,7 +595,7 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
                 let invitation = row.view()?;
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(AcceptedMemberInvitation {
                     invitation,
                     operator_id,
@@ -735,7 +735,7 @@ impl Store {
                 .fetch_one(&mut *tx)
                 .await?;
         let invitation = accepted_row.view()?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(AcceptedMemberInvitation {
             invitation,
             operator_id,

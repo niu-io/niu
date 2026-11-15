@@ -241,7 +241,7 @@ SELECT jsonb_build_object(
         let id = Uuid::new_v4();
         sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,reverses_entry_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(id).bind(organization).bind(account).bind(currency).bind(kind).bind(signed).bind(idempotency_key).bind(original).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -326,7 +326,7 @@ SELECT jsonb_build_object(
                 .bind(Uuid::new_v4()).bind(account).bind(next).bind(kind).bind(operator)
                 .execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
@@ -358,7 +358,7 @@ SELECT jsonb_build_object(
         let next = revision + 1;
         sqlx::query("INSERT INTO customer_balance_policy_revisions(organization_id,account_id,currency,revision,credit_limit_nanos,warning_threshold_nanos) VALUES($1,$2,$3,$4,$5,$6)").bind(organization).bind(account).bind(currency).bind(next).bind(credit).bind(threshold).execute(&mut *tx).await?;
         sqlx::query("UPDATE customer_balance_accounts SET warning_threshold_nanos=$2,policy_revision=$3 WHERE id=$1").bind(account).bind(threshold).bind(next).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
@@ -379,9 +379,9 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         maximum_nanos: i64,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         reserve_customer_balance_in_tx(&mut tx, scope, attempt, maximum_nanos).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -391,9 +391,9 @@ SELECT jsonb_build_object(
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::release_nonexecuted_customer_balance_in_tx(&mut tx, scope, attempt).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -449,7 +449,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // Serialize account creation and same-company callback retries.
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
@@ -480,7 +480,7 @@ SELECT jsonb_build_object(
         if inserted.rows_affected() != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(entry)
     }
 
@@ -499,7 +499,7 @@ SELECT jsonb_build_object(
                 .bind(vec![organization])
                 .fetch_all(&mut *snapshot)
                 .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(balances.into_iter().map(|(_, balance)| balance).collect())
     }
 
@@ -595,7 +595,7 @@ SELECT jsonb_build_object(
                 })
             })
             .collect();
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(json!({"data":data,"next_after":next}))
     }
 
@@ -620,7 +620,7 @@ SELECT jsonb_build_object(
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let prices = Self::customer_model_prices_in_tx(&mut tx, scope).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(prices)
     }
 
@@ -843,7 +843,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
@@ -924,7 +924,7 @@ SELECT jsonb_build_object(
             .execute(&mut *tx)
             .await?;
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'tariff_published',$3)").bind(scope.organization_id).bind(scope.project_id).bind(revision).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
     pub async fn bind_customer_tariff(
@@ -933,9 +933,9 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         alias: &str,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::bind_customer_tariff_in_tx(&mut tx, scope, attempt, alias).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1000,7 +1000,7 @@ SELECT jsonb_build_object(
         let mut tx = self.begin_bounded_recording().await?;
         let result = Self::accrue_customer_charge_in_tx(&mut tx, attempt).await;
         if result.is_ok() || matches!(result, Err(StoreError::BudgetExceeded)) {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
         }
         result
     }
@@ -1164,7 +1164,7 @@ SELECT jsonb_build_object(
         sqlx::query("INSERT INTO customer_invoices(id,organization_id,project_id,from_ms,to_ms,currency,amount_nanos,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(from).bind(to).bind(currency).bind(amount).bind(key).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO customer_invoice_entries(invoice_id,organization_id,project_id,attempt_id) SELECT $1,c.organization_id,c.project_id,c.attempt_id FROM customer_invoice_charge_sources c JOIN attempts a ON a.id=c.attempt_id WHERE c.organization_id=$2 AND c.project_id=$3 AND c.currency=$4 AND a.dispatched_at>=to_timestamp($5::double precision/1000) AND a.dispatched_at<to_timestamp($6::double precision/1000)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'invoice_issued',$3)").bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
     pub async fn record_customer_payment(
@@ -1230,14 +1230,11 @@ SELECT jsonb_build_object(
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'external_payment_recorded',$3)").bind(scope.organization_id).bind(scope.project_id).bind(invoice).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn customer_billing(&self, scope: TenantScope) -> Result<Value, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let (balances, invoices): (Value, Value) =
             sqlx::query_as(include_str!("customer_billing_summary.sql"))
                 .bind(scope.organization_id)
@@ -1421,7 +1418,7 @@ SELECT jsonb_build_object(
         .fetch_one(&mut *tx)
         .await?;
 
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({
             "billing_mode": billing_mode,
             "balances": balances,

@@ -53,7 +53,7 @@ impl Store {
         let next =
             Self::set_key_request_rate_policy_in_tx(&mut tx, scope, key, rpm, expected, actor)
                 .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
