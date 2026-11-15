@@ -1,11 +1,15 @@
 import type { APIRoute } from 'astro';
 import contract from '../../../../../contracts/generated/handler-operations.json?raw';
+import { filterPublicHandlerOperations } from '../../../scripts/openapi-navigation.mjs';
 
-// Publish the same generated subset used by the reference page. This endpoint
-// is a static build artifact, so it needs neither gateway access nor credentials.
+// Publish only customer, model, console, and public operations without
+// internal platform/provider endpoints or unreferenced schemas.
+const publicHandlerOperations =
+  JSON.stringify(filterPublicHandlerOperations(JSON.parse(contract)), null, 2) + '\n';
+
 export const prerender = true;
 
 export const GET: APIRoute = () =>
-  new Response(contract, {
+  new Response(publicHandlerOperations, {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });

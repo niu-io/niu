@@ -1,4 +1,4 @@
-import { IconArrowUpRight, IconRoute } from '@tabler/icons-react';
+import { IconArrowRight, IconArrowUpRight, IconRoute } from '@tabler/icons-react';
 import { Link } from 'react-router';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import AgentConnection from '@/shell/AgentConnection';
@@ -48,7 +48,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
         <span aria-hidden="true">{index + 1}</span>
         <strong>{step.label}</strong>
         <small>{step.detail}</small>
-        <IconArrowUpRight size={15} aria-hidden="true" />
+        {step.to.startsWith('/docs/') ? <IconArrowUpRight size={15} aria-hidden="true" /> : <IconArrowRight size={15} aria-hidden="true" />}
       </Link>)}
     </div>
   </Empty>;

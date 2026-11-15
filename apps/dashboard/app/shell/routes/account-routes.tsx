@@ -43,7 +43,7 @@ export const accountRoutes: RouteObject[] = [
     lazy: bindLazy(routeImporters.generationsLayout, {
       destination: 'Global',
       navTo: '/generations',
-      title: { en: 'Generations', zh: '生成对话' },
+      title: { en: 'Generations', zh: '多模态生成' },
     }),
     children: [
       {
@@ -52,7 +52,7 @@ export const accountRoutes: RouteObject[] = [
         lazy: bindLazy(routeImporters.playground, {
           destination: 'Global',
           navTo: '/generations',
-          title: { en: 'Generations', zh: '生成对话' },
+          title: { en: 'Generations', zh: '多模态生成' },
         }),
       },
       {
@@ -61,7 +61,7 @@ export const accountRoutes: RouteObject[] = [
         lazy: bindLazy(routeImporters.playground, {
           destination: 'Global',
           navTo: '/generations',
-          title: { en: 'Generations', zh: '生成对话' },
+          title: { en: 'Generations', zh: '多模态生成' },
         }),
       },
       {
@@ -70,7 +70,7 @@ export const accountRoutes: RouteObject[] = [
         lazy: bindLazy(routeImporters.playground, {
           destination: 'Global',
           navTo: '/generations',
-          title: { en: 'Generations', zh: '生成对话' },
+          title: { en: 'Generations', zh: '多模态生成' },
         }),
       },
     ],

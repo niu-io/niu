@@ -112,9 +112,9 @@ impl Store {
         attempt: Uuid,
         categories: RequestTokenCategories,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::save_request_token_categories_in_tx(&mut tx, scope, attempt, categories).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 

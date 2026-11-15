@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
-import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
+import { loadAuthConfig } from '@/lib/auth-config';
+import { invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 
 export default function PasswordSettings({ token, hasPassword = true, onChanged }: {token: string; hasPassword?: boolean; onChanged: () => Promise<void>}) {
@@ -37,19 +38,17 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged 
     lastCapRevision.current = capabilityRevision;
     if (force) setLoaded(false);
     setCapabilityError(false);
-    void fetchQuery<{ password_login: boolean }>(
-      'public',
-      '/api/v1/auth/config',
-      async signal => {
-        const response = await fetch('/api/v1/auth/config', { signal, cache: 'no-store' });
-        if (!response.ok) throw new Error('Capability request failed');
-        const value = await response.json();
-        if (typeof value?.password_login !== 'boolean') throw new Error('Invalid capability response');
-        return value as { password_login: boolean };
-      },
-      { signal: controller.signal, force, awaitRevalidate: true },
-    )
-      .then(value => { if (!controller.signal.aborted) { setEnabled(value?.password_login === true); setLoaded(true); } })
+    void loadAuthConfig({ signal: controller.signal, force })
+      .then(value => {
+        if (typeof value?.password_login !== 'boolean') {
+          invalidateQueries(key => key.startsWith('public::/api/v1/auth/config'));
+          throw new Error('Invalid capability response');
+        }
+        if (!controller.signal.aborted) {
+          setEnabled(value.password_login === true);
+          setLoaded(true);
+        }
+      })
       .catch(() => { invalidateQueries(key => key.startsWith('public::/api/v1/auth/config')); if (!controller.signal.aborted) { setCapabilityError(true); setLoaded(true); } });
     return () => controller.abort();
   }, [capabilityRevision]);

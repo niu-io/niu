@@ -81,7 +81,7 @@ impl Store {
             .push(" ORDER BY observed_at DESC,receipt_sha256 DESC LIMIT ")
             .push_bind(i64::from(limit) + 1);
         let rows = query.build().fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         let more = rows.len() > usize::from(limit);
         let mut data = Vec::new();
         for row in rows.into_iter().take(usize::from(limit)) {

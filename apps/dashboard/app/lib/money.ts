@@ -52,12 +52,58 @@ function formatExactCommaMoney(nanos: bigint | string, currency: string, minDeci
   return `${negative && abs > 0n ? '-' : ''}${prefix}${wholeFormatted}.${frac}`;
 }
 
+function currencyPrefix(currency: string): string {
+  const sym = currencySymbol(currency);
+  return sym && /^[A-Z]{3}$/.test(sym) ? `${sym} ` : sym;
+}
+
+function formatRoundedCommaMoney(
+  nanos: bigint | string,
+  currency: string,
+  decimals: number,
+  minDecimals: number,
+  belowQuantumFloor: boolean,
+): string {
+  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const prefix = currencyPrefix(currency);
+  const step = 10n ** BigInt(9 - decimals);
+  if (belowQuantumFloor && abs > 0n && abs < step) {
+    const floorStr = decimals === 0 ? '1' : `0.${'0'.repeat(decimals - 1)}1`;
+    return `${negative ? '-' : ''}<${prefix}${floorStr}`;
+  }
+  const scaled = (abs + step / 2n) / step;
+  const scale = 10n ** BigInt(decimals);
+  const whole = scaled / scale;
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const rawFrac = (scaled % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  const frac = decimals === 0 ? '' : rawFrac.length < minDecimals ? rawFrac.padEnd(minDecimals, '0') : rawFrac;
+  return `${negative && scaled > 0n ? '-' : ''}${prefix}${wholeFormatted}${frac ? `.${frac}` : ''}`;
+}
+
 /**
  * Formats financial statement figures (revenue, costs, payables, cash receipts, balances)
  * with at least 4 decimal places (.0000) while preserving full sub-4-decimal nanounit precision.
  */
 export function formatFinancialMoney(nanos: bigint | string, currency: string): string {
   return formatExactCommaMoney(nanos, currency, 4);
+}
+
+/**
+ * Compact statement formatter for dense KPI cards and table cells:
+ * formats to 4 decimal places and renders sub-$0.0001 non-zero values as `<$0.0001`.
+ */
+export function formatStatementMoney(nanos: bigint | string, currency: string, decimals = 4): string {
+  return formatRoundedCommaMoney(nanos, currency, decimals, decimals, true);
+}
+
+/**
+ * Compact rate formatter for dense quote cells: preserves exact values up to
+ * 6 decimal places (at least 2 decimals) and renders sub-$0.000001 non-zero rates as `<$0.000001`.
+ */
+export function formatCompactRateMoney(nanos: bigint | string, currency: string, maxDecimals = 6): string {
+  return formatRoundedCommaMoney(nanos, currency, maxDecimals, 2, true);
 }
 
 /**

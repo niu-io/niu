@@ -98,7 +98,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::require_customer_media_offer_in_tx(&mut tx, scope, attempt, revision, vendor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -197,7 +197,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         publish_rate(&mut tx, organization, card).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -235,7 +235,7 @@ impl Store {
         }
         publish_rate(&mut tx, organization, card).await?;
         retire_rate(&mut tx, organization, revision, card.tariff.effective_from).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -249,7 +249,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         retire_rate(&mut tx, organization, revision, effective_until).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -299,7 +299,7 @@ impl Store {
             return Err(StoreError::InvalidPrice);
         }
         let Some(document) = rows.into_iter().next() else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         let card: CustomerMediaRateCard =
@@ -309,7 +309,7 @@ impl Store {
             .bind(card.vendor_id).bind(&dimensions.model).bind(card.vendor_revision)
             .bind(card.model_revision).bind(&card.schema_revision).bind(&dimensions.channel)
             .fetch_one(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if !current {
             return Err(StoreError::Conflict);
         }

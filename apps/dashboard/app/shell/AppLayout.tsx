@@ -107,6 +107,7 @@ export default function AppLayout() {
     session?.kind === 'operator',
     session?.operator?.id ?? '',
     branding.default_appearance,
+    sessionChecked,
   );
 
   const routeMeta = useRouteMetadata(session, branding.display_name);

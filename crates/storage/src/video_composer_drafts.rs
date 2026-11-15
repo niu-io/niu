@@ -67,7 +67,7 @@ impl Store {
         let saved: Option<VideoComposerDraft> = sqlx::query_as("INSERT INTO video_composer_drafts(organization_id,project_id,owner,payload,expires_at) SELECT $1,$2,$3,$4,CASE WHEN $4::jsonb IS NULL THEN NULL ELSE clock_timestamp()+interval '30 days' END WHERE $5=0 OR EXISTS(SELECT 1 FROM video_composer_drafts WHERE organization_id=$1 AND project_id=$2 AND owner=$3) ON CONFLICT(organization_id,project_id,owner) DO UPDATE SET payload=EXCLUDED.payload,expires_at=EXCLUDED.expires_at,revision=video_composer_drafts.revision+1,updated_at=clock_timestamp() WHERE video_composer_drafts.revision=$5 RETURNING payload,revision,(floor(extract(epoch FROM expires_at)*1000)::bigint)::text AS expires_at_ms,CASE WHEN payload IS NULL THEN 'empty' ELSE 'retained' END AS content_state")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload).bind(expected_revision).fetch_optional(&mut *tx).await?;
         let saved = saved.ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
 

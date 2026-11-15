@@ -138,7 +138,7 @@ impl Store {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let (companies, next) =
             Self::platform_company_page_in_tx(&mut snapshot, after, limit).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         let data: Vec<Value> = companies
             .into_iter()
             .map(|company| json!({"organization_id":company.id,"organization_name":company.name,"created_at":company.created_at}))
@@ -201,7 +201,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         lock_key(&mut tx, input.idempotency_key).await?;
         if let Some(result) = retry(&mut tx, input.idempotency_key, &intent).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(result);
         }
         let registered:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM vendor_models m WHERE m.alias=$1 AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=m.vendor_id) UNION ALL SELECT 1 FROM model_route_pools WHERE alias=$1)")
@@ -250,7 +250,7 @@ impl Store {
         .bind(revision)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({"price_id":head,"revision":revision,"version":next.to_string()}))
     }
 
@@ -277,7 +277,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         lock_key(&mut tx, input.idempotency_key).await?;
         if let Some(result) = retry(&mut tx, input.idempotency_key, &intent).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(result);
         }
         let next = lock_version(&mut tx, head, expected).await?;
@@ -327,7 +327,7 @@ impl Store {
             .bind(next)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({"price_id":head,"revision":revision,"version":next.to_string()}))
     }
 
@@ -347,7 +347,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         lock_key(&mut tx, input.idempotency_key).await?;
         if let Some(result) = retry(&mut tx, input.idempotency_key, &intent).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(result);
         }
         let next = lock_version(&mut tx, head, expected).await?;
@@ -376,7 +376,7 @@ impl Store {
             .bind(next)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({"price_id":head,"revision":revision,"version":next.to_string()}))
     }
 }

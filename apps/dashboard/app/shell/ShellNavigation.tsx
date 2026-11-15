@@ -133,7 +133,7 @@ export function ShellNavigation({
   const workspaceAreas = Boolean(context.session?.operator || context.session?.kind === 'installation');
   const workspaceAssetsActive = /^\/workspaces\/[^/]+\/(assets|library|video)(\/|$)/.test(pathname);
   const workspaceModelsChildActive = /^\/workspaces\/[^/]+\/(models|routing|evaluations)(\/|$)/.test(pathname);
-  const workspaceSettingsChildActive = /^\/workspaces\/[^/]+\/(settings|guardrails|billing)(\/|$)/.test(pathname);
+  const workspaceSettingsChildActive = /^\/workspaces\/[^/]+\/(settings|guardrails|billing|events)(\/|$)/.test(pathname);
   const entries = workspaceAreas ? [
     ...navigation.filter(item => item.destination === 'Workspace' && !item.hidden).map(item => {
       const to = item.to === '.' ? workspacePath : `${workspacePath}/${item.to}`;
@@ -144,12 +144,12 @@ export function ShellNavigation({
           : item.to === 'settings'
             ? workspaceSettingsChildActive || pathname === to || pathname.startsWith(`${to}/`)
             : pathname === to || pathname.startsWith(`${to}/`);
-      return { to, label: isZh ? item.labelZh : item.label, icon: item.icon, active };
+      return { to, end: item.to === '.', label: isZh ? item.labelZh : item.label, icon: item.icon, active };
     }),
   ] : [];
   if (workspaceAreas) {
     entries.splice(1, 0,
-      { to: generationsHref, label: t('Generations', '生成对话'), icon: IconSparkles, active: pathname.startsWith('/generations') || workspaceAssetsActive },
+      { to: generationsHref, end: false, label: t('Generations', '多模态生成'), icon: IconSparkles, active: pathname.startsWith('/generations') || workspaceAssetsActive },
     );
   }
   return <>
@@ -162,7 +162,7 @@ export function ShellNavigation({
     </SidebarHeader>
     <SidebarContent className="px-3 group-data-[collapsible=icon]:px-0">
       <nav aria-label={t('Main navigation', '主导航')}><SidebarMenu>{entries.map(item => <SidebarMenuItem key={item.to}>
-        <SidebarMenuButton asChild isActive={item.active} tooltip={item.label}><ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span>{item.label}</span></ProductRailLink></SidebarMenuButton>
+        <SidebarMenuButton asChild isActive={item.active} tooltip={item.label}><ProductRailLink to={item.to} end={item.end} aria-label={item.label}><item.icon aria-hidden="true" /><span>{item.label}</span></ProductRailLink></SidebarMenuButton>
       </SidebarMenuItem>)}</SidebarMenu></nav>
     </SidebarContent>
   </>;

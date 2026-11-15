@@ -19,7 +19,8 @@ describe('account sign-in service availability', () => {
   it('explains how to obtain or recover account access when password sign-in is available', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:true,browser_token_login:false})));
     showLogin();
-    await screen.findByText('Need an account or forgot your password? Ask your organization owner or installation administrator for help.');
+    await screen.findByText(/Need an account or forgot your password\? Ask your organization owner for an invitation or contact your installation administrator\./);
+    expect(screen.getByRole('link', { name: 'Administrator token sign-in' }).getAttribute('href')).toBe('/installation');
     expect(screen.queryByRole('link', {name:/reset password/i})).toBeNull();
   });
   it.each([

@@ -7,7 +7,7 @@ import { WorkspaceCreateDialog } from '@/shell/WorkspaceSwitcher';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import ConnectGate from '@/shell/ConnectGate';
 import { prefetchRouteIntent } from '@/shell/prefetch';
-import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
+import { organizationDisplayName, workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
 import { settingsHref } from '@/features/account/settings-routes';
 import { useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { IconBuildings, IconPlus, IconSettings, IconUsers } from '@tabler/icons-react';
@@ -90,8 +90,8 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-details-title">
         <h2 id="organization-details-title" className="sr-only">{uiT("General")}</h2>
         <dl className="organization-details">
-          {!(canCreate && context.renameOrganization) && <div><dt>{uiT("Organization name")}</dt><dd>{organization.name}</dd></div>}
-          {organization.slug ? <div><dt>{t('Address', '地址')}</dt><dd className="text-sm">{organization.slug}</dd></div> : null}
+          {!(canCreate && context.renameOrganization) && <div><dt>{uiT("Organization name")}</dt><dd>{organizationDisplayName(organization.name)}</dd></div>}
+          {organization.slug ? <div><dt>{t('URL slug', '路径标识')}</dt><dd className="text-sm">{organization.slug}</dd></div> : null}
         </dl>
         {canCreate && context.renameOrganization && (
           <form className="flex flex-wrap items-end gap-3 pt-2" onSubmit={handleRename}>

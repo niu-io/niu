@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { ChevronsUpDown, Check, ChevronDown } from 'lucide-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { resolveWorkspacePathSegment, workspacePathSegment } from '@/shell/workspace-route';
+import { organizationDisplayName, resolveWorkspacePathSegment, workspacePathSegment } from '@/shell/workspace-route';
 import { useBranding } from '@/shell/branding';
 import { useLocale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
@@ -242,7 +242,7 @@ export default function ConnectAgent() {
         <p className="text-sm text-muted-foreground">{t('Check that this code matches the request in your agent:', '请确认此验证码与你的 Agent 中显示的一致：')} <code className="font-mono font-medium text-foreground">{code.match(/.{1,4}/g)?.join('-')}</code></p>
         <dl className="space-y-4 text-sm"><div><dt className="text-muted-foreground">{t('Client name (reported)', '客户端自报名称')}</dt><dd className="mt-1 font-medium">{grant.client_name}</dd></div><div><dt className="text-muted-foreground">{t('Signed in as', '当前账户')}</dt><dd className="mt-1">{context.session?.profile?.name || t('Your Niu account', '你的 Niu 账户')}</dd></div></dl>
         <div className="space-y-2"><Label>{t('Workspace', '工作空间')}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={pending || !canApprove}>{workspace?.name || t('Choose a workspace', '选择工作空间')}<ChevronsUpDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={workspaceId} onValueChange={value => { setWorkspaceId(value); setConsent(false); setInvocationAllowed(false); }}>{context.workspaces.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-        {workspace?.organization_name && <p className="text-sm text-muted-foreground">{t('Organization', '组织')}: {workspace.organization_name}</p>}
+        {workspace?.organization_name && <p className="text-sm text-muted-foreground">{t('Organization', '组织')}: {organizationDisplayName(workspace.organization_name)}</p>}
         {!canApprove && <p role="alert" className="text-sm">{t('Sign in with an account that can manage this workspace. Installation credentials cannot approve a personal agent connection.', '请使用有权管理该工作空间的账户登录。安装凭据不能批准个人 Agent 连接。')}</p>}
         <div className="space-y-2">
           <Label>{t('Session duration', '授权有效期')}</Label>

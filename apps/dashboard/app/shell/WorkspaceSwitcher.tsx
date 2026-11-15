@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useLocale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
-import { workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
+import { organizationDisplayName, workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
 
 export default function WorkspaceSwitcher({ context, onCreateWorkspace, creationAvailable = true, logo }: {
   context: DashboardContext;
@@ -60,7 +60,7 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-        <DropdownMenuLabel className="workspace-switcher-menu-title">{organization ? `${t('Workspaces', '工作空间')} · ${organization.name}` : t('Workspaces', '工作空间')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="workspace-switcher-menu-title">{organization ? `${t('Workspaces', '工作空间')} · ${organizationDisplayName(organization.name)}` : t('Workspaces', '工作空间')}</DropdownMenuLabel>
         {workspaceLoading && <div className="workspace-switcher-empty">{t('Loading workspaces…', '正在加载工作空间…')}</div>}
         {!workspaceLoading && entries.length === 0 && <div className="workspace-switcher-empty">{t('No workspaces yet.', '暂无工作空间。')}</div>}
         {!workspaceLoading && <DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {
@@ -150,13 +150,13 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
       if (target) { event.preventDefault(); target.focus(); }
     }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
-        <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organization.name}。` : uiF(" In {0}.", [organization.name])) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</DialogDescription></div>
+        <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organizationDisplayName(organization.name)}。` : uiF(" In {0}.", [organizationDisplayName(organization.name)])) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</DialogDescription></div>
         <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
       </DialogHeader>
       <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
-        {slugOpen ? <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{t(`Used in /workspaces/${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}</p></div>
-          : <div className="flex flex-wrap items-center justify-between gap-2"><p className="break-words text-sm text-muted-foreground">{t('URL slug', '路径标识')}: {slug || '<slug>'}</p><Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setSlugOpen(true)}>{t('Edit slug', '编辑路径')}</Button></div>}
+        {slugOpen ? <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{slug ? t(`Used in /workspaces/${slug}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`) : t('Used in /workspaces/your-workspace. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.', '将用于 /workspaces/your-workspace。仅限小写字母、数字和连字符，中文名称自动转为拼音。')}</p></div>
+          : <div className="flex flex-wrap items-center justify-between gap-2"><p className="break-words text-sm text-muted-foreground">{slug ? <>{t('URL slug', '路径标识')}: {slug}</> : t('URL slug: generated from workspace name', '路径标识：将根据工作空间名称自动生成')}</p><Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setSlugOpen(true)}>{t('Edit slug', '编辑路径')}</Button></div>}
         {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
         {canSetLimit && <section className="grid gap-3" aria-labelledby="workspace-budget-title">
           <div><h3 id="workspace-budget-title" className="text-sm font-medium">{t('Budget', '预算')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></h3><p id="workspace-budget-help" className="mt-2 text-sm text-muted-foreground">{t('Limit customer spending in this workspace. Leave blank for no workspace limit; zero blocks new paid requests. The organization’s shared balance and other limits still apply.', '限制此工作空间的客户消费。留空表示工作空间不限额；填写零会阻止新的付费请求。组织共享余额和其他限额仍然适用。')}</p></div>

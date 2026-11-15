@@ -188,7 +188,7 @@ impl Store {
             let receipt = Self::openrouter_usage_receipt_in_tx(&mut tx, scope, attempt)
                 .await?
                 .ok_or(StoreError::Conflict)?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(receipt);
         }
         let row = sqlx::query(CONTEXT)
@@ -248,7 +248,7 @@ impl Store {
         let receipt = Self::openrouter_usage_receipt_in_tx(&mut tx, scope, attempt)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(receipt)
     }
 }

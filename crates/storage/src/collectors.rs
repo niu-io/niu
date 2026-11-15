@@ -104,14 +104,14 @@ impl Store {
             return Err(StoreError::Unauthorized);
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let key: Option<Uuid> = sqlx::query_scalar("SELECT id FROM collector_keys WHERE purpose='quota' AND token_hash=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE")
             .bind(hash).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         if key.is_none() {
             return Err(StoreError::Unauthorized);
         }
         let id = crate::accounts::persist_quota(&mut tx, scope, account, input).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 }

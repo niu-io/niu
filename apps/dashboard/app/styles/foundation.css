@@ -57,12 +57,16 @@
 }
 /* Filled actions use the mark's tangerine and its original dark lettering.
    Deployment-defined primary palettes continue to override this default. */
-:root:not([style*="--primary:"]) [data-slot="button"][data-variant="default"] {
+:root:not([style*="--primary:"]) :is([data-slot="button"], [data-slot="dropdown-menu-trigger"], [data-slot="dialog-trigger"], [data-slot="popover-trigger"])[data-variant="default"]:not(:disabled) {
   background-color: var(--brand-orange);
   color: var(--brand-ink);
 }
-:root:not([style*="--primary:"]) [data-slot="button"][data-variant="default"]:hover {
+:root:not([style*="--primary:"]) :is([data-slot="button"], [data-slot="dropdown-menu-trigger"], [data-slot="dialog-trigger"], [data-slot="popover-trigger"])[data-variant="default"]:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--brand-orange) 90%, var(--brand-paper));
+}
+:root:not([style*="--primary:"]) :is([data-slot="button"], [data-slot="dropdown-menu-trigger"], [data-slot="dialog-trigger"], [data-slot="popover-trigger"])[data-variant="default"]:disabled {
+  background-color: color-mix(in srgb, var(--foreground) 10%, var(--card));
+  color: color-mix(in srgb, var(--foreground) 78%, var(--card));
 }
 :root { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--foreground); background: var(--background); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
@@ -84,7 +88,8 @@ button { cursor: pointer; }
 .connect-panel { display: flex; align-items: flex-start; gap: 14px; padding: 20px; }.connect-panel strong { font-size: 14px; }.connect-panel p { margin: 6px 0 12px; color: var(--muted-foreground); font-size: 14px; }.connect-panel form { display: flex; gap: 7px; }.connect-panel input { width: min(320px, 55vw); }.connect-panel .error-text { color: var(--destructive); }
 @media (max-width: 1000px) {.sidebar { width: 220px; }.main-panel { width: calc(100% - 220px); margin-left: 220px; }.page-content { padding: 30px 24px; }}
 @media (max-width: 680px) { .sidebar { position: static; width: 58px; flex: 0 0 58px; padding: 14px 7px; }.workspace-switcher,.nav-item span:not(.nav-icon) { display: none; }.nav-item { justify-content: center; padding: 11px 0; }.sidebar nav { margin-top: 28px; }.main-panel { width: calc(100% - 58px); margin-left: 0; }.page-content { padding: 25px 13px; }.page-heading h1 { font-size: 21px; }.connect-panel form { flex-direction: column; }.connect-panel input { width: 100%; }}
-button:disabled { opacity: .5; cursor: not-allowed; }
+button:disabled { cursor: not-allowed; }
+:where(button:disabled:not([data-slot="button"])) { color: color-mix(in srgb, var(--foreground) 78%, var(--card)); }
 .error-text { color: var(--destructive); }
 
 @custom-variant dark (&:is(.dark *));
@@ -192,13 +197,13 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .supplier-detail-header { display: grid; gap: 16px; padding-bottom: 8px; border-bottom: 0; }
 .supplier-detail-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .supplier-detail-identity > div { min-width: 0; }
-.supplier-detail-identity h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.supplier-detail-identity h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .supplier-detail-identity p { margin: 3px 0 0; color: var(--muted-foreground); font-size: 14px; }
 .supplier-detail-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .supplier-endpoint { margin: 0; min-width: 0; color: var(--muted-foreground); font-size: 13px; overflow-wrap: anywhere; }
 @media (max-width: 640px) {
   .supplier-detail-identity { flex-wrap: wrap; }
-  .supplier-detail-identity h2 { font-size: 21px; }
+  .supplier-detail-identity h2 { font-size: 15px; }
   .supplier-detail-identity .vendor-status-badge { margin-left: auto; }
   .supplier-detail-bottom { align-items: flex-start; flex-direction: column; }}
 .vendor-detail-panel { display: grid; align-content: start; gap: 20px; padding: 22px; }

@@ -1,8 +1,14 @@
 import { pinyin } from 'pinyin-pro';
 import type { Workspace } from './dashboard-context';
+import { translateUI } from './ui-locale';
 
 export function workspaceDisplayName(name: string) {
   return name === 'Default project' ? 'Default workspace' : name;
+}
+
+export function organizationDisplayName(name?: string | null) {
+  const trimmed = name?.trim() ?? '';
+  return trimmed === 'Personal workspace' ? translateUI('Personal workspace') : trimmed;
 }
 
 export function workspaceNameSlug(name: string) {

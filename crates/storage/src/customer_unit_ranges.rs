@@ -42,7 +42,7 @@ impl Store {
             .bind(id)
             .fetch_one(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(receipt))
     }
 

@@ -89,9 +89,12 @@ export function deriveOperationAuthority(path, method, operation) {
       scope: 'provider',
     };
   }
+  const lowerMethod = String(method || '').toLowerCase();
   if (
     /^\/api\/v1\/(?:platform\/|vendors|incidents|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
-    /\/billing\/(?:quotes|units\/(?:grants|refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
+    /\/billing\/(?:quotes|units\/(?:grants|refunds|charges\/[^/]+\/refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|entries\/[^/]+\/reversal|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
+    (lowerMethod === 'post' && /\/billing\/invoices(?:\/[^/]+\/payment)?$/.test(path)) ||
+    /\/(?:projects|workspaces)\/[^/]+\/(?:accounts|budget|costs)(?:\/|$)/.test(path) ||
     /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
   ) {
     return {
@@ -142,4 +145,129 @@ export function addOpenApiNavigation(spec) {
   spec.tags = definitions.filter(tag => used.has(tag.name)).map(({name, description}) => ({name, description}));
   spec['x-tagGroups'] = groups.map(([name, tags]) => ({name, tags:tags.map(([name]) => name).filter(name => used.has(name))})).filter(group => group.tags.length);
   return spec;
+}
+
+const HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'patch', 'options', 'head', 'trace']);
+
+function collectOpenApiRefs(value, out) {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectOpenApiRefs(item, out);
+    return;
+  }
+  for (const [key, val] of Object.entries(value)) {
+    if (key === '$ref' && typeof val === 'string') {
+      const match = val.match(/^#\/components\/([^/]+)\/([^/]+)$/);
+      if (match) out.push([match[1], match[2]]);
+    } else {
+      collectOpenApiRefs(val, out);
+    }
+  }
+}
+
+function collectSecurityRefSchemes(securityArray, out) {
+  if (!Array.isArray(securityArray)) return;
+  for (const requirement of securityArray) {
+    if (requirement && typeof requirement === 'object') {
+      for (const scheme of Object.keys(requirement)) {
+        out.push(['securitySchemes', scheme]);
+      }
+    }
+  }
+}
+
+export function pruneOpenApiDocument(document) {
+  const reachable = new Map();
+  const queue = [];
+  const enqueue = ([category, name]) => {
+    let set = reachable.get(category);
+    if (!set) {
+      set = new Set();
+      reachable.set(category, set);
+    }
+    if (!set.has(name) && document.components?.[category]?.[name] !== undefined) {
+      set.add(name);
+      queue.push([category, name]);
+    }
+  };
+
+  collectSecurityRefSchemes(document.security, { push: enqueue });
+  const initialRefs = [];
+  collectOpenApiRefs(document.paths, initialRefs);
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    if (!pathItem || typeof pathItem !== 'object') continue;
+    for (const key of Object.keys(pathItem)) {
+      if (HTTP_METHODS.has(key) && pathItem[key]?.security) {
+        collectSecurityRefSchemes(pathItem[key].security, { push: enqueue });
+      }
+    }
+  }
+  for (const ref of initialRefs) enqueue(ref);
+
+  while (queue.length > 0) {
+    const [category, name] = queue.shift();
+    const nested = [];
+    collectOpenApiRefs(document.components?.[category]?.[name], nested);
+    for (const ref of nested) enqueue(ref);
+  }
+
+  const prunedComponents = {};
+  for (const [category, entries] of Object.entries(document.components ?? {})) {
+    const allowedSet = reachable.get(category);
+    if (!allowedSet || allowedSet.size === 0) continue;
+    const filtered = {};
+    for (const [key, val] of Object.entries(entries)) {
+      if (allowedSet.has(key)) filtered[key] = val;
+    }
+    if (Object.keys(filtered).length > 0) prunedComponents[category] = filtered;
+  }
+
+  const usedTags = new Set();
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    for (const [key, op] of Object.entries(pathItem ?? {})) {
+      if (HTTP_METHODS.has(key) && Array.isArray(op?.tags)) {
+        for (const tag of op.tags) usedTags.add(tag);
+      }
+    }
+  }
+
+  const nextDoc = {
+    ...document,
+    components: prunedComponents,
+  };
+  if (Array.isArray(document.tags)) {
+    nextDoc.tags = document.tags.filter(t => usedTags.has(t.name));
+  }
+  if (Array.isArray(document['x-tagGroups'])) {
+    nextDoc['x-tagGroups'] = document['x-tagGroups']
+      .map(group => ({ ...group, tags: group.tags.filter(t => usedTags.has(t)) }))
+      .filter(group => group.tags.length > 0);
+  }
+  return nextDoc;
+}
+
+const PUBLIC_AUDIENCES = new Set(['public', 'model', 'console', 'customer-management']);
+
+export function filterPublicHandlerOperations(document) {
+  const filteredPaths = {};
+  for (const [route, item] of Object.entries(document.paths ?? {})) {
+    const filteredItem = {};
+    for (const [key, value] of Object.entries(item ?? {})) {
+      if (!HTTP_METHODS.has(key)) {
+        filteredItem[key] = value;
+      } else {
+        const authority = deriveOperationAuthority(route, key, value);
+        if (PUBLIC_AUDIENCES.has(authority.audience)) {
+          filteredItem[key] = { ...value, 'x-niu-authority': authority };
+        }
+      }
+    }
+    if (Object.keys(filteredItem).some(k => HTTP_METHODS.has(k))) {
+      filteredPaths[route] = filteredItem;
+    }
+  }
+  return pruneOpenApiDocument({
+    ...document,
+    paths: filteredPaths,
+  });
 }

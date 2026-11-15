@@ -35,7 +35,7 @@ describe('interpolated application diagnostics in zh-CN', () => {
     expect(localized('Could not load gateway activity ({0}).', [502])).toBe('无法加载网关活动记录（502）。');
     expect(localized('Could not export requests ({0}). Try again.', [504])).toBe('无法导出请求（504）。请重试。');
     expect(localized('Request failed ({0}).', [500])).toBe('请求失败（500）。');
-    expect(localized('Health check returned HTTP {0}.', [503])).toBe('健康检查返回 HTTP 503。');
+    expect(localized('Health check returned status {0}.', [503])).toBe('健康检查返回状态码 503。');
     expect(localized('Could not create workspace ({0}).', [409])).toBe('无法创建工作空间（409）。');
     expect(localized('Could not create organization ({0}).', [500])).toBe('无法创建组织（500）。');
   });

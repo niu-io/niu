@@ -1104,11 +1104,12 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             ? <Empty className="playground-chat-empty border-0 bg-transparent"><EmptyHeader><EmptyMedia variant="icon"><FlaskConical size={20} /></EmptyMedia><EmptyTitle><h2>{uiT("Add an API key")}</h2></EmptyTitle><EmptyDescription>{uiT("Use an API key to authorize generations and track usage.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage API keys")}</Link></Button></EmptyContent></Empty>
             : !results && !prompt.trim()
                 ? <div className="playground-first-run">
-                  <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2><p>{uiT("Write, build, compare models or generate a video.")}</p>{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
                   <div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}>
                     <Button variant="secondary" size="sm" aria-pressed="true"><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Button>
                     <Button variant="ghost" size="sm" asChild><Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}`}><Video size={16} />{uiT("Video", "视频")}</Link></Button>
-                  </div><div className="playground-starter-picker" aria-label={uiT("Example tasks")}>
+                  </div>
+                  <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2><p>{uiT("Write, build, compare models or generate a video.")}</p>{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
+                  <div className="playground-starter-picker" aria-label={uiT("Example tasks")}>
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <Tabs value={promptCategory} onValueChange={value => setPromptCategory(value as typeof promptCategory)} className="playground-starter-tabs">
                         <TabsList aria-label={uiT("Task category")} className="playground-starter-categories">
@@ -1228,12 +1229,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           </div></PopoverAnchor>
         </form>
           <p aria-label={uiT("Usage billing")} className="sr-only">{billingSummary}</p>
-          {noAvailableKeys && !managedKey && !keyBlocked && <div className="playground-composer-notices">
-            <p role="status">{uiT("Create an API key to start using models in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></p>
-          </div>}
-          {!noAvailableKeys && !managedKey && !selectedKey && !keyBlocked && <div className="playground-composer-notices">
-            <p role="status">{uiT("Select an API key to send messages in this workspace.")}</p>
-          </div>}
+          {noAvailableKeys && !managedKey && !keyBlocked && <div className="playground-composer-notices"><p role="status">{uiT("Create an API key to start using models in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></p></div>}
+          {!noAvailableKeys && !managedKey && !selectedKey && !keyBlocked && <div className="playground-composer-notices"><p role="status">{uiT("Select an API key to send messages in this workspace.")}</p></div>}
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
                   {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}

@@ -56,6 +56,11 @@ export default function ProvidersRoute() {
     return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}/settings${query.size ? '?' + query.toString() : ''}${location.hash}`} />;
   }
   if (section && !validSections.has(section)) {
+    if (section === "offers") {
+      const query = new URLSearchParams(location.search);
+      if (!query.has("view")) query.set("view", "text");
+      return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}/models?${query.toString()}${location.hash}`} />;
+    }
     return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}${location.search}${location.hash}`} />;
   }
   if (context.session?.operating_mode === 'internal' && (section === 'settlements' || section === 'members')) {

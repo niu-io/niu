@@ -137,7 +137,7 @@ impl Store {
             .bind(attempt)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if confirmed {
             // Independent transactions keep customer and procurement recovery
             // from starving each other. Durable nonexecution also lets the

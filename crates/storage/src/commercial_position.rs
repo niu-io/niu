@@ -150,7 +150,7 @@ impl Store {
         if !known_currency {
             return Err(StoreError::InvalidPrice);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(position)
     }
 }

@@ -145,7 +145,7 @@ impl Store {
         .bind(scope.project_id)
         .fetch_optional(&mut *snapshot)
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(row)
     }
 
@@ -190,7 +190,7 @@ impl Store {
         .bind(limit)
         .fetch_all(&mut *snapshot)
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(Some(rows))
     }
 
@@ -319,7 +319,7 @@ impl Store {
             .bind(idempotency_key)
             .fetch_one(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 
@@ -379,7 +379,7 @@ impl Store {
         .bind(key)
         .fetch_optional(&mut *snapshot)
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(row)
     }
 
@@ -404,7 +404,7 @@ impl Store {
         .fetch_optional(&mut *snapshot)
         .await?;
         let Some(root) = root else {
-            snapshot.commit().await?;
+            crate::commit_tx(snapshot).await?;
             return Ok(None);
         };
         let rows = sqlx::query_scalar(
@@ -429,7 +429,7 @@ impl Store {
         .bind(limit)
         .fetch_all(&mut *snapshot)
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(Some(rows))
     }
 
@@ -594,7 +594,7 @@ impl Store {
             .bind(idempotency_key)
             .fetch_one(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(result))
     }
 }

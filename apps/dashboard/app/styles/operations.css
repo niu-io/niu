@@ -1,6 +1,6 @@
 /* OpenRouter Logs pattern: compact toolbar and unboxed, dense request rows. */
 .request-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
-.request-toolbar h2 { margin:0; font-size:18px; font-weight:600; }
+.request-toolbar h2 { margin:0; font-size:15px; font-weight:600; }
 .request-toolbar h2 span { margin-left:8px; color:var(--muted-foreground); font-size:12px; font-weight:400; }
 .request-toolbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .request-date-trigger { min-width:150px; justify-content:space-between; font-weight:400; }
@@ -92,18 +92,21 @@
 @media (max-width: 640px) { .key-guardrails-row { align-items: flex-start; flex-direction: column; }}
 @media (max-width: 600px) { .request-toolbar-actions { min-width: 0; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }}
 
-.gateway-request-table-wrap { container-type: inline-size; }
-.gateway-request-table.has-column-controls { min-width: 920px; }
+.gateway-request-table-wrap { container-type: inline-size; width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; }
+.gateway-request-table.has-column-controls { min-width: 0; width: 100%; }
 .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 6px; }
 .gateway-request-table.has-column-controls tbody th small { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gateway-request-table.has-column-controls td.request-column-key { max-width: 120px; white-space: normal; overflow-wrap: anywhere; }
+.gateway-request-table.has-column-controls td.request-column-key { max-width: 148px; white-space: normal; overflow-wrap: break-word; }
 .gateway-request-table.has-column-controls td:last-child { width: 32px; padding: 0; }
 .gateway-request-table thead .request-column-controls { position: sticky; right: 0; width: 32px; padding: 2px; background: var(--background); }
-@container (max-width: 860px) {
+@container (max-width: 960px) {
   .gateway-request-table.has-column-controls.has-default-columns { min-width: 0; width: 100%; table-layout: fixed; }
-  .gateway-request-table.has-column-controls .request-column-time { width: 170px; white-space: normal; }
-  .gateway-request-table.has-column-controls .request-column-status { width: 110px; }
-  .gateway-request-table.has-column-controls .request-column-charge { width: 115px; }
+  .gateway-request-table.has-column-controls.has-default-columns :is(.request-column-latency, .request-column-input, .request-column-output) { width: 64px; }
+  .gateway-request-table.has-column-controls.has-default-columns .request-column-key { width: 112px; }
+  .gateway-request-table.has-column-controls .request-column-time { width: 132px; white-space: normal; }
+  .gateway-request-table.has-column-controls .request-column-status { width: 108px; }
+  .gateway-request-table.has-column-controls .request-column-charge { width: 98px; }
+  .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 9px 5px; font-size: 13px; }
 }
 @media (max-width: 600px) {
   .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 8px; font-size: 12px; }
@@ -138,7 +141,8 @@
    Reserve elevation for floating controls; retain table and input affordances. */
 [data-slot="card"] { border: 0; border-radius: var(--radius-panel); box-shadow: none; }
 [data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):not(:focus-visible) { border-color: transparent; background: var(--secondary); box-shadow: none; }
-[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):hover { background: var(--accent); }
+[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):hover:not(:disabled) { background: var(--accent); }
+[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):disabled { background: color-mix(in srgb, var(--foreground) 8%, var(--card)); color: color-mix(in srgb, var(--foreground) 78%, var(--card)); }
 .gateway-activity-summary { gap: 0; background: var(--card); border-radius: var(--radius-panel); }
 .gateway-activity-summary article { border-radius: 0; background: transparent; box-shadow: none; }
 .gateway-task-feed, .gateway-task-feed:not(.is-compact) { border: 0; border-radius: 0; background: transparent; }
@@ -214,7 +218,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .cost-workbench .gateway-activity-summary article:last-child { grid-column: auto; }
   .cost-workbench .gateway-activity-summary article { padding: 16px 12px; }
   .gateway-task-feed.is-compact .gateway-task-feed-heading { flex-direction: row; align-items: center; gap: 8px; padding: 14px 0; }
-  .gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 16px; }
+  .gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 15px; }
   .gateway-task-feed.is-compact .gateway-feed-actions { font-size: 12px; }}
 
 /* Searchable key directory follows the shared compact table layout. */
@@ -270,14 +274,13 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 /* Supplier administration follows the shared sidebar/section hierarchy. */
 .supplier-section-heading { margin: 4px 0 16px; }
-.supplier-section-heading h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
+.supplier-section-heading h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
 .supplier-section-heading p { margin: 8px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.6; }
 .supplier-admin-surface { display: grid; gap: 28px; }
 .supplier-admin-surface .provider-admin-block { background: var(--muted); border-radius: 12px; padding-bottom: 20px; }
 .supplier-admin-surface .provider-balance-row { padding-bottom: 0; }
 @media (max-width: 580px) {
   .supplier-section-heading { margin-bottom: 14px; }
-  .supplier-section-heading h2 { font-size: 21px; }
   .supplier-admin-surface { gap: 20px; }}
 
 .supplier-admin-surface .provider-balance-row { border-bottom: 0; }

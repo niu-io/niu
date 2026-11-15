@@ -15,12 +15,16 @@ import {
   requestSuffix,
 } from '../legacy-redirects';
 import { shouldDeferLegacyRedirect } from '../legacy-redirect-route';
+import LegacyRedirectRoute, {
+  clientLoader as legacyRedirectLoader,
+} from '../legacy-redirect-route';
 import { routeImporters } from '../prefetch';
 import type { RouteHandle } from '../router-context';
 
 export const ADMIN_PROVIDER_SECTIONS = [
   'overview',
   'models',
+  'offers',
   'usage',
   'consumption',
   'settlements',
@@ -28,6 +32,7 @@ export const ADMIN_PROVIDER_SECTIONS = [
   'keys',
   'api-keys',
   'configuration',
+  'settings',
 ] as const;
 
 export const ADMIN_SUPPLIER_SECTIONS = [
@@ -169,6 +174,16 @@ export const adminRoute: RouteObject = {
       }),
     },
     {
+      path: 'authentication',
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
+    },
+    {
+      path: 'oauth',
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
+    },
+    {
       id: 'admin-providers',
       path: 'providers',
       lazy: bindLazy(routeImporters.providers, {
@@ -224,6 +239,11 @@ export const adminRoute: RouteObject = {
       path: 'providers/:providerId/consumption',
       loader: legacyAdminProviderDetailLoader('usage'),
       element: <LegacyAdminProviderDetailRedirect section="usage" />,
+    },
+    {
+      path: 'providers/:providerId/offers',
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
     },
     {
       id: 'admin-provider-section',

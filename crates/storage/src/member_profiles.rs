@@ -44,7 +44,7 @@ impl Store {
         {
             return Err(StoreError::InvalidOperator);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let active: Option<Uuid> = sqlx::query_scalar(
             "SELECT id FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR UPDATE",
         )
@@ -104,7 +104,7 @@ impl Store {
         .bind(identity_id)
         .fetch_one(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(profile)
     }
 }

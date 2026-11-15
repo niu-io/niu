@@ -309,7 +309,7 @@ impl Store {
             .bind(connection)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((actual_id, inserted > 0))
     }
     pub async fn personal_agent_trace(
@@ -357,7 +357,7 @@ impl Store {
             .bind(owner).bind(q.from_ms).bind(q.to_ms).bind(&q.source).bind(&q.search).bind(&q.status).fetch_one(&mut *tx).await?;
         let by_day:Vec<Value>=sqlx::query_scalar(&format!("SELECT jsonb_build_object('day',to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD'),'trace_count',count(*)::text,'failed',count(*) FILTER(WHERE status='failed')::text) FROM personal_agent_traces WHERE {filter} GROUP BY to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD') ORDER BY to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD')"))
             .bind(owner).bind(q.from_ms).bind(q.to_ms).bind(&q.source).bind(&q.search).bind(&q.status).fetch_all(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({"rows":rows,"summary":summary,"by_day":by_day,"offset":q.offset,"limit":q.limit}))
     }
 }

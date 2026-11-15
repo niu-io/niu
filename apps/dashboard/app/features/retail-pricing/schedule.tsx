@@ -10,7 +10,7 @@ export function SellingSchedule({ schedule, currency, compact = false }: { sched
   if (schedule.kind === 'media') {
     const formatted = mediaAmount(schedule.amount_units, schedule.decimal_places);
     const price = `${currency} ${formatted} / ${schedule.per_quantity.numerator}${schedule.per_quantity.denominator === '1' ? '' : '/' + schedule.per_quantity.denominator} ${schedule.meter}`;
-    if (compact) return <p className="text-sm">{price}</p>;
+    if (compact) return <p className="text-sm break-words">{price}</p>;
     const rows = [
       [uiT('Price'), price],
       [uiT('Media specification'), `${schedule.dimensions.channel} · ${schedule.dimensions.resolution} · ${schedule.dimensions.reference_video ? uiT('Reference video') : uiT('No reference video')}`],
@@ -20,7 +20,7 @@ export function SellingSchedule({ schedule, currency, compact = false }: { sched
     return <Table  aria-label={uiT('Selling price details')}><TableHeader><TableRow><TableHead>{uiT('Item')}</TableHead><TableHead>{uiT('Value')}</TableHead></TableRow></TableHeader><TableBody>{rows.map(([label, value]) => <TableRow key={label}><TableCell className="!py-2 whitespace-normal text-muted-foreground">{label}</TableCell><TableCell className="!py-2 whitespace-normal break-words">{value}</TableCell></TableRow>)}</TableBody></Table>;
   }
   const baseRates = [['Input / 1M tokens', schedule.prompt_rate], ['Output / 1M tokens', schedule.completion_rate]] as const;
-  if (compact) return <div className="space-y-1 text-sm">{baseRates.map(([label, value]) => <div key={label} className="flex items-baseline justify-between gap-4"><span className="text-muted-foreground">{uiT(label)}</span><span className="font-medium tabular-nums">{money(value, currency)}</span></div>)}</div>;
+  if (compact) return <div className="space-y-1 text-sm">{baseRates.map(([label, value]) => <div key={label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5"><span className="text-muted-foreground">{uiT(label)}</span><span className="font-medium tabular-nums">{money(value, currency)}</span></div>)}</div>;
   const rates = [...baseRates, ['Cache read / 1M tokens', schedule.cached_prompt_rate], ['Cache write / 1M tokens', schedule.cache_write_prompt_rate], ['Reasoning / 1M tokens', schedule.reasoning_completion_rate], ['Request fee', schedule.request_fee_nanos], ['Minimum charge', schedule.minimum_charge_nanos]] as const;
   return <Table  aria-label={uiT('Selling price details')}><TableHeader><TableRow><TableHead>{uiT('Item')}</TableHead><TableHead className="text-right">{uiT('Price')}</TableHead></TableRow></TableHeader><TableBody>
     {rates.map(([label, value]) => <TableRow key={label}><TableCell className="!py-2 whitespace-normal">{uiT(label)}</TableCell><TableCell className="!py-2 text-right tabular-nums whitespace-normal">{value == null ? uiT('Not separately priced') : money(value, currency)}</TableCell></TableRow>)}

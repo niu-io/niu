@@ -209,7 +209,7 @@ impl Store {
         source_key_check: [u8; 32],
         target_key_check: [u8; 32],
     ) -> Result<EncryptionRotation, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SET LOCAL lock_timeout='2s'")
             .execute(&mut *tx)
             .await?;
@@ -246,7 +246,7 @@ impl Store {
                 }
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(EncryptionRotation {
             operation,
             source_key_check,
@@ -275,7 +275,7 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         let (table, column, predicate, identity) = target.binding();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // JSONB timestamp/bytea rendering contributes to the record digest.
         // Pin both conventions instead of depending on session defaults.
         sqlx::query(
@@ -332,7 +332,7 @@ impl Store {
         if updated.rows_affected() != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

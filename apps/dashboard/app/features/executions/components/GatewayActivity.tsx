@@ -3,20 +3,21 @@ import { executionStatusLabel as statusLabel, requestOutcomeLabel as requestStat
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { translateUI, readLocale, formatLocalizedMessage, useLocale as useUILocale } from '@/shell/ui-locale';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
-import { FormSectionSkeleton, ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
+import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import ActivityCharts from './ActivityCharts';
 import ChargeSummaryCard, { formatSettledChargeTotals } from './ChargeSummaryCard';
 import { chargeGroups, unitLabel, type ChargeBreakdown, type UnitChargeBreakdown } from './charge-groups';
 import { useRequestTableWidth } from './useRequestTableWidth';
-import RequestTiming, { type RequestTimings } from './RequestTiming';
-import RequestGuardrails from './RequestGuardrails';
+import GatewayRequestDetailSheet, {
+  type GatewayRequest,
+  type GatewayRequestPayload,
+  type TaskEvidence,
+} from './GatewayRequestDetailSheet';
 import { useIsMobile } from '@/hooks/use-mobile';
-import RequestContent from './RequestContent';
 import ProviderLogo from '@/components/ProviderLogo';
 import PageHeader from '@/components/PageHeader';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
-import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,57 +43,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { formatUnitAtoms, money } from '@/lib/money';
 import { formatDurationMs } from '@/lib/duration';
 
-type TaskEvidence = {
-  execution_id: string;
-  source: string;
-  record_id: string;
-  coverage: 'complete' | 'partial' | 'unknown';
-  outcomes: Array<{
-    authority: 'agent_claim' | 'deterministic_validator' | 'human_acceptance';
-    result: 'accepted' | 'rejected' | 'inconclusive';
-  }>;
-};
-type UnitChargeDetail = {
-  definition_revision: string;
-  name?: string;
-  unit_name?: string;
-  display_precision: number;
-  atoms_per_unit: string;
-  charged_atoms: string;
-  restored_atoms: string;
-  net_atoms: string;
-};
-type GatewayRequest = {
-  admission_denial?: import('@niu-io/sdk/admin').GatewayAdmissionDenial | null;
-  request_kind?: 'video' | 'inference';
-  attempt_id: string;
-  reference?: string;
-  operation_id: string;
-  api_key_id: string | null;
-  key_name: string | null;
-  task_id: string | null;
-  task_evidence: TaskEvidence | null;
-  model: string;
-  provider_model: string | null;
-  created_at: string;
-  dispatched_at: string | null;
-  completed_at: string | null;
-  duration_ms: number | null;
-  timing?: RequestTimings | null;
-  execution: string;
-  failure?: {kind: string; upstream_http_status: number | null} | null;
-  output_guardrail_outcome?: 'allowed' | 'redacted' | 'blocked' | 'indeterminate' | null;
-  customer_charge_currency: string | null;
-  customer_charge_nanos: string | null;
-  customer_unit_charge?: UnitChargeDetail | null;
-  customer_charge_status: 'charged' | 'pending' | 'unpriced' | 'not_charged' | string;
-  usage_confidence: string;
-  prompt_tokens: string | null;
-  completion_tokens: string | null;
-  cached_input_tokens?: string | null;
-  reasoning_output_tokens?: string | null;
-  finish_reasons?: Array<{index: number; reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'function_call'}> | null;
-};
 type ModelUsage = {
   model_alias: string;
   request_count: number;
@@ -194,16 +144,6 @@ function localDayStart(value: string) {
   return new Date(year, month - 1, day).getTime();
 }
 
-const failureDescriptions: Record<string, string> = {
-  upstream_http_error: 'The Provider rejected the request.',
-  upstream_region_unavailable: 'This model is unavailable in the upstream account’s region.',
-  upstream_account_restricted: 'The upstream account is restricted for this service. Contact the Provider to restore access.',
-  upstream_timeout: 'The upstream request exceeded its deadline.',
-  response_stream_cancelled: 'Response delivery ended before the stream completed. This does not confirm that the Provider stopped processing.',
-  upstream_connection_error: 'Could not connect to the upstream service.',
-  upstream_transport_error: 'The upstream request failed during transport.',
-  upstream_invalid_response: 'The upstream service returned an invalid response.',
-};
 const filterStatusLabel = (value: string) => value === 'recorded_failure' ? translateUI('Failed') : statusLabel(value);
 
 function filterQuery(filters: ActivityFilters) {
@@ -349,7 +289,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     detailSheet.current.scrollTop = 0;
     detailHeading.current?.focus({preventScroll:true});
   }, [selectedAttempt]);
-  const [payload, setPayload] = useState<{request: unknown; response: string; content_type: string; complete: boolean; truncated: boolean; expires_at: string} | null>(null);
+  const [payload, setPayload] = useState<GatewayRequestPayload | null>(null);
   const [payloadLoading, setPayloadLoading] = useState(false);
   const [payloadError, setPayloadError] = useState('');
   const [payloadRevision, setPayloadRevision] = useState(0);
@@ -700,11 +640,17 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const loadingCaption = loading && !summary ? uiT("Loading activity…") : uiT("Range total unavailable");
   const tokenCoverage = !summary ? loadingCaption
     : categoryMetric ? categories
-      ? uiF("{0} requests reported · {1} unknown · included in {2}", [categoryReported?.toLocaleString(readUILocale()), categoryUnknown?.toLocaleString(readUILocale()), tokenMetric === 'cached' ? uiT("input") : uiT("output")])
+      ? (categoryReported === 1
+        ? uiF("1 request reported · {0} unknown · included in {1}", [categoryUnknown?.toLocaleString(readUILocale()), tokenMetric === 'cached' ? uiT("input") : uiT("output")])
+        : uiF("{0} requests reported · {1} unknown · included in {2}", [categoryReported?.toLocaleString(readUILocale()), categoryUnknown?.toLocaleString(readUILocale()), tokenMetric === 'cached' ? uiT("input") : uiT("output")]))
       : uiT("Category reporting unavailable")
     : tokenMetric === 'total'
-      ? uiF("{0} requests reported · {1} unknown{2}", [aggregate.usage_count.toLocaleString(readUILocale()), (aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale()), aggregate.usage_count ? uiF(" · {0} prompt · {1} output", [BigInt(aggregate.prompt_tokens).toLocaleString(readUILocale()), BigInt(aggregate.completion_tokens).toLocaleString(readUILocale())]) : ''])
-      : uiF("{0} requests reported · {1} unknown", [aggregate.usage_count.toLocaleString(readUILocale()), (aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale())]);
+      ? (aggregate.usage_count === 1
+        ? uiF("1 request reported · {0} unknown{1}", [(aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale()), uiF(" · {0} prompt · {1} output", [BigInt(aggregate.prompt_tokens).toLocaleString(readUILocale()), BigInt(aggregate.completion_tokens).toLocaleString(readUILocale())])])
+        : uiF("{0} requests reported · {1} unknown{2}", [aggregate.usage_count.toLocaleString(readUILocale()), (aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale()), aggregate.usage_count ? uiF(" · {0} prompt · {1} output", [BigInt(aggregate.prompt_tokens).toLocaleString(readUILocale()), BigInt(aggregate.completion_tokens).toLocaleString(readUILocale())]) : '']))
+      : (aggregate.usage_count === 1
+        ? uiF("1 request reported · {0} unknown", [(aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale())])
+        : uiF("{0} requests reported · {1} unknown", [aggregate.usage_count.toLocaleString(readUILocale()), (aggregate.request_count - aggregate.usage_count).toLocaleString(readUILocale())]));
   const customerTotals = formatSettledChargeTotals(aggregate);
   const averageDuration = summary?.average_duration_ms;
   const percentileTiming = summary?.latency_percentiles?.boundary === 'gateway_body_ms' ? summary.latency_percentiles : undefined;
@@ -871,7 +817,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
 
       {statisticsOnly && !error && <section className="panel activity-model-breakdown">
         <div className="panel-heading"><div><h2>{uiT("Model usage")}</h2><p>{uiT("Ranked by reported token volume.")}</p></div><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("Investigate requests")}</Link></div>
-        {loading && !summary ? <TableSkeleton columns={6} rows={4} label={uiT("Loading model activity…")} /> : !hasModelUsageData ? <Empty className="activity-model-empty min-h-32"><EmptyHeader><EmptyMedia variant="icon"><Activity size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("Model usage data is unavailable for this gateway response.")}</EmptyDescription></EmptyHeader></Empty> : aggregate.usage_by_model.length ? <div className="activity-model-table-wrap"><ShadcnTable><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input tokens")}</TableHead><TableHead className="text-right">{uiT("Output tokens")}</TableHead><TableHead>{uiT("Usage coverage")}</TableHead><TableHead className="text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{aggregate.usage_by_model.map(item => <TableRow key={item.model_alias}><TableHead scope="row">{catalogTitle(item.model_alias)}{catalogTitle(item.model_alias) !== item.model_alias && <span className="sr-only"> {item.model_alias}</span>}</TableHead><TableCell className="text-right tabular-nums">{item.request_count.toLocaleString(readUILocale())}</TableCell><TableCell className="text-right tabular-nums">{item.usage_count ? BigInt(item.prompt_tokens).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell className="text-right tabular-nums">{item.usage_count ? BigInt(item.completion_tokens).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell>{item.unknown_usage_count ? uiF("{0} requests reported · {1} unknown", [item.usage_count, item.unknown_usage_count]) : uiF("{0} requests reported", [item.usage_count])}</TableCell><TableCell className="text-right"><Button asChild variant="ghost" size="icon"><Link aria-label={uiF("View requests for {0}", [item.model_alias])} to={requestEvidenceHref(workspaceRoot, { ...filters, model: item.model_alias })} title={uiT("View requests")}><ArrowUpRight className="size-4" aria-hidden="true" /><span className="sr-only">{uiT("View requests")}</span></Link></Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div> : <Empty className="min-h-60"><EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true"/></EmptyMedia><EmptyTitle>{hasActivityFilters ? uiT("No matching model activity") : uiT("No model activity yet")}</EmptyTitle><EmptyDescription>{hasActivityFilters ? uiT("Adjust or clear the filters to see more activity.") : uiT("Calls sent through Chat or your application appear here.")}</EmptyDescription></EmptyHeader><EmptyContent>{hasActivityFilters ? <Button variant="outline" onClick={() => setFilters({from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: ''})}>{uiT("Clear filters")}</Button> : <Button asChild variant="outline"><Link to={newChatHref}>{uiT("Open Chat")}</Link></Button>}</EmptyContent></Empty>}
+        {loading && !summary ? <TableSkeleton columns={6} rows={4} label={uiT("Loading model activity…")} /> : !hasModelUsageData ? <Empty className="activity-model-empty min-h-32"><EmptyHeader><EmptyMedia variant="icon"><Activity size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("Model usage data is unavailable for this gateway response.")}</EmptyDescription></EmptyHeader></Empty> : aggregate.usage_by_model.length ? <div className="activity-model-table-wrap"><ShadcnTable><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input tokens")}</TableHead><TableHead className="text-right">{uiT("Output tokens")}</TableHead><TableHead>{uiT("Usage coverage")}</TableHead><TableHead className="text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{aggregate.usage_by_model.map(item => <TableRow key={item.model_alias}><TableHead scope="row">{catalogTitle(item.model_alias)}{catalogTitle(item.model_alias) !== item.model_alias && <span className="sr-only"> {item.model_alias}</span>}</TableHead><TableCell className="text-right tabular-nums">{item.request_count.toLocaleString(readUILocale())}</TableCell><TableCell className="text-right tabular-nums">{item.usage_count ? BigInt(item.prompt_tokens).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell className="text-right tabular-nums">{item.usage_count ? BigInt(item.completion_tokens).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell>{item.unknown_usage_count ? (item.usage_count === 1 ? uiF("1 request reported · {0} unknown", [item.unknown_usage_count]) : uiF("{0} requests reported · {1} unknown", [item.usage_count, item.unknown_usage_count])) : (item.usage_count === 1 ? uiT("1 request reported") : uiF("{0} requests reported", [item.usage_count]))}</TableCell><TableCell className="text-right"><Button asChild variant="ghost" size="icon"><Link aria-label={uiF("View requests for {0}", [item.model_alias])} to={requestEvidenceHref(workspaceRoot, { ...filters, model: item.model_alias })} title={uiT("View requests")}><ArrowUpRight className="size-4" aria-hidden="true" /><span className="sr-only">{uiT("View requests")}</span></Link></Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div> : <Empty className="min-h-60"><EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true"/></EmptyMedia><EmptyTitle>{hasActivityFilters ? uiT("No matching model activity") : uiT("No model activity yet")}</EmptyTitle><EmptyDescription>{hasActivityFilters ? uiT("Adjust or clear the filters to see more activity.") : uiT("Calls sent through Chat or your application appear here.")}</EmptyDescription></EmptyHeader><EmptyContent>{hasActivityFilters ? <Button variant="outline" onClick={() => setFilters({from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: ''})}>{uiT("Clear filters")}</Button> : <Button asChild variant="outline"><Link to={newChatHref}>{uiT("Open Chat")}</Link></Button>}</EmptyContent></Empty>}
         {!hideBillingLink && !headerAction && <div className="activity-stat-links"><Link to={`${workspaceRoot}/billing`}>{uiT("View billing")}</Link></div>}
       </section>}
 
@@ -879,11 +825,11 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         const needle = compact ? '' : requestSearch;
         const visibleRequests = requests;
         return <section className={`gateway-task-feed panel${compact ? ' is-compact' : ''}`} aria-labelledby="gateway-task-feed-title" aria-busy={loading}>
-        <div className="gateway-task-feed-heading" hidden={!compact}><div className="flex flex-wrap items-baseline gap-2"><h2 id="gateway-task-feed-title">{compact ? showFirstUse ? uiT("Get started") : uiT("Recent requests") : uiT("Requests")}</h2>{compact && !showFirstUse && requests.length > 0 && <span className="text-xs text-muted-foreground">{uiF("Showing latest {0}", [requests.length.toLocaleString(readUILocale())])}</span>}</div><div className="gateway-feed-actions">{compact && <><Link to={requestEvidenceHref(workspaceRoot, filters).replace(`${workspaceRoot}/executions`, `${workspaceRoot}/usage`)}>{uiT("Workspace usage")}</Link><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("View all requests")}</Link></>}{!compact && <Badge variant="outline">{visibleRequests.length.toLocaleString(readUILocale())}{" "}{uiT("requests")}</Badge>}</div></div>
+        <div className="gateway-task-feed-heading" hidden={!compact}><div className="flex flex-wrap items-baseline gap-2"><h2 id="gateway-task-feed-title">{compact ? showFirstUse ? uiT("Get started") : uiT("Recent requests") : uiT("Requests")}</h2>{compact && !showFirstUse && requests.length > 0 && <span className="text-xs text-muted-foreground">{uiF("Showing latest {0}", [requests.length.toLocaleString(readUILocale())])}</span>}</div><div className="gateway-feed-actions">{compact && <><Link to={requestEvidenceHref(workspaceRoot, filters).replace(`${workspaceRoot}/executions`, `${workspaceRoot}/usage`)}>{uiT("Workspace usage")}</Link><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("View all requests")}</Link></>}{!compact && <Badge variant="outline">{visibleRequests.length === 1 ? uiT("1 request") : uiF("{0} requests", [visibleRequests.length.toLocaleString(readUILocale())])}</Badge>}</div></div>
         {loading && requests.length > 0 && <p role="status" className="px-4 pb-3 text-sm text-muted-foreground">{uiT("Updating results for the current filters. The rows below are from the previous result.")}</p>}
         {!compact && !loading && !error && histogram && <section className="request-histogram" aria-label={uiT("Request volume")}>
           <div className="request-histogram-heading"><span className="tabular-nums">{uiT("Request volume")} · {uiF("Peak: {0}", [histogram.max.toLocaleString(readUILocale())])}</span><Button variant="ghost" size="icon" aria-label={histogramOpen ? uiT("Hide request histogram") : uiT("Show request histogram")} onClick={() => setHistogramOpen(value => !value)}>{histogramOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</Button></div>
-          {histogramOpen && <><svg viewBox="0 0 960 90" preserveAspectRatio="none" role="img" aria-label={uiT("Requests over time")}><line x1="0" y1="88.5" x2="960" y2="88.5" stroke="var(--border)" strokeWidth={1} vectorEffect="non-scaling-stroke" /><line x1="0" y1="45" x2="960" y2="45" stroke="var(--border)" strokeOpacity={0.5} strokeDasharray="3 3" strokeWidth={1} vectorEffect="non-scaling-stroke" />{histogram.buckets.map((bucket, index) => { const span = Math.max(1, histogram.end - histogram.start); const x = (bucket.start - histogram.start) / span * 956 + 4; const width = Math.max(2, (bucket.end - bucket.start) / span * 956 - 6); const barHeight = bucket.count > 0 ? Math.max(5, bucket.count / histogram.max * 78) : 1.5; return <rect key={index} className="request-histogram-bar" x={x} y={88 - barHeight} width={width} height={barHeight} fill="currentColor" opacity={bucket.count > 0 ? (width > 48 ? 0.65 : 0.85) : 0.14} stroke={bucket.count > 0 && width > 48 ? "currentColor" : undefined} strokeWidth={bucket.count > 0 && width > 48 ? 1 : undefined} vectorEffect="non-scaling-stroke"><title>{timestamp(new Date(bucket.start).toISOString())}: {bucket.count.toLocaleString(readUILocale())}{" "}{uiT("requests")}</title></rect>; })}</svg><div className="request-histogram-axis tabular-nums"><span>{timestamp(new Date(histogram.start).toISOString())}</span><span>{timestamp(new Date(histogram.end).toISOString())}</span></div></>}
+          {histogramOpen && <><svg viewBox="0 0 960 90" preserveAspectRatio="none" role="img" aria-label={uiT("Requests over time")}><line x1="0" y1="88.5" x2="960" y2="88.5" stroke="var(--border)" strokeWidth={1} vectorEffect="non-scaling-stroke" /><line x1="0" y1="45" x2="960" y2="45" stroke="var(--border)" strokeOpacity={0.5} strokeDasharray="3 3" strokeWidth={1} vectorEffect="non-scaling-stroke" />{histogram.buckets.map((bucket, index) => { const span = Math.max(1, histogram.end - histogram.start); const x = (bucket.start - histogram.start) / span * 956 + 4; const width = Math.max(2, (bucket.end - bucket.start) / span * 956 - 6); const barHeight = bucket.count > 0 ? Math.max(5, bucket.count / histogram.max * 78) : 1.5; return <rect key={index} className="request-histogram-bar" x={x} y={88 - barHeight} width={width} height={barHeight} fill="currentColor" opacity={bucket.count > 0 ? (width > 48 ? 0.65 : 0.85) : 0.14} stroke={bucket.count > 0 && width > 48 ? "currentColor" : undefined} strokeWidth={bucket.count > 0 && width > 48 ? 1 : undefined} vectorEffect="non-scaling-stroke"><title>{timestamp(new Date(bucket.start).toISOString())}: {bucket.count === 1 ? uiT("1 request") : uiF("{0} requests", [bucket.count.toLocaleString(readUILocale())])}</title></rect>; })}</svg><div className="request-histogram-axis tabular-nums"><span>{timestamp(new Date(histogram.start).toISOString())}</span><span>{timestamp(new Date(histogram.end).toISOString())}</span></div></>}
         </section>}
         {loading && requests.length === 0 && <TableSkeleton columns={compact ? 4 : 7} rows={compact ? 4 : 6} label={uiT("Loading requests…")} />}
         {!loading && !error && visibleRequests.length === 0 && (requests.length === 0 && showFirstUse ? emptyState : <Empty className="gateway-task-empty"><EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true"/></EmptyMedia><EmptyTitle role="heading" aria-level={3}>{needle ? uiT("No matching requests") : inactiveKey ? uiT("No requests recorded for this key") : hasActivityFilters ? uiT("No matching requests") : uiT("No requests yet")}</EmptyTitle><EmptyDescription>{needle ? uiT("Adjust or clear the search to see more requests.") : inactiveKey ? uiT("This key is revoked or expired, so it cannot start new requests. Requests appear here only if it was used while active.") : hasActivityFilters ? uiT("Adjust or clear the filters to see more activity.") : uiT("Calls sent through Chat or your application appear here.")}</EmptyDescription></EmptyHeader>{(Boolean(needle) || hasActivityFilters || !compact) && <EmptyContent className="flex-row flex-wrap justify-center gap-2">{needle ? <Button type="button" variant="outline" onClick={() => {setQuickFilter(''); setRequestSearch('');}}>{uiT("Clear search")}</Button> : hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: '' })}>{uiT("Clear filters")}</Button> : <Button asChild variant="outline"><Link to={newChatHref}>{uiT("Open Chat")}</Link></Button>}</EmptyContent>}</Empty>)}
@@ -895,44 +841,35 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       </section>;
       })()}
     </>}
-    <Sheet open={Boolean(selectedRequest)} onOpenChange={open => { if (!open) { setSelectedAttempt(null); onExternalRequestClose?.(); if (location.hash.startsWith('#gateway-attempt-')) navigate({pathname:location.pathname,search:location.search,hash:''},{replace:true}); } }}>
-      <SheetContent className="w-full gap-0 overflow-hidden sm:max-w-xl" onOpenAutoFocus={event => {
-        event.preventDefault();
-        detailHeading.current?.focus({preventScroll:true});
-      }} onCloseAutoFocus={event => {
-        if (requestOpener.current?.isConnected) { event.preventDefault(); requestOpener.current.focus({preventScroll:true}); }
-        requestOpener.current = null;
-      }}>
-        <SheetHeader className="shrink-0 pr-12"><SheetTitle ref={detailHeading} tabIndex={-1}>{uiT("Request details")}</SheetTitle><SheetDescription className="flex min-w-0 items-center gap-2 break-all">{selectedRequest && <ProviderLogo provider={modelIdentity({ id: selectedRequest.model })} size="small" />}{selectedRequest && <>{catalogTitle(selectedRequest.model)}{catalogTitle(selectedRequest.model) !== selectedRequest.model && <span className="text-xs text-muted-foreground">({selectedRequest.model})</span>}</>}</SheetDescription></SheetHeader>
-        {selectedRequest && <div ref={detailSheet} role="region" tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2" aria-label={uiT("Request detail content")}>
-          <div className="request-detail-metrics">
-            <div><span>{requestDurationLabel(selectedRequest)}</span><strong>{requestLatency(selectedRequest)}</strong></div>
-            <div><span>{uiT("Customer charge")}</span><strong>{requestCharge(selectedRequest)}</strong>{selectedRequest.customer_unit_charge != null && BigInt(selectedRequest.customer_unit_charge.restored_atoms) > 0n && <small className="text-xs text-muted-foreground">{uiF("Refunded {0}", [formatUnitAtoms(selectedRequest.customer_unit_charge.restored_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)])}</small>}{selectedRequest.customer_charge_status === 'pending' && <small className="text-xs text-muted-foreground">{uiT("Outcome or usage is unconfirmed; not counted as zero.", "结果或用量尚未确认，暂未结算也不记为零费用。")}</small>}{selectedRequest.customer_charge_status === 'owner_funded' && <small className="text-xs text-muted-foreground">{uiT("Own API key used; your Provider bills directly.", "使用自有 API 密钥，不由 Niu 扣费，费用以 Provider 为准。")}</small>}</div>
-            {selectedRequest.request_kind !== 'video' && <>
-            <div><span>{uiT("Input tokens")}</span><strong className="break-all">{selectedRequest.prompt_tokens == null ? '—' : BigInt(selectedRequest.prompt_tokens).toLocaleString(readUILocale())}</strong><small className="text-xs text-muted-foreground">{uiT("Cached:")}{" "}{selectedRequest.cached_input_tokens == null ? uiT("Unknown") : BigInt(selectedRequest.cached_input_tokens).toLocaleString(readUILocale())}</small></div>
-            <div><span>{uiT("Output tokens")}</span><strong className="break-all">{selectedRequest.completion_tokens == null ? '—' : BigInt(selectedRequest.completion_tokens).toLocaleString(readUILocale())}</strong><small className="text-xs text-muted-foreground">{uiT("Reasoning:")}{" "}{selectedRequest.reasoning_output_tokens == null ? uiT("Unknown") : BigInt(selectedRequest.reasoning_output_tokens).toLocaleString(readUILocale())}</small></div>
-            </>}
-          </div>
-          {/* Admission refusals are request records, not saved video jobs. */}
-          {selectedRequest.request_kind === 'video' && !selectedRequest.admission_denial && <div className="grid justify-items-start gap-2"><p className="text-sm text-muted-foreground">{uiT("Video generation is asynchronous. Inspect saved status, lifecycle timing and the original charge in Video.")}</p><Button asChild variant="outline"><Link to={`/generations?${new URLSearchParams({workspace:workspaceSegment,mode:'video',job:selectedRequest.attempt_id,...(selectedRequest.api_key_id ? {key:keyPublicSlug(selectedRequest.api_key_id) ?? selectedRequest.api_key_id}:{})})}`}>{uiT("Open video result")}</Link></Button></div>}
-          {selectedRequest.request_kind !== 'video' && <RequestTiming timing={selectedRequest.timing} outputTokens={selectedRequest.completion_tokens} />}
-          <RequestGuardrails
-            key={`${token}:${organization}:${project}:${selectedRequest.attempt_id}`}
-            token={token}
-            endpoint={`/api/v1/organizations/${organization}/projects/${project}/requests/${selectedRequest.attempt_id}/guardrails`}
-            historyPath={`${workspaceRoot}/guardrails?tab=history`}
-          />
-          <div className="gateway-request-detail"><h3 className="mb-3 text-sm font-medium">{uiT("Overview")}</h3><dl>{admissionDenial && <div><dt>{uiT("Failure reason")}</dt><dd>{admissionDenial.kind === 'key_request_rate_exceeded' ? uiT("API key request rate limit reached") : uiT("API key request rate is zero")}<span className="block">{uiT("Gateway 429")}</span></dd></div>}{selectedRequest.failure && <div><dt>{uiT("Failure reason")}</dt><dd>{uiT(failureDescriptions[selectedRequest.failure.kind] ?? "Not reported")}{Number.isInteger(selectedRequest.failure.upstream_http_status) && selectedRequest.failure.upstream_http_status! >= 100 && selectedRequest.failure.upstream_http_status! <= 599 && <span className="block">{uiT("Provider")}{" "}{selectedRequest.failure.upstream_http_status}</span>}</dd></div>}<div><dt>{uiT("Provider model")}</dt><dd>{selectedRequest.provider_model ?? <>{uiT("Not reported")}<span className="block text-xs text-muted-foreground">{uiT("The Provider did not report a model identity for this request.", "Provider 未报告此请求的模型身份。")}</span></>}</dd></div><div><dt>{uiT("Provider status")}</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div>{selectedRequest.request_kind !== 'video' && <div><dt>{uiT("Finish reason")}</dt><dd>{selectedRequest.finish_reasons?.length ? selectedRequest.finish_reasons.map(choice => <span className="block" key={choice.index}>{selectedRequest.finish_reasons!.length > 1 ? uiF("Choice {0}: ", [choice.index + 1]) : ''}{uiT({stop: 'Stopped', length: 'Token limit reached', tool_calls: 'Tool calls', content_filter: 'Content filter', function_call: 'Function call'}[choice.reason] ?? "Unknown")}</span>) : uiT("Not reported")}</dd></div>}{selectedRequest.timing?.http_status != null && <div><dt>{uiT("Delivery status")}</dt><dd>{selectedRequest.timing.http_status}</dd></div>}<div><dt>{uiT("Time")}</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>{requestedKeyName ? uiT("Requested API key") : uiT("API key")}</dt><dd>{selectedRequest.key_name ?? requestedKeyName ?? uiT("Unknown")}</dd></div></dl>{selectedRequest.failure && <div className="mt-4 space-y-2"><h4 className="text-sm font-medium">{uiT("Next steps")}</h4><p className="text-sm text-muted-foreground">{failureNextStep(selectedRequest.failure)}</p><div className="flex flex-wrap gap-2"><Button asChild variant="outline" size="sm"><Link to={`${workspaceRoot}/executions?modelAlias=${encodeURIComponent(selectedRequest.model)}`}>{uiT("View requests for this model")}</Link></Button></div></div>}</div>
-          {payloadLoading || payloadOwner !== payloadIdentity ? <FormSectionSkeleton fields={3} label={uiT("Loading request content…")} /> : payloadError ? <div className="grid justify-items-start gap-3"><p role="alert">{uiT(payloadError)}</p><Button variant="outline" size="sm" onClick={() => setPayloadRevision(value => value + 1)}>{uiT("Retry request content")}</Button></div> : payload ? <div className="space-y-4">
-            <RequestContent key={selectedRequest.attempt_id} payload={payload} />
-            <p className="text-sm text-muted-foreground">{[payload.truncated ? uiT("Response exceeds the capture limit; only the first 1 MB is shown.") : '', !payload.complete ? uiT("The response did not finish.") : '', `${uiT("Content expires")} ${timestamp(payload.expires_at)}.`].filter(Boolean).join(' ')}</p>
-          </div> : <p className="text-sm text-muted-foreground">{uiT("Request and response bodies were not retained or have expired.")}</p>}
-        </div>}
-        {selectedRequest && <SheetFooter className="shrink-0 flex-row justify-between">
-            <Button variant="outline" size="sm" disabled={requests.findIndex(item => item.attempt_id === selectedAttempt) <= 0} onClick={() => openRequest(requests[requests.findIndex(item => item.attempt_id === selectedAttempt) - 1].attempt_id)}>{uiT("Previous request")}</Button>
-            <Button variant="outline" size="sm" disabled={requests.findIndex(item => item.attempt_id === selectedAttempt) < 0 || requests.findIndex(item => item.attempt_id === selectedAttempt) >= requests.length - 1} onClick={() => openRequest(requests[requests.findIndex(item => item.attempt_id === selectedAttempt) + 1].attempt_id)}>{uiT("Next request")}</Button>
-        </SheetFooter>}
-      </SheetContent>
-    </Sheet>
+    <GatewayRequestDetailSheet
+      selectedRequest={selectedRequest}
+      onClose={() => { setSelectedAttempt(null); onExternalRequestClose?.(); if (location.hash.startsWith('#gateway-attempt-')) navigate({pathname:location.pathname,search:location.search,hash:''},{replace:true}); }}
+      detailHeading={detailHeading}
+      detailSheet={detailSheet}
+      requestOpener={requestOpener}
+      requestDurationLabel={requestDurationLabel}
+      requestLatency={requestLatency}
+      requestCharge={requestCharge}
+      workspaceSegment={workspaceSegment}
+      workspaceRoot={workspaceRoot}
+      keyPublicSlug={keyPublicSlug}
+      token={token}
+      organization={organization}
+      project={project}
+      admissionDenial={admissionDenial}
+      failureNextStep={failureNextStep}
+      timestamp={timestamp}
+      requestedKeyName={requestedKeyName}
+      payloadLoading={payloadLoading}
+      payloadOwner={payloadOwner}
+      payloadIdentity={payloadIdentity}
+      payloadError={payloadError}
+      onRetryPayload={() => setPayloadRevision(value => value + 1)}
+      payload={payload}
+      canGoPrevious={requests.findIndex(item => item.attempt_id === selectedAttempt) > 0}
+      canGoNext={requests.findIndex(item => item.attempt_id === selectedAttempt) >= 0 && requests.findIndex(item => item.attempt_id === selectedAttempt) < requests.length - 1}
+      onPrevious={() => openRequest(requests[requests.findIndex(item => item.attempt_id === selectedAttempt) - 1].attempt_id)}
+      onNext={() => openRequest(requests[requests.findIndex(item => item.attempt_id === selectedAttempt) + 1].attempt_id)}
+    />
   </>;
 }

@@ -447,7 +447,7 @@ impl Store {
             builder.push(" ON CONFLICT(organization_id,project_id,response_key) DO NOTHING");
             builder.build().execute(&mut *tx).await?.rows_affected()
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((inserted, responses.len() as u64 - inserted))
     }
 
@@ -681,7 +681,7 @@ impl Store {
             }))
         })
         .transpose()?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
 
         Ok(serde_json::json!({
             "source_format": "codex-rollout-jsonl-token_usage_record-v1",
@@ -714,7 +714,7 @@ impl Store {
         .bind(scope.project_id)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

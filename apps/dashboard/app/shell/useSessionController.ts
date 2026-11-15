@@ -8,6 +8,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useLocation, useNavigate, type Location } from 'react-router';
+import { loadAuthConfig } from '@/lib/auth-config';
 import { clearSessionCache, syncCacheAuthority } from '@/lib/query-cache';
 import { canManagePlatform, type AdminSession, type Workspace, type WorkspaceProblem } from './dashboard-context';
 import {
@@ -78,44 +79,52 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
   const authenticationPath = useRef(location.pathname);
   authenticationPath.current = location.pathname;
 
+  const restoreInFlightRef = useRef<Promise<void> | null>(null);
   const authenticate = useCallback(
-    async (credential: string, restoring = false) => {
-      if (restoring && authenticationPath.current === '/installation') return;
-      setError('');
-      connectionController.current?.abort();
-      const controller = new AbortController();
-      connectionController.current = controller;
-      const revision = ++connectionRevision.current;
-      try {
-        const sessionResponse = await fetch('/api/v1/session', {
-          headers: { authorization: 'Bearer ' + credential },
-          signal: controller.signal,
-        });
-        if (revision !== connectionRevision.current || controller.signal.aborted) return;
-        if (!sessionResponse.ok) {
-          if (revision === connectionRevision.current && !(restoring && sessionResponse.status === 401)) {
-            setError('Could not sign in. Try again.');
-          }
-          return;
-        }
-        const sessionValue = (await sessionResponse.json()) as { data: AdminSession };
-        if (revision !== connectionRevision.current || controller.signal.aborted) return;
-        if (restoring && authenticationPath.current === '/installation') return;
-        const nextEffectiveSession = sessionValue.data;
-        const nextAuthorityKey = buildSessionAuthorityKey(credential, nextEffectiveSession);
-        syncAuthorityImmediate(nextAuthorityKey);
-        callbacksRef.current?.resetModels(true);
-        setSession(sessionValue.data);
-        setToken(credential);
+    (credential: string, restoring = false) => {
+      if (restoring && authenticationPath.current === '/installation') return Promise.resolve();
+      if (restoring && restoreInFlightRef.current) return restoreInFlightRef.current;
+      const run = (async () => {
+        setError('');
+        connectionController.current?.abort();
+        const controller = new AbortController();
+        connectionController.current = controller;
+        const revision = ++connectionRevision.current;
         try {
-          sessionStorage.removeItem('niu.signed-out');
+          const sessionResponse = await fetch('/api/v1/session', {
+            headers: { authorization: 'Bearer ' + credential },
+            signal: controller.signal,
+          });
+          if (revision !== connectionRevision.current || controller.signal.aborted) return;
+          if (!sessionResponse.ok) {
+            if (revision === connectionRevision.current && !(restoring && sessionResponse.status === 401)) {
+              setError('Could not sign in. Try again.');
+            }
+            return;
+          }
+          const sessionValue = (await sessionResponse.json()) as { data: AdminSession };
+          if (revision !== connectionRevision.current || controller.signal.aborted) return;
+          if (restoring && authenticationPath.current === '/installation') return;
+          const nextEffectiveSession = sessionValue.data;
+          const nextAuthorityKey = buildSessionAuthorityKey(credential, nextEffectiveSession);
+          syncAuthorityImmediate(nextAuthorityKey);
+          callbacksRef.current?.resetModels(true);
+          setSession(sessionValue.data);
+          setToken(credential);
+          try {
+            sessionStorage.removeItem('niu.signed-out');
+          } catch {
+            /* Storage is optional. */
+          }
+          if (!restoring) setDraftToken('');
         } catch {
-          /* Storage is optional. */
+          if (revision === connectionRevision.current) setError('Could not sign in. Try again.');
         }
-        if (!restoring) setDraftToken('');
-      } catch {
-        if (revision === connectionRevision.current) setError('Could not sign in. Try again.');
-      }
+      })().finally(() => {
+        if (restoreInFlightRef.current === run) restoreInFlightRef.current = null;
+      });
+      if (restoring) restoreInFlightRef.current = run;
+      return run;
     },
     [syncAuthorityImmediate],
   );
@@ -183,6 +192,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     [authenticate, draftToken],
   );
 
+  const isInstallationRoute = location.pathname === '/installation';
   useEffect(() => {
     if (token || health?.status !== 'ok') return;
     try {
@@ -193,31 +203,22 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     } catch {
       /* Storage is optional. */
     }
-    if (location.pathname === '/installation') {
+    if (isInstallationRoute) {
       setSessionChecked(true);
       return;
     }
     const controller = new AbortController();
     const revision = connectionRevision.current;
     void (async () => {
-      const configured = await fetch('/api/v1/auth/config', { signal: controller.signal, cache: 'no-store' });
-      if (configured.ok) {
-        const authConfig = (await configured.json()) as {
-          password_login?: boolean;
-          browser_token_login?: boolean;
-          demo_login?: boolean;
-        };
-        if (
-          authConfig.password_login === true ||
-          authConfig.browser_token_login === true ||
-          authConfig.demo_login === true
-        ) {
-          if (controller.signal.aborted || revision !== connectionRevision.current) return;
-          await authenticate('niu-browser-member-session', true);
-          return null;
-        }
+      const authConfig = await loadAuthConfig({ signal: controller.signal });
+      if (
+        authConfig.password_login === true ||
+        authConfig.browser_token_login === true ||
+        authConfig.demo_login === true
+      ) {
+        if (controller.signal.aborted || revision !== connectionRevision.current) return;
+        await authenticate('niu-browser-member-session', true);
       }
-      return null;
     })()
       .catch(() => {
         /* The login page handles unavailable authentication. */
@@ -226,13 +227,16 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
         if (!controller.signal.aborted) setSessionChecked(true);
       });
     return () => controller.abort();
-  }, [authenticate, token, health?.status, location.pathname]);
+  }, [authenticate, token, health?.status, isInstallationRoute]);
 
-  const refreshWorkspace = useCallback(async () => {
-    if (modeRequest.current) return;
-    const currentModeRevision = modeRevision.current;
-    const revision = connectionRevision.current;
-    const controller = token ? connectionController.current : null;
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshWorkspace = useCallback(() => {
+    if (refreshInFlightRef.current) return refreshInFlightRef.current;
+    const run = (async () => {
+      if (modeRequest.current) return;
+      const currentModeRevision = modeRevision.current;
+      const revision = connectionRevision.current;
+      const controller = token ? connectionController.current : null;
     if (token && (!controller || controller.signal.aborted)) return;
     if (!(await gateway.check())) return;
     let authorityChanged = false;
@@ -346,6 +350,11 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     ) {
       await callbacksRef.current?.refreshModels(true);
     }
+    })().finally(() => {
+      if (refreshInFlightRef.current === run) refreshInFlightRef.current = null;
+    });
+    refreshInFlightRef.current = run;
+    return run;
   }, [token, gateway, navigate, syncAuthorityImmediate]);
 
   useEffect(() => {

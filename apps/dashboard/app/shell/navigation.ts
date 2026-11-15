@@ -25,7 +25,7 @@ export type NavItem = {
 export const navigation: Array<NavItem> = [
   { destination: 'Settings', to: '/settings', label: 'Settings', labelZh: '设置', icon: IconSettings },
   { destination: 'Global', to: '/activity', label: 'Activity', labelZh: '活动', icon: ChartNoAxesCombined },
-  { destination: 'Global', to: '/generations', label: 'Generations', labelZh: '生成对话', icon: IconSparkles },
+  { destination: 'Global', to: '/generations', label: 'Generations', labelZh: '多模态生成', icon: IconSparkles },
   { destination: 'Workspace', to: '.', label: 'Overview', labelZh: '概览', icon: LayoutDashboard },
   { destination: 'Workspace', to: 'models', label: 'Models', labelZh: '模型', icon: Boxes },
   { destination: 'Workspace', to: 'keys', label: 'API keys', labelZh: 'API 密钥', icon: KeyRound },

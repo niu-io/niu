@@ -116,7 +116,7 @@ impl Store {
             upstream_project: project,
             credential_ciphertext,
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedIngestedImageReadiness {
             credential,
             request,

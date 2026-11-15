@@ -58,7 +58,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         let next =
             Self::set_key_ip_policy_in_tx(&mut tx, scope, key, networks, expected, actor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 

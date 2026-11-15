@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountFromNanos, amountToNanos, formatDisplayUnitAtoms, formatFinancialMoney, formatRateMoney, money } from '../../app/lib/money.ts';
+import { amountFromNanos, amountToNanos, formatCompactRateMoney, formatDisplayUnitAtoms, formatFinancialMoney, formatRateMoney, formatStatementMoney, money } from '../../app/lib/money.ts';
 
 describe('money formatting', () => {
   it('retains nanounits beyond Number precision', () => {
@@ -18,6 +18,15 @@ describe('money formatting', () => {
     expect(formatFinancialMoney('9223372036854775807', 'USD')).toBe('$9,223,372,036.854775807');
     expect(formatRateMoney('3000000', 'USD')).toBe('$0.003');
     expect(formatRateMoney('2400000000', 'USD')).toBe('$2.40');
+    expect(formatStatementMoney('800000000', 'USD')).toBe('$0.8000');
+    expect(formatStatementMoney('123456789', 'USD')).toBe('$0.1235');
+    expect(formatStatementMoney('12345', 'USD')).toBe('<$0.0001');
+    expect(formatStatementMoney('-1', 'USD')).toBe('-<$0.0001');
+    expect(formatStatementMoney('0', 'USD')).toBe('$0.0000');
+    expect(formatCompactRateMoney('3000000', 'USD')).toBe('$0.003');
+    expect(formatCompactRateMoney('2400000000', 'USD')).toBe('$2.40');
+    expect(formatCompactRateMoney('1', 'USD')).toBe('<$0.000001');
+    expect(formatCompactRateMoney('0', 'USD')).toBe('$0.00');
     expect(amountFromNanos('12345')).toBe('0.000012345');
   });
 });

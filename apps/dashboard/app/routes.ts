@@ -8,6 +8,7 @@ import {
 const ADMIN_PROVIDER_SECTIONS = [
   'overview',
   'models',
+  'offers',
   'usage',
   'consumption',
   'settlements',
@@ -15,6 +16,7 @@ const ADMIN_PROVIDER_SECTIONS = [
   'keys',
   'api-keys',
   'configuration',
+  'settings',
 ] as const;
 
 const ADMIN_SUPPLIER_SECTIONS = [
@@ -36,6 +38,7 @@ export default [
     layout('shell/content-error-layout.tsx', { id: 'app-content' }, [
       route('connect', 'features/connect/page.tsx', { id: 'connect' }),
       route('login', 'features/login/page.tsx', { id: 'login' }),
+      route('register', 'features/login/page.tsx', { id: 'register' }),
       route('installation', 'features/login/installation-page.tsx', { id: 'installation' }),
       route('invite/:token', 'features/invitations/accept-page.tsx', { id: 'invite' }),
       redirectRoute('legacy-providers', 'providers'),
@@ -62,6 +65,8 @@ export default [
         route('incidents', 'features/incidents/page.tsx', { id: 'admin-incidents' }),
         route('branding', 'features/branding/page.tsx', { id: 'admin-branding' }),
         route('payments', 'features/platform/page.tsx', { id: 'admin-payments' }),
+        redirectRoute('legacy-admin-authentication', 'authentication'),
+        redirectRoute('legacy-admin-oauth', 'oauth'),
         route('providers', 'features/providers/page.tsx', { id: 'admin-providers' }),
         redirectRoute('legacy-admin-model-pools', 'model-pools'),
         redirectRoute('legacy-admin-pools', 'pools'),
@@ -73,6 +78,7 @@ export default [
           redirectRoute('legacy-admin-provider-api-keys', 'providers/:providerId/api-keys'),
         redirectRoute('legacy-admin-provider-configuration', 'providers/:providerId/configuration'),
         redirectRoute('legacy-admin-provider-consumption', 'providers/:providerId/consumption'),
+        redirectRoute('legacy-admin-provider-offers', 'providers/:providerId/offers'),
         route('providers/:providerId/:section', 'features/providers/page.tsx', { id: 'admin-provider-section' }),
         redirectRoute('legacy-admin-suppliers', 'suppliers'),
         ...ADMIN_SUPPLIER_SECTIONS.map(section =>
@@ -115,6 +121,8 @@ export default [
         route('keys', 'features/keys/page.tsx', { id: 'workspace-keys' }),
         route('organization', 'features/organization/legacy-route.tsx', { id: 'workspace-organization' }),
         route('settings', 'features/workspace/settings-page.tsx', { id: 'workspace-settings' }),
+        redirectRoute('legacy-workspace-members', 'members'),
+        route('events/:slug?', 'features/event-subscriptions/page.tsx', { id: 'workspace-events' }),
         route('users', 'features/operators/legacy-route.tsx', { id: 'workspace-users' }),
         route('guardrails', 'features/guardrails/page.tsx', { id: 'workspace-guardrails' }),
         route('guardrails/*', 'features/guardrails/legacy-route.tsx', { id: 'workspace-guardrails-legacy' }),

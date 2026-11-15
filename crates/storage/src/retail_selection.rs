@@ -228,7 +228,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let selected = Self::select_retail_price_in_tx(&mut tx, head, customer).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(selected)
     }
     /// Platform management list only. Cursor and rows share a statement snapshot;

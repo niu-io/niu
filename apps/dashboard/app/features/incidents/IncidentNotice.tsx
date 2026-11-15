@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 import { loadIncidents } from './api';
 
@@ -21,10 +21,16 @@ export default function IncidentNotice({ token }: { token: string }) {
       if (pending) return;
       pending = true;
       try {
-        const page = await loadIncidents(token, 'active', controller.signal);
+        const hasActive = await fetchQuery<boolean>(
+          token,
+          cacheKey,
+          async signal => {
+            const page = await loadIncidents(token, 'active', signal);
+            return page.data.length > 0;
+          },
+          { freshMs: 0, awaitRevalidate: true, background: true, signal: controller.signal },
+        );
         if (!controller.signal.aborted) {
-          const hasActive = page.data.length > 0;
-          primeQuery(token, cacheKey, hasActive);
           setActive(hasActive);
           setError(false);
         }

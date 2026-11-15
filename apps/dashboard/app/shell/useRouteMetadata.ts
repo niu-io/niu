@@ -65,7 +65,8 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     location.pathname.startsWith('/activity') ||
     settingsArea ||
     supplierArea;
-  const loginArea = location.pathname === '/login' || location.pathname === '/installation';
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const loginArea = normalizedPath === '/login' || normalizedPath === '/register' || normalizedPath === '/installation';
   const inviteArea = location.pathname === '/invite' || location.pathname.startsWith('/invite/');
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
 
@@ -107,9 +108,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
 
   const title =
     videoSessionRoute
-      ? `${t('Video session', '视频会话')} · ${t('Generations', '生成对话')}`
+      ? `${t('Video session', '视频会话')} · ${t('Generations', '多模态生成')}`
       : videoComposerRoute
-        ? `${t('Video', '视频')} · ${t('Generations', '生成对话')}`
+        ? `${t('Video', '视频')} · ${t('Generations', '多模态生成')}`
         : location.pathname === '/connect'
       ? t('Connect your agent', '连接你的 Agent')
       : workspaceDirectoryArea
@@ -159,7 +160,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                   ? t('New API key', '新建 API 密钥')
                   : activePath.startsWith('keys/')
                     ? t('API key', 'API 密钥')
-                    : activePath.startsWith('models/')
+                    : activePath === 'events' || activePath.startsWith('events/')
+                      ? t('Event subscriptions', '事件订阅')
+                      : activePath.startsWith('models/')
                       ? catalogTitle(
                           activePath
                             .slice('models/'.length)

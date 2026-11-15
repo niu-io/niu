@@ -18,9 +18,9 @@ it.each([
   mount(new Response('Request could not be completed.', { status }));
   expect(await screen.findByRole('heading', { name: title })).toBeTruthy();
   expect(screen.getByText(description)).toBeTruthy();
-  expect(screen.queryByText(`HTTP ${status}`, { exact: false })).toBeNull();
+  expect(screen.queryByText(String(status), { exact: false })).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: 'Error details' }));
-  expect(screen.getByText(`HTTP ${status}`, { exact: false })).toBeTruthy();
+  expect(screen.getByText(String(status), { exact: false })).toBeTruthy();
   expect(screen.getByText('Request could not be completed.', { exact: false })).toBeTruthy();
   expect(screen.queryByText('Dashboard', { exact: true })).toBeNull();
 });

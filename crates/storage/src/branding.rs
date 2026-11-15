@@ -191,7 +191,7 @@ impl Store {
             .bind(revision).bind(&value).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO branding_configuration_events(revision,settings,actor_operator_id,actor_kind) VALUES($1,$2,$3,$4)")
             .bind(revision).bind(value).bind(actor_id).bind(actor_kind).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if let Ok(mut guard) = self.branding_cache.write() {
             *guard = Some((revision, std::sync::Arc::new(settings.clone())));
         }

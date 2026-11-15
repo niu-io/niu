@@ -9,7 +9,7 @@ import {Alert,AlertDescription} from '@/components/ui/alert';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuRadioGroup,DropdownMenuRadioItem} from '@/components/ui/dropdown-menu';
 import {workspaceSlugFromName,workspacePathSegment} from '@/shell/workspace-route';
-import {request} from '@/features/providers/api';
+import {loadAuthConfig} from '@/lib/auth-config';
 import {listOperators,type Operator} from '@/features/operators/api';
 import type {NiuAdminClient,CompanyMetadata,Workspace,MemberPasswordConfiguration} from '@niu-io/sdk/admin';
 
@@ -23,7 +23,7 @@ export default function CustomerSetup({company,token,client,onClose,onWorkspaceC
  const [setupRemedy,setSetupRemedy]=useState<'currency'|'payment'|null>(null);
  const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [revision,setRevision]=useState(0);const [auth,setAuth]=useState<boolean|null>(null);
  useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');setSetupRemedy(null);
-  Promise.all([client.listWorkspaces({signal:controller.signal}),listOperators(token,company.id,controller.signal),request<{password_login:boolean}>(token,'/api/v1/auth/config','GET',undefined,controller.signal)])
+  Promise.all([client.listWorkspaces({signal:controller.signal}),listOperators(token,company.id,controller.signal),loadAuthConfig({signal:controller.signal,force:revision>0})])
    .then(([workspaceResult,userResult,capability])=>{if(controller.signal.aborted)return;const saved=userResult.data.filter(user=>!user.revoked&&user.role==='owner'&&user.project_id===null);setWorkspaces(workspaceResult.data.filter(workspace=>workspace.organization_id===company.id));setOwners(saved);setOwner(current=>saved.some(user=>user.id===current)?current:saved.length===1?saved[0].id:'');setAuth(capability.password_login===true);})
    .catch(reason=>{if(!controller.signal.aborted){setError(reason instanceof Error?reason.message:'Could not read customer setup.');const detail=reason?.responseBody?.error;if(detail?.type==='payment_setup_required')setSetupRemedy(detail.code==='currency_required'?'currency':'payment');}})
    .finally(()=>{if(!controller.signal.aborted)setLoading(false);});

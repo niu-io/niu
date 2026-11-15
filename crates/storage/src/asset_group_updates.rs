@@ -95,7 +95,7 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor:Option<Uuid>=sqlx::query_scalar("SELECT vendor_id FROM asset_group_create_intents WHERE id=$1 AND organization_id=$2 AND project_id=$3").bind(input.intent_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
             return Err(StoreError::Conflict);
@@ -123,7 +123,7 @@ impl Store {
             .bind(&input.ciphertext)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
     /// Decoder authenticates workspace/update AAD, performs bounded local work,
@@ -138,7 +138,7 @@ impl Store {
     where
         F: FnOnce(&[u8]) -> Result<Vec<u8>, StoreError>,
     {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor:Option<Uuid>=sqlx::query_scalar("SELECT i.vendor_id FROM asset_group_update_intents u JOIN asset_group_create_intents i ON i.id=u.intent_id WHERE u.id=$1 AND i.organization_id=$2 AND i.project_id=$3").bind(update).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
             return Ok(None);
@@ -183,7 +183,7 @@ impl Store {
             .execute(&mut *tx)
             .await?;
         let credential=sqlx::query_as::<_,AssetManagementCredentialRevision>("SELECT vendor_id,revision,upstream_project,credential_ciphertext FROM vendor_asset_management_credentials WHERE vendor_id=$1 AND revision=$2 AND upstream_project=$3 AND credential_ciphertext IS NOT NULL").bind(vendor).bind(revision).bind(project).fetch_one(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedAssetGroupUpdate {
             update_id: update,
             authorization_id,
@@ -197,13 +197,13 @@ impl Store {
         scope: TenantScope,
         update: Uuid,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let found:Option<Uuid>=sqlx::query_scalar("SELECT u.id FROM asset_group_update_intents u JOIN asset_group_create_intents i ON i.id=u.intent_id WHERE u.id=$1 AND i.organization_id=$2 AND i.project_id=$3 FOR UPDATE OF u").bind(update).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         if found.is_none() {
             return Ok(false);
         }
         let changed=sqlx::query("UPDATE asset_group_update_patches SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE update_id=$1 AND ciphertext IS NOT NULL").bind(update).execute(&mut *tx).await?.rows_affected()==1;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(changed)
     }
     pub async fn purge_expired_asset_group_update_patches(&self) -> Result<(), StoreError> {
@@ -229,7 +229,7 @@ impl Store {
         )
             -> Result<(Vec<u8>, niu_media::asset_read::OrdinaryGroupDetails), StoreError>,
     {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT i.vendor_id FROM asset_group_update_intents u JOIN asset_group_create_intents i ON i.id=u.intent_id WHERE u.id=$1 AND i.organization_id=$2 AND i.project_id=$3")
             .bind(update).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
@@ -276,7 +276,7 @@ impl Store {
             .bind(update)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
     /// Immutable first completion, including after revocation or patch erasure.

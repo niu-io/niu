@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
 import { workspacePathSegment } from '@/shell/workspace-route';
@@ -24,10 +24,10 @@ function message(error: unknown) {
 }
 function titleFor(promptText: string, modelName: string) {
   const line = promptText.split('\n').map(item => item.trim()).find(Boolean) ?? '';
-  let title = line || (modelName.trim() ? `Video · ${modelName.trim()}` : 'Video request');
+  let title = line || (modelName.trim() ? `${translateUI("Video")} · ${modelName.trim()}` : translateUI("Video request"));
   const bytes = new TextEncoder();
   while (bytes.encode(title).length > 200) title = title.slice(0, -1);
-  return title.trim() || 'Video request';
+  return title.trim() || translateUI("Video request");
 }
 
 /** The saved result stays on this page. The next video is described here. */
@@ -50,7 +50,7 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
   const [error, setError] = useState('');
   const client = useMemo(() => token ? new NiuAdminClient({adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
   const model = models.find(item => item.id === modelId);
-  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : !available.loading && !keys.length ? 'nokey' : null;
+  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !keys.length ? 'nokey' : null;
   useEffect(() => {
     setKeyId(current => keys.some(key => key.id === current) ? current : keys[0]?.id ?? '');
   }, [keys]);
@@ -123,7 +123,8 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
       </div>
       {cover === 'archived' && <div className="composer-cover" role="status"><p>{uiT("Archived")}</p><p className="video-muted">{uiT("Restore this session from Archived sessions to return it to history.")}</p></div>}
       {cover === 'readonly' && <div className="composer-cover" role="status"><p>{uiT("Generation needs write access.")}</p><p className="video-muted">{uiT("A member with write access can describe the next video here.")}</p></div>}
-      {cover === 'nokey' && <div className="composer-cover" role="status"><p>{uiT("This API key is invalid. Choose another or create a new one to continue.")}</p><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey: true, returnTo: window.location.pathname + window.location.search}}>{uiT("Create API key")}</Link></Button></div></div>}
+      {cover === 'keys' && <div className="composer-cover" role="status"><p>{uiT("API keys unavailable")}</p><div className="composer-cover-actions"><Button type="button" onClick={available.reload}>{uiT("Retry")}</Button></div></div>}
+      {cover === 'nokey' && <div className="composer-cover" role="status"><p>{uiT("Select or create an active API key to continue.")}</p><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey: true, returnTo: window.location.pathname + window.location.search}}>{uiT("Create API key")}</Link></Button></div></div>}
     </div>
   </form>;
 }

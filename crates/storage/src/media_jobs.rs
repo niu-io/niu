@@ -104,7 +104,7 @@ impl Store {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let result =
             Self::media_billing_in_snapshot(&mut snapshot, principal.scope(), attempt).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(result)
     }
 
@@ -412,8 +412,8 @@ impl Store {
     /// enqueue. Only existing owner-funded direct jobs enter this initial queue.
     pub async fn enqueue_pending_personal_media_queries(&self) -> Result<u64, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN personal_attempt_routes p ON p.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.execution='may_have_executed' AND a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
-        tx.commit().await?;
+        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN personal_attempt_routes p ON p.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.execution='may_have_executed' AND a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1','babelark-video-v1') AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
+        crate::commit_tx(tx).await?;
         Ok(changed)
     }
 
@@ -428,8 +428,8 @@ impl Store {
             .execute(&mut *tx)
             .await?;
 
-        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id)) OR (EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_unit_reservations b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id)) OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions r WHERE r.attempt_id=a.id AND r.kind='charge'))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
-        tx.commit().await?;
+        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1','babelark-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id)) OR (EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_unit_reservations b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id)) OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions r WHERE r.attempt_id=a.id AND r.kind='charge'))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
+        crate::commit_tx(tx).await?;
         Ok(changed)
     }
 
@@ -508,7 +508,7 @@ impl Store {
             return Ok(None);
         };
         sqlx::query("UPDATE media_query_schedule SET lease_owner=$2,lease_until=now()+interval '90 seconds' WHERE attempt_id=$1").bind(attempt_id).bind(owner).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(MediaQueryLease {
             attempt_id,
             scope: TenantScope {
@@ -535,7 +535,7 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -575,7 +575,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO media_transport_timings(id,organization_id,project_id,attempt_id,phase,started_unix_ms,elapsed_ms,outcome,upstream_http_status,upstream_error_code,upstream_request_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
             .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).bind(timing.upstream_http_status).bind(diagnostic.and_then(|d| d.upstream_error_code.as_deref())).bind(diagnostic.and_then(|d| d.upstream_request_id.as_deref())).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -599,7 +599,7 @@ impl Store {
         let result =
             Self::media_transport_timings_in_snapshot(&mut snapshot, principal.scope(), attempt)
                 .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(Some(result))
     }
 
@@ -646,13 +646,13 @@ impl Store {
         ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(owner)
             .fetch_one(&mut *snapshot).await?;
         if !visible {
-            snapshot.commit().await?;
+            crate::commit_tx(snapshot).await?;
             return Ok(None);
         }
         let billing = Self::media_billing_in_snapshot(&mut snapshot, scope, attempt).await?;
         let timings =
             Self::media_transport_timings_in_snapshot(&mut snapshot, scope, attempt).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(Some(
             serde_json::json!({"billing":billing,"timings":timings}),
         ))
@@ -910,7 +910,7 @@ impl Store {
                 Err(error) => return Err(error),
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if let Some(error) = usage_error {
             return Err(error);
         }
@@ -991,7 +991,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO media_submission_uncertainty(organization_id,project_id,attempt_id) VALUES($1,$2,$3) ON CONFLICT(attempt_id) DO NOTHING")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1059,7 +1059,7 @@ impl Store {
         if !same_protocol {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1142,7 +1142,7 @@ impl Store {
         if !same {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1218,7 +1218,7 @@ impl Store {
         if binding != (upstream_job_id.to_owned(), schema_revision.to_owned()) {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1231,7 +1231,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::confirm_media_job_completion_in_tx(&mut tx, scope, attempt).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 

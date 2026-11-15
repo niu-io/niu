@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { request } from '@/lib/api-client';
-import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { catalogTitle } from '@/lib/providers';
 import { useLocale } from '@/shell/ui-locale';
 
@@ -32,14 +32,21 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
       if (pending) return;
       pending = true;
       try {
-        const result = await request<WorkspaceIncidents>(token, endpoint, 'GET', undefined, controller.signal);
-        const note = result.notifications;
-        if (!Array.isArray(result.data) || result.data.some(item => typeof item?.model !== 'string' || !item.model.trim() || typeof item.owner_funded !== 'boolean') || typeof result.more !== 'boolean'
-          || !note || !['none', 'not_configured', 'authority_inactive', 'queued', 'sending', 'delivered', 'failed'].includes(note.state)
-          || !['incidents', 'subscribers', 'authorized', 'delivered', 'failed', 'cancelled', 'queued', 'sending', 'not_configured', 'authority_inactive'].every(key => typeof (note as unknown as Record<string, unknown>)[key] === 'number')) throw new Error('Invalid incident response');
+        const result = await fetchQuery<WorkspaceIncidents>(
+          token,
+          endpoint,
+          async signal => {
+            const parsed = await request<WorkspaceIncidents>(token, endpoint, 'GET', undefined, signal);
+            const note = parsed.notifications;
+            if (!Array.isArray(parsed.data) || parsed.data.some(item => typeof item?.model !== 'string' || !item.model.trim() || typeof item.owner_funded !== 'boolean') || typeof parsed.more !== 'boolean'
+              || !note || !['none', 'not_configured', 'authority_inactive', 'queued', 'sending', 'delivered', 'failed'].includes(note.state)
+              || !['incidents', 'subscribers', 'authorized', 'delivered', 'failed', 'cancelled', 'queued', 'sending', 'not_configured', 'authority_inactive'].every(key => typeof (note as unknown as Record<string, unknown>)[key] === 'number')) throw new Error('Invalid incident response');
+            return parsed;
+          },
+          { freshMs: 0, awaitRevalidate: true, background: true, signal: controller.signal },
+        );
         if (!controller.signal.aborted) {
-          primeQuery(token, endpoint, result);
-          setModels(result.data); setMore(result.more); setNotifications(note); setError(false);
+          setModels(result.data); setMore(result.more); setNotifications(result.notifications); setError(false);
         }
       } catch { if (!controller.signal.aborted) setError(true); }
       finally { if (!controller.signal.aborted) setChecked(true); pending = false; }

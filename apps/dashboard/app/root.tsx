@@ -57,13 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export function HydrateFallback() {
-  return (
-    <PlatformCurrencyProvider>
-      <BrandingProvider>
-        <RouterPending />
-      </BrandingProvider>
-    </PlatformCurrencyProvider>
-  );
+  return <RouterPending />;
 }
 
 export const ErrorBoundary = AppError;

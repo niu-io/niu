@@ -28,7 +28,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::authorize_media_processing_using(&mut tx, principal, snapshot).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -106,7 +106,7 @@ impl Store {
             .bind(snapshot.workspace_revision).bind(snapshot.key_policy_revision)
             .bind(snapshot.key_assignment_revision).bind(record.elapsed_ms)
             .execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 }

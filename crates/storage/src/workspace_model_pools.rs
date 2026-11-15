@@ -139,7 +139,7 @@ impl Store {
         sqlx::query("INSERT INTO workspace_model_pool_history(organization_id,project_id,slug,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(config).bind(principal.key_id()).execute(&mut *tx).await?;
         Self::emit_pool_event_in_tx(&mut tx, scope, &saved.slug, saved.revision).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     /// Soft-delete a customer pool. The immutable history and named slug stay
@@ -182,7 +182,7 @@ impl Store {
         .bind(slug)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -222,7 +222,7 @@ impl Store {
         .bind(slug)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -264,7 +264,7 @@ impl Store {
         sqlx::query("INSERT INTO workspace_model_pool_history(organization_id,project_id,slug,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(config).bind(Option::<Uuid>::None).execute(&mut *tx).await?;
         Self::emit_pool_event_in_tx(&mut tx, scope, &saved.slug, saved.revision).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     pub async fn workspace_model_pool_history(

@@ -504,7 +504,7 @@ export default function GenerationsContextPanel({
                         </p>
                       </div>
                     </div>
-                    <Badge variant={selectedRun.state === 'failed' ? 'destructive' : isRunActive(selectedRun.state) ? 'default' : 'secondary'}>
+                    <Badge variant={selectedRun.state === 'failed' ? 'destructive' : isRunActive(selectedRun.state) ? 'default' : 'secondary'} className="h-auto max-w-full shrink-0 whitespace-normal break-words text-left">
                       {isRunActive(selectedRun.state) && <IconLoader2 size={12} className="mr-1 animate-spin" />}
                       {`${uiT('Turn')} ${selectedRun.turnIndex} · ${selectedRun.statusLabel}`}
                     </Badge>

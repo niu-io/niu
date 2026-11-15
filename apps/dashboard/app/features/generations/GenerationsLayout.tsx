@@ -202,6 +202,12 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
             <p className="generations-context-subtitle">
               {uiT("Saved workspace media and reference files", "已保存的工作空间媒体与参考文件")}
             </p>
+            <Link
+              to={`/workspaces/${encodeURIComponent(workspaceSlug)}/assets`}
+              className="mt-1 inline-flex items-center text-xs font-medium text-primary hover:underline"
+            >
+              {uiT("Manage assets & subjects", "管理素材与主体")}
+            </Link>
           </div>
           <Button
             type="button"

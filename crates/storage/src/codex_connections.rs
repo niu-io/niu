@@ -110,7 +110,7 @@ impl Store {
             sqlx::query("INSERT INTO codex_connections(account_id,organization_id,project_id,name,subject,client_id,credential_ciphertext,models) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
                 .bind(input.id).bind(scope.organization_id).bind(scope.project_id).bind(input.name).bind(input.subject).bind(input.client_id).bind(input.credential_ciphertext).bind(input.models).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -127,7 +127,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(serde_json::json!([{ "slug":model }])).fetch_optional(&mut *tx).await?.ok_or(StoreError::AccountUnavailable)?;
         sqlx::query("UPDATE codex_connections SET lease_owner=$2,last_used_at=clock_timestamp() WHERE account_id=$1")
             .bind(secret.account_id).bind(owner).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(secret)
     }
 
@@ -150,7 +150,7 @@ impl Store {
         .bind(id)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -166,7 +166,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(owner).fetch_optional(&mut *tx).await?.ok_or(StoreError::AccountUnavailable)?;
         sqlx::query("INSERT INTO account_assignments(attempt_id,organization_id,project_id,account_id,credential_revision) VALUES($1,$2,$3,$4,$5)")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(id).bind(revision).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -200,7 +200,7 @@ impl Store {
             .bind(health)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 

@@ -185,4 +185,24 @@ describe('Global Activity',()=>{
   expect(await screen.findByRole('cell',{name:'No rate set'})).toBeTruthy();
  });
 
+ it('preserves settled $0.00 charges when all requests are settled with zero charge', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+    const path = String(input);
+    if (path === '/api/v1/workspaces') return Response.json({data: [workspaces[0]]});
+    return Response.json({
+      data: [],
+      summary: {
+        ...summary('0', 'USD'),
+        customer_charges: [{currency: 'USD', amount_nanos: '0', charged_requests: 3}],
+        unresolved_customer_charge_count: 0,
+        unpriced_request_count: 0,
+        owner_funded_request_count: 0,
+      },
+      next_cursor: null,
+    });
+  }));
+  open('/activity');
+  expect((await screen.findAllByText('$0.00')).length).toBeGreaterThanOrEqual(2);
+ });
+
 });

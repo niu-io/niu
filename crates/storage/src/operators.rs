@@ -182,7 +182,7 @@ impl Store {
         enabled: bool,
         expected_enabled: bool,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let current: Option<bool> = sqlx::query_scalar("SELECT platform_admin FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR UPDATE")
             .bind(member).fetch_optional(&mut *tx).await?;
         if current.ok_or(StoreError::Conflict)? != expected_enabled {
@@ -200,7 +200,7 @@ impl Store {
             sqlx::query("INSERT INTO platform_admin_events(operator_id,granted,actor_kind) VALUES($1,$2,'installation')")
                 .bind(member).bind(enabled).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -220,7 +220,7 @@ impl Store {
         principal: OperatorPrincipal,
         enabled: bool,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let granted: Option<bool> = sqlx::query_scalar("SELECT platform_admin FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR SHARE")
             .bind(principal.id).fetch_optional(&mut *tx).await?;
         if granted.is_none() || (enabled && granted != Some(true)) {
@@ -239,7 +239,7 @@ impl Store {
         .bind(enabled)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -415,7 +415,7 @@ impl Store {
         .bind(limit)
         .fetch_all(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         rows.into_iter().map(OperatorView::try_from).collect()
     }
 
@@ -490,7 +490,7 @@ impl Store {
             scope,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -532,7 +532,7 @@ impl Store {
             {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return row.try_into();
         }
         let company: Option<Uuid> =
@@ -561,7 +561,7 @@ impl Store {
         sqlx::query("INSERT INTO operator_creation_receipts(organization_id,key_sha256,request_sha256,operator_id) VALUES($1,$2,$3,$4)")
             .bind(scope.organization_id).bind(key_sha256).bind(digest).bind(id).execute(&mut *tx).await?;
         insert_operator_audit_event(&mut tx, actor, "operator_created", id, None, scope).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(OperatorView {
             id,
             name: name.trim().into(),
@@ -595,7 +595,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -630,7 +630,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -708,7 +708,7 @@ impl Store {
         let row:OperatorRow=sqlx::query_as("SELECT id,name,role,organization_id,project_id,revoked_at IS NOT NULL AS revoked FROM admin_operators WHERE id=$1")
             .bind(target).fetch_one(&mut *tx).await?;
         let view = OperatorView::try_from(row)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(view)
     }
     pub async fn revoke_operator(
@@ -781,7 +781,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

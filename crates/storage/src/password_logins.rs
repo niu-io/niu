@@ -82,7 +82,7 @@ impl Store {
         // The shared initializer reuses existing defaults without converting their
         // billing configuration or changing saved credentials.
         let workspace = self.default_prepaid_workspace().await?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(78641239)")
             .execute(&mut *tx)
             .await?;
@@ -118,14 +118,14 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
     /// Explicit staging grant for the built-in demo identity. Never inferred from
     /// the email during ordinary provisioning, and never applied to another account.
     pub async fn grant_demo_platform_administration(&self) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let operator: Option<Uuid> = sqlx::query_scalar(
             "SELECT o.id FROM admin_operators o \
              JOIN member_password_credentials c ON c.operator_id=o.id \
@@ -144,14 +144,14 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
     /// Revoke only the active session identified by this bearer credential.
     /// Revocation and its metadata-only audit record commit together.
     pub async fn revoke_current_member_session(&self, token: &str) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let row: Option<(Uuid, Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
             "UPDATE admin_sessions s SET revoked_at=clock_timestamp() FROM admin_operators o \
              WHERE s.token_hash=$1 AND s.revoked_at IS NULL \
@@ -176,7 +176,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -187,18 +187,18 @@ impl Store {
         let Some(email) = email_address(email) else {
             return Ok(false);
         };
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // At most 120 new identity rows can be admitted per minute. Bounded
         // cleanup keeps inactive counters from becoming permanent identity data.
         sqlx::query("DELETE FROM password_login_admission WHERE (kind,bucket) IN (SELECT kind,bucket FROM password_login_admission WHERE window_start < now()-interval '24 hours' ORDER BY window_start LIMIT 128 FOR UPDATE SKIP LOCKED)")
             .execute(&mut *tx).await?;
         let bucket = Sha256::digest(email.as_bytes());
         if !login_window(&mut tx, "identity", bucket.as_slice(), 5).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(false);
         }
         let allowed = login_window(&mut tx, "global", &[0u8; 32], 120).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(allowed)
     }
 
@@ -208,9 +208,9 @@ impl Store {
     ) -> Result<bool, StoreError> {
         let key = format!("password_change:{operator_id}");
         let bucket = Sha256::digest(key.as_bytes());
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let allowed = login_window(&mut tx, "identity", bucket.as_slice(), 5).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(allowed)
     }
 
@@ -228,7 +228,7 @@ impl Store {
         if !crate::passwords::supported_password_hash(password_hash) {
             return Err(StoreError::InvalidOperator);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let (organization_id, project_id) =
             lock_operator_management_target(&mut tx, operator_id, actor).await?;
         let scope = OperatorScope {
@@ -312,7 +312,7 @@ impl Store {
         }
         insert_operator_audit_event(&mut tx, actor, "password_changed", operator_id, None, scope)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 
@@ -398,7 +398,7 @@ impl Store {
         if !crate::passwords::supported_password_hash(password_hash) {
             return Err(StoreError::InvalidOperator);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let identity_id: Uuid = sqlx::query_scalar(
             "SELECT COALESCE(
                 (SELECT identity_id FROM account_memberships WHERE operator_id = $1),
@@ -493,7 +493,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 
@@ -504,7 +504,7 @@ impl Store {
         &self,
         verified: VerifiedPasswordLogin,
     ) -> Result<IssuedOperatorSession, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let primary_scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
             "SELECT organization_id, project_id \
              FROM admin_operators \
@@ -564,7 +564,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 }

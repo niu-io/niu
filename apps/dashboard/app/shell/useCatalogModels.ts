@@ -89,6 +89,7 @@ export function useCatalogModels({
             persist: true,
             force,
             awaitRevalidate: true,
+            background: true,
             signal: AbortSignal.any([connection.signal, controller.signal]),
           },
         );

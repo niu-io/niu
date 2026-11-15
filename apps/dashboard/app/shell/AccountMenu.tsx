@@ -58,7 +58,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {mobile && showDestinations && <>
             {!supplierOnly && <>
               <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to={workspacePath}><IconFolder />{t('Workspace', '工作空间')}</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/generations"><IconSparkles />{t('Generations', '生成对话')}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/generations"><IconSparkles />{t('Generations', '多模态生成')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/activity"><IconChartLine />{t('Activity', '活动')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to={modelsHref}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
@@ -89,8 +89,8 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(roles.error)}</DropdownMenuLabel>}
           {!supplierOnly && token && organizations.length > 0 && <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching organization…', '正在切换组织…') : t('Organizations', '组织')}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Organization")} value={organization?.id ?? ''} onValueChange={id => {
+            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching workspace…', '正在切换工作空间…') : t('Workspaces', '工作空间')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Workspaces")} value={organization?.id ?? ''} onValueChange={id => {
               const next = organizations.find(item => item.id === id);
               if (next) selectOrganization(next);
             }}>

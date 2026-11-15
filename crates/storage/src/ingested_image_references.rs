@@ -147,7 +147,7 @@ impl Store {
             &mut tx, principal, snapshot, input, route, detectors,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 
@@ -179,7 +179,7 @@ impl Store {
             .await?;
             results.push(result);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(results)
     }
 

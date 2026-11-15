@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { loadAuthConfig } from '@/lib/auth-config';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { safeLoginReturn } from '@/shell/login-return';
 import { useBranding } from '@/shell/branding';
@@ -19,9 +20,12 @@ export default function LoginRoute() {
   const context = useDashboardContext();
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const registrationIntent =
+    location.pathname.replace(/\/+$/, '') === '/register' || searchParams.get('intent') === 'register';
   const requestedReturn = (location.state as { from?: unknown } | null)?.from;
   const returnTo = safeLoginReturn(requestedReturn)
-    ?? safeLoginReturn(new URLSearchParams(location.search).get('returnTo'))
+    ?? safeLoginReturn(searchParams.get('returnTo'))
     ?? '/workspaces/default/';
   const [memberLogin, setMemberLogin] = useState(false);
   const [tokenLogin, setTokenLogin] = useState(false);
@@ -43,10 +47,8 @@ export default function LoginRoute() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch('/api/v1/auth/config', { signal: controller.signal, cache: 'no-store' })
-      .then(async response => {
-        if(!response.ok)throw new Error('Sign-in configuration unavailable');
-        const value=await response.json();
+    void loadAuthConfig({ signal: controller.signal, force: configurationAttempt > 0 })
+      .then(value => {
         if(controller.signal.aborted)return;
         const passwordEnabled=value.password_login===true;
         const tokenEnabled=value.browser_token_login===true;
@@ -160,6 +162,11 @@ export default function LoginRoute() {
           <p className="dashboard-login-intro">{t('Sign in to connect your agent and manage your workspaces.', '登录后即可连接 Agent 并管理工作空间。')}</p>
         </div>
         <form className="dashboard-login-form" onSubmit={submit} noValidate>
+          {registrationIntent && (
+            <p className="dashboard-login-status" role="status">
+              {t('Self-registration is not enabled on this deployment. Ask your organization owner for an invitation link or contact your installation administrator for an account, then sign in below.', '此部署未开放自助注册。请向组织所有者索取邀请链接，或联系实例管理员开通账号后再登录。')}
+            </p>
+          )}
           {returnTo.startsWith('/connect') && (
             <p className="dashboard-login-status" role="status">
               {t('Sign in to review and authorize your coding agent connection.', '请先登录以审核并授权您的 Coding Agent 连接。')}
@@ -263,7 +270,14 @@ export default function LoginRoute() {
             {submitting ? t('Signing in…', '正在登录…') : checking ? t('Loading…', '加载中…') : t('Sign in', '登录')}
           </Button>}
         </form>
-        {memberLogin && mode === 'password' && !configurationFailed && <p className="dashboard-login-hint dashboard-login-access-help">{t('Need an account or forgot your password? Ask your organization owner or installation administrator for help.', '需要账号或忘记密码？请联系组织所有者或实例管理员获取帮助。')}</p>}
+        {!configurationFailed && !signInNotConfigured && (
+          <p className="dashboard-login-hint dashboard-login-access-help">
+            {t('Need an account or forgot your password? Ask your organization owner for an invitation or contact your installation administrator.', '需要账号、邀请或忘记密码？请联系组织所有者获取邀请，或联系实例管理员协助恢复。')}{' '}
+            <Link className="underline underline-offset-2" to="/installation">
+              {t('Administrator token sign-in', '管理员令牌登录')}
+            </Link>
+          </p>
+        )}
         {(showModeSwitch || demoLogin) && (
           <div className="dashboard-login-secondary">
             {mode === 'password' && tokenLogin && (

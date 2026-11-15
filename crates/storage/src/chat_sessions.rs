@@ -141,7 +141,7 @@ impl Store {
         .fetch_optional(&mut *snapshot)
         .await?;
         let Some((archived, bytes, revision, guarded, payload)) = row else {
-            snapshot.commit().await?;
+            crate::commit_tx(snapshot).await?;
             return Ok(None);
         };
         if bytes > CHAT_HISTORY_PAYLOAD_BYTES {
@@ -149,7 +149,7 @@ impl Store {
         }
         let payloads = payload.into_iter().collect();
         let mut payloads = Self::hydrate_chat_charges(&mut snapshot, scope, payloads).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(payloads
             .pop()
             .map(|data| serde_json::json!({"data":data,"archived":archived,"revision":revision.to_string(),"guardedWrites":guarded})))
@@ -210,7 +210,7 @@ impl Store {
         )
         .await?;
         let sessions = Self::hydrate_chat_charges(&mut snapshot, scope, sessions).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(sessions)
     }
 
@@ -304,7 +304,7 @@ impl Store {
         )
         .await?;
         let data = Self::hydrate_chat_charges(&mut snapshot, scope, payloads).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(serde_json::json!({"data":data,"next_cursor":next}))
     }
 
@@ -374,7 +374,7 @@ impl Store {
             return Ok((sessions, std::collections::HashMap::new()));
         }
         let rows: Vec<(Uuid, String, String, Value)> = sqlx::query_as(
-            "SELECT a.id,o.model_alias,a.execution,jsonb_build_object('attemptReference',a.public_reference,'customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)"
+            "SELECT a.id,o.model_alias,a.execution,jsonb_build_object('attemptReference',a.public_reference,'customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' OR niu_attempt_failed_zero_cost(a.id) THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)"
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -462,7 +462,7 @@ impl Store {
                 .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
                 .execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 }

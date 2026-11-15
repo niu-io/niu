@@ -107,7 +107,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       setKeys(cached.data);
       setLoadedScope(scopeIdentity);
       setLoading(false);
-    } else if (loadedScope !== scopeIdentity || keys.length === 0) {
+    } else if (loadedScope !== scopeIdentity) {
       setLoading(true);
     }
     setLoadFailed(false);

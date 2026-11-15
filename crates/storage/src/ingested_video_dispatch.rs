@@ -115,7 +115,7 @@ impl Store {
         if !Self::mark_dispatched_using(&mut tx, principal, attempt).await? {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

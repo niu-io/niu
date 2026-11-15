@@ -136,7 +136,7 @@ impl Store {
                 if saved_request_sha256 != request_sha256 || operator_revoked {
                     return Err(StoreError::Conflict);
                 }
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(CreatedAccountOrganization {
                     organization_id,
                     operator_id,
@@ -235,7 +235,7 @@ impl Store {
             .await?;
         }
 
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(CreatedAccountOrganization {
             organization_id,
             operator_id,
@@ -264,7 +264,7 @@ impl Store {
         .bind(&name)
         .fetch_optional(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(updated)
     }
 
@@ -362,7 +362,7 @@ impl Store {
         .bind(limit)
         .fetch_all(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(rows)
     }
 
@@ -542,7 +542,7 @@ impl Store {
         .execute(&mut *tx)
         .await?;
 
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((
             OperatorPrincipal {
                 session_id: principal.session_id,
@@ -752,7 +752,7 @@ impl Store {
         .execute(&mut *tx)
         .await?;
 
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((
             OperatorPrincipal {
                 session_id: principal.session_id,

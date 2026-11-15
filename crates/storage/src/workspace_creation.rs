@@ -120,7 +120,7 @@ impl Store {
                 if request != request_sha256 {
                     return Err(StoreError::Conflict);
                 }
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(TenantScope {
                     organization_id,
                     project_id,
@@ -184,7 +184,7 @@ impl Store {
             sqlx::query("INSERT INTO workspace_creation_receipts(actor_kind,actor_id,key_sha256,request_sha256,organization_id,project_id) VALUES($1,$2,$3,$4,$5,$6)")
                 .bind(kind).bind(actor).bind(hash).bind(request_sha256).bind(organization_id).bind(project_id).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(TenantScope {
             organization_id,
             project_id,

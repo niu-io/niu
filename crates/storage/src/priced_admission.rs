@@ -159,12 +159,12 @@ impl Store {
             Err(
                 err @ (StoreError::KeyRequestRateDisabled | StoreError::KeyRequestRateExceeded),
             ) => {
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 return Err(err);
             }
             Err(err) => return Err(err),
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if dispatched {
             Ok((admission.operation_id, attempt))
         } else {

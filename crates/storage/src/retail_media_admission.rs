@@ -374,21 +374,21 @@ impl Store {
         if mode == "credits" {
             let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
             let prepared = credits_rate(&mut tx, scope, &identity, None, None).await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(prepared.map(|p| p.rate));
         }
         let head =
             Self::enrolled_retail_media_price_in_tx(&mut tx, scope, dimensions, "video_tokens")
                 .await?;
         let Some(head) = head else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return self
                 .select_customer_media_rate(scope.organization_id, dimensions, legacy_at)
                 .await;
         };
         let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
         let prepared = platform_rate(&mut tx, scope, head, &identity, None).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(prepared.rate))
     }
 
@@ -475,7 +475,7 @@ impl Store {
                 if !matched {
                     return Err(StoreError::Conflict);
                 }
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(saved_maximum);
             }
             let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
@@ -580,7 +580,7 @@ impl Store {
                 maximum_atoms,
             )
             .await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(maximum_atoms);
         }
         if preview.unit_tariff_revision.is_some() {
@@ -605,7 +605,7 @@ impl Store {
                 .bind(route.vendor.id).bind(route.vendor.revision).bind(route.model.revision).bind(schema(route)?)
                 .fetch_optional(&mut *tx).await?;
             let amount = amount.ok_or(StoreError::Conflict)?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(amount);
         }
         let head =
@@ -711,7 +711,7 @@ impl Store {
                 .bind(selected.baseline_revision).bind(selected.promotion_revision).bind(prepared.qualification.ok_or(StoreError::Conflict)?)
                 .bind(at).bind(json!(selected)).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(amount)
     }
 }

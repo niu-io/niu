@@ -73,9 +73,13 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         .route_service("/workspaces/", ServeFile::new(dashboard_index.clone()))
         .route("/help", get(redirect_legacy_help))
         .route("/help/", get(redirect_legacy_help))
-        .route("/help/{*article}", get(redirect_legacy_help));
+        .route("/help/{*article}", get(redirect_legacy_help))
+        .route("/zh/docs", get(redirect_zh_docs))
+        .route("/zh/docs/", get(redirect_zh_docs))
+        .route("/zh/docs/{*article}", get(redirect_zh_docs));
     for path in [
         "/login",
+        "/register",
         "/connect",
         "/installation",
         "/admin",
@@ -193,8 +197,28 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             .nest_service(
                 "/site-assets",
                 ServeDir::new(format!("{directory}/site-assets")),
+            )
+            .merge(
+                if std::path::Path::new(&directory)
+                    .join("zh/index.html")
+                    .is_file()
+                {
+                    Router::new()
+                        .route_service("/zh/", ServeFile::new(format!("{directory}/zh/index.html")))
+                        .nest(
+                            "/zh",
+                            Router::new()
+                                .fallback_service(ServeDir::new(format!("{directory}/zh"))),
+                        )
+                } else {
+                    Router::new()
+                        .route("/zh", get(redirect_zh_root))
+                        .route("/zh/", get(redirect_zh_root))
+                },
             ),
         None => app
+            .route("/zh", get(redirect_zh_root))
+            .route("/zh/", get(redirect_zh_root))
             .route(
                 "/compare",
                 get(|| async { Redirect::temporary("/docs/compare/") }),
@@ -341,4 +365,38 @@ mod tests;
 
 async fn default_workspace() -> Redirect {
     Redirect::temporary("/workspaces/default/")
+}
+
+async fn redirect_zh_root() -> Redirect {
+    Redirect::temporary("/")
+}
+
+async fn redirect_zh_docs(uri: axum::http::Uri) -> Redirect {
+    let raw_path = uri.path();
+    let stripped = raw_path.strip_prefix("/zh").unwrap_or(raw_path);
+    let normalized = if stripped == "/docs" {
+        "/docs/"
+    } else {
+        stripped
+    };
+    let is_raw_asset = normalized.ends_with(".md")
+        || normalized.ends_with(".json")
+        || normalized.ends_with(".txt")
+        || normalized.ends_with(".xml");
+    let query = uri.query();
+    let destination = if is_raw_asset {
+        match query {
+            Some(q) => format!("{normalized}?{q}"),
+            None => normalized.to_string(),
+        }
+    } else {
+        match query {
+            Some(q) if q.split('&').any(|pair| pair.starts_with("lang=")) => {
+                format!("{normalized}?{q}")
+            }
+            Some(q) if !q.is_empty() => format!("{normalized}?{q}&lang=zh-CN"),
+            _ => format!("{normalized}?lang=zh-CN"),
+        }
+    };
+    Redirect::temporary(&destination)
 }

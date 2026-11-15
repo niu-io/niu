@@ -160,7 +160,7 @@ impl Store {
         let asset =
             Self::insert_prepared_workspace_asset_in_tx(&mut tx, scope, &input, limits, prepared)
                 .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(asset)
     }
 
@@ -295,7 +295,7 @@ impl Store {
             .into_iter()
             .map(AssetRow::into_asset)
             .collect::<Result<_, _>>()?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(AssetLibraryPage { data, next_cursor })
     }
 
@@ -306,7 +306,7 @@ impl Store {
     ) -> Result<Option<AssetLibraryAsset>, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let asset = Self::workspace_asset_using(&mut tx, scope, id).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(asset)
     }
 
@@ -328,7 +328,7 @@ impl Store {
             .bind(ids)
             .fetch_all(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         let mut map = std::collections::HashMap::with_capacity(rows.len());
         for row in rows {
             let asset = row.into_asset()?;
@@ -363,7 +363,7 @@ impl Store {
     ) -> Result<Option<AssetLibraryContent>, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let Some(asset) = Self::workspace_asset_using(&mut tx, scope, id).await? else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         let ciphertext: Option<Vec<u8>> = sqlx::query_scalar(
@@ -372,7 +372,7 @@ impl Store {
         .bind(id)
         .fetch_optional(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(ciphertext.map(|ciphertext| AssetLibraryContent {
             asset,
             ciphertext,
@@ -411,7 +411,7 @@ impl Store {
         let asset = Self::workspace_asset_using(&mut tx, scope, id)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(asset))
     }
 
@@ -433,7 +433,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?;
         let Some(row) = row else { return Ok(false) };
         if row.get::<bool, _>("deleted") {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(true);
         }
         let revision: i64 = row.get("revision");
@@ -448,7 +448,7 @@ impl Store {
             .await?;
         sqlx::query("INSERT INTO workspace_asset_library_events(asset_id,revision,actor,operation,name) VALUES($1,$2,$3,'deleted',$4)")
             .bind(id).bind(revision+1).bind(actor).bind(row.get::<String,_>("name")).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
 }
@@ -572,7 +572,7 @@ impl Store {
         .bind(asset_id)
         .fetch_one(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         let aad = workspace_asset_content_aad(
             TenantScope {
                 organization_id,
