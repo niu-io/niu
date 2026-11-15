@@ -113,3 +113,16 @@ Served built `apps/dashboard/dist` and `apps/docs/dist` via local Node HTTP serv
 - Full `pnpm --dir apps/dashboard check` (`check-module-size.mjs`) was not cleared on `locale-messages.ts` (`4932` vs `4931` lines) because that file was already over baseline in upstream commit `0f7e22f4e` and untouched in this change (`AgentConnection.tsx` and `connect/page.tsx` remain well below module limits).
 - Full `apps/dashboard` `vitest run` has pre-existing unrelated failures in `AccountMenu.permissions.test.tsx` / `AppLayout.integration.test.tsx` (`Appearance` menu item renamed to `Settings`), left untouched outside `niu-pxaw` scope.
 - PostgreSQL-backed `#[ignore]` / `#[sqlx::test]` storage and gateway tests require a live PostgreSQL server (CI / staging gate).
+
+### Follow-up Naming Refinement (2026-11-15)
+
+- **Navigation & Page Title (`AgentDoc` → `Agents`)**:
+  - Updated top documentation navigation (`apps/docs/src/navigation.ts`), header/sidebar/title dictionaries (`apps/docs/src/components/Header.astro`, `apps/docs/src/components/PageFrame.astro`), `/docs/agents/` title and bilingual opening copy (`apps/docs/src/content/docs/agents.mdx`), `/llms.txt` contract heading (`## Agent contracts`), generator messages (`apps/docs/scripts/generate-agent-docs.mjs`), and `apps/docs/scripts/test-navigation.mjs` from `AgentDoc` to `Agents` (`Docs · Agents · API · SDK` / `文档 · Agents · API · SDK`).
+  - Preserved all canonical machine and rendered routes (`/docs/agents/*`, `/llms.txt`, `/docs/*.md`) and internal React component symbol names (`AgentDocModes`).
+- **Verification**:
+  - `node --test apps/docs/scripts/test-navigation.mjs`: **3 passed, 0 failed**.
+  - `pnpm --dir apps/docs check`: exit 0 (`0 errors, 0 warnings, 1 hint` pre-existing in `Sidebar.astro`).
+  - `pnpm --dir apps/docs build`: exit 0 (`1029` pages built + EN/ZH Pagefind indexes).
+  - `pnpm --dir apps/docs test:api`: **8 passed, 0 failed**.
+  - `python3 scripts/check-docs-audiences.py`: exit 0 (`Documentation audience entries and all six raw contracts verified.`).
+  - **Live Browser (`http://127.0.0.1:4398`, Chromium)**: Verified `1440x900` and `390x844` in `en` and `zh-CN`: header links render cleanly on a single row (`Docs`, `Agents`, `API`, `SDK` / `文档`, `Agents`, `API`, `SDK`), `aria-current="page"` highlights `Agents` across `/docs/agents/` and `/docs/agents/install/` without activating on `/docs/`, `/docs/agents/` H1 renders `Agents` with clean `llms.txt` (`## Agent contracts`) in `Source` mode and zero `AgentDoc` occurrences, and the mobile navigation drawer fits within `390x844` (`390px` viewport width, zero horizontal overflow).
