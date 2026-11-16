@@ -548,4 +548,91 @@ test('encodes model parameter in generateContent and rejects empty, untrimmed, o
   assert.throws(() => client.generateContent('../escape', { contents: [] }), TypeError);
 });
 
+test('supports native tool loops, anthropicBeta, and streamGenerateContent SSE and JSON array modes', async () => {
+  const captured = [];
+  const client = new NiuClient({
+    apiKey: 'test-token',
+    baseURL: 'https://niu.example/v1',
+    fetch: async (url, init) => {
+      captured.push({ url: String(url), headers: new Headers(init?.headers), body: JSON.parse(init?.body ?? 'null') });
+      if (String(url).endsWith('/responses')) {
+        return Response.json({
+          id: 'resp_1',
+          object: 'response',
+          status: 'completed',
+          model: 'gpt-5',
+          output: [{ type: 'function_call', call_id: 'c1', name: 'lookup', arguments: '{"q":"niu"}' }],
+        });
+      }
+      if (String(url).endsWith('/messages')) {
+        return Response.json({
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-sonnet',
+          content: [
+            { type: 'thinking', thinking: 'reasoning', signature: 'sig1' },
+            { type: 'text', text: 'ok' },
+          ],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: null, cache_read_input_tokens: null },
+        });
+      }
+      if (String(url).includes(':streamGenerateContent?alt=sse')) {
+        return new Response(
+          'data: {"candidates":[{"index":0,"content":{"role":"model","parts":[{"text":"hi"}]}}],"modelVersion":"gemini-2.5"}\n\n' +
+          'data: {"candidates":[{"index":0,"finishReason":"STOP"}],"modelVersion":"gemini-2.5","usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":1,"totalTokenCount":5}}\n\n',
+          { status: 200, headers: { 'content-type': 'text/event-stream' } },
+        );
+      }
+      return new Response(
+        '[{"candidates":[{"index":0,"content":{"role":"model","parts":[{"text":"chunk1"}]},"finishReason":"STOP"}],"modelVersion":"gemini-2.5","usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":1,"totalTokenCount":5}}]',
+        { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+      );
+    },
+  });
+
+  const resp = await client.responses.create({
+    model: 'gpt-5',
+    input: [{ role: 'user', content: [{ type: 'input_text', text: 'Find Niu' }] }],
+    tools: [{ type: 'function', name: 'lookup', parameters: { type: 'object' } }],
+    tool_choice: 'auto',
+    store: false,
+  });
+  assert.equal(resp.output[0].type, 'function_call');
+
+  const msg = await client.messages.create(
+    {
+      model: 'claude-sonnet',
+      max_tokens: 2048,
+      thinking: { type: 'enabled', budget_tokens: 1024 },
+      messages: [{ role: 'user', content: 'Think carefully' }],
+    },
+    { anthropicBeta: ['interleaved-thinking-2025-05-14'] },
+  );
+  assert.equal(msg.content[0].type, 'thinking');
+  assert.equal(captured[1].headers.get('anthropic-beta'), 'interleaved-thinking-2025-05-14');
+
+  const jsonChunks = [];
+  for await (const chunk of client.streamGenerateContent('gemini-2.5', {
+    contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+  })) {
+    jsonChunks.push(chunk);
+  }
+  assert.equal(jsonChunks.length, 1);
+  assert.equal(jsonChunks[0].candidates[0].finishReason, 'STOP');
+
+  const sseChunks = [];
+  for await (const chunk of client.streamGenerateContent(
+    'gemini-2.5',
+    { contents: [{ role: 'user', parts: [{ text: 'hi' }] }] },
+    { alt: 'sse' },
+  )) {
+    sseChunks.push(chunk);
+  }
+  assert.equal(sseChunks.length, 2);
+  assert.equal(sseChunks[1].usageMetadata.totalTokenCount, 5);
+});
+
 

@@ -3,12 +3,12 @@ use super::common::*;
 use crate::{error::ApiError, guardrails::input::Protocol, state::AppState};
 use axum::{
     Json,
-    extract::{Path, State},
-    http::HeaderMap,
+    extract::{Path, RawQuery, State},
+    http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
-use std::{sync::atomic::Ordering, time::Duration};
+use std::{collections::BTreeSet, sync::atomic::Ordering, time::Duration};
 
 /// ```openapi
 /// {
@@ -16,10 +16,10 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "generateContent",
-///     "summary": "Generate native buffered Gemini text",
+///     "summary": "Generate native Gemini content or streamGenerateContent",
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Static or managed gemini routes only; successful native upstream completion remains unverified.",
-///     "description": "Set provider gemini and supports_generate_content true on a static route, or create a managed gemini credential and opt its model mapping into supports_generate_content. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Native SDK compatibility and successful end-to-end billing remain unverified as documented.",
+///     "x-niu-status": "Static or managed gemini routes supporting buffered :generateContent and streaming :streamGenerateContent (?alt=sse SSE or JSON array stream), client functionDeclarations/toolConfig, thinkingConfig, responseMimeType/responseSchema, and unpriced inlineData.",
+///     "description": "Requires provider gemini with supports_generate_content enabled; streaming additionally requires supports_generate_content_streaming. model_action accepts {model}:generateContent or {model}:streamGenerateContent (URL-encode slashes inside aliases). Streaming returns JSON array chunks by default or SSE when ?alt=sse is supplied; query ?key= is rejected (use Authorization: Bearer or x-niu-api-key). Supports client functionDeclarations (normalized offline schema checks) and toolConfig.functionCallingConfig (AUTO/ANY/NONE), thought and thoughtSignature pass-through, generationConfig.thinkingConfig, responseMimeType (application/json) with responseSchema/responseJsonSchema, and unpriced user inlineData (image/* or application/pdf within 8 MiB; rejected with 400 on priced routes). Total input accounting combines promptTokenCount and toolUsePromptTokenCount; total output equals totalTokenCount minus total input. Missing terminal evidence or mid-stream interruptions retain holds and uncertainty.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -36,6 +36,18 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///         "schema": {
 ///           "type": "string",
 ///           "example": "fast:generateContent"
+///         }
+///       },
+///       {
+///         "name": "alt",
+///         "in": "query",
+///         "required": false,
+///         "description": "Use alt=sse with :streamGenerateContent to receive text/event-stream instead of a JSON array stream. Unsupported on :generateContent.",
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "sse"
+///           ]
 ///         }
 ///       },
 ///       {
@@ -68,14 +80,13 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "type": "object",
 ///             "additionalProperties": false,
 ///             "required": [
-///               "contents",
-///               "generationConfig"
+///               "contents"
 ///             ],
 ///             "properties": {
 ///               "contents": {
 ///                 "type": "array",
 ///                 "minItems": 1,
-///                 "maxItems": 128,
+///                 "maxItems": 256,
 ///                 "items": {
 ///                   "type": "object",
 ///                   "additionalProperties": false,
@@ -95,16 +106,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                       "minItems": 1,
 ///                       "maxItems": 128,
 ///                       "items": {
-///                         "type": "object",
-///                         "additionalProperties": false,
-///                         "required": [
-///                           "text"
-///                         ],
-///                         "properties": {
-///                           "text": {
-///                             "type": "string"
-///                           }
-///                         }
+///                         "type": "object"
 ///                       }
 ///                     }
 ///                   }
@@ -121,7 +123,6 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                     "type": "string",
 ///                     "enum": [
 ///                       "user",
-///                       "model",
 ///                       "system"
 ///                     ]
 ///                   },
@@ -144,12 +145,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                   }
 ///                 }
 ///               },
+///               "tools": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "maxItems": 16,
+///                 "items": {
+///                   "type": "object"
+///                 }
+///               },
+///               "toolConfig": {
+///                 "type": "object"
+///               },
 ///               "generationConfig": {
 ///                 "type": "object",
 ///                 "additionalProperties": false,
-///                 "required": [
-///                   "maxOutputTokens"
-///                 ],
 ///                 "properties": {
 ///                   "maxOutputTokens": {
 ///                     "type": "integer",
@@ -177,6 +186,19 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                     "minimum": 1,
 ///                     "maximum": 10000
 ///                   },
+///                   "seed": {
+///                     "type": "integer"
+///                   },
+///                   "presencePenalty": {
+///                     "type": "number",
+///                     "minimum": -2,
+///                     "maximum": 2
+///                   },
+///                   "frequencyPenalty": {
+///                     "type": "number",
+///                     "minimum": -2,
+///                     "maximum": 2
+///                   },
 ///                   "stopSequences": {
 ///                     "type": "array",
 ///                     "maxItems": 5,
@@ -185,6 +207,22 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                       "minLength": 1,
 ///                       "maxLength": 512
 ///                     }
+///                   },
+///                   "thinkingConfig": {
+///                     "type": "object"
+///                   },
+///                   "responseMimeType": {
+///                     "type": "string",
+///                     "enum": [
+///                       "text/plain",
+///                       "application/json"
+///                     ]
+///                   },
+///                   "responseSchema": {
+///                     "type": "object"
+///                   },
+///                   "responseJsonSchema": {
+///                     "type": "object"
 ///                   }
 ///                 }
 ///               }
@@ -248,15 +286,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                             "type": "array",
 ///                             "items": {
 ///                               "type": "object",
-///                               "additionalProperties": false,
-///                               "required": [
-///                                 "text"
-///                               ],
-///                               "properties": {
-///                                 "text": {
-///                                   "type": "string"
-///                                 }
-///                               }
+///                               "additionalProperties": true
 ///                             }
 ///                           }
 ///                         }
@@ -265,7 +295,12 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                         "type": "string",
 ///                         "enum": [
 ///                           "STOP",
-///                           "MAX_TOKENS"
+///                           "MAX_TOKENS",
+///                           "SAFETY",
+///                           "RECITATION",
+///                           "BLOCKLIST",
+///                           "PROHIBITED_CONTENT",
+///                           "SPII"
 ///                         ]
 ///                       }
 ///                     }
@@ -275,6 +310,13 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                   "type": "object",
 ///                   "properties": {
 ///                     "promptTokenCount": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ],
+///                       "minimum": 0
+///                     },
+///                     "toolUsePromptTokenCount": {
 ///                       "type": [
 ///                         "integer",
 ///                         "null"
@@ -312,6 +354,11 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                   }
 ///                 }
 ///               }
+///             }
+///           },
+///           "text/event-stream": {
+///             "schema": {
+///               "type": "string"
 ///             }
 ///           }
 ///         }
@@ -697,11 +744,12 @@ use std::{sync::atomic::Ordering, time::Duration};
 pub(in crate::web) async fn generate_content(
     State(state): State<AppState>,
     Path(action): Path<String>,
+    RawQuery(raw_query): RawQuery,
     headers: HeaderMap,
     input: Result<Json<Value>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
     let result = match input {
-        Ok(Json(body)) => execute(&state, &headers, &action, body).await,
+        Ok(Json(body)) => execute(&state, &headers, &action, raw_query.as_deref(), body).await,
         Err(rejection) if rejection.status() == axum::http::StatusCode::PAYLOAD_TOO_LARGE => {
             Err(ApiError::request_too_large())
         }
@@ -741,29 +789,60 @@ pub(in crate::web) async fn generate_content(
     Response::from_parts(parts, axum::body::Body::from(body.to_string()))
 }
 
+struct ValidatedGenerateContentRequest {
+    bound: Option<i64>,
+    has_tools: bool,
+    has_tool_history: bool,
+    has_structured_output: bool,
+    has_reasoning: bool,
+    has_media: bool,
+    has_image: bool,
+    validator: crate::streaming::GenerateContentOutputValidator,
+}
+
 async fn execute(
     state: &AppState,
     headers: &HeaderMap,
     action: &str,
+    raw_query: Option<&str>,
     mut body: Value,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state
         .authorize_invocation_headers(headers, "content")
         .await?;
-    let mut selected_model = action
-        .strip_suffix(":generateContent")
-        .filter(|v| {
-            !v.is_empty() && v.len() <= 200 && !v.contains(':') && !v.chars().any(char::is_control)
-        })
-        .ok_or_else(|| ApiError::unsupported_message("Only buffered generateContent is supported"))?
-        .to_owned();
-    let traits = crate::routing_traits::extract(Protocol::GenerateContent, &body);
-    // The implemented GenerateContent subset is buffered text only. Tools,
-    // media, structured output and thinking configuration are rejected
-    // explicitly instead of being dropped from candidate filtering.
+    let (selected_raw, streaming) = if let Some(model) = action.strip_suffix(":generateContent") {
+        (model, false)
+    } else if let Some(model) = action.strip_suffix(":streamGenerateContent") {
+        (model, true)
+    } else {
+        return Err(ApiError::unsupported_message(
+            "Only generateContent and streamGenerateContent actions are supported",
+        ));
+    };
+    if selected_raw.is_empty()
+        || selected_raw.len() > 200
+        || selected_raw.contains(':')
+        || selected_raw.chars().any(char::is_control)
+    {
+        return Err(ApiError::invalid_request(
+            "Invalid GenerateContent model name",
+        ));
+    }
+    let sse = match raw_query {
+        None | Some("") => false,
+        Some("alt=sse") if streaming => true,
+        _ => {
+            return Err(ApiError::invalid_request(
+                "Unsupported query parameter; pass API keys in headers and use ?alt=sse only with :streamGenerateContent",
+            ));
+        }
+    };
+    let mut selected_model = selected_raw.to_owned();
+    let mut traits = crate::routing_traits::extract(Protocol::GenerateContent, &body);
+    traits.streaming = streaming;
     crate::routing_traits::require_supported(Protocol::GenerateContent, &traits)?;
-    let bound = validate(&body)?;
+    let mut validated = validate(&body)?;
     if !selected_model.starts_with("pool/") && !principal.allows_model(&selected_model) {
         return Err(ApiError::not_found());
     }
@@ -797,6 +876,50 @@ async fn execute(
                 "This route does not declare native GenerateContent support",
             ));
         }
+        if streaming && !model.supports_generate_content_streaming {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare streaming GenerateContent support",
+            ));
+        }
+        if (validated.has_tools || validated.has_tool_history) && !model.supports_tool_calls {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare function tool support",
+            ));
+        }
+        if streaming && validated.has_tools && !model.supports_streaming_tool_calls {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare streaming tool support",
+            ));
+        }
+        if validated.has_structured_output && !model.supports_structured_output {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare structured JSON output support",
+            ));
+        }
+        if validated.has_image
+            && !model.catalog.input_modalities.is_empty()
+            && !model
+                .catalog
+                .input_modalities
+                .iter()
+                .any(|mode| mode == "image")
+        {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare image input support",
+            ));
+        }
+        if validated.has_reasoning
+            && !model.catalog.supported_parameters.is_empty()
+            && !model
+                .catalog
+                .supported_parameters
+                .iter()
+                .any(|parameter| parameter == "reasoning" || parameter == "include_reasoning")
+        {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare reasoning support",
+            ));
+        }
         // A native model ID is one path segment, never an endpoint supplied by a client.
         if model.upstream_model.is_empty()
             || !model
@@ -818,30 +941,49 @@ async fn execute(
         )
         .await?;
         if snapshot.input_outcome.as_deref() == Some("redacted") {
-            validate(&body)?;
+            validated = validate(&body)?;
         }
-        if let Some(price) = &model.pricing
-            && (bound > price.max_output_tokens
+        if let Some(price) = &model.pricing {
+            if validated.has_media {
+                return Err(ApiError::invalid_request(
+                    "Image and document inlineData inputs are not supported on priced GenerateContent routes; choose an unpriced route or send text only",
+                ));
+            }
+            if validated.bound.is_none() {
+                if let Some(object) = body.as_object_mut() {
+                    let config = object
+                        .entry("generationConfig")
+                        .or_insert_with(|| json!({}));
+                    if let Some(cfg_obj) = config.as_object_mut() {
+                        cfg_obj.insert("maxOutputTokens".into(), json!(price.max_output_tokens));
+                    }
+                }
+                validated.bound = Some(price.max_output_tokens);
+            }
+            let bound = validated.bound.unwrap_or(price.max_output_tokens);
+            if bound > price.max_output_tokens
                 || price.max_input_tokens <= 0
                 || crate::inference_schema::json_serialized_len_within(
                     &body,
                     price.max_input_tokens as usize,
                 )
-                .is_err())
-        {
-            return Err(ApiError::invalid_request(
-                "GenerateContent exceeds the priced route's conservative input or output bound",
-            ));
+                .is_err()
+            {
+                return Err(ApiError::invalid_request(
+                    "GenerateContent exceeds the priced route's conservative input or output bound",
+                ));
+            }
         }
         let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-        let endpoint = format!(
-            "{}/models/{}:generateContent",
-            model
-                .endpoint_base()
-                .ok_or_else(ApiError::unavailable)?
-                .trim_end_matches('/'),
-            model.upstream_model
-        );
+        let base = model
+            .endpoint_base()
+            .ok_or_else(ApiError::unavailable)?
+            .trim_end_matches('/');
+        let endpoint = if !streaming {
+            format!("{base}/models/{}:generateContent", model.upstream_model)
+        } else {
+            format!("{base}/models/{}:streamGenerateContent", model.upstream_model)
+        };
         let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
             .await
             .map_err(ApiError::from_endpoint)?;
@@ -857,7 +999,7 @@ async fn execute(
                 personal_route: resolved.personal_route.as_ref(),
                 public_model,
                 model,
-                completion_bound: Some(bound),
+                completion_bound: validated.bound,
                 task_id: task_id.as_deref(),
                 snapshot,
                 request_body: &body,
@@ -865,12 +1007,25 @@ async fn execute(
             },
         )
         .await?;
+        let validator = validated.validator;
         let usage_attempt = state.usage.begin();
         let result = async {
-            let response = client
+            let mut request = client
                 .post(endpoint)
                 .timeout(timeout)
                 .header("x-goog-api-key", &resolved.api_key)
+                .header(
+                    header::ACCEPT,
+                    if sse {
+                        "text/event-stream"
+                    } else {
+                        "application/json"
+                    },
+                );
+            if sse {
+                request = request.query(&[("alt", "sse")]);
+            }
+            let response = request
                 .json(&body)
                 .send()
                 .await
@@ -878,10 +1033,69 @@ async fn execute(
             if !response.status().is_success() {
                 return Err(provider_rejection(response).await);
             }
+            if streaming {
+                let ct_ok = response
+                    .headers()
+                    .get(header::CONTENT_TYPE)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.split(';').next())
+                    .is_some_and(|v| {
+                        let mime = v.trim();
+                        if sse {
+                            mime.eq_ignore_ascii_case("text/event-stream")
+                        } else {
+                            mime.eq_ignore_ascii_case("application/json")
+                        }
+                    });
+                if !ct_ok {
+                    return Err(ApiError::upstream_invalid_response());
+                }
+                let mut stream_response =
+                    Response::new(crate::streaming::tracked_generate_content_body(
+                        response.bytes_stream(),
+                        crate::streaming::StreamAttempt {
+                            store: state.store.clone(),
+                            gateway_writes: state.gateway_writes.clone(),
+                            diagnostic_writes: state.diagnostic_writes.clone(),
+                            scope: dispatch.scope,
+                            id: dispatch.attempt,
+                            priced: dispatch.priced,
+                            usage: usage_attempt,
+                            failures: state.failures.clone(),
+                        },
+                        public_model.to_owned(),
+                        validator,
+                        sse,
+                    ));
+                stream_response.headers_mut().insert(
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static(if sse {
+                        "text/event-stream"
+                    } else {
+                        "application/json; charset=utf-8"
+                    }),
+                );
+                stream_response
+                    .headers_mut()
+                    .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+                stream_response.headers_mut().insert(
+                    "x-niu-model",
+                    HeaderValue::from_str(public_model)
+                        .map_err(|_| ApiError::invalid_request("Invalid model alias"))?,
+                );
+                return Ok(ProviderResponse {
+                    response: stream_response,
+                    completed: false,
+                    usage: None,
+                    token_categories: None,
+                    provider_model: None,
+                    finish_reasons: None,
+                });
+            }
             let value = provider_json(response)
                 .await
                 .map_err(|_| ApiError::upstream_invalid_response())?;
-            let response = normalize(value, public_model)?;
+            let response = normalize(value, public_model, &validator)?;
             if let Some((prompt, completion)) = response.usage {
                 usage_attempt
                     .report(&json!({"prompt_tokens":prompt,"completion_tokens":completion}));
@@ -902,177 +1116,506 @@ async fn execute(
     }
 }
 
-fn validate(body: &Value) -> Result<i64, ApiError> {
-    let invalid =
-        || ApiError::invalid_request("Unsupported or invalid GenerateContent text request");
-    crate::guardrails::input::CompiledInputPolicy::compile(&[])
-        .map_err(|_| invalid())?
-        .inspect(Protocol::GenerateContent, body)
-        .map_err(|_| invalid())?;
-    let config = body
-        .get("generationConfig")
-        .and_then(Value::as_object)
-        .ok_or_else(invalid)?;
-    if config.keys().any(|key| {
-        ![
-            "maxOutputTokens",
-            "candidateCount",
-            "temperature",
-            "topP",
-            "topK",
-            "stopSequences",
-        ]
-        .contains(&key.as_str())
-    }) || config
-        .get("candidateCount")
-        .is_some_and(|v| v.as_u64() != Some(1))
-    {
-        return Err(invalid());
-    }
-    let bound = config
-        .get("maxOutputTokens")
-        .and_then(Value::as_i64)
-        .filter(|v| (1..=1_000_000).contains(v))
-        .ok_or_else(invalid)?;
-    for (field, maximum) in [("temperature", 2.0), ("topP", 1.0)] {
-        if config.get(field).is_some_and(|v| {
-            !v.as_f64()
-                .is_some_and(|n| n.is_finite() && (0.0..=maximum).contains(&n))
-        }) {
-            return Err(invalid());
+fn normalize_gemini_schema(value: &Value) -> Value {
+    match value {
+        Value::Array(items) => Value::Array(items.iter().map(normalize_gemini_schema).collect()),
+        Value::Object(map) => {
+            let mut out = serde_json::Map::new();
+            let nullable = map.get("nullable").and_then(Value::as_bool) == Some(true);
+            for (k, v) in map {
+                if k == "nullable" {
+                    continue;
+                }
+                if k == "type"
+                    && let Some(raw_type) = v.as_str()
+                {
+                    let lower = match raw_type {
+                        "OBJECT" => "object",
+                        "STRING" => "string",
+                        "NUMBER" => "number",
+                        "INTEGER" => "integer",
+                        "BOOLEAN" => "boolean",
+                        "ARRAY" => "array",
+                        "NULL" => "null",
+                        other => other,
+                    };
+                    if nullable {
+                        out.insert(k.clone(), json!([lower, "null"]));
+                    } else {
+                        out.insert(k.clone(), json!(lower));
+                    }
+                    continue;
+                }
+                out.insert(k.clone(), normalize_gemini_schema(v));
+            }
+            Value::Object(out)
         }
+        _ => value.clone(),
     }
-    if config
-        .get("topK")
-        .is_some_and(|v| !v.as_u64().is_some_and(|n| (1..=10000).contains(&n)))
-        || config.get("stopSequences").is_some_and(|v| {
-            !v.as_array().is_some_and(|items| {
-                items.len() <= 5
-                    && items
-                        .iter()
-                        .all(|s| s.as_str().is_some_and(|s| !s.is_empty() && s.len() <= 512))
-            })
-        })
-    {
-        return Err(invalid());
-    }
-    Ok(bound)
 }
 
-fn normalize(value: Value, public_model: &str) -> Result<ProviderResponse, ApiError> {
-    let invalid = ApiError::upstream_invalid_response;
-    let token = |key: &str| {
-        value["usageMetadata"][key]
-            .as_u64()
-            .filter(|n| *n <= 9_007_199_254_740_991)
-    };
-    // Google's documented total includes prompt, thoughts and response candidates.
-    // Aggregate output can therefore be known without inventing a missing category.
-    let usage = (|| {
-        let prompt = token("promptTokenCount")?;
-        let candidates = token("candidatesTokenCount")?;
-        let total = token("totalTokenCount")?;
-        let output = total.checked_sub(prompt).filter(|n| *n >= candidates)?;
-        if value["usageMetadata"].get("thoughtsTokenCount").is_some()
-            && candidates.checked_add(token("thoughtsTokenCount")?)? != output
-        {
-            return None;
-        }
-        if value["usageMetadata"]
-            .get("toolUsePromptTokenCount")
-            .is_some()
-            && token("toolUsePromptTokenCount")? != 0
-        {
-            return None;
-        }
-        Some((prompt, output))
-    })();
-    let token_categories = usage.and_then(|(prompt, output)| {
-        let cached = token("cachedContentTokenCount")
-            .filter(|n| *n <= prompt)
-            .map(|n| n as i64);
-        let reasoning = token("thoughtsTokenCount")
-            .filter(|n| *n <= output)
-            .map(|n| n as i64);
-        (cached.is_some() || reasoning.is_some()).then_some(niu_storage::RequestTokenCategories {
-            cached_input_tokens: cached,
-            cache_write_input_tokens: None,
-            reasoning_output_tokens: reasoning,
-        })
-    });
-    let candidate = value["candidates"]
-        .as_array()
-        .filter(|v| v.len() == 1)
-        .and_then(|v| v.first());
-    let stop = candidate
-        .and_then(|c| c["finishReason"].as_str())
-        .filter(|s| matches!(*s, "STOP" | "MAX_TOKENS"));
-    let parts = candidate.and_then(|c| {
-        if c["content"]["role"] != "model" {
-            return None;
-        }
-        c["content"]["parts"]
-            .as_array()
-            .filter(|v| !v.is_empty() && v.len() <= 128)?
-            .iter()
-            .map(|part| {
-                let object = part.as_object()?;
-                if object
-                    .keys()
-                    .any(|key| !["text", "thoughtSignature"].contains(&key.as_str()))
-                {
-                    return None;
-                }
-                Some(json!({"text":part["text"].as_str()?}))
-            })
-            .collect::<Option<Vec<_>>>()
-    });
-    let valid = stop.is_some() && parts.is_some();
-    if !valid && usage.is_none() {
+fn valid_gemini_identifier(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
+fn validate(body: &Value) -> Result<ValidatedGenerateContentRequest, ApiError> {
+    let invalid = || ApiError::invalid_request("Unsupported or invalid GenerateContent request");
+    let object = body.as_object().ok_or_else(invalid)?;
+    if object.keys().any(|key| {
+        ![
+            "contents",
+            "systemInstruction",
+            "generationConfig",
+            "tools",
+            "toolConfig",
+        ]
+        .contains(&key.as_str())
+    }) {
         return Err(invalid());
     }
-    let finish_reasons = stop.map(|stop| {
-        vec![niu_storage::RequestChoiceFinish {
-            index: 0,
-            reason: if stop == "MAX_TOKENS" {
-                niu_storage::RequestFinishReason::Length
-            } else {
-                niu_storage::RequestFinishReason::Stop
+
+    let mut validator = crate::streaming::GenerateContentOutputValidator::default();
+    let has_tools = if let Some(tools_val) = object.get("tools") {
+        let groups = tools_val
+            .as_array()
+            .filter(|g| !g.is_empty() && g.len() <= 16)
+            .ok_or_else(invalid)?;
+        let mut total_decls = 0usize;
+        for group in groups {
+            let group_obj = group.as_object().ok_or_else(invalid)?;
+            if group_obj.keys().any(|k| k != "functionDeclarations") {
+                return Err(ApiError::invalid_request(
+                    "Only client functionDeclarations are supported in GenerateContent tools",
+                ));
+            }
+            let decls = group_obj
+                .get("functionDeclarations")
+                .and_then(Value::as_array)
+                .filter(|d| !d.is_empty())
+                .ok_or_else(invalid)?;
+            total_decls = total_decls.saturating_add(decls.len());
+            if total_decls > 128 {
+                return Err(invalid());
+            }
+            for decl in decls {
+                let decl_obj = decl.as_object().ok_or_else(invalid)?;
+                if decl_obj.keys().any(|k| {
+                    !["name", "description", "parameters", "parametersJsonSchema"]
+                        .contains(&k.as_str())
+                }) {
+                    return Err(invalid());
+                }
+                let name = decl_obj
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .filter(|n| valid_gemini_identifier(n))
+                    .ok_or_else(invalid)?;
+                if validator.tools.contains_key(name) {
+                    return Err(invalid());
+                }
+                if decl_obj
+                    .get("description")
+                    .is_some_and(|v| v.as_str().is_none_or(|s| s.len() > 4096))
+                {
+                    return Err(invalid());
+                }
+                let compiled = match (
+                    decl_obj.get("parameters"),
+                    decl_obj.get("parametersJsonSchema"),
+                ) {
+                    (Some(_), Some(_)) => return Err(invalid()),
+                    (Some(schema), None) => {
+                        if !schema.is_object() {
+                            return Err(invalid());
+                        }
+                        let norm = normalize_gemini_schema(schema);
+                        Some(crate::inference_schema::validator(&norm).map_err(|()| invalid())?)
+                    }
+                    (None, Some(schema)) => {
+                        if !schema.is_object() {
+                            return Err(invalid());
+                        }
+                        Some(crate::inference_schema::validator(schema).map_err(|()| invalid())?)
+                    }
+                    (None, None) => None,
+                };
+                validator.tools.insert(name.to_owned(), compiled);
+            }
+        }
+        true
+    } else {
+        false
+    };
+
+    if let Some(tool_config) = object.get("toolConfig") {
+        if !has_tools {
+            return Err(invalid());
+        }
+        let tc_obj = tool_config.as_object().ok_or_else(invalid)?;
+        if tc_obj.keys().any(|k| k != "functionCallingConfig") {
+            return Err(invalid());
+        }
+        let fc_obj = tc_obj
+            .get("functionCallingConfig")
+            .and_then(Value::as_object)
+            .ok_or_else(invalid)?;
+        if fc_obj
+            .keys()
+            .any(|k| !["mode", "allowedFunctionNames"].contains(&k.as_str()))
+        {
+            return Err(invalid());
+        }
+        let mode = fc_obj.get("mode").and_then(Value::as_str);
+        match mode {
+            None | Some("AUTO") => {}
+            Some("ANY") => validator.require_tool_call = true,
+            Some("NONE") => validator.forbid_tool_call = true,
+            _ => return Err(invalid()),
+        }
+        if let Some(allowed) = fc_obj.get("allowedFunctionNames") {
+            if mode != Some("ANY") {
+                return Err(invalid());
+            }
+            let names = allowed
+                .as_array()
+                .filter(|v| !v.is_empty() && v.len() <= 128)
+                .ok_or_else(invalid)?;
+            let mut set = BTreeSet::new();
+            for item in names {
+                let n = item
+                    .as_str()
+                    .filter(|n| validator.tools.contains_key(*n))
+                    .ok_or_else(invalid)?;
+                set.insert(n.to_owned());
+            }
+            validator.allowed_tools = Some(set);
+        }
+    }
+
+    if let Some(sys) = object.get("systemInstruction") {
+        let sys_obj = sys.as_object().ok_or_else(invalid)?;
+        if sys_obj
+            .keys()
+            .any(|k| !["role", "parts"].contains(&k.as_str()))
+            || sys_obj
+                .get("role")
+                .is_some_and(|r| !matches!(r.as_str(), Some("system" | "user")))
+        {
+            return Err(invalid());
+        }
+        let parts = sys_obj
+            .get("parts")
+            .and_then(Value::as_array)
+            .filter(|v| !v.is_empty() && v.len() <= 128)
+            .ok_or_else(invalid)?;
+        for part in parts {
+            let pobj = part.as_object().ok_or_else(invalid)?;
+            if pobj.len() != 1 || pobj.get("text").and_then(Value::as_str).is_none() {
+                return Err(invalid());
+            }
+        }
+    }
+
+    let contents = object
+        .get("contents")
+        .and_then(Value::as_array)
+        .filter(|v| !v.is_empty() && v.len() <= 256)
+        .ok_or_else(invalid)?;
+    let mut has_media = false;
+    let mut has_image = false;
+    let mut has_tool_history = false;
+    let mut seen_function_calls = BTreeSet::new();
+    for content in contents {
+        let cobj = content.as_object().ok_or_else(invalid)?;
+        if cobj
+            .keys()
+            .any(|k| !["role", "parts"].contains(&k.as_str()))
+        {
+            return Err(invalid());
+        }
+        let role = match cobj.get("role") {
+            None => "user",
+            Some(v) => match v.as_str() {
+                Some(r @ ("user" | "model")) => r,
+                _ => return Err(invalid()),
             },
-        }]
-    });
-    let mut sanitized = json!({"candidates":[{"index":0,"content":{"role":"model","parts":parts},"finishReason":stop}],"modelVersion":public_model});
-    let mut metadata = serde_json::Map::new();
-    for key in [
-        "promptTokenCount",
-        "candidatesTokenCount",
-        "totalTokenCount",
-        "cachedContentTokenCount",
-        "thoughtsTokenCount",
-    ] {
-        metadata.insert(key.into(), json!(token(key)));
+        };
+        let parts = cobj
+            .get("parts")
+            .and_then(Value::as_array)
+            .filter(|v| !v.is_empty() && v.len() <= 128)
+            .ok_or_else(invalid)?;
+        for part in parts {
+            let pobj = part.as_object().ok_or_else(invalid)?;
+            if let Some(call) = pobj.get("functionCall") {
+                if role != "model"
+                    || pobj
+                        .keys()
+                        .any(|k| !["functionCall", "thoughtSignature"].contains(&k.as_str()))
+                    || pobj
+                        .get("thoughtSignature")
+                        .is_some_and(|v| v.as_str().is_none_or(|s| s.len() > 262_144))
+                {
+                    return Err(invalid());
+                }
+                let call_obj = call.as_object().ok_or_else(invalid)?;
+                if call_obj
+                    .keys()
+                    .any(|k| !["name", "args", "id"].contains(&k.as_str()))
+                    || !call_obj.get("args").is_some_and(Value::is_object)
+                {
+                    return Err(invalid());
+                }
+                let name = call_obj
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .filter(|n| valid_gemini_identifier(n))
+                    .ok_or_else(invalid)?;
+                if has_tools && !validator.tools.contains_key(name) {
+                    return Err(invalid());
+                }
+                seen_function_calls.insert(name.to_owned());
+                has_tool_history = true;
+            } else if let Some(resp) = pobj.get("functionResponse") {
+                if role != "user" || pobj.len() != 1 {
+                    return Err(invalid());
+                }
+                let resp_obj = resp.as_object().ok_or_else(invalid)?;
+                if resp_obj
+                    .keys()
+                    .any(|k| !["name", "response", "id"].contains(&k.as_str()))
+                    || !resp_obj.get("response").is_some_and(Value::is_object)
+                {
+                    return Err(invalid());
+                }
+                let name = resp_obj
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .filter(|n| seen_function_calls.contains(*n))
+                    .ok_or_else(invalid)?;
+                let _ = name;
+                has_tool_history = true;
+            } else if let Some(inline) = pobj.get("inlineData") {
+                if role != "user" || pobj.len() != 1 {
+                    return Err(invalid());
+                }
+                let inline_obj = inline.as_object().ok_or_else(invalid)?;
+                if inline_obj
+                    .keys()
+                    .any(|k| !["mimeType", "data"].contains(&k.as_str()))
+                {
+                    return Err(invalid());
+                }
+                let mime = inline_obj
+                    .get("mimeType")
+                    .and_then(Value::as_str)
+                    .ok_or_else(invalid)?;
+                if !matches!(
+                    mime,
+                    "image/png" | "image/jpeg" | "image/webp" | "image/gif" | "application/pdf"
+                ) {
+                    return Err(invalid());
+                }
+                if !inline_obj
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .is_some_and(|d| {
+                        crate::native_messages_tools::valid_base64_payload(d, 8 * 1024 * 1024)
+                    })
+                {
+                    return Err(invalid());
+                }
+                has_media = true;
+                if mime.starts_with("image/") {
+                    has_image = true;
+                }
+            } else {
+                if pobj
+                    .keys()
+                    .any(|k| !["text", "thought", "thoughtSignature"].contains(&k.as_str()))
+                    || pobj.get("text").and_then(Value::as_str).is_none()
+                    || pobj
+                        .get("thought")
+                        .is_some_and(|v| role != "model" || !v.is_boolean())
+                    || pobj.get("thoughtSignature").is_some_and(|v| {
+                        role != "model" || v.as_str().is_none_or(|s| s.len() > 262_144)
+                    })
+                {
+                    return Err(invalid());
+                }
+            }
+        }
     }
-    sanitized["usageMetadata"] = Value::Object(metadata);
-    if let Some(id) = value["responseId"]
-        .as_str()
-        .filter(|s| !s.is_empty() && s.len() <= 200 && !s.chars().any(char::is_control))
-    {
-        sanitized["responseId"] = json!(id);
+
+    let mut bound = None;
+    let mut has_structured_output = false;
+    let mut has_reasoning = false;
+    if let Some(config_val) = object.get("generationConfig") {
+        let config = config_val.as_object().ok_or_else(invalid)?;
+        if config.keys().any(|key| {
+            ![
+                "maxOutputTokens",
+                "candidateCount",
+                "temperature",
+                "topP",
+                "topK",
+                "stopSequences",
+                "seed",
+                "presencePenalty",
+                "frequencyPenalty",
+                "thinkingConfig",
+                "responseMimeType",
+                "responseSchema",
+                "responseJsonSchema",
+            ]
+            .contains(&key.as_str())
+        }) || config
+            .get("candidateCount")
+            .is_some_and(|v| v.as_u64() != Some(1))
+        {
+            return Err(invalid());
+        }
+        if let Some(max_out) = config.get("maxOutputTokens") {
+            let b = max_out
+                .as_i64()
+                .filter(|v| (1..=1_000_000).contains(v))
+                .ok_or_else(invalid)?;
+            bound = Some(b);
+        }
+        for (field, maximum) in [("temperature", 2.0), ("topP", 1.0)] {
+            if config.get(field).is_some_and(|v| {
+                !v.as_f64()
+                    .is_some_and(|n| n.is_finite() && (0.0..=maximum).contains(&n))
+            }) {
+                return Err(invalid());
+            }
+        }
+        for penalty in ["presencePenalty", "frequencyPenalty"] {
+            if config.get(penalty).is_some_and(|v| {
+                !v.as_f64()
+                    .is_some_and(|n| n.is_finite() && (-2.0..=2.0).contains(&n))
+            }) {
+                return Err(invalid());
+            }
+        }
+        if config.get("seed").is_some_and(|v| v.as_i64().is_none())
+            || config
+                .get("topK")
+                .is_some_and(|v| !v.as_u64().is_some_and(|n| (1..=10000).contains(&n)))
+            || config.get("stopSequences").is_some_and(|v| {
+                !v.as_array().is_some_and(|items| {
+                    items.len() <= 5
+                        && items
+                            .iter()
+                            .all(|s| s.as_str().is_some_and(|s| !s.is_empty() && s.len() <= 512))
+                })
+            })
+        {
+            return Err(invalid());
+        }
+        if let Some(thinking) = config.get("thinkingConfig") {
+            let tc = thinking.as_object().ok_or_else(invalid)?;
+            if tc.keys().any(|k| {
+                !["includeThoughts", "thinkingBudget", "thinkingLevel"].contains(&k.as_str())
+            }) {
+                return Err(invalid());
+            }
+            if tc.get("includeThoughts").is_some_and(|v| !v.is_boolean())
+                || tc
+                    .get("thinkingBudget")
+                    .is_some_and(|v| v.as_i64().is_none_or(|b| !(0..=32_768).contains(&b)))
+                || tc.get("thinkingLevel").is_some_and(|v| {
+                    !matches!(v.as_str(), Some("MINIMAL" | "LOW" | "MEDIUM" | "HIGH"))
+                })
+            {
+                return Err(invalid());
+            }
+            has_reasoning = true;
+        }
+        let response_mime = match config.get("responseMimeType") {
+            None => None,
+            Some(v) => match v.as_str() {
+                Some("text/plain") => Some("text/plain"),
+                Some("application/json") => {
+                    validator.json_mode = true;
+                    has_structured_output = true;
+                    Some("application/json")
+                }
+                _ => return Err(invalid()),
+            },
+        };
+        match (
+            config.get("responseSchema"),
+            config.get("responseJsonSchema"),
+        ) {
+            (Some(_), Some(_)) => return Err(invalid()),
+            (Some(schema), None) => {
+                if response_mime != Some("application/json") || !schema.is_object() {
+                    return Err(invalid());
+                }
+                let norm = normalize_gemini_schema(schema);
+                let compiled = crate::inference_schema::validator(&norm).map_err(|()| invalid())?;
+                validator.json_schema = Some(compiled);
+                has_structured_output = true;
+            }
+            (None, Some(schema)) => {
+                if response_mime != Some("application/json") || !schema.is_object() {
+                    return Err(invalid());
+                }
+                let compiled =
+                    crate::inference_schema::validator(schema).map_err(|()| invalid())?;
+                validator.json_schema = Some(compiled);
+                has_structured_output = true;
+            }
+            (None, None) => {}
+        }
     }
-    let provider_model = value["modelVersion"]
-        .as_str()
-        .filter(|s| !s.is_empty() && s.len() <= 200 && !s.chars().any(char::is_control))
-        .map(str::to_owned);
+
+    let size_limit = if has_media {
+        8 * 1024 * 1024
+    } else {
+        1_048_576
+    };
+    if crate::inference_schema::json_serialized_len_within(body, size_limit).is_err() {
+        return Err(ApiError::request_too_large());
+    }
+
+    Ok(ValidatedGenerateContentRequest {
+        bound,
+        has_tools,
+        has_tool_history,
+        has_structured_output,
+        has_reasoning,
+        has_media,
+        has_image,
+        validator,
+    })
+}
+
+fn normalize(
+    value: Value,
+    public_model: &str,
+    validator: &crate::streaming::GenerateContentOutputValidator,
+) -> Result<ProviderResponse, ApiError> {
+    let invalid = ApiError::upstream_invalid_response;
+    let projected = crate::streaming::sanitize_buffered_response(&value, public_model, validator);
+    if !projected.valid && projected.usage.is_none() {
+        return Err(invalid());
+    }
     Ok(ProviderResponse {
-        response: if valid {
-            buffered_json_response(sanitized)
+        response: if projected.valid {
+            buffered_json_response(projected.sanitized)
         } else {
             invalid().into_response()
         },
         completed: true,
-        usage,
-        token_categories,
-        provider_model,
-        finish_reasons,
+        usage: projected.usage,
+        token_categories: projected.token_categories,
+        provider_model: projected.provider_model,
+        finish_reasons: projected.finish_reasons,
     })
 }

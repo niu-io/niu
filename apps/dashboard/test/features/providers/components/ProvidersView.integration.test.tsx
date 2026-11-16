@@ -370,4 +370,76 @@ describe('provider API key administration workflow', () => {
     expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
   });
+
+  it('scopes ModelMappingForm protocol capabilities by adapter and enforces dependencies', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn(async () => {});
+    const { rerender } = render(
+      <ModelMappingForm
+        adapter="gemini"
+        model={null}
+        catalog={[]}
+        catalogLoading={false}
+        catalogError=""
+        disabled={false}
+        onCancel={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    expect(screen.getByText('Gemini API')).toBeTruthy();
+    expect(screen.getByText('Gemini streaming')).toBeTruthy();
+    expect(screen.queryByText('Messages API')).toBeNull();
+    expect(screen.queryByText('Responses API')).toBeNull();
+    expect(screen.queryByText('Embeddings')).toBeNull();
+
+    await user.click(screen.getByLabelText('Niu model alias'));
+    await user.type(screen.getByLabelText('Niu model alias'), 'google/gemini-2.5-flash');
+    await user.click(screen.getByLabelText('Upstream model'));
+    await user.type(screen.getByRole('textbox', { name: 'Search provider models' }), 'gemini-2.5-flash');
+    await user.click(screen.getByRole('menuitem', { name: /Use model ID “/i }));
+
+    const geminiStreaming = screen.getByRole('checkbox', { name: /Gemini streaming/i });
+    expect((geminiStreaming as HTMLButtonElement).disabled).toBe(true);
+
+    await user.click(screen.getByRole('checkbox', { name: /Gemini API/i }));
+    expect((screen.getByRole('checkbox', { name: /Gemini streaming/i }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('checkbox', { name: /Gemini streaming/i }));
+    await user.click(screen.getByRole('checkbox', { name: /Function tools/i }));
+    await user.click(screen.getByRole('checkbox', { name: /Streaming tools/i }));
+    expect(screen.getByRole('checkbox', { name: /Streaming tools/i }).getAttribute('data-state')).toBe('checked');
+
+    await user.click(screen.getByRole('checkbox', { name: /Gemini API/i }));
+    expect(screen.getByRole('checkbox', { name: /Gemini streaming/i }).getAttribute('data-state')).toBe('unchecked');
+    expect(screen.getByRole('checkbox', { name: /Function tools/i }).getAttribute('data-state')).toBe('unchecked');
+    expect(screen.getByRole('checkbox', { name: /Streaming tools/i }).getAttribute('data-state')).toBe('unchecked');
+
+    await user.click(screen.getByRole('checkbox', { name: /Gemini API/i }));
+    await user.click(screen.getByRole('checkbox', { name: /Gemini streaming/i }));
+    await user.click(screen.getByRole('checkbox', { name: /Function tools/i }));
+    await user.click(screen.getByRole('checkbox', { name: /Streaming tools/i }));
+    await user.click(screen.getByRole('button', { name: 'Add model', exact: true }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as { capabilities: Record<string, unknown> }).capabilities).toMatchObject({
+      supports_generate_content: true,
+      supports_generate_content_streaming: true,
+      supports_tool_calls: true,
+      supports_streaming_tool_calls: true,
+    });
+
+    rerender(
+      <ModelMappingForm
+        adapter="anthropic"
+        model={null}
+        catalog={[]}
+        catalogLoading={false}
+        catalogError=""
+        disabled={false}
+        onCancel={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    expect(screen.getByText('Messages API')).toBeTruthy();
+    expect(screen.getByText('Messages streaming tools')).toBeTruthy();
+    expect(screen.queryByText('Gemini API')).toBeNull();
+  });
 });

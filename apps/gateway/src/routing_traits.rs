@@ -56,13 +56,20 @@ pub(crate) fn supports(protocol: Protocol, request_trait: RequestTrait) -> bool 
             request_trait,
             Streaming | Vision | Tools | StructuredOutput | Reasoning | TokenBounds
         ),
-        // The implemented Responses subset is buffered or streamed text only.
-        Protocol::Responses => matches!(request_trait, Streaming | TokenBounds),
-        // Native Messages supports client tools and text streaming; media,
-        // extended thinking and structured output remain unimplemented.
-        Protocol::Messages => matches!(request_trait, Streaming | Tools | TokenBounds),
-        // The implemented GenerateContent subset is buffered text only.
-        Protocol::GenerateContent => matches!(request_trait, TokenBounds),
+        Protocol::Responses => matches!(
+            request_trait,
+            Streaming | Vision | Tools | StructuredOutput | Reasoning | TokenBounds
+        ),
+        // Native Messages supports streaming, tools, media and extended thinking;
+        // structured output remains unsupported on the 2023-06-01 Messages subset.
+        Protocol::Messages => matches!(
+            request_trait,
+            Streaming | Vision | Tools | Reasoning | TokenBounds
+        ),
+        Protocol::GenerateContent => matches!(
+            request_trait,
+            Streaming | Vision | Tools | StructuredOutput | Reasoning | TokenBounds
+        ),
         Protocol::Embeddings => matches!(
             request_trait,
             TokenBounds | EmbeddingDimensions | EmbeddingBase64
@@ -159,20 +166,21 @@ pub(crate) fn require_supported(
 
 impl RequestTraits {
     /// The single normalization point into candidate-filter requirements. The
-    /// Messages protocol uses its own capability flags because native streaming
-    /// and native tools are separate route declarations.
+    /// Messages and GenerateContent protocols use dedicated streaming flags.
     pub(crate) fn requirements(
         self,
         project_id: Option<Uuid>,
         protocol: Protocol,
     ) -> ModelRequirements {
         let messages = protocol == Protocol::Messages;
+        let generate_content = protocol == Protocol::GenerateContent;
         ModelRequirements {
             project_id,
-            streaming: self.streaming && !messages,
+            streaming: self.streaming && !messages && !generate_content,
             messages_streaming: self.streaming && messages,
             messages_tools: self.tools && messages,
             messages_streaming_tools: self.tools && self.streaming && messages,
+            generate_content_streaming: self.streaming && generate_content,
             tools: self.tools && !messages,
             streaming_tools: self.tools && self.streaming && !messages,
             structured_output: self.structured_output,
@@ -269,7 +277,19 @@ fn responses(body: &Value) -> RequestTraits {
         streaming: bool_field(body, "stream"),
         ..Default::default()
     };
-    traits.tools = body.get("tools").is_some() || body.get("tool_choice").is_some();
+    let has_tool_history = body
+        .get("input")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                matches!(
+                    item.get("type").and_then(Value::as_str),
+                    Some("function_call" | "function_call_output")
+                )
+            })
+        });
+    traits.tools =
+        body.get("tools").is_some() || body.get("tool_choice").is_some() || has_tool_history;
     traits.structured_output = matches!(
         body.pointer("/text/format/type").and_then(Value::as_str),
         Some("json_object" | "json_schema")
@@ -327,8 +347,19 @@ fn messages(body: &Value) -> RequestTraits {
 fn generate_content(body: &Value) -> RequestTraits {
     let input_chars = text_field_chars(&body["contents"])
         .saturating_add(text_field_chars(&body["systemInstruction"]));
+    let has_tool_parts = body.get("contents").is_some_and(|contents| {
+        contains_any_key(
+            contents,
+            &[
+                "functionCall",
+                "functionResponse",
+                "function_call",
+                "function_response",
+            ],
+        )
+    });
     RequestTraits {
-        tools: body.get("tools").is_some() || body.get("toolConfig").is_some(),
+        tools: body.get("tools").is_some() || body.get("toolConfig").is_some() || has_tool_parts,
         structured_output: body
             .pointer("/generationConfig/responseMimeType")
             .and_then(Value::as_str)
@@ -355,6 +386,7 @@ fn generate_content(body: &Value) -> RequestTraits {
 
 fn embeddings(body: &Value) -> RequestTraits {
     RequestTraits {
+        streaming: bool_field(body, "stream"),
         embedding_dimensions: body.get("dimensions").is_some(),
         embedding_base64: body.get("encoding_format").and_then(Value::as_str) == Some("base64"),
         ..Default::default()
@@ -570,9 +602,32 @@ mod tests {
                     TokenBounds,
                 ],
             ),
-            (Protocol::Responses, vec![Streaming, TokenBounds]),
-            (Protocol::Messages, vec![Streaming, Tools, TokenBounds]),
-            (Protocol::GenerateContent, vec![TokenBounds]),
+            (
+                Protocol::Responses,
+                vec![
+                    Streaming,
+                    Vision,
+                    Tools,
+                    StructuredOutput,
+                    Reasoning,
+                    TokenBounds,
+                ],
+            ),
+            (
+                Protocol::Messages,
+                vec![Streaming, Vision, Tools, Reasoning, TokenBounds],
+            ),
+            (
+                Protocol::GenerateContent,
+                vec![
+                    Streaming,
+                    Vision,
+                    Tools,
+                    StructuredOutput,
+                    Reasoning,
+                    TokenBounds,
+                ],
+            ),
             (
                 Protocol::Embeddings,
                 vec![TokenBounds, EmbeddingDimensions, EmbeddingBase64],
@@ -784,22 +839,28 @@ mod tests {
 
     #[test]
     fn unsupported_native_traits_are_rejected_explicitly() {
-        let fixtures = [
+        for (name, request) in [
             (
                 "responses",
                 fixture(include_str!(
                     "../tests/fixtures/routing-traits/responses-unsupported.json"
                 )),
-                json!({
-                    "protocol": "responses",
-                    "streaming": true,
-                    "vision": true,
-                    "tools": true,
-                    "structured_output": true,
-                    "reasoning": true
-                }),
-                "Responses requests do not support image inputs",
             ),
+            (
+                "generate_content",
+                fixture(include_str!(
+                    "../tests/fixtures/routing-traits/generate-content-unsupported.json"
+                )),
+            ),
+        ] {
+            let protocol = protocol(name);
+            let traits = extract(protocol, &request);
+            assert!(
+                require_supported(protocol, &traits).is_ok(),
+                "{name} should now be supported"
+            );
+        }
+        let fixtures = [
             (
                 "messages",
                 fixture(include_str!(
@@ -811,26 +872,24 @@ mod tests {
                     "structured_output": true,
                     "reasoning": true
                 }),
-                "Messages requests do not support image or document inputs",
+                "Messages requests do not support structured output",
             ),
             (
-                "generate_content",
-                fixture(include_str!(
-                    "../tests/fixtures/routing-traits/generate-content-unsupported.json"
-                )),
+                "chat",
+                json!({"model":"pool/assistant","messages":[{"role":"user","content":"Hi"}]}),
                 json!({
-                    "protocol": "generate_content",
-                    "vision": true,
-                    "tools": true,
-                    "structured_output": true,
-                    "reasoning": true
+                    "protocol": "chat",
+                    "embedding_dimensions": true
                 }),
-                "GenerateContent requests do not support media inputs",
+                "Embedding dimensions are only supported by the Embeddings protocol",
             ),
         ];
-        for (name, request, preview, message) in fixtures {
+        for (index, (name, request, preview, message)) in fixtures.into_iter().enumerate() {
             let protocol = protocol(name);
-            let dispatch = extract(protocol, &request);
+            let mut dispatch = extract(protocol, &request);
+            if index == 1 {
+                dispatch.embedding_dimensions = true;
+            }
             let preview_traits = extract_traits_from_preview(&preview);
             let dispatch_error = require_supported(protocol, &dispatch)
                 .expect_err("unsupported native traits must be rejected");

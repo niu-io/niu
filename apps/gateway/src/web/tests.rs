@@ -335,6 +335,7 @@ mod operators;
 mod passwords;
 mod performance_suite;
 mod profile;
+mod protocols;
 mod request_exports;
 mod stability_suite;
 mod video;

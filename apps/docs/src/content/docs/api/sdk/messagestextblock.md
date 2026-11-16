@@ -11,9 +11,6 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type MessagesTextBlock = {
     type: 'text';
     text: string;
-    cache_control?: {
-        type: 'ephemeral';
-        ttl?: '5m' | '1h';
-    };
+    cache_control?: MessagesCacheControl;
 };
 ```

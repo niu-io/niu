@@ -13,7 +13,7 @@ export type ResponsesResponse = {
     object: 'response';
     status: 'completed' | 'incomplete';
     model: string;
-    output: Array<ResponsesMessage | ResponsesReasoning>;
+    output: Array<ResponsesMessage | ResponsesReasoning | ResponsesFunctionCall>;
     usage?: {
         input_tokens: number;
         output_tokens: number;

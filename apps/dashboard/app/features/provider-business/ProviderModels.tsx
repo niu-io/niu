@@ -277,7 +277,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
             <p>{integrationLabels[discovery.integration.effective_type]} · {discovery.inventory_scope === 'credential_filtered' ? uiT("Credential-filtered inventory") : uiT("Instance-reported inventory")}</p>
             <p>{commercialEnabled ? uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving. Advertised prices do not set purchase rates or customer prices.") : uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving.")}</p>
           </div>}
-          <ModelMappingForm key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`} initialAlias={editor.initialAlias} ownerFunded={selectedConnection.owner_funded} accessScope={selectedConnection.access_scope} model={editor.model} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} onRetryCatalog={() => void loadCatalog()} disabled={busy} onCancel={() => setEditor(null)} onSave={input => save(input)} />
+          <ModelMappingForm key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`} initialAlias={editor.initialAlias} adapter={selectedConnection.adapter} ownerFunded={selectedConnection.owner_funded} accessScope={selectedConnection.access_scope} model={editor.model} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} onRetryCatalog={() => void loadCatalog()} disabled={busy} onCancel={() => setEditor(null)} onSave={input => save(input)} />
         </>}
       </DialogContent>
     </Dialog>

@@ -25190,7 +25190,12 @@
           "supports_generate_content": {
             "type": "boolean",
             "default": false,
-            "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+            "description": "Native GenerateContent opt-in for static or managed gemini routes. Pair with supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, or supports_generate_content_streaming as needed."
+          },
+          "supports_generate_content_streaming": {
+            "type": "boolean",
+            "default": false,
+            "description": "Explicit native :streamGenerateContent SSE/JSON stream opt-in; requires supports_generate_content on a gemini route."
           },
           "supports_messages_streaming_tools": {
             "type": "boolean",

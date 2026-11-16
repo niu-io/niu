@@ -227,7 +227,8 @@ fn responses_contract_bounds_text_inputs_and_validates_output_items() {
     assert!(!valid_responses_response(&invalid_text));
 
     for invalid in [
-        json!({"model":"fast","input":[{"role":"user","content":"hi"}]}),
+        json!({"model":"fast","input":[{"role":"invalid","content":"hi"}]}),
+        json!({"model":"fast","input":[]}),
         json!({"model":"fast","input":"hi","stream":"true"}),
         json!({"model":"fast","input":"hi","max_output_tokens":11}),
         json!({"model":"fast","input":"hi","tools":[]}),

@@ -13,5 +13,6 @@ export type MessagesToolUse = {
     id: string;
     name: string;
     input: Record<string, unknown>;
+    cache_control?: MessagesCacheControl;
 };
 ```

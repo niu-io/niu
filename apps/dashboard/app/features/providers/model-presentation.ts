@@ -15,6 +15,8 @@ export function modelCapabilityLabels(capabilities: ModelCapabilities): string[]
     names.push(options.length ? translateUI('Embeddings') + ' · ' + options.join(', ') : translateUI('Embeddings'));
   }
   if (capabilities.supports_responses) names.push(translateUI('Responses'));
+  if (capabilities.supports_messages) names.push(translateUI(capabilities.supports_messages_tools ? 'Messages · tools' : 'Messages'));
+  if (capabilities.supports_generate_content) names.push(translateUI(capabilities.supports_generate_content_streaming ? 'Gemini · streaming' : 'Gemini'));
   return names;
 }
 

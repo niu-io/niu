@@ -16,7 +16,7 @@ export type MessagesResponse = {
     content: Array<{
         type: 'text';
         text: string;
-    } | MessagesToolUse>;
+    } | MessagesThinkingBlock | MessagesRedactedThinkingBlock | MessagesToolUse>;
     stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
     stop_sequence: string | null;
     /** Null categories do not establish zero usage or settled customer charges. */

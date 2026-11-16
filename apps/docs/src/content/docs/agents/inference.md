@@ -22,7 +22,7 @@ Do not send paid requests on a user's behalf without explicit authorization and 
 - **Headers**: `Authorization: Bearer <NIU_API_KEY>` or `x-niu-api-key: <NIU_API_KEY>`
 - **Content-Type**: `application/json`
 - **Primary base URL**: `{ORIGIN}/v1` (hosted Niu: `https://niu.io/v1`)
-- **Native Gemini-compatible path**: `{ORIGIN}/v1beta/models/{encoded_model}:generateContent`
+- **Native Gemini-compatible paths**: `{ORIGIN}/v1beta/models/{encoded_model}:generateContent` and `{ORIGIN}/v1beta/models/{encoded_model}:streamGenerateContent` (JSON array chunks by default, or `?alt=sse` for SSE)
 
 ### Standard application SDK environment variables
 
@@ -31,9 +31,9 @@ Do not send paid requests on a user's behalf without explicit authorization and 
 OPENAI_BASE_URL="{ORIGIN}/v1"
 OPENAI_API_KEY="<NIU_API_KEY>"
 
-# Anthropic SDK (appends /v1/messages automatically; omit /v1 here)
+# Anthropic SDK (appends /v1/messages automatically; sends Authorization: Bearer <NIU_API_KEY>)
 ANTHROPIC_BASE_URL="{ORIGIN}"
-ANTHROPIC_API_KEY="<NIU_API_KEY>"
+ANTHROPIC_AUTH_TOKEN="<NIU_API_KEY>"
 
 # Direct Niu SDK / @niu-io/mcp
 NIU_BASE_URL="{ORIGIN}/v1"
@@ -49,9 +49,9 @@ Never embed workspace API keys in frontend JavaScript bundles or public reposito
 | `invocation_protocols` entry | HTTP Endpoint | MCP Tool | Required Body Fields & Notes |
 | --- | --- | --- | --- |
 | `chat` | `POST /v1/chat/completions` | `create_chat_completion`, `compare_models` | `model`, `messages`; supports `tools`, `tool_choice`, `response_format`, `reasoning`, `temperature`, `max_completion_tokens`, `stream` |
-| `responses` | `POST /v1/responses` | `create_response` | `model`, `input`; optional `instructions`, `max_output_tokens`, `temperature`, `top_p`, `metadata` |
-| `messages` | `POST /v1/messages` | `create_message` | `model`, `max_tokens`, `messages`; optional `system`, `tools`, `tool_choice`, `stop_sequences`, `stream` |
-| `content` | `POST /v1beta/models/{encoded_model}:generateContent` | `generate_content` | `contents`, `generationConfig.maxOutputTokens`; URL-encode `/` in model aliases (e.g. `pool%2Fassistant:generateContent`) |
+| `responses` | `POST /v1/responses` | `create_response` | Stateless `model`, `input` (string or multi-turn `message`/`function_call`/`function_call_output`/`reasoning`); supports client `function` `tools`, `tool_choice`, `parallel_tool_calls`, `reasoning`, `text.format` (`json_object`/`json_schema`), `truncation`, `store: false`, `stream`, and unpriced `input_image` (no `previous_response_id` or hosted tools) |
+| `messages` | `POST /v1/messages` | `create_message` | `model`, `max_tokens`, `messages`; supports `system`, `tools`, `tool_choice`, `thinking` (`enabled`/`disabled`/`adaptive`), `output_config.effort`, safe `anthropic-beta` allowlist, `cache_control`, array `tool_result`, `top_k`, `metadata.user_id`, `stream`, and unpriced `image`/`document` blocks (`output_config.format` unsupported) |
+| `content` | `POST /v1beta/models/{encoded_model}:generateContent` / `:streamGenerateContent` | `generate_content` | `contents`, `generationConfig` (optional `maxOutputTokens`, `thinkingConfig`, `responseMimeType`/`Schema`); supports `tools.functionDeclarations`, `toolConfig.functionCallingConfig`, `thoughtSignature`, unpriced `inlineData`, and `?alt=sse` or JSON array stream (URL-encode `/` aliases, e.g. `pool%2Fassistant:streamGenerateContent`) |
 | `embeddings` | `POST /v1/embeddings` | `create_embeddings` | `model`, `input`; optional `encoding_format`, `dimensions`, `user` |
 | `decisions` | `POST /v1/decisions` | — | Bounded structured decision (`model`, `input`, `output_schema`); concrete Chat model alias only (`pool/` rejected) |
 | `video` | `POST /v1/video/jobs` (+ `POST /v1/video/estimate`, `GET /v1/video/models`) | `create_video_job`, `estimate_video`, `list_video_models` | Async durable job lifecycle; see [Video reference](/docs/reference/video/) |

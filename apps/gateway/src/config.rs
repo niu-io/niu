@@ -122,6 +122,8 @@ pub struct ModelConfig {
     #[serde(default)]
     pub supports_generate_content: bool,
     #[serde(default)]
+    pub supports_generate_content_streaming: bool,
+    #[serde(default)]
     pub api_base: Option<String>,
     #[serde(default)]
     pub pricing: Option<RoutePricing>,
@@ -157,6 +159,7 @@ pub(crate) struct ModelRequirements {
     pub messages_streaming: bool,
     pub messages_tools: bool,
     pub messages_streaming_tools: bool,
+    pub generate_content_streaming: bool,
     pub tools: bool,
     pub streaming_tools: bool,
     pub structured_output: bool,
@@ -174,6 +177,7 @@ impl ModelRequirements {
             && (!self.messages_streaming || model.supports_messages_streaming)
             && (!self.messages_tools || model.supports_messages_tools)
             && (!self.messages_streaming_tools || model.supports_messages_streaming_tools)
+            && (!self.generate_content_streaming || model.supports_generate_content_streaming)
             && (!self.tools || model.supports_tool_calls)
             && (!self.streaming_tools || model.supports_streaming_tool_calls)
             && (!self.structured_output || model.supports_structured_output)
@@ -368,9 +372,16 @@ impl AppConfig {
                     "Streaming Messages tools on route {name} require both native tools and streaming"
                 )));
             }
-            if model.supports_generate_content && model.provider != "gemini" {
+            if (model.supports_generate_content || model.supports_generate_content_streaming)
+                && model.provider != "gemini"
+            {
                 return Err(ConfigError::Invalid(format!(
                     "GenerateContent capability on route {name} requires a gemini adapter"
+                )));
+            }
+            if model.supports_generate_content_streaming && !model.supports_generate_content {
+                return Err(ConfigError::Invalid(format!(
+                    "Streaming GenerateContent on route {name} requires supports_generate_content"
                 )));
             }
             if (model.supports_messages_streaming || model.supports_messages_tools)
@@ -399,14 +410,28 @@ impl AppConfig {
                     "embedding option capabilities on route {name} require supports_embeddings"
                 )));
             }
+            let gemini_native = model.provider == "gemini" && model.supports_generate_content;
             if (model.supports_tool_calls
                 || model.supports_streaming_tool_calls
-                || model.supports_structured_output
-                || model.supports_responses)
+                || model.supports_structured_output)
                 && !model.protocol().is_openai_compatible()
+                && !gemini_native
             {
                 return Err(ConfigError::Invalid(format!(
-                    "tool-call and structured-output capabilities on route {name} currently require an OpenAI-compatible provider"
+                    "tool-call and structured-output capabilities on route {name} require an OpenAI-compatible or GenerateContent-enabled Gemini provider"
+                )));
+            }
+            if model.supports_responses && !model.protocol().is_openai_compatible() {
+                return Err(ConfigError::Invalid(format!(
+                    "Responses capability on route {name} requires an OpenAI-compatible provider"
+                )));
+            }
+            if gemini_native
+                && model.supports_streaming_tool_calls
+                && !model.supports_generate_content_streaming
+            {
+                return Err(ConfigError::Invalid(format!(
+                    "Streaming GenerateContent tools on route {name} require supports_generate_content_streaming"
                 )));
             }
             if model.supports_streaming_tool_calls && !model.supports_tool_calls {

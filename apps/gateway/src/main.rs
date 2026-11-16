@@ -19,6 +19,7 @@ mod financial_recovery;
 mod guardrails;
 mod inference_schema;
 mod native_messages_tools;
+mod native_responses;
 mod payments;
 mod provider_integrations;
 mod provider_rejections;

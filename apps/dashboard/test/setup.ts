@@ -38,8 +38,11 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/");
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  if (!vi.isFakeTimers()) {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });

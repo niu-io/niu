@@ -10,21 +10,40 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ProviderLogo from '@/components/ProviderLogo';
 import { modelIdentity } from '@/lib/providers';
-import { emptyCapabilities, type ModelCapabilities, type ModelWrite, type ProviderCatalogModel, type VendorModel } from '../api';
+import { emptyCapabilities, type ModelCapabilities, type ModelWrite, type ProviderAdapter, type ProviderCatalogModel, type VendorModel } from '../api';
 
-const capabilityChoices: Array<{ key: Exclude<keyof ModelCapabilities, 'catalog' | 'video_schema'>; label: string; help: string }> = [
+type CapabilityKey = Exclude<keyof ModelCapabilities, 'catalog' | 'video_schema'>;
+
+const capabilityChoices: Array<{ key: CapabilityKey; label: string; help: string }> = [
   { key: 'supports_tool_calls', label: 'Function tools', help: 'Tool call responses' },
   { key: 'supports_streaming_tool_calls', label: 'Streaming tools', help: 'Tool deltas in streams' },
   { key: 'supports_structured_output', label: 'Structured output', help: 'JSON schema response format' },
   { key: 'supports_embeddings', label: 'Embeddings', help: 'Text embedding requests' },
   { key: 'supports_embedding_dimensions', label: 'Embedding dimensions', help: 'Custom vector size' },
   { key: 'supports_embedding_base64', label: 'Base64 embeddings', help: 'Base64 vector encoding' },
-  { key: 'supports_responses', label: 'Responses API', help: 'Text-only Responses subset' },
+  { key: 'supports_responses', label: 'Responses API', help: 'OpenAI Responses API' },
+  { key: 'supports_messages', label: 'Messages API', help: 'Anthropic Messages requests' },
+  { key: 'supports_messages_streaming', label: 'Messages streaming', help: 'Streaming Messages responses' },
+  { key: 'supports_messages_tools', label: 'Messages tools', help: 'Tool use on Messages' },
+  { key: 'supports_messages_streaming_tools', label: 'Messages streaming tools', help: 'Streaming tool deltas on Messages' },
+  { key: 'supports_generate_content', label: 'Gemini API', help: 'Google Gemini GenerateContent requests' },
+  { key: 'supports_generate_content_streaming', label: 'Gemini streaming', help: 'Streaming GenerateContent responses' },
 ];
 
-export default function ModelMappingForm({ ownerFunded = false, accessScope, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave, onRetryCatalog }: {
+function choiceVisible(key: CapabilityKey, adapter?: ProviderAdapter) {
+  if (!adapter) return true;
+  if (key.startsWith('supports_messages')) return adapter === 'openrouter' || adapter === 'anthropic';
+  if (key.startsWith('supports_generate_content')) return adapter === 'gemini';
+  if (key === 'supports_responses' || key.startsWith('supports_embedding')) {
+    return adapter === 'openrouter' || adapter === 'openai' || adapter === 'ark';
+  }
+  return adapter === 'openrouter' || adapter === 'openai' || adapter === 'ark' || adapter === 'gemini';
+}
+
+export default function ModelMappingForm({ ownerFunded = false, accessScope, adapter, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave, onRetryCatalog }: {
   ownerFunded?: boolean;
   accessScope?: 'commercial' | 'personal' | 'internal';
+  adapter?: ProviderAdapter;
   initialAlias?: string;
   model: VendorModel | null;
   catalog: ProviderCatalogModel[];
@@ -72,17 +91,56 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ini
     setCatalogOpen(false);
   }
 
-  function updateCapability(key: Exclude<keyof ModelCapabilities, 'catalog' | 'video_schema'>, checked: boolean) {
+  function updateCapability(key: CapabilityKey, checked: boolean) {
     setCapabilities(previous => {
       const next = { ...previous, [key]: checked };
       if (key === 'supports_tool_calls' && !checked) next.supports_streaming_tool_calls = false;
-      if (key === 'supports_streaming_tool_calls' && checked) next.supports_tool_calls = true;
+      if (key === 'supports_streaming_tool_calls' && checked) {
+        next.supports_tool_calls = true;
+        if (adapter === 'gemini') {
+          next.supports_generate_content = true;
+          next.supports_generate_content_streaming = true;
+        }
+      }
+      if (key === 'supports_structured_output' && checked && adapter === 'gemini') {
+        next.supports_generate_content = true;
+      }
       if (key === 'supports_embeddings' && !checked) {
         next.supports_embedding_dimensions = false;
         next.supports_embedding_base64 = false;
       }
       if ((key === 'supports_embedding_dimensions' || key === 'supports_embedding_base64') && checked) {
         next.supports_embeddings = true;
+      }
+      if (key === 'supports_messages' && !checked) {
+        next.supports_messages_streaming = false;
+        next.supports_messages_tools = false;
+        next.supports_messages_streaming_tools = false;
+      }
+      if (key === 'supports_messages_streaming') {
+        if (checked) next.supports_messages = true;
+        else next.supports_messages_streaming_tools = false;
+      }
+      if (key === 'supports_messages_tools') {
+        if (checked) next.supports_messages = true;
+        else next.supports_messages_streaming_tools = false;
+      }
+      if (key === 'supports_messages_streaming_tools' && checked) {
+        next.supports_messages = true;
+        next.supports_messages_streaming = true;
+        next.supports_messages_tools = true;
+      }
+      if (key === 'supports_generate_content' && !checked) {
+        next.supports_generate_content_streaming = false;
+        if (adapter === 'gemini') {
+          next.supports_tool_calls = false;
+          next.supports_streaming_tool_calls = false;
+          next.supports_structured_output = false;
+        }
+      }
+      if (key === 'supports_generate_content_streaming') {
+        if (checked) next.supports_generate_content = true;
+        else if (adapter === 'gemini') next.supports_streaming_tool_calls = false;
       }
       return next;
     });
@@ -177,9 +235,13 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ini
       <legend>{uiT("Optional capabilities")}</legend>
       <p>{uiT("These declarations are off by default. Enable only after checking the selected upstream model and endpoint.")}</p>
       <div className="model-capability-grid">
-        {capabilityChoices.map(choice => {
-          const dependent = choice.key === 'supports_streaming_tool_calls' && !capabilities.supports_tool_calls
-            || (choice.key === 'supports_embedding_dimensions' || choice.key === 'supports_embedding_base64') && !capabilities.supports_embeddings;
+        {capabilityChoices.filter(choice => choiceVisible(choice.key, adapter)).map(choice => {
+          const dependent = (choice.key === 'supports_streaming_tool_calls' && (!capabilities.supports_tool_calls || (adapter === 'gemini' && !capabilities.supports_generate_content_streaming)))
+            || ((choice.key === 'supports_tool_calls' || choice.key === 'supports_structured_output') && adapter === 'gemini' && !capabilities.supports_generate_content)
+            || ((choice.key === 'supports_embedding_dimensions' || choice.key === 'supports_embedding_base64') && !capabilities.supports_embeddings)
+            || ((choice.key === 'supports_messages_streaming' || choice.key === 'supports_messages_tools') && !capabilities.supports_messages)
+            || (choice.key === 'supports_messages_streaming_tools' && !(capabilities.supports_messages && capabilities.supports_messages_streaming && capabilities.supports_messages_tools))
+            || (choice.key === 'supports_generate_content_streaming' && !capabilities.supports_generate_content);
           return <Label className={'model-capability' + (dependent ? ' is-dependent' : '')} key={choice.key}>
             <Checkbox checked={capabilities[choice.key]} disabled={disabled || dependent} onCheckedChange={value => updateCapability(choice.key, value === true)} />
             <span><strong>{uiT(choice.label)}</strong><small>{uiT(choice.help)}</small></span>

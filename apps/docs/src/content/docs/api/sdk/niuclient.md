@@ -477,6 +477,14 @@ readonly embeddings: {
 readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
 ```
 
+### streamGenerateContent
+
+```typescript
+readonly streamGenerateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions & {
+    alt?: 'sse';
+}) => AsyncGenerator<GenerateContentResponse>;
+```
+
 ### messages
 
 ```typescript
