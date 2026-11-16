@@ -18,9 +18,9 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///   "operation": {
 ///     "operationId": "createMessage",
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Native text and client tools with separately enabled text/tool streaming. Media and extended thinking remain unsupported.",
-///     "summary": "Create a native text Message, optionally streamed",
-///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 1 MiB and conservative configured pricing bounds. No Chat translation. Media, beta headers and unsupported fields are rejected before dispatch. Buffered client tools require supports_messages_tools; route pools filter this capability. Tool definitions are limited to name, description and bounded offline object input_schema. tool_choice supports auto/any/none/tool and optional disable_parallel_tool_use. History requires uniquely identified assistant tool_use blocks followed immediately by matching user tool_result blocks with string content, before ordinary user text. Tools must remain declared for tool history. Streaming tools additionally require supports_messages_streaming_tools, supports_messages_tools and supports_messages_streaming; pools filter all required capabilities. Only sequential content blocks are supported; interleaved tool blocks fail safely. Native input_json_delta fragments are bounded to 64 KiB per tool and 256 KiB per message, parsed and schema-validated before content_block_stop is emitted. Tool IDs must be unique. Consumers must wait for message_stop before executing tool calls; error events and incomplete streams do not establish valid completion. Tool names, IDs and arguments are validated and projected; Niu does not execute tools. Required text input/output inspection rejects tool requests before dispatch rather than silently skipping tool content. A tool_use stop is a completed provider turn, not completion of a client task. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text and opted-in tool events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
+///     "x-niu-status": "Native Anthropic Messages with streaming, client tools, Extended Thinking, cache_control, unpriced image/PDF blocks, and safe anthropic-beta forwarding. output_config.format remains unsupported.",
+///     "summary": "Create a native Message, optionally streamed",
+///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -38,6 +38,15 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///           "enum": [
 ///             "2023-06-01"
 ///           ]
+///         }
+///       },
+///       {
+///         "name": "anthropic-beta",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional comma-separated safe Anthropic beta flags. Unknown or hosted-tool betas are rejected with 501.",
+///         "schema": {
+///           "type": "string"
 ///         }
 ///       },
 ///       {
@@ -152,6 +161,75 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                 "minimum": 0,
 ///                 "maximum": 1
 ///               },
+///               "top_k": {
+///                 "type": "integer",
+///                 "minimum": 0,
+///                 "maximum": 10000
+///               },
+///               "thinking": {
+///                 "oneOf": [
+///                   {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "type"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "enum": [
+///                           "disabled",
+///                           "adaptive"
+///                         ]
+///                       }
+///                     }
+///                   },
+///                   {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "type",
+///                       "budget_tokens"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "const": "enabled"
+///                       },
+///                       "budget_tokens": {
+///                         "type": "integer",
+///                         "minimum": 1024,
+///                         "maximum": 1000000
+///                       }
+///                     }
+///                   }
+///                 ]
+///               },
+///               "output_config": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "properties": {
+///                   "effort": {
+///                     "type": "string",
+///                     "enum": [
+///                       "low",
+///                       "medium",
+///                       "high",
+///                       "max"
+///                     ]
+///                   }
+///                 }
+///               },
+///               "metadata": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "properties": {
+///                   "user_id": {
+///                     "type": "string",
+///                     "maxLength": 512
+///                   }
+///                 }
+///               },
 ///               "stop_sequences": {
 ///                 "type": "array",
 ///                 "maxItems": 4,
@@ -258,6 +336,9 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                                   },
 ///                                   "input": {
 ///                                     "type": "object"
+///                                   },
+///                                   "cache_control": {
+///                                     "type": "object"
 ///                                   }
 ///                                 }
 ///                               },
@@ -266,8 +347,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                                 "additionalProperties": false,
 ///                                 "required": [
 ///                                   "type",
-///                                   "tool_use_id",
-///                                   "content"
+///                                   "tool_use_id"
 ///                                 ],
 ///                                 "properties": {
 ///                                   "type": {
@@ -279,12 +359,43 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                                     "maxLength": 200
 ///                                   },
 ///                                   "content": {
-///                                     "type": "string"
+///                                     "oneOf": [
+///                                       {
+///                                         "type": "string"
+///                                       },
+///                                       {
+///                                         "type": "array",
+///                                         "items": {
+///                                           "type": "object"
+///                                         }
+///                                       }
+///                                     ]
 ///                                   },
 ///                                   "is_error": {
 ///                                     "type": "boolean"
+///                                   },
+///                                   "cache_control": {
+///                                     "type": "object"
 ///                                   }
 ///                                 }
+///                               },
+///                               {
+///                                 "type": "object",
+///                                 "required": [
+///                                   "type"
+///                                 ],
+///                                 "properties": {
+///                                   "type": {
+///                                     "type": "string",
+///                                     "enum": [
+///                                       "image",
+///                                       "document",
+///                                       "thinking",
+///                                       "redacted_thinking"
+///                                     ]
+///                                   }
+///                                 },
+///                                 "additionalProperties": true
 ///                               }
 ///                             ]
 ///                           }
@@ -326,6 +437,9 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                         }
 ///                       },
 ///                       "additionalProperties": true
+///                     },
+///                     "cache_control": {
+///                       "type": "object"
 ///                     }
 ///                   }
 ///                 }
@@ -852,22 +966,19 @@ async fn execute(
     let principal = state
         .authorize_invocation_headers(headers, "messages")
         .await?;
-    if headers.contains_key("anthropic-beta")
-        || headers.get_all("anthropic-version").iter().count() > 1
+    if headers.get_all("anthropic-version").iter().count() > 1
         || headers
             .get("anthropic-version")
             .is_some_and(|v| v != "2023-06-01")
     {
         return Err(ApiError::unsupported_message(
-            "Only Messages version 2023-06-01 without beta features is supported",
+            "Only Messages version 2023-06-01 is supported",
         ));
     }
+    let (forward_betas, interleaved_thinking) = parse_anthropic_betas(headers)?;
     let traits = crate::routing_traits::extract(Protocol::Messages, &body);
-    // Native Messages accepts client tools, but media, extended thinking and
-    // structured output are not implemented. Reject those traits explicitly
-    // before a pool can select a route for a different request shape.
     crate::routing_traits::require_supported(Protocol::Messages, &traits)?;
-    let mut validated = validate(&body)?;
+    let mut validated = validate(&body, interleaved_thinking)?;
     let bound = validated.bound;
     let streaming = traits.streaming;
     let mut public_model = body["model"]
@@ -922,6 +1033,30 @@ async fn execute(
                 "This route does not declare streaming Messages support",
             ));
         }
+        if validated.has_image
+            && !model.catalog.input_modalities.is_empty()
+            && !model
+                .catalog
+                .input_modalities
+                .iter()
+                .any(|mode| mode == "image")
+        {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare image input support",
+            ));
+        }
+        if validated.has_reasoning
+            && !model.catalog.supported_parameters.is_empty()
+            && !model
+                .catalog
+                .supported_parameters
+                .iter()
+                .any(|parameter| parameter == "reasoning" || parameter == "include_reasoning")
+        {
+            return Err(ApiError::unsupported_message(
+                "This route does not declare reasoning support",
+            ));
+        }
         let snapshot = inspect_request_input(
             state,
             &principal,
@@ -932,15 +1067,21 @@ async fn execute(
         )
         .await?;
         if snapshot.input_outcome.as_deref() == Some("redacted") {
-            validated = validate(&body)?;
+            validated = validate(&body, interleaved_thinking)?;
         }
-        if let Some(price) = &model.pricing
-            && (bound > price.max_output_tokens
-                || validated.serialized_len > price.max_input_tokens as usize)
-        {
-            return Err(ApiError::invalid_request(
-                "Messages request exceeds the priced route's conservative input or output bound",
-            ));
+        if let Some(price) = &model.pricing {
+            if validated.has_media {
+                return Err(ApiError::invalid_request(
+                    "Image and document inputs are not supported on priced Messages routes; choose an unpriced route or send text only",
+                ));
+            }
+            if bound > price.max_output_tokens
+                || validated.serialized_len > price.max_input_tokens as usize
+            {
+                return Err(ApiError::invalid_request(
+                    "Messages request exceeds the priced route's conservative input or output bound",
+                ));
+            }
         }
         let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
         let endpoint = format!(
@@ -986,6 +1127,11 @@ async fn execute(
                     "application/json"
                 },
             );
+        let request = if let Some(betas) = &forward_betas {
+            request.header("anthropic-beta", betas.as_str())
+        } else {
+            request
+        };
         let request = if model.provider == "anthropic" {
             request.header("x-api-key", &resolved.api_key)
         } else {
@@ -1084,10 +1230,129 @@ struct ValidatedMessagesRequest {
     serialized_len: usize,
     tools_requested: bool,
     tool_definitions: Option<std::sync::Arc<crate::native_messages_tools::ToolDefinitions>>,
+    has_media: bool,
+    has_image: bool,
+    has_reasoning: bool,
 }
 
-fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
-    let invalid = || ApiError::invalid_request("Unsupported or invalid Messages text request");
+fn parse_anthropic_betas(headers: &HeaderMap) -> Result<(Option<String>, bool), ApiError> {
+    const ALLOWED_BETAS: &[&str] = &[
+        "prompt-caching-2024-07-31",
+        "token-efficient-tools-2025-02-19",
+        "interleaved-thinking-2025-05-14",
+        "fine-grained-tool-streaming-2025-05-14",
+        "output-128k-2025-02-19",
+        "pdfs-2024-09-25",
+        "extended-cache-ttl-2025-04-11",
+    ];
+    let mut forwarded = Vec::new();
+    let mut interleaved_thinking = false;
+    for header in headers.get_all("anthropic-beta") {
+        let Ok(raw) = header.to_str() else {
+            return Err(ApiError::unsupported_message(
+                "Unsupported anthropic-beta header encoding",
+            ));
+        };
+        for token in raw
+            .split(',')
+            .map(str::trim)
+            .filter(|token| !token.is_empty())
+        {
+            if token == "claude-code-20250219" {
+                continue;
+            }
+            if !ALLOWED_BETAS.contains(&token) {
+                return Err(ApiError::unsupported_message(
+                    "Unsupported anthropic-beta feature requested",
+                ));
+            }
+            if token == "interleaved-thinking-2025-05-14" {
+                interleaved_thinking = true;
+            }
+            if !forwarded.iter().any(|existing| existing == token) {
+                forwarded.push(token.to_owned());
+            }
+        }
+    }
+    let joined = (!forwarded.is_empty()).then(|| forwarded.join(","));
+    Ok((joined, interleaved_thinking))
+}
+
+fn valid_document_block(part: &Value) -> bool {
+    let Some(object) = part.as_object() else {
+        return false;
+    };
+    if !object.keys().all(|key| {
+        [
+            "type",
+            "source",
+            "title",
+            "context",
+            "citations",
+            "cache_control",
+        ]
+        .contains(&key.as_str())
+    }) || part.get("type").and_then(Value::as_str) != Some("document")
+        || part
+            .get("cache_control")
+            .is_some_and(|v| !crate::guardrails::input::valid_message_cache_control(v))
+        || part
+            .get("title")
+            .is_some_and(|v| v.as_str().is_none_or(|s| s.len() > 512))
+        || part
+            .get("context")
+            .is_some_and(|v| v.as_str().is_none_or(|s| s.len() > 8192))
+        || part.get("citations").is_some_and(|c| {
+            !c.as_object()
+                .is_some_and(|o| o.len() == 1 && o.get("enabled").is_some_and(Value::is_boolean))
+        })
+    {
+        return false;
+    }
+    let Some(source) = part.get("source").and_then(Value::as_object) else {
+        return false;
+    };
+    match source.get("type").and_then(Value::as_str) {
+        Some("base64") => {
+            source
+                .keys()
+                .all(|key| ["type", "media_type", "data"].contains(&key.as_str()))
+                && source.get("media_type").and_then(Value::as_str) == Some("application/pdf")
+                && source
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .is_some_and(|data| {
+                        crate::native_messages_tools::valid_base64_payload(data, 8 * 1024 * 1024)
+                    })
+        }
+        Some("text") => {
+            source
+                .keys()
+                .all(|key| ["type", "media_type", "data"].contains(&key.as_str()))
+                && source.get("media_type").and_then(Value::as_str) == Some("text/plain")
+                && source
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .is_some_and(|data| !data.is_empty() && data.len() <= 1_048_576)
+        }
+        Some("url") => {
+            source
+                .keys()
+                .all(|key| ["type", "url"].contains(&key.as_str()))
+                && source
+                    .get("url")
+                    .and_then(Value::as_str)
+                    .is_some_and(crate::native_messages_tools::valid_https_url)
+        }
+        _ => false,
+    }
+}
+
+fn validate(
+    body: &Value,
+    interleaved_thinking: bool,
+) -> Result<ValidatedMessagesRequest, ApiError> {
+    let invalid = || ApiError::invalid_request("Unsupported or invalid Messages request");
     let object = body.as_object().ok_or_else(invalid)?;
     if object.keys().any(|key| {
         ![
@@ -1098,9 +1363,13 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
             "stream",
             "temperature",
             "top_p",
+            "top_k",
             "stop_sequences",
             "tools",
             "tool_choice",
+            "thinking",
+            "output_config",
+            "metadata",
         ]
         .contains(&key.as_str())
     }) {
@@ -1122,6 +1391,71 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
         .and_then(Value::as_i64)
         .filter(|v| (1..=1_000_000).contains(v))
         .ok_or_else(invalid)?;
+    let mut has_reasoning = false;
+    if let Some(thinking) = body.get("thinking") {
+        let thinking_obj = thinking.as_object().ok_or_else(invalid)?;
+        match thinking_obj.get("type").and_then(Value::as_str) {
+            Some("disabled") => {
+                if thinking_obj.len() != 1 {
+                    return Err(invalid());
+                }
+            }
+            Some("adaptive") => {
+                if thinking_obj.len() != 1 {
+                    return Err(invalid());
+                }
+                has_reasoning = true;
+            }
+            Some("enabled") => {
+                if thinking_obj
+                    .keys()
+                    .any(|key| !["type", "budget_tokens"].contains(&key.as_str()))
+                {
+                    return Err(invalid());
+                }
+                let budget = thinking_obj
+                    .get("budget_tokens")
+                    .and_then(Value::as_i64)
+                    .filter(|v| (1024..=1_000_000).contains(v))
+                    .ok_or_else(invalid)?;
+                if !interleaved_thinking && budget >= bound {
+                    return Err(ApiError::invalid_request(
+                        "thinking.budget_tokens must be less than max_tokens unless interleaved-thinking-2025-05-14 beta is enabled",
+                    ));
+                }
+                has_reasoning = true;
+            }
+            _ => return Err(invalid()),
+        }
+    }
+    if let Some(output_config) = body.get("output_config") {
+        let config_obj = output_config.as_object().ok_or_else(invalid)?;
+        if config_obj.keys().any(|key| key != "effort") {
+            return Err(invalid());
+        }
+        if let Some(effort) = config_obj.get("effort") {
+            if !matches!(effort.as_str(), Some("low" | "medium" | "high" | "max")) {
+                return Err(invalid());
+            }
+            has_reasoning = true;
+        }
+    }
+    if body
+        .get("top_k")
+        .is_some_and(|v| v.as_i64().is_none_or(|k| !(0..=10_000).contains(&k)))
+    {
+        return Err(invalid());
+    }
+    if body.get("metadata").is_some_and(|metadata| {
+        metadata.as_object().is_none_or(|meta| {
+            meta.keys().any(|k| k != "user_id")
+                || meta
+                    .get("user_id")
+                    .is_some_and(|u| u.as_str().is_none_or(|s| s.len() > 512))
+        })
+    }) {
+        return Err(invalid());
+    }
     fn text_part(p: &Value) -> bool {
         p.as_object().is_some_and(|p| {
             p.keys()
@@ -1131,6 +1465,22 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
             .is_none_or(crate::guardrails::input::valid_message_cache_control)
             && p["type"] == "text"
             && p["text"].is_string()
+    }
+    fn thinking_history_part(p: &Value) -> bool {
+        p.as_object().is_some_and(|obj| match p["type"].as_str() {
+            Some("thinking") => {
+                obj.keys()
+                    .all(|key| ["type", "thinking", "signature"].contains(&key.as_str()))
+                    && obj.get("thinking").is_some_and(Value::is_string)
+                    && obj.get("signature").is_some_and(Value::is_string)
+            }
+            Some("redacted_thinking") => {
+                obj.keys()
+                    .all(|key| ["type", "data"].contains(&key.as_str()))
+                    && obj.get("data").is_some_and(Value::is_string)
+            }
+            _ => false,
+        })
     }
     fn text(value: &Value) -> bool {
         value.is_string()
@@ -1143,20 +1493,59 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
         .and_then(Value::as_array)
         .filter(|m| !m.is_empty() && m.len() <= 1024)
         .ok_or_else(invalid)?;
-    if !messages.iter().all(|m| {
-        m.as_object().is_some_and(|m| m.len() == 2)
-            && matches!(m["role"].as_str(), Some("user" | "assistant"))
-            && (m["content"].is_string()
-                || m["content"].as_array().is_some_and(|parts| {
-                    !parts.is_empty()
-                        && parts.len() <= 128
-                        && parts.iter().all(|p| {
-                            text_part(p)
-                                || matches!(p["type"].as_str(), Some("tool_use" | "tool_result"))
-                        })
-                }))
-    }) || body.get("system").is_some_and(|v| !text(v))
-    {
+    let mut has_media = false;
+    let mut has_image = false;
+    for m in messages {
+        if !m.as_object().is_some_and(|obj| obj.len() == 2)
+            || !matches!(m["role"].as_str(), Some("user" | "assistant"))
+        {
+            return Err(invalid());
+        }
+        let role = m["role"].as_str().unwrap_or_default();
+        if m["content"].is_string() {
+            continue;
+        }
+        let Some(parts) = m["content"]
+            .as_array()
+            .filter(|p| !p.is_empty() && p.len() <= 128)
+        else {
+            return Err(invalid());
+        };
+        for part in parts {
+            if text_part(part) {
+                continue;
+            }
+            match part["type"].as_str() {
+                Some("image")
+                    if role == "user" && crate::native_messages_tools::valid_image_block(part) =>
+                {
+                    has_media = true;
+                    has_image = true;
+                }
+                Some("document") if role == "user" && valid_document_block(part) => {
+                    has_media = true;
+                }
+                Some("thinking" | "redacted_thinking")
+                    if role == "assistant" && thinking_history_part(part) => {}
+                Some("tool_use") if role == "assistant" => {}
+                Some("tool_result") if role == "user" => {
+                    if let Some(nested) = part.get("content").and_then(Value::as_array) {
+                        for item in nested {
+                            if item.get("type").and_then(Value::as_str) == Some("image") {
+                                if !crate::native_messages_tools::valid_image_block(item) {
+                                    return Err(invalid());
+                                }
+                                has_media = true;
+                                has_image = true;
+                            }
+                        }
+                    }
+                }
+                _ => return Err(invalid()),
+            }
+        }
+    }
+    if body.get("system").is_some_and(|v| !text(v)) {
         return Err(invalid());
     }
     for key in ["temperature", "top_p"] {
@@ -1176,7 +1565,12 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
     }) {
         return Err(invalid());
     }
-    let Ok(serialized_len) = crate::inference_schema::json_serialized_len_within(body, 1_048_576)
+    let max_bytes = if has_media {
+        8 * 1024 * 1024
+    } else {
+        1_048_576
+    };
+    let Ok(serialized_len) = crate::inference_schema::json_serialized_len_within(body, max_bytes)
     else {
         return Err(invalid());
     };
@@ -1190,6 +1584,9 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
         serialized_len,
         tools_requested,
         tool_definitions,
+        has_media,
+        has_image,
+        has_reasoning,
     })
 }
 

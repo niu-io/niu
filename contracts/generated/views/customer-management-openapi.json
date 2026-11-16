@@ -18971,6 +18971,7 @@
           "supports_messages_tools",
           "supports_messages_streaming_tools",
           "supports_generate_content",
+          "supports_generate_content_streaming",
           "supports_responses"
         ],
         "properties": {
@@ -19005,6 +19006,9 @@
             "type": "boolean"
           },
           "supports_generate_content": {
+            "type": "boolean"
+          },
+          "supports_generate_content_streaming": {
             "type": "boolean"
           },
           "supports_responses": {

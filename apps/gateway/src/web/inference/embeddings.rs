@@ -265,6 +265,12 @@ pub(in crate::web) async fn embeddings(
     if !public_model.starts_with("pool/") && !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
+    let traits =
+        crate::routing_traits::extract(crate::guardrails::input::Protocol::Embeddings, &body);
+    crate::routing_traits::require_supported(
+        crate::guardrails::input::Protocol::Embeddings,
+        &traits,
+    )?;
     let bounds = validate_embedding_request(&body)?;
     let requirements = crate::config::ModelRequirements {
         project_id: Some(principal.scope().project_id),

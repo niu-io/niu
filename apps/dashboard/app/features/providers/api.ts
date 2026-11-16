@@ -50,6 +50,12 @@ export type ModelCapabilities = {
   supports_embedding_dimensions: boolean;
   supports_embedding_base64: boolean;
   supports_responses: boolean;
+  supports_messages: boolean;
+  supports_messages_streaming: boolean;
+  supports_messages_tools: boolean;
+  supports_messages_streaming_tools: boolean;
+  supports_generate_content: boolean;
+  supports_generate_content_streaming: boolean;
 };
 
 export type ProviderModel = {
@@ -144,5 +150,11 @@ export function emptyCapabilities(): ModelCapabilities {
     supports_embedding_dimensions: false,
     supports_embedding_base64: false,
     supports_responses: false,
+    supports_messages: false,
+    supports_messages_streaming: false,
+    supports_messages_tools: false,
+    supports_messages_streaming_tools: false,
+    supports_generate_content: false,
+    supports_generate_content_streaming: false,
   };
 }

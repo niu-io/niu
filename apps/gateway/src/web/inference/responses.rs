@@ -21,12 +21,19 @@ struct ResponsesExecution<'a> {
     client: reqwest::Client,
     dispatch: &'a DispatchContext,
     managed: bool,
+    output_validator: crate::native_responses::ResponsesOutputValidator,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(in crate::web) struct ResponsesRequestBounds {
     pub(in crate::web) input_bytes: usize,
     pub(in crate::web) max_output_tokens: Option<i64>,
+    has_vision: bool,
+    has_tools: bool,
+    has_tool_history: bool,
+    has_structured_output: bool,
+    has_reasoning: bool,
+    output_validator: crate::native_responses::ResponsesOutputValidator,
 }
 
 /// ```openapi
@@ -35,8 +42,8 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createResponse",
-///     "summary": "Create a text response",
-///     "description": "The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Local buffered_full output rules retain real text streams until a validated terminal response and complete inspection, then emit compatible filtered lifecycle events. Withheld output emits a safe guardrail_output_withheld SSE error without a successful terminal event; known execution is still charged. Complete text and total input stream bounds are 1 MiB and 2 MiB, with four concurrent collectors per process. Observation-only text streaming preserves delivery and asynchronously records clear, matched or indeterminate without transforming output. Required and observation rules can compose across workspace/key policies; optional collection/inspection pressure does not block the request. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply. Canonical OpenRouter pools permit at most one different-credential successor after an immediate authentication refusal with durable nonexecution, released holds and no prior charge. The operation retains its original tariff, funding and shared deadline under a Responses-specific retry policy. No retry follows uncertainty or a stream already returned to the client.",
+///     "summary": "Create a native OpenAI Response",
+///     "description": "Requires an OpenAI-compatible route with supports_responses enabled. Supports single-turn string input and stateless multi-turn input arrays containing user/system/developer/assistant messages, function_call and matched function_call_output history items, reasoning items, and unpriced input_image parts (max 8 MiB request body; priced routes reject vision inputs and remain bounded to 1 MiB text/tool requests). Client function tools require supports_tool_calls (plus supports_streaming_tool_calls when streaming); structured output (text.format json_object or json_schema) requires supports_structured_output; reasoning effort/summary checks catalog capability when declared. Niu validates declared schemas offline and never executes tools or stores prior responses on the server: store must be absent or false, and previous_response_id, conversation, background, and hosted server tools are rejected explicitly. Streaming emits Responses SSE events and validates terminal output before settlement; disconnects retain holds and uncertainty.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -111,8 +118,20 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///                 "minLength": 1
 ///               },
 ///               "input": {
-///                 "type": "string",
-///                 "minLength": 1
+///                 "oneOf": [
+///                   {
+///                     "type": "string",
+///                     "minLength": 1
+///                   },
+///                   {
+///                     "type": "array",
+///                     "minItems": 1,
+///                     "maxItems": 256,
+///                     "items": {
+///                       "type": "object"
+///                     }
+///                   }
+///                 ]
 ///               },
 ///               "instructions": {
 ///                 "type": "string"
@@ -143,6 +162,121 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///               "user": {
 ///                 "type": "string",
 ///                 "maxLength": 512
+///               },
+///               "tools": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "maxItems": 128,
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "type",
+///                     "name"
+///                   ],
+///                   "properties": {
+///                     "type": {
+///                       "type": "string",
+///                       "const": "function"
+///                     },
+///                     "name": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 64
+///                     },
+///                     "description": {
+///                       "type": "string",
+///                       "maxLength": 4096
+///                     },
+///                     "parameters": {
+///                       "type": "object"
+///                     },
+///                     "strict": {
+///                       "type": "boolean"
+///                     }
+///                   }
+///                 }
+///               },
+///               "tool_choice": {
+///                 "oneOf": [
+///                   {
+///                     "type": "string",
+///                     "enum": [
+///                       "none",
+///                       "auto",
+///                       "required"
+///                     ]
+///                   },
+///                   {
+///                     "type": "object",
+///                     "required": [
+///                       "type",
+///                       "name"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "const": "function"
+///                       },
+///                       "name": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 ]
+///               },
+///               "parallel_tool_calls": {
+///                 "type": "boolean"
+///               },
+///               "text": {
+///                 "type": "object",
+///                 "properties": {
+///                   "verbosity": {
+///                     "type": "string",
+///                     "enum": [
+///                       "low",
+///                       "medium",
+///                       "high"
+///                     ]
+///                   },
+///                   "format": {
+///                     "type": "object"
+///                   }
+///                 }
+///               },
+///               "reasoning": {
+///                 "type": "object",
+///                 "properties": {
+///                   "effort": {
+///                     "type": "string",
+///                     "enum": [
+///                       "minimal",
+///                       "low",
+///                       "medium",
+///                       "high"
+///                     ]
+///                   },
+///                   "summary": {
+///                     "type": "string",
+///                     "enum": [
+///                       "auto",
+///                       "concise",
+///                       "detailed"
+///                     ]
+///                   }
+///                 }
+///               },
+///               "truncation": {
+///                 "type": "string",
+///                 "enum": [
+///                   "disabled",
+///                   "auto"
+///                 ]
+///               },
+///               "store": {
+///                 "type": "boolean",
+///                 "enum": [
+///                   false
+///                 ]
 ///               },
 ///               "stream": {
 ///                 "type": "boolean",
@@ -281,6 +415,37 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///                             "type": "array"
 ///                           },
 ///                           "encrypted_content": {
+///                             "type": "string"
+///                           }
+///                         },
+///                         "additionalProperties": true
+///                       },
+///                       {
+///                         "type": "object",
+///                         "required": [
+///                           "type",
+///                           "call_id",
+///                           "name",
+///                           "arguments"
+///                         ],
+///                         "properties": {
+///                           "id": {
+///                             "type": "string"
+///                           },
+///                           "type": {
+///                             "type": "string",
+///                             "const": "function_call"
+///                           },
+///                           "call_id": {
+///                             "type": "string"
+///                           },
+///                           "name": {
+///                             "type": "string"
+///                           },
+///                           "arguments": {
+///                             "type": "string"
+///                           },
+///                           "status": {
 ///                             "type": "string"
 ///                           }
 ///                         },
@@ -567,7 +732,7 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///         }
 ///       }
 ///     },
-///     "x-niu-status": "Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.",
+///     "x-niu-status": "Stateless OpenAI Responses API supporting multi-turn item arrays, client function tools and tool loops, structured JSON Schema output, reasoning effort/summary, truncation, and unpriced input_image inputs (8 MiB body limit; priced routes remain text/tool-only within 1 MiB). Hosted server tools and server-stored state (previous_response_id, store: true) remain unsupported.",
 ///     "x-niu-implementation": "implemented"
 ///   }
 /// }
@@ -602,16 +767,16 @@ pub(in crate::web) async fn responses(
     }
     let traits =
         crate::routing_traits::extract(crate::guardrails::input::Protocol::Responses, &body);
-    // The implemented Responses subset is text only. Reject image, tool,
-    // structured-output and reasoning traits explicitly before filtering, rather
-    // than routing as if the request carried fewer traits than it does.
     crate::routing_traits::require_supported(
         crate::guardrails::input::Protocol::Responses,
         &traits,
     )?;
-    // Reject malformed native fields before they can filter candidates. Priced
-    // validation repeats at dispatch once the selected route is known.
-    validate_responses_request(&mut body, None)?;
+    // Reject malformed pool inputs before candidate filtering. Non-pool routes
+    // run validation inside execute_responses_attempt right after input guardrails
+    // so fail-closed policies deny prohibited payloads directly.
+    if public_model.starts_with("pool/") {
+        validate_responses_request(&mut body, None)?;
+    }
     let requirements = traits.requirements(
         Some(principal.scope().project_id),
         crate::guardrails::input::Protocol::Responses,
@@ -670,6 +835,7 @@ pub(super) async fn execute_responses_attempt(
     )
     .await?;
     let bounds = validate_responses_request(&mut body, model.pricing.as_ref())?;
+    let streaming = body["stream"] == true;
     if !model.protocol().is_openai_compatible() {
         return Err(ApiError::unsupported_message(
             "Responses require an OpenAI-compatible model route.",
@@ -678,6 +844,45 @@ pub(super) async fn execute_responses_attempt(
     if !model.supports_responses {
         return Err(ApiError::unsupported_message(
             "Responses are not enabled for this model. Choose a model with Responses support.",
+        ));
+    }
+    if (bounds.has_tools || bounds.has_tool_history) && !model.supports_tool_calls {
+        return Err(ApiError::unsupported_message(
+            "Function tools are not enabled for this model. Choose a model with tool support or remove tool declarations and tool items.",
+        ));
+    }
+    if streaming && bounds.has_tools && !model.supports_streaming_tool_calls {
+        return Err(ApiError::unsupported_message(
+            "Streaming tool calls are not enabled for this model. Choose a model with streaming tool support or disable streaming.",
+        ));
+    }
+    if bounds.has_structured_output && !model.supports_structured_output {
+        return Err(ApiError::unsupported_message(
+            "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
+        ));
+    }
+    if bounds.has_vision
+        && !model.catalog.input_modalities.is_empty()
+        && !model
+            .catalog
+            .input_modalities
+            .iter()
+            .any(|mode| mode == "image")
+    {
+        return Err(ApiError::unsupported_message(
+            "Image input is not supported by this model.",
+        ));
+    }
+    if bounds.has_reasoning
+        && !model.catalog.supported_parameters.is_empty()
+        && !model
+            .catalog
+            .supported_parameters
+            .iter()
+            .any(|parameter| parameter == "reasoning" || parameter == "include_reasoning")
+    {
+        return Err(ApiError::unsupported_message(
+            "Reasoning configuration is not supported by this model.",
         ));
     }
     if let Some(price) = &model.pricing
@@ -730,6 +935,7 @@ pub(super) async fn execute_responses_attempt(
             client,
             dispatch: &dispatch,
             managed: resolved.managed_route.is_some(),
+            output_validator: bounds.output_validator,
         },
     )
     .await;
@@ -740,102 +946,16 @@ pub(in crate::web) fn validate_responses_request(
     body: &mut Value,
     price: Option<&crate::config::RoutePricing>,
 ) -> Result<ResponsesRequestBounds, ApiError> {
-    let object = body
-        .as_object_mut()
-        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
-    const ALLOWED: &[&str] = &[
-        "model",
-        "input",
-        "instructions",
-        "max_output_tokens",
-        "temperature",
-        "top_p",
-        "metadata",
-        "user",
-        "stream",
-    ];
-    if object.keys().any(|key| !ALLOWED.contains(&key.as_str())) {
-        return Err(ApiError::invalid_request(
-            "Unsupported field in Responses request",
-        ));
-    }
-    if object.get("stream").is_some_and(|v| !v.is_boolean()) {
-        return Err(ApiError::invalid_request("stream must be a boolean"));
-    }
-    let input_bytes = object
-        .get("input")
-        .and_then(Value::as_str)
-        .filter(|input| !input.is_empty())
-        .map(str::len)
-        .ok_or_else(|| ApiError::invalid_request("input must be a non-empty text string"))?;
-    let instructions_bytes = match object.get("instructions") {
-        None => 0,
-        Some(Value::String(instructions)) => instructions.len(),
-        _ => return Err(ApiError::invalid_request("instructions must be a string")),
-    };
-    let input_bytes = input_bytes
-        .checked_add(instructions_bytes)
-        .ok_or_else(|| ApiError::invalid_request("Responses input is too large"))?;
-    if object
-        .get("user")
-        .is_some_and(|user| user.as_str().is_none_or(|user| user.len() > 512))
-    {
-        return Err(ApiError::invalid_request(
-            "user must be a string of at most 512 bytes",
-        ));
-    }
-    if object.get("metadata").is_some_and(|metadata| {
-        metadata.as_object().is_none_or(|metadata| {
-            metadata.len() > 16
-                || metadata.iter().any(|(key, value)| {
-                    key.len() > 64 || value.as_str().is_none_or(|value| value.len() > 512)
-                })
-        })
-    }) {
-        return Err(ApiError::invalid_request(
-            "metadata must contain at most 16 string values with bounded keys and values",
-        ));
-    }
-    for (name, minimum, maximum) in [("temperature", 0.0, 2.0), ("top_p", 0.0, 1.0)] {
-        if object.get(name).is_some_and(|value| {
-            value
-                .as_f64()
-                .is_none_or(|value| !(minimum..=maximum).contains(&value))
-        }) {
-            return Err(ApiError::invalid_request(
-                "temperature or top_p is outside its supported range",
-            ));
-        }
-    }
-
-    let mut max_output_tokens = match object.get("max_output_tokens") {
-        None => None,
-        Some(value) => Some(
-            value
-                .as_i64()
-                .filter(|value| (1..=1_000_000).contains(value))
-                .ok_or_else(|| {
-                    ApiError::invalid_request(
-                        "max_output_tokens must be an integer from 1 to 1000000",
-                    )
-                })?,
-        ),
-    };
-    if let Some(price) = price {
-        if let Some(output) = max_output_tokens {
-            if output > price.max_output_tokens {
-                return Err(ApiError::invalid_request(
-                    "Output limit exceeds the priced route bound",
-                ));
-            }
-        } else {
-            max_output_tokens = Some(price.max_output_tokens);
-            object.insert("max_output_tokens".into(), json!(price.max_output_tokens));
-        }
-    }
+    let validated = crate::native_responses::validate(body, price)?;
     Ok(ResponsesRequestBounds {
-        input_bytes,
-        max_output_tokens,
+        input_bytes: validated.input_bytes,
+        max_output_tokens: validated.max_output_tokens,
+        has_vision: validated.has_vision,
+        has_tools: validated.has_tools,
+        has_tool_history: validated.has_tool_history,
+        has_structured_output: validated.has_structured_output,
+        has_reasoning: validated.has_reasoning,
+        output_validator: validated.output_validator,
     })
 }
 
@@ -852,6 +972,7 @@ async fn execute_responses(
         client,
         dispatch,
         managed,
+        output_validator,
     } = execution;
     let streaming = body["stream"] == true;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
@@ -919,6 +1040,7 @@ async fn execute_responses(
                 failures: state.failures.clone(),
             },
             public_model.to_owned(),
+            Some(output_validator),
             dispatch.buffered_stream_output.clone(),
             dispatch.stream_output_observation.clone(),
         ));
@@ -947,10 +1069,10 @@ async fn execute_responses(
         state.failures.fetch_add(1, Ordering::Relaxed);
         ApiError::upstream_invalid_response()
     })?;
-    if !valid_responses_response(&value) {
+    if !output_validator.valid(&value) {
         state.failures.fetch_add(1, Ordering::Relaxed);
         // Invalid customer output does not erase independently reported execution.
-        if terminal_responses_response(&value)
+        if crate::native_responses::terminal_responses_response(&value)
             && let Some(usage) = responses_usage(&value)
         {
             usage_attempt.report(&json!({"prompt_tokens":usage.0,"completion_tokens":usage.1}));
@@ -992,61 +1114,8 @@ async fn execute_responses(
     })
 }
 
-fn terminal_responses_response(response: &Value) -> bool {
-    response
-        .get("id")
-        .and_then(Value::as_str)
-        .is_some_and(|id| !id.trim().is_empty())
-        && response.get("object").and_then(Value::as_str) == Some("response")
-        && matches!(
-            response.get("status").and_then(Value::as_str),
-            Some("completed" | "incomplete")
-        )
-        && response.get("error").is_none_or(Value::is_null)
-        && response.get("output").is_some_and(Value::is_array)
-}
-
 pub(in crate::web) fn valid_responses_response(response: &Value) -> bool {
-    if !terminal_responses_response(response) {
-        return false;
-    }
-    let Some(output) = response.get("output").and_then(Value::as_array) else {
-        return false;
-    };
-    if output.is_empty() {
-        return false;
-    }
-    let mut has_text_message = false;
-    for item in output {
-        match item.get("type").and_then(Value::as_str) {
-            Some("reasoning") => {}
-            Some("message") if item.get("role").and_then(Value::as_str) == Some("assistant") => {
-                let Some(content) = item.get("content").and_then(Value::as_array) else {
-                    return false;
-                };
-                if content.is_empty() {
-                    return false;
-                }
-                for part in content {
-                    match part.get("type").and_then(Value::as_str) {
-                        Some("output_text")
-                            if part.get("text").and_then(Value::as_str).is_some() =>
-                        {
-                            has_text_message = true;
-                        }
-                        Some("refusal")
-                            if part.get("refusal").and_then(Value::as_str).is_some() =>
-                        {
-                            has_text_message = true;
-                        }
-                        _ => return false,
-                    }
-                }
-            }
-            _ => return false,
-        }
-    }
-    has_text_message
+    crate::native_responses::ResponsesOutputValidator::default().valid(response)
 }
 
 pub(in crate::web) fn responses_usage(response: &Value) -> Option<(u64, u64)> {

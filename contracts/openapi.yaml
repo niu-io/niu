@@ -2819,7 +2819,7 @@ components:
             - { type: 'null' }
     ModelMetadataCapabilities:
       type: object
-      required: [supports_embeddings, supports_embedding_dimensions, supports_embedding_base64, supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, supports_messages, supports_messages_streaming, supports_messages_tools, supports_messages_streaming_tools, supports_generate_content, supports_responses]
+      required: [supports_embeddings, supports_embedding_dimensions, supports_embedding_base64, supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, supports_messages, supports_messages_streaming, supports_messages_tools, supports_messages_streaming_tools, supports_generate_content, supports_generate_content_streaming, supports_responses]
       properties:
         supports_embeddings: { type: boolean }
         supports_embedding_dimensions: { type: boolean }
@@ -2832,6 +2832,7 @@ components:
         supports_messages_tools: { type: boolean }
         supports_messages_streaming_tools: { type: boolean }
         supports_generate_content: { type: boolean }
+        supports_generate_content_streaming: { type: boolean }
         supports_responses: { type: boolean }
     MemberModelMetadata:
       description: Member projection; no private Provider mapping or procurement information.

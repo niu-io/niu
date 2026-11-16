@@ -11,7 +11,8 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type MessagesToolResult = {
     type: 'tool_result';
     tool_use_id: string;
-    content: string;
+    content?: string | Array<MessagesTextBlock | MessagesImageBlock>;
     is_error?: boolean;
+    cache_control?: MessagesCacheControl;
 };
 ```

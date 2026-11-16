@@ -1105,14 +1105,17 @@ fn media_and_inference_routes(app: Router<AppState>) -> Router<AppState> {
     .route("/v1/video/jobs/{id}", get(super::inference::video::status))
     .route(
         "/v1beta/models/{model_action}",
-        post(generate_content).layer(DefaultBodyLimit::max(1_048_576)),
+        post(generate_content).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
     )
     .route(
         "/v1/messages",
-        post(messages).layer(DefaultBodyLimit::max(1_048_576)),
+        post(messages).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
     )
     .route("/v1/chat/completions", axum::routing::post(chat))
-    .route("/v1/responses", axum::routing::post(responses))
+    .route(
+        "/v1/responses",
+        axum::routing::post(responses).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
+    )
     .route("/v1/embeddings", axum::routing::post(embeddings))
     .route(
         "/v1/decisions",
@@ -2367,6 +2370,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                     "messages": model.supports_messages,
                     "messages_streaming": model.supports_messages_streaming,
                     "generate_content": model.supports_generate_content,
+                    "generate_content_streaming": model.supports_generate_content_streaming,
                     "responses": model.supports_responses,
                     "supports_embeddings": model.supports_embeddings,
                     "supports_embedding_dimensions": model.supports_embedding_dimensions,
@@ -2379,6 +2383,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                     "supports_messages_tools": model.supports_messages_tools,
                     "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                     "supports_generate_content": model.supports_generate_content,
+                    "supports_generate_content_streaming": model.supports_generate_content_streaming,
                     "supports_responses": model.supports_responses
                 }
             })
@@ -2512,6 +2517,7 @@ async fn admin_models(
                 "supports_messages_tools": model.supports_messages_tools,
                 "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                 "supports_generate_content": model.supports_generate_content,
+                "supports_generate_content_streaming": model.supports_generate_content_streaming,
                 "supports_responses": model.supports_responses
             });
             if authorization.is_installation() {
@@ -2537,6 +2543,7 @@ async fn admin_models(
                 "supports_messages_tools": model.supports_messages_tools,
                 "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                 "supports_generate_content": model.supports_generate_content,
+                "supports_generate_content_streaming": model.supports_generate_content_streaming,
                     "supports_responses": model.supports_responses
                 })
             } else {

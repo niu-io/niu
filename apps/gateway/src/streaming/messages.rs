@@ -316,7 +316,7 @@ impl Messages {
                 }
             }
             self.event_bytes += 1;
-            if self.event_bytes > 65_536 {
+            if self.event_bytes > 262_144 {
                 return Err("Messages event exceeds inspection limit");
             }
             if byte != b'\r' && byte != b'\n' {

@@ -403,10 +403,10 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
         json!({"protocol":"chat","extra":true}),
         // A preview cannot declare a trait the selected protocol adapter cannot
         // carry; dispatch rejects the same request shape instead of dropping it.
-        json!({"protocol":"responses","tools":true}),
-        json!({"protocol":"messages","vision":true}),
+        json!({"protocol":"responses","embedding_dimensions":true}),
         json!({"protocol":"messages","structured_output":true}),
-        json!({"protocol":"generate_content","streaming":true}),
+        json!({"protocol":"generate_content","embedding_base64":true}),
+        json!({"protocol":"embeddings","streaming":true}),
         json!({"protocol":"chat","embedding_dimensions":true}),
     ] {
         assert_eq!(
@@ -446,30 +446,18 @@ async fn workspace_pool_api_enforces_delegation_scope_preview_and_revisions(pool
     // protocol-native request containing a trait the adapter cannot express.
     for (path, request, context, message) in [
         (
-            "/v1/responses",
-            json!({"model":"pool/assistant","input":"hi","tools":[]}),
-            json!({"protocol":"responses","tools":true}),
-            "Responses requests do not support tool declarations",
-        ),
-        (
             "/v1/messages",
             json!({"model":"pool/assistant","max_tokens":16,"messages":[
-                {"role":"user","content":[
-                    {"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAAA"}}
-                ]}
-            ]}),
-            json!({"protocol":"messages","vision":true}),
-            "Messages requests do not support image or document inputs",
+                {"role":"user","content":"hi"}
+            ],"output_config":{"format":{"type":"json_schema","schema":{"type":"object"}}}}),
+            json!({"protocol":"messages","structured_output":true}),
+            "Messages requests do not support structured output",
         ),
         (
-            "/v1beta/models/pool%2Fassistant:generateContent",
-            json!({
-                "contents":[{"role":"user","parts":[{"text":"hi"}]}],
-                "generationConfig":{"maxOutputTokens":16},
-                "tools":[{"functionDeclarations":[{"name":"lookup"}]}]
-            }),
-            json!({"protocol":"generate_content","tools":true}),
-            "GenerateContent requests do not support tool declarations",
+            "/v1/embeddings",
+            json!({"model":"pool/assistant","input":"hi","stream":true}),
+            json!({"protocol":"embeddings","streaming":true}),
+            "Embeddings do not support streaming requests",
         ),
     ] {
         let (preview_status, preview) = send(
@@ -890,6 +878,163 @@ async fn workspace_pools_preserve_native_messages(pool: PgPool) {
 #[ignore = "requires PostgreSQL"]
 async fn workspace_pools_preserve_native_generate_content(pool: PgPool) {
     native_pool_case(pool, "gemini", "/v1beta/models/pool%2Fassistant:generateContent", json!({"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"maxOutputTokens":16}})).await;
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn workspace_pool_preview_and_selection_support_new_native_traits(pool: PgPool) {
+    use crate::guardrails::input::Protocol;
+    use axum::http::HeaderMap;
+
+    let mut state = test_state(Some("http://127.0.0.1:1/v1".into()), pool);
+    state.operating_mode = crate::state::OperatingMode::Internal;
+    {
+        let config = Arc::make_mut(&mut state.config);
+        let base = config.models["fast"].clone();
+        let fast = config.models.get_mut("fast").unwrap();
+        fast.provider = "openai".into();
+        fast.supports_responses = true;
+        fast.supports_tool_calls = true;
+
+        let mut claude = base.clone();
+        claude.provider = "anthropic".into();
+        claude.upstream_model = "claude-sonnet-4".into();
+        claude.supports_messages = true;
+        claude.catalog.supported_parameters = vec!["reasoning".into()];
+        config.models.insert("claude".into(), claude);
+
+        let mut gemini = base;
+        gemini.provider = "gemini".into();
+        gemini.upstream_model = "gemini-2.5-flash".into();
+        gemini.supports_generate_content = true;
+        gemini.supports_generate_content_streaming = true;
+        gemini.supports_tool_calls = true;
+        gemini.supports_streaming_tool_calls = true;
+        config.models.insert("gemini".into(), gemini);
+    }
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let actor = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: None,
+            },
+            "Pool owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let delegated = grant_models(
+        &store,
+        scope,
+        actor.operator_id,
+        &["fast".into(), "claude".into(), "gemini".into()],
+    )
+    .await;
+    let caller = store
+        .issue_key(
+            scope,
+            "Pool caller",
+            &["fast".into(), "claude".into(), "gemini".into()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let principal = store.authenticate(&caller.token).await.unwrap();
+    let app = router(state.clone());
+    let configuration = json!({
+        "slug": "assistant",
+        "name": "Assistant",
+        "description": "",
+        "enabled": true,
+        "revision": 0,
+        "candidates": [
+            {"alias": "fast", "priority": 100, "weight": 1000, "enabled": true},
+            {"alias": "claude", "priority": 90, "weight": 1000, "enabled": true},
+            {"alias": "gemini", "priority": 80, "weight": 1000, "enabled": true}
+        ],
+        "rules": [],
+        "default_action": "candidates"
+    });
+    assert_eq!(
+        send(
+            &app,
+            "PUT",
+            "/v1/routing/assistant",
+            &delegated.token,
+            configuration.clone()
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+
+    for (context, protocol, mut body, expected_alias) in [
+        (
+            json!({"protocol": "responses", "tools": true}),
+            Protocol::Responses,
+            json!({"model": "pool/assistant", "input": "hi", "tools": [{"type": "function", "name": "lookup"}]}),
+            "fast",
+        ),
+        (
+            json!({"protocol": "messages", "reasoning": true}),
+            Protocol::Messages,
+            json!({"model": "pool/assistant", "max_tokens": 16, "thinking": {"type": "enabled", "budget_tokens": 1024}, "messages": [{"role": "user", "content": "hi"}]}),
+            "claude",
+        ),
+        (
+            json!({"protocol": "generate_content", "streaming": true, "tools": true}),
+            Protocol::GenerateContent,
+            json!({
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+                "tools": [{"functionDeclarations": [{"name": "lookup"}]}]
+            }),
+            "gemini",
+        ),
+    ] {
+        let (status, preview) = send(
+            &app,
+            "POST",
+            "/v1/routing/preview",
+            &delegated.token,
+            json!({"configuration": configuration, "context": context}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{preview}");
+        assert_eq!(
+            preview["data"]["simulation"]["candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|item| item["eligible"] == true)
+                .map(|item| item["alias"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec![expected_alias],
+            "preview failed for {context}: {preview}"
+        );
+
+        let traits = crate::routing_traits::extract(protocol, &body);
+        crate::routing_traits::require_supported(protocol, &traits).unwrap();
+        let requirements = traits.requirements(Some(principal.scope().project_id), protocol);
+        let mut selected = "pool/assistant".to_owned();
+        let headers = HeaderMap::new();
+        let selection = crate::web::workspace_pools::select_for_request(
+            &state,
+            &principal,
+            &mut selected,
+            &mut body,
+            protocol,
+            &requirements,
+            &headers,
+        )
+        .await
+        .unwrap();
+        assert_eq!(selected, expected_alias);
+        assert!(selection.is_some());
+    }
 }
 
 async fn grant_models(

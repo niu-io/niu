@@ -233,7 +233,12 @@ pub fn inspect_messages(
     body: &serde_json::Value,
     rules: &[TextRule],
 ) -> Result<serde_json::Value, InspectionError> {
-    if body.get("tools").is_some() || body.get("tool_choice").is_some() {
+    if body.get("tools").is_some()
+        || body.get("tool_choice").is_some()
+        || body.get("thinking").is_some_and(|thinking| {
+            thinking.get("type").and_then(serde_json::Value::as_str) != Some("disabled")
+        })
+    {
         return Err(InspectionError::UnsupportedContent);
     }
     let mut inspected = body.clone();
@@ -417,9 +422,15 @@ pub fn inspect_responses(
     if rules.len() > 32 {
         return Err(InspectionError::ResourceLimit);
     }
-    if ["tools", "previous_response_id", "conversation", "prompt"]
-        .iter()
-        .any(|key| body.get(key).is_some())
+    if [
+        "tools",
+        "tool_choice",
+        "previous_response_id",
+        "conversation",
+        "prompt",
+    ]
+    .iter()
+    .any(|key| body.get(key).is_some())
     {
         return Err(InspectionError::UnsupportedContent);
     }

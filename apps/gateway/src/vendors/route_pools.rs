@@ -1554,19 +1554,20 @@ mod routing_preview_traits_tests {
     fn preview_rejects_traits_the_protocol_cannot_express() {
         for (protocol, mutate, message) in [
             (
-                "responses",
-                (|req: &mut PreviewRequest| req.tools = true) as fn(&mut PreviewRequest),
-                "Responses requests do not support tool declarations",
-            ),
-            (
                 "messages",
-                (|req: &mut PreviewRequest| req.vision = true) as fn(&mut PreviewRequest),
-                "Messages requests do not support image or document inputs",
+                (|req: &mut PreviewRequest| req.structured_output = true)
+                    as fn(&mut PreviewRequest),
+                "Messages requests do not support structured output",
             ),
             (
-                "generate_content",
+                "embeddings",
                 (|req: &mut PreviewRequest| req.streaming = true) as fn(&mut PreviewRequest),
-                "GenerateContent supports buffered requests only; streaming is not implemented",
+                "Embeddings do not support streaming requests",
+            ),
+            (
+                "embeddings",
+                (|req: &mut PreviewRequest| req.tools = true) as fn(&mut PreviewRequest),
+                "Embeddings do not support tool declarations",
             ),
         ] {
             let mut request = preview(protocol);
@@ -1578,6 +1579,42 @@ mod routing_preview_traits_tests {
                 "{protocol}: {}",
                 error.test_message()
             );
+        }
+
+        for (protocol, mutate) in [
+            (
+                "responses",
+                (|req: &mut PreviewRequest| {
+                    req.streaming = true;
+                    req.vision = true;
+                    req.tools = true;
+                    req.structured_output = true;
+                    req.reasoning = true;
+                }) as fn(&mut PreviewRequest),
+            ),
+            (
+                "messages",
+                (|req: &mut PreviewRequest| {
+                    req.streaming = true;
+                    req.vision = true;
+                    req.tools = true;
+                    req.reasoning = true;
+                }) as fn(&mut PreviewRequest),
+            ),
+            (
+                "generate_content",
+                (|req: &mut PreviewRequest| {
+                    req.streaming = true;
+                    req.vision = true;
+                    req.tools = true;
+                    req.structured_output = true;
+                    req.reasoning = true;
+                }) as fn(&mut PreviewRequest),
+            ),
+        ] {
+            let mut request = preview(protocol);
+            mutate(&mut request);
+            preview_request_traits(&request).expect("newly supported preview traits must pass");
         }
     }
 

@@ -253,6 +253,12 @@ impl CustomerSse {
                 }
                 return Err(err);
             }
+            if terminal_response && self.suppress_chat_terminal {
+                self.done = true;
+                self.pending.clear();
+                self.pending.shrink_to_fit();
+                return Ok(output);
+            }
             if changed {
                 // Preserve event fields, comments and identifiers; replace only data.
                 for line in text

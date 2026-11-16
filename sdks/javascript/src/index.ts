@@ -19,28 +19,122 @@ import { createMediaAssetsClient } from './media-assets.js';
 export type { MediaAssetObservation, MediaAssetGroupObservation, MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetOperationInput, MediaAssetCreateSource, MediaAssetCreateInput, MediaAssetPreparationOptions, MediaAssetPage } from './media-assets.js';
 export type { MediaVerificationSession, MediaVerificationInput, MediaVerificationLink } from './media-verification.js';
 export type { NiuVideoGenerationInput } from './video-generation.js';
-/** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
+/** Native Gemini GenerateContent / StreamGenerateContent. Requires an explicitly declared gemini route. */
+export type GenerateContentPart =
+  | { text: string; thought?: boolean; thoughtSignature?: string }
+  | { functionCall: { name: string; args: Record<string, unknown>; id?: string }; thoughtSignature?: string }
+  | { functionResponse: { name: string; response: Record<string, unknown>; id?: string } }
+  | { inlineData: { mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif' | 'application/pdf'; data: string } };
+export type GenerateContentToolDeclaration = {
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+  parametersJsonSchema?: Record<string, unknown>;
+};
 export type GenerateContentRequest = {
-  contents: Array<{ role?: 'user' | 'model'; parts: Array<{ text: string }> }>;
-  systemInstruction?: { role?: 'user' | 'model' | 'system'; parts: Array<{ text: string }> };
-  generationConfig: { maxOutputTokens: number; candidateCount?: 1; temperature?: number; topP?: number; topK?: number; stopSequences?: string[] };
+  contents: Array<{ role?: 'user' | 'model'; parts: GenerateContentPart[] }>;
+  systemInstruction?: { role?: 'user' | 'system'; parts: Array<{ text: string }> };
+  tools?: Array<{ functionDeclarations: GenerateContentToolDeclaration[] }>;
+  toolConfig?: {
+    functionCallingConfig?: {
+      mode?: 'AUTO' | 'ANY' | 'NONE';
+      allowedFunctionNames?: string[];
+    };
+  };
+  generationConfig?: {
+    maxOutputTokens?: number;
+    candidateCount?: 1;
+    temperature?: number;
+    topP?: number;
+    topK?: number;
+    seed?: number;
+    presencePenalty?: number;
+    frequencyPenalty?: number;
+    stopSequences?: string[];
+    thinkingConfig?: {
+      includeThoughts?: boolean;
+      thinkingBudget?: number;
+      thinkingLevel?: 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
+    };
+    responseMimeType?: 'text/plain' | 'application/json';
+    responseSchema?: Record<string, unknown>;
+    responseJsonSchema?: Record<string, unknown>;
+  };
 };
 export type GenerateContentResponse = {
-  candidates: Array<{ index: 0; content: { role: 'model'; parts: Array<{ text: string }> }; finishReason: 'STOP' | 'MAX_TOKENS' }>;
+  candidates?: Array<{
+    index: 0;
+    content?: { role: 'model'; parts: GenerateContentPart[] };
+    finishReason?: 'STOP' | 'MAX_TOKENS' | 'SAFETY' | 'RECITATION' | 'BLOCKLIST' | 'PROHIBITED_CONTENT' | 'SPII';
+  }>;
   modelVersion: string;
   responseId?: string;
   /** Missing categories remain null; usage is not a settlement receipt. */
-  usageMetadata: { promptTokenCount: number | null; candidatesTokenCount: number | null; totalTokenCount: number | null; cachedContentTokenCount: number | null; thoughtsTokenCount: number | null };
+  usageMetadata?: {
+    promptTokenCount: number | null;
+    toolUsePromptTokenCount?: number | null;
+    candidatesTokenCount: number | null;
+    totalTokenCount: number | null;
+    cachedContentTokenCount: number | null;
+    thoughtsTokenCount: number | null;
+  };
 };
 
-/** Buffered native text and opted-in client tools; no media or beta features. */
+export type MessagesThinkingConfig =
+  | { type: 'disabled' }
+  | { type: 'adaptive' }
+  | { type: 'enabled'; budget_tokens: number };
+export type MessagesCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
+export type MessagesImageBlock = {
+  type: 'image';
+  source:
+    | { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string }
+    | { type: 'url'; url: string };
+  cache_control?: MessagesCacheControl;
+};
+export type MessagesDocumentBlock = {
+  type: 'document';
+  source:
+    | { type: 'base64'; media_type: 'application/pdf'; data: string }
+    | { type: 'text'; media_type: 'text/plain'; data: string }
+    | { type: 'url'; url: string };
+  title?: string;
+  context?: string;
+  citations?: { enabled: boolean };
+  cache_control?: MessagesCacheControl;
+};
+export type MessagesThinkingBlock = { type: 'thinking'; thinking: string; signature?: string };
+export type MessagesRedactedThinkingBlock = { type: 'redacted_thinking'; data: string };
+export type MessagesToolUse = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; cache_control?: MessagesCacheControl };
+export type MessagesToolResult = {
+  type: 'tool_result';
+  tool_use_id: string;
+  content?: string | Array<MessagesTextBlock | MessagesImageBlock>;
+  is_error?: boolean;
+  cache_control?: MessagesCacheControl;
+};
+export type MessagesTextBlock = { type: 'text'; text: string; cache_control?: MessagesCacheControl };
+export type MessagesText = string | Array<MessagesTextBlock>;
+export type MessagesContentBlock =
+  | MessagesTextBlock
+  | MessagesImageBlock
+  | MessagesDocumentBlock
+  | MessagesThinkingBlock
+  | MessagesRedactedThinkingBlock
+  | MessagesToolUse
+  | MessagesToolResult;
+/** Native Anthropic Messages with streaming, client tools, Extended Thinking, cache_control, and unpriced image/document blocks. */
 export type MessagesRequest = {
   model: string;
   max_tokens: number;
-  messages: Array<{ role: 'user' | 'assistant'; content: MessagesText | Array<MessagesTextBlock | MessagesToolUse | MessagesToolResult> }>;
-  tools?: Array<{ name: string; description?: string; input_schema: Record<string, unknown> }>;
+  messages: Array<{ role: 'user' | 'assistant'; content: string | Array<MessagesContentBlock> }>;
+  tools?: Array<{ name: string; description?: string; input_schema: Record<string, unknown>; cache_control?: MessagesCacheControl }>;
   tool_choice?: { type: 'auto' | 'any' | 'none'; disable_parallel_tool_use?: boolean } | { type: 'tool'; name: string; disable_parallel_tool_use?: boolean };
   system?: MessagesText;
+  thinking?: MessagesThinkingConfig;
+  output_config?: { effort?: 'low' | 'medium' | 'high' | 'max' };
+  top_k?: number;
+  metadata?: { user_id?: string };
   stream?: false;
   temperature?: number;
   top_p?: number;
@@ -48,13 +142,9 @@ export type MessagesRequest = {
 };
 /** Tool SSE requires the route's explicit supports_messages_streaming_tools opt-in. */
 export type MessagesStreamRequest = Omit<MessagesRequest, 'stream'>;
-export type MessagesToolUse = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
-export type MessagesToolResult = { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
-export type MessagesTextBlock = { type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } };
-export type MessagesText = string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } }>;
 export type MessagesResponse = {
   id: string; type: 'message'; role: 'assistant'; model: string;
-  content: Array<{ type: 'text'; text: string } | MessagesToolUse>;
+  content: Array<{ type: 'text'; text: string } | MessagesThinkingBlock | MessagesRedactedThinkingBlock | MessagesToolUse>;
   stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
   stop_sequence: string | null;
   /** Null categories do not establish zero usage or settled customer charges. */
@@ -240,15 +330,50 @@ export type EmbeddingResponse = {
   };
 };
 
+export type ResponsesTool = {
+  type: 'function';
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+  strict?: boolean;
+};
+
+export type ResponsesToolChoice =
+  | 'none'
+  | 'auto'
+  | 'required'
+  | { type: 'function'; name: string };
+
+export type ResponsesTextConfig = {
+  verbosity?: 'low' | 'medium' | 'high';
+  format?:
+    | { type: 'text' }
+    | { type: 'json_object' }
+    | { type: 'json_schema'; name: string; schema: Record<string, unknown>; description?: string; strict?: boolean };
+};
+
+export type ResponsesInputItem =
+  | { type?: 'message'; id?: string; status?: 'in_progress' | 'completed' | 'incomplete'; role: 'user' | 'system' | 'developer' | 'assistant'; content: string | Array<Record<string, unknown>> }
+  | { type: 'function_call'; id?: string; call_id: string; name: string; arguments: string; status?: string }
+  | { type: 'function_call_output'; id?: string; call_id: string; output: string; status?: string }
+  | { type: 'reasoning'; id?: string; summary?: unknown[]; content?: unknown[]; encrypted_content?: string; status?: string };
+
 export type ResponsesRequest = {
   model: string;
-  input: string;
+  input: string | ResponsesInputItem[];
   instructions?: string;
   max_output_tokens?: number;
   temperature?: number;
   top_p?: number;
   metadata?: Record<string, string>;
   user?: string;
+  tools?: ResponsesTool[];
+  tool_choice?: ResponsesToolChoice;
+  parallel_tool_calls?: boolean;
+  text?: ResponsesTextConfig;
+  reasoning?: { effort?: 'minimal' | 'low' | 'medium' | 'high'; summary?: 'auto' | 'concise' | 'detailed' };
+  truncation?: 'disabled' | 'auto';
+  store?: false;
   stream?: false;
 };
 
@@ -275,12 +400,21 @@ export type ResponsesReasoning = {
   summary?: unknown[];
 };
 
+export type ResponsesFunctionCall = {
+  id?: string;
+  type: 'function_call';
+  call_id: string;
+  name: string;
+  arguments: string;
+  status?: string;
+};
+
 export type ResponsesResponse = {
   id: string;
   object: 'response';
   status: 'completed' | 'incomplete';
   model: string;
-  output: Array<ResponsesMessage | ResponsesReasoning>;
+  output: Array<ResponsesMessage | ResponsesReasoning | ResponsesFunctionCall>;
   usage?: { input_tokens: number; output_tokens: number; total_tokens?: number };
 };
 
@@ -947,6 +1081,7 @@ export class NiuClient {
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
   readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
+  readonly streamGenerateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions & { alt?: 'sse' }) => AsyncGenerator<GenerateContentResponse>;
   readonly messages: { create: (request: MessagesRequest, options?: RequestOptions) => Promise<MessagesResponse>; stream: (request: MessagesStreamRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse>; stream: (request: ResponsesRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly chat: {
@@ -1055,10 +1190,12 @@ export class NiuClient {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
     this.generateContent = (model, request, options) => {
-      if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model.includes('..') || /[?#:\\\x00-\x1f\x7f]/.test(model)) {
-        throw new TypeError('model must be a non-empty model identifier without path traversal or query delimiters');
-      }
+      assertGeminiModel(model);
       return this.request(`/models/${encodeURIComponent(model)}:generateContent`, request, options, true);
+    };
+    this.streamGenerateContent = (model, request, options) => {
+      assertGeminiModel(model);
+      return this.streamGemini(model, request, options);
     };
     this.messages = {
       create: (request, requestOptions) => {
@@ -1083,6 +1220,27 @@ export class NiuClient {
         return this.request('/chat/completions', request, requestOptions);
       },
     };
+  }
+
+  private async *streamGemini(
+    model: string,
+    request: GenerateContentRequest,
+    options: RequestOptions & { alt?: 'sse' } = {},
+  ): AsyncGenerator<GenerateContentResponse> {
+    const sse = options.alt === 'sse';
+    const path = `/models/${encodeURIComponent(model)}:streamGenerateContent${sse ? '?alt=sse' : ''}`;
+    const accept = sse ? 'text/event-stream' : 'application/json';
+    const response = await this.send(path, request, options, accept, 'POST', true);
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+    if (!response.body || contentType !== accept) {
+      await response.body?.cancel();
+      throw new NiuStreamError('invalid_stream', `Expected a ${accept} stream response`, response);
+    }
+    if (sse) {
+      yield* parseGeminiSseStream(response, options.signal);
+    } else {
+      yield* parseGeminiJsonArrayStream(response, options.signal);
+    }
   }
 
   private async request<T>(
@@ -1159,6 +1317,12 @@ export class NiuClient {
       if (typeof options.logPayloads !== 'boolean') throw new TypeError('logPayloads must be a boolean');
       headers.set('x-niu-log-payloads', String(options.logPayloads));
     }
+    if (options.anthropicBeta !== undefined) {
+      const beta = Array.isArray(options.anthropicBeta)
+        ? options.anthropicBeta.filter((v) => v.trim()).join(',')
+        : options.anthropicBeta.trim();
+      if (beta) headers.set('anthropic-beta', beta);
+    }
     if (this.keyId !== undefined) {
       headers.set('x-niu-key-id', this.keyId);
     }
@@ -1217,6 +1381,8 @@ export type RequestOptions = {
   onResponse?: (metadata: ResponseMetadata) => void;
   /** Override payload retention for this request. Metadata collection is unaffected. */
   logPayloads?: boolean;
+  /** Optional safe capability beta flag(s) forwarded via anthropic-beta on /v1/messages. */
+  anthropicBeta?: string | string[];
 };
 
 function errorMessage(body: unknown, status: number, fallback = `Niu API request failed with status ${status}`): string {
@@ -1234,8 +1400,174 @@ async function readPayload(response: Response): Promise<unknown> {
   try { return text ? JSON.parse(text) : undefined; } catch { return text; }
 }
 
+function assertGeminiModel(model: string) {
+  if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model.includes('..') || /[?#:\\\x00-\x1f\x7f]/.test(model)) {
+    throw new TypeError('model must be a non-empty model identifier without path traversal or query delimiters');
+  }
+}
+
+async function* parseGeminiSseStream(response: Response, signal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
+  const reader = response.body!.getReader();
+  const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let line = '';
+  let data = '';
+  let skipLF = false;
+  let eventSize = 0;
+  let eventType: string | undefined;
+  let sawChunk = false;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const result = await reader.read();
+      signal?.throwIfAborted();
+      if (result.done) break;
+      let text: string;
+      try { text = decoder.decode(result.value, { stream: true }); }
+      catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, eventType, cause); }
+      for (const char of text) {
+        if (skipLF) { skipLF = false; if (char === '\n') continue; }
+        const point = char.codePointAt(0)!;
+        eventSize += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+        if (eventSize > 262_144) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
+        if (char !== '\r' && char !== '\n') { line += char; continue; }
+        skipLF = char === '\r';
+        if (line === '') {
+          signal?.throwIfAborted();
+          eventSize = 0;
+          if (eventType === 'error' && data === '') throw new NiuStreamError('api', 'Upstream returned an SSE error event', response, undefined, eventType);
+          if (data !== '') {
+            const event = data.slice(0, -1);
+            data = '';
+            let value: unknown;
+            try { value = JSON.parse(event); }
+            catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid JSON stream event', response, event, eventType, cause); }
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new NiuStreamError('invalid_stream', 'Invalid GenerateContent stream event', response, value, eventType);
+            if (eventType === 'error' || 'error' in value) throw new NiuStreamError('api', errorMessage(value, response.status, 'Upstream stream failed'), response, value, eventType);
+            sawChunk = true;
+            yield value as GenerateContentResponse;
+          }
+          eventType = undefined;
+        } else if (!line.startsWith(':')) {
+          const colon = line.indexOf(':');
+          const field = colon < 0 ? line : line.slice(0, colon);
+          let value = colon < 0 ? '' : line.slice(colon + 1);
+          if (value.startsWith(' ')) value = value.slice(1);
+          if (field === 'data') data += value + '\n';
+          if (field === 'event') eventType = value;
+        }
+        line = '';
+      }
+    }
+    try { decoder.decode(); }
+    catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, eventType, cause); }
+    if (line !== '' || data !== '' || !sawChunk) {
+      throw new NiuStreamError('incomplete_stream', 'GenerateContent SSE stream ended incomplete', response);
+    }
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof NiuStreamError) throw error;
+    throw new NiuStreamError('transport', 'Stream transport failed', response, undefined, eventType, error);
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    try { await reader.cancel().catch(() => {}); } finally { reader.releaseLock(); }
+  }
+}
+
+async function* parseGeminiJsonArrayStream(response: Response, signal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
+  const reader = response.body!.getReader();
+  const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let state: 'before_open' | 'expect_obj_or_close' | 'expect_obj' | 'in_obj' | 'expect_comma_or_close' | 'closed' = 'before_open';
+  let obj = '';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let sawAny = false;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const result = await reader.read();
+      signal?.throwIfAborted();
+      if (result.done) break;
+      let text: string;
+      try { text = decoder.decode(result.value, { stream: true }); }
+      catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, undefined, cause); }
+      for (const char of text) {
+        if (state === 'before_open') {
+          if (/\s/.test(char)) continue;
+          if (char === '[') { state = 'expect_obj_or_close'; continue; }
+          throw new NiuStreamError('invalid_stream', 'Expected JSON array in GenerateContent stream', response);
+        }
+        if (state === 'expect_obj_or_close') {
+          if (/\s/.test(char)) continue;
+          if (char === ']' && !sawAny) throw new NiuStreamError('incomplete_stream', 'Empty GenerateContent JSON stream', response);
+          if (char === '{') { state = 'in_obj'; obj = '{'; depth = 1; inString = false; escape = false; continue; }
+          throw new NiuStreamError('invalid_stream', 'Expected JSON object in GenerateContent stream', response);
+        }
+        if (state === 'expect_obj') {
+          if (/\s/.test(char)) continue;
+          if (char === '{') { state = 'in_obj'; obj = '{'; depth = 1; inString = false; escape = false; continue; }
+          throw new NiuStreamError('invalid_stream', 'Expected JSON object after comma', response);
+        }
+        if (state === 'in_obj') {
+          if (obj.length >= 262_144) throw new NiuStreamError('invalid_stream', 'GenerateContent chunk exceeds buffer limit', response);
+          obj += char;
+          if (inString) {
+            if (escape) escape = false;
+            else if (char === '\\') escape = true;
+            else if (char === '"') inString = false;
+          } else {
+            if (char === '"') inString = true;
+            else if (char === '{') depth += 1;
+            else if (char === '}') {
+              depth -= 1;
+              if (depth === 0) {
+                let parsed: unknown;
+                try { parsed = JSON.parse(obj); }
+                catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid GenerateContent JSON chunk', response, obj, undefined, cause); }
+                obj = '';
+                sawAny = true;
+                state = 'expect_comma_or_close';
+                if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new NiuStreamError('invalid_stream', 'Invalid GenerateContent chunk object', response, parsed);
+                if ('error' in parsed) throw new NiuStreamError('api', errorMessage(parsed, response.status, 'Upstream stream failed'), response, parsed);
+                yield parsed as GenerateContentResponse;
+              }
+            }
+          }
+          continue;
+        }
+        if (state === 'expect_comma_or_close') {
+          if (/\s/.test(char)) continue;
+          if (char === ',') { state = 'expect_obj'; continue; }
+          if (char === ']') { state = 'closed'; continue; }
+          throw new NiuStreamError('invalid_stream', 'Invalid delimiter in GenerateContent JSON stream', response);
+        }
+        if (!/\s/.test(char)) {
+          throw new NiuStreamError('invalid_stream', 'Trailing data after GenerateContent JSON stream', response);
+        }
+      }
+    }
+    try { decoder.decode(); }
+    catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, undefined, cause); }
+    if (state !== 'closed' || !sawAny) {
+      throw new NiuStreamError('incomplete_stream', 'GenerateContent JSON stream ended before closing bracket', response);
+    }
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof NiuStreamError) throw error;
+    throw new NiuStreamError('transport', 'Stream transport failed', response, undefined, undefined, error);
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    try { await reader.cancel().catch(() => {}); } finally { reader.releaseLock(); }
+  }
+}
+
 async function* parseChatStream(response: Response, signal?: AbortSignal, protocol: 'chat' | 'responses' | 'messages' = 'chat'): AsyncGenerator<unknown> {
   const responses = protocol === 'responses';
+  const maxEventSize = responses ? 16 * 1024 * 1024 : protocol === 'messages' ? 262_144 : 65_536;
   const reader = response.body!.getReader();
   const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
@@ -1258,7 +1590,7 @@ async function* parseChatStream(response: Response, signal?: AbortSignal, protoc
         if (skipLF) { skipLF = false; if (char === '\n') continue; }
         const point = char.codePointAt(0)!;
         eventSize += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
-        if (eventSize > (responses ? 16 * 1024 * 1024 : 65_536)) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
+        if (eventSize > maxEventSize) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
         if (char !== '\r' && char !== '\n') { line += char; continue; }
         skipLF = char === '\r';
         if (line === '') {

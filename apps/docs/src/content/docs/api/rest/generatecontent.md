@@ -1,5 +1,5 @@
 ---
-title: "Generate native buffered Gemini text"
+title: "Generate native Gemini content or streamGenerateContent"
 description: "POST /v1beta/models/{model_action}"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /v1beta/models/{model_action}`
 
-Set provider gemini and supports_generate_content true on a static route, or create a managed gemini credential and opt its model mapping into supports_generate_content. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Native SDK compatibility and successful end-to-end billing remain unverified as documented.
+Requires provider gemini with supports_generate_content enabled; streaming additionally requires supports_generate_content_streaming. model_action accepts {model}:generateContent or {model}:streamGenerateContent (URL-encode slashes inside aliases). Streaming returns JSON array chunks by default or SSE when ?alt=sse is supplied; query ?key= is rejected (use Authorization: Bearer or x-niu-api-key). Supports client functionDeclarations (normalized offline schema checks) and toolConfig.functionCallingConfig (AUTO/ANY/NONE), thought and thoughtSignature pass-through, generationConfig.thinkingConfig, responseMimeType (application/json) with responseSchema/responseJsonSchema, and unpriced user inlineData (image/* or application/pdf within 8 MiB; rejected with 400 on priced routes). Total input accounting combines promptTokenCount and toolUsePromptTokenCount; total output equals totalTokenCount minus total input. Missing terminal evidence or mid-stream interruptions retain holds and uncertainty.
 
 Operation: `generateContent`.
 
@@ -61,6 +61,19 @@ Location: **path**. **Required.**
 }
 ```
 
+### alt
+
+Location: **query**. Optional. Use alt=sse with :streamGenerateContent to receive text/event-stream instead of a JSON array stream. Unsupported on :generateContent.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "sse"
+  ]
+}
+```
+
 ### x-niu-evaluation
 
 Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.
@@ -97,14 +110,13 @@ Location: **header**. Optional. Optional bounded JSON task context for an explic
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "contents",
-    "generationConfig"
+    "contents"
   ],
   "properties": {
     "contents": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 128,
+      "maxItems": 256,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -124,16 +136,7 @@ Location: **header**. Optional. Optional bounded JSON task context for an explic
             "minItems": 1,
             "maxItems": 128,
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "text"
-              ],
-              "properties": {
-                "text": {
-                  "type": "string"
-                }
-              }
+              "type": "object"
             }
           }
         }
@@ -150,7 +153,6 @@ Location: **header**. Optional. Optional bounded JSON task context for an explic
           "type": "string",
           "enum": [
             "user",
-            "model",
             "system"
           ]
         },
@@ -173,12 +175,20 @@ Location: **header**. Optional. Optional bounded JSON task context for an explic
         }
       }
     },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object"
+      }
+    },
+    "toolConfig": {
+      "type": "object"
+    },
     "generationConfig": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "maxOutputTokens"
-      ],
       "properties": {
         "maxOutputTokens": {
           "type": "integer",
@@ -206,6 +216,19 @@ Location: **header**. Optional. Optional bounded JSON task context for an explic
           "minimum": 1,
           "maximum": 10000
         },
+        "seed": {
+          "type": "integer"
+        },
+        "presencePenalty": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "frequencyPenalty": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
         "stopSequences": {
           "type": "array",
           "maxItems": 5,
@@ -214,6 +237,22 @@ Location: **header**. Optional. Optional bounded JSON task context for an explic
             "minLength": 1,
             "maxLength": 512
           }
+        },
+        "thinkingConfig": {
+          "type": "object"
+        },
+        "responseMimeType": {
+          "type": "string",
+          "enum": [
+            "text/plain",
+            "application/json"
+          ]
+        },
+        "responseSchema": {
+          "type": "object"
+        },
+        "responseJsonSchema": {
+          "type": "object"
         }
       }
     }
@@ -280,15 +319,7 @@ Content type: `application/json`.
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "text"
-                  ],
-                  "properties": {
-                    "text": {
-                      "type": "string"
-                    }
-                  }
+                  "additionalProperties": true
                 }
               }
             }
@@ -297,7 +328,12 @@ Content type: `application/json`.
             "type": "string",
             "enum": [
               "STOP",
-              "MAX_TOKENS"
+              "MAX_TOKENS",
+              "SAFETY",
+              "RECITATION",
+              "BLOCKLIST",
+              "PROHIBITED_CONTENT",
+              "SPII"
             ]
           }
         }
@@ -307,6 +343,13 @@ Content type: `application/json`.
       "type": "object",
       "properties": {
         "promptTokenCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "toolUsePromptTokenCount": {
           "type": [
             "integer",
             "null"
@@ -344,6 +387,14 @@ Content type: `application/json`.
       }
     }
   }
+}
+```
+
+Content type: `text/event-stream`.
+
+```json
+{
+  "type": "string"
 }
 ```
 
@@ -745,8 +796,8 @@ Content type: `application/json`.
 
 ## Behavior and supported scope
 
-Set provider gemini and supports_generate_content true on a static route, or create a managed gemini credential and opt its model mapping into supports_generate_content. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Native SDK compatibility and successful end-to-end billing remain unverified as documented.
+Requires provider gemini with supports_generate_content enabled; streaming additionally requires supports_generate_content_streaming. model_action accepts {model}:generateContent or {model}:streamGenerateContent (URL-encode slashes inside aliases). Streaming returns JSON array chunks by default or SSE when ?alt=sse is supplied; query ?key= is rejected (use Authorization: Bearer or x-niu-api-key). Supports client functionDeclarations (normalized offline schema checks) and toolConfig.functionCallingConfig (AUTO/ANY/NONE), thought and thoughtSignature pass-through, generationConfig.thinkingConfig, responseMimeType (application/json) with responseSchema/responseJsonSchema, and unpriced user inlineData (image/* or application/pdf within 8 MiB; rejected with 400 on priced routes). Total input accounting combines promptTokenCount and toolUsePromptTokenCount; total output equals totalTokenCount minus total input. Missing terminal evidence or mid-stream interruptions retain holds and uncertainty.
 
 **Supported scope:** implemented
 
-**Supported scope:** Static or managed gemini routes only; successful native upstream completion remains unverified.
+**Supported scope:** Static or managed gemini routes supporting buffered :generateContent and streaming :streamGenerateContent (?alt=sse SSE or JSON array stream), client functionDeclarations/toolConfig, thinkingConfig, responseMimeType/responseSchema, and unpriced inlineData.

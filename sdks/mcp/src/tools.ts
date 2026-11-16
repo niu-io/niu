@@ -397,11 +397,12 @@ function parseListCatalogModelsArgs(raw: unknown): { search?: string; capability
       "messages",
       "messages_streaming",
       "generate_content",
+      "generate_content_streaming",
       "responses",
     ].includes(capability)
   ) {
     throw new Error(
-      "capability must be one of chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, responses",
+      "capability must be one of chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, generate_content_streaming, responses",
     );
   }
   return { search, capability };
@@ -617,6 +618,13 @@ function parseResponsesArgs(
       "top_p",
       "metadata",
       "user",
+      "tools",
+      "tool_choice",
+      "parallel_tool_calls",
+      "text",
+      "reasoning",
+      "truncation",
+      "store",
       "log_payloads",
       "evaluation",
       "task_id",
@@ -624,9 +632,17 @@ function parseResponsesArgs(
     "create_response",
   );
   const model = assertModelName(input.model, "model");
-  const textInput = optionalString(input.input, "input");
-  if (!textInput) throw new Error("input is required");
-  const body: Record<string, unknown> = { model, input: textInput };
+  let responsesInput: string | unknown[];
+  if (typeof input.input === "string") {
+    const textInput = optionalString(input.input, "input");
+    if (!textInput) throw new Error("input is required");
+    responsesInput = textInput;
+  } else if (Array.isArray(input.input) && input.input.length > 0) {
+    responsesInput = input.input;
+  } else {
+    throw new Error("input must be a non-empty string or array of input items");
+  }
+  const body: Record<string, unknown> = { model, input: responsesInput };
   for (const key of [
     "instructions",
     "max_output_tokens",
@@ -634,6 +650,13 @@ function parseResponsesArgs(
     "top_p",
     "metadata",
     "user",
+    "tools",
+    "tool_choice",
+    "parallel_tool_calls",
+    "text",
+    "reasoning",
+    "truncation",
+    "store",
   ] as const) {
     if (input[key] !== undefined) body[key] = input[key];
   }
@@ -642,7 +665,7 @@ function parseResponsesArgs(
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
-    taskId: optionalString(input.task_id, "task_id"),
+      taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -654,10 +677,14 @@ function publicResponse(value: unknown, meta: GatewayMeta): unknown {
   const response = value as {
     output?: Array<{
       type?: unknown;
+      call_id?: unknown;
+      name?: unknown;
+      arguments?: unknown;
       content?: Array<{ type?: unknown; text?: unknown }>;
     }>;
   };
   const texts: string[] = [];
+  const functionCalls: Array<{ call_id: unknown; name: unknown; arguments: unknown }> = [];
   if (Array.isArray(response.output)) {
     for (const item of response.output) {
       if (item?.type === "message" && Array.isArray(item.content)) {
@@ -666,6 +693,12 @@ function publicResponse(value: unknown, meta: GatewayMeta): unknown {
             texts.push(block.text);
           }
         }
+      } else if (item?.type === "function_call") {
+        functionCalls.push({
+          call_id: item.call_id,
+          name: item.name,
+          arguments: item.arguments,
+        });
       }
     }
   }
@@ -673,6 +706,7 @@ function publicResponse(value: unknown, meta: GatewayMeta): unknown {
     {
       ...(value as Record<string, unknown>),
       ...(texts.length > 0 ? { output_text: texts.join("") } : {}),
+      ...(functionCalls.length > 0 ? { function_calls: functionCalls } : {}),
     },
     meta,
   );
@@ -690,9 +724,14 @@ function parseMessagesArgs(
       "system",
       "temperature",
       "top_p",
+      "top_k",
       "stop_sequences",
       "tools",
       "tool_choice",
+      "thinking",
+      "output_config",
+      "metadata",
+      "anthropic_beta",
       "log_payloads",
       "evaluation",
       "task_id",
@@ -715,18 +754,31 @@ function parseMessagesArgs(
     "system",
     "temperature",
     "top_p",
+    "top_k",
     "stop_sequences",
     "tools",
     "tool_choice",
+    "thinking",
+    "output_config",
+    "metadata",
   ] as const) {
     if (input[key] !== undefined) body[key] = input[key];
+  }
+  let anthropicBeta: string | string[] | undefined;
+  if (typeof input.anthropic_beta === "string") {
+    anthropicBeta = input.anthropic_beta;
+  } else if (Array.isArray(input.anthropic_beta) && input.anthropic_beta.every((item) => typeof item === "string")) {
+    anthropicBeta = input.anthropic_beta;
+  } else if (input.anthropic_beta !== undefined) {
+    throw new Error("anthropic_beta must be a string or array of strings");
   }
   return {
     body,
     options: {
+      anthropicBeta,
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
-    taskId: optionalString(input.task_id, "task_id"),
+      taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -738,7 +790,17 @@ function parseGenerateContentArgs(raw: unknown): {
 } {
   const input = parseObjectArgs(
     raw,
-    ["model", "contents", "systemInstruction", "generationConfig", "log_payloads", "evaluation", "task_id"],
+    [
+      "model",
+      "contents",
+      "systemInstruction",
+      "tools",
+      "toolConfig",
+      "generationConfig",
+      "log_payloads",
+      "evaluation",
+      "task_id",
+    ],
     "generate_content",
   );
   const model = assertModelName(input.model, "model");
@@ -746,18 +808,19 @@ function parseGenerateContentArgs(raw: unknown): {
     throw new Error("contents are required");
   }
   if (
-    input.generationConfig === null ||
-    typeof input.generationConfig !== "object" ||
-    Array.isArray(input.generationConfig)
+    input.generationConfig !== undefined &&
+    (input.generationConfig === null ||
+      typeof input.generationConfig !== "object" ||
+      Array.isArray(input.generationConfig))
   ) {
-    throw new Error("generationConfig is required");
+    throw new Error("generationConfig must be an object when provided");
   }
   const body: Record<string, unknown> = {
     contents: input.contents,
-    generationConfig: input.generationConfig,
-    ...(input.systemInstruction !== undefined
-      ? { systemInstruction: input.systemInstruction }
-      : {}),
+    ...(input.generationConfig !== undefined ? { generationConfig: input.generationConfig } : {}),
+    ...(input.systemInstruction !== undefined ? { systemInstruction: input.systemInstruction } : {}),
+    ...(input.tools !== undefined ? { tools: input.tools } : {}),
+    ...(input.toolConfig !== undefined ? { toolConfig: input.toolConfig } : {}),
   };
   return {
     model,
@@ -765,7 +828,7 @@ function parseGenerateContentArgs(raw: unknown): {
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
-    taskId: optionalString(input.task_id, "task_id"),
+      taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -1598,7 +1661,7 @@ export const toolDefinitions = [
   {
     name: "list_catalog_models",
     description:
-      "List public Niu catalog models along with customer metadata, standard customer pricing when applicable, and supported protocol capabilities (chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, responses). The owned_by field identifies the Niu route owner, not the upstream model developer.",
+      "List public Niu catalog models along with customer metadata, standard customer pricing when applicable, and supported protocol capabilities (chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, generate_content_streaming, responses). The owned_by field identifies the Niu route owner, not the upstream model developer.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -1616,6 +1679,7 @@ export const toolDefinitions = [
             "messages",
             "messages_streaming",
             "generate_content",
+            "generate_content_streaming",
             "responses",
           ],
           description: "Optional protocol capability filter.",
@@ -1738,14 +1802,19 @@ export const toolDefinitions = [
   {
     name: "create_response",
     description:
-      "Create a text response via Niu's OpenAI Responses API (/v1/responses) on routes with supports_responses enabled. Requires an explicit model and text input.",
+      "Create a native OpenAI Response (/v1/responses) on routes with supports_responses enabled. Supports string or multi-turn item array input, client function tools, structured JSON Schema text.format, reasoning controls, truncation, and unpriced input_image inputs (stateless only).",
     inputSchema: {
       type: "object",
       additionalProperties: false,
       required: ["model", "input"],
       properties: {
         model: { type: "string", minLength: 1 },
-        input: { type: "string", minLength: 1 },
+        input: {
+          oneOf: [
+            { type: "string", minLength: 1 },
+            { type: "array", minItems: 1, items: { type: "object" } },
+          ],
+        },
         instructions: { type: "string" },
         max_output_tokens: { type: "integer", minimum: 1 },
         temperature: { type: "number" },
@@ -1755,6 +1824,18 @@ export const toolDefinitions = [
           additionalProperties: { type: "string" },
         },
         user: { type: "string" },
+        tools: { type: "array", items: { type: "object" } },
+        tool_choice: {
+          oneOf: [
+            { type: "string", enum: ["none", "auto", "required"] },
+            { type: "object" },
+          ],
+        },
+        parallel_tool_calls: { type: "boolean" },
+        text: { type: "object" },
+        reasoning: { type: "object" },
+        truncation: { type: "string", enum: ["disabled", "auto"] },
+        store: { type: "boolean", enum: [false] },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
@@ -1764,7 +1845,7 @@ export const toolDefinitions = [
   {
     name: "create_message",
     description:
-      "Create a native Anthropic Message (/v1/messages) on Niu routes with supports_messages enabled. Requires model, max_tokens, and messages.",
+      "Create a native Anthropic Message (/v1/messages) on Niu routes with supports_messages enabled. Supports client tools (with array/image tool_result and cache_control), Extended Thinking (thinking + output_config.effort), top_k, metadata.user_id, safe anthropic_beta capability flags, and unpriced image/document blocks.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -1782,9 +1863,20 @@ export const toolDefinitions = [
         },
         temperature: { type: "number" },
         top_p: { type: "number" },
+        top_k: { type: "integer", minimum: 0 },
         stop_sequences: { type: "array", items: { type: "string" } },
         tools: { type: "array", items: { type: "object" } },
         tool_choice: { type: "object" },
+        thinking: { type: "object" },
+        output_config: { type: "object" },
+        metadata: { type: "object" },
+        anthropic_beta: {
+          oneOf: [
+            { type: "string" },
+            { type: "array", items: { type: "string" } },
+          ],
+          description: "Optional safe capability beta flag(s) forwarded via anthropic-beta (unknown or hosted-tool betas return 501).",
+        },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
         task_id: { type: "string" },
@@ -1794,11 +1886,11 @@ export const toolDefinitions = [
   {
     name: "generate_content",
     description:
-      "Call Niu's native Gemini GenerateContent endpoint (/v1beta/models/{model}:generateContent) on routes with supports_generate_content enabled.",
+      "Call Niu's native Gemini GenerateContent endpoint (/v1beta/models/{model}:generateContent) on routes with supports_generate_content enabled. Supports client functionDeclarations, toolConfig, thinkingConfig, responseMimeType/responseSchema, and unpriced inlineData.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
-      required: ["model", "contents", "generationConfig"],
+      required: ["model", "contents"],
       properties: {
         model: { type: "string", minLength: 1 },
         contents: {
@@ -1807,16 +1899,24 @@ export const toolDefinitions = [
           items: { type: "object" },
         },
         systemInstruction: { type: "object" },
+        tools: { type: "array", items: { type: "object" } },
+        toolConfig: { type: "object" },
         generationConfig: {
           type: "object",
-          required: ["maxOutputTokens"],
           properties: {
             maxOutputTokens: { type: "integer", minimum: 1 },
             candidateCount: { type: "integer", enum: [1] },
             temperature: { type: "number" },
             topP: { type: "number" },
             topK: { type: "integer" },
+            seed: { type: "integer" },
+            presencePenalty: { type: "number" },
+            frequencyPenalty: { type: "number" },
             stopSequences: { type: "array", items: { type: "string" } },
+            thinkingConfig: { type: "object" },
+            responseMimeType: { type: "string", enum: ["text/plain", "application/json"] },
+            responseSchema: { type: "object" },
+            responseJsonSchema: { type: "object" },
           },
         },
         log_payloads: { type: "boolean" },

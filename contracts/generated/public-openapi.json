@@ -26679,10 +26679,10 @@
     "/v1beta/models/{model_action}": {
       "post": {
         "operationId": "generateContent",
-        "summary": "Generate native buffered Gemini text",
+        "summary": "Generate native Gemini content or streamGenerateContent",
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Static or managed gemini routes only; successful native upstream completion remains unverified.",
-        "description": "Set provider gemini and supports_generate_content true on a static route, or create a managed gemini credential and opt its model mapping into supports_generate_content. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Native SDK compatibility and successful end-to-end billing remain unverified as documented.",
+        "x-niu-status": "Static or managed gemini routes supporting buffered :generateContent and streaming :streamGenerateContent (?alt=sse SSE or JSON array stream), client functionDeclarations/toolConfig, thinkingConfig, responseMimeType/responseSchema, and unpriced inlineData.",
+        "description": "Requires provider gemini with supports_generate_content enabled; streaming additionally requires supports_generate_content_streaming. model_action accepts {model}:generateContent or {model}:streamGenerateContent (URL-encode slashes inside aliases). Streaming returns JSON array chunks by default or SSE when ?alt=sse is supplied; query ?key= is rejected (use Authorization: Bearer or x-niu-api-key). Supports client functionDeclarations (normalized offline schema checks) and toolConfig.functionCallingConfig (AUTO/ANY/NONE), thought and thoughtSignature pass-through, generationConfig.thinkingConfig, responseMimeType (application/json) with responseSchema/responseJsonSchema, and unpriced user inlineData (image/* or application/pdf within 8 MiB; rejected with 400 on priced routes). Total input accounting combines promptTokenCount and toolUsePromptTokenCount; total output equals totalTokenCount minus total input. Missing terminal evidence or mid-stream interruptions retain holds and uncertainty.",
         "security": [
           {
             "bearerAuth": []
@@ -26699,6 +26699,18 @@
             "schema": {
               "type": "string",
               "example": "fast:generateContent"
+            }
+          },
+          {
+            "name": "alt",
+            "in": "query",
+            "required": false,
+            "description": "Use alt=sse with :streamGenerateContent to receive text/event-stream instead of a JSON array stream. Unsupported on :generateContent.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sse"
+              ]
             }
           },
           {
@@ -26731,14 +26743,13 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "contents",
-                  "generationConfig"
+                  "contents"
                 ],
                 "properties": {
                   "contents": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 128,
+                    "maxItems": 256,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
@@ -26758,16 +26769,7 @@
                           "minItems": 1,
                           "maxItems": 128,
                           "items": {
-                            "type": "object",
-                            "additionalProperties": false,
-                            "required": [
-                              "text"
-                            ],
-                            "properties": {
-                              "text": {
-                                "type": "string"
-                              }
-                            }
+                            "type": "object"
                           }
                         }
                       }
@@ -26784,7 +26786,6 @@
                         "type": "string",
                         "enum": [
                           "user",
-                          "model",
                           "system"
                         ]
                       },
@@ -26807,12 +26808,20 @@
                       }
                     }
                   },
+                  "tools": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "toolConfig": {
+                    "type": "object"
+                  },
                   "generationConfig": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": [
-                      "maxOutputTokens"
-                    ],
                     "properties": {
                       "maxOutputTokens": {
                         "type": "integer",
@@ -26840,6 +26849,19 @@
                         "minimum": 1,
                         "maximum": 10000
                       },
+                      "seed": {
+                        "type": "integer"
+                      },
+                      "presencePenalty": {
+                        "type": "number",
+                        "minimum": -2,
+                        "maximum": 2
+                      },
+                      "frequencyPenalty": {
+                        "type": "number",
+                        "minimum": -2,
+                        "maximum": 2
+                      },
                       "stopSequences": {
                         "type": "array",
                         "maxItems": 5,
@@ -26848,6 +26870,22 @@
                           "minLength": 1,
                           "maxLength": 512
                         }
+                      },
+                      "thinkingConfig": {
+                        "type": "object"
+                      },
+                      "responseMimeType": {
+                        "type": "string",
+                        "enum": [
+                          "text/plain",
+                          "application/json"
+                        ]
+                      },
+                      "responseSchema": {
+                        "type": "object"
+                      },
+                      "responseJsonSchema": {
+                        "type": "object"
                       }
                     }
                   }
@@ -26911,15 +26949,7 @@
                                 "type": "array",
                                 "items": {
                                   "type": "object",
-                                  "additionalProperties": false,
-                                  "required": [
-                                    "text"
-                                  ],
-                                  "properties": {
-                                    "text": {
-                                      "type": "string"
-                                    }
-                                  }
+                                  "additionalProperties": true
                                 }
                               }
                             }
@@ -26928,7 +26958,12 @@
                             "type": "string",
                             "enum": [
                               "STOP",
-                              "MAX_TOKENS"
+                              "MAX_TOKENS",
+                              "SAFETY",
+                              "RECITATION",
+                              "BLOCKLIST",
+                              "PROHIBITED_CONTENT",
+                              "SPII"
                             ]
                           }
                         }
@@ -26938,6 +26973,13 @@
                       "type": "object",
                       "properties": {
                         "promptTokenCount": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "toolUsePromptTokenCount": {
                           "type": [
                             "integer",
                             "null"
@@ -26975,6 +27017,11 @@
                       }
                     }
                   }
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -27372,9 +27419,9 @@
       "post": {
         "operationId": "createMessage",
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Native text and client tools with separately enabled text/tool streaming. Media and extended thinking remain unsupported.",
-        "summary": "Create a native text Message, optionally streamed",
-        "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 1 MiB and conservative configured pricing bounds. No Chat translation. Media, beta headers and unsupported fields are rejected before dispatch. Buffered client tools require supports_messages_tools; route pools filter this capability. Tool definitions are limited to name, description and bounded offline object input_schema. tool_choice supports auto/any/none/tool and optional disable_parallel_tool_use. History requires uniquely identified assistant tool_use blocks followed immediately by matching user tool_result blocks with string content, before ordinary user text. Tools must remain declared for tool history. Streaming tools additionally require supports_messages_streaming_tools, supports_messages_tools and supports_messages_streaming; pools filter all required capabilities. Only sequential content blocks are supported; interleaved tool blocks fail safely. Native input_json_delta fragments are bounded to 64 KiB per tool and 256 KiB per message, parsed and schema-validated before content_block_stop is emitted. Tool IDs must be unique. Consumers must wait for message_stop before executing tool calls; error events and incomplete streams do not establish valid completion. Tool names, IDs and arguments are validated and projected; Niu does not execute tools. Required text input/output inspection rejects tool requests before dispatch rather than silently skipping tool content. A tool_use stop is a completed provider turn, not completion of a client task. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text and opted-in tool events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
+        "x-niu-status": "Native Anthropic Messages with streaming, client tools, Extended Thinking, cache_control, unpriced image/PDF blocks, and safe anthropic-beta forwarding. output_config.format remains unsupported.",
+        "summary": "Create a native Message, optionally streamed",
+        "description": "Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.",
         "security": [
           {
             "bearerAuth": []
@@ -27392,6 +27439,15 @@
               "enum": [
                 "2023-06-01"
               ]
+            }
+          },
+          {
+            "name": "anthropic-beta",
+            "in": "header",
+            "required": false,
+            "description": "Optional comma-separated safe Anthropic beta flags. Unknown or hosted-tool betas are rejected with 501.",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -27506,6 +27562,75 @@
                     "minimum": 0,
                     "maximum": 1
                   },
+                  "top_k": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "thinking": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "disabled",
+                              "adaptive"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "budget_tokens"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "const": "enabled"
+                          },
+                          "budget_tokens": {
+                            "type": "integer",
+                            "minimum": 1024,
+                            "maximum": 1000000
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "output_config": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "effort": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high",
+                          "max"
+                        ]
+                      }
+                    }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "user_id": {
+                        "type": "string",
+                        "maxLength": 512
+                      }
+                    }
+                  },
                   "stop_sequences": {
                     "type": "array",
                     "maxItems": 4,
@@ -27612,6 +27737,9 @@
                                       },
                                       "input": {
                                         "type": "object"
+                                      },
+                                      "cache_control": {
+                                        "type": "object"
                                       }
                                     }
                                   },
@@ -27620,8 +27748,7 @@
                                     "additionalProperties": false,
                                     "required": [
                                       "type",
-                                      "tool_use_id",
-                                      "content"
+                                      "tool_use_id"
                                     ],
                                     "properties": {
                                       "type": {
@@ -27633,12 +27760,43 @@
                                         "maxLength": 200
                                       },
                                       "content": {
-                                        "type": "string"
+                                        "oneOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object"
+                                            }
+                                          }
+                                        ]
                                       },
                                       "is_error": {
                                         "type": "boolean"
+                                      },
+                                      "cache_control": {
+                                        "type": "object"
                                       }
                                     }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "image",
+                                          "document",
+                                          "thinking",
+                                          "redacted_thinking"
+                                        ]
+                                      }
+                                    },
+                                    "additionalProperties": true
                                   }
                                 ]
                               }
@@ -27680,6 +27838,9 @@
                             }
                           },
                           "additionalProperties": true
+                        },
+                        "cache_control": {
+                          "type": "object"
                         }
                       }
                     }
@@ -28161,8 +28322,8 @@
     "/v1/responses": {
       "post": {
         "operationId": "createResponse",
-        "summary": "Create a text response",
-        "description": "The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Local buffered_full output rules retain real text streams until a validated terminal response and complete inspection, then emit compatible filtered lifecycle events. Withheld output emits a safe guardrail_output_withheld SSE error without a successful terminal event; known execution is still charged. Complete text and total input stream bounds are 1 MiB and 2 MiB, with four concurrent collectors per process. Observation-only text streaming preserves delivery and asynchronously records clear, matched or indeterminate without transforming output. Required and observation rules can compose across workspace/key policies; optional collection/inspection pressure does not block the request. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply. Canonical OpenRouter pools permit at most one different-credential successor after an immediate authentication refusal with durable nonexecution, released holds and no prior charge. The operation retains its original tariff, funding and shared deadline under a Responses-specific retry policy. No retry follows uncertainty or a stream already returned to the client.",
+        "summary": "Create a native OpenAI Response",
+        "description": "Requires an OpenAI-compatible route with supports_responses enabled. Supports single-turn string input and stateless multi-turn input arrays containing user/system/developer/assistant messages, function_call and matched function_call_output history items, reasoning items, and unpriced input_image parts (max 8 MiB request body; priced routes reject vision inputs and remain bounded to 1 MiB text/tool requests). Client function tools require supports_tool_calls (plus supports_streaming_tool_calls when streaming); structured output (text.format json_object or json_schema) requires supports_structured_output; reasoning effort/summary checks catalog capability when declared. Niu validates declared schemas offline and never executes tools or stores prior responses on the server: store must be absent or false, and previous_response_id, conversation, background, and hosted server tools are rejected explicitly. Streaming emits Responses SSE events and validates terminal output before settlement; disconnects retain holds and uncertainty.",
         "security": [
           {
             "bearerAuth": []
@@ -28237,8 +28398,20 @@
                     "minLength": 1
                   },
                   "input": {
-                    "type": "string",
-                    "minLength": 1
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 256,
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    ]
                   },
                   "instructions": {
                     "type": "string"
@@ -28269,6 +28442,121 @@
                   "user": {
                     "type": "string",
                     "maxLength": 512
+                  },
+                  "tools": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 128,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "name"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "function"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 4096
+                        },
+                        "parameters": {
+                          "type": "object"
+                        },
+                        "strict": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "tool_choice": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "auto",
+                          "required"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "name"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "const": "function"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "parallel_tool_calls": {
+                    "type": "boolean"
+                  },
+                  "text": {
+                    "type": "object",
+                    "properties": {
+                      "verbosity": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "format": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "reasoning": {
+                    "type": "object",
+                    "properties": {
+                      "effort": {
+                        "type": "string",
+                        "enum": [
+                          "minimal",
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "summary": {
+                        "type": "string",
+                        "enum": [
+                          "auto",
+                          "concise",
+                          "detailed"
+                        ]
+                      }
+                    }
+                  },
+                  "truncation": {
+                    "type": "string",
+                    "enum": [
+                      "disabled",
+                      "auto"
+                    ]
+                  },
+                  "store": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
                   },
                   "stream": {
                     "type": "boolean",
@@ -28407,6 +28695,37 @@
                                 "type": "array"
                               },
                               "encrypted_content": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "type",
+                              "call_id",
+                              "name",
+                              "arguments"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "const": "function_call"
+                              },
+                              "call_id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "arguments": {
+                                "type": "string"
+                              },
+                              "status": {
                                 "type": "string"
                               }
                             },
@@ -28693,7 +29012,7 @@
             }
           }
         },
-        "x-niu-status": "Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.",
+        "x-niu-status": "Stateless OpenAI Responses API supporting multi-turn item arrays, client function tools and tool loops, structured JSON Schema output, reasoning effort/summary, truncation, and unpriced input_image inputs (8 MiB body limit; priced routes remain text/tool-only within 1 MiB). Hosted server tools and server-stored state (previous_response_id, store: true) remain unsupported.",
         "x-niu-implementation": "implemented",
         "tags": [
           "Responses"
@@ -34573,6 +34892,7 @@
           "supports_messages_tools",
           "supports_messages_streaming_tools",
           "supports_generate_content",
+          "supports_generate_content_streaming",
           "supports_responses"
         ],
         "properties": {
@@ -34607,6 +34927,9 @@
             "type": "boolean"
           },
           "supports_generate_content": {
+            "type": "boolean"
+          },
+          "supports_generate_content_streaming": {
             "type": "boolean"
           },
           "supports_responses": {

@@ -35,16 +35,16 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /v1/generations/{id}` — Get generation usage, latency, and customer charge by ID](/docs/api/rest/getgeneration/)
 - [`GET /v1/incidents/{reference}` — Reconcile an incident event in the current workspace](/docs/api/rest/getworkspaceincidentevent/)
 - [`GET /v1/key` — Inspect the current workspace API key](/docs/api/rest/getcurrentkey/)
-- [`POST /v1/messages` — Create a native text Message, optionally streamed](/docs/api/rest/createmessage/)
+- [`POST /v1/messages` — Create a native Message, optionally streamed](/docs/api/rest/createmessage/)
 - [`GET /v1/models` — List key-accessible model aliases and workspace customer prices](/docs/api/rest/listmodels/)
-- [`POST /v1/responses` — Create a text response](/docs/api/rest/createresponse/)
+- [`POST /v1/responses` — Create a native OpenAI Response](/docs/api/rest/createresponse/)
 - [`GET /v1/routing` — List workspace model policies](/docs/api/rest/listworkspacepools/)
 - [`GET /v1/routing/{slug}` — Read a workspace model policy](/docs/api/rest/getworkspacepool/)
 - [`PUT /v1/routing/{slug}` — Create or replace a workspace model policy](/docs/api/rest/setworkspacepool/)
 - [`GET /v1/routing/{slug}/history` — Read immutable workspace policy revisions](/docs/api/rest/getworkspacepoolhistory/)
 - [`GET /v1/routing/{slug}/selections` — Read the latest 100 workspace pool selections](/docs/api/rest/getworkspacepoolselections/)
 - [`POST /v1/routing/preview` — Validate a workspace model policy without dispatch](/docs/api/rest/previewworkspacepool/)
-- [`POST /v1beta/models/{model_action}` — Generate native buffered Gemini text](/docs/api/rest/generatecontent/)
+- [`POST /v1beta/models/{model_action}` — Generate native Gemini content or streamGenerateContent](/docs/api/rest/generatecontent/)
 
 ## Video and media APIs
 

@@ -22,5 +22,7 @@ export type RequestOptions = {
     onResponse?: (metadata: ResponseMetadata) => void;
     /** Override payload retention for this request. Metadata collection is unaffected. */
     logPayloads?: boolean;
+    /** Optional safe capability beta flag(s) forwarded via anthropic-beta on /v1/messages. */
+    anthropicBeta?: string | string[];
 };
 ```

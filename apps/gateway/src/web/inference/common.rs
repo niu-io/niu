@@ -327,8 +327,22 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                         | crate::guardrails::input::Protocol::Responses
                 ) || body.get("n").is_some_and(|n| n.as_u64() != Some(1))))
             || body.get("tools").is_some()
+            || body.get("tool_choice").is_some()
+            || body.get("toolConfig").is_some()
             || body.get("functions").is_some()
-            || body.get("response_format").is_some())
+            || body.get("response_format").is_some()
+            || body
+                .pointer("/text/format/type")
+                .and_then(Value::as_str)
+                .is_some_and(|kind| kind != "text")
+            || body.get("thinking").is_some_and(|thinking| {
+                thinking.get("type").and_then(Value::as_str) != Some("disabled")
+            })
+            || body
+                .pointer("/generationConfig/responseMimeType")
+                .and_then(Value::as_str)
+                .is_some_and(|mime| mime != "text/plain")
+            || body.pointer("/generationConfig/thinkingConfig").is_some())
     {
         state
             .store
@@ -482,10 +496,55 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
     use crate::guardrails::input::Protocol;
     let output = match protocol {
         Protocol::VideoText => return None,
-        Protocol::Messages => body.get("max_tokens")?.as_i64()?,
-        Protocol::GenerateContent => body
-            .pointer("/generationConfig/maxOutputTokens")?
-            .as_i64()?,
+        Protocol::Messages => {
+            let messages = body.get("messages")?.as_array()?;
+            if messages.iter().any(|message| {
+                message
+                    .get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|parts| {
+                        parts.iter().any(|part| {
+                            let kind = part.get("type").and_then(Value::as_str);
+                            matches!(kind, Some("image" | "document"))
+                                || (kind == Some("tool_result")
+                                    && part.get("content").and_then(Value::as_array).is_some_and(
+                                        |nested| {
+                                            nested.iter().any(|item| {
+                                                matches!(
+                                                    item.get("type").and_then(Value::as_str),
+                                                    Some("image" | "document")
+                                                )
+                                            })
+                                        },
+                                    ))
+                        })
+                    })
+            }) {
+                return None;
+            }
+            body.get("max_tokens")?.as_i64()?
+        }
+        Protocol::GenerateContent => {
+            let has_inline_data = body
+                .get("contents")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .chain(body.get("systemInstruction"))
+                .any(|content| {
+                    content
+                        .get("parts")
+                        .and_then(Value::as_array)
+                        .is_some_and(|parts| {
+                            parts.iter().any(|part| part.get("inlineData").is_some())
+                        })
+                });
+            if has_inline_data {
+                return None;
+            }
+            body.pointer("/generationConfig/maxOutputTokens")?
+                .as_i64()?
+        }
         Protocol::Chat => {
             if body.get("n").is_some_and(|n| n.as_u64() != Some(1))
                 || ["functions", "function_call", "modalities", "audio"]
@@ -505,7 +564,26 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
                 .as_i64()?
         }
         Protocol::Responses => {
-            body.get("input")?.as_str()?;
+            let input = body.get("input")?;
+            if input.is_string() {
+                if input.as_str().is_none_or(str::is_empty) {
+                    return None;
+                }
+            } else {
+                let items = input.as_array().filter(|items| !items.is_empty())?;
+                let has_vision = items.iter().any(|item| {
+                    item.get("content")
+                        .and_then(Value::as_array)
+                        .is_some_and(|parts| {
+                            parts.iter().any(|part| {
+                                part.get("type").and_then(Value::as_str) == Some("input_image")
+                            })
+                        })
+                });
+                if has_vision {
+                    return None;
+                }
+            }
             body.get("max_output_tokens")?.as_i64()?
         }
         Protocol::Embeddings => {
@@ -984,6 +1062,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
         supports_embedding_dimensions: bool,
         supports_embeddings: bool,
         supports_generate_content: bool,
+        supports_generate_content_streaming: bool,
         supports_messages: bool,
         supports_messages_streaming: bool,
         supports_messages_streaming_tools: bool,
@@ -1015,6 +1094,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
             supports_embedding_dimensions: model.supports_embedding_dimensions,
             supports_embeddings: model.supports_embeddings,
             supports_generate_content: model.supports_generate_content,
+            supports_generate_content_streaming: model.supports_generate_content_streaming,
             supports_messages: model.supports_messages,
             supports_messages_streaming: model.supports_messages_streaming,
             supports_messages_streaming_tools: model.supports_messages_streaming_tools,

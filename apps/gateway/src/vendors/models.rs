@@ -25,6 +25,7 @@ pub(super) struct Capabilities {
     supports_messages_tools: bool,
     supports_messages_streaming_tools: bool,
     supports_generate_content: bool,
+    supports_generate_content_streaming: bool,
 }
 
 /// Explicit protocol capability, not asset readiness or Provider qualification.
@@ -199,6 +200,8 @@ pub(crate) fn rule_conditions_match(
             Some(Protocol::Chat) => Some("chat"),
             Some(Protocol::Responses) => Some("responses"),
             Some(Protocol::Messages) => Some("messages"),
+            Some(Protocol::GenerateContent) => Some("generate_content"),
+            Some(Protocol::Embeddings) => Some("embeddings"),
             _ => None,
         };
         if actual != Some(expected_protocol.as_str()) {
@@ -206,7 +209,8 @@ pub(crate) fn rule_conditions_match(
         }
     }
     if let Some(expected) = conditions.streaming {
-        let actual = requirements.is_some_and(|r| r.streaming || r.messages_streaming);
+        let actual = requirements
+            .is_some_and(|r| r.streaming || r.messages_streaming || r.generate_content_streaming);
         if actual != expected {
             return false;
         }
@@ -450,6 +454,7 @@ pub(super) fn make_model(
         supports_messages_tools: caps.supports_messages_tools,
         supports_messages_streaming_tools: caps.supports_messages_streaming_tools,
         supports_generate_content: caps.supports_generate_content,
+        supports_generate_content_streaming: caps.supports_generate_content_streaming,
     })
 }
 
