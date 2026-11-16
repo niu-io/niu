@@ -1,6 +1,6 @@
 import { useLocale as useUILocale, translateUI } from '@/shell/ui-locale';
 import { formatDurationMs } from '@/lib/duration';
-import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { isQueryFresh, peekQuery } from '@/lib/query-cache';
 import { catalogTitle } from '@/lib/providers';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -19,6 +19,17 @@ import VideoLifecycle from '../video/VideoLifecycle';
 import { videoStatusLabel } from '../video/status';
 import { openGenerationsAssetsPanel } from './GenerationsLayout';
 import { openGenerationsContextRun, useRegisterVideoTurnRun, type GenerationContextRun, type GenerationContextRunState } from './GenerationsContextPanel';
+import {
+  VIDEO_DIAGNOSTICS_FRESH_MS,
+  VIDEO_FRESH_MS,
+  invalidateVideoTask,
+  isTerminalVideoState,
+  primeVideoDiagnostics,
+  primeVideoTask,
+  videoDiagnosticsCacheKey,
+  videoTaskCacheKey,
+  type VideoTaskDiagnostics,
+} from './video-cache';
 import './generations.css';
 import '../video/video.css';
 
@@ -47,61 +58,115 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
   const { token, workspace, session } = context;
   const canWrite = Boolean(session?.permissions.write);
   const taskReference = turn.task?.reference ?? turn.task_id ?? '';
-  const taskCacheKey = workspace && taskReference ? `/api/v1/workspaces/${workspace.id}/tasks/${taskReference}` : '';
-  const [task, setTask] = useState<GenerationTask | null>(() => token && taskCacheKey ? peekQuery<GenerationTask>(token, taskCacheKey, {persist: true}) ?? null : null);
-  const [loading, setLoading] = useState(() => Boolean(taskReference && !(token && taskCacheKey && peekQuery<GenerationTask>(token, taskCacheKey, {persist: true}))));
+  const taskCacheKey = workspace && taskReference ? videoTaskCacheKey(workspace.id, taskReference) : '';
+  const initialTask = token && taskCacheKey ? peekQuery<GenerationTask>(token, taskCacheKey, {persist: true}) ?? null : null;
+  const initialDiagnostics = token && workspace && initialTask
+    ? peekQuery<VideoTaskDiagnostics>(token, videoDiagnosticsCacheKey(workspace.id, initialTask.id), {persist: true})
+    : undefined;
+  const [task, setTask] = useState<GenerationTask | null>(initialTask);
+  const [loading, setLoading] = useState(() => Boolean(taskReference && !initialTask));
   const [error, setError] = useState('');
   const [detailError, setDetailError] = useState('');
-  const [billing, setBilling] = useState<VideoJobBilling | null>(null);
-  const [timings, setTimings] = useState<VideoTransportTimings | null>(null);
+  const [billing, setBilling] = useState<VideoJobBilling | null>(() => initialDiagnostics?.billing ?? null);
+  const [timings, setTimings] = useState<VideoTransportTimings | null>(() => initialDiagnostics?.timings ?? null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState('');
   const [intentBusy, setIntentBusy] = useState(false);
   const lock = useRef(false);
+  const lastTaskFetchRef = useRef({ identity: '', refreshKey: 0, revision: 0 });
+  const activeDiagTaskRef = useRef<string | null>(initialTask?.id ?? null);
+  const lastDiagFetchRef = useRef({ taskId: '', refreshKey: 0, revision: 0 });
+  const lastDiagStateRef = useRef({ taskId: initialTask?.id ?? '', state: initialTask?.state ?? '' });
   const client = useMemo(() => token ? new NiuAdminClient({adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
-  const scope = useMemo<TenantScope | null>(() => workspace ? {organizationId: workspace.organization_id, projectId: workspace.id} : null, [workspace?.organization_id, workspace?.id]);
-  const scopeKey = scope ? `${scope.organizationId}:${scope.projectId}` : '';
+  const orgId = workspace?.organization_id ?? '';
+  const workspaceId = workspace?.id ?? '';
+  const scope = useMemo<TenantScope | null>(() => orgId && workspaceId ? {organizationId: orgId, projectId: workspaceId} : null, [orgId, workspaceId]);
   const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, context.workspaces ?? [workspace])}` : '';
   const intent = turn.intent;
 
   useEffect(() => {
     const controller = new AbortController();
     setError('');
-    if (!client || !scope || !taskReference) {
+    if (!client || !scope || !workspaceId || !taskReference) {
       setTask(null);
       setLoading(false);
       return () => controller.abort();
     }
-    if (! peekQuery(token, taskCacheKey, {persist: true})) setLoading(true);
+    const taskIdentity = `${scope.organizationId}:${scope.projectId}:${sessionId}:${turn.id}:${taskReference}`;
+    const forceTask = lastTaskFetchRef.current.identity === taskIdentity
+      && (lastTaskFetchRef.current.refreshKey !== refreshKey || lastTaskFetchRef.current.revision !== revision);
+    lastTaskFetchRef.current = { identity: taskIdentity, refreshKey, revision };
+    const cached = token && taskCacheKey ? peekQuery<GenerationTask>(token, taskCacheKey, {persist: true}) : undefined;
+    if (cached) {
+      setTask(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    if (!forceTask && cached && isTerminalVideoState(cached.state) && token && isQueryFresh(token, taskCacheKey, VIDEO_FRESH_MS)) {
+      return () => controller.abort();
+    }
     void client.generations(scope).tasks.retrieve(taskReference, {signal: controller.signal})
       .then(response => savedTask(response, taskReference, sessionId, turn.id))
-      .then(value => { if (!controller.signal.aborted) { primeQuery(token, taskCacheKey, value, {persist: true}); setTask(value); } })
+      .then(value => {
+        if (!controller.signal.aborted) {
+          primeVideoTask(token, workspaceId, value);
+          setTask(value);
+        }
+      })
       .catch(() => { if (!controller.signal.aborted) setError('This saved video could not be loaded. Check workspace access and reload.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [client, scopeKey, taskReference, sessionId, turn.id, refreshKey, revision, token, taskCacheKey]);
+  }, [client, scope, workspaceId, taskReference, sessionId, turn.id, refreshKey, revision, token, taskCacheKey]);
+
+  const activeTaskId = task?.id ?? '';
+  const activeTaskState = task?.state ?? '';
+  const activeTaskRef = task?.reference ?? '';
 
   useEffect(() => {
     const controller = new AbortController();
-    setBilling(null);
-    setTimings(null);
     setDetailError('');
-    if (!client || !scope || !task) {
+    if (!client || !scope || !workspaceId || !activeTaskId) {
+      activeDiagTaskRef.current = null;
+      setBilling(null);
+      setTimings(null);
       setDiagnosticsLoading(false);
       return () => controller.abort();
     }
-    setDiagnosticsLoading(true);
-    void client.generations(scope).tasks.diagnostics(task.id, {signal: controller.signal})
+    const diagKey = videoDiagnosticsCacheKey(workspaceId, activeTaskId);
+    const cachedDiag = token ? peekQuery<VideoTaskDiagnostics>(token, diagKey, {persist: true}) : undefined;
+    const sameTask = activeDiagTaskRef.current === activeTaskId;
+    const forceDiag = sameTask && (lastDiagFetchRef.current.refreshKey !== refreshKey || lastDiagFetchRef.current.revision !== revision);
+    const becameTerminal = lastDiagStateRef.current.taskId === activeTaskId
+      && lastDiagStateRef.current.state !== activeTaskState
+      && isTerminalVideoState(activeTaskState);
+    lastDiagFetchRef.current = { taskId: activeTaskId, refreshKey, revision };
+    lastDiagStateRef.current = { taskId: activeTaskId, state: activeTaskState };
+    activeDiagTaskRef.current = activeTaskId;
+    if (cachedDiag) {
+      setBilling(cachedDiag.billing);
+      setTimings(cachedDiag.timings);
+    } else if (!sameTask) {
+      setBilling(null);
+      setTimings(null);
+    }
+    if (!forceDiag && !becameTerminal && cachedDiag && isTerminalVideoState(activeTaskState) && token && isQueryFresh(token, diagKey, VIDEO_DIAGNOSTICS_FRESH_MS)) {
+      setDiagnosticsLoading(false);
+      return () => controller.abort();
+    }
+    setDiagnosticsLoading(!cachedDiag);
+    void client.generations(scope).tasks.diagnostics(activeTaskId, {signal: controller.signal})
       .then(value => {
         if (controller.signal.aborted) return;
+        primeVideoDiagnostics(token, workspaceId, activeTaskId, { billing: value.billing, timings: value.timings });
         setBilling(value.billing);
         setTimings(value.timings);
       })
       .catch(() => { if (!controller.signal.aborted) setDetailError('Video details could not be loaded. Reload status to try again.'); })
       .finally(() => { if (!controller.signal.aborted) setDiagnosticsLoading(false); });
     return () => controller.abort();
-  }, [client, scopeKey, task?.id, revision]);
+  }, [client, scope, workspaceId, activeTaskId, activeTaskState, refreshKey, revision, token]);
 
   async function checkProvider(id: string, signal?: AbortSignal) {
     if (!keyId) throw new Error('An active API key is required to check the Provider.');
@@ -114,19 +179,23 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw new Error(payload?.error?.message ?? 'The Provider check could not be completed.');
   }
+  const checkProviderRef = useRef(checkProvider);
+  checkProviderRef.current = checkProvider;
 
   // Only reconcile an existing saved job. Polling never creates or retries it.
   useEffect(() => {
-    if (!client || !scope || !task || !['queued', 'running'].includes(task.state)) return;
+    if (!client || !scope || !workspaceId || !activeTaskId || !['queued', 'running'].includes(activeTaskState)) return;
     const controller = new AbortController();
     let pending = false;
     const timer = window.setInterval(async () => {
       if (pending || lock.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
       pending = true;
       try {
-        if (canWrite && keyId) await checkProvider(task.id, controller.signal);
-        const value = savedTask(await client.generations(scope).tasks.retrieve(task.reference ?? task.id, {signal: controller.signal}), task.reference ?? task.id, sessionId, turn.id);
+        if (canWrite && keyId) await checkProviderRef.current(activeTaskId, controller.signal);
+        const queryRef = activeTaskRef || activeTaskId;
+        const value = savedTask(await client.generations(scope).tasks.retrieve(queryRef, {signal: controller.signal}), queryRef, sessionId, turn.id);
         if (!controller.signal.aborted) {
+          primeVideoTask(token, workspaceId, value);
           setTask(value);
           setDetailError('');
           if (!['queued', 'running'].includes(value.state)) setRevision(item => item + 1);
@@ -138,7 +207,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
       }
     }, 5000);
     return () => {window.clearInterval(timer);controller.abort();};
-  }, [client, scopeKey, task?.id, task?.state, task?.reference, keyId, canWrite, sessionId, turn.id]);
+  }, [client, scope, workspaceId, activeTaskId, activeTaskState, activeTaskRef, keyId, canWrite, sessionId, turn.id, token]);
 
   async function reloadStatus() {
     if (lock.current || !client || !scope || !task) return;
@@ -198,6 +267,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
     kind: 'video',
     state: (task?.state ?? 'saved') as GenerationContextRunState,
     statusLabel: task ? translateUI(status) : intent?.submission_state === 'not_dispatched' ? uiT("Not dispatched") : uiT("Saved request"),
+    detailsKey: `${diagnosticsLoading}:${Boolean(billing)}:${timings?.data.length ?? -1}`,
     customDetails: task ? <div className="video-details">
       {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle} />}
       {timings?.data.length ? <div className="video-timings"><h3>{uiT("Transport time")}</h3><p className="video-muted">{uiT("Submission, status queries and result transfers; Provider queue and generation time are not measured here.")}</p>{timings.data.map((span, index) => <div className="video-span" key={index}><span>{span.phase === 'submission' ? uiT("Submission") : span.phase === 'query' ? uiT("Status query") : span.phase === 'result' ? uiT("Result transfer") : uiT("Other transport")}</span><div className="video-span-track"><i style={{marginLeft: `${(span.started_unix_ms - epoch) / total * 100}%`, width: `${Math.max(.5, span.elapsed_ms / total * 100)}%`}} /></div><small>{formatDurationMs(span.elapsed_ms)}</small></div>)}{timings.has_more && <small>{uiT("Showing the latest recorded requests.")}</small>}</div> : null}
@@ -225,7 +295,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
           : <Button variant="outline" onClick={() => void continueSavedRequest()} disabled={intentBusy}>{intentBusy ? uiT("Opening…") : uiT("Continue saved request")}</Button>}
       </div>
       : <p className="video-muted">{statusMessage || uiT("No request or task is linked to this instruction.")}</p>)}
-    {task?.state === 'succeeded' && client && scope && <VideoResult key={`${scope.projectId}/${task.id}`} client={client} scope={scope} task={task.id} keyId={canWrite ? keyId : undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`} onOpenLibrary={openGenerationsAssetsPanel} />}
+    {task?.state === 'succeeded' && client && scope && <VideoResult key={`${scope.projectId}/${task.id}`} client={client} scope={scope} task={task.id} keyId={canWrite ? keyId : undefined} canWrite={canWrite} libraryHref={`${workspacePath}/assets`} onOpenLibrary={openGenerationsAssetsPanel} initialArtifacts={task.artifacts} cacheScope={token} onArtifactsDeleted={() => { if (workspace) invalidateVideoTask(token, workspace.id, task.id, task.reference); setRevision(value => value + 1); }} />}
     {task && task.state !== 'succeeded' && <div className="video-artifact-placeholder">
       {(task.state === 'queued' || task.state === 'running') && <Loader className="animate-spin" />}
       <h3 role="status">{task.state === 'queued' ? uiT("Waiting to generate") : task.state === 'running' ? uiT("Generating your video…") : task.state === 'failed' ? uiT("Video generation failed") : uiT("Waiting for a confirmed status")}</h3>

@@ -102,3 +102,84 @@ it('fetches an existing result afresh only after an explicit click and never sub
  expect(f.refresh).toHaveBeenCalledTimes(1);
  expect(f.refresh).toHaveBeenCalledWith(scope,'key','existing','video',expect.objectContaining({signal:expect.any(AbortSignal)}));
 });
+
+it('skips duplicate tasks.retrieve with initialArtifacts, renders cached video on Frame 0 across remounts, and refreshes or evicts on user action',async()=>{
+ let seq=0;
+ const create=vi.spyOn(URL,'createObjectURL').mockImplementation(()=>`blob:cached-${++seq}`);
+ const revoke=vi.spyOn(URL,'revokeObjectURL');
+ const f=makeClient();
+ const initial=[{kind:'video' as const,availability:'available' as const,capture:null}];
+ const first=render(<VideoResult client={f.client} scope={scope} task="cached-task" keyId="key" canWrite initialArtifacts={initial} cacheScope="tok"/>);
+ await screen.findByRole('link',{name:'Download'});
+ expect(f.retrieve).not.toHaveBeenCalled();
+ expect(f.content).toHaveBeenCalledTimes(1);
+ expect(create).toHaveBeenCalledTimes(1);
+
+ first.unmount();
+ expect(revoke).toHaveBeenCalledWith('blob:cached-1');
+
+ const second=render(<VideoResult client={f.client} scope={scope} task="cached-task" keyId="key" canWrite initialArtifacts={initial} cacheScope="tok"/>);
+ expect(screen.getByLabelText('Generated video').getAttribute('src')).toBe('blob:cached-2');
+ expect(screen.queryByText('Loading video…')).toBeNull();
+ expect(f.content).toHaveBeenCalledTimes(1);
+ expect(f.retrieve).not.toHaveBeenCalled();
+ expect(create).toHaveBeenCalledTimes(2);
+
+ const user=userEvent.setup();
+ await user.click(screen.getByRole('button',{name:'Video actions'}));
+ await user.click(screen.getByRole('menuitem',{name:'Reload preview'}));
+ await waitFor(()=>expect(f.content).toHaveBeenCalledTimes(2));
+
+ await user.click(screen.getByRole('button',{name:'Video actions'}));
+ await user.click(screen.getByRole('menuitem',{name:'Delete saved results'}));
+ await user.click(screen.getByRole('button',{name:'Delete results',exact:true}));
+ await waitFor(()=>expect(f.remove).toHaveBeenCalledTimes(1));
+ second.unmount();
+
+ render(<VideoResult client={f.client} scope={scope} task="cached-task" keyId="key" canWrite initialArtifacts={initial} cacheScope="tok"/>);
+ await waitFor(()=>expect(f.content).toHaveBeenCalledTimes(3));
+});
+
+it('caches both video and last_frame outputs without re-downloading when toggling',async()=>{
+ let seq=0;
+ vi.spyOn(URL,'createObjectURL').mockImplementation(()=>`blob:media-${++seq}`);
+ const f=makeClient({
+  content:async(_task,kind)=>new Response(
+   new Uint8Array([1,2,3,4]),
+   {headers:{'content-type':kind==='last_frame'?'image/png':'video/mp4'}},
+  ),
+ });
+ const initial=[
+  {kind:'video' as const,availability:'available' as const,capture:null},
+  {kind:'last_frame' as const,availability:'available' as const,capture:null},
+ ];
+ render(<VideoResult client={f.client} scope={scope} task="multi-output" keyId="key" canWrite initialArtifacts={initial} cacheScope="tok"/>);
+ await screen.findByLabelText('Generated video');
+ expect(f.content).toHaveBeenCalledTimes(1);
+
+ const user=userEvent.setup();
+ await user.click(screen.getByRole('button',{name:'Last frame'}));
+ await screen.findByAltText('Generated last frame');
+ expect(f.content).toHaveBeenCalledTimes(2);
+
+ await user.click(screen.getByRole('button',{name:'Video'}));
+ await screen.findByLabelText('Generated video');
+ expect(f.content).toHaveBeenCalledTimes(2);
+
+ await user.click(screen.getByRole('button',{name:'Last frame'}));
+ await screen.findByAltText('Generated last frame');
+ expect(f.content).toHaveBeenCalledTimes(2);
+});
+
+it('does not abort initial preview download when keyId resolves from undefined to a key',async()=>{
+ vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:async-key');
+ let resolveContent!:(r:Response)=>void;
+ const f=makeClient({content:()=>new Promise<Response>(r=>{resolveContent=r;})});
+ const initial=[{kind:'video' as const,availability:'available' as const,capture:null}];
+ const view=render(<VideoResult client={f.client} scope={scope} task="async-key-task" canWrite initialArtifacts={initial} cacheScope="tok"/>);
+ await waitFor(()=>expect(f.content).toHaveBeenCalledTimes(1));
+ view.rerender(<VideoResult client={f.client} scope={scope} task="async-key-task" keyId="key" canWrite initialArtifacts={initial} cacheScope="tok"/>);
+ resolveContent(new Response(new Uint8Array([0,0,0,12,102,116,121,112,105,115,111,109]),{headers:{'content-type':'video/mp4'}}));
+ await screen.findByLabelText('Generated video');
+ expect(f.content).toHaveBeenCalledTimes(1);
+});

@@ -1,14 +1,15 @@
 import { Empty, EmptyHeader, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { IconVideo } from '@tabler/icons-react';
-import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { fetchQuery, isQueryFresh, peekQuery } from '@/lib/query-cache';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { resolveWorkspacePathSegment, workspacePathSegment } from '@/shell/workspace-route';
+import { NiuAPIError } from '@niu-io/sdk';
 import { NiuAdminClient } from '@niu-io/sdk/admin';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import { catalogTitle } from '@/lib/providers';
@@ -19,8 +20,13 @@ import VideoTurnResult from './VideoTurnResult';
 import VideoSessionComposer from './VideoSessionComposer';
 import { readableTurnAnchor } from './session-turn';
 import { useGenerationKeys } from './useGenerationKeys';
+import { VIDEO_FRESH_MS, invalidateVideoSession, primeVideoSession, videoSessionCacheKey } from './video-cache';
 import { videoStatusLabel } from '../video/status';
 import '../video/video.css';
+
+function hasActiveTurn(session: VideoGenerationsSession): boolean {
+  return session.turns.some(turn => Boolean(turn.task && ['queued', 'running', 'submission_unknown'].includes(turn.task.status)));
+}
 
 /** Saved instructions and their results only. Opening a session never dispatches. */
 export default function VideoSessionView({context,id,run}:{context:DashboardContext;id:string;run?:string}) {
@@ -35,54 +41,84 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
   // Keys are a recovery hint only; the server rechecks access. A partial
   // key-list failure must not block an already loaded Video session.
   const {keys}=useGenerationKeys(workspace ? {...context, workspaces:[workspace]} : context, Boolean(token&&workspace&&context.session?.permissions.write));
-  const sessionCacheKey=workspace?`/api/v1/workspaces/${workspace.id}/sessions/${id}`:'';
+  const sessionCacheKey=workspace?videoSessionCacheKey(workspace.id,id):'';
+  const viewKey=`${workspace?.id??''}:${id}`;
   const [session,setSession]=useState<VideoGenerationsSession|null>(()=>token&&sessionCacheKey?peekQuery<VideoGenerationsSession>(token,sessionCacheKey,{persist:true})??null:null);
   const [error,setError]=useState('');
-  const [revision,setRevision]=useState(0);
-  const [activeAnchor,setActiveAnchor]=useState('');
+  const [revisionState,setRevisionState]=useState({viewKey,count:0});
+  const revision=revisionState.viewKey===viewKey?revisionState.count:0;
+  const bumpRevision=useCallback(()=>setRevisionState(current=>({viewKey,count:(current.viewKey===viewKey?current.count:0)+1})),[viewKey]);
+  const lastHandledRef=useRef({viewKey,revision:0});
+  const activeAnchorInit = '';
+  const [activeAnchor,setActiveAnchor]=useState(activeAnchorInit);
   const trigger=useRef<HTMLButtonElement>(null);
+  const routeRef=useRef(route);routeRef.current=route;
+  const workspacesRef=useRef(context.workspaces);workspacesRef.current=context.workspaces;
+  const workspaceRef=useRef(workspace);workspaceRef.current=workspace;
+  const orgId=workspace?.organization_id??'';
+  const wsId=workspace?.id??'';
   useEffect(()=>{
-    const refresh=()=>setRevision(value=>value+1);
-    window.addEventListener('niu:video-session-changed',refresh);
-    return()=>window.removeEventListener('niu:video-session-changed',refresh);
-  },[]);
+    window.addEventListener('niu:video-session-changed',bumpRevision);
+    return()=>window.removeEventListener('niu:video-session-changed',bumpRevision);
+  },[bumpRevision]);
   useEffect(()=>{
     const cached=token&&sessionCacheKey?peekQuery<VideoGenerationsSession>(token,sessionCacheKey,{persist:true}):undefined;
+    const forceRefresh=lastHandledRef.current.viewKey===viewKey&&lastHandledRef.current.revision!==revision;
+    lastHandledRef.current={viewKey,revision};
     const request=new AbortController();setSession(cached??null);setError('');setActiveAnchor('');
-    if(!workspace){setError('Select a workspace to open this Video session.');return;}
+    const currentWorkspace=workspaceRef.current;
+    if(!currentWorkspace||!orgId||!wsId){setError('Select a workspace to open this Video session.');return;}
     if(!/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|video-[1-9][0-9]{0,18})$/.test(id)){setError('This Video session link is invalid.');return;}
-    const requested=new URLSearchParams(route.search).get('workspace');
+    const requested=new URLSearchParams(routeRef.current.search).get('workspace');
     if(requested){
-      const target=resolveWorkspacePathSegment(requested,context.workspaces??[workspace]);
-      if(target&&target.id!==workspace.id)return;
+      const target=resolveWorkspacePathSegment(requested,workspacesRef.current??[currentWorkspace]);
+      if(target&&target.id!==wsId)return;
     }
-    void client.generations({organizationId:workspace.organization_id,projectId:workspace.id}).sessions.retrieve(id,{signal:request.signal})
-      .then(value=>{if(!request.signal.aborted){
-        if(value.data.id!==id&&value.data.reference!==id)throw new Error('Unexpected Video session');
-        primeQuery(token,sessionCacheKey,value.data,{persist:true});
-        if(value.data.reference)primeQuery(token,`/api/v1/workspaces/${workspace.id}/sessions/${value.data.reference}`,value.data,{persist:true});
-        setSession(value.data);
-        if(value.data.reference){
-          // Readable session identity is canonical. Drop per-turn identifiers,
-          // key hints and session already supplied by this route.
-          const query=new URLSearchParams(route.search);
-          query.delete('video-session');query.delete('intent');query.delete('job');query.delete('key');
-          query.delete('session');query.delete('turn');query.delete('compose');
-          const wsSegment=workspace ? workspacePathSegment(workspace, context.workspaces ?? [workspace]) : '';
-          if(wsSegment && (query.get('workspace')===wsSegment || query.get('workspace')===workspace.id)){
-            query.delete('workspace');
-          }
-          const nextSearch=query.size?`?${query}`:'';
-          const runPath=run?`/runs/${encodeURIComponent(run)}`:'';
-          const nextUrl=`/generations/${encodeURIComponent(value.data.reference)}${runPath}${nextSearch}${route.hash}`;
-          if(`${route.pathname}${route.search}${route.hash}`!==nextUrl){
-            navigate(nextUrl,{replace:true});
-          }
-        }
+    const canonicalize=(value:VideoGenerationsSession)=>{
+      if(!value.reference)return;
+      // Readable session identity is canonical. Drop per-turn identifiers,
+      // key hints and session already supplied by this route.
+      const currentRoute=routeRef.current;
+      const query=new URLSearchParams(currentRoute.search);
+      query.delete('video-session');query.delete('intent');query.delete('job');query.delete('key');
+      query.delete('session');query.delete('turn');query.delete('compose');
+      const wsSegment=workspacePathSegment(currentWorkspace, workspacesRef.current ?? [currentWorkspace]);
+      if(wsSegment && (query.get('workspace')===wsSegment || query.get('workspace')===wsId)){
+        query.delete('workspace');
+      }
+      const nextSearch=query.size?`?${query}`:'';
+      const runPath=run?`/runs/${encodeURIComponent(run)}`:'';
+      const nextUrl=`/generations/${encodeURIComponent(value.reference)}${runPath}${nextSearch}${currentRoute.hash}`;
+      if(`${currentRoute.pathname}${currentRoute.search}${currentRoute.hash}`!==nextUrl){
+        navigate(nextUrl,{replace:true});
+      }
+    };
+    if(forceRefresh&&token)invalidateVideoSession(token,wsId,id,cached?.reference);
+    if(cached)canonicalize(cached);
+    const fresh=Boolean(!forceRefresh&&cached&&token&&isQueryFresh(token,sessionCacheKey,VIDEO_FRESH_MS)&&!hasActiveTurn(cached));
+    if(fresh)return()=>request.abort();
+    const retrieve=async(signal:AbortSignal)=>{
+      const value=await client.generations({organizationId:orgId,projectId:wsId}).sessions.retrieve(id,{signal});
+      if(value.data.id!==id&&value.data.reference!==id)throw new Error('Unexpected Video session');
+      return value.data;
+    };
+    void (token
+      ? fetchQuery(token,sessionCacheKey,retrieve,{freshMs:VIDEO_FRESH_MS,persist:true,awaitRevalidate:true,force:forceRefresh||Boolean(cached&&hasActiveTurn(cached)),signal:request.signal})
+      : retrieve(request.signal))
+      .then(data=>{if(!request.signal.aborted){
+        primeVideoSession(token,wsId,data);
+        setSession(data);
+        canonicalize(data);
       }})
-      .catch(()=>{if(!request.signal.aborted)setError('This Video session could not be loaded. Check workspace access and reload.');});
+      .catch(caught=>{if(!request.signal.aborted){
+        if(token&&caught instanceof NiuAPIError&&(caught.status===403||caught.status===404)){
+          invalidateVideoSession(token,wsId,id,cached?.reference);
+          setSession(null);
+        }
+        setError('This Video session could not be loaded. Check workspace access and reload.');
+      }});
     return()=>request.abort();
-  },[client,workspace?.organization_id,workspace?.id,id,revision,run,sessionCacheKey,token]);
+  },[client,orgId,wsId,id,viewKey,revision,run,sessionCacheKey,token,navigate]);
   useEffect(()=>{
     const targetAnchor=run || (route.hash ? route.hash.slice(1) : '');
     if(!session||!targetAnchor)return;
@@ -139,7 +175,7 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
     initialRunId: run ?? null,
   };
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>{uiT("Refresh session")}</Button>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
+    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<Button variant="ghost" onClick={bumpRevision}>{uiT("Refresh session")}</Button>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
     <section className="video-main playground-chat-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation playground-transcript">
       {error?<p role="alert" className="video-error">{uiT(error)}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
         {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}
@@ -153,7 +189,7 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
         })}
       </>}
     </div>
-    {session && <VideoSessionComposer context={context} session={session} onSubmitted={() => setRevision(value => value + 1)} />}
+    {session && <VideoSessionComposer context={context} session={session} onSubmitted={bumpRevision} />}
     </div></section>
   </div>;
 }

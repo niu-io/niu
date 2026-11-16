@@ -61,6 +61,7 @@ export type GenerationContextRun = {
   logsHref?: string | null;
   settingsSummary?: Array<{ label: string; value: string }>;
   customDetails?: ReactNode;
+  detailsKey?: string;
 };
 
 export type GenerationContextDeliverable = {
@@ -113,12 +114,10 @@ export function useRegisterVideoTurnRun(sessionKey: string, run: GenerationConte
   const latestRun = useRef(run);
   latestRun.current = run;
   const runId = run?.id ?? '';
-  const state = run?.state ?? 'unknown';
-  const statusLabel = run?.statusLabel ?? '';
-  const hasDetails = Boolean(run?.customDetails);
+  const marker = `${run?.state ?? 'unknown'}:${run?.statusLabel ?? ''}:${Boolean(run?.customDetails)}:${run?.detailsKey ?? ''}`;
   useEffect(() => {
     const current = latestRun.current;
-    if (!sessionKey || !runId || !current) return;
+    if (!sessionKey || !runId || !current || !marker) return;
     const key = `${sessionKey}:${runId}`;
     registeredVideoTurnRuns.set(key, current);
     window.dispatchEvent(new CustomEvent(VIDEO_TURN_UPDATE_EVENT));
@@ -126,7 +125,7 @@ export function useRegisterVideoTurnRun(sessionKey: string, run: GenerationConte
       registeredVideoTurnRuns.delete(key);
       window.dispatchEvent(new CustomEvent(VIDEO_TURN_UPDATE_EVENT));
     };
-  }, [sessionKey, runId, state, statusLabel, hasDetails]);
+  }, [sessionKey, runId, marker]);
 }
 
 export function isRunActive(state: GenerationContextRunState) {
@@ -335,8 +334,9 @@ export default function GenerationsContextPanel({
   useEffect(() => {
     const refresh = () => setVideoTurnRevision(v => v + 1);
     window.addEventListener(VIDEO_TURN_UPDATE_EVENT, refresh);
+    refresh();
     return () => window.removeEventListener(VIDEO_TURN_UPDATE_EVENT, refresh);
-  }, []);
+  }, [sessionKey]);
 
   const mergedRuns = panel.runs.map(run => {
     if (!sessionKey) return run;

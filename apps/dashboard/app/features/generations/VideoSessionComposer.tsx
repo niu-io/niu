@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { IconArrowUp as ArrowUp, IconChevronDown as ChevronDown } from '@tabler/icons-react';
 import type { VideoModel, VideoModelList } from '@niu-io/sdk';
@@ -10,9 +10,11 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
+import { isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { useGenerationKeys } from './useGenerationKeys';
+import { VIDEO_MODELS_FRESH_MS, videoModelsCacheKey } from './video-cache';
 import { initialControls, videoRequest, type ControlValues } from '../video/request';
 import { prepareVideoSessionIntent } from '../video/session-intent';
 import { VideoIntent } from '../video/intent';
@@ -29,6 +31,9 @@ function titleFor(promptText: string, modelName: string) {
   while (bytes.encode(title).length > 200) title = title.slice(0, -1);
   return title.trim() || translateUI("Video request");
 }
+function pickDefaultVideoModel(list: VideoModel[]): VideoModel | undefined {
+  return list.find(item => item.id === 'fastrouter/seedance-2.0-mini') ?? list[0];
+}
 
 /** The saved result stays on this page. The next video is described here. */
 export default function VideoSessionComposer({context, session, onSubmitted}: {
@@ -38,29 +43,57 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
   const {token, workspace} = context;
   const canWrite = Boolean(context.session?.permissions.write);
   const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, context.workspaces ?? [workspace])}` : '/workspaces/default';
-  const available = useGenerationKeys(workspace ? {...context, workspaces: [workspace]} : context, Boolean(token && workspace && canWrite && !session.archived));
+  const available = useGenerationKeys(workspace ? {...context, workspaces:[workspace]} : context, Boolean(token && workspace && canWrite && !session.archived));
   const keys = available.keys.filter(key => key.workspace.id === workspace?.id);
-  const [keyId, setKeyId] = useState('');
-  const [models, setModels] = useState<VideoModel[]>([]);
-  const [modelId, setModelId] = useState('');
-  const [controls, setControls] = useState<ControlValues>({});
+  const [keyId, setKeyId] = useState(() => keys[0]?.id ?? '');
+  const activeKeyId = keys.some(key => key.id === keyId) ? keyId : keys[0]?.id ?? '';
+  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !keys.length ? 'nokey' : null;
+  const initialModels = token && activeKeyId && !cover
+    ? peekQuery<VideoModel[]>(token, videoModelsCacheKey(activeKeyId), {persist: true})
+    : undefined;
+  const initialDefault = initialModels ? pickDefaultVideoModel(initialModels) : undefined;
+  const [models, setModels] = useState<VideoModel[]>(() => initialModels ?? []);
+  const [modelId, setModelId] = useState(() => initialDefault?.id ?? '');
+  const [controls, setControls] = useState<ControlValues>(() => (initialDefault ? initialControls(initialDefault) : {}));
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const modelIdRef = useRef(modelId);
+  modelIdRef.current = modelId;
+  const loadedKeyRef = useRef(initialModels ? activeKeyId : '');
   const client = useMemo(() => token ? new NiuAdminClient({adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
   const model = models.find(item => item.id === modelId);
-  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !keys.length ? 'nokey' : null;
   useEffect(() => {
-    setKeyId(current => keys.some(key => key.id === current) ? current : keys[0]?.id ?? '');
-  }, [keys]);
+    setKeyId(activeKeyId);
+  }, [activeKeyId]);
   useEffect(() => {
     const controller = new AbortController();
-    setModels([]);
     setError('');
-    if (!token || !keyId || cover) return;
-    setLoading(true);
-    void fetch('/v1/video/models', {headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': keyId}, signal: controller.signal})
+    if (!token || !activeKeyId || cover) {
+      setModels([]);
+      setLoading(false);
+      return;
+    }
+    const cacheKey = videoModelsCacheKey(activeKeyId);
+    const cached = peekQuery<VideoModel[]>(token, cacheKey, {persist: true});
+    if (cached) {
+      setModels(cached);
+      if (loadedKeyRef.current !== activeKeyId || !cached.some(item => item.id === modelIdRef.current)) {
+        const next = pickDefaultVideoModel(cached);
+        setModelId(next?.id ?? '');
+        setControls(next ? initialControls(next) : {});
+        loadedKeyRef.current = activeKeyId;
+      }
+      setLoading(false);
+      if (isQueryFresh(token, cacheKey, VIDEO_MODELS_FRESH_MS)) {
+        return () => controller.abort();
+      }
+    } else {
+      setModels([]);
+      setLoading(true);
+    }
+    void fetch('/v1/video/models', {headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': activeKeyId}, signal: controller.signal})
       .then(async response => {
         const payload = await response.json().catch(() => null) as VideoModelList | null;
         if (!response.ok) throw new Error('Video models could not be loaded.');
@@ -68,17 +101,22 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
       })
       .then(payload => {
         if (controller.signal.aborted || !payload) return;
-        const next = payload.data.find(item => item.id === 'fastrouter/seedance-2.0-mini') ?? payload.data[0];
+        primeQuery(token, cacheKey, payload.data, {persist: true});
         setModels(payload.data);
-        setModelId(next?.id ?? '');
-        setControls(next ? initialControls(next) : {});
+        const keepCurrent = loadedKeyRef.current === activeKeyId && payload.data.some(item => item.id === modelIdRef.current);
+        if (!keepCurrent) {
+          const next = pickDefaultVideoModel(payload.data);
+          setModelId(next?.id ?? '');
+          setControls(next ? initialControls(next) : {});
+        }
+        loadedKeyRef.current = activeKeyId;
       })
-      .catch(caught => { if (!controller.signal.aborted) setError(message(caught)); })
+      .catch(caught => { if (!controller.signal.aborted && !cached) setError(message(caught)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [token, keyId, cover]);
+  }, [token, activeKeyId, cover]);
   async function generate() {
-    if (!client || !workspace || !model || !canWrite || busy || cover) return;
+    if (!client || !workspace || !model || !activeKeyId || !canWrite || busy || cover) return;
     setError('');
     if (model.requires_image) { setError('This model requires a reference image.'); return; }
     let request: VideoIntentRequest;
@@ -87,7 +125,7 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
     setBusy(true);
     try {
       const estimate = await fetch('/v1/video/estimate', {
-        method: 'POST', headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': keyId, 'content-type': 'application/json'},
+        method: 'POST', headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': activeKeyId, 'content-type': 'application/json'},
         body: JSON.stringify(request),
       });
       const estimated = await estimate.json().catch(() => null);
@@ -95,7 +133,7 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
       const intentId = crypto.randomUUID();
       const intent = new VideoIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, intentId);
       await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
-        sessionId: session.id, turnId: crypto.randomUUID(), intentId, keyId, title: titleFor(prompt, model.id), request,
+        sessionId: session.id, turnId: crypto.randomUUID(), intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
       });
       await intent.restore();
       await intent.submit();

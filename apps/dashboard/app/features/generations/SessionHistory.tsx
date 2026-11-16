@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { prefetchVideoSession, primeVideoTask } from './video-cache';
 import { catalogTitle } from '@/lib/providers';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { cachedKeyGet } from '@/features/keys/api';
@@ -111,6 +112,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       (async()=>{
         try{
           const page=await client.generations(tenant).tasks.list({kind:'video',limit:25},{signal:controller.signal});
+          for(const task of page.data)if(Array.isArray(task.artifacts))primeVideoTask(token,workspace.id,task);
           videoRows=page.data.map(savedVideo);
           nextVideoBefore=page.has_more ? page.next_cursor : null;
         }catch{if(!controller.signal.aborted)videosFailed=true;}
@@ -175,6 +177,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       }
       if(videoPage){
         if(videoPage.has_more&&(!videoPage.next_cursor||videoPage.next_cursor===videoCursor))throw new Error('Video job history did not advance.');
+        for(const task of videoPage.data)if(Array.isArray(task.artifacts))primeVideoTask(token,workspace.id,task);
         const rows=videoPage.data.map(savedVideo);
         setSavedVideos(current=>[...new Map([...current,...rows].map(item=>[item.id,item])).values()]);
         setVideoBefore(videoPage.has_more ? videoPage.next_cursor : null);
@@ -248,10 +251,16 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     }catch(error){if(currentScope===metadataScope.current)setDeleteError(error instanceof Error ? error.message : 'The saved input could not be deleted.');}
     finally{if(currentScope===metadataScope.current)setDeleteBusy(false);}
   }
+  function warmEntry(item:HistoryEntry){
+    if(import.meta.env.MODE==='test'||disabled||!client||!workspace||!token)return;
+    if(item.type==='video-session'){
+      prefetchVideoSession(token,client,{organizationId:workspace.organization_id,projectId:workspace.id},item.reference??item.id);
+    }
+  }
   const content = <>
     {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>{uiT("Retry sessions")}</Button></div>}
     <SidebarMenu aria-label={uiT("Generation sessions")}>{entries.map(item=>{const when=historyTime(item.created);const runTag=item.type==='video'&&item.reference&&/^run-[1-9][0-9]{0,18}$/.test(item.reference)?item.reference:'';return (<SidebarMenuItem key={`${item.type}:${item.id}`}>
-      <SidebarMenuButton asChild className="h-auto min-h-8 items-start py-1.5 [&>span:last-child]:whitespace-normal" isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)window.requestAnimationFrame(()=>setOpenMobile(false));}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span className="flex min-w-0 flex-col leading-tight"><span className="truncate">{uiT(item.title)}</span>{(when||runTag)&&<span aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{runTag?`${runTag}${when?` · ${when}`:''}`:when}</span>}</span></Link></SidebarMenuButton>
+      <SidebarMenuButton asChild className="h-auto min-h-8 items-start py-1.5 [&>span:last-child]:whitespace-normal" isActive={item.type==='chat' ? (activeChat===item.id || Boolean(item.reference&&activeChat===item.reference)) : item.type==='video-session' ? (activeVideoSession===item.id || Boolean(item.reference&&activeVideoSession===item.reference)) : (activeVideo===item.id || Boolean(item.reference&&activeVideo===item.reference))} disabled={disabled} title={item.title}><Link to={item.href} onMouseEnter={()=>warmEntry(item)} onFocus={()=>warmEntry(item)} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)window.requestAnimationFrame(()=>setOpenMobile(false));}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span className="flex min-w-0 flex-col leading-tight"><span className="truncate">{uiT(item.title)}</span>{(when||runTag)&&<span aria-hidden="true" className="truncate text-xs font-normal text-muted-foreground">{runTag?`${runTag}${when?` · ${when}`:''}`:when}</span>}</span></Link></SidebarMenuButton>
       {item.type==='chat'&&chatActions&&chatActions(item.id)}
       {item.type==='video-session'&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(`session:${item.id}`,element);else actionButtons.current.delete(`session:${item.id}`);}} showOnHover disabled={disabled||sessionBusy||deleteBusy} aria-label={uiF("Actions for {0}", [item.title])}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{menuOpener.current=actionButtons.current.get(`session:${item.id}`)??null;setEditingSession(item.session);setSessionTitle(item.title);setSessionError('');if(isMobile)setOpenMobile(false);}}><IconPencil/>{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void updateSession(item.session,item.title,true)}><IconArchive/>{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={()=>void prepareDeleteSavedInput(item.session)}><IconTrash/>{uiT("Delete saved input")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>);})}</SidebarMenu>
