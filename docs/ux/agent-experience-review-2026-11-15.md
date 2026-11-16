@@ -126,3 +126,34 @@ Served built `apps/dashboard/dist` and `apps/docs/dist` via local Node HTTP serv
   - `pnpm --dir apps/docs test:api`: **8 passed, 0 failed**.
   - `python3 scripts/check-docs-audiences.py`: exit 0 (`Documentation audience entries and all six raw contracts verified.`).
   - **Live Browser (`http://127.0.0.1:4398`, Chromium)**: Verified `1440x900` and `390x844` in `en` and `zh-CN`: header links render cleanly on a single row (`Docs`, `Agents`, `API`, `SDK` / `文档`, `Agents`, `API`, `SDK`), `aria-current="page"` highlights `Agents` across `/docs/agents/` and `/docs/agents/install/` without activating on `/docs/`, `/docs/agents/` H1 renders `Agents` with clean `llms.txt` (`## Agent contracts`) in `Source` mode and zero `AgentDoc` occurrences, and the mobile navigation drawer fits within `390x844` (`390px` viewport width, zero horizontal overflow).
+
+---
+
+## 5. Unified Agent-First Docs Streamlining (2026-11-16)
+
+**Bead**: `niu-4xew` (related: `niu-aw8`, `niu-pxaw`)
+
+### Reference & Architecture Decisions
+- **Mature Reference Inspected**: OpenRouter Developer Docs (`https://openrouter.ai/docs/quickstart` at `1440x900`) — flat, scannable top sub-navigation (`Docs` / `API Reference` / `Client SDKs`), compact uncrowded sidebar hierarchy, concise 2-sentence intro above an immediate decision table, and direct Markdown/copy utilities without sprawling multi-row marketing card grids; paired with Manus tonal `--card` / `--background` separation (`AGENTS.md`).
+- **Top Navigation Consolidation (`Docs · API · SDK` / `文档 · API · SDK`)**: Retired the split between prose `Docs` and a separate `Agents` tab (`apps/docs/src/navigation.ts`, `apps/docs/src/components/Sidebar.astro`). `Docs` now directly owns the unified sidebar across `/docs/`, `/docs/getting-started/`, `/docs/agents/*`, and preserved deep-linked guides; removed the unused `public-navigation.json` import in `Sidebar.astro`.
+- **11-Item High-Signal Sidebar (`apps/docs/astro.config.mjs`, `PageFrame.astro`)**: Consolidated ~36 scattered sidebar entries into 3 open (`collapsed: false`) groups fitting within a single desktop screen without scrolling:
+  1. `Start here` (`快速开始`): `Overview`, `Quickstart`
+  2. `Agent contracts` (`Agent 契约`): `Install & connect`, `Capabilities & grants`, `Model inference`, `Workspace routing`, `Evaluations`, `Resource events`, `MCP server`
+  3. `Platform & deployment` (`平台与部署`): `Single-container deployment`, `Security & access`
+  - All existing `.mdx`/`.md` files remain in `src/content/docs/` so legacy bookmarks, dashboard deep links, `.github/workflows/docs.yml` entrypoint checks, and staging smoke checks continue returning `200 OK`.
+- **Single-Screen Agent Launchpad (`DocsHome.tsx`, `styles.css`)**: Replaced the multi-section hero, release-hold disclaimer, dual audience cards, and 7-card grid with a concise H1 + 1-sentence lead, a tonal Agent Launchpad card (`{ORIGIN}`-safe SSR prompt hydrated to `window.location.origin`, `/llms.txt`, `Install spec`, `Copy prompt`), and a 9-row shadcn `Table` mapping every capability to both its rendered doc route and raw machine contract (stacking cleanly into 3-line rows below `40rem` on mobile).
+
+### Verification Record (2026-11-16)
+- **Automated Checks**:
+  - `node --test apps/docs/scripts/test-navigation.mjs`: **4 passed, 0 failed**.
+  - `pnpm --dir apps/docs check`: exit 0 (**`0 errors, 0 warnings, 0 hints`** across 36 files).
+  - `pnpm --dir apps/docs build`: exit 0 (`1029` pages built + EN/ZH Pagefind indexes).
+  - `pnpm --dir apps/docs test:api`: **8 passed, 0 failed**.
+  - `python3 scripts/check-docs-audiences.py`: exit 0 (`Documentation audience entries and all six raw contracts verified.`).
+  - `python3 scripts/render-project-status.py --check`: exit 0 (`Delivery board consistent`).
+  - Verified built `apps/docs/dist/` HTML entrypoints (`index.html`, `getting-started/index.html`, `agents/index.html`, `reference/api/index.html`, `reference/handler-operations/index.html`, `releases/first-release/index.html`) and `{ORIGIN}/llms.txt` SSR placeholder safety.
+- **Live Browser (`http://127.0.0.1:4398`, Chromium)**:
+  - Initial browser inspection verified legacy deep links (`/docs/agents/install/`, `/docs/getting-started/`, `/docs/agents/`, `/docs/guides/personal-assistant/`, `/docs/api/rest/` all HTTP `200` with zero console errors), `Copy prompt` / `复制提示词` interactions, mobile drawer links (`Docs · API · SDK` + 3 compact groups), and surfaced three CSS layout defects (launchpad action bar wrapping above `<pre>`, Starlight table `1.25rem` margin + inner border bleed, and clipped 3rd table column at `390px`), which were fixed in `apps/docs/src/styles.css`, rebuilt, and re-verified:
+  - Re-verified `1440x900` (`en`): Launchpad action bar aligns single-row (`diffY = 0.0px`), 9-row shadcn `Table` aligns flush inside `.docs-home-table-surface` (`top/height diff = 0.0px`), zero overflow (`scrollWidth = 1440`).
+  - Re-verified `1100x800` (`zh-CN`): Launchpad action bar aligns single-row (`diffY = 0.0px`), zero overflow (`scrollWidth = 1100`).
+  - Re-verified `390x844` (`en`): Stacked mobile table rows display `Contract`, `Machine source`, and `Scope` within `358px <= 390px` with zero horizontal scrolling (`scrollWidth <= clientWidth`) and `document.documentElement.scrollWidth <= 390`.

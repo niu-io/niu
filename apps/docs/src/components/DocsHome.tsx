@@ -1,240 +1,245 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from 'react';
+import { IconArrowRight, IconCheck, IconCopy } from '@tabler/icons-react';
+import { Button } from '../../../dashboard/app/components/ui/button';
 import {
-  IconArrowRight,
-  IconCheck,
-  IconCopy,
-  IconPlugConnected,
-  IconRobot,
-  IconScale,
-} from "@tabler/icons-react";
-import { Badge } from "../../../dashboard/app/components/ui/badge";
-import { Button } from "../../../dashboard/app/components/ui/button";
-import type { Locale } from "../../../dashboard/app/shell/locale";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../dashboard/app/components/ui/table';
+import type { Locale } from '../../../dashboard/app/shell/locale';
+
+interface ContractRow {
+  key: string;
+  docCell: ReactNode;
+  sourceCell: ReactNode;
+  scope: string;
+}
+
 function DocsHomeContent({ locale }: { locale: Locale }) {
   const t = (english: string, chinese: string) =>
-    locale === "zh-CN" ? chinese : english;
+    locale === 'zh-CN' ? chinese : english;
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [deployment, setDeployment] = useState<string | null>(null);
-  useEffect(() => { setDeployment(window.location.origin); }, []);
-  const setupPrompt = deployment
-    ? `Install and configure Niu for ${deployment} by following ${deployment}/docs/install.md. Verify the deployment and workspace during authorization.`
-    : 'Install and configure Niu for your active deployment ({ORIGIN}) by following {ORIGIN}/docs/install.md. Specify your Niu deployment and verify it during authorization.';
-  const references = [
+
+  useEffect(() => {
+    setDeployment(window.location.origin);
+  }, []);
+
+  const origin = deployment ?? '{ORIGIN}';
+  const setupPrompt =
+    locale === 'zh-CN'
+      ? `请先阅读 ${origin}/llms.txt 并按照 ${origin}/docs/install.md 通过 ${origin}/connect 完成设备授权连接，随后检查 /v1/key 与 /v1/models 确认实际授权范围与可用模型后再执行操作。`
+      : `Read ${origin}/llms.txt and follow ${origin}/docs/install.md to connect to Niu via ${origin}/connect, then inspect /v1/key and /v1/models to confirm granted permissions before acting.`;
+
+  const contracts: ContractRow[] = [
     {
-      href: "/docs/agents.md",
-      name: t("Capability map", "能力索引"),
-      detail: t("Discover authority, operations, evidence and recovery.", "发现授权范围、操作、执行证据和恢复方式。"),
+      key: 'index',
+      docCell: <a href="/docs/agents/">{t('Discovery index', '全局机器索引')}</a>,
+      sourceCell: <a href="/llms.txt">/llms.txt</a>,
+      scope: t(
+        'Deployment rules, connection tracks, and contract map',
+        '部署规则、双轨连接方式与全局契约地图',
+      ),
     },
     {
-      href: "/docs/inference.md",
-      name: t("Model inference", "模型推理"),
-      detail: t("Invoke chat, responses, messages, embeddings and video or wire app SDKs.", "按授权调用多协议模型接口，或接入业务应用 SDK。"),
+      key: 'install',
+      docCell: <a href="/docs/agents/install/">{t('Install & connect', '安装与连接')}</a>,
+      sourceCell: <a href="/docs/install.md">/docs/install.md</a>,
+      scope: t(
+        'Universal /connect device-auth, host bundles, and MCP setup',
+        '通用 /connect 设备授权、原生宿主扩展包与 MCP 配置',
+      ),
     },
     {
-      href: "/docs/pools.md",
-      name: t("Workspace routing", "工作空间路由"),
-      detail: t("Preview, publish and inspect workspace routing policies.", "预览、发布并审阅工作空间路由策略。"),
+      key: 'capabilities',
+      docCell: <a href="/docs/agents/capabilities/">{t('Capabilities & grants', '能力与授权')}</a>,
+      sourceCell: <a href="/docs/agents.md">/docs/agents.md</a>,
+      scope: t(
+        '/v1/key scope check, model access boundaries, and recovery',
+        '/v1/key 权限核验、模型访问边界与错误恢复',
+      ),
     },
     {
-      href: "/docs/evaluations.md",
-      name: t("Evaluations", "评估"),
-      detail: t("Record task judgments and compare verified samples.", "记录任务评判并比较已验证的样本。"),
+      key: 'inference',
+      docCell: <a href="/docs/agents/inference/">{t('Model inference', '模型推理')}</a>,
+      sourceCell: <a href="/docs/inference.md">/docs/inference.md</a>,
+      scope: t(
+        'Chat, Responses, Messages, Gemini, Embeddings, Decisions, Video',
+        '多协议推理调用与业务应用 SDK 接入',
+      ),
     },
     {
-      href: "/docs/events.md",
-      name: t("Resource events", "资源事件"),
-      detail: t("Configure signed notifications and reconcile delivery.", "配置签名通知并核对投递结果。"),
+      key: 'routing',
+      docCell: <a href="/docs/agents/pools/">{t('Workspace routing', '工作空间路由')}</a>,
+      sourceCell: <a href="/docs/routing.md">/docs/routing.md</a>,
+      scope: t(
+        'pool/<slug> policies, dry-run preview, revisions, and diagnostics',
+        'pool/<slug> 路由策略、预演校验、乐观锁与选路诊断',
+      ),
     },
     {
-      href: "/docs/api/rest/",
-      name: t("REST reference", "REST 参考"),
-      detail: t("Generated request, response and authorization contracts.", "自动生成的请求、响应和授权契约。"),
+      key: 'evaluations',
+      docCell: <a href="/docs/agents/evaluations/">{t('Evaluations', '任务评估')}</a>,
+      sourceCell: <a href="/docs/evaluations.md">/docs/evaluations.md</a>,
+      scope: t(
+        'Request fingerprints, attributed runs, and matched comparisons',
+        '请求指纹计算、归因评测记录与匹配样本对比',
+      ),
     },
     {
-      href: "/docs/api/sdk/",
-      name: t("SDK reference", "SDK 参考"),
-      detail: t("Typed clients and exact interface declarations.", "类型化客户端与准确的接口声明。"),
+      key: 'events',
+      docCell: <a href="/docs/agents/events/">{t('Resource events', '资源事件')}</a>,
+      sourceCell: <a href="/docs/events.md">/docs/events.md</a>,
+      scope: t(
+        'Pull event log, HMAC-SHA256 webhooks, and incident reconciliation',
+        '拉取事件流、HMAC 签名 Webhook 与故障对账',
+      ),
+    },
+    {
+      key: 'rest',
+      docCell: <a href="/docs/api/rest/">REST API</a>,
+      sourceCell: <a href="/docs/openapi/public.json">/docs/openapi/public.json</a>,
+      scope: t(
+        'Generated OpenAPI request, response, and authorization schemas',
+        '自动生成的 OpenAPI 请求、响应与权限契约',
+      ),
+    },
+    {
+      key: 'sdk-mcp',
+      docCell: (
+        <>
+          <a href="/docs/api/sdk/">SDK</a>
+          <span className="text-muted-foreground"> · </span>
+          <a href="/docs/guides/mcp/">MCP</a>
+        </>
+      ),
+      sourceCell: <code>@niu-io/sdk · @niu-io/mcp</code>,
+      scope: t(
+        'Typed TypeScript clients and local stdio MCP tool server',
+        '类型化 TypeScript 客户端与本地 stdio MCP 工具服务',
+      ),
     },
   ];
+
+  async function handleCopy() {
+    setCopyError(false);
+    if (!navigator.clipboard) {
+      setCopyError(true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(setupPrompt);
+      setCopied(true);
+    } catch {
+      setCopyError(true);
+    }
+  }
+
   return (
     <div className="docs-home not-content">
-      <header className="docs-home-hero">
-        <div className="docs-home-intro">
-          <Badge variant="secondary" className="docs-home-pillar-badge">
-            {t("Connect · Delegate · Review", "连接 · 交办 · 审阅")}
-          </Badge>
-          <h1 id="_top">
-            {t("The Model Platform for Agents", "面向 Agent 的模型平台")}
-          </h1>
-          <p className="docs-home-lead">
-            {t(
-              "Tell your agent what you want to accomplish. Niu gives it model information, authorized management and execution evidence. You set the goal, approve access and review important decisions.",
-              "告诉 Agent 你想完成什么。Niu（牛元）提供模型信息、已授权的管理能力和执行证据；你设定目标、审核权限并审阅重要决策。",
-            )}
-          </p>
-          <p className="docs-home-sublead">
-            {t(
-              "Your agent can consult the references directly. You do not need to carry model lists, JSON or diagnostics between tools.",
-              "参考资料由 Agent 直接查阅，你无需在工具之间传递模型列表、JSON 或诊断信息。",
-            )}
-          </p>
-        </div>
-        <aside
-          className="docs-home-pipeline"
-          aria-label={t("Connect your agent", "连接你的 Agent")}
-        >
-          <div className="docs-home-pipeline-header">
-            <strong>{t("Start with one prompt", "从一句提示词开始")}</strong>
-            <a href="/docs/agents/install/">
-              {t("Setup instructions", "安装说明")}
-            </a>
+      <header className="docs-home-launchpad-header">
+        <h1 id="_top">
+          {t('The Model Platform for Agents', '面向 Agent 的模型平台')}
+        </h1>
+        <p className="docs-home-lead">
+          {t(
+            'Point your coding agent at Niu to connect via browser approval, discover authorized models, configure workspace routing, evaluate outputs, and inspect usage.',
+            '将编码 Agent 指向 Niu 牛元，通过浏览器审批完成连接，直接发现授权模型、配置工作空间路由、评估输出并核查用量。',
+          )}
+        </p>
+      </header>
+
+      <section
+        className="docs-home-launchpad"
+        aria-label={t('Connect your agent', '连接你的 Agent')}
+      >
+        <div className="docs-home-launchpad-bar">
+          <div className="docs-home-launchpad-meta">
+            <strong>{t('Paste into your coding agent', '粘贴给你的编码 Agent')}</strong>
+            <span className="docs-home-launchpad-hosts">
+              Claude Code · Codex · Cursor · Windsurf · Zed · DeepSeek Harness · MCP
+            </span>
           </div>
-          <pre className="docs-home-setup-prompt">
-            <code>{setupPrompt}</code>
-          </pre>
-          <p className="docs-home-release-note">
-            {t(
-              "Installation checks for the published v0.3.0 release before changing the host. If that release or a required package is unavailable, the agent stops and explains the prerequisite; use the hosted deployment or a source checkout explicitly provided by your operator.",
-              "安装前会检查 v0.3.0 公开发布及所需包；如果发布或包不可用，Agent 会停止并说明前提。请改用托管部署，或使用运维方明确提供的源码检出。",
-            )}{" "}
-            <a href="https://github.com/niu-io/niu/releases/tag/v0.3.0">v0.3.0</a>
-          </p>
-          <div className="docs-home-actions">
+          <div className="docs-home-launchpad-actions">
+            <Button asChild variant="ghost" size="sm">
+              <a href="/llms.txt">/llms.txt</a>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <a href="/docs/agents/install/">
+                {t('Install spec', '安装契约')}
+              </a>
+            </Button>
             <Button
+              type="button"
+              size="sm"
               className="docs-home-primary-cta"
-              onClick={() => {
-                setCopyError(false);
-                if (!navigator.clipboard) {
-                  setCopyError(true);
-                  return;
-                }
-                void navigator.clipboard
-                  .writeText(setupPrompt)
-                  .then(() => setCopied(true))
-                  .catch(() => setCopyError(true));
-              }}
+              onClick={() => void handleCopy()}
             >
               {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
               <span aria-live="polite">
-                {copied
-                  ? t("Copied", "已复制")
-                  : t("Copy setup prompt", "复制接入提示词")}
+                {copied ? t('Copied', '已复制') : t('Copy prompt', '复制提示词')}
               </span>
             </Button>
           </div>
-          <p className="docs-home-setup-note">
-            {t(
-              "Paste into Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or any coding agent. The agent configures the integration and opens Niu for sign-in and authorization.",
-              "交给 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或任意编码 Agent。Agent 会自动配置接入，并打开 Niu 让你登录和审核权限。",
-            )}
-          </p>
-          {copyError && (
-            <p role="status">
-              {t(
-                "Select the prompt above to copy it manually.",
-                "请选择上方提示词手动复制。",
-              )}
-            </p>
-          )}
-        </aside>
-      </header>
-      <section
-        className="docs-home-paths-section"
-        aria-labelledby="human-entry"
-      >
-        <div className="docs-home-section-heading">
-          <h2 id="human-entry">
-            {t("One workflow is enough to start", "掌握一个流程即可开始")}
-          </h2>
-          <p>
-            {t(
-              "Niu supplies evidence and controls. Your agent owns task completion and model quality/cost decisions.",
-              "Niu 提供证据与控制能力。Agent 负责完成任务，并根据你的要求判断模型质量与成本取舍。",
-            )}
-          </p>
         </div>
-        <div className="docs-home-paths">
-          <a
-            className="docs-home-path-card"
-            href="/docs/guides/personal-assistant/"
-          >
-            <div className="docs-home-path-top">
-              <IconPlugConnected />
-              <span>{t("For people", "面向用户")}</span>
-            </div>
-            <h3>{t("Build with Niu", "用 Niu 开发")}</h3>
-            <p>
-              {t(
-                "Connect your agent, run the source example and review a result at each checkpoint.",
-                "连接 Agent，运行源码示例，在每个检查点审阅结果。",
-              )}
-            </p>
-            <span className="docs-home-path-cta">
-              {t("Start the workflow", "开始使用")}
-              <IconArrowRight size={16} />
-            </span>
-          </a>
-          <a className="docs-home-path-card" href="/docs/agents.md">
-            <div className="docs-home-path-top">
-              <IconRobot />
-              <span>{t("For coding agents", "面向 coding agents")}</span>
-            </div>
-            <h3>{t("Discover and operate", "发现并操作")}</h3>
-            <p>
-              {t(
-                "Find exact capabilities, current grants and recovery semantics as needed.",
-                "按需获取准确的能力、当前授权和恢复语义。",
-              )}
-            </p>
-            <span className="docs-home-path-cta">
-              {t("Read the capability map", "读取能力索引")}
-              <IconArrowRight size={16} />
-            </span>
+        <pre className="docs-home-setup-prompt">
+          <code>{setupPrompt}</code>
+        </pre>
+        {copyError && (
+          <p role="status">
+            {t(
+              'Select the prompt above to copy it manually.',
+              '请选择上方提示词手动复制。',
+            )}
+          </p>
+        )}
+      </section>
+
+      <section className="docs-home-index" aria-labelledby="contracts-heading">
+        <div className="docs-home-index-head">
+          <h2 id="contracts-heading">
+            {t('Contracts & references', '核心契约与接口参考')}
+          </h2>
+          <a href="/docs/getting-started/" className="docs-home-manual-link">
+            {t('Manual API key quickstart', '手动 API 密钥快速入门')}
+            <IconArrowRight size={14} />
           </a>
         </div>
-      </section>
-      <section
-        className="docs-home-reference"
-        aria-labelledby="agent-references"
-      >
-        <div className="docs-home-section-heading">
-          <h2 id="agent-references">
-            {t("References for your agent", "交给 Agent 的参考资料")}
-          </h2>
-          <p>
-            {t(
-              "Exact contracts remain available for agents and expert inspection. Model trials, logs and customer-charge review remain in the dashboard.",
-              "精确契约可供 Agent 与专业用户查阅。模型试用、日志和客户费用审阅仍在控制台中。",
-            )}
-          </p>
-        </div>
-        <div className="docs-home-reference-links">
-          {references.map((reference) => (
-            <a
-              key={reference.href}
-              href={reference.href}
-              className="docs-home-ref-card"
-            >
-              <h3>{reference.name}</h3>
-              <p>{reference.detail}</p>
-              <IconArrowRight size={16} />
-            </a>
-          ))}
+        <div className="docs-home-table-surface">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-3.5">{t('Contract', '契约与参考')}</TableHead>
+                <TableHead className="px-3.5">{t('Machine source', '机器可读源')}</TableHead>
+                <TableHead className="px-3.5">{t('Scope', '覆盖能力')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contracts.map((row) => (
+                <TableRow key={row.key}>
+                  <TableCell className="px-3.5 py-2.5 align-top font-medium">
+                    {row.docCell}
+                  </TableCell>
+                  <TableCell className="px-3.5 py-2.5 align-top font-mono text-xs">
+                    {row.sourceCell}
+                  </TableCell>
+                  <TableCell className="px-3.5 py-2.5 align-top whitespace-normal text-muted-foreground">
+                    {row.scope}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </section>
-      <footer className="docs-home-footer">
-        <IconScale size={16} />
-        <p>
-          {t(
-            "Use bounded task samples and an approved budget. Unknown charges stay unknown; no platform can guarantee the best model for every task.",
-            "用有限的任务样本和已批准的预算进行验证。未知费用保持未知，平台不保证为所有任务找到最优模型。",
-          )}
-        </p>
-      </footer>
     </div>
   );
 }
+
 export default function DocsHome() {
   return (
     <>
