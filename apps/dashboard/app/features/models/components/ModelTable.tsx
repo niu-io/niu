@@ -465,7 +465,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             const tags = modelCapabilityTags(model);
             return <article className="models-card" key={model.id}>
             <div className="models-card-top">
-              <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5"><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{cardTitle}</Link>{cardTitle !== model.id && <span className="truncate font-mono text-xs text-muted-foreground">{model.id}</span>}</div></div>
+              <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5"><Link className="text-foreground hover:underline" to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{cardTitle}</Link>{cardTitle !== model.id && <span className="truncate font-mono text-xs text-muted-foreground">{model.id}</span>}</div></div>
               <div className="models-card-rates">
                 {contextText && <span>{contextText}</span>}
                 {model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
@@ -474,9 +474,9 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             {showDesc && <p className="models-description">{rawDesc}</p>}
             <div className="models-card-meta">
               {tags.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{uiT(tag)}</Badge>)}</div>}
-              {hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
-              {canTryUnverifiedChat(model) && <Link to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
-              {isVideoModel(model) && <Link to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
+              {hasChatOutput(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
+              {canTryUnverifiedChat(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
+              {isVideoModel(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
               {!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>}
             </div>
           </article>;

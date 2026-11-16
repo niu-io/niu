@@ -5,20 +5,20 @@
 .activity-model-breakdown .panel-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:19px 21px 12px;border-bottom:0; }
 .activity-model-breakdown .panel-heading h2 { margin:0;font-size:15px;font-weight: 600;letter-spacing:-.02em; }
 .activity-model-breakdown .panel-heading p { margin:5px 0 0;color:var(--muted-foreground);font-size:14px;line-height:1.5; }
-.activity-model-breakdown .panel-heading>a,.activity-stat-links>a,.activity-model-empty>a { display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:14px;font-weight: 500;text-decoration:none; }
+.activity-model-breakdown .panel-heading>a,.activity-stat-links>a,.activity-model-empty>a { display:inline-flex;align-items:center;gap:6px;color:var(--foreground);font-size:14px;font-weight: 500;text-decoration:none; }
 .activity-model-table-wrap { min-width: 0; max-width: 100%; overflow-x: auto; }
 .activity-charge-breakdown table { table-layout:fixed; }
 .activity-charge-breakdown th:first-child { width:40%; }
 .activity-charge-breakdown th:last-child { width:16%; }
 .activity-charge-breakdown tbody th,.activity-charge-breakdown .activity-model-table-wrap td { white-space:normal;overflow-wrap:anywhere;vertical-align:top; }
-.activity-charge-breakdown tbody th a { color:var(--primary);text-decoration:none; }
+.activity-charge-breakdown tbody th a { color:var(--foreground);text-decoration:none; }
 .activity-charge-breakdown td small { display:block;margin-top:4px;color:var(--muted-foreground);font-size:12px;line-height:1.5; }
 .activity-model-table-wrap table { width:100%;border-collapse:collapse;text-align:left; }
 .activity-model-table-wrap th,.activity-model-table-wrap td { padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px;white-space:normal;overflow-wrap:anywhere; }
 .activity-model-table-wrap thead th { color:var(--muted-foreground);font-size:12px;font-weight:600;letter-spacing:.03em; }
 .activity-model-table-wrap tbody th { font-weight: 500; }
 .activity-model-table-wrap td.tabular-nums, .activity-model-table-wrap th.text-right { white-space: nowrap; }
-.activity-model-table-wrap td>a { display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:13px;font-weight: 500;text-decoration:none; }
+.activity-model-table-wrap td>a { display:inline-flex;align-items:center;gap:6px;color:var(--foreground);font-size:13px;font-weight: 500;text-decoration:none; }
 .activity-model-empty { display:grid;gap:6px;padding:24px 21px; }
 .activity-model-empty p { margin:0 0 4px;color:var(--muted-foreground);font-size:14px; }
 .activity-stat-links { display:flex;gap:20px;padding:15px 21px; }
@@ -26,7 +26,11 @@
 .activity-key-breakdown .panel-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:19px 21px 12px;border-bottom:0; }
 .activity-key-breakdown .panel-heading h2 { margin:0;font-size:15px;font-weight: 600;letter-spacing:-.02em; }
 .activity-key-breakdown .panel-heading p { margin:5px 0 0;color:var(--muted-foreground);font-size:14px;line-height:1.5; }
-.activity-key-breakdown .panel-heading>a,.activity-key-usage-metrics>a { display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:14px;font-weight: 500;text-decoration:none; }
+.activity-key-breakdown .panel-heading>a,.activity-key-usage-metrics>a { display:inline-flex;align-items:center;gap:6px;color:var(--foreground);font-size:14px;font-weight: 500;text-decoration:none; }
+.activity-stat-links>a:hover,.activity-model-empty>a:hover,.activity-key-usage-metrics>a:hover { text-decoration:underline;text-underline-offset:3px; }
+.activity-model-table-wrap td>a:hover { text-decoration:underline;text-underline-offset:3px; }
+.activity-charge-breakdown tbody th a:hover { text-decoration:underline;text-underline-offset:3px; }
+.activity-model-breakdown .panel-heading>a:hover,.activity-key-breakdown .panel-heading>a:hover { text-decoration:underline;text-underline-offset:3px; }
 .activity-key-usage-list { display:grid; }
 .activity-key-usage-row { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px;padding:15px 21px;border-bottom:1px solid var(--border); }
 .activity-key-usage-row:last-child { border-bottom:0; }

@@ -127,7 +127,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .cost-connect .empty-icon { display: none; }
 .cost-workbench .gateway-activity-summary { margin-top: 0; }
 .gateway-feed-actions { display: flex; align-items: center; gap: 12px; }
-.gateway-feed-actions > a, .gateway-task-empty > a { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 13px; font-weight: 600; text-decoration: none; }
+.gateway-feed-actions > a, .gateway-task-empty > a { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground); font-size: 13px; font-weight: 600; text-decoration: none; }
 .gateway-feed-actions > a:hover, .gateway-task-empty > a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .gateway-task-feed.is-compact { margin-top: 0; }
 .gateway-task-feed.is-compact .gateway-task-feed-heading { align-items: center; padding-block: 14px; }
@@ -177,8 +177,8 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .playground-result-card-heading .badge { flex: 0 0 auto; }
 .playground-response { max-height: 520px; overflow: auto; margin-top: 14px; padding: 15px; border: 0; border-radius: 12px; color: var(--foreground); background: var(--card); font-size: 14px; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; }
 .playground-response-error { margin: 14px 0 0; padding: 13px; border-radius: 9px; color: var(--destructive); background: color-mix(in srgb, var(--destructive) 8%, var(--card)); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
-.playground-attempt-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; color: var(--primary); font-size: 13px; font-weight: 600; text-decoration: none; }
-.playground-attempt-link:hover { text-decoration: underline; }
+.playground-attempt-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; color: var(--foreground); font-size: 13px; font-weight: 600; text-decoration: none; }
+.playground-attempt-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .playground-result-notice { margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.65; }
 .playground-result-notice { padding: 12px 14px; border-radius: 9px; background: color-mix(in srgb, var(--warning) 8%, var(--card)); }
 @media (max-width: 780px) { .playground-result-grid { grid-template-columns: 1fr; }}

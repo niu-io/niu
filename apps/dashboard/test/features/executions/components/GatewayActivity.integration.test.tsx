@@ -1411,4 +1411,17 @@ it('preserves settled $0.00 customer charges when no unresolved, unpriced, or ow
  const totals = await screen.findByRole('region', {name: 'Filtered request totals'});
  await within(totals).findByText('$0.00');
  expect(within(totals).queryByText('No Niu charge')).toBeNull();
+ const chargeModelLink = screen.getByRole('link', { name: 'View charge requests for free-model' });
+ expect(chargeModelLink.className).not.toContain('text-primary');
+});
+
+it('renders request row model buttons with neutral foreground styling and medium weight instead of primary accent', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => String(input).endsWith('/keys')
+  ? Response.json({data: []})
+  : Response.json({data: [makeRequest('row-1', null, 'openai/gpt-4o')], next_cursor: null, summary})));
+ render(<MemoryRouter><GatewayActivity token="test" models={['openai/gpt-4o']} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+ const modelButton = await screen.findByRole('button', { name: /GPT-4o|gpt-4o/i });
+ expect(modelButton.className).toContain('text-foreground');
+ expect(modelButton.className).toContain('font-medium');
+ expect(modelButton.className).not.toContain('text-primary');
 });
