@@ -71,3 +71,36 @@
 }
 
 .models-catalog > .models-empty { flex: 1; min-height: 240px; justify-content: center; }
+
+.public-models-shell { --dashboard-header-height: 56px; display: flex; flex-direction: column; min-height: 100dvh; width: 100%; background: var(--background); color: var(--foreground); }
+.public-models-topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: var(--dashboard-header-height); padding: 8px 32px; background: var(--background); border-bottom: 1px solid var(--border); }
+.public-models-brand-group { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.public-models-brand { display: inline-flex; align-items: center; gap: 9px; flex-shrink: 0; white-space: nowrap; color: var(--foreground); font-size: 16px; font-weight: 600; letter-spacing: -.025em; text-decoration: none; transition: opacity 140ms ease; }
+.public-models-brand:hover { opacity: .86; }
+.public-models-brand img { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+.public-models-brand > span:first-of-type { min-width: 0; white-space: nowrap; }
+.public-models-nav { display: flex; align-items: center; gap: 4px; }
+.public-models-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.public-models-control-label { white-space: nowrap; }
+.public-models-main { width: 100%; max-width: none; flex: 1 0 auto; padding: 24px 32px 72px; min-width: 0; }
+.public-models-heading { margin-bottom: 16px; }
+.public-models-heading h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.03em; line-height: 1.25; }
+.public-models-heading p { margin: 6px 0 0; font-size: 14px; color: var(--muted-foreground); }
+
+@media (max-width: 1100px) {
+  .public-models-topbar { padding-inline: 24px; }
+  .public-models-main { padding: 24px 24px 48px; }
+}
+
+@media (max-width: 640px) {
+  .public-models-topbar { padding: 8px 12px; gap: 4px; flex-wrap: wrap; }
+  .public-models-brand-group { gap: 4px; flex-shrink: 0; }
+  .public-models-brand .niu-brand { height: 1.5rem; }
+  .public-models-nav { gap: 2px; }
+  .public-models-nav a,
+  .public-models-actions > button,
+  .public-models-actions > a { height: 32px; padding-inline: 8px; gap: 3px; font-size: 13px; }
+  .public-models-actions { gap: 4px; margin-left: auto; }
+  .public-models-main { padding: 16px 14px 40px; }
+  .public-models-control-label { display: none; }
+}

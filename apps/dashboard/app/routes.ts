@@ -94,7 +94,7 @@ export default [
       redirectRoute('legacy-supplier-accounts', 'supplier-accounts'),
       redirectRoute('legacy-supplier-accounts-manage', 'supplier-accounts/manage/:section'),
       redirectRoute('legacy-supplier-accounts-portal', 'supplier-accounts/:provider/:section?'),
-      redirectRoute('legacy-models', 'models/*'),
+      route('models/*', 'features/models/public-page.tsx', { id: 'public-models' }),
       route('settings/:section?', 'features/account/settings-page.tsx', { id: 'account-settings' }),
       route('activity/:section?', 'features/activity/global-page.tsx', { id: 'global-activity' }),
       redirectRoute('legacy-chat', 'chat'),

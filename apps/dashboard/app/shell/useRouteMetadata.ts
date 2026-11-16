@@ -67,6 +67,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     supplierArea;
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
   const loginArea = normalizedPath === '/login' || normalizedPath === '/register' || normalizedPath === '/installation';
+  const publicModelsArea = normalizedPath === '/models' || normalizedPath.startsWith('/models/');
   const inviteArea = location.pathname === '/invite' || location.pathname.startsWith('/invite/');
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
 
@@ -162,6 +163,8 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                     ? t('API key', 'API 密钥')
                     : activePath === 'events' || activePath.startsWith('events/')
                       ? t('Event subscriptions', '事件订阅')
+                      : activePath === 'models'
+                      ? t('Models', '模型')
                       : activePath.startsWith('models/')
                       ? catalogTitle(
                           activePath
@@ -208,6 +211,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     workspaceDirectoryArea,
     usesSelectedWorkspace,
     loginArea,
+    publicModelsArea,
     inviteArea,
     activityArea,
     activePath,

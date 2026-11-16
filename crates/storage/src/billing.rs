@@ -612,6 +612,39 @@ SELECT jsonb_build_object(
         .await?)
     }
 
+    /// Standard published customer text schedules matching the active platform
+    /// currency, stripped of internal revision and price identifiers.
+    pub async fn public_standard_text_prices(
+        &self,
+    ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let rows: Vec<(String, String, Value)> = sqlx::query_as(
+            "SELECT h.model_alias, h.currency, r.schedule \
+             FROM platform_retail_price_heads h \
+             JOIN platform_currency c ON c.singleton AND c.currency = h.currency \
+             JOIN platform_retail_standard_revisions r ON r.id = h.current_revision \
+             WHERE h.rate_kind = 'text' AND h.current_revision IS NOT NULL \
+             ORDER BY h.model_alias",
+        )
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        let mut prices = std::collections::BTreeMap::new();
+        for (alias, currency, raw_schedule) in rows {
+            let schedule: crate::RetailSchedule =
+                serde_json::from_value(raw_schedule).map_err(|_| StoreError::InvalidPrice)?;
+            let crate::RetailSchedule::Text(text) = schedule else {
+                return Err(StoreError::InvalidPrice);
+            };
+            let mut price = serde_json::to_value(text).map_err(|_| StoreError::InvalidPrice)?;
+            price["currency"] = json!(currency);
+            price["unit"] = json!("nanounits_per_million_tokens");
+            price["pricing_source"] = json!("platform");
+            prices.insert(alias, price);
+        }
+        Ok(prices)
+    }
+
     /// Complete customer catalog prices; this compatibility map has no cursor.
     /// Never joins Provider offers or upstream costs.
     pub async fn customer_model_prices(

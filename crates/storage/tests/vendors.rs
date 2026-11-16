@@ -70,7 +70,7 @@ async fn shared_catalog_import_starts_disabled_and_preserves_existing_routes(poo
     let rows = store.vendor_models(vendor.id).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert!(!rows[0].enabled);
-    assert!(!rows[0].public_catalog);
+    assert!(rows[0].public_catalog);
     assert!(rows[0].pricing.is_none());
     let availability = store
         .vendor_models_with_availability(vendor.id)

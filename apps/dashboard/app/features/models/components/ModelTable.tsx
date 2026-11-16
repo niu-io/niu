@@ -109,7 +109,7 @@ function requestExample(baseUrl: string, model: Model) {
   ].join(` ${String.fromCharCode(92)}\n`);
 }
 
-export default function ModelTable(props: { models: Model[]; header?: ReactNode }) {
+export default function ModelTable(props: { models: Model[]; header?: ReactNode; publicMode?: boolean }) {
   return <SidebarProvider defaultOpen={false} className="min-h-0 min-w-0 w-full"><ModelTableContent {...props} /></SidebarProvider>;
 }
 
@@ -131,7 +131,7 @@ function catalogTier(model: Model): number {
   return documented ? 0 : 1;
 }
 
-function ModelTableContent({ models, header }: { models: Model[]; header?: ReactNode }) {
+function ModelTableContent({ models, header, publicMode = false }: { models: Model[]; header?: ReactNode; publicMode?: boolean }) {
   const { t: uiT, format: uiF, isZh } = useUILocale();
   function chooseAuthor(value: string) {
     setAuthorsSelected(current => {
@@ -151,7 +151,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
     ? workspacePathSegment(workspace, workspaces ?? [workspace])
     : params.workspace;
   const workspacePath = workspaceSegment ? `/workspaces/${encodeURIComponent(workspaceSegment)}` : '/workspaces/default';
-  const ranked = useModelPopularity(models, token, workspace?.organization_id, workspace?.id);
+  const ranked = useModelPopularity(models, publicMode ? '' : token, workspace?.organization_id, workspace?.id);
   const popularModels = ranked.models;
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -246,7 +246,11 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
   const requestedId = params['*'] || null;
   const selectedId = requestedId && !models.some(model => model.id === requestedId)
     ? requestedId.replace(/\/+$/, '') || requestedId : requestedId;
-  const catalogPath = workspaceSegment ? `/workspaces/${encodeURIComponent(workspaceSegment)}/models` : '/models';
+  const catalogPath = publicMode
+    ? '/models'
+    : workspaceSegment
+      ? `/workspaces/${encodeURIComponent(workspaceSegment)}/models`
+      : '/models';
   const catalogSearch = useMemo(() => {
     const sp = new URLSearchParams();
     if (query.trim()) sp.set('q', query);
@@ -262,8 +266,9 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
   }, [query, sort, capabilities, authorsSelected, providersSelected, sourcesSelected]);
   function generationHref(model: Model, kind: 'chat' | 'video') {
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
-    if (workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
-    return `/generations?${query}`;
+    if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
+    const target = `/generations?${query}`;
+    return publicMode ? `/login?returnTo=${encodeURIComponent(target)}` : target;
   }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);
   const [modelIdFeedback, setModelIdFeedback] = useState<{model:string; copied:boolean} | null>(null);
@@ -382,7 +387,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
       }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }} mobileStyle={{ right: 0, top: 0, bottom: 0, height: '100dvh', width: 'min(288px, 90vw)' }}>
     <SidebarHeader className="sidebar-heading"><div className="sidebar-heading-row"><h2>{uiT("Filters")}</h2><ModelFilterCloseButton /></div></SidebarHeader>
         <SidebarContent><SidebarGroup><SidebarGroupContent>
-          <p className="px-3 pt-1 pb-2 text-xs text-muted-foreground">{uiT("Counts reflect all models in this workspace with published metadata.")}</p>
+          <p className="px-3 pt-1 pb-2 text-xs text-muted-foreground">{publicMode ? uiT("Counts reflect models in this public catalog with published metadata.", "计数反映公开目录中带有已发布元数据的模型。") : uiT("Counts reflect all models in this workspace with published metadata.")}</p>
           {availableCapabilities.filter(group => group.options.length > 0).map(group => <Collapsible key={group.id} className="models-filter-group" defaultOpen>
             <CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT(group.label)}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger>
             <CollapsibleContent className="models-filter-content" role="region" aria-label={uiF("{0} filters", [uiT(group.label)])}>
@@ -514,7 +519,11 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
       </dl>
       <div className="model-route-cta">
         {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
-        <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
+        {publicMode ? (
+          <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
+        ) : (
+          <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
+        )}
       </div>
       {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
       {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
@@ -522,7 +531,7 @@ function ModelTableContent({ models, header }: { models: Model[]; header?: React
       {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
       <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
       <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p></>}
-      <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>
+      {!publicMode && <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>}
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("Model unavailable")}</EmptyTitle><EmptyDescription>{uiT("This model is no longer in the catalog.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>{uiT("Browse models")}</Link></Button></EmptyContent></Empty> : null}
   </div>;
 }

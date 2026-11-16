@@ -1598,7 +1598,7 @@ export const toolDefinitions = [
   {
     name: "list_catalog_models",
     description:
-      "Retired. The public catalog is empty. Use list_models for the models this workspace key can call.",
+      "List public Niu catalog models along with customer metadata, standard customer pricing when applicable, and supported protocol capabilities (chat_completions, streaming, embeddings, messages, messages_streaming, generate_content, responses). The owned_by field identifies the Niu route owner, not the upstream model developer.",
     inputSchema: {
       type: "object",
       additionalProperties: false,

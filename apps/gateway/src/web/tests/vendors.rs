@@ -791,7 +791,17 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
     let (status, public_catalog) =
         call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(public_catalog["data"], json!([]));
+    let public_fast = public_catalog["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|model| model["id"] == "fast")
+        .expect("published model alias should appear in public catalog");
+    assert_eq!(public_fast["catalog"]["name"], "Friendly model");
+    assert!(public_fast["catalog"].get("input_price").is_none());
+    assert!(public_fast["catalog"].get("output_price").is_none());
+    assert!(!public_catalog.to_string().contains("0.12345"));
+    assert!(!public_catalog.to_string().contains("maker/first"));
     for auth in [ADMIN, operator.token.as_str()] {
         let (status, catalog) =
             call(&app, Method::GET, "/admin/v1/models", auth, Value::Null).await;
@@ -8725,14 +8735,31 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         "personal routes must remain isolated"
     );
     assert!(!org_b_models.to_string().contains("fixture-only-shared-key"));
-    let (_, public_before) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
-    assert!(!public_before.to_string().contains(shared_alias));
+    let (status, public_before) =
+        call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let public_items = public_before["data"].as_array().unwrap();
+    let shared_public = public_items
+        .iter()
+        .find(|model| model["id"] == shared_alias)
+        .expect("internal shared model should appear in public catalog immediately after import");
+    assert_eq!(shared_public["billing_source"], "own_api_key");
+    assert!(
+        !public_before
+            .to_string()
+            .contains("deepseek-official/first")
+    );
+    assert!(
+        !public_before
+            .to_string()
+            .contains("fixture-only-shared-key")
+    );
     let (status, updated) = call(
         &app,
         Method::POST,
         &format!("/api/v1/vendors/{shared_id}/models"),
         ADMIN,
-        json!({"alias":shared_alias,"upstream_model":shared_model.upstream_model,"enabled":true,"public_catalog":true,"capabilities":{},"expected_revision":1}),
+        json!({"alias":shared_alias,"upstream_model":shared_model.upstream_model,"enabled":true,"public_catalog":false,"capabilities":{},"expected_revision":1}),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{updated}");
@@ -8879,7 +8906,7 @@ async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool
             "imported commercial route must start disabled: {}",
             model.alias
         );
-        assert!(!model.public_catalog);
+        assert!(model.public_catalog);
         assert!(model.pricing.is_none());
         let offers: i64 =
             sqlx::query_scalar("SELECT count(*) FROM provider_offers WHERE model_alias=$1")
@@ -8893,7 +8920,7 @@ async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool
     assert_eq!(availability.len(), 2);
     for model in &availability {
         assert_eq!(model["enabled"], false);
-        assert_eq!(model["public_catalog"], false);
+        assert_eq!(model["public_catalog"], true);
         assert!(model["pricing"].is_null());
         assert_eq!(model["available"], false);
         assert_eq!(model["owner_funded"], false);
@@ -8970,5 +8997,269 @@ async fn legacy_provider_qualification_routes_are_removed(pool: PgPool) {
     ] {
         let (status, _) = call(&app, method, &path, ADMIN, json!({})).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
+    }
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn public_catalog_publishes_qualified_commercial_and_shared_models_without_internal_revisions(
+    pool: PgPool,
+) {
+    let mut state = AppState::new(
+        toml::from_str("").expect("empty test config"),
+        niu_storage::Store::from_pool(pool.clone()),
+        TokenSet::parse("NIU_ADMIN_TOKENS", ADMIN.into()).expect("valid test admin token"),
+        HashMap::new(),
+    );
+    state.operating_mode = crate::state::OperatingMode::Resale;
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let store = state.store.clone();
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    let app = router(state);
+
+    let (status, empty_catalog) =
+        call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(empty_catalog["data"], json!([]));
+
+    let (status, commercial_vendor) = call(
+        &app,
+        Method::POST,
+        "/admin/v1/vendors",
+        ADMIN,
+        json!({
+            "name": "Commercial Provider",
+            "adapter": "openai",
+            "api_base": "https://provider.example.invalid/v1",
+            "api_key": "fixture-secret-commercial-key",
+            "create_supplier": true
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{commercial_vendor}");
+    let comm_vendor_id: Uuid = commercial_vendor["data"]["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let provider_id: Uuid = store
+        .vendor_supplier(comm_vendor_id)
+        .await
+        .unwrap()
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    // Qualified commercial route with procurement pricing that must stay confidential.
+    let (status, added) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{comm_vendor_id}/models"),
+        ADMIN,
+        json!({
+            "alias": "comm/chat",
+            "upstream_model": "upstream-secret/gpt-5",
+            "enabled": true,
+            "public_catalog": true,
+            "capabilities": {
+                "catalog": {
+                    "name": "Commercial Chat",
+                    "description": "Public commercial model",
+                    "input_modalities": ["text"],
+                    "output_modalities": ["text"],
+                    "context_length": 128000
+                }
+            },
+            "pricing": {
+                "currency": "USD",
+                "api_prompt_rate": 111111111,
+                "api_completion_rate": 222222222,
+                "cash_prompt_rate": 111111111,
+                "cash_completion_rate": 222222222,
+                "max_input_tokens": 64,
+                "max_output_tokens": 10
+            }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{added}");
+
+    // Unqualified commercial route (disabled / no approved offer).
+    let (status, disabled_add) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{comm_vendor_id}/models"),
+        ADMIN,
+        json!({
+            "alias": "comm/unqualified",
+            "upstream_model": "upstream-secret/disabled",
+            "enabled": false,
+            "public_catalog": true,
+            "capabilities": {}
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{disabled_add}");
+
+    let offer_rate = niu_storage::ProviderOfferInput {
+        model_alias: "comm/chat".into(),
+        currency: "USD".into(),
+        prompt_rate: "333333333".into(),
+        completion_rate: "444444444".into(),
+        expected_revision: None,
+    };
+    let offer_rev = store
+        .publish_provider_offer(provider_id, &offer_rate)
+        .await
+        .unwrap();
+    let offer_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='comm/chat'",
+    )
+    .bind(provider_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    store
+        .enable_authorized_provider_offer(
+            provider_id,
+            offer_id,
+            offer_rev,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    store
+        .publish_retail_standard(
+            niu_storage::RetailStandardPublication {
+                model_alias: "comm/chat".into(),
+                currency: "USD".into(),
+                schedule: niu_storage::RetailSchedule::Text(niu_storage::TextRetailSchedule {
+                    prompt_rate: "1500000000".into(),
+                    completion_rate: "6000000000".into(),
+                    cached_prompt_rate: None,
+                    cache_write_prompt_rate: None,
+                    reasoning_completion_rate: None,
+                    minimum_charge_nanos: "0".into(),
+                    request_fee_nanos: "0".into(),
+                    context_tiers: vec![],
+                }),
+                expected_version: "0".into(),
+                idempotency_key: Uuid::new_v4(),
+                reason: "Public catalog verification".into(),
+            },
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+
+    // Personal route belonging to a customer workspace must never enter /catalog/v1/models.
+    let (status, personal_vendor) = call(
+        &app,
+        Method::POST,
+        "/admin/v1/vendors",
+        ADMIN,
+        json!({
+            "name": "Personal Provider",
+            "adapter": "openai",
+            "api_base": "https://personal.example.invalid/v1",
+            "api_key": "fixture-secret-personal-key",
+            "personal_organization_id": scope.organization_id
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{personal_vendor}");
+    let personal_id = personal_vendor["data"]["id"].as_str().unwrap();
+    let (status, priv_added) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{personal_id}/models"),
+        ADMIN,
+        json!({
+            "alias": "priv/chat",
+            "upstream_model": "upstream-secret/personal",
+            "enabled": true,
+            "public_catalog": false,
+            "capabilities": {}
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{priv_added}");
+
+    // Platform-shared pool vs organization-scoped pool.
+    let (status, pub_pool) = call(
+        &app,
+        Method::PUT,
+        "/admin/v1/routing",
+        ADMIN,
+        json!({
+            "alias": "pool/public",
+            "organization_id": null,
+            "display_name": "Shared Routing Pool",
+            "public_catalog": true,
+            "enabled": true,
+            "expected_revision": 0,
+            "candidates": [{"alias": "comm/chat", "priority": 100, "weight": 100, "enabled": true}]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{pub_pool}");
+
+    let (status, org_pool) = call(
+        &app,
+        Method::PUT,
+        "/admin/v1/routing",
+        ADMIN,
+        json!({
+            "alias": "pool/org-private",
+            "organization_id": scope.organization_id,
+            "display_name": "Workspace Private Pool",
+            "public_catalog": false,
+            "enabled": true,
+            "expected_revision": 0,
+            "candidates": [{"alias": "priv/chat", "priority": 100, "weight": 100, "enabled": true}]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{org_pool}");
+
+    let (status, catalog) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{catalog}");
+    let items = catalog["data"].as_array().unwrap();
+    let ids: Vec<&str> = items.iter().filter_map(|m| m["id"].as_str()).collect();
+    assert_eq!(ids, vec!["comm/chat", "pool/public"], "{catalog}");
+
+    let comm = &items[0];
+    assert_eq!(comm["billing_source"], "niu_credits");
+    assert_eq!(comm["customer_pricing"]["prompt_rate"], "1500000000");
+    assert_eq!(comm["customer_pricing"]["completion_rate"], "6000000000");
+    assert_eq!(comm["customer_pricing"]["currency"], "USD");
+    assert_eq!(comm["catalog"]["name"], "Commercial Chat");
+
+    let serialized = catalog.to_string();
+    for forbidden in [
+        "111111111",
+        "222222222",
+        "333333333",
+        "444444444",
+        "upstream-secret",
+        "fixture-secret",
+        "revision",
+        "definition_revision",
+        "price_id",
+        "comm/unqualified",
+        "priv/chat",
+        "pool/org-private",
+        &scope.organization_id.to_string(),
+    ] {
+        assert!(
+            !serialized.contains(forbidden),
+            "public catalog leaked forbidden string `{forbidden}`: {serialized}"
+        );
     }
 }

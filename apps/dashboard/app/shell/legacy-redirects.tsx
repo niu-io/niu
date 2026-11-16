@@ -248,12 +248,6 @@ export function workspaceSectionRedirectLoader(section: string) {
   };
 }
 
-export function LegacyModelsRedirect() {
-  const { '*': model } = useParams();
-  const location = useLocation();
-  return <Navigate to={resolveModelsRedirectTarget(model, location.search, location.hash)} replace />;
-}
-
 export function legacyModelsRedirectLoader({ request, params, context }: LoaderFunctionArgs) {
   if (shouldDeferLegacyRedirect(request, context)) return null;
   const url = parseRequestUrl(request);

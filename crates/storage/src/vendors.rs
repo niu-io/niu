@@ -736,12 +736,14 @@ impl Store {
         if current != Some(expected_revision) {
             return Err(StoreError::Conflict);
         }
-        let personal: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1)",
+        let (owner_funded, personal_only): (bool, bool) = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1), \
+                    EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1 AND access_scope='personal')",
         )
         .bind(vendor)
         .fetch_one(&mut *tx)
         .await?;
+        let publish_public_catalog = !personal_only;
         if entries
             .iter()
             .any(|e| e.pricing.is_some() || e.public_catalog || e.expected_revision.is_some())
@@ -750,8 +752,8 @@ impl Store {
         }
         let mut inserted = 0;
         for entry in entries {
-            let result = sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) SELECT $1,$2,$3,false,$4,$5,NULL WHERE NOT EXISTS(SELECT 1 FROM vendor_models WHERE vendor_id=$2 AND upstream_model=$3)")
-                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(entry.enabled && personal).bind(entry.capabilities)
+            let result = sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) SELECT $1,$2,$3,$4,$5,$6,NULL WHERE NOT EXISTS(SELECT 1 FROM vendor_models WHERE vendor_id=$2 AND upstream_model=$3)")
+                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(publish_public_catalog).bind(entry.enabled && owner_funded).bind(entry.capabilities)
                 .execute(&mut *tx).await.map_err(map_vendor_write_error)?;
             if result.rows_affected() > 0 {
                 insert_audit(
