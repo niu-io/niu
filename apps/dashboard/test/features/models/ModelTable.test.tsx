@@ -335,3 +335,20 @@ it('ranks verified Niu catalog models ahead of unverified own-API-key qualificat
   await user.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(screen.getAllByRole('article')).toHaveLength(3);
 });
+
+it('renders model card titles and meta action links with default foreground color instead of primary accent', () => {
+  const mixed = [
+    { id: 'openai/gpt-4o', provider: 'openrouter', public_catalog: true, catalog: { name: 'GPT-4o', output_modalities: ['text'] } },
+    { id: 'fastrouter/seedance', provider: 'fastrouter', public_catalog: true, generation_capabilities: { chat: false, video: true }, catalog: { name: 'Seedance Video', output_modalities: ['video'] } },
+  ];
+  render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed} /></SidebarProvider>} /></Routes></MemoryRouter>);
+  const titleLink = screen.getByRole('link', { name: 'GPT-4o' });
+  expect(titleLink.className).toContain('text-foreground');
+  expect(titleLink.className).not.toContain('text-primary');
+  const openGenerationsLink = screen.getByRole('link', { name: 'Open Generations' });
+  expect(openGenerationsLink.className).toContain('text-foreground');
+  expect(openGenerationsLink.className).not.toContain('text-primary');
+  const tryVideoLink = screen.getByRole('link', { name: 'Try in Video' });
+  expect(tryVideoLink.className).toContain('text-foreground');
+  expect(tryVideoLink.className).not.toContain('text-primary');
+});

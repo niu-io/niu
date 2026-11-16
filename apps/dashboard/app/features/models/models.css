@@ -24,14 +24,14 @@
 .models-card:hover { background: color-mix(in srgb, var(--accent) 42%, var(--card)); }
 .models-card-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
 .models-card-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.models-card-heading a { border: 0; padding: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 15px; font-weight: 600; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.models-card-heading a, .models-card-heading a:visited { border: 0; padding: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 15px; font-weight: 600; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 .models-card-heading a:hover { text-decoration: underline; }
 .models-card-rates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--muted-foreground); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .models-card-rates > span + span::before { content: "·"; margin-right: 10px; opacity: .55; }
 .models-card p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--muted-foreground); overflow-wrap: anywhere; }
 .models-card-meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted-foreground); font-size: 12px; }
 .models-card-meta > span + span::before { content: "·"; margin-right: 12px; opacity: .55; }
-.models-card-meta a { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: var(--foreground); font-weight: 500; }
+.models-card-meta a, .models-card-meta a:visited { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: var(--foreground); font-weight: 500; }
 .models-card-meta a:hover { text-decoration: underline; }
 .models-load-more { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 24px 0; color: var(--muted-foreground); font-size: 12px; }
 .models-catalog > .model-route-detail { border: 0; border-radius: 0; background: transparent; padding: 0; }

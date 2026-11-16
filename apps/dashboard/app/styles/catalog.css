@@ -18,5 +18,5 @@
 .model-route-example code { font-family: var(--font-mono, ui-monospace, monospace); }
 .model-route-example-note { margin: 8px 0 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
 .model-route-example-note code { color: var(--foreground); }
-.model-activity-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; margin-top: auto; padding-top: 20px; color: var(--primary); font-size: 14px; font-weight: 500; text-decoration: none; }
+.model-activity-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; margin-top: auto; padding-top: 20px; color: var(--foreground); font-size: 14px; font-weight: 500; text-decoration: none; }
 .model-activity-link:hover { text-decoration: underline; text-underline-offset: 3px; }
