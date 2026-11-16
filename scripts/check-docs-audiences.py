@@ -1,31 +1,40 @@
 #!/usr/bin/env python3
-"""Check built audience entry points and raw agent-contract links."""
+"""Check built documentation entry points, unified sidebar contract links, and raw agent contracts."""
 from html.parser import HTMLParser
 from pathlib import Path
 import argparse
+
 
 class Links(HTMLParser):
     def __init__(self):
         super().__init__()
         self.links = []
+
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
             self.links.append(dict(attrs).get('href', ''))
+
 
 p = argparse.ArgumentParser()
 p.add_argument('--dist', type=Path, default=Path('apps/docs/dist'))
 a = p.parse_args()
 contracts = ['install', 'agents', 'inference', 'pools', 'evaluations', 'events']
-for page in ['index.html', 'agents/index.html', 'guides/personal-assistant/index.html']:
+
+for page in ['index.html', 'getting-started/index.html', 'agents/index.html', 'guides/personal-assistant/index.html']:
     html = (a.dist / page).read_text()
     parsed = Links()
     parsed.feed(html)
     assert not any('/docs/docs/' in link for link in parsed.links), f'Duplicated base in {page}'
-    assert '/docs/' in parsed.links and '/docs/agents/' in parsed.links, f'Missing audience navigation in {page}'
-    if page == 'agents/index.html':
+    assert '/docs/' in parsed.links and '/docs/api/rest/' in parsed.links and '/docs/api/sdk/' in parsed.links, (
+        f'Missing unified Docs / API / SDK navigation in {page}'
+    )
+    for name in contracts:
+        slug = 'capabilities' if name == 'agents' else name
+        assert f'/docs/agents/{slug}/' in parsed.links, f'Missing unified contract sidebar link {slug} in {page}'
+    if page in ('index.html', 'agents/index.html'):
+        assert '/llms.txt' in parsed.links, f'Missing /llms.txt entry link in {page}'
         for name in contracts:
             slug = 'capabilities' if name == 'agents' else name
-            assert f'/docs/agents/{slug}/' in parsed.links, f'Missing agent reading entry {name}'
             reading = Links()
             reading.feed((a.dist / f'agents/{slug}/index.html').read_text())
             assert f'/docs/{name}.md' in reading.links, f'Missing original source link {name}'
