@@ -121,6 +121,7 @@ export default function AppLayout() {
     workspaceDirectoryArea,
     usesSelectedWorkspace,
     loginArea,
+    publicModelsArea,
     inviteArea,
   } = routeMeta;
 
@@ -504,11 +505,14 @@ export default function AppLayout() {
     return () => window.removeEventListener('resize', closeOnCompactViewport);
   }, []);
 
+  const publicModelsAllowed =
+    publicModelsArea && !new URLSearchParams(location.search).get('workspace')?.trim();
+
   useEffect(() => {
-    if (!loginArea && !token && sessionChecked) {
+    if (!loginArea && !publicModelsAllowed && !token && sessionChecked) {
       navigate('/login', { state: { from: location.pathname + location.search + location.hash }, replace: true });
     }
-  }, [loginArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
+  }, [loginArea, publicModelsAllowed, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
 
   const previousPathnameRef = useRef(location.pathname);
   useEffect(() => {
@@ -551,6 +555,24 @@ export default function AppLayout() {
     />
   );
 
+  if (publicModelsAllowed && !token) {
+    if (!sessionChecked) {
+      return (
+        <>
+          {gatewayOutage}
+          {signOutFailure}
+          <RouterPending />
+        </>
+      );
+    }
+    return (
+      <>
+        {gatewayOutage}
+        {signOutFailure}
+        <Outlet context={context} />
+      </>
+    );
+  }
   if (!loginArea && !token) {
     return (
       <>

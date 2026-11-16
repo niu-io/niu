@@ -1,7 +1,8 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { IconChevronDown, IconLanguage } from '@tabler/icons-react';
+import { loadPublicCatalogModels } from '@/features/models/public-catalog';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale, type Locale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,22 @@ export default function InstallationRoute() {
   const context = useDashboardContext();
   const {settings:branding,logo} = useBranding();
   const navigate = useNavigate();
+  const [hasPublicModels, setHasPublicModels] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadPublicCatalogModels({ signal: controller.signal })
+      .then(result => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(result.models.length > 0);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(false);
+        }
+      });
+    return () => controller.abort();
+  }, []);
   useEffect(() => {
     if (context.token && context.session?.kind === 'installation') navigate('/admin/providers', { replace: true });
   }, [context.token, context.session?.kind, navigate]);
@@ -27,6 +44,7 @@ export default function InstallationRoute() {
         {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}<span className="dashboard-login-product">{t('Dashboard', '控制台')}</span>
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
+        {hasPublicModels && <Button asChild variant="ghost" size="sm"><Link to="/models">{t('Models', '模型')}</Link></Button>}
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

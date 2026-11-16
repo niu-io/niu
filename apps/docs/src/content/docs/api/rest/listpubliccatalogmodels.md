@@ -1,5 +1,5 @@
 ---
-title: "Retired public catalog list"
+title: "List published public catalog models"
 description: "GET /catalog/v1/models"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /catalog/v1/models`
 
-The public catalog is retired. This route returns an empty list. Use the authenticated model list for models a workspace key can call.
+Returns enabled shared internal and commercial model aliases with public_catalog enabled, along with customer-safe catalog metadata, standard customer pricing when applicable, declared protocol capabilities, and generation_capabilities. Private personal routes, disabled or unqualified models, upstream identifiers, endpoints, credentials, internal UUIDs, and Provider procurement costs are omitted.
 
 Operation: `listPublicCatalogModels`.
 
@@ -43,4 +43,4 @@ Public model aliases and declared capabilities, including configured tool_calls 
 
 ## Behavior and supported scope
 
-The public catalog is retired. This route returns an empty list. Use the authenticated model list for models a workspace key can call.
+Returns enabled shared internal and commercial model aliases with public_catalog enabled, along with customer-safe catalog metadata, standard customer pricing when applicable, declared protocol capabilities, and generation_capabilities. Private personal routes, disabled or unqualified models, upstream identifiers, endpoints, credentials, internal UUIDs, and Provider procurement costs are omitted.

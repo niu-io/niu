@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { loadAuthConfig } from '@/lib/auth-config';
+import { loadPublicCatalogModels } from '@/features/models/public-catalog';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { safeLoginReturn } from '@/shell/login-return';
 import { useBranding } from '@/shell/branding';
@@ -44,6 +45,23 @@ export default function LoginRoute() {
   const [configurationFailed, setConfigurationFailed] = useState(false);
   const [signInNotConfigured, setSignInNotConfigured] = useState(false);
   const [configurationAttempt, setConfigurationAttempt] = useState(0);
+  const [hasPublicModels, setHasPublicModels] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadPublicCatalogModels({ signal: controller.signal })
+      .then(result => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(result.models.length > 0);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(false);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -137,6 +155,7 @@ export default function LoginRoute() {
         {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
+        {hasPublicModels && <Button asChild variant="ghost" size="sm"><Link to="/models">{t('Models', '模型')}</Link></Button>}
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

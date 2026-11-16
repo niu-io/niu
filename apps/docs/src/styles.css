@@ -1295,6 +1295,11 @@ dialog[data-docs-search-dialog]::backdrop {
   }
 }
 
+.docs-header nav a[hidden],
+.docs-mobile-public nav a[hidden] {
+  display: none;
+}
+
 /* Mobile public shell & sidebar popover */
 .docs-mobile-public {
   display: none;

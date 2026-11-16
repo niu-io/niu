@@ -1,7 +1,5 @@
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
-import { translateUI } from '@/shell/ui-locale';
-import { readLocale as readUILocale } from '@/shell/ui-locale';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { translateUI, useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   IconArrowDown,
@@ -20,7 +18,6 @@ import {
 import { Link, type LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext, type Organization } from '@/shell/dashboard-context';
-import { useLocale } from '@/shell/ui-locale';
 import PageHeader from '@/components/PageHeader';
 import { ListRowsSkeleton, MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
@@ -45,6 +42,18 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { request, ProviderRequestError, writeMayHaveCommitted, type ProviderConnection, type ProviderModel } from '@/features/providers/api';
+import {
+  comparablePool,
+  computeWinningTierShares,
+  encodePoolReference,
+  formatDate,
+  formatNanos,
+  formatRatePerMillion,
+  poolScopeLabel,
+  type DiscoveredRoute,
+  type ProtocolOption,
+  type ScopeFilter,
+} from './pool-utils';
 import type {
   ModelRoutePool,
   ModelRoutePoolAudit,
@@ -57,74 +66,6 @@ import type {
   ModelRoutePoolRule,
   ModelRoutePoolRuleConditions,
 } from '@niu-io/sdk/admin';
-
-type ScopeFilter = 'all' | 'shared' | 'organization';
-type DiscoveredRoute = { alias: string; providerName: string; upstreamModel: string; ownerFunded: boolean; priced: boolean };
-type ProtocolOption = 'any' | 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
-
-function encodePoolReference(alias: string): string {
-  const bytes = new TextEncoder().encode(alias);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
-}
-
-// Normalize optional defaults and object key order before comparing an attempted
-// write with the authoritative record. Array order remains meaningful.
-function comparablePool(value: Record<string, unknown>): string {
-  const normalize = (item: unknown): unknown => {
-    if (Array.isArray(item)) return item.map(normalize);
-    if (item && typeof item === 'object') return Object.fromEntries(
-      Object.entries(item).filter(([, v]) => v !== null && v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, normalize(v)]),
-    );
-    return item;
-  };
-  return JSON.stringify(normalize({
-    alias: value.alias, organization_id: value.organization_id, project_id: value.project_id,
-    display_name: value.display_name, description: value.description,
-    public_catalog: value.public_catalog ?? false, billing_mode: value.billing_mode ?? 'pool_tariff',
-    enabled: value.enabled, candidates: value.candidates, rules: value.rules ?? [],
-    default_action: value.default_action ?? 'candidates',
-  }));
-}
-
-function formatDate(value: string, unavailableLabel = 'Date unavailable') {
-  return Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : unavailableLabel;
-}
-
-function formatNanos(nanosStr: string | null | undefined, currency = 'USD'): string {
-  if (!nanosStr) return '—';
-  const num = Number(nanosStr) / 1_000_000_000;
-  if (!Number.isFinite(num)) return nanosStr;
-  return `${currency} ${num.toFixed(4)}`;
-}
-
-function formatRatePerMillion(nanosStr: string | null | undefined, currency: string | null = 'USD'): string {
-  if (!nanosStr) return '—';
-  const num = Number(nanosStr) / 1_000_000_000;
-  if (!Number.isFinite(num)) return nanosStr;
-  return `${currency ?? ''} ${num.toFixed(2)}/1M`.trim();
-}
-
-function poolScopeLabel(organizationId: string | null, organizations: Organization[], t: (en: string, zh: string) => string) {
-  if (!organizationId) return t('Shared custom model', '平台共享自定义模型');
-  const match = organizations.find(item => item.id === organizationId);
-  return match?.name ? match.name : t('Organization-scoped custom model', '企业专属自定义模型');
-}
-
-function computeWinningTierShares(candidates: ModelRoutePoolCandidate[]): Map<string, number> {
-  const enabled = candidates.filter(c => c.enabled && c.alias.trim());
-  const shares = new Map<string, number>();
-  if (enabled.length === 0) return shares;
-  const maxPriority = Math.max(...enabled.map(c => c.priority));
-  const winners = enabled.filter(c => c.priority === maxPriority);
-  const totalWeight = winners.reduce((sum, c) => sum + Math.max(0, c.weight), 0);
-  if (totalWeight <= 0) return shares;
-  for (const winner of winners) {
-    shares.set(winner.alias.trim(), Math.round((winner.weight / totalWeight) * 1000) / 10);
-  }
-  return shares;
-}
 
 const POOLS_INDEX_PATH = '/api/v1/routing/index?limit=50';
 
@@ -413,6 +354,11 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="md:hidden"> · {scopeName}</span>
+                      {!pool.organization_id && pool.public_catalog && (
+                        <Badge variant="secondary" className="text-[11px] font-normal">
+                          {t('Public catalog', '公开目录')}
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="hidden align-top whitespace-normal md:table-cell">
@@ -638,6 +584,7 @@ function RoutePoolEditorDialog({
   const [displayName, setDisplayName] = useState(base?.display_name ?? '');
   const [description, setDescription] = useState(base?.description ?? '');
   const [organizationId, setOrganizationId] = useState<string | null>(base?.organization_id ?? null);
+  const [publicCatalog, setPublicCatalog] = useState(base ? Boolean(base.public_catalog) : true);
   const [billingMode, setBillingMode] = useState<ModelRoutePoolBillingMode>(base?.billing_mode ?? 'pool_tariff');
   const [enabled, setEnabled] = useState(base?.enabled ?? true);
   const [candidates, setCandidates] = useState<ModelRoutePoolCandidate[]>(
@@ -934,7 +881,7 @@ function RoutePoolEditorDialog({
     if (base?.description != null || description.trim() !== '') {
       payload.description = description.trim() || null;
     }
-    payload.public_catalog = false;
+    payload.public_catalog = organizationId === null ? publicCatalog : false;
     if (base?.billing_mode !== undefined || billingMode !== 'pool_tariff') {
       payload.billing_mode = billingMode;
     }
@@ -1213,6 +1160,16 @@ function RoutePoolEditorDialog({
               <span>{t('Enable custom model for request dispatch', '启用该自定义模型接收请求')}</span>
             </Label>
 
+            {organizationId === null && (
+              <Label className="flex items-center gap-2.5">
+                <Checkbox
+                  checked={publicCatalog}
+                  disabled={busy}
+                  onCheckedChange={value => setPublicCatalog(value === true)}
+                />
+                <span>{t('Publish in public model catalog', '发布到公开模型目录')}</span>
+              </Label>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -1705,6 +1662,9 @@ function RoutePoolEditorDialog({
                 <div><dt className="text-muted-foreground">{t('Description', '描述')}</dt><dd>{savedConflict.description || '—'}</dd></div>
                 <div><dt className="text-muted-foreground">{t('Status', '状态')}</dt><dd>{savedConflict.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</dd></div>
                 <div><dt className="text-muted-foreground">{t('Customer billing mode', '客户计费方式')}</dt><dd>{billingModeLabels[savedConflict.billing_mode ?? 'pool_tariff']}</dd></div>
+                {savedConflict.organization_id === null && (
+                  <div><dt className="text-muted-foreground">{t('Public catalog', '公开目录')}</dt><dd>{savedConflict.public_catalog ? t('Published', '已发布') : t('Not published', '未发布')}</dd></div>
+                )}
                 <div><dt className="text-muted-foreground">{t('Default fallback action', '默认回退操作')}</dt><dd>{defaultActionLabels[savedConflict.default_action ?? 'candidates']}</dd></div>
               </dl>
               <div className="text-sm"><h4 className="font-medium">{t('Candidate models', '候选模型')}</h4><ul className="list-disc pl-5">{savedConflict.candidates.map((candidate, index) => <li key={index}>{candidate.alias} · {t('Priority', '优先级')} {candidate.priority} · {t('Weight', '权重')} {candidate.weight} · {candidate.enabled ? t('Enabled', '已启用') : t('Disabled', '已停用')}</li>)}</ul></div>

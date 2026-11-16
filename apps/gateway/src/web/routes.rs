@@ -2258,9 +2258,107 @@ async fn get_generation(
     })))
 }
 
-async fn catalog_models(State(_state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    // The public catalog was removed. Existing clients still receive an empty list.
-    Ok(Json(json!({"object": "list", "data": []})))
+fn sanitize_public_unit_price(mut value: Value) -> Value {
+    if let Some(obj) = value.as_object_mut() {
+        obj.remove("revision");
+        obj.remove("definition_revision");
+        if let Some(media) = obj.get_mut("media_tariffs").and_then(Value::as_array_mut) {
+            for item in media {
+                if let Some(entry) = item.as_object_mut() {
+                    entry.remove("revision");
+                    entry.remove("definition_revision");
+                }
+            }
+        }
+    }
+    value
+}
+
+async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let (models, generation_routes) = crate::vendors::generation_catalog(&state, None).await?;
+    let prices = state
+        .store
+        .public_standard_text_prices()
+        .await
+        .map_err(ApiError::from_store)?;
+    let (billing_mode, unit_prices) = state
+        .store
+        .customer_unit_model_prices()
+        .await
+        .map_err(ApiError::from_store)?;
+    let sanitized_unit_prices: std::collections::BTreeMap<String, Value> = unit_prices
+        .into_iter()
+        .map(|(alias, value)| (alias, sanitize_public_unit_price(value)))
+        .collect();
+    let data: Vec<_> = models
+        .iter()
+        .filter(|(_, model)| model.public_catalog)
+        .map(|(name, model)| {
+            let internal_shared = generation_routes
+                .get(name)
+                .is_some_and(niu_storage::VendorCatalogRoute::is_internal_shared);
+            let billing_source = if internal_shared {
+                "own_api_key"
+            } else {
+                "niu_credits"
+            };
+            let customer_pricing = if !internal_shared && billing_mode != "credits" {
+                prices.get(name).cloned()
+            } else {
+                None
+            };
+            let customer_unit_pricing = if !internal_shared && billing_mode == "credits" {
+                sanitized_unit_prices.get(name).cloned()
+            } else {
+                None
+            };
+            let video_configuration = generation_routes
+                .get(name)
+                .filter(|route| route.model.capabilities.get("video_schema").is_some())
+                .map(super::inference::video_models::configured_preview);
+            let tools = chat_tool_capabilities(model);
+            json!({
+                "id": name,
+                "object": "model",
+                "owned_by": "niu",
+                "public_catalog": model.public_catalog,
+                "catalog": model.catalog.customer_metadata(),
+                "billing_mode": billing_mode,
+                "billing_source": billing_source,
+                "customer_pricing": customer_pricing,
+                "customer_unit_pricing": customer_unit_pricing,
+                "generation_capabilities": configured_generation_capabilities(model, video_configuration),
+                "capabilities": {
+                    "chat_completions": video_configuration.is_none() && model.protocol().supports_chat_completions(),
+                    "streaming": model.protocol().supports_streaming(),
+                    "tool_calls": tools["tool_calls"],
+                    "streaming_tool_calls": tools["streaming_tool_calls"],
+                    "embeddings": model.supports_embeddings,
+                    "messages": model.supports_messages,
+                    "messages_streaming": model.supports_messages_streaming,
+                    "generate_content": model.supports_generate_content,
+                    "responses": model.supports_responses,
+                    "supports_embeddings": model.supports_embeddings,
+                    "supports_embedding_dimensions": model.supports_embedding_dimensions,
+                    "supports_embedding_base64": model.supports_embedding_base64,
+                    "supports_tool_calls": model.supports_tool_calls,
+                    "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
+                    "supports_structured_output": model.supports_structured_output,
+                    "supports_messages": model.supports_messages,
+                    "supports_messages_streaming": model.supports_messages_streaming,
+                    "supports_messages_tools": model.supports_messages_tools,
+                    "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
+                    "supports_generate_content": model.supports_generate_content,
+                    "supports_responses": model.supports_responses
+                }
+            })
+        })
+        .collect();
+    Ok(Json(json!({
+        "object": "list",
+        "billing_mode": billing_mode,
+        "data": data
+    })))
 }
 
 #[derive(Deserialize)]
@@ -2597,5 +2695,37 @@ mod tests {
                 "alias handler/limit mismatch between {src} and {dst}"
             );
         }
+    }
+
+    #[test]
+    fn sanitize_public_unit_price_strips_internal_revisions() {
+        let input = json!({
+            "revision": "11111111-1111-1111-1111-111111111111",
+            "definition_revision": "22222222-2222-2222-2222-222222222222",
+            "unit_name": "Credits",
+            "display_precision": 2,
+            "atoms_per_unit": "1000000000",
+            "prompt_rate": "100",
+            "completion_rate": "200",
+            "media_tariffs": [
+                {
+                    "revision": "33333333-3333-3333-3333-333333333333",
+                    "definition_revision": "44444444-4444-4444-4444-444444444444",
+                    "channel": "default",
+                    "resolution": "720p",
+                    "reference_video": false,
+                    "meter": "second",
+                    "price": { "amount_atoms": "500" }
+                }
+            ]
+        });
+        let sanitized = sanitize_public_unit_price(input);
+        assert!(sanitized.get("revision").is_none());
+        assert!(sanitized.get("definition_revision").is_none());
+        assert_eq!(sanitized["unit_name"], "Credits");
+        let media = sanitized["media_tariffs"][0].as_object().unwrap();
+        assert!(!media.contains_key("revision"));
+        assert!(!media.contains_key("definition_revision"));
+        assert_eq!(media["channel"], "default");
     }
 }

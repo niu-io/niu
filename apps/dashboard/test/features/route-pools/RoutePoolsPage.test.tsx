@@ -229,7 +229,7 @@ describe('RoutePoolsPage', () => {
       if (path.startsWith('/api/v1/routing/index')) return {data:[], has_more:false, next_after:null};
       if (path === '/api/v1/vendors') return {data:[]};
       if (path === '/api/v1/routing' && method === 'PUT') {attempted = body as Record<string, unknown>; throw new VendorRequestError('Unavailable',503);}
-      if (path.startsWith('/api/v1/routing/') && method === 'GET') return {data:{...attempted, revision:1, display_name:null, description:null, project_id:null, public_catalog:false, billing_mode:'pool_tariff', rules:[], default_action:'candidates'}};
+      if (path.startsWith('/api/v1/routing/') && method === 'GET') return {data:{...attempted, revision:1, display_name:null, description:null, project_id:null, billing_mode:'pool_tariff', rules:[], default_action:'candidates'}};
       throw new Error(`Unexpected request: ${method} ${path}`);
     });
     render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
@@ -414,7 +414,7 @@ describe('RoutePoolsPage', () => {
     );
 
     expect(await screen.findByText('Smart Router')).toBeTruthy();
-    expect(screen.queryByText('Public catalog')).toBeNull();
+    expect(screen.getByText('Public catalog')).toBeTruthy();
     expect(screen.getByText('Per-candidate billing')).toBeTruthy();
 
     // Open Strategy & billing audit dialog
