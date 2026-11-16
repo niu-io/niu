@@ -17,6 +17,7 @@ pub mod passwords;
 pub mod platform_audit;
 pub mod preferences;
 pub mod profile;
+pub mod registrations;
 pub mod request_exports;
 pub mod request_payloads;
 pub(crate) mod session;

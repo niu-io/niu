@@ -140,7 +140,9 @@ pub struct PlatformAuditQuery {
 ///             "credit_policy",
 ///             "grant_preparation",
 ///             "media_liability",
-///             "procurement_configuration"
+///             "procurement_configuration",
+///             "registration_policy",
+///             "registration_review"
 ///           ]
 ///         },
 ///         "category": {

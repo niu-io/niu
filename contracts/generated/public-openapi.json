@@ -57,7 +57,7 @@
     },
     {
       "name": "Authentication",
-      "description": "Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation."
+      "description": "Sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation."
     },
     {
       "name": "API keys",
@@ -18405,7 +18405,8 @@
                   "type": "object",
                   "required": [
                     "password_login",
-                    "browser_token_login"
+                    "browser_token_login",
+                    "registration_mode"
                   ],
                   "properties": {
                     "password_login": {
@@ -18416,6 +18417,14 @@
                     },
                     "demo_login": {
                       "type": "boolean"
+                    },
+                    "registration_mode": {
+                      "type": "string",
+                      "enum": [
+                        "disabled",
+                        "approval_required"
+                      ],
+                      "description": "Public registration capability: disabled (invite/admin setup only) or approval_required (Limited Preview)."
                     }
                   }
                 }
@@ -18514,7 +18523,8 @@
             "description": "Incorrect email or password"
           },
           "403": {
-            "description": "Missing or mismatched Origin"
+            "description": "Pending Limited Preview registration awaiting administrator approval",
+            "or missing/mismatched Origin": null
           },
           "429": {
             "description": "Sign-in limited; Retry-After 60"
@@ -18834,7 +18844,8 @@
             "description": "Email or password is incorrect, or the member was revoked during verification."
           },
           "403": {
-            "description": "Supplied browser Origin is not permitted."
+            "description": "Pending Limited Preview registration awaiting administrator approval",
+            "or supplied browser Origin is not permitted.": null
           },
           "429": {
             "description": "Durable admission limit or bounded password-worker capacity reached.",
@@ -18858,6 +18869,134 @@
           },
           "503": {
             "description": "Durable storage or credential processing is unavailable; no session token is returned."
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "x-niu-authority": {
+          "audience": "public",
+          "principals": [
+            "anonymous"
+          ],
+          "required_capability": "public",
+          "scope": "installation"
+        }
+      }
+    },
+    "/api/v1/auth/registrations": {
+      "post": {
+        "operationId": "submitLimitedPreviewRegistration",
+        "summary": "Request a Limited Preview account pending administrator approval",
+        "description": "Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 15 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.",
+        "security": [],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 15,
+                    "maxLength": 1024,
+                    "writeOnly": true
+                  },
+                  "organization_name": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "workspace_name": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Registration accepted for Limited Preview administrator review.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "pending_approval"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid registration fields or password policy failure."
+          },
+          "403": {
+            "description": "Registration is disabled on this deployment or Origin rejected."
+          },
+          "429": {
+            "description": "Registration submission rate limit or worker capacity reached.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Password authentication is not configured on this deployment."
+          },
+          "503": {
+            "description": "Durable storage or credential processing is unavailable."
           }
         },
         "tags": [

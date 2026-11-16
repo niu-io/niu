@@ -1,6 +1,6 @@
 -- Project only audited operation metadata. Never select configuration payloads,
 -- credentials, purchase prices, or customer request content.
--- Bound each indexed source before the final merge; fourteen bounded pages are sorted.
+-- Bound each indexed source before the final merge; sixteen bounded pages are sorted.
 WITH events AS (
  (SELECT * FROM (
  SELECT 'procurement_configuration'::text AS source, e.id::text AS event_id,
@@ -179,6 +179,30 @@ WITH events AS (
    o.name || ' / ' || e.currency, NULL::bigint, NULL::text, NULL::text, e.created_at
  FROM prepared_customer_balance_grants e JOIN organizations o ON o.id=e.organization_id LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
+ ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
+ AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ ORDER BY created_at DESC,event_id DESC LIMIT $5)
+
+ UNION ALL
+ (SELECT * FROM (
+ SELECT 'registration_policy', e.revision::text, 'configuration',
+   CASE WHEN e.mode='approval_required' THEN 'registration_preview_enabled' ELSE 'registration_disabled' END,
+   e.actor_kind,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' WHEN e.actor_kind='operator' THEN COALESCE(a.name,'Unknown actor') ELSE 'Unknown actor' END,
+   'Account registration policy', e.revision, NULL::text, NULL::text, e.created_at
+ FROM platform_registration_policy_events e LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
+ WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
+ ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
+ AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ ORDER BY created_at DESC,event_id DESC LIMIT $5)
+
+ UNION ALL
+ (SELECT * FROM (
+ SELECT 'registration_review', e.id::text, 'access', e.action, e.actor_kind,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' WHEN e.actor_kind='operator' THEN COALESCE(a.name,'Unknown actor') ELSE 'Unknown actor' END,
+   e.target_label, e.revision, NULL::text, NULL::text, e.created_at
+ FROM account_registration_review_events e LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
+ WHERE ($1::text IS NULL OR $1='access') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
  ORDER BY created_at DESC,event_id DESC LIMIT $5)

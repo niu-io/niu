@@ -17,7 +17,7 @@
     },
     {
       "name": "Authentication",
-      "description": "Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation."
+      "description": "Sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation."
     },
     {
       "name": "Chat sessions",

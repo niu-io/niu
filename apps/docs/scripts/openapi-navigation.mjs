@@ -21,7 +21,8 @@ const groups = [
   ]],
   ['Authentication and access', [
     ['Member invitations', 'Purpose-bound one-time invitations to join an organization or workspace. Acceptance requires an existing signed-in account with the intended email; no reusable member credential is issued.', '^/api/v1/(?:invitations(?:/|$)|organizations/[^/]+/invitations$|session/invitations$)'],
-    ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$))'],
+    ['Registration review', 'Limited Preview account registration policy and platform administrator approval queue.', '^/api/v1/platform/registrations?(?:/|$)'],
+    ['Authentication', 'Sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$))'],
     ['Users and sessions', 'User identities, roles, sessions and authentication events.', '^/api/v1/operators'],
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],

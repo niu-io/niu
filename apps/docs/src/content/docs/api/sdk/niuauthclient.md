@@ -25,10 +25,14 @@ constructor(options?: NiuAuthOptions);
 
 ```typescript
 /** Public capability discovery, independent of sign-in success. */
-getMemberAuthenticationConfiguration(options?: RequestOptions): Promise<{
-    password_login: boolean;
-    browser_token_login?: boolean;
-}>;
+getMemberAuthenticationConfiguration(options?: RequestOptions): Promise<AuthConfiguration>;
+```
+
+### submitRegistration
+
+```typescript
+/** Submit a Limited Preview account registration pending administrator approval. */
+submitRegistration(input: RegistrationSubmissionInput, options?: RequestOptions): Promise<RegistrationSubmissionResult>;
 ```
 
 ### signIn

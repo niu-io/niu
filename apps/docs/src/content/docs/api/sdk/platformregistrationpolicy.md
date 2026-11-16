@@ -1,0 +1,17 @@
+---
+title: "PlatformRegistrationPolicy"
+description: "Generated TypeScript declaration for PlatformRegistrationPolicy"
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+
+```typescript
+export interface PlatformRegistrationPolicy {
+    mode: import('./auth.js').RegistrationMode;
+    revision: string;
+    updated_at: string;
+    password_login_configured: boolean;
+}
+```

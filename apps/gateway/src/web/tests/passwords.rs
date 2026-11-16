@@ -2139,3 +2139,404 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
 
     upstream_task.abort();
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn limited_preview_registration_requires_approval_and_provisions_workspace_owner(
+    pool: PgPool,
+) {
+    let mut state = test_state(None, pool.clone());
+    // Default /auth/config keeps registration_mode disabled until password auth is configured.
+    let disabled_app = router(state.clone());
+    let no_auth_config = request(
+        &disabled_app,
+        Method::GET,
+        "/api/v1/auth/config",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(no_auth_config.0, StatusCode::OK);
+    assert_eq!(no_auth_config.2["password_login"], false);
+    assert_eq!(no_auth_config.2["registration_mode"], "disabled");
+
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    let app = router(state.clone());
+
+    let auth_config = request(
+        &app,
+        Method::GET,
+        "/api/v1/auth/config",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(auth_config.0, StatusCode::OK);
+    assert_eq!(auth_config.2["password_login"], true);
+    assert_eq!(auth_config.2["registration_mode"], "approval_required");
+
+    // Non-platform operators cannot inspect or manage Limited Preview registrations.
+    let scope = state.store.default_workspace().await.unwrap();
+    let ordinary_owner = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: None,
+            },
+            "Ordinary Owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    for (method, path, payload) in [
+        (Method::GET, "/api/v1/platform/registration", Value::Null),
+        (Method::GET, "/api/v1/platform/registrations", Value::Null),
+        (
+            Method::PUT,
+            "/api/v1/platform/registration",
+            json!({ "mode": "disabled", "expected_revision": "1" }),
+        ),
+    ] {
+        let denied = request(
+            &app,
+            method,
+            path,
+            Some(&ordinary_owner.token),
+            None,
+            payload,
+        )
+        .await;
+        assert_eq!(denied.0, StatusCode::FORBIDDEN);
+    }
+
+    // Registration submission requires the configured HTTPS Origin header and valid password policy.
+    let valid_submission = json!({
+        "name": "Ada Lovelace",
+        "email": "Ada@Example.Test",
+        "password": "synthetic preview passphrase 1",
+        "organization_name": "Analytical Engine Co",
+        "workspace_name": "Research Workspace",
+        "note": "Evaluating multi-agent tools"
+    });
+    for bad_origin in [None, Some("https://hostile.example")] {
+        let rejected = request(
+            &app,
+            Method::POST,
+            "/api/v1/auth/registrations",
+            None,
+            bad_origin,
+            valid_submission.clone(),
+        )
+        .await;
+        assert_eq!(rejected.0, StatusCode::FORBIDDEN);
+    }
+    let short_password = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "name": "Ada Lovelace",
+            "email": "ada@example.test",
+            "password": "too-short"
+        }),
+    )
+    .await;
+    assert_eq!(short_password.0, StatusCode::BAD_REQUEST);
+
+    let submitted = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        valid_submission.clone(),
+    )
+    .await;
+    assert_eq!(submitted.0, StatusCode::ACCEPTED, "{}", submitted.2);
+    assert_eq!(submitted.1["cache-control"], "no-store");
+    assert_eq!(submitted.2, json!({ "status": "pending_approval" }));
+
+    // Re-submitting the same email while pending returns identical 202 and must NOT overwrite the original hash.
+    let hijack_attempt = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "name": "Attacker",
+            "email": "ada@example.test",
+            "password": "attacker override passphrase"
+        }),
+    )
+    .await;
+    assert_eq!(hijack_attempt.0, StatusCode::ACCEPTED);
+    assert_eq!(hijack_attempt.2, json!({ "status": "pending_approval" }));
+
+    // Logging in with the pending applicant's EXACT password returns 403 registration_pending_approval;
+    // logging in with a wrong password returns indistinguishable 401 invalid credentials.
+    let pending_login = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/browser/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "email": "ada@example.test",
+            "password": "synthetic preview passphrase 1"
+        }),
+    )
+    .await;
+    assert_eq!(
+        pending_login.0,
+        StatusCode::FORBIDDEN,
+        "{}",
+        pending_login.2
+    );
+    assert_eq!(
+        pending_login.2["error"]["type"],
+        "registration_pending_approval"
+    );
+
+    let wrong_pending_pw = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/browser/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "email": "ada@example.test",
+            "password": "attacker override passphrase"
+        }),
+    )
+    .await;
+    assert_eq!(wrong_pending_pw.0, StatusCode::UNAUTHORIZED);
+
+    // Admin lists pending queue (never exposing password_hash).
+    let queue = request(
+        &app,
+        Method::GET,
+        "/api/v1/platform/registrations?status=pending",
+        Some(ADMIN),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(queue.0, StatusCode::OK, "{}", queue.2);
+    assert_eq!(queue.2["counts"]["pending"], 1);
+    assert_eq!(queue.2["data"].as_array().unwrap().len(), 1);
+    let record = &queue.2["data"][0];
+    assert_eq!(record["email"], "ada@example.test");
+    assert_eq!(record["applicant_name"], "Ada Lovelace");
+    assert!(record.get("password_hash").is_none());
+    let request_id = record["id"].as_str().unwrap();
+
+    // Admin approves registration -> atomically creates org + USD balance account + workspace + owner + credential
+    // and scrubs stored password_hash from account_registration_requests.
+    let approved = request(
+        &app,
+        Method::POST,
+        &format!("/api/v1/platform/registrations/{request_id}/approve"),
+        Some(ADMIN),
+        None,
+        json!({
+            "expected_revision": "1",
+            "organization_name": "Analytical Engine Corp",
+            "workspace_name": "Primary Studio",
+            "note": "Approved for preview cohort 1"
+        }),
+    )
+    .await;
+    assert_eq!(approved.0, StatusCode::OK, "{}", approved.2);
+    assert_eq!(approved.2["data"]["status"], "approved");
+    assert_eq!(
+        approved.2["data"]["approved_organization_slug"],
+        "analytical-engine-corp"
+    );
+    assert_eq!(
+        approved.2["data"]["approved_workspace_slug"],
+        "primary-studio"
+    );
+
+    let retained_hash: Option<String> = sqlx::query_scalar(
+        "SELECT password_hash FROM account_registration_requests WHERE id = $1::uuid",
+    )
+    .bind(request_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(retained_hash.is_none());
+
+    // Approved user signs in immediately with the password submitted during registration!
+    let bearer_login = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "email": "ada@example.test",
+            "password": "synthetic preview passphrase 1"
+        }),
+    )
+    .await;
+    assert_eq!(bearer_login.0, StatusCode::OK, "{}", bearer_login.2);
+    let session_token = bearer_login.2["token"].as_str().unwrap();
+
+    let session = request(
+        &app,
+        Method::GET,
+        "/api/v1/session",
+        Some(session_token),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(session.0, StatusCode::OK);
+    assert_eq!(session.2["data"]["operator"]["role"], "owner");
+    assert_eq!(session.2["data"]["profile"]["name"], "Ada Lovelace");
+
+    // Re-registering an already-active email returns identical 202 without modifying existing account.
+    let repeat_active = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "name": "Ada Repeat",
+            "email": "ada@example.test",
+            "password": "another long passphrase here"
+        }),
+    )
+    .await;
+    assert_eq!(repeat_active.0, StatusCode::ACCEPTED);
+
+    // Rejection flow clears password_hash and allows a future re-application.
+    let second_submit = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "name": "Grace Hopper",
+            "email": "grace@example.test",
+            "password": "compiler preview passphrase"
+        }),
+    )
+    .await;
+    assert_eq!(second_submit.0, StatusCode::ACCEPTED);
+    let pending_list = request(
+        &app,
+        Method::GET,
+        "/api/v1/platform/registrations?status=pending",
+        Some(ADMIN),
+        None,
+        Value::Null,
+    )
+    .await;
+    let grace_id = pending_list.2["data"][0]["id"].as_str().unwrap().to_owned();
+    let rejected = request(
+        &app,
+        Method::POST,
+        &format!("/api/v1/platform/registrations/{grace_id}/reject"),
+        Some(ADMIN),
+        None,
+        json!({ "expected_revision": "1", "note": "Need team details" }),
+    )
+    .await;
+    assert_eq!(rejected.0, StatusCode::OK);
+    assert_eq!(rejected.2["data"]["status"], "rejected");
+    let rejected_hash: Option<String> = sqlx::query_scalar(
+        "SELECT password_hash FROM account_registration_requests WHERE id = $1::uuid",
+    )
+    .bind(&grace_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(rejected_hash.is_none());
+
+    // Grace can re-submit fresh after rejection.
+    let resubmit = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "name": "Grace Hopper",
+            "email": "grace@example.test",
+            "password": "compiler preview passphrase 2"
+        }),
+    )
+    .await;
+    assert_eq!(resubmit.0, StatusCode::ACCEPTED);
+
+    // Admin disables registration -> public /auth/config & POST /auth/registrations reflect disabled.
+    let policy_saved = request(
+        &app,
+        Method::PUT,
+        "/api/v1/platform/registration",
+        Some(ADMIN),
+        None,
+        json!({ "mode": "disabled", "expected_revision": "1" }),
+    )
+    .await;
+    assert_eq!(policy_saved.0, StatusCode::OK);
+    assert_eq!(policy_saved.2["data"]["mode"], "disabled");
+    assert_eq!(policy_saved.2["data"]["revision"], "2");
+
+    let blocked = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/registrations",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "name": "Alan Turing",
+            "email": "alan@example.test",
+            "password": "bletchley preview passphrase"
+        }),
+    )
+    .await;
+    assert_eq!(blocked.0, StatusCode::FORBIDDEN);
+    assert_eq!(blocked.2["error"]["type"], "registration_disabled");
+
+    // Platform audit events capture both policy updates and review actions cleanly.
+    let audit = request(
+        &app,
+        Method::GET,
+        "/api/v1/platform/audit-events?limit=20",
+        Some(ADMIN),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(audit.0, StatusCode::OK);
+    let actions: Vec<&str> = audit.2["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|item| item["action"].as_str())
+        .collect();
+    assert!(actions.contains(&"registration_approved"), "{actions:?}");
+    assert!(actions.contains(&"registration_rejected"), "{actions:?}");
+    assert!(actions.contains(&"registration_disabled"), "{actions:?}");
+}

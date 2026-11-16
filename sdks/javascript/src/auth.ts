@@ -1,6 +1,22 @@
 import { NiuAPIError, type RequestOptions } from './index.js';
 import { notifyResponse } from './response-metadata.js';
 
+export type RegistrationMode = 'disabled' | 'approval_required';
+export type AuthConfiguration = {
+  password_login: boolean;
+  browser_token_login?: boolean;
+  demo_login?: boolean;
+  registration_mode?: RegistrationMode;
+};
+export type RegistrationSubmissionInput = {
+  name: string;
+  email: string;
+  password: string;
+  organization_name?: string;
+  workspace_name?: string;
+  note?: string;
+};
+export type RegistrationSubmissionResult = { status: 'pending_approval' };
 export type MemberSession = {
   /** Routing references only; do not display internal identifiers. */
   id: string;
@@ -28,8 +44,52 @@ export class NiuAuthClient {
   }
 
   /** Public capability discovery, independent of sign-in success. */
-  getMemberAuthenticationConfiguration(options: RequestOptions = {}): Promise<{ password_login: boolean; browser_token_login?: boolean }> {
-    return this.#request('/auth/config', { method: 'GET', headers: { accept: 'application/json' } }, options) as Promise<{ password_login: boolean; browser_token_login?: boolean }>;
+  getMemberAuthenticationConfiguration(options: RequestOptions = {}): Promise<AuthConfiguration> {
+    return this.#request('/auth/config', { method: 'GET', headers: { accept: 'application/json' } }, options) as Promise<AuthConfiguration>;
+  }
+
+  /** Submit a Limited Preview account registration pending administrator approval. */
+  submitRegistration(input: RegistrationSubmissionInput, options: RequestOptions = {}): Promise<RegistrationSubmissionResult> {
+    const encoder = new TextEncoder();
+    const name = typeof input.name === 'string' ? input.name.trim() : '';
+    const email = typeof input.email === 'string' ? input.email.trim() : '';
+    if (!name || [...name].length > 120 || /[\x00-\x1f\x7f]/.test(name)) {
+      throw new TypeError('Registration name must be 1 to 120 characters without control characters');
+    }
+    if (!email || encoder.encode(email).length > 254 || !email.includes('@')) {
+      throw new TypeError('Registration requires a bounded email address');
+    }
+    if (typeof input.password !== 'string' || [...input.password].length < 15 || encoder.encode(input.password).length > 1024) {
+      throw new TypeError('Registration password requires at least 15 characters and at most 1024 bytes');
+    }
+    const payload: Record<string, string> = { name, email, password: input.password };
+    if (input.organization_name !== undefined && input.organization_name.trim()) {
+      const org = input.organization_name.trim();
+      if ([...org].length > 120 || /[\x00-\x1f\x7f]/.test(org)) {
+        throw new TypeError('Organization name must be at most 120 characters without control characters');
+      }
+      payload.organization_name = org;
+    }
+    if (input.workspace_name !== undefined && input.workspace_name.trim()) {
+      const ws = input.workspace_name.trim();
+      if ([...ws].length > 120 || /[\x00-\x1f\x7f]/.test(ws)) {
+        throw new TypeError('Workspace name must be at most 120 characters without control characters');
+      }
+      payload.workspace_name = ws;
+    }
+    if (input.note !== undefined && input.note.trim()) {
+      const note = input.note.trim();
+      if ([...note].length > 500 || /[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/.test(note)) {
+        throw new TypeError('Registration note must be at most 500 characters');
+      }
+      payload.note = note;
+    }
+    const body = JSON.stringify(payload);
+    if (encoder.encode(body).length > 8192) throw new TypeError('Registration request exceeds 8192 bytes');
+    return this.#request('/auth/registrations', {
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body,
+    }, options) as Promise<RegistrationSubmissionResult>;
   }
 
   signIn(input: { email: string; password: string }, options: RequestOptions = {}): Promise<MemberSignIn> {

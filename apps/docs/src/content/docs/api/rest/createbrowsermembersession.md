@@ -142,7 +142,7 @@ Incorrect email or password
 
 ### HTTP 403
 
-Missing or mismatched Origin
+Pending Limited Preview registration awaiting administrator approval
 
 ### HTTP 429
 

@@ -1015,6 +1015,60 @@ generations(scope: TenantScope | WorkspaceScope): {
 getBranding(options?: RequestOptions): Promise<BrandingConfiguration>;
 ```
 
+### getRegistrationPolicy
+
+```typescript
+/** Read Limited Preview registration policy (platform administration). */
+getRegistrationPolicy(options?: RequestOptions): Promise<{
+    data: PlatformRegistrationPolicy;
+}>;
+```
+
+### saveRegistrationPolicy
+
+```typescript
+/** Switch registration policy between Limited Preview approval and closed (platform administration). */
+saveRegistrationPolicy(input: {
+    mode: import('./auth.js').RegistrationMode;
+    expected_revision: string;
+}, options?: RequestOptions): Promise<{
+    data: PlatformRegistrationPolicy;
+}>;
+```
+
+### listRegistrations
+
+```typescript
+/** List Limited Preview registration requests (platform administration). */
+listRegistrations(query?: PlatformRegistrationQuery, options?: RequestOptions): Promise<PlatformRegistrationQueuePage>;
+```
+
+### approveRegistration
+
+```typescript
+/** Atomically approve a pending Limited Preview registration and provision workspace owner access. */
+approveRegistration(registrationId: string, input: {
+    expected_revision: string;
+    organization_name?: string;
+    workspace_name?: string;
+    note?: string;
+}, options?: RequestOptions): Promise<{
+    data: RegistrationRequestRecord;
+}>;
+```
+
+### rejectRegistration
+
+```typescript
+/** Reject a pending Limited Preview registration without provisioning an account. */
+rejectRegistration(registrationId: string, input: {
+    expected_revision: string;
+    note?: string;
+}, options?: RequestOptions): Promise<{
+    data: RegistrationRequestRecord;
+}>;
+```
+
 ### saveBranding
 
 ```typescript

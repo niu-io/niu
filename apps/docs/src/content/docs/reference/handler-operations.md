@@ -5625,7 +5625,8 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "password_login",
-    "browser_token_login"
+    "browser_token_login",
+    "registration_mode"
   ],
   "properties": {
     "password_login": {
@@ -5636,6 +5637,14 @@ Content type: `application/json`.
     },
     "demo_login": {
       "type": "boolean"
+    },
+    "registration_mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ],
+      "description": "Public registration capability: disabled (invite/admin setup only) or approval_required (Limited Preview)."
     }
   }
 }
@@ -6101,6 +6110,547 @@ HTTP 503: Durable storage unavailable.
 HTTP 400: Invalid JSON, unknown fields or invalid input.
 
 HTTP 409: expected_revision does not match the saved profile; reload before retrying.
+
+## Request a Limited Preview account pending administrator approval
+
+`POST /api/v1/auth/registrations`
+
+Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 15 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `submitLimitedPreviewRegistration`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Parameters
+
+`Origin` (header, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "email",
+    "password"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "email": {
+      "type": "string",
+      "maxLength": 254
+    },
+    "password": {
+      "type": "string",
+      "minLength": 15,
+      "maxLength": 1024,
+      "writeOnly": true
+    },
+    "organization_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "workspace_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Registration accepted for Limited Preview administrator review.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "const": "pending_approval"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid registration fields or password policy failure.
+
+HTTP 403: Registration is disabled on this deployment or Origin rejected.
+
+HTTP 429: Registration submission rate limit or worker capacity reached.
+
+Response header: `Retry-After`.
+
+```json
+{
+  "type": "string",
+  "const": "60"
+}
+```
+
+HTTP 501: Password authentication is not configured on this deployment.
+
+HTTP 503: Durable storage or credential processing is unavailable.
+
+## Read Limited Preview registration policy
+
+`GET /api/v1/platform/registration`
+
+Platform administration required. Returns the saved registration policy revision and whether password sign-in is active.
+
+Implementation: `implemented`. Operation: `getPlatformRegistrationPolicy`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Current registration policy.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationPolicySnapshot"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+## Update Limited Preview registration policy
+
+`PUT /api/v1/platform/registration`
+
+Platform administration required. Switches public registration between approval_required (Limited Preview) and disabled using optimistic expected_revision.
+
+Implementation: `implemented`. Operation: `savePlatformRegistrationPolicy`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "expected_revision"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ]
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Updated registration policy.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationPolicySnapshot"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid policy mode or revision.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Policy changed concurrently; refresh revision and retry.
+
+## List Limited Preview registration requests
+
+`GET /api/v1/platform/registrations`
+
+Platform administration required. Returns submitted registration requests, counts by status, and the current policy. Password hashes are never returned.
+
+Implementation: `implemented`. Operation: `listPlatformRegistrations`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`status` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "pending",
+    "approved",
+    "rejected"
+  ]
+}
+```
+
+`cursor` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Registration requests page and summary counts.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/RegistrationQueuePage"
+}
+```
+
+HTTP 400: Invalid status filter, cursor, or limit.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+## Approve a Limited Preview registration
+
+`POST /api/v1/platform/registrations/{registration}/approve`
+
+Platform administration required. Atomically creates the customer organization (and balance account in configured platform currency when present), initial workspace with human-readable slug, organization-wide owner operator, and password credentials from the applicant's submitted Argon2id hash.
+
+Implementation: `implemented`. Operation: `approvePlatformRegistration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`registration` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "organization_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "workspace_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Registration approved and workspace owner provisioned.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationRequestRecord"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid approval payload or name override.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Request already reviewed, stale revision, or email already bound to an active account.
+
+## Reject a Limited Preview registration
+
+`POST /api/v1/platform/registrations/{registration}/reject`
+
+Platform administration required. Marks the pending request rejected and clears its stored password hash without creating an account.
+
+Implementation: `implemented`. Operation: `rejectPlatformRegistration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`registration` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Registration rejected.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationRequestRecord"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid rejection payload.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Request already reviewed or stale revision.
 
 ## Switch the active organization for the current member session
 
@@ -61853,7 +62403,9 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "credit_policy",
         "grant_preparation",
         "media_liability",
-        "procurement_configuration"
+        "procurement_configuration",
+        "registration_policy",
+        "registration_review"
       ]
     },
     "category": {
@@ -62429,6 +62981,236 @@ Local `#/components/schemas/…` references resolve to these definitions.
       }
     }
   ]
+}
+```
+
+### RegistrationCounts
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pending",
+    "approved",
+    "rejected"
+  ],
+  "properties": {
+    "pending": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "approved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rejected": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### RegistrationPolicySnapshot
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "revision",
+    "updated_at",
+    "password_login_configured"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ],
+      "description": "disabled (invite/admin setup only) or approval_required (Limited Preview)."
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "password_login_configured": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### RegistrationQueuePage
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_cursor",
+    "counts",
+    "policy"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/RegistrationRequestRecord"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "counts": {
+      "$ref": "#/components/schemas/RegistrationCounts"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "revision",
+        "updated_at"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "approval_required"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+### RegistrationRequestRecord
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "email",
+    "applicant_name",
+    "organization_name",
+    "workspace_name",
+    "note",
+    "status",
+    "revision",
+    "created_at",
+    "reviewed_at",
+    "reviewed_by_kind",
+    "reviewed_by_label",
+    "decision_note",
+    "approved_organization_slug",
+    "approved_workspace_slug"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Internal API routing reference. Never display internal UUIDs in product UI."
+    },
+    "email": {
+      "type": "string"
+    },
+    "applicant_name": {
+      "type": "string"
+    },
+    "organization_name": {
+      "type": "string"
+    },
+    "workspace_name": {
+      "type": "string"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "reviewed_by_kind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "installation",
+        "operator",
+        null
+      ]
+    },
+    "reviewed_by_label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approved_organization_slug": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approved_workspace_slug": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
 }
 ```
 

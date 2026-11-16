@@ -59,6 +59,7 @@ function memoImport(key: string, load: ModuleImporter): ModuleImporter {
 export const routeImporters = {
   connect: memoImport('connect', () => import('@/features/connect/page')),
   login: memoImport('login', () => import('@/features/login/page')),
+  register: memoImport('register', () => import('@/features/login/register-page')),
   installation: memoImport('installation', () => import('@/features/login/installation-page')),
   invite: memoImport('invite', () => import('@/features/invitations/accept-page')),
   commercialPosition: memoImport('commercialPosition', () => import('@/features/commercial-position/page')),

@@ -105,6 +105,10 @@ impl Store {
                 "balance_grant" => ("customer_balance_grants", "id", "uuid"),
                 "gift_correction" => ("customer_balance_grant_corrections", "id", "uuid"),
                 "media_liability" => ("media_liability_qualification_changes", "id", "uuid"),
+                "registration_policy" => {
+                    ("platform_registration_policy_events", "revision", "bigint")
+                }
+                "registration_review" => ("account_registration_review_events", "id", "uuid"),
                 _ => return Err(StoreError::InvalidPlatformAuditQuery),
             };
             if (cast == "uuid"
@@ -151,7 +155,8 @@ impl Store {
                     | "retail_text_enrollment"
                     | "retail_media_enrollment"
                     | "balance_grant"
-                    | "gift_correction" => "configuration",
+                    | "gift_correction"
+                    | "registration_policy" => "configuration",
                     "supplier" | "media_liability" => "supplier",
                     _ => "access",
                 };

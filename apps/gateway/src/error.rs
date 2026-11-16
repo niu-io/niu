@@ -198,6 +198,14 @@ impl ApiError {
             niu_storage::StoreError::InvalidOperator => {
                 Self::invalid_request("Invalid operator name, role, or session lifetime")
             }
+            niu_storage::StoreError::InvalidRegistration => Self::invalid_request(
+                "Enter a valid name, email, organization or workspace name, note, and a password of 15 to 1024 bytes",
+            ),
+            niu_storage::StoreError::InvalidRegistrationQuery => {
+                Self::invalid_request("Invalid registration status filter, cursor, or page size")
+            }
+            niu_storage::StoreError::RegistrationDisabled => Self::registration_disabled(),
+            niu_storage::StoreError::RegistrationEmailExists => Self::registration_email_exists(),
             niu_storage::StoreError::InvalidInvitation => Self::invalid_request(
                 "Enter a valid recipient email, role, workspace scope and invitation expiry",
             ),
@@ -335,6 +343,42 @@ impl ApiError {
             status: StatusCode::TOO_MANY_REQUESTS,
             kind: "authentication_rate_limit",
             message: "Sign-in is temporarily limited. Try again later.",
+        }
+    }
+
+    pub(crate) fn registration_pending_approval() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::FORBIDDEN,
+            kind: "registration_pending_approval",
+            message: "Your Limited Preview registration is awaiting administrator approval. Sign in again once an administrator approves your account.",
+        }
+    }
+
+    pub(crate) fn registration_disabled() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::FORBIDDEN,
+            kind: "registration_disabled",
+            message: "Limited Preview registration is closed on this deployment. Ask an administrator for an invitation or account setup.",
+        }
+    }
+
+    pub(crate) fn registration_rate_limited() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::TOO_MANY_REQUESTS,
+            kind: "registration_rate_limit",
+            message: "Registration requests are temporarily limited. Try again later.",
+        }
+    }
+
+    pub(crate) fn registration_email_exists() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::CONFLICT,
+            kind: "registration_email_exists",
+            message: "An active account already uses this email address. Review existing members instead of approving a duplicate account.",
         }
     }
 
@@ -806,7 +850,10 @@ impl IntoResponse for ApiError {
         );
         if matches!(
             self.kind,
-            "key_request_rate_exceeded" | "upstream_request_rate_exceeded"
+            "key_request_rate_exceeded"
+                | "upstream_request_rate_exceeded"
+                | "authentication_rate_limit"
+                | "registration_rate_limit"
         ) {
             response.headers_mut().insert(
                 axum::http::header::RETRY_AFTER,

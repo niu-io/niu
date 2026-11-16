@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { NiuAuthClient, NiuAPIError } from '../dist/index.js';
+import { NiuAdminClient, NiuAuthClient, NiuAPIError } from '../dist/index.js';
 
 test('member sign-in preserves password bytes and sign-out sends only the supplied bearer', async () => {
   const calls = []; const abort = new AbortController();
@@ -69,4 +69,88 @@ test('self password change rejects invalid credentials before dispatch and prese
   assert.equal(calls,0);
   await assert.rejects(client.changePassword('session',good),error=>error instanceof NiuAPIError && error.status===409);
   assert.equal(calls,1);
+});
+
+test('limited preview registration validates inputs locally and calls /auth/registrations', async () => {
+  const calls = [];
+  const client = new NiuAuthClient({
+    baseURL: 'https://niu.example/api/v1/',
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return Response.json({ status: 'pending_approval' }, { status: 202 });
+    },
+  });
+  assert.throws(() => client.submitRegistration({ name: '', email: 'user@example.test', password: 'synthetic preview passphrase' }), /Registration name/);
+  assert.throws(() => client.submitRegistration({ name: 'Ada', email: 'not-an-email', password: 'synthetic preview passphrase' }), /email/);
+  assert.throws(() => client.submitRegistration({ name: 'Ada', email: 'user@example.test', password: 'short' }), /15 characters/);
+  assert.equal(calls.length, 0);
+
+  const accepted = await client.submitRegistration({
+    name: '  Ada Lovelace ',
+    email: 'ada@example.test',
+    password: 'synthetic preview passphrase',
+    organization_name: ' Analytical Engine ',
+    note: 'Testing coding agents',
+  });
+  assert.deepEqual(accepted, { status: 'pending_approval' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://niu.example/api/v1/auth/registrations');
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    name: 'Ada Lovelace',
+    email: 'ada@example.test',
+    password: 'synthetic preview passphrase',
+    organization_name: 'Analytical Engine',
+    note: 'Testing coding agents',
+  });
+  assert.equal(calls[0].init.credentials, 'omit');
+  assert.equal(calls[0].init.cache, 'no-store');
+});
+
+test('admin client exposes registration policy and approval/rejection methods', async () => {
+  const calls = [];
+  const sampleRecord = {
+    id: '11111111-1111-4111-8111-111111111111',
+    email: 'ada@example.test',
+    applicant_name: 'Ada Lovelace',
+    organization_name: 'Analytical Engine',
+    workspace_name: 'Default workspace',
+    note: null,
+    status: 'approved',
+    revision: '2',
+    created_at: '2026-11-16T00:00:00Z',
+    reviewed_at: '2026-11-16T00:05:00Z',
+    reviewed_by_kind: 'installation',
+    reviewed_by_label: 'Installation administrator',
+    decision_note: null,
+    approved_organization_slug: 'analytical-engine',
+    approved_workspace_slug: 'default-workspace',
+  };
+  const admin = new NiuAdminClient({
+    baseURL: 'https://niu.example/api/v1',
+    adminToken: 'platform-session',
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      if (url.endsWith('/platform/registration') && init.method === 'GET') {
+        return Response.json({ data: { mode: 'approval_required', revision: '1', updated_at: '2026-11-16T00:00:00Z', password_login_configured: true } });
+      }
+      if (url.endsWith('/platform/registration') && init.method === 'PUT') {
+        return Response.json({ data: { mode: 'disabled', revision: '2', updated_at: '2026-11-16T00:01:00Z', password_login_configured: true } });
+      }
+      if (url.includes('/platform/registrations?status=pending')) {
+        return Response.json({ data: [], next_cursor: null, counts: { pending: 0, approved: 1, rejected: 0 }, policy: { mode: 'approval_required', revision: '1', updated_at: '2026-11-16T00:00:00Z' } });
+      }
+      return Response.json({ data: sampleRecord });
+    },
+  });
+  await admin.getRegistrationPolicy();
+  await admin.saveRegistrationPolicy({ mode: 'disabled', expected_revision: '1' });
+  await admin.listRegistrations({ status: 'pending', limit: 25 });
+  await admin.approveRegistration(sampleRecord.id, { expected_revision: '1', organization_name: 'Analytical Engine' });
+  await admin.rejectRegistration(sampleRecord.id, { expected_revision: '1', note: 'Need company email' });
+  assert.equal(calls.length, 5);
+  assert.equal(calls[0].url, 'https://niu.example/api/v1/platform/registration');
+  assert.equal(calls[1].init.method, 'PUT');
+  assert.equal(calls[2].url, 'https://niu.example/api/v1/platform/registrations?status=pending&limit=25');
+  assert.equal(calls[3].url, `https://niu.example/api/v1/platform/registrations/${sampleRecord.id}/approve`);
+  assert.equal(calls[4].url, `https://niu.example/api/v1/platform/registrations/${sampleRecord.id}/reject`);
 });
