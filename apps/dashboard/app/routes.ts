@@ -38,7 +38,7 @@ export default [
     layout('shell/content-error-layout.tsx', { id: 'app-content' }, [
       route('connect', 'features/connect/page.tsx', { id: 'connect' }),
       route('login', 'features/login/page.tsx', { id: 'login' }),
-      route('register', 'features/login/page.tsx', { id: 'register' }),
+      route('register', 'features/login/register-page.tsx', { id: 'register' }),
       route('installation', 'features/login/installation-page.tsx', { id: 'installation' }),
       route('invite/:token', 'features/invitations/accept-page.tsx', { id: 'invite' }),
       redirectRoute('legacy-providers', 'providers'),

@@ -33,6 +33,14 @@ export const globalRoutes: RouteObject[] = [
     }),
   },
   {
+    id: 'register',
+    path: 'register',
+    lazy: bindLazy(routeImporters.register, {
+      destination: 'Global',
+      title: { en: 'Request access', zh: '申请注册' },
+    }),
+  },
+  {
     id: 'installation',
     path: 'installation',
     lazy: bindLazy(routeImporters.installation, {

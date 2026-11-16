@@ -1,7 +1,7 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { IconChevronDown, IconKey, IconLanguage, IconMail, IconSparkles } from '@tabler/icons-react';
+import { IconChevronDown, IconKey, IconLanguage, IconMail, IconSparkles, IconUserPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,15 +31,17 @@ export default function LoginRoute() {
   const [memberLogin, setMemberLogin] = useState(false);
   const [tokenLogin, setTokenLogin] = useState(false);
   const [demoLogin, setDemoLogin] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
   const demoAttempted = useRef(false);
   const directDemo = new URLSearchParams(location.search).get('demo') === '1';
   const [mode, setMode] = useState<'password'|'token'>('password');
   const [accessToken, setAccessToken] = useState('');
   const request = useRef<AbortController|null>(null);
   const inFlight = useRef(false);
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => searchParams.get('email') ?? '');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [pendingApprovalNotice, setPendingApprovalNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(true);
   const [configurationFailed, setConfigurationFailed] = useState(false);
@@ -73,6 +75,7 @@ export default function LoginRoute() {
         setMemberLogin(passwordEnabled);
         setTokenLogin(tokenEnabled);
         setDemoLogin(value.demo_login === true);
+        setRegistrationOpen(passwordEnabled && value.registration_mode === 'approval_required');
         setSignInNotConfigured(value.password_login === false && value.browser_token_login === false);
         setConfigurationFailed(!passwordEnabled&&!tokenEnabled);
         if(!passwordEnabled&&tokenEnabled)setMode('token');
@@ -97,7 +100,7 @@ export default function LoginRoute() {
   const signIn = useCallback(async (kind: 'password'|'token'|'demo') => {
     if(inFlight.current || checking || configurationFailed || !(kind==='demo'?demoLogin:kind==='token'?tokenLogin:memberLogin))return;
     const controller=new AbortController();request.current=controller;inFlight.current=true;
-    setLocalError('');setSubmitting(true);
+    setLocalError('');setPendingApprovalNotice(false);setSubmitting(true);
     try {
       const response=await fetch(kind==='demo'?'/api/v1/auth/browser/demo':kind==='token'?'/api/v1/auth/browser/token':'/api/v1/auth/browser/login',{
         method:'POST',headers:{'content-type':'application/json'},
@@ -106,6 +109,11 @@ export default function LoginRoute() {
       });
       if(controller.signal.aborted)return;
       if(!response.ok){
+        const payload = await response.json().catch(() => null);
+        if (response.status === 403 && payload?.error?.type === 'registration_pending_approval') {
+          setPendingApprovalNotice(true);
+          return;
+        }
         setLocalError(response.status===401
           ? kind==='demo'?t('Demo sign-in is unavailable. Try again later.', '演示登录暂不可用，请稍后再试。'):kind==='token'?t('That access token is invalid, expired or revoked.', '该访问令牌无效、已过期或已吊销。'):t('That email or password did not match.', '邮箱或密码不匹配。')
           : response.status===429?t('Too many sign-in attempts. Try again in a minute.', '登录尝试次数过多，请一分钟后再试。'):t('Sign-in failed. Try again.', '登录失败，请重试。'));
@@ -131,6 +139,7 @@ export default function LoginRoute() {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setPendingApprovalNotice(false);
     if (mode === 'token') {
       if (!accessToken.trim()) { setLocalError(t('Enter an access token.', '请输入访问令牌。')); return; }
     } else {
@@ -144,8 +153,12 @@ export default function LoginRoute() {
 
   function changeMode(next:'password'|'token'){
     if(inFlight.current)return;
-    setLocalError('');setAccessToken('');setPassword('');setMode(next);
+    setLocalError('');setPendingApprovalNotice(false);setAccessToken('');setPassword('');setMode(next);
   }
+
+  const registerHref = returnTo !== '/workspaces/default/'
+    ? `/register?returnTo=${encodeURIComponent(returnTo)}`
+    : '/register';
 
   const showModeSwitch = (mode === 'password' && tokenLogin) || (mode === 'token' && memberLogin);
 
@@ -181,9 +194,14 @@ export default function LoginRoute() {
           <p className="dashboard-login-intro">{t('Sign in to connect your agent and manage your workspaces.', '登录后即可连接 Agent 并管理工作空间。')}</p>
         </div>
         <form className="dashboard-login-form" onSubmit={submit} noValidate>
-          {registrationIntent && (
+          {registrationIntent && !checking && !registrationOpen && (
             <p className="dashboard-login-status" role="status">
               {t('Self-registration is not enabled on this deployment. Ask your organization owner for an invitation link or contact your installation administrator for an account, then sign in below.', '此部署未开放自助注册。请向组织所有者索取邀请链接，或联系实例管理员开通账号后再登录。')}
+            </p>
+          )}
+          {pendingApprovalNotice && (
+            <p className="dashboard-login-status" role="status">
+              {t('Your Limited Preview registration is awaiting administrator approval. Sign in again once an administrator approves your account.', '您的有限预览注册申请正在等待管理员审批。管理员批准后即可使用此邮箱和密码登录。')}
             </p>
           )}
           {returnTo.startsWith('/connect') && (
@@ -236,7 +254,7 @@ export default function LoginRoute() {
                   autoComplete="username"
                   disabled={submitting}
                   autoFocus
-                  onChange={event => setUsername(event.target.value)}
+                  onChange={event => { setUsername(event.target.value); setPendingApprovalNotice(false); }}
                   value={username}
                   required
                   aria-describedby="login-error"
@@ -249,7 +267,7 @@ export default function LoginRoute() {
                   placeholder={t('Enter your password', '输入密码')}
                   autoComplete="current-password"
                   disabled={submitting}
-                  onChange={event => setPassword(event.target.value)}
+                  onChange={event => { setPassword(event.target.value); setPendingApprovalNotice(false); }}
                   type="password"
                   value={password}
                   required
@@ -289,7 +307,7 @@ export default function LoginRoute() {
             {submitting ? t('Signing in…', '正在登录…') : checking ? t('Loading…', '加载中…') : t('Sign in', '登录')}
           </Button>}
         </form>
-        {!configurationFailed && !signInNotConfigured && (
+        {!configurationFailed && !signInNotConfigured && !registrationOpen && (
           <p className="dashboard-login-hint dashboard-login-access-help">
             {t('Need an account or forgot your password? Ask your organization owner for an invitation or contact your installation administrator.', '需要账号、邀请或忘记密码？请联系组织所有者获取邀请，或联系实例管理员协助恢复。')}{' '}
             <Link className="underline underline-offset-2" to="/installation">
@@ -297,8 +315,29 @@ export default function LoginRoute() {
             </Link>
           </p>
         )}
-        {(showModeSwitch || demoLogin) && (
+        {!configurationFailed && !signInNotConfigured && registrationOpen && (
+          <p className="dashboard-login-hint dashboard-login-access-help">
+            {t('Installation or organization owner setup:', '实例管理员入口：')}{' '}
+            <Link className="underline underline-offset-2" to="/installation">
+              {t('Administrator token sign-in', '管理员令牌登录')}
+            </Link>
+          </p>
+        )}
+        {(showModeSwitch || demoLogin || registrationOpen) && (
           <div className="dashboard-login-secondary">
+            {registrationOpen && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="dashboard-login-switch"
+              >
+                <Link to={registerHref}>
+                  <IconUserPlus size={15} aria-hidden="true" />
+                  <span>{t('Limited Preview · Request account', '有限预览 · 申请注册账号')}</span>
+                </Link>
+              </Button>
+            )}
             {mode === 'password' && tokenLogin && (
               <Button
                 type="button"

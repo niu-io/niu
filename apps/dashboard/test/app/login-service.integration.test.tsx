@@ -7,6 +7,10 @@ import InstallationRoute from '../../app/features/login/installation-page';
 import AppLayout from '../../app/shell/AppLayout';
 import { BrandingProvider, defaultBranding } from '../../app/shell/branding';
 
+vi.mock('../../app/features/models/public-catalog', () => ({
+  loadPublicCatalogModels: vi.fn(async () => ({ models: [] })),
+}));
+
 function showLogin(withBranding = false) {
   const context = { token: '', error: '', connect: vi.fn(), connectWithToken: vi.fn(), draftToken: '', setDraftToken: vi.fn() };
   const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [{ path: '/login', element: <LoginRoute /> }] }], { initialEntries: ['/login'] });

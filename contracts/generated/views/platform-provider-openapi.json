@@ -28,6 +28,10 @@
       "description": "Published routing snapshots and candidate pools."
     },
     {
+      "name": "Registration review",
+      "description": "Limited Preview account registration policy and platform administrator approval queue."
+    },
+    {
       "name": "Users and sessions",
       "description": "User identities, roles, sessions and authentication events."
     },
@@ -89,6 +93,7 @@
     {
       "name": "Authentication and access",
       "tags": [
+        "Registration review",
         "Users and sessions"
       ]
     },
@@ -13005,6 +13010,454 @@
             "installation_admin"
           ],
           "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/registration": {
+      "get": {
+        "operationId": "getPlatformRegistrationPolicy",
+        "summary": "Read Limited Preview registration policy",
+        "description": "Platform administration required. Returns the saved registration policy revision and whether password sign-in is active.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "responses": {
+          "200": {
+            "description": "Current registration policy.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RegistrationPolicySnapshot"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          }
+        },
+        "tags": [
+          "Registration review"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      },
+      "put": {
+        "operationId": "savePlatformRegistrationPolicy",
+        "summary": "Update Limited Preview registration policy",
+        "description": "Platform administration required. Switches public registration between approval_required (Limited Preview) and disabled using optimistic expected_revision.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mode",
+                  "expected_revision"
+                ],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "disabled",
+                      "approval_required"
+                    ]
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated registration policy.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RegistrationPolicySnapshot"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid policy mode or revision."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "409": {
+            "description": "Policy changed concurrently; refresh revision and retry."
+          }
+        },
+        "tags": [
+          "Registration review"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/registrations": {
+      "get": {
+        "operationId": "listPlatformRegistrations",
+        "summary": "List Limited Preview registration requests",
+        "description": "Platform administration required. Returns submitted registration requests, counts by status, and the current policy. Password hashes are never returned.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration requests page and summary counts.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationQueuePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status filter, cursor, or limit."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          }
+        },
+        "tags": [
+          "Registration review"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/registrations/{registration}/approve": {
+      "post": {
+        "operationId": "approvePlatformRegistration",
+        "summary": "Approve a Limited Preview registration",
+        "description": "Platform administration required. Atomically creates the customer organization (and balance account in configured platform currency when present), initial workspace with human-readable slug, organization-wide owner operator, and password credentials from the applicant's submitted Argon2id hash.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "registration",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_revision"
+                ],
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "organization_name": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "workspace_name": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration approved and workspace owner provisioned.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RegistrationRequestRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid approval payload or name override."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "409": {
+            "description": "Request already reviewed, stale revision, or email already bound to an active account."
+          }
+        },
+        "tags": [
+          "Registration review"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/registrations/{registration}/reject": {
+      "post": {
+        "operationId": "rejectPlatformRegistration",
+        "summary": "Reject a Limited Preview registration",
+        "description": "Platform administration required. Marks the pending request rejected and clears its stored password hash without creating an account.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "registration",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expected_revision"
+                ],
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration rejected.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RegistrationRequestRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rejection payload."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "409": {
+            "description": "Request already reviewed or stale revision."
+          }
+        },
+        "tags": [
+          "Registration review"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
           "scope": "platform"
         }
       }
@@ -26720,7 +27173,9 @@
               "credit_policy",
               "grant_preparation",
               "media_liability",
-              "procurement_configuration"
+              "procurement_configuration",
+              "registration_policy",
+              "registration_review"
             ]
           },
           "category": {
@@ -26782,6 +27237,216 @@
               null
             ],
             "description": "Recorded role after the same mutation; never inferred from current user metadata."
+          }
+        }
+      },
+      "RegistrationPolicySnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "revision",
+          "updated_at",
+          "password_login_configured"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "approval_required"
+            ],
+            "description": "disabled (invite/admin setup only) or approval_required (Limited Preview)."
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "password_login_configured": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RegistrationQueuePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "next_cursor",
+          "counts",
+          "policy"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistrationRequestRecord"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/RegistrationCounts"
+          },
+          "policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "revision",
+              "updated_at"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "disabled",
+                  "approval_required"
+                ]
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "RegistrationRequestRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "applicant_name",
+          "organization_name",
+          "workspace_name",
+          "note",
+          "status",
+          "revision",
+          "created_at",
+          "reviewed_at",
+          "reviewed_by_kind",
+          "reviewed_by_label",
+          "decision_note",
+          "approved_organization_slug",
+          "approved_workspace_slug"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Internal API routing reference. Never display internal UUIDs in product UI."
+          },
+          "email": {
+            "type": "string"
+          },
+          "applicant_name": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reviewed_by_kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "installation",
+              "operator",
+              null
+            ]
+          },
+          "reviewed_by_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decision_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_organization_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_workspace_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "RegistrationCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "approved": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rejected": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },

@@ -108,6 +108,7 @@ describe('router-tree parity', () => {
     ['/', 'root-index'],
     ['/connect', 'connect'],
     ['/login', 'login'],
+    ['/register', 'register'],
     ['/invite/token', 'invite'],
     ['/admin/routing', 'admin-routing'],
     ['/admin/providers/openai/keys', 'admin-provider-section'],

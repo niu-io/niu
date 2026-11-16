@@ -778,6 +778,36 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(middleware::from_fn(password_response_headers)),
     )
     .dual_route(
+        "/auth/registrations",
+        axum::routing::post(crate::admin::registrations::submit)
+            .layer(DefaultBodyLimit::max(8192))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registration",
+        get(crate::admin::registrations::read_policy)
+            .put(crate::admin::registrations::save_policy)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registrations",
+        get(crate::admin::registrations::list)
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registrations/{registration}/approve",
+        axum::routing::post(crate::admin::registrations::approve)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registrations/{registration}/reject",
+        axum::routing::post(crate::admin::registrations::reject)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
         "/operators/{operator}/password",
         get(crate::admin::passwords::password_configuration)
             .put(crate::admin::passwords::set_password)

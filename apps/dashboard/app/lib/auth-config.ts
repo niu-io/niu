@@ -4,6 +4,7 @@ export type AuthConfig = {
   password_login?: boolean;
   browser_token_login?: boolean;
   demo_login?: boolean;
+  registration_mode?: 'disabled' | 'approval_required';
   [key: string]: unknown;
 };
 

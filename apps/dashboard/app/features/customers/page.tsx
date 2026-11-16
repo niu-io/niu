@@ -10,17 +10,20 @@ import { usePlatformCurrency } from '@/shell/platform-currency';
 import PageHeader from '@/components/PageHeader';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cachedGet, markCachedStale, peekCachedGet, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { listOperators, type Operator } from '@/features/operators/api';
+import { RegistrationRequestsQueue } from '@/features/platform-settings/registration-review';
 import { invalidateQueries } from '@/lib/query-cache';
 import { amountFromNanos, amountToNanos, formatUnitAmountText, money } from '@/lib/money';
-import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type IssuedCustomerBalanceGrant, type PlatformCustomerCreditSummary, type PreparedCustomerBalanceGrant, type Workspace } from '@niu-io/sdk/admin';
+import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type IssuedCustomerBalanceGrant, type PlatformCustomerCreditSummary, type PlatformRegistrationQueuePage, type PreparedCustomerBalanceGrant, type Workspace } from '@niu-io/sdk/admin';
 import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
@@ -88,6 +91,8 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
   const [setupLoading, setSetupLoading] = useState(canSetup);
   const [setupError, setSetupError] = useState('');
   const [setupRevision, setSetupRevision] = useState(0);
+  const [activeTab, setActiveTab] = useState<'companies' | 'registrations'>('companies');
+  const [pendingRegistrations, setPendingRegistrations] = useState(0);
   const active = useRef<AbortController | null>(null);
   const opener = useRef<HTMLElement | null>(null);
 
@@ -142,6 +147,19 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
 
   useEffect(() => { void load(undefined, false); return () => active.current?.abort(); }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    void request<PlatformRegistrationQueuePage>(token, '/api/v1/platform/registrations?status=pending&limit=1', 'GET', undefined, controller.signal)
+      .then(page => {
+        if (!controller.signal.aborted) setPendingRegistrations(page.counts.pending);
+      })
+      .catch(() => {
+        // Ignore badge prefetch errors; opening Registration requests surfaces failures.
+      });
+    return () => controller.abort();
+  }, [token, setupRevision]);
+
   function refresh() {
     setSetupRevision(value => value + 1);
     void load();
@@ -186,24 +204,60 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
   }
 
   return <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Customers")}>
-    <PageHeader title={uiT("Customers")} action={<><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}><IconRefresh size={16} /><span className="hidden sm:inline">{uiT("Refresh")}</span></Button>{canSetup && <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} /><span className="hidden sm:inline">{uiT("New customer")}</span></Button>}</>} />
-    <p className="text-sm text-muted-foreground">{uiT("Each customer company has its own funds, users, and workspaces; workspaces within a company share its funds. Set up access, review Credits and currency balances, and manage approved credit or noncash grants. Credit permits borrowing; it does not add funds or recognize revenue.")}</p>
-    {notice && <p role="status">{uiT(notice)}</p>}
-    {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
-    {loading && !companies.length && <TableSkeleton columns={8} rows={5} label={uiT("Loading customer balances…")} />}
-    {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuilding size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No customers yet")}</EmptyTitle><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader>{canSetup && <EmptyContent><Button onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} aria-hidden="true" /><span>{uiT("New customer")}</span></Button></EmptyContent>}</Empty>}
-    {!!companies.length && <Table className="table-fixed min-w-[680px]" aria-label={uiT("Customer companies")}><TableHeader><TableRow>{[uiT('Company'), uiT('Credits'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')].map((name, index) => <TableHead key={name} className={COLUMN_WIDTHS[index] + ' ' + (index > 2 && index < 7 ? 'text-right whitespace-normal' : 'whitespace-nowrap') + (index === 7 ? ' text-right' : '')}>{name}</TableHead>)}</TableRow></TableHeader>
-      <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map((account, accountIndex) => <TableRow key={company.organization_id + ':' + account.currency}>
-        <>{accountIndex === 0 && <><TableCell rowSpan={company.accounts.length} className="whitespace-normal min-w-48 max-w-72 align-top"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell><TableCell rowSpan={company.accounts.length} className="align-top"><CreditsSummaryCell credits={company.credits ?? null} /></TableCell></>}</><TableCell>{account.currency}</TableCell>
-        {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? uiT("Unavailable") : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
-        <TableCell className="text-right">{accountActions(company, account)}</TableCell>
-      </TableRow>) : [<TableRow key={company.organization_id}>
-        <TableCell className="whitespace-normal min-w-48 max-w-72"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell>
-        <TableCell><CreditsSummaryCell credits={company.credits ?? null} /></TableCell><TableCell colSpan={5} className="text-muted-foreground">{uiT("No currency accounts")}</TableCell>
-        <TableCell className="text-right">{accountActions(company, null)}</TableCell>
-      </TableRow>])}</TableBody>
-    </Table>}
-    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More companies")}</Button>}
+    <PageHeader title={uiT("Customers")} action={activeTab === 'companies' ? <><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}><IconRefresh size={16} /><span className="hidden sm:inline">{uiT("Refresh")}</span></Button>{canSetup && <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} /><span className="hidden sm:inline">{uiT("New customer")}</span></Button>}</> : undefined} />
+    <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'companies' | 'registrations')}>
+      <TabsList variant="line" aria-label={uiT("Customer administration", "客户管理视图")}>
+        <TabsTrigger value="companies">{uiT("Customer companies", "客户公司")}</TabsTrigger>
+        <TabsTrigger value="registrations" className="gap-2">
+          <span>{uiT("Registration requests", "注册审批")}</span>
+          {pendingRegistrations > 0 && <Badge variant="default">{pendingRegistrations}</Badge>}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="companies" className="space-y-5 pt-2">
+        {pendingRegistrations > 0 && (
+          <Alert>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {uiT("Pending Limited Preview account registrations:", "待审批的有限预览账号申请：")}{" "}
+                <strong>{pendingRegistrations}</strong>
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab('registrations')}>
+                {uiT("Review requests", "前往审批")}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        <p className="text-sm text-muted-foreground">{uiT("Each customer company has its own funds, users, and workspaces; workspaces within a company share its funds. Set up access, review Credits and currency balances, and manage approved credit or noncash grants. Credit permits borrowing; it does not add funds or recognize revenue.")}</p>
+        {notice && <p role="status">{uiT(notice)}</p>}
+        {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
+        {loading && !companies.length && <TableSkeleton columns={8} rows={5} label={uiT("Loading customer balances…")} />}
+        {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuilding size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No customers yet")}</EmptyTitle><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader>{canSetup && <EmptyContent><Button onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} aria-hidden="true" /><span>{uiT("New customer")}</span></Button></EmptyContent>}</Empty>}
+        {!!companies.length && <Table className="table-fixed min-w-[680px]" aria-label={uiT("Customer companies")}><TableHeader><TableRow>{[uiT('Company'), uiT('Credits'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')].map((name, index) => <TableHead key={name} className={COLUMN_WIDTHS[index] + ' ' + (index > 2 && index < 7 ? 'text-right whitespace-normal' : 'whitespace-nowrap') + (index === 7 ? ' text-right' : '')}>{name}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map((account, accountIndex) => <TableRow key={company.organization_id + ':' + account.currency}>
+            <>{accountIndex === 0 && <><TableCell rowSpan={company.accounts.length} className="whitespace-normal min-w-48 max-w-72 align-top"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell><TableCell rowSpan={company.accounts.length} className="align-top"><CreditsSummaryCell credits={company.credits ?? null} /></TableCell></>}</><TableCell>{account.currency}</TableCell>
+            {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? uiT("Unavailable") : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
+            <TableCell className="text-right">{accountActions(company, account)}</TableCell>
+          </TableRow>) : [<TableRow key={company.organization_id}>
+            <TableCell className="whitespace-normal min-w-48 max-w-72"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell>
+            <TableCell><CreditsSummaryCell credits={company.credits ?? null} /></TableCell><TableCell colSpan={5} className="text-muted-foreground">{uiT("No currency accounts")}</TableCell>
+            <TableCell className="text-right">{accountActions(company, null)}</TableCell>
+          </TableRow>])}</TableBody>
+        </Table>}
+        {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More companies")}</Button>}
+      </TabsContent>
+
+      <TabsContent value="registrations" className="pt-2">
+        <RegistrationRequestsQueue
+          token={token}
+          onCountsChange={counts => setPendingRegistrations(counts.pending)}
+          onApproved={() => {
+            onWorkspaceCreated();
+            refresh();
+          }}
+        />
+      </TabsContent>
+    </Tabs>
     <CreateCompany onRestoreFocus={() => opener.current?.focus()} open={create} onOpenChange={setCreate} client={client} onCreated={company => { invalidateQueries(CUSTOMER_ACCOUNTS_PATH); setCompanies(old => [{ organization_id: company.id, organization_name: company.name, accounts: [], credits: null }, ...old.filter(row => row.organization_id !== company.id)]); setCreate(false); setSelected(company); }} />
     {selected && <CustomerSetup onRestoreFocus={() => opener.current?.focus()} key={selected.id} company={selected} token={token} client={client} onClose={() => { setSelected(null); setSetupRevision(value => value + 1); void load(); }} onWorkspaceCreated={() => { onWorkspaceCreated(); setSetupRevision(value => value + 1); }} />}
     {editor?.kind === 'units' && <CompanyBrandedUnitsDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => { setEditor(null); void load(); }} onChanged={msg => { setNotice(msg); void load(); }} />}

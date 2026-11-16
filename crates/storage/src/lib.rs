@@ -181,6 +181,13 @@ pub use member_profiles::MemberProfile;
 mod password_logins;
 pub mod passwords;
 pub use password_logins::{PasswordLoginCredential, VerifiedPasswordLogin};
+mod registrations;
+pub use registrations::{
+    RegistrationCounts, RegistrationMode, RegistrationPolicySnapshot, RegistrationQueuePage,
+    RegistrationRequestRecord, RegistrationStatus, RegistrationSubmissionInput,
+    RegistrationSubmissionOutcome, ValidatedRegistrationFields,
+    validate_registration_submission_fields,
+};
 mod password_workers;
 pub use password_workers::{PasswordWorkError, PasswordWorkers};
 mod asset_authorizations;
@@ -593,6 +600,14 @@ pub enum StoreError {
     ProviderSettlementOverflow,
     #[error("invalid operator name, role, or session lifetime")]
     InvalidOperator,
+    #[error("invalid account registration details or password policy")]
+    InvalidRegistration,
+    #[error("account registration is disabled on this installation")]
+    RegistrationDisabled,
+    #[error("an active account already uses this email address")]
+    RegistrationEmailExists,
+    #[error("invalid registration queue filters or page size")]
+    InvalidRegistrationQuery,
     #[error("invalid invitation recipient, role, scope or expiry")]
     InvalidInvitation,
     #[error("invitation is invalid, expired, canceled or already used")]

@@ -2279,6 +2279,57 @@ export class NiuAdminClient {
     return this.request('/platform/branding', undefined, options);
   }
 
+  /** Read Limited Preview registration policy (platform administration). */
+  getRegistrationPolicy(options?: RequestOptions): Promise<{ data: PlatformRegistrationPolicy }> {
+    return this.apiRequest('/platform/registration', undefined, options);
+  }
+
+  /** Switch registration policy between Limited Preview approval and closed (platform administration). */
+  saveRegistrationPolicy(
+    input: { mode: import('./auth.js').RegistrationMode; expected_revision: string },
+    options?: RequestOptions,
+  ): Promise<{ data: PlatformRegistrationPolicy }> {
+    if (!/^[1-9][0-9]*$/.test(input.expected_revision)) throw new TypeError('Provide the current registration policy revision');
+    if (input.mode !== 'disabled' && input.mode !== 'approval_required') throw new TypeError('Choose disabled or approval_required registration mode');
+    return this.apiRequest('/platform/registration', input, options, 'PUT');
+  }
+
+  /** List Limited Preview registration requests (platform administration). */
+  listRegistrations(query: PlatformRegistrationQuery = {}, options?: RequestOptions): Promise<PlatformRegistrationQueuePage> {
+    const params = new URLSearchParams();
+    if (query.status !== undefined) {
+      if (!['pending', 'approved', 'rejected'].includes(query.status)) throw new TypeError('Choose pending, approved, or rejected status');
+      params.set('status', query.status);
+    }
+    if (query.cursor !== undefined) params.set('cursor', uuid(query.cursor));
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Registration limit must be between 1 and 100');
+      params.set('limit', String(query.limit));
+    }
+    const suffix = params.size ? `?${params}` : '';
+    return this.apiRequest(`/platform/registrations${suffix}`, undefined, options);
+  }
+
+  /** Atomically approve a pending Limited Preview registration and provision workspace owner access. */
+  approveRegistration(
+    registrationId: string,
+    input: { expected_revision: string; organization_name?: string; workspace_name?: string; note?: string },
+    options?: RequestOptions,
+  ): Promise<{ data: RegistrationRequestRecord }> {
+    if (!/^[1-9][0-9]*$/.test(input.expected_revision)) throw new TypeError('Provide the current registration revision');
+    return this.apiRequest(`/platform/registrations/${uuid(registrationId)}/approve`, input, options, 'POST');
+  }
+
+  /** Reject a pending Limited Preview registration without provisioning an account. */
+  rejectRegistration(
+    registrationId: string,
+    input: { expected_revision: string; note?: string },
+    options?: RequestOptions,
+  ): Promise<{ data: RegistrationRequestRecord }> {
+    if (!/^[1-9][0-9]*$/.test(input.expected_revision)) throw new TypeError('Provide the current registration revision');
+    return this.apiRequest(`/platform/registrations/${uuid(registrationId)}/reject`, input, options, 'POST');
+  }
+
   /** Revision-checked save. Empty palettes inherit Niu theme defaults. */
   saveBranding(expectedRevision: string, settings: BrandingSettings, options?: RequestOptions): Promise<BrandingConfiguration> {
     if (!/^(0|[1-9][0-9]*)$/.test(expectedRevision) || BigInt(expectedRevision) > 9223372036854775807n) throw new TypeError('A canonical branding revision is required');
@@ -4640,3 +4691,48 @@ export interface ProviderConfigurationUsage {
   next_after: string | null;
 }
 export type SupplierConfigurationUsage = ProviderConfigurationUsage;
+
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
+export interface PlatformRegistrationPolicy {
+  mode: import('./auth.js').RegistrationMode;
+  revision: string;
+  updated_at: string;
+  password_login_configured: boolean;
+}
+export interface RegistrationCounts {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+export interface RegistrationRequestRecord {
+  id: string;
+  email: string;
+  applicant_name: string;
+  organization_name: string;
+  workspace_name: string;
+  note: string | null;
+  status: RegistrationStatus;
+  revision: string;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by_kind: 'installation' | 'operator' | null;
+  reviewed_by_label: string | null;
+  decision_note: string | null;
+  approved_organization_slug: string | null;
+  approved_workspace_slug: string | null;
+}
+export interface PlatformRegistrationQuery {
+  status?: RegistrationStatus;
+  cursor?: string;
+  limit?: number;
+}
+export interface PlatformRegistrationQueuePage {
+  data: RegistrationRequestRecord[];
+  next_cursor: string | null;
+  counts: RegistrationCounts;
+  policy: {
+    mode: import('./auth.js').RegistrationMode;
+    revision: string;
+    updated_at: string;
+  };
+}

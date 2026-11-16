@@ -433,6 +433,16 @@ paths:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1logout'
   /api/v1/auth/login:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1login'
+  /api/v1/auth/registrations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1registrations'
+  /api/v1/platform/registration:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registration'
+  /api/v1/platform/registrations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registrations'
+  /api/v1/platform/registrations/{registration}/approve:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registrations~1{registration}~1approve'
+  /api/v1/platform/registrations/{registration}/reject:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registrations~1{registration}~1reject'
   /api/v1/operators/{operator}/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1operators~1{operator}~1password'
   /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
