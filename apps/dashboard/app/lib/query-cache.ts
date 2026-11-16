@@ -1,23 +1,8 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 
-type CacheEntry<T = unknown> = {
-  data: T;
-  updatedAt: number;
-  stale: boolean;
-  generation: number;
-  globalGen: number;
-};
-
-type InFlightConsumer = {
-  reject: (reason: unknown) => void;
-  cleanup: () => void;
-};
-
-type FetchOutcome<T = unknown> = {
-  data: T;
-  generation: number;
-  globalGen: number;
-};
+type CacheEntry<T = unknown> = { data: T; updatedAt: number; stale: boolean; generation: number; globalGen: number };
+type InFlightConsumer = { reject: (reason: unknown) => void; cleanup: () => void };
+type FetchOutcome<T = unknown> = { data: T; generation: number; globalGen: number };
 
 type InFlightEntry<T = unknown> = {
   promise: Promise<FetchOutcome<T>>;
@@ -64,6 +49,7 @@ const inFlight = new Map<string, InFlightEntry>();
 const keyGenerations = new Map<string, number>();
 const subscribers = new Map<string, Set<CacheSubscriber>>();
 const mutationSubscribers = new Set<MutationSubscriber>();
+const resetListeners = new Set<(token?: string) => void>();
 
 let globalGeneration = 0;
 let activeFetchRef: typeof fetch | undefined = globalThis.fetch;
@@ -111,6 +97,7 @@ function clearMemoryOnly() {
   }
   inFlight.clear();
   memoryCache.clear();
+  for (const listener of [...resetListeners]) listener();
 }
 
 function ensureCacheCoherence() {
@@ -251,6 +238,16 @@ export function subscribeMutations(listener: MutationSubscriber): () => void {
   return () => {
     mutationSubscribers.delete(listener);
   };
+}
+
+export function getActiveCacheAuthority(): string | null {
+  ensureCacheCoherence();
+  return activeAuthorityHash;
+}
+
+export function subscribeCacheReset(listener: (token?: string) => void): () => void {
+  resetListeners.add(listener);
+  return () => { resetListeners.delete(listener); };
 }
 
 function readPersistedSnapshot<T>(scope: string, key: string, maxAgeMs: number): CacheEntry<T> | undefined {
@@ -749,6 +746,9 @@ export function clearSessionCache(token?: string): void {
     }
   } catch {
     // Storage access is optional.
+  }
+  if (token) {
+    for (const listener of [...resetListeners]) listener(token);
   }
 }
 

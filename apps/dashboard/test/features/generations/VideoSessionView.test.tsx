@@ -1,7 +1,9 @@
 import {afterEach,expect,it,vi} from 'vitest';
 import {render,screen,waitFor} from '@testing-library/react';
-import {MemoryRouter,useLocation} from 'react-router';
+import {MemoryRouter,useLocation,useNavigate} from 'react-router';
 import VideoSessionView from '@/features/generations/VideoSessionView';
+import VideoTurnResult from '@/features/generations/VideoTurnResult';
+import GenerationsContextPanel from '@/features/generations/GenerationsContextPanel';
 import type {DashboardContext} from '@/shell/dashboard-context';
 vi.mock('@/shell/branding',()=>({useBranding:()=>({settings:{display_name:'Niu'}})}));
 vi.mock('@/features/generations/GenerationsLayout',()=>({GenerationSessionBindings:({title}:{title:string})=><h1>{title}</h1>,openGenerationsAssetsPanel:vi.fn()}));
@@ -19,8 +21,18 @@ afterEach(()=>vi.unstubAllGlobals());
 function RouteView(){
   const location=useLocation();
   const pathSession=/^\/generations\/([^/?#]+)\/?$/.exec(location.pathname)?.[1];
-  const sessionId=(pathSession ? decodeURIComponent(pathSession) : null) ?? new URLSearchParams(location.search).get('video-session')!;
+  const sessionId=(pathSession ? decodeURIComponent(pathSession) : null) ?? new URLSearchParams(location.search).get('video-session') ?? '';
   return <><output data-testid="location">{location.pathname+location.search+location.hash}</output><VideoSessionView context={context} id={sessionId}/></>;
+}
+function Switcher(){
+ const location=useLocation();
+ const navigate=useNavigate();
+ const sessionId=decodeURIComponent(location.pathname.split('/').pop() ?? '');
+ return <>
+  <button type="button" onClick={()=>navigate('/generations/video-1002')}>Go B</button>
+  <button type="button" onClick={()=>navigate('/generations/video-1001')}>Go A</button>
+  <VideoSessionView context={context} id={sessionId}/>
+ </>;
 }
 function savedFetch(session:unknown= data, options:{sessionStatus?:number}={}){
  const calls:Array<{path:string;method:string}>=[];
@@ -89,4 +101,81 @@ it('asks for a workspace instead of loading a session without one',async()=>{
  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[]})));
  render(<MemoryRouter initialEntries={['/generations/video-1001']}><VideoSessionView context={{...context,workspace:null,workspaces:[]} as DashboardContext} id="video-1001"/></MemoryRouter>);
  expect((await screen.findByRole('alert')).textContent).toContain('Select a workspace');
+});
+
+it('switches sessions A -> B -> A with Frame-0 video render and zero duplicate session, task, diagnostics, or media fetches',async()=>{
+ let blobSeq=0;
+ vi.spyOn(URL,'createObjectURL').mockImplementation(()=>`blob:switch-${++blobSeq}`);
+ const revoke=vi.spyOn(URL,'revokeObjectURL');
+ const sessionBId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ const taskBId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ const turnBId='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+ const sessionA={...data,turns:[taskTurn]};
+ const sessionB={...data,id:sessionBId,reference:'video-1002',title:'Second Video',turns:[{id:turnBId,sequence:'1',created_at:'2026-10-22T00:05:00Z',content_state:'retained',instruction:{kind:'video',prompt:'Second scene'},content_expires_at:'2027-01-01T00:00:00Z',task_id:taskBId,task:{id:taskBId,reference:'run-1002',kind:'video',model:'video-review',status:'succeeded',artifacts:[]},intent:null}]};
+ const taskB={...task,id:taskBId,reference:'run-1002',session_id:sessionBId,turn_id:turnBId};
+ const calls:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  calls.push(path);
+  if(path.endsWith('/keys'))return Response.json({data:[{id:'99999999-9999-4999-8999-999999999999',name:'Review key',allowed_models:['*'],revoked:false,expired:false}]});
+  if(path.includes('/sessions/video-1001'))return Response.json({data:sessionA});
+  if(path.includes('/sessions/video-1002'))return Response.json({data:sessionB});
+  if(path.endsWith('/tasks/run-1001'))return Response.json({data:task});
+  if(path.endsWith('/tasks/run-1002'))return Response.json({data:taskB});
+  if(path.endsWith(`/tasks/${taskId}/diagnostics`)||path.endsWith(`/tasks/${taskBId}/diagnostics`))return Response.json({billing:{mode:'customer',state:'settled',currency:'USD',reserved_nanos:'2000000000',charge_nanos:'1500000000',usage:null,settled_usage:null,bound_exceeded:null,effective_output:null,estimate:null,price:null},timings:{data:[{phase:'submission',started_unix_ms:1000,elapsed_ms:120}],has_more:false}});
+  if(path.endsWith(`/artifacts/${taskId}/video/content`)||path.endsWith(`/artifacts/${taskBId}/video/content`))return new Response(new Uint8Array([0,0,0,12,102,116,121,112,105,115,111,109]),{headers:{'content-type':'video/mp4'}});
+  return Response.json({data:[]});
+ }));
+ render(<MemoryRouter initialEntries={['/generations/video-1001']}><Switcher/></MemoryRouter>);
+ await screen.findByLabelText('Generated video');
+ expect(calls.filter(p=>p.includes('/sessions/video-1001'))).toHaveLength(1);
+ expect(calls.filter(p=>p.endsWith('/tasks/run-1001'))).toHaveLength(1);
+ expect(calls.filter(p=>p.endsWith(`/tasks/${taskId}`))).toHaveLength(0);
+ expect(calls.filter(p=>p.endsWith(`/tasks/${taskId}/diagnostics`))).toHaveLength(1);
+ expect(calls.filter(p=>p.endsWith(`/artifacts/${taskId}/video/content`))).toHaveLength(1);
+
+ const user=(await import('@testing-library/user-event')).default.setup();
+ await user.click(screen.getByRole('button',{name:'Go B'}));
+ await screen.findByRole('heading',{name:'Second Video'});
+ await screen.findByLabelText('Generated video');
+ expect(revoke).toHaveBeenCalledWith('blob:switch-1');
+
+ await user.click(screen.getByRole('button',{name:'Go A'}));
+ expect(screen.getByRole('heading',{name:'Saved Video'})).toBeTruthy();
+ expect(screen.getByLabelText('Generated video').getAttribute('src')).toBe('blob:switch-3');
+ expect(screen.queryByText('Loading video…')).toBeNull();
+ expect(screen.queryByText('Loading Video session…')).toBeNull();
+ expect(calls.filter(p=>p.includes('/sessions/video-1001'))).toHaveLength(1);
+ expect(calls.filter(p=>p.endsWith('/tasks/run-1001'))).toHaveLength(1);
+ expect(calls.filter(p=>p.endsWith(`/tasks/${taskId}/diagnostics`))).toHaveLength(1);
+ expect(calls.filter(p=>p.endsWith(`/artifacts/${taskId}/video/content`))).toHaveLength(1);
+});
+
+it('propagates cached and newly-loaded billing and timings from VideoTurnResult to GenerationsContextPanel',async()=>{
+ vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:ctx-video');
+ const diagCalls:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  if(path.endsWith('/tasks/run-1001'))return Response.json({data:task});
+  if(path.endsWith(`/tasks/${taskId}/diagnostics`)){
+   diagCalls.push(path);
+   return Response.json({
+    billing:{mode:'customer',state:'settled',currency:'USD',reserved_nanos:'2000000000',charge_nanos:'1250000000',usage:null,settled_usage:null,bound_exceeded:null,effective_output:null,estimate:null,price:null},
+    timings:{data:[{phase:'submission',started_unix_ms:1000,elapsed_ms:250}],has_more:false},
+   });
+  }
+  if(path.endsWith(`/artifacts/${taskId}/video/content`))return new Response(new Uint8Array([0,0,0,12,102,116,121,112,105,115,111,109]),{headers:{'content-type':'video/mp4'}});
+  return Response.json({data:[]});
+ }));
+ const panel={runs:[{id:turnId,reference:'run-1001',turnIndex:1,prompt:'Retained scene',model:'video-review',modelTitle:'video-review',kind:'video' as const,state:'succeeded' as const,statusLabel:'Succeeded'}],deliverables:[]};
+ const ui=()=><MemoryRouter><VideoTurnResult context={context} sessionId={id} turn={taskTurn}/><GenerationsContextPanel sessionKey={id} panel={panel} open onOpenChange={()=>{}} activeTab="runs" onTabChange={()=>{}} selectedRunId={turnId} onSelectRun={()=>{}}/></MemoryRouter>;
+ const first=render(ui());
+ await screen.findByText('$1.25');
+ expect(screen.getByText('Transport time')).toBeTruthy();
+ expect(screen.getByText('250 ms')).toBeTruthy();
+ expect(diagCalls).toHaveLength(1);
+ first.unmount();
+
+ render(ui());
+ expect(screen.getByText('$1.25')).toBeTruthy();
+ expect(screen.getByText('Transport time')).toBeTruthy();
+ expect(diagCalls).toHaveLength(1);
 });

@@ -10,6 +10,8 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton, ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
+import { evictMediaBlob, fetchMediaBlob, peekMediaBlob } from '@/lib/media-cache';
+import { assetMediaCacheKey } from '@/features/generations/video-cache';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,9 +40,10 @@ export default function LibraryRoute() {
 }
 export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=false}:{token:string;scope:TenantScope;canWrite:boolean;workspaceSlug?:string;compact?:boolean}) {
   const { t: uiT, format: uiF } = useUILocale();
+  const tenantScope=useMemo(()=>({organizationId:scope.organizationId,projectId:scope.projectId}),[scope.organizationId,scope.projectId]);
   const client=useMemo(()=>new NiuAdminClient({baseURL:`${window.location.origin}/api/v1`,adminToken:token}),[token]);
   const [kind,setKind]=useState<keyof typeof kinds>('all'), [query,setQuery]=useState('');
-  const cacheKey=`library:${scope.organizationId}:${scope.projectId}:${kind}`;
+  const cacheKey=`library:${tenantScope.organizationId}:${tenantScope.projectId}:${kind}`;
   // Cached pages are optional hydration; a failed refresh is surfaced below.
   const initialPage=(()=>{try{const c=peekQuery<WorkspaceAssetPage>(token||'public',cacheKey);return c?checkedPage(c):null;}catch{return null;}})();
   const [assets,setAssets]=useState<WorkspaceAsset[]>(()=>initialPage?.data??[]);
@@ -73,16 +76,30 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
     return()=>request.abort();
   },[client,token,cacheKey,scope.organizationId,scope.projectId,kind,revision]);
   useEffect(()=>{
-    setPreview('');setActionError('');
-    if(selected?.action!=='preview')return;
+    setActionError('');
+    if(selected?.action!=='preview'){setPreview('');setPreviewLoading(false);return;}
+    const mediaScope=token||client;
+    const key=assetMediaCacheKey(tenantScope,selected.asset.id);
+    const cached=peekMediaBlob(mediaScope,key);
+    if(cached){
+      const url=URL.createObjectURL(cached);
+      setPreview(url);setPreviewLoading(false);
+      return()=>{URL.revokeObjectURL(url);};
+    }
+    setPreview('');
     const request=new AbortController(); let url='';setPreviewLoading(true);
-    void client.downloadWorkspaceAsset(scope,selected.asset.id,{signal:request.signal}).then(bytes=>{
+    void fetchMediaBlob(
+      mediaScope,
+      key,
+      async signal=>new Blob([await client.downloadWorkspaceAsset(tenantScope,selected.asset.id,{signal})],{type:selected.asset.content_type}),
+      {signal:request.signal},
+    ).then(blob=>{
       if(request.signal.aborted)return;
-      url=URL.createObjectURL(new Blob([bytes],{type:selected.asset.content_type}));setPreview(url);
+      url=URL.createObjectURL(blob);setPreview(url);
     }).catch(()=>{if(!request.signal.aborted)setActionError('This saved file could not be loaded. It may have been removed or your access may have changed.');})
       .finally(()=>{if(!request.signal.aborted)setPreviewLoading(false);});
     return()=>{request.abort();if(url)URL.revokeObjectURL(url);};
-  },[client,scope.organizationId,scope.projectId,selected]);
+  },[client,token,tenantScope,selected]);
   async function more(){
     if(!cursor||loadingMore)return;
     const after=cursor, request=new AbortController();moreRequest.current=request;setLoadingMore(true);setMoreError('');
@@ -109,6 +126,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
         setAssets(old=>old.map(asset=>asset.id===result.data.id?result.data:asset));setNotice('File renamed.');
       }else if(selected.action==='delete'){
         await client.deleteWorkspaceAsset(scope,selected.asset.id,selected.asset.revision,{signal:request.signal});
+        evictMediaBlob(token||client,assetMediaCacheKey(scope,selected.asset.id));
         invalidateQueries(key=>key.startsWith(`${token||'public'}::library:${scope.organizationId}:${scope.projectId}:`));
         if(!active.current||request.signal.aborted)return;
         setNotice('Workspace copy deleted.');setRevision(value=>value+1);
