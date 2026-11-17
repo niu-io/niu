@@ -67,3 +67,28 @@ and [WAI-ARIA modal dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dia
 SDK compilation, dashboard route type generation, TypeScript and lint completed.
 Fixture results are not evidence. Exact merged hosted-candidate acceptance remains
 required before closing the bead or qualifying this work for release.
+
+## Merged hosted acceptance
+
+On deployed core `3f949559156ff2499a900e6890b3e29ed6ed4dde`, the actual
+Wan composer selected a fresh model-restricted key and retained a newly edited
+prompt. Before the first manual estimate, resource timing recorded no estimate
+request over the observed idle interval. The two explicit Estimate actions
+produced exactly two HTTP 501 responses, at 42.51 and 65.43 seconds after page
+navigation. At 166.39 seconds the count was still two. The response appeared as
+the Chinese missing-output-estimator explanation, separately from the warning
+that the Provider may charge its account.
+
+Cancel and Escape each dismissed the actual unquoted-generation confirmation
+and restored focus to Generate video. No generation submission occurred; both
+browser resource observations and the independent key-scoped request inventory
+contained zero video jobs/requests. The temporary key was revoked and independently
+returned HTTP 401. No paid video was generated in this verification.
+
+The desktop error state, 390-pixel error state and narrow confirmation were
+visually inspected. The narrow document width was exactly 390 pixels; the prompt,
+error, charge warning and both dialog actions remained readable and reachable.
+This completes hosted acceptance of the unquoted-model and localized recovery
+branches, complementing the actual native configured-estimator failure/edit
+recovery above. It does not provide missing output metadata or qualify other
+video Providers; those remain under `niu-pfsr` and the video release case.
