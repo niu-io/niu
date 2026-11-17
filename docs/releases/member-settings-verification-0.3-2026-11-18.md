@@ -73,3 +73,16 @@ Dashboard type checking, lint and production build are code-hygiene checks.
 The browser and independent saved-state reads above establish the bounded
 behavioral evidence. Hosted deployment of this candidate still needs verification;
 this record does not claim that the hosted bundle already contains the change.
+
+## Hosted integrated follow-up
+
+Hosted core `2a4dfb858fba5c94e8d3c466bf0e300ff5108313` was inspected after
+its actual deployment. Workspace-scoped invitation remained inside the existing
+Settings dialog, showed Default as its scope, focused the email input, and
+returned focus to the invitation trigger on Escape. A second Escape closed
+Settings. At 390×844 the document remained 390 px wide, the form remained in the
+scrollable Settings body, and no nested dialog was present. The rendered
+screenshot was inspected. No invitation was created or sent during this follow-up;
+the actual bounded role/revocation/cancellation evidence above covers those
+operations against staging APIs. This is the hosted integration follow-up, not a
+claim that the entire final release permissions gate is complete.
