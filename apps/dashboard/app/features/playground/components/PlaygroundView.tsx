@@ -464,7 +464,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [maxTokens, setMaxTokens] = useState(() => initialDraftPayload?.settings.maxTokens ?? initialSelection?.settings?.maxTokens ?? 4096);
   const [temperature, setTemperature] = useState(() => initialDraftPayload?.settings.temperature ?? initialSelection?.settings?.temperature ?? 0.7);
   const [logPayloads, setLogPayloads] = useState(() => initialDraftPayload?.settings.logPayloads ?? initialSelection?.settings?.logPayloads ?? true);
-  const [selectedKeyId, setSelectedKeyId] = useState(() => initialDraftPayload?.keyId ?? '');
+  const [selectedKeyId, setSelectedKeyId] = useState(() => cachedDraft?.payload?.keyId ?? '');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -584,7 +584,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     restore:saved=>{
       const requestedKey=new URLSearchParams(location.search).get('key');
       const restoredKey=workspaceKeys.find(key=>key.id===requestedKey||key.slug===requestedKey)?.id ?? saved.keyId;
-      if(!requestedKey)setSelectedKeyId(saved.keyId ?? '');
+      setSelectedKeyId(restoredKey ?? '');
       if(requestedSession){
         const item=history.find(item=>(item.id===requestedSession||item.reference===requestedSession));
         if(item){openComparison(item);return comparisonDraft(item,restoredKey);}
