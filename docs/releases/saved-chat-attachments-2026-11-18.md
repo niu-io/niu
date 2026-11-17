@@ -60,3 +60,23 @@ completed. No fixture-test result is evidence for this assessment. Hosted
 acceptance of the UI's eventual merged revision remains required; the local
 browser run does not establish deployment of this change. Task-created sessions
 and the image invocation key were revoked after inspection.
+
+## Integrated hosted acceptance
+
+Release commit `acb5863ecc2e32daa1023d2c229bbe882389ed68` was deployed through
+composition `ec6946eea91a006a5632d0bda77b38c26d549497`. The actual Chinese-language
+saved image and text turns displayed their attachment controls. Image preview
+was inspected at desktop and 390-pixel widths; the narrow page had no horizontal
+overflow and both download and close actions remained reachable. The image
+loaded at its original 512-pixel intrinsic width. The desktop text preview
+showed the original verification content in a readable preformatted block.
+
+Browser downloads independently matched the original PNG (22,353 bytes,
+SHA-256 `4ff254f73bd098c41eccaa9f78440592749bf6a44196f86d85851e874dbc8491`)
+and text (113 bytes, SHA-256
+`6e053f438274b93d7d31846c7909490cd4a8bd372f36cc2197152b45d65fc8a3`).
+Keyboard Enter opened the text preview. After Escape and completion of the
+closing transition, focus returned to the owning attachment button for both
+image and text. Immediate animation-frame focus samples were not used as a
+settled-state result. Combined with the equivalent-source intermediate-width
+inspection above, this completes the scoped attachment acceptance.
