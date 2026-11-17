@@ -34,7 +34,10 @@ export default function SettingsDialog({context, children, pendingSection}: {con
     else navigate(target, {replace: true});
   };
   return <Dialog open={open} onOpenChange={value => { if (!value) close(); }}>
-    <DialogContent onKeyDownCapture={event => {if(event.key.toLowerCase() === 'b' && (event.metaKey || event.ctrlKey)){event.preventDefault();event.stopPropagation();}}} data-global-settings-dialog className="flex h-[min(760px,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl" onOpenAutoFocus={event => {
+    <DialogContent onEscapeKeyDown={event => {
+      const back = document.querySelector<HTMLButtonElement>('[data-global-settings-dialog] [data-settings-back], [data-global-settings-dialog] [data-settings-member-back]');
+      if (back) { event.preventDefault(); if (!back.disabled) back.click(); }
+    }} onKeyDownCapture={event => {if(event.key.toLowerCase() === 'b' && (event.metaKey || event.ctrlKey)){event.preventDefault();event.stopPropagation();}}} data-global-settings-dialog className="flex h-[min(760px,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl" onOpenAutoFocus={event => {
       event.preventDefault();
       const selectedLink = document.querySelector<HTMLElement>('[data-global-settings-dialog] a[aria-current="page"]');
       (selectedLink?.getClientRects().length ? selectedLink : document.querySelector<HTMLElement>('[data-global-settings-dialog] [data-settings-section-trigger]'))?.focus();

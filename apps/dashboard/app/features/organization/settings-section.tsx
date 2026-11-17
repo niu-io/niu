@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/PageHeader';
-import { WorkspaceCreateDialog } from '@/shell/WorkspaceSwitcher';
+import { FormSectionSkeleton } from '@/components/PageSkeletons';
+import { WorkspaceCreateDialog, OrganizationCreateDialog } from '@/shell/WorkspaceSwitcher';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import ConnectGate from '@/shell/ConnectGate';
 import { prefetchRouteIntent } from '@/shell/prefetch';
@@ -11,7 +12,7 @@ import { organizationDisplayName, workspaceDisplayName, workspacePathSegment } f
 import { settingsHref } from '@/features/account/settings-routes';
 import { useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { IconBuildings, IconPlus, IconSettings, IconUsers } from '@tabler/icons-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 
 /**
@@ -23,7 +24,17 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
   const { t: uiT, format: uiF } = useUILocale();
   const { t } = useLocale();
   const { organization, workspaces, session } = context;
-  const [createOpen, setCreateOpen] = useState(false);
+  const [creation, setCreation] = useState<'workspace' | 'organization' | null>(null);
+  const creationTrigger = useRef<HTMLButtonElement | null>(null);
+  const organizationTrigger = useRef<HTMLButtonElement>(null);
+  function closeCreation(open: boolean) {
+    if (open) return;
+    setCreation(null);
+    requestAnimationFrame(() => {
+      const trigger = creationTrigger.current;
+      (trigger?.isConnected ? trigger : organizationTrigger.current)?.focus();
+    });
+  }
   const [nameDraft, setNameDraft] = useState(organization?.name ?? '');
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState('');
@@ -79,14 +90,15 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
   return <div className="organization-settings w-full min-w-0 space-y-4">
     <PageHeader
       title={t('Organization', '组织')}
-      action={context.openCreateOrganization ? (
-        <Button variant="outline" size="sm" onClick={context.openCreateOrganization}>
+      action={!creation && context.createOrganization ? (
+        <Button ref={organizationTrigger} variant="outline" size="sm" onClick={event => { creationTrigger.current = event.currentTarget; setCreation('organization'); }}>
           <IconBuildings size={16} />
           {t('Create organization', '创建组织')}
         </Button>
       ) : undefined}
     />
-    {!organization ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No organization is available. Create a workspace to get started.")}</EmptyDescription></EmptyHeader></Empty> : <>
+    <div hidden={Boolean(creation)} className="space-y-4">
+    {!organization && context.workspaceLoading ? <FormSectionSkeleton fields={2} label={t('Loading organization…', '正在加载组织…')} /> : !organization ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No organization is available. Create a workspace to get started.")}</EmptyDescription></EmptyHeader></Empty> : <>
       <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-details-title">
         <h2 id="organization-details-title" className="sr-only">{uiT("General")}</h2>
         <dl className="organization-details">
@@ -122,8 +134,8 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         {renameSaved ? <p role="status" className="text-sm text-muted-foreground">{t('Organization name saved.', '组织名称已保存。')}</p> : null}
       </section>
       <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-workspaces-title">
-        <div className="organization-section-heading"><div><h2 id="organization-workspaces-title" className="text-base font-semibold">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button>}</div>
-        {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link replace to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-40 rounded-xl bg-muted/55"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={() => setCreateOpen(true)}><IconPlus size={16} />{uiT("Create workspace")}</Button></EmptyContent>}</Empty>}
+        <div className="organization-section-heading"><div><h2 id="organization-workspaces-title" className="text-base font-semibold">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={event => { creationTrigger.current = event.currentTarget; setCreation('workspace'); }}><IconPlus size={16} />{uiT("Create workspace")}</Button>}</div>
+        {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link replace to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-40 rounded-xl bg-muted/55"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={event => { creationTrigger.current = event.currentTarget; setCreation('workspace'); }}><IconPlus size={16} />{uiT("Create workspace")}</Button></EmptyContent>}</Empty>}
       </section>
       {session?.kind === 'operator' && context.joinOrganization && (
         <section className="space-y-3 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-join-title">
@@ -159,8 +171,10 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
           {joinError ? <p role="alert" className="text-sm text-destructive">{uiT(joinError)}</p> : null}
         </section>
       )}
-      <WorkspaceCreateDialog context={context} open={createOpen} onOpenChange={setCreateOpen}/>
     </>}
+    </div>
+    <WorkspaceCreateDialog withinSettings context={context} open={creation === 'workspace'} onOpenChange={closeCreation}/>
+    <OrganizationCreateDialog withinSettings context={context} open={creation === 'organization'} onOpenChange={closeCreation}/>
   </div>;
 }
 

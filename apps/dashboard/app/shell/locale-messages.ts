@@ -1,5 +1,7 @@
 /** System copy only. Customer names and persisted API values stay unchanged. */
 export const UI_MESSAGES_ZH: Record<string, string> = {
+  "This slug is already in use. Choose a different slug.": "此路径标识已被使用，请选择其他路径标识。",
+  "This organization slug is already in use. Choose a different slug.": "此组织路径标识已被使用，请选择其他路径标识。",
   "Resolve the listed obligations before switching. Review expires after 15 minutes or when configuration changes.": "切换前请处理下列未结事项。审核将在 15 分钟后或配置变更时失效。",
   "Compatibility check unavailable": "兼容性检查暂不可用",
   "Platform currency required": "需要设置平台币种",
