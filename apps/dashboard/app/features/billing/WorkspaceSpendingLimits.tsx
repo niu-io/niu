@@ -317,7 +317,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
               </DialogTitle>
               <DialogDescription>
                 {uiT("No periodic reset. A zero limit blocks new paid requests.")}
-              </DialogDescription>
+              {" "}{uiT("Saving a spending limit retains audit history and prevents deleting this workspace, even without requests.")}</DialogDescription>
             </DialogHeader>
             <form onSubmit={save} className="grid gap-4">
               <div className="space-y-2">
@@ -399,7 +399,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
               </DialogTitle>
               <DialogDescription>
                 {uiT("No periodic reset. A zero limit blocks new paid requests in")}{" "}{activeUnitName}.
-              </DialogDescription>
+              {" "}{uiT("Saving a spending limit retains audit history and prevents deleting this workspace, even without requests.")}</DialogDescription>
             </DialogHeader>
             <form onSubmit={submitUnitLimit} className="grid gap-4">
               <div className="space-y-2">

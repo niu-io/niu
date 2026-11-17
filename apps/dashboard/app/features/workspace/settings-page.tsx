@@ -311,8 +311,8 @@ export default function WorkspaceSettings() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
               {t(
-                'Only empty workspaces can be deleted. Workspaces with saved records are protected.',
-                '仅空工作空间可以删除，包含历史记录的工作空间受到保护。',
+                'Only workspaces without saved records can be deleted. Spending-limit history also prevents deletion, even without requests.',
+                '只有没有保存记录的工作空间才能删除。消费限额历史也会阻止删除，即使没有请求。',
               )}
             </p>
             <Button

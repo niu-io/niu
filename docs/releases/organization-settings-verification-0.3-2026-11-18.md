@@ -77,3 +77,20 @@ loopback session cookie was removed afterward. Dashboard type/lint checks and
 production build completed on the combined source. This supplements the separate
 mutation/readback records above and in the member verification record; hosted
 candidate deployment and acceptance remain outstanding.
+
+## Hosted follow-up on integrated core
+
+On core `2a4dfb858fba5c94e8d3c466bf0e300ff5108313`, the actual hosted
+Organization create view retained one Settings dialog, focused the name field,
+and returned focus to its trigger on Escape. Narrow workspace creation with a
+zero spending limit succeeded; an independent workspace API read confirmed its
+canonical slug and persistence. That workspace is intentionally retained because
+its limit configuration has immutable audit history; see `niu-5il0`.
+
+A separate current-input workspace was created without a limit, independently
+read from the workspace API, deleted through the actual confirmation dialog,
+and independently absent afterward. Navigation returned to Default. The first
+creation-navigation wait expected a bare URL but the actual URL retained its
+workspace query; the existing created object was inspected, not created again.
+This follow-up verifies the hosted creation/deletion journey without removing
+retained financial configuration history.
