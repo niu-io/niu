@@ -48,7 +48,14 @@ impl Store {
         if let Some(route) = &admission.managed_route {
             Self::insert_managed_route(&mut *tx, attempt, route).await?;
         }
-        Self::bind_key_token_bound_with(&mut *tx, scope, attempt, admission.token_bound).await?;
+        Self::bind_key_token_bound_with(
+            &mut *tx,
+            scope,
+            attempt,
+            admission.token_bound,
+            admission.token_bound_estimator,
+        )
+        .await?;
         Self::bind_personal_attempt_route_with(&mut *tx, scope, attempt, route).await?;
         if let Some(snapshot) = &admission.inspected_guardrails {
             Self::insert_inspected_guardrails(
