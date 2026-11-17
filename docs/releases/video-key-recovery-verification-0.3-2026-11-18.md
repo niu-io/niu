@@ -66,8 +66,36 @@ without sending a request.
 
 ## Evidence limits
 
-This verifies the scoped correction against real backend data. It does not
-establish hosted acceptance of this source revision, qualify missing video
-estimates, or verify another Provider. Those remain in their existing tracked
-acceptance scope. The temporary loopback session cookie was removed; the existing
-staging browser session was preserved.
+The initial local run verified the scoped correction against real backend data.
+The temporary loopback session cookie was removed; the existing staging browser
+session was preserved. The hosted follow-up below supplies deployment evidence.
+Neither run qualifies missing video estimates or another Provider.
+
+## Hosted follow-up
+
+On 2026-11-18, the deployment platform confirmed the immutable candidate using
+core `9fd281e523cdbd521585a0a8f98d605d5d5a1073` live. Both health and readiness
+returned HTTP 200. All 27 asset URLs referenced by the previous live dashboard
+HTML remained HTTP 200 with identical independently calculated SHA-256 values.
+
+The actual hosted saved video offered its revoked-key remedy. Selecting the
+available key retained the entire prompt and Wan's 3-second, 16:9, 720p controls.
+Reloading the page and reopening settings retained those values. Independent
+backend reads confirmed draft revision 10 and the recovered key; the historical
+intent's request, original/current key, revision 1, retained content and dispatched
+state matched the predeployment evidence. The original intent and recovered draft
+use different keys. No video generation was submitted.
+
+The settled settings panel was visually inspected at 1440×900 and 390×844.
+Controls remained legible and grouped, with no narrow horizontal overflow.
+Escape returned focus to the settings trigger after its exit transition. An
+intermediate 768-pixel observation confirmed retained prompt and document width,
+but transition/loading captures were excluded from final visual evidence.
+Reopening the original saved video retained its full prompt and distinguishable
+history entry; its player reported readyState 4, duration 3.018005 seconds and no
+media error.
+
+This satisfies the scoped recovery acceptance for `niu-mm90.1`. The missing
+output-estimator condition still displays an untranslated English alert in the
+Chinese interface alongside the localized Provider-charge warning; that observed
+gap remains with `niu-pfsr`. Final `VIDEO-03` acceptance remains separate.
