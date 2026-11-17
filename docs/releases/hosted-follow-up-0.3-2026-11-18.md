@@ -78,3 +78,14 @@ Actual authenticated actor-isolation and revocation flows completed in this
 interval; see [current security isolation](current-security-isolation-2026-11-18.md).
 These are bounded recovery observations. Exact accepted-candidate recovery and
 final release qualification remain required under `niu-mvhk` and `niu-nrcn.1`.
+
+## Exact Chat candidate deployment
+
+Core `3f949559156ff2499a900e6890b3e29ed6ed4dde` reached the live staging
+state with its pinned website composition. Independent custom-domain reads of
+`/healthz` and `/readyz` returned HTTP 200. All 27 asset URLs recorded from the
+previous live dashboard still returned HTTP 200 with identical byte counts and
+SHA-256 digests. Actual authenticated Chat invocation and saved-state recovery
+then completed; see [Chat key recovery](chat-key-recovery-2026-11-18.md).
+These observations establish this deployment and bounded journey, not sustained
+availability or completion of the remaining release cases.
