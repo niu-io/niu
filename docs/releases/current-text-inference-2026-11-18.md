@@ -93,3 +93,23 @@ matched the separately read backend record. The file is 403 bytes with SHA-256
 `02433f79c727102b0af7086dc4504fa570a3703e1e9a0df5366cd2ea8405f907`.
 No new inference was submitted. This verifies export of that saved conversation;
 attachment export and final-candidate acceptance remain separate scope.
+
+## Text attachment, draft recovery and export
+
+A fresh one-hour key restricted to the same DeepSeek model had its USD zero cap
+and current zero customer prices independently confirmed. A newly written text
+file contained a unique verification code and a count of seven copper cups. The
+file was attached through the actual Chat file input. Backend draft inspection
+confirmed it was saved, and reload retained the attachment and unsent prompt.
+Sending after key loading completed produced the exact code and count from the
+file. Reloading the saved conversation retained that answer.
+
+Independent backend Chat inspection and a real history-menu export both retained
+the original attachment content byte-for-byte and the expected answer. The export
+was 701 bytes, SHA-256
+`875f28c9e240946fc01abb349351d44ecb8b8bb239cd3ad9ee5cba3877f7d51c`.
+An independent key-scoped request read contained exactly one completed inference
+record. The key was revoked with 204 and independently denied with 401; its token
+was removed. This qualifies the observed text-attachment path, not image-model
+support, arbitrary file formats, final-candidate acceptance or the pending key
+recovery repair.
