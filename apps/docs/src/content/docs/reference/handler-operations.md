@@ -57971,6 +57971,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "settings"
   ],
   "properties": {
+    "keyId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Selected API key in this workspace. Retained after revocation for explicit recovery; never grants invocation authority. Omitted on legacy drafts."
+    },
     "sessionId": {
       "oneOf": [
         {

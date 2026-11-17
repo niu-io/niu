@@ -18,8 +18,8 @@
       "reason": "Financial report page owns filters, chart series and table sections. Period helpers extracted to period.ts; split remaining report sections under niu-4rp.15."
     },
     "app/features/playground/components/PlaygroundView.tsx": {
-      "lines": 1344,
-      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog."
+      "lines": 1351,
+      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog. Key-recovery repair adds only draft selection restoration and preserves canonical-navigation query scope; no new UI composition."
     },
     "app/shell/useWorkspaceController.ts": {
       "lines": 1135,

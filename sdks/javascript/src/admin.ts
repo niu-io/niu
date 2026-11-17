@@ -1088,6 +1088,8 @@ export type ChatResult = {
 };
 /** Workspace draft persisted by the backend for the current authenticated owner. */
 export type ChatDraftPayload = {
+  /** Workspace key selection only; revoked selections require explicit recovery. */
+  keyId?: string | null;
   sessionId: string | null;
   prompt: string;
   models: string[];
