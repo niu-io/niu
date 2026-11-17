@@ -224,14 +224,14 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       const applyKey=Boolean(savedKey)&&(force||(!userPickedContext&&!edits.images&&!requestedKey));
       const keyCompatible=!savedKey||applyKey||savedKey===keyId;
       const applyModel=Boolean(savedModel)&&(force||(!userPickedContext&&!edits.images&&!requestedModel))&&keyCompatible;
-      const savedModelActive=Boolean(savedModel)&&(applyModel||(keyCompatible&&(requestedModel?savedModel===requestedModel:savedModel===modelId)));
+      const savedModelActive=Boolean(savedModel)&&(applyModel||(requestedModel?savedModel===requestedModel:savedModel===modelId));
       if(applyKey&&savedKey)setKeyId(savedKey);
       if(applyModel&&savedModel)setModelId(savedModel);
       if(force||!edits.prompt)setPrompt(saved.prompt);
       if(savedModelActive&&(force||!edits.controls))setControls(Object.fromEntries(Object.entries(saved.controls).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
       if(savedModelActive&&(force||!edits.references))setDraftReferences(saved.references);
-      if(saved.sessionId)setDraftSessionId(saved.sessionId);
-      if(applyKey||applyModel)restoredComposer.current={identity:composerIdentity,keyId:applyKey?savedKey:null,model:applyModel?savedModel:null};
+      if(saved.sessionId&&(force||!userPickedContext))setDraftSessionId(saved.sessionId);
+      if(applyKey||applyModel||(savedModelActive&&!userPickedContext))restoredComposer.current={identity:composerIdentity,keyId:applyKey?savedKey:null,model:savedModelActive?savedModel:null};
       setComposerEdited(force?false:Object.values(composerEdits.current).some(Boolean));
       if(force)composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};
     }});
@@ -331,7 +331,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         primeQuery(token,modelsCacheKey,catalog.value.data,{persist:true});
         // A saved model restored from the draft outranks the deterministic
         // default. URL model selection still wins over a saved model.
-        const restored=mutableComposer&&restoredComposer.current?.identity===composerIdentity&&restoredComposer.current.model===modelId;
+        const restored=mutableComposer&&restoredComposer.current?.identity===composerIdentity&&Boolean(restoredComposer.current.model);
         const requested=mutableComposer?search.get('model'):null;
         const selectedModel=requested?catalog.value.data.find(model=>model.id===requested):catalog.value.data.find(model=>model.id===modelId)??(restored?undefined:catalog.value.data.find(model=>model.id==='fastrouter/seedance-2.0-mini')??catalog.value.data[0]);
         const reset=changedScope||selectedModel?.id!==modelId;
@@ -500,7 +500,21 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
 
   function openJob(id:string) {const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyReference(keyId));setSearch(next);if(isMobile)setOpenMobile(false);}
 
-  function chooseKey(id:string) {composerEdits.current.key=true;restoredComposer.current=null;setComposerEdited(true);setKeyId(id);const next=new URLSearchParams(search);next.set('key',keyReference(id));next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setQuote(null);setUncertain(false);}
+  function chooseKey(id:string) {
+    // A replacement credential starts a new mutable request, never modifies or
+    // resubmits the historical intent. Preserve its retained input explicitly.
+    const retained=intentDocument?.request;
+    if(retained){
+      if(!composerEdits.current.prompt)setPrompt(retained.content.flatMap(item=>item.type==='text'?[item.text]:[]).join('\n'));
+      if(!composerEdits.current.references)setDraftReferences(retained.content.filter((item):item is VideoComposerDraftPayload['references'][number]=>item.type==='workspace_asset'||item.type==='provider_asset'));
+    }
+    composerEdits.current={prompt:true,key:true,model:true,controls:true,references:true,images:true};
+    restoredComposer.current={identity:composerIdentity,keyId:id,model:modelId||null};
+    setComposerEdited(true);setKeyId(id);
+    const next=new URLSearchParams(search);next.set('key',keyReference(id));next.delete('job');next.delete('intent');next.set('new','video');
+    if(modelId)next.set('model',modelId);
+    setSearch(next);setQuote(null);setUncertain(false);
+  }
   async function estimate(): Promise<boolean> {
     if(!form.body || !base || lock.current || uncertain || readingImages)return false;
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
