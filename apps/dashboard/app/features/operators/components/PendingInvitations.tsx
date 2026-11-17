@@ -1,16 +1,9 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceDisplayName } from '@/shell/workspace-route';
-import { useState } from 'react';
+import { useRef } from 'react';
 import { IconDots as MoreHorizontal } from '@tabler/icons-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,17 +24,18 @@ export default function PendingInvitations({
   invitations,
   loading,
   busy,
-  onCancel,
+  onRequestCancel,
   onReplace,
 }: {
   invitations: MemberInvitation[];
   loading: boolean;
   busy: boolean;
-  onCancel: (invitation: MemberInvitation) => void;
+  onRequestCancel: (invitation: MemberInvitation, trigger: HTMLButtonElement | null) => void;
   onReplace: (invitation: MemberInvitation) => void;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const [confirm, setConfirm] = useState<MemberInvitation | null>(null);
+  const openingMemberView = useRef(false);
+  const triggers = useRef(new Map<string, HTMLButtonElement>());
   if (!loading && invitations.length === 0) return null;
 
   return (
@@ -108,6 +102,7 @@ export default function PendingInvitations({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
+                          ref={element => { if (element) triggers.current.set(invitation.id, element); else triggers.current.delete(invitation.id); }}
                           type="button"
                           variant="ghost"
                           size="icon"
@@ -117,11 +112,11 @@ export default function PendingInvitations({
                           <MoreHorizontal size={16} />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" onCloseAutoFocus={event => { if (openingMemberView.current) { event.preventDefault(); openingMemberView.current = false; requestAnimationFrame(() => document.getElementById('member-subview-title')?.focus()); } }}>
                         <DropdownMenuItem onSelect={() => onReplace(invitation)}>
                           {uiT('Create new link', '创建新链接')}
                         </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" onSelect={() => setConfirm(invitation)}>
+                        <DropdownMenuItem variant="destructive" onSelect={() => { openingMemberView.current = true; onRequestCancel(invitation, triggers.current.get(invitation.id) ?? null); }}>
                           {uiT('Cancel invitation', '取消邀请')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -133,37 +128,6 @@ export default function PendingInvitations({
           </Table>
         </div>
       )}
-      <Dialog open={Boolean(confirm)} onOpenChange={open => { if (!open && !busy) setConfirm(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {uiT('Cancel invitation for', '取消此邀请：')}{' '}
-              {confirm?.recipient_email}?
-            </DialogTitle>
-            <DialogDescription>
-              {uiT(
-                'The one-time link will stop working immediately. The person can still be invited again later.',
-                '一次性链接将立即失效。之后仍可重新邀请此人。',
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" disabled={busy} onClick={() => setConfirm(null)}>
-              {uiT('Keep invitation', '保留邀请')}
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={busy}
-              onClick={() => {
-                if (confirm) onCancel(confirm);
-                setConfirm(null);
-              }}
-            >
-              {uiT('Cancel invitation', '取消邀请')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

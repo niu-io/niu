@@ -30,12 +30,14 @@ const roleChoices: Array<{ value: OperatorRole; label: string }> = [
 export default function InviteMemberForm({
   disabled,
   onCreate,
+  onCancel,
   emailInputRef,
   projects = [],
   defaultProjectId = null,
   canChooseOrganizationScope = false,
 }: {
   disabled: boolean;
+  onCancel?: () => void;
   onCreate: (invitation: NewMemberInvitation) => void;
   emailInputRef?: Ref<HTMLInputElement>;
   projects?: NamedResource[];
@@ -71,7 +73,7 @@ export default function InviteMemberForm({
   const expiryLabel = expiryChoices.find(item => item.days === expiryDays)?.label ?? '7 days';
 
   return (
-    <section className="panel operator-create-panel" aria-label={uiT('Invite member', '邀请成员')}>
+    <section className="operator-create-panel" aria-label={uiT('Invite member', '邀请成员')}>
       <form className="operator-create-form" onSubmit={submit}>
         <Label htmlFor="new-member-email">
           {uiT('Email', '邮箱')}
@@ -220,7 +222,8 @@ export default function InviteMemberForm({
             '收件人必须已有使用此邮箱的 Niu 账户。创建邀请后，请复制并分享链接；系统不会发送邮件。对方登录并确认后即可一次性接受，无需分享密码或访问令牌。',
           )}
         </p>
-        <div className="operator-create-footer">
+        <div className="operator-create-footer flex flex-wrap justify-end gap-2">
+          {onCancel && <Button type="button" variant="outline" disabled={disabled} onClick={onCancel}>{uiT("Cancel", "取消")}</Button>}
           <Button type="submit" disabled={disabled || !validEmail}>
             <MailPlus size={15} aria-hidden="true" />
             {disabled ? uiT('Creating…', '正在创建…') : uiT('Create invitation', '创建邀请')}
