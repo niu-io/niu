@@ -1,7 +1,7 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceDisplayName } from '@/shell/workspace-route';
-import { IconX as X } from "@tabler/icons-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
+import { DialogFooter } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
@@ -35,7 +35,7 @@ import OperatorDetails from './OperatorDetails';
 import PendingInvitations from './PendingInvitations';
 import type { ConfirmTarget, CredentialView } from './operator-types';
 
-type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void>; initialOrganization?: string; initialWorkspace?: string; embedded?: boolean };
+type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void>; initialOrganization?: string; initialWorkspace?: string };
 
 function roleLabel(role: 'owner' | 'admin' | 'viewer', uiT: (en: string, zh?: string) => string) {
   if (role === 'owner') return uiT('Owner', '所有者');
@@ -43,7 +43,7 @@ function roleLabel(role: 'owner' | 'admin' | 'viewer', uiT: (en: string, zh?: st
   return uiT('Viewer', '查看者');
 }
 
-export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization, initialWorkspace, embedded = false }: OperatorsViewProps) {
+export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization, initialWorkspace }: OperatorsViewProps) {
   const { t: uiT, format: uiF } = useUILocale();
   const canManage = session.permissions.manage_operators;
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
@@ -93,6 +93,28 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     return true;
   }), [invitations, project]);
   const [revokeTarget, setRevokeTarget] = useState<Operator | null>(null);
+  const [cancelInvitation, setCancelInvitation] = useState<MemberInvitation | null>(null);
+  const subviewHeading = useRef<HTMLHeadingElement>(null);
+  const returnTrigger = useRef<HTMLButtonElement | null>(null);
+  const subview = createOpen ? 'invite' : revokeTarget ? 'revoke' : cancelInvitation ? 'cancel' : selectedOperator ? 'detail' : null;
+  useEffect(() => {
+    if (!subview) return;
+    const frame = requestAnimationFrame(() => {
+      (subview === 'invite' && !issuedInvitation ? createEmailRef.current : subviewHeading.current)?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [subview, issuedInvitation]);
+
+  function closeMemberView() {
+    if (busy) return;
+    const trigger = returnTrigger.current ?? (createOpen ? createButtonRef.current : detailTriggerRef.current);
+    setOpenedRoleContext(''); setRoleRefreshError(''); setSelectedOperatorId('');
+    setCredential(null); setConfirmTarget(null); setRevokeTarget(null);
+    setIssuedInvitation(null); setCreateOpen(false); setCancelInvitation(null);
+    setError('');
+    requestAnimationFrame(() => { (trigger?.isConnected ? trigger : createButtonRef.current)?.focus(); });
+    returnTrigger.current = null;
+  }
 
   const roleController = useRef<AbortController | null>(null);
   useEffect(() => () => {
@@ -416,6 +438,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       setInvitations(previous => previous.map(item => item.id === invitation.id
         ? { ...item, status: 'canceled' as const, revoked_at: new Date().toISOString() }
         : item));
+      setCancelInvitation(null);
+      requestAnimationFrame(() => { (returnTrigger.current?.isConnected ? returnTrigger.current : createButtonRef.current)?.focus(); });
     });
   }
 
@@ -464,6 +488,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       setRevokeTarget(null);
       await loadAudit(operator.id);
       await refreshWorkspace?.();
+      requestAnimationFrame(() => { (returnTrigger.current?.isConnected ? returnTrigger.current : createButtonRef.current)?.focus(); });
     });
   }
 
@@ -485,7 +510,6 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   if (!canManage) {
     const isViewer = session.operator?.role === 'viewer';
     return <>
-      {!embedded && <PageHeader title={uiT("Members")} />}
       <section className="panel operator-denied" role="status">
         <span className="operator-denied-icon"><ShieldCheck size={19} /></span>
         <div><h2>{uiT("Owner access required")}</h2><p>{isViewer
@@ -496,52 +520,19 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     </>;
   }
 
-  const actions = <div className="operator-page-actions">
-    <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh members", "刷新成员")} title={uiT("Refresh members", "刷新成员")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} className={loading ? 'animate-spin' : undefined} /></Button>
-    <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
-  </div>;
-
-  return <>
-    <PageHeader title={uiT("Members")} action={actions} />
-    {error && <div className="operator-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
-
-    <div className="operator-directory-region">
-      <OperatorDirectory
-        operators={visibleOperators}
-        organizations={organizations}
-        projects={projects}
-        selectedId={selectedOperatorId}
-        loading={loading}
-        disabled={busy}
-        projectScope={Boolean(project)}
-        onSelect={(id, trigger) => {
-          detailTriggerRef.current = trigger ?? null;
-          if (selectedOperatorId !== id) {
-            setOpenedRoleContext('');
-            setRoleRefreshError('');
-            setSelectedOperatorId(id);
-            setCredential(null);
-            setConfirmTarget(null);
-            invalidateAudit();
-          }
-        }}
-        onRevoke={setRevokeTarget}
-        onAdd={() => { setIssuedInvitation(null); setCreateOpen(true); }}
-      />
-    </div>
-    {organization && (
-      <PendingInvitations
-        invitations={pendingInvitations}
-        loading={invitationsLoading}
-        busy={busy}
-        onCancel={onCancelInvitation}
-        onReplace={onReplaceInvitation}
-      />
-    )}
-    <Dialog open={Boolean(selectedOperator)} onOpenChange={open => { if (!open && !busy) { setOpenedRoleContext(''); setRoleRefreshError(''); setSelectedOperatorId(''); setCredential(null); setConfirmTarget(null); } }}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { if (detailTriggerRef.current?.isConnected) { event.preventDefault(); detailTriggerRef.current.focus(); } }}>
-        <DialogHeader><DialogTitle>{uiT("Member access", "成员访问权限")}</DialogTitle><DialogDescription>{uiF("Access sessions for {0}. Revoke a session to end that connection.", [selectedOperator?.name ?? ""])}</DialogDescription></DialogHeader>
-      {selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id
+  const invitationTitle = issuedInvitation ? uiT("Invitation created", "邀请已创建") : uiT("Invite member", "邀请成员");
+  const invitationDescription = issuedInvitation
+    ? uiT("Copy the one-time link now. No email was sent.", "请立即复制一次性链接。系统未发送邮件。")
+    : lockedProject
+      ? uiF("Invite a member to {0}.", [workspaceDisplayName(projects.find(item => item.id === lockedProject)?.name ?? '') || uiT("this workspace", "此工作空间")])
+      : uiT("Choose the scope and role for this invitation.", "选择此邀请的访问范围和角色。");
+  const revokeTitle = `${uiT("Revoke access for")} ${revokeTarget?.name ?? ''}?`;
+  const revokeDescription = revokeTarget?.project_id
+    ? uiT("This user will lose access to this workspace. All of their access sessions will end immediately.")
+    : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.");
+  const detailDescription = uiF("Access sessions for {0}. Revoke a session to end that connection.", [selectedOperator?.name ?? ""]);
+  const cancelDescription = uiT('The one-time link will stop working immediately. The person can still be invited again later.', '一次性链接将立即失效。之后仍可重新邀请此人。');
+  const detailBody = <>{selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id
         ? (roleOpenError
           ? <div className="space-y-3"><p role="alert">{uiT(roleOpenError)}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>
           : <FormSectionSkeleton fields={2} label={uiT("Loading the saved role…")} />)
@@ -577,40 +568,72 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
             void loadAudit(selectedOperator.id, auditCursor, true, controller.signal, auditRevision.current);
           }
         }}
-      />}
-      </DialogContent>
-    </Dialog>
-    <Dialog open={Boolean(revokeTarget)} onOpenChange={open => { if (!open && !busy) setRevokeTarget(null); }}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>{uiT("Revoke access for")}{" "}{revokeTarget?.name}?</DialogTitle><DialogDescription>{revokeTarget?.project_id
-          ? uiT("This user will lose access to this workspace. All of their access sessions will end immediately.")
-          : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.")}</DialogDescription></DialogHeader>
-        {revokeTarget && (revokeTarget.role === 'owner' || (session.kind === 'operator' && revokeTarget.id === session.operator?.id)) && <p role="status" className="text-sm text-muted-foreground">
+      />}</>;
+  const revokeBody = <>{revokeTarget && (revokeTarget.role === 'owner' || (session.kind === 'operator' && revokeTarget.id === session.operator?.id)) && <p role="status" className="text-sm text-muted-foreground">
           {session.kind === 'operator' && revokeTarget.id === session.operator?.id ? uiT("This is your current account. Revoking your own access ends all your sessions immediately.") : null}
           {revokeTarget.role === 'owner' ? <>{(session.kind === 'operator' && revokeTarget.id === session.operator?.id) ? ' ' : null}{uiT("The server prevents removing the final owner. Transfer ownership before revoking the last owner.")}</> : null}
         </p>}
-        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setRevokeTarget(null)}>{uiT("Cancel")}</Button><Button variant="destructive" disabled={busy} onClick={() => { if (revokeTarget) onRevokeOperator(revokeTarget); }}>{uiT("Revoke access")}</Button></div>
+        <DialogFooter><Button variant="outline" disabled={busy} onClick={closeMemberView}>{uiT("Cancel")}</Button><Button variant="destructive" disabled={busy} onClick={() => { if (revokeTarget) onRevokeOperator(revokeTarget); }}>{uiT("Revoke access")}</Button></DialogFooter>
+        {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}</>;
+  const invitationBody = <>{error && <p className="text-sm text-destructive" role="alert">{uiT(error)}</p>}{issuedInvitation
+          ? <InvitationLinkPanel created={issuedInvitation} onDismiss={closeMemberView} />
+          : <InviteMemberForm emailInputRef={createEmailRef} onCancel={closeMemberView} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateInvitation} />}</>;
+
+  const actions = <div className="operator-page-actions">
+    <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh members", "刷新成员")} title={uiT("Refresh members", "刷新成员")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} className={loading ? 'animate-spin' : undefined} /></Button>
+    <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { returnTrigger.current = null; setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
+  </div>;
+
+  return <>
+    <PageHeader title={uiT("Members")} action={subview ? undefined : actions} />
+    <div hidden={Boolean(subview)}>
+    {error && <div className="operator-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>{uiT("Try again")}</Button></div>}
+
+    <div className="operator-directory-region">
+      <OperatorDirectory
+        operators={visibleOperators}
+        organizations={organizations}
+        projects={projects}
+        selectedId={selectedOperatorId}
+        loading={loading}
+        disabled={busy}
+        projectScope={Boolean(project)}
+        onSelect={(id, trigger) => {
+          returnTrigger.current = null;
+          detailTriggerRef.current = trigger ?? null;
+          if (selectedOperatorId !== id) {
+            setOpenedRoleContext('');
+            setRoleRefreshError('');
+            setSelectedOperatorId(id);
+            setCredential(null);
+            setConfirmTarget(null);
+            invalidateAudit();
+          }
+        }}
+        onRevoke={(operator, trigger) => { returnTrigger.current = trigger ?? null; setRevokeTarget(operator); }}
+        onAdd={() => { setIssuedInvitation(null); setCreateOpen(true); }}
+      />
+    </div>
+    {organization && (
+      <PendingInvitations
+        invitations={pendingInvitations}
+        loading={invitationsLoading}
+        busy={busy}
+        onRequestCancel={(invitation, trigger) => { returnTrigger.current = trigger; setCancelInvitation(invitation); }}
+        onReplace={onReplaceInvitation}
+      />
+    )}
+    </div>
+    {subview && <section className="space-y-5" aria-labelledby="member-subview-title">
+      <Button type="button" variant="ghost" size="sm" data-settings-member-back disabled={busy} onClick={closeMemberView}><ArrowLeft size={16} />{uiT('Back to members', '返回成员列表')}</Button>
+      <header className="space-y-2">
+        <h3 id="member-subview-title" ref={subviewHeading} tabIndex={-1} className="text-base font-semibold outline-none">{createOpen ? invitationTitle : revokeTarget ? revokeTitle : cancelInvitation ? `${uiT('Cancel invitation for', '取消此邀请：')} ${cancelInvitation.recipient_email}?` : uiT('Member access', '成员访问权限')}</h3>
+        <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>
+      </header>
+      {createOpen ? invitationBody : revokeTarget ? revokeBody : cancelInvitation ? <>
+        <DialogFooter><Button variant="outline" disabled={busy} onClick={closeMemberView}>{uiT('Keep invitation', '保留邀请')}</Button><Button variant="destructive" disabled={busy} onClick={() => onCancelInvitation(cancelInvitation)}>{uiT('Cancel invitation', '取消邀请')}</Button></DialogFooter>
         {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}
-      </DialogContent>
-    </Dialog>
-    <Dialog open={createOpen} onOpenChange={open => { if (!open && !busy) { setIssuedInvitation(null); setCreateOpen(false); } }}>
-      <DialogContent className="niu-modal operator-dialog" showCloseButton={false} onOpenAutoFocus={event => { if (issuedInvitation) return; if (createEmailRef.current && !createEmailRef.current.disabled) {event.preventDefault();createEmailRef.current.focus();} }} onCloseAutoFocus={event => {if (createButtonRef.current) {event.preventDefault();createButtonRef.current.focus();}}}>
-        <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div>
-            <DialogTitle>{issuedInvitation ? uiT("Invitation created", "邀请已创建") : uiT("Invite member", "邀请成员")}</DialogTitle>
-            <DialogDescription>{issuedInvitation
-              ? uiT("Copy the one-time link now. No email was sent.", "请立即复制一次性链接。系统未发送邮件。")
-              : lockedProject
-                ? uiF("Invite a member to {0}.", [workspaceDisplayName(projects.find(item => item.id === lockedProject)?.name ?? '') || uiT("this workspace", "此工作空间")])
-                : uiT("Choose the scope and role for this invitation.", "选择此邀请的访问范围和角色。")}</DialogDescription>
-          </div>
-          <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
-        </DialogHeader>
-        {issuedInvitation
-          ? <InvitationLinkPanel created={issuedInvitation} onDismiss={() => { setIssuedInvitation(null); setCreateOpen(false); }} />
-          : <InviteMemberForm emailInputRef={createEmailRef} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateInvitation} />}
-        {error && <p className="error-text operator-dialog-error" role="alert">{uiT(error)}</p>}
-      </DialogContent>
-    </Dialog>
+      </> : detailBody}
+    </section>}
   </>;
 }

@@ -33,8 +33,9 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
   useEffect(() => setProfileState({identity,value:context.session?.profile ?? null}), [identity,context.session?.profile]);
   if (!section || !['organization', 'account', 'appearance', 'billing', 'payments', 'members', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
   if (section === 'account' && context.session?.kind !== 'operator') return <Navigate state={location.state} to="/settings/appearance" replace />;
-  const requestedWorkspace = section === 'members' ? new URLSearchParams(location.search).get('workspace') : null;
-  const scopedWorkspace = requestedWorkspace ? resolveWorkspacePathSegment(requestedWorkspace, context.workspaces) : undefined;
+  const lockedWorkspace = context.session?.kind === 'operator' ? context.session.operator?.project_id : null;
+  const requestedWorkspace = section === 'members' ? lockedWorkspace || new URLSearchParams(location.search).get('workspace') : null;
+  const scopedWorkspace = lockedWorkspace ? context.workspaces.find(item => item.id === lockedWorkspace) : requestedWorkspace ? resolveWorkspacePathSegment(requestedWorkspace, context.workspaces) : undefined;
   const personal = context.session?.kind === 'operator';
   const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
   const themeLabel = theme === 'light' ? t('Light', '浅色') : theme === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
@@ -63,12 +64,11 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
             </div>
       ) : context.session ? (
         <>
-          {scopedWorkspace && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
+          {scopedWorkspace && !lockedWorkspace && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
             <p className="text-sm text-muted-foreground">{t('Showing members with access to this workspace.', '仅显示可访问此工作空间的成员。')}</p>
             <Button asChild variant="ghost" size="sm"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部组织成员')}</Link></Button>
           </div>}
           <OperatorsView
-            embedded
             key={`${context.token}:${context.organization?.id}:${scopedWorkspace?.id ?? 'organization'}`}
             initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
             initialWorkspace={scopedWorkspace?.id}

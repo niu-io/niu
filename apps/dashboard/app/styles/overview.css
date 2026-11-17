@@ -106,14 +106,13 @@
 @keyframes benchmark-spin { to { transform: rotate(360deg); } }
 .operator-page-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
 .operator-page-actions button { min-height: 36px; }
-.operator-create-panel { padding: 18px; }
+.operator-create-panel { padding: 0; }
 .operator-create-form label,.operator-credential label { display: grid; align-content: start; gap: 7px; color: var(--foreground); font-size: 14px; font-weight: 600; line-height: 1.3; }
 .operator-create-form label>div,.operator-credential label>input { width: 100%; }
 .operator-scope-footnote { margin: 11px 0 0; color: var(--muted-foreground); font-size: 14px; }
-.operator-create-panel { padding-bottom: 16px; }
-.operator-create-form { display: grid; grid-template-columns: minmax(190px, 1.15fr) minmax(190px, 1fr) minmax(150px, .75fr); align-items: end; gap: 12px; margin-top: 15px; }
+.operator-create-form { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 12px; margin-top: 0; }
 .operator-create-form input { height: 36px; color: var(--foreground); background: var(--background); font-size: 14px; }
-.operator-create-footer { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 15px; padding-top: 4px; }
+.operator-create-footer { display: flex; grid-column: 1 / -1; align-items: center; justify-content: flex-end; gap: 15px; padding-top: 4px; }
 .operator-create-footer p { max-width: 560px; margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.45; }
 .operator-create-footer button { flex: 0 0 auto; }
 .operator-directory, .operator-detail { min-width: 0; margin: 0; border-radius: var(--radius-panel); }

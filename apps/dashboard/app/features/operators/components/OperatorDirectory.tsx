@@ -37,12 +37,13 @@ export default function OperatorDirectory({ operators, organizations, projects, 
   projectScope: boolean;
   onSelect: (id: string, trigger?: HTMLButtonElement) => void;
   onAdd: () => void;
-  onRevoke?: (operator: Operator) => void;
+  onRevoke?: (operator: Operator, trigger?: HTMLButtonElement) => void;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const [search, setSearch] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const openingMemberView = useRef(false);
   const actionTriggers = useRef(new Map<string, HTMLButtonElement>());
   const terms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches = operators.filter(operator => {
@@ -72,9 +73,9 @@ export default function OperatorDirectory({ operators, organizations, projects, 
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button ref={element => { if (element) actionTriggers.current.set(operator.id, element); else actionTriggers.current.delete(operator.id); }} type="button" variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [operator.name])} disabled={disabled}><MoreHorizontal size={16} /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => onSelect(operator.id, actionTriggers.current.get(operator.id))}>{uiT("Access sessions")}</DropdownMenuItem>
-                    {!operator.revoked && onRevoke && <DropdownMenuItem variant="destructive" onSelect={() => onRevoke(operator)}>{uiT("Revoke access")}</DropdownMenuItem>}
+                  <DropdownMenuContent align="end" onCloseAutoFocus={event => { if (openingMemberView.current) { event.preventDefault(); openingMemberView.current = false; requestAnimationFrame(() => document.getElementById('member-subview-title')?.focus()); } }}>
+                    <DropdownMenuItem onSelect={() => { openingMemberView.current = true; onSelect(operator.id, actionTriggers.current.get(operator.id)); }}>{uiT("Access sessions")}</DropdownMenuItem>
+                    {!operator.revoked && onRevoke && <DropdownMenuItem variant="destructive" onSelect={() => { openingMemberView.current = true; onRevoke(operator, actionTriggers.current.get(operator.id)); }}>{uiT("Revoke access")}</DropdownMenuItem>}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
