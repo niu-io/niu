@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
 
 export type ChatDraft = {
+  keyId?: string;
   sessionId: string | null;
   prompt: string;
   models: string[];
@@ -15,12 +16,12 @@ function snapshot(value:unknown):Snapshot {
   const data=(value as {data?:Snapshot})?.data;
   if (!data || !Number.isSafeInteger(data.revision) || data.revision<0) throw new Error('Invalid draft response');
   const p=data.payload;
-  if (p !== null && (!p || typeof p.prompt!=='string' || (p.sessionId!==null && typeof p.sessionId!=='string')
+  if (p !== null && (!p || (p.keyId!=null && typeof p.keyId!=='string') || typeof p.prompt!=='string' || (p.sessionId!==null && typeof p.sessionId!=='string')
     || !Array.isArray(p.models) || p.models.length>4 || !p.models.every(m=>typeof m==='string')
     || !Array.isArray(p.attachments) || p.attachments.length>4 || !p.attachments.every(a=>a && typeof a.name==='string' && ['image','text'].includes(a.type) && typeof a.content==='string')
     || !p.settings || typeof p.settings.systemPrompt!=='string' || !Number.isSafeInteger(p.settings.maxTokens) || p.settings.maxTokens<=0
     || !Number.isFinite(p.settings.temperature) || p.settings.temperature<0 || p.settings.temperature>2 || typeof p.settings.logPayloads!=='boolean')) throw new Error('Invalid draft response');
-  return {revision:data.revision,payload:p===null?null:{sessionId:p.sessionId,prompt:p.prompt,models:p.models,
+  return {revision:data.revision,payload:p===null?null:{...(p.keyId ? {keyId:p.keyId}:{}),sessionId:p.sessionId,prompt:p.prompt,models:p.models,
     attachments:p.attachments.map(a=>({name:a.name,type:a.type,content:a.content})),
     settings:{systemPrompt:p.settings.systemPrompt,maxTokens:p.settings.maxTokens,temperature:p.settings.temperature,logPayloads:p.settings.logPayloads}}};
 }

@@ -91,6 +91,14 @@ Location: **path**. **Required.**
             "settings"
           ],
           "properties": {
+            "keyId": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid",
+              "description": "Selected API key in this workspace. Retained after revocation for explicit recovery; never grants invocation authority. Omitted on legacy drafts."
+            },
             "sessionId": {
               "oneOf": [
                 {
@@ -223,6 +231,14 @@ Content type: `application/json`.
                 "settings"
               ],
               "properties": {
+                "keyId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid",
+                  "description": "Selected API key in this workspace. Retained after revocation for explicit recovery; never grants invocation authority. Omitted on legacy drafts."
+                },
                 "sessionId": {
                   "oneOf": [
                     {
