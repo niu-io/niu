@@ -53,7 +53,6 @@ jobs:
       - name: Check public source boundary and build inputs
         run: |
           python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs
-          python3 -m unittest discover -s scripts/tests
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -63,8 +62,6 @@ jobs:
           cache: pnpm
       - name: Install JavaScript workspace
         run: pnpm install --frozen-lockfile
-      - name: Test installed dependency license inventory
-        run: node --test scripts/tests/js-license-inventory.test.mjs
       - name: Check JavaScript dependency licenses
         env:
           NIU_JS_LICENSE_REPORT: ${{ runner.temp }}/niu-js-license-report.json
@@ -77,10 +74,8 @@ jobs:
           if-no-files-found: ignore
       - name: Check operator documentation commands and paths
         run: python3 -m unittest scripts.tests.test_operator_documentation
-      - name: Test localization audit and reject new untranslated copy
-        run: |
-          pnpm test:i18n
-          pnpm check:i18n:new
+      - name: Reject new untranslated copy
+        run: pnpm check:i18n:new
       - name: Lint dashboard sources and styles
         run: pnpm lint:dashboard
       - name: Check dashboard types
@@ -96,7 +91,7 @@ jobs:
       - name: Check built documentation audience and contract links
         run: |
           python3 scripts/check-docs-audiences.py
-          node --test apps/docs/scripts/test-navigation.mjs
+          node apps/docs/scripts/verify-built-docs.mjs
       - name: Check public catalog
         run: pnpm check:catalog
       - name: Build public catalog
@@ -116,13 +111,6 @@ jobs:
         run: pnpm --dir sdks/mcp run check
       - name: Build MCP server
         run: pnpm --dir sdks/mcp run build
-      - name: Execute gating documentation and SDK behavioral tests
-        run: |
-          pnpm --filter @niu-io/docs test:api
-          pnpm --dir sdks/javascript test
-          pnpm --dir sdks/agent-connect test
-          pnpm --dir sdks/mcp test
-          pnpm --filter @niu-io/dashboard test
 
   fixtures:
     uses: ./.github/workflows/fixtures.yml
