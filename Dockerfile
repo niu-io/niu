@@ -31,6 +31,7 @@ RUN export VITE_NIU_VERSION="${VITE_NIU_VERSION:-$(cat VERSION)}" \
 
 FROM rust:1.98-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS gateway-build
 WORKDIR /workspace
+ARG NIU_CORE_GIT_COMMIT
 ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY apps/gateway apps/gateway
@@ -51,6 +52,9 @@ RUN --mount=type=cache,id=niu-rust-registry,target=/usr/local/cargo/registry,sha
     && cp target/release/niu-gateway /workspace/niu-gateway
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS runtime
+ARG NIU_CORE_GIT_COMMIT
+LABEL org.opencontainers.image.source="https://github.com/niu-io/niu" \
+      org.opencontainers.image.revision="${NIU_CORE_GIT_COMMIT}"
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \

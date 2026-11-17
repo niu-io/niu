@@ -140,13 +140,42 @@ prepare_image() {
   if docker pull "$target_image" >/dev/null 2>&1; then
     return 0
   fi
-  if [[ -f "${dir}/Dockerfile" ]]; then
-    echo "Building ${target_image} from local source in ${dir} ..."
-    docker build -t "$target_image" "$dir"
-    return 0
+  if [[ "$target_image" == *@sha256:* ]]; then
+    echo "error: the published image ${target_image} is unavailable; refusing to substitute a source build." >&2
+    return 1
   fi
+  # Legacy releases lack IMAGE_DIGEST. Never label arbitrary local source as the
+  # requested release, even when the install directory is a Git checkout.
   echo "Building ${target_image} from release archive ${tag} ..."
   docker build -t "$target_image" "https://github.com/niu-io/niu.git#${tag}"
+}
+
+release_image() {
+  local tag="$1"
+  local manifest status image
+  manifest="$(mktemp)"
+  if ! status="$(curl --silent --show-error --location --output "$manifest" --write-out '%{http_code}' \
+    "https://github.com/niu-io/niu/releases/download/${tag}/IMAGE_DIGEST")"; then
+    rm -f "$manifest"
+    return 1
+  fi
+  if [[ "$status" == 200 ]]; then
+    image="$(cat "$manifest")"
+    rm -f "$manifest"
+    if [[ ! "$image" =~ ^ghcr\.io/niu-io/niu@sha256:[0-9a-f]{64}$ ]]; then
+      echo "error: invalid release image manifest." >&2
+      return 1
+    fi
+    printf '%s' "$image"
+  elif [[ "$status" == 404 ]]; then
+    rm -f "$manifest"
+    echo "Release ${tag} has no pinned image manifest; using the legacy tag/source-build path." >&2
+    printf '%s:%s' "$IMAGE_REPO" "$tag"
+  else
+    rm -f "$manifest"
+    echo "error: cannot read the release image manifest (HTTP ${status})." >&2
+    return 1
+  fi
 }
 
 cmd_install() {
@@ -179,7 +208,8 @@ cmd_install() {
     set_env_var "$env_file" OPENROUTER_API_KEY "${OPENROUTER_API_KEY:-sk-or-v1-replace-me}"
   fi
 
-  local target_image="${IMAGE_REPO}:${tag}"
+  local target_image
+  target_image="$(release_image "$tag")"
   set_env_var "$env_file" NIU_HOST_PORT "$port"
   set_env_var "$env_file" NIU_VERSION "$tag"
   set_env_var "$env_file" NIU_IMAGE "$target_image"
@@ -271,7 +301,8 @@ cmd_upgrade() {
   local port
   port="$(get_env_var "$env_file" NIU_HOST_PORT)"
   port="${port:-$DEFAULT_PORT}"
-  local target_image="${IMAGE_REPO}:${target_tag}"
+  local target_image
+  target_image="$(release_image "$target_tag")"
 
   echo "Upgrading Niu in ${dir}: ${current_version:-unknown} -> ${target_tag}"
   mkdir -p "${dir}/backups"
