@@ -127,3 +127,36 @@ These observations add native loading, install identity, authenticated reads,
 credential reload/revocation and unload coexistence. Final-candidate artifacts,
 native authorized inference/result inspection, complete onboarding and published
 installation remain required under `CLIENT-03`.
+
+## Current candidate native invocation and result inspection
+
+A fresh DeepSeek Harness bundle was built from `4c78a70b`. Its complete source
+inputs (SDKs, integrations, builders, bundled reference documents, branding,
+version and license) were independently compared with deployed core
+`3f949559156ff2499a900e6890b3e29ed6ed4dde`; there were no differences.
+The output files were individually SHA-256 recorded. This is a development
+candidate artifact, not a claim about a published package or release tag.
+
+The actual installed DeepSeek Harness `0.2.1-rc.5` loaded this bundle in an
+isolated profile. A deterministic native runtime probe called its registered Niu
+tools; no coding-agent task or delegated model agent was started. With no
+credential, key inspection failed. A fresh one-hour, single-model credential
+with a zero-USD Niu cap was then written to the explicit private credential file.
+The same process discovered the permitted DeepSeek model and independently
+checked its zero customer rates, minimum charge and request fee before invocation.
+
+The host's `create_chat_completion` tool returned exactly
+`NATIVE_FINAL_20261118_0445`, with 45 input and 41 output tokens (including 29
+reported reasoning tokens). Its `get_generation` tool returned
+`confirmed_completed`, provider-reported usage and a zero customer charge.
+A separate direct HTTP generation read matched the complete tool response.
+Independent administrative request inventory contained exactly one record,
+with the same attempt identity, token counts and customer charge.
+
+The credential was revoked and direct HTTP returned 401. The same native host
+process rejected it, then also rejected the removed credential file. The host
+was stopped, its task plugin was uninstalled, and a native profile dump confirmed
+that the Niu plugin was no longer configured. Active credential material was
+removed. This verifies current native discovery, invocation, result inspection
+and revocation recovery; it does not establish positive-price billing, published
+artifact identity, or the remaining host-specific onboarding flows.

@@ -89,3 +89,13 @@ SHA-256 digests. Actual authenticated Chat invocation and saved-state recovery
 then completed; see [Chat key recovery](chat-key-recovery-2026-11-18.md).
 These observations establish this deployment and bounded journey, not sustained
 availability or completion of the remaining release cases.
+
+## Post-deployment observation
+
+Complete provider log queries from 2026-11-17 20:27 UTC through 20:38:03 UTC found 60 health/readiness responses, all HTTP 200, no
+HTTP 502/503/504 responses, and no durable-storage-operation failure messages.
+Pagination was exhausted. Actual custom-domain Chat invocation, saved-state
+recovery, protected workspace deletion, video estimate recovery and native
+client invocation were exercised on this deployed core. These observations
+bound the current recovery evidence; they do not establish uninterrupted future
+availability or identify the sender of the historical database termination.
