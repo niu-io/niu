@@ -47,3 +47,32 @@ native host loading, authorized management writes, live model results,
 published artifact installation, or the final accepted candidate. Those
 acceptance requirements remain tracked in Beads. Fixture outcomes supply no
 evidence for this record.
+
+## Packaged browser connection follow-up
+
+The standalone dual-host plugin was built from
+`653a77ed70f8219ce3067b5ab167a20d4ddbbf5d` and executed outside the checkout.
+Its bundled login command requested a connection to staging using an isolated,
+private credential directory. The actual browser approval selected the Default
+workspace and a 15-minute lifetime, leaving model invocation disabled. The
+command completed connection verification and saved the credential privately.
+
+At 2026-11-17 18:15:32 UTC, the independent SDK introspection confirmed
+`invocation_allowed: false`. The plugin's actual bundled MCP subprocess loaded
+that credential file, initialized and executed key/model discovery. A current
+video submission through the SDK received HTTP 403 with the explicit
+invocation-approval error. Independent scoped request reads before and after
+both contained zero requests. This verifies denial before upstream execution;
+it is not a paid video result.
+
+Administrative revocation returned HTTP 204, an independent key read returned
+HTTP 401, and the same bundled MCP subprocess returned a tool error. The
+temporary credential file was removed. The browser confirmation was visually
+inspected at 390 pixels: it showed the selected workspace, lifetime and disabled
+invocation, with document width equal to viewport width and no horizontal
+overflow.
+
+This follow-up covers the packaged connection command, actual browser approval,
+private credential persistence, bundled MCP discovery, invocation denial and
+revocation. It does not establish loading or operation inside Codex, Claude
+Code or DeepSeek Harness, and does not close `CLIENT-03` or `SECURITY-03`.
