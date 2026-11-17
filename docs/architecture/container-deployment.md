@@ -39,3 +39,21 @@ Liveness describes process health. Readiness checks required dependencies and th
 ## Packaging requirements
 
 Images will use pinned build inputs, run as a non-root user, publish software bill of materials and image digests, and exclude research, development credentials, private source, and local build files. Release compatibility will include core version, schema version, and migration state.
+
+The release workflow builds Linux AMD64 and ARM64 images from the tagged checkout.
+Before publishing release assets it independently reads the registry without
+credentials, checks each runtime configuration's source labels and content hashes,
+and writes `IMAGE_DIGEST` alongside `SOURCE_COMMIT` and `SHA256SUMS`. The installer
+uses that digest for installation and upgrades; an unavailable pinned image is a
+failure, not permission to substitute another build. This publication gate does
+not replace staging acceptance or a fresh installation of the resulting artifact.
+
+Older releases without `IMAGE_DIGEST` retain the legacy image-tag and remote
+tagged-source fallback with an explicit warning. The installer never tags an
+arbitrary local checkout as a requested release. Legacy fallback does not repair
+an existing tag/asset provenance mismatch; publish a new accepted patch instead.
+
+GitHub creates new container packages as private by default. Maintainers must
+make the package publicly readable before the anonymous publication gate can
+succeed; repository visibility alone is insufficient. See the
+[GitHub container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
