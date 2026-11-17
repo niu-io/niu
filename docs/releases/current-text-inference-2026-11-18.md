@@ -47,3 +47,27 @@ saved responses and reload/export inspection, applicable supported attachments,
 and duplicate-prevention scope. This record does not claim native client-host
 qualification or final published artifact verification. No fixture-test outcome
 is used as evidence.
+
+## Rendered Chat follow-up
+
+The same hosted core was exercised through the actual Generations UI with a new
+one-hour, model-limited key whose USD zero cap and current zero customer rates
+were independently read first. Selecting the key and DeepSeek model, then sending
+a fresh marker prompt once, produced the exact requested reply. The canonical
+saved Chat URL survived reload. Independent backend Chat reads contained one turn,
+the matching prompt and response, completed phase, 96 total tokens and customer
+charge USD 0. A separate administrative request inventory contained exactly one
+completed inference request for this key. The key was then revoked (204) and
+independently denied (401).
+
+This run also revealed `niu-jjvd`: after reload the selected key silently changed
+to another existing workspace key. The saved draft contained model, settings,
+session and attachments but no key choice. No subsequent request was submitted
+under the replacement key. Saved response persistence passes this bounded check;
+key recovery does not. This finding blocks acceptance of the complete Chat journey.
+
+A desktop response screenshot was inspected. An attempted narrow-viewport capture
+was independently measured at 1353 pixels after the browser restored its viewport;
+it is excluded from narrow-layout evidence. The initial reload screenshot also
+contained an in-progress draft-loading state and is not final settled-layout
+acceptance. No claim of complete responsive verification is made here.
