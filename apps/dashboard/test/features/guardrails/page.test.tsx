@@ -38,18 +38,19 @@ const history = {
   activated_at: "2026-10-03T00:00:00Z",
   restored_from_revision: null,
 };
+
 function setup({
   failed = false,
   writer = true,
   conflict = false,
   tab = "policy",
-  initialPolicy = policy,
+  initialPolicy = policy as typeof policy | null,
 }: {
   failed?: boolean;
   writer?: boolean;
   conflict?: boolean;
   tab?: string;
-  initialPolicy?: typeof policy;
+  initialPolicy?: typeof policy | null;
 } = {}) {
   fixture.context = {
     token: "test-token",
@@ -58,15 +59,19 @@ function setup({
     models: [{ id: "example/model", provider: "openrouter" }],
   } as unknown as DashboardContext;
   const writes: unknown[] = [];
+  let serverPolicy = initialPolicy;
+  let serverRevision = 7;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === "PUT") {
         writes.push(JSON.parse(String(init.body)));
-        return conflict
-          ? Response.json({ error: { message: "Conflict" } }, { status: 409 })
-          : Response.json({ revision: 8 });
+        if (conflict) {
+          serverRevision = 8;
+          return Response.json({ error: { message: "Conflict" } }, { status: 409 });
+        }
+        return Response.json({ revision: 8 });
       }
       if (url.endsWith("/denials")) {
         return Response.json({
@@ -89,7 +94,9 @@ function setup({
             { error: { message: "Service unavailable" } },
             { status: 503 },
           )
-        : Response.json({ data: { revision: 7, policy: initialPolicy } });
+        : Response.json({
+            data: serverPolicy ? { revision: serverRevision, policy: serverPolicy } : null,
+          });
     }),
   );
   render(
@@ -99,37 +106,48 @@ function setup({
       </Routes>
     </MemoryRouter>,
   );
-  return { writes, user: userEvent.setup() };
+  return {
+    writes,
+    setServerPolicy(next: typeof policy) {
+      serverPolicy = next;
+    },
+    user: userEvent.setup(),
+  };
 }
 
 const inputSection = () => within(document.getElementById("input")!);
 const outputSection = () => within(document.getElementById("output")!);
 
 describe("workspace Guardrails page", () => {
-  it("edits access, input, output and external checks directly on the Policy tab", async () => {
-    setup();
-    await screen.findByRole("textbox", { name: "Policy name" });
+  it("renders a read-only summary on the Policy tab and opens the editor dialog for edits", async () => {
+    const { user } = setup();
+    await screen.findByRole("heading", { name: "Workspace policy" });
     expect(
       screen.getByRole("tab", { name: /^Policy/ }).getAttribute("aria-selected"),
     ).toBe("true");
-    expect(
-      screen.getByRole("button", { name: "Model restriction mode" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Provider restriction mode" }),
-    ).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText(/Email addresses/)).toBeTruthy();
+
+    const editButton = screen.getByRole("button", { name: "Edit policy" });
+    await user.click(editButton);
+
+    const dialog = await screen.findByRole("dialog", { name: "Edit policy" });
+    expect(within(dialog).getByRole("textbox", { name: "Policy name" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Model restriction mode" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Provider restriction mode" })).toBeTruthy();
     expect(inputSection().getByRole("checkbox", { name: "Email addresses" })).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Output inspection mode" }),
-    ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add external check" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Configure" })).toBeNull();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Output inspection mode" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Add external check" })).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(editButton);
   });
 
   it("returns to model search after clearing unmatched results without saving access changes", async () => {
     const { user, writes } = setup();
-    await screen.findByRole("textbox", { name: "Policy name" });
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
     await user.click(screen.getByRole("button", { name: "Model restriction mode" }));
     await user.click(screen.getByRole("menuitemradio", { name: "Allow selected" }));
     await user.click(screen.getByRole("button", { name: "Choose models (0)" }));
@@ -154,56 +172,61 @@ describe("workspace Guardrails page", () => {
       ],
     };
     const { writes, user } = setup({ initialPolicy: initial });
-    await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
-    await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Updated policy");
-    await user.click(screen.getByRole("button", { name: "Save policy" }));
-    await screen.findByRole("status");
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit policy" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Policy name" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Policy name" }), "Updated policy");
+    await user.click(within(dialog).getByRole("button", { name: "Save policy" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await screen.findByText("Policy saved.");
     expect(writes).toEqual([{ expected_revision: 7, policy: { ...initial, name: "Updated policy" } }]);
   });
 
   it("preserves content rules and the expected revision while editing access", async () => {
     const { writes, user } = setup();
-    await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
-    await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Updated policy");
-    await user.click(screen.getByRole("button", { name: "Save policy" }));
-    await screen.findByRole("status");
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit policy" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Policy name" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Policy name" }), "Updated policy");
+    await user.click(within(dialog).getByRole("button", { name: "Save policy" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await screen.findByRole("heading", { name: "Updated policy" });
     expect(writes).toEqual([
       { expected_revision: 7, policy: { ...policy, name: "Updated policy" } },
     ]);
-    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
-      "disabled",
-      true,
-    );
   });
 
   it("does not offer an editable empty policy after a failed read", async () => {
     setup({ failed: true });
     await screen.findByRole("alert");
     expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save policy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create policy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit policy" })).toBeNull();
     expect(screen.getByRole("tab", { name: /^Policy/ })).toBeTruthy();
   });
 
-  it("retains the draft on conflict and never automatically retries a write", async () => {
+  it("retains the draft inside the dialog on conflict and reloads latest revision without retrying", async () => {
     const { writes, user } = setup({ conflict: true });
-    await user.type(await screen.findByRole("textbox", { name: "Policy name" }), " changed");
-    await user.click(screen.getByRole("button", { name: "Save policy" }));
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit policy" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Policy name" }), " changed");
+    await user.click(within(dialog).getByRole("button", { name: "Save policy" }));
     await waitFor(() =>
       expect(
-        screen
+        within(dialog)
           .getAllByRole("alert")
           .some((alert) => alert.textContent?.includes("changed elsewhere")),
       ).toBe(true),
     );
     expect(writes).toHaveLength(1);
-    expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty(
+    expect(within(dialog).getByRole("textbox", { name: "Policy name" })).toHaveProperty(
       "value",
       "Workspace policy changed",
     );
-    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty("disabled", true);
-    await user.click(screen.getByRole("button", { name: "Reload" }));
+    expect(within(dialog).queryByRole("button", { name: "Save policy" })).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Reload" }));
     await waitFor(() =>
-      expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty(
+      expect(within(dialog).getByRole("textbox", { name: "Policy name" })).toHaveProperty(
         "value",
         policy.name,
       ),
@@ -211,34 +234,23 @@ describe("workspace Guardrails page", () => {
     expect(writes).toHaveLength(1);
   });
 
-  it("keeps policy controls read-only for readers", async () => {
+  it("keeps policy summary read-only for readers without exposing Edit or Create actions", async () => {
     setup({ writer: false });
-    expect(await screen.findByRole("textbox", { name: "Policy name" })).toHaveProperty(
-      "disabled",
-      true,
-    );
-    expect(screen.getByRole("button", { name: "Model restriction mode" })).toHaveProperty(
-      "disabled",
-      true,
-    );
-    expect(screen.getByRole("button", { name: "Provider restriction mode" })).toHaveProperty(
-      "disabled",
-      true,
-    );
-    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    await screen.findByRole("heading", { name: "Workspace policy" });
+    expect(screen.queryByRole("button", { name: "Edit policy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create policy" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
   });
 
   it("saves input changes without weakening model or output restrictions", async () => {
     const { writes, user } = setup();
-    await screen.findByRole("textbox", { name: "Policy name" });
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
     await user.click(
       inputSection().getByRole("button", { name: "Email addresses action" }),
     );
     await user.click(screen.getByRole("menuitemradio", { name: "Block", exact: true }));
     await user.click(screen.getByRole("button", { name: "Save policy", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await screen.findByText("Policy saved.");
     expect(writes).toEqual([
       {
@@ -253,11 +265,12 @@ describe("workspace Guardrails page", () => {
 
   it("removes empty output configuration instead of saving an invalid empty output policy", async () => {
     const { writes, user } = setup();
-    await screen.findByRole("textbox", { name: "Policy name" });
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
     await user.click(
       outputSection().getByRole("checkbox", { name: "API key prefixes" }),
     );
     await user.click(screen.getByRole("button", { name: "Save policy", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await screen.findByText("Policy saved.");
     const { output: _output, ...withoutOutput } = policy;
     expect(writes).toEqual([{ expected_revision: 7, policy: withoutOutput }]);
@@ -265,12 +278,13 @@ describe("workspace Guardrails page", () => {
 
   it("preserves observation mode when editing output patterns", async () => {
     const { writes, user } = setup();
-    await screen.findByRole("textbox", { name: "Policy name" });
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
     await user.click(screen.getByRole("button", { name: "Output inspection mode" }));
     await user.click(screen.getByRole("menuitemradio", { name: "Observe only" }));
     await user.click(outputSection().getByRole("checkbox", { name: "Email addresses" }));
     await user.click(screen.getByRole("button", { name: "Save policy" }));
-    await screen.findByRole("status");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await screen.findByText("Policy saved.");
     expect(writes).toMatchObject([
       {
         policy: {
@@ -287,96 +301,72 @@ describe("workspace Guardrails page", () => {
     const { writes, user } = setup({
       initialPolicy: { ...policy, output: { ...policy.output, mode: "observe_only" } },
     });
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
     const chooser = await screen.findByRole("button", { name: "Output inspection mode" });
     expect(chooser.textContent).toContain("Observe only");
     await user.click(outputSection().getByRole("checkbox", { name: "Email addresses" }));
     await user.click(screen.getByRole("button", { name: "Save policy" }));
-    await screen.findByRole("status");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await screen.findByText("Policy saved.");
     expect(writes).toMatchObject([{ policy: { output: { mode: "observe_only" } } }]);
   });
 
-  it("makes hidden draft scope inspectable and allows discarding the whole policy", async () => {
+  it("discards unsaved dialog edits cleanly on Cancel without affecting saved policy", async () => {
     const { user, writes } = setup();
-    await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
-    await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Draft name");
-    expect(
-      screen.getByText(
-        "Unsaved workspace policy changes. Saving applies every change on this page.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByRole("tab", { name: /Policy.*Unsaved changes/ })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Discard all changes" }));
-    expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty(
-      "value",
-      policy.name,
-    );
-    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit policy" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Policy name" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Policy name" }), "Draft name");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("heading", { name: policy.name })).toBeTruthy();
     expect(writes).toEqual([]);
   });
 
-  it("blocks saving an empty policy name and restores the saved name on discard", async () => {
+  it("blocks saving an empty policy name inside the dialog", async () => {
     const { user, writes } = setup();
-    await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
+    await user.click(await screen.findByRole("button", { name: "Edit policy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit policy" });
+    await user.clear(within(dialog).getByRole("textbox", { name: "Policy name" }));
     expect(
-      screen.getByRole("textbox", { name: "Policy name" }).getAttribute("aria-invalid"),
+      within(dialog).getByRole("textbox", { name: "Policy name" }).getAttribute("aria-invalid"),
     ).toBe("true");
-    expect(
-      screen.getByRole("link", { name: "Policy name" }).getAttribute("href"),
-    ).toBe("#policy-name");
-    expect(screen.getByRole("button", { name: "Save policy" })).toHaveProperty(
+    expect(within(dialog).getByRole("button", { name: "Save policy" })).toHaveProperty(
       "disabled",
       true,
     );
-    await user.click(screen.getByRole("button", { name: "Discard all changes" }));
-    expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty(
-      "value",
-      policy.name,
-    );
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(writes).toEqual([]);
   });
 
-  it("saves access and input changes from the same page once", async () => {
-    const { user, writes } = setup();
-    await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
-    await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Reviewed policy");
-    await user.click(
-      inputSection().getByRole("button", { name: "Email addresses action" }),
-    );
-    await user.click(screen.getByRole("menuitemradio", { name: "Block", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Save policy" }));
-    await screen.findByRole("status");
+  it("creates an initial policy via the Create policy dialog when empty", async () => {
+    const { user, writes } = setup({ initialPolicy: null });
+    await user.click(await screen.findByRole("button", { name: "Create policy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Create policy" });
+    await user.click(within(dialog).getByRole("button", { name: "Create policy" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(writes).toEqual([
       {
-        expected_revision: 7,
+        expected_revision: 0,
         policy: {
-          ...policy,
-          name: "Reviewed policy",
-          input_rules: [{ preset: "email_v1", action: "block" }],
+          schema_version: 1,
+          name: "Workspace default",
+          models: { mode: "inherit" },
+          providers: { mode: "inherit" },
         },
       },
     ]);
   });
 
-  it("keeps an unsaved draft across tabs and restores it without a multi-section nag", async () => {
+  it("opens rule testing dialog from the summary view", async () => {
     const { user } = setup();
-    const name = await screen.findByRole("textbox", { name: "Policy name" });
-    await user.clear(name);
-    await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Draft policy");
-    expect(screen.getByRole("tab", { name: /Policy.*Unsaved changes/ })).toBeTruthy();
-    await user.click(screen.getByRole("tab", { name: "History" }));
-    await screen.findByText("Workspace policy");
-    expect(
-      screen.getByRole("tab", { name: "History" }).getAttribute("aria-selected"),
-    ).toBe("true");
-    expect(screen.getByText("Save or discard your draft before restoring another policy version.")).toBeTruthy();
-    await user.click(screen.getByRole("tab", { name: /^Policy/ }));
-    expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty(
-      "value",
-      "Draft policy",
-    );
+    const testButton = await screen.findByRole("button", { name: "Test rules" });
+    await user.click(testButton);
+    const dialog = await screen.findByRole("dialog", { name: "Test rules" });
+    expect(within(dialog).getByLabelText("Sample text")).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(testButton);
   });
 
   it("opens a deep-linked tab from the tab query parameter", async () => {
@@ -393,7 +383,7 @@ describe("workspace Guardrails page", () => {
 
   it("opens blocked-request evidence from the Blocked requests tab", async () => {
     const { user } = setup();
-    await screen.findByRole("textbox", { name: "Policy name" });
+    await screen.findByRole("heading", { name: "Workspace policy" });
     await user.click(screen.getByRole("tab", { name: "Blocked requests" }));
     await screen.findByText("Input matched a blocking rule");
     expect(

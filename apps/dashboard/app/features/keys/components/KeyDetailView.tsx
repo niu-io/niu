@@ -16,26 +16,26 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
+import { formatUnitAtoms, money } from '@/lib/money';
+import { usePlatformCurrency } from '@/shell/platform-currency';
 import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
-import KeyGuardrails from './KeyGuardrails';
 import KeyHistoryDialog from './KeyHistoryDialog';
 import KeyLimits from './KeyLimits';
 import KeySettingsEditor from './KeySettingsEditor';
-import KeySourceAccess from './KeySourceAccess';
-import KeySpendingLimits from './KeySpendingLimits';
 
 type Scope = { organizationId: string; projectId: string };
 
-export default function KeyDetailView({ token, models, canWrite, canConfigureSpending, initialScope, initialData }: {
+export default function KeyDetailView({ token, models, canWrite, canConfigureSpending = false, initialScope, initialData }: {
   token: string;
   models: string[];
   canWrite: boolean;
-  canConfigureSpending: boolean;
+  canConfigureSpending?: boolean;
   initialScope: Scope | null;
   initialData?: { data: ProjectKey[] };
 }) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
+  const { currency: platformCurrency } = usePlatformCurrency();
   const protocolLabel = (protocol: string) => ({
     chat: uiT('Chat completions'),
     responses: uiT('Responses'),
@@ -67,6 +67,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const [rotating, setRotating] = useState(false);
   const [rotatedSecret, setRotatedSecret] = useState('');
   const [rotateError, setRotateError] = useState('');
+  const [revokeError, setRevokeError] = useState('');
   const [revoking, setRevoking] = useState(false);
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(false);
@@ -74,9 +75,11 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const [secretVisible, setSecretVisible] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [copiedRotatedSecret, setCopiedRotatedSecret] = useState(false);
-  const [guardrailRefresh, setGuardrailRefresh] = useState(0);
   const editButtonRef = useRef<HTMLButtonElement>(null);
+  const rotateButtonRef = useRef<HTMLButtonElement>(null);
+  const revokeButtonRef = useRef<HTMLButtonElement>(null);
   const restoreEditFocus = useRef(false);
+  const autoOpenedEdit = useRef('');
   useEffect(() => {
     if (!editing && restoreEditFocus.current) {
       restoreEditFocus.current = false;
@@ -85,7 +88,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   }, [editing]);
 
   useEffect(() => {
-    setConfirmRevoke(false);setNotice('');setRevoking(false);
+    setConfirmRevoke(false);setConfirmRotate(false);setNotice('');setRevoking(false);setRotating(false);setRotateError('');setRevokeError('');
     setEditing(false);
     setRevealedSecret('');setSecretVisible(false);setCopiedSecret(false);
     return () => { revokeController.current?.abort(); };
@@ -125,8 +128,21 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const key = !loadFailed && loadedScope === scopeIdentity ? keys.find(item => item.slug === keyId || item.id === keyId) : undefined;
 
   useEffect(() => {
-    if (key?.slug && key.slug !== keyId) navigate({pathname: `${root}/keys/${encodeURIComponent(key.slug)}`, search:location.search, hash:location.hash}, {replace:true});
-  }, [key?.slug, keyId, root, location.search, location.hash, navigate]);
+    if (key?.slug && key.slug !== keyId) navigate({pathname: `${root}/keys/${encodeURIComponent(key.slug)}`, search:location.search, hash:location.hash}, {replace:true, state: location.state});
+  }, [key?.slug, keyId, root, location.search, location.hash, location.state, navigate]);
+
+  useEffect(() => {
+    if (!key || !initialScope || !canWrite || key.revoked || key.expired || !key.revision) return;
+    const state = location.state as { editKey?: boolean } | null;
+    if (!state?.editKey) return;
+    const signature = `${token}:${key.id}:${location.key}`;
+    if (autoOpenedEdit.current === signature) return;
+    autoOpenedEdit.current = signature;
+    setEditing(true);
+    setError('');
+    setNotice('');
+    navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state: null });
+  }, [key, initialScope, canWrite, token, location.key, location.pathname, location.search, location.hash, location.state, navigate]);
 
   const getKeyRpm = (item?: ProjectKey) => item?.request_rate_limit?.requests_per_minute ?? item?.requests_per_minute ?? null;
   const getKeyConc = (item?: ProjectKey) => item?.concurrency_limit?.max_concurrent_requests ?? item?.max_concurrent_requests ?? null;
@@ -149,7 +165,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     const controller = new AbortController();
     revokeController.current = controller;
     setRevoking(true);
-    setError('');
+    setRevokeError('');
     try {
       await keyRequest<void>(token, `${collectionPath}/${encodeURIComponent(key.id)}`, 'DELETE', undefined, controller.signal);
       if (controller.signal.aborted) return;
@@ -157,7 +173,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       setConfirmRevoke(false);
       setNotice('Key revoked. Requests using it will be rejected.');
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not revoke this key.');
+      if (!controller.signal.aborted) setRevokeError(cause instanceof Error ? cause.message : 'Could not revoke this key.');
     } finally {
       if (!controller.signal.aborted) setRevoking(false);
     }
@@ -227,6 +243,16 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const describeLimit = (value: number | null) => value === null ? uiT("Unlimited") : value === 0 ? uiT("0 · New requests blocked") : value.toLocaleString(readUILocale());
   const keyPath = key && adminCollectionPath ? `${adminCollectionPath}/${encodeURIComponent(key.id)}` : '';
 
+  const cidrs = key ? (key.ip_policy ? key.ip_policy.allowed_cidrs : key.allowed_cidrs ?? null) : null;
+  const configuredSpendingRows = key ? (key.spending_limits ?? []).filter(row => row.limit_nanos !== null || BigInt(/^\d+$/.test(row.committed_nanos) ? row.committed_nanos : '0') > 0n) : [];
+  const spendingRows = platformCurrency && !configuredSpendingRows.some(row => row.currency === platformCurrency)
+    ? [...configuredSpendingRows, { currency: platformCurrency, limit_nanos: null, committed_nanos: '0', remaining_nanos: null }]
+    : configuredSpendingRows;
+  const unitSpending = key?.unit_spending_limit ?? null;
+  const showUnitSpending = Boolean(unitSpending && (unitSpending.limit_atoms !== null || unitSpending.unit !== null || BigInt(unitSpending.committed_atoms) > 0n));
+  const unitSpendingName = unitSpending?.unit?.name ?? uiT("Credits");
+  const unitSpendingPrecision = unitSpending?.unit?.display_precision ?? 2;
+
   return <>
     <PageHeader title={key?.name ?? uiT("API key")} syncRouteTitle={Boolean(key?.name)} routeTitleKey={location.pathname} action={key ? <Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge> : undefined} />
     {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{uiT(error)}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
@@ -237,27 +263,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       {(key.revoked || key.expired) && <Alert className="mb-4"><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>{key.revoked ? uiT("This API key was revoked and cannot send new requests.", "此 API 密钥已撤销，无法发送新请求。") : uiT("This API key has expired and cannot send new requests.", "此 API 密钥已过期，无法发送新请求。")}</span>{canWrite && initialScope && <Button asChild variant="outline" size="sm"><Link to={`${root}/keys`} state={{createKey: true}}>{uiT("Create replacement key", "创建替代密钥")}</Link></Button>}</AlertDescription></Alert>}
       <section className="key-detail-card rounded-[var(--radius-panel)] border-0 bg-card p-6 shadow-none" aria-label={uiT("API key details")}>
         <h2 className="sr-only">{key.name}</h2>
-        {editing && initialScope && keyPath && <KeySettingsEditor
-          token={token}
-          projectKey={key}
-          models={models}
-          canWrite={canWrite}
-          canConfigureSpending={canConfigureSpending}
-          metadataPath={`${collectionPath}/${encodeURIComponent(key.id)}`}
-          guardrailPath={`${keyPath}/guardrail`}
-          workspaceGuardrailsPath={`${adminCollectionPath.replace(/\/keys$/, '')}/guardrails`}
-          unitLimitPath={`${keyPath}/units/limit`}
-          onKeyChanged={updateKey}
-          onSaved={updated => {
-            updateKey(updated);
-            setEditing(false);
-            setNotice('Key settings saved.');
-            setGuardrailRefresh(value => value + 1);
-          }}
-          onReload={() => { setEditing(false); setGuardrailRefresh(value => value + 1); setRevision(value => value + 1); }}
-          onCancel={() => { restoreEditFocus.current = true; setEditing(false); setError(''); }}
-        />}
-        {!editing && <dl className="key-detail-facts">
+        <dl className="key-detail-facts">
           {canWrite && !key.revoked && !key.expired && <div className="col-span-full">
             <dt>{uiT("API key")}</dt>
             <dd className="mt-1 flex flex-wrap items-center gap-2">
@@ -269,35 +275,21 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
           <div><dt>{uiT("Allowed models")}</dt><dd>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.length ? key.allowed_models.join(', ') : uiT("None")}</dd></div>
           <div><dt>{uiT("Model calls")}</dt><dd>{key.invocation_allowed === false ? uiT("Blocked (management only)") : key.invocation_allowed === true ? (key.invocation_protocols?.length ? (key.invocation_protocols.length >= 7 ? <>{uiT("All model endpoints")}<span className="sr-only"> ({key.invocation_protocols.map(protocolLabel).join(', ')})</span></> : `${uiT("Allowed for")} ${key.invocation_protocols.map(protocolLabel).join(', ')}`) : uiT("Allowed; interface scope not reported")) : uiT("Not reported")}</dd></div>
           <div><dt>{uiT("Limits")}</dt><dd><span className="block">{uiT("Requests per minute")}: {describeLimit(getKeyRpm(key))}</span><span className="block">{uiT("Concurrent requests")}: {describeLimit(getKeyConc(key))}</span><span className="block">{uiT("Tokens per minute")}: {describeLimit(getKeyTpm(key))}</span></dd></div>
+          <div><dt>{uiT("Source IP access")}</dt><dd><span className="block">{cidrs === null || cidrs === undefined ? uiT("Allow all sources") : cidrs.length ? (cidrs.length === 1 ? uiT("1 allowed network") : uiF("{0} allowed networks", [cidrs.length])) : uiT("Block all sources")}</span>{cidrs?.length ? <span className="mt-1 block break-all font-mono text-xs text-muted-foreground">{cidrs.join(', ')}</span> : null}</dd></div>
+          <div><dt>{uiT("Spending limits")}</dt><dd>{!showUnitSpending && !spendingRows.length ? uiT("Unlimited") : <>{showUnitSpending && unitSpending && <span className="block">{unitSpendingName}: {unitSpending.limit_atoms === null ? uiT("Unlimited") : `${formatUnitAtoms(unitSpending.committed_atoms, unitSpendingName, unitSpendingPrecision)} / ${formatUnitAtoms(unitSpending.limit_atoms, unitSpendingName, unitSpendingPrecision)}`}</span>}{spendingRows.map(row => <span key={row.currency} className="block">{row.currency}: {row.limit_nanos === null ? uiT("Unlimited") : `${money(row.committed_nanos, row.currency)} / ${money(row.limit_nanos, row.currency)}`}</span>)}</>}</dd></div>
           <div><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.expires_at_ms))}</dd></div>
           <div><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div>
-        </dl>}
-        {!editing && <div className="key-revoke-actions">
+        </dl>
+        <div className="key-revoke-actions">
           {initialScope && canWrite && !key.revoked && !key.expired && key.revision && <Button ref={editButtonRef} type="button" variant="outline" onClick={startEdit}>{uiT("Edit key")}</Button>}
           {initialScope && keyPath && <KeyHistoryDialog token={token} projectKey={key} keyPath={keyPath} />}
           {canWrite && !key.revoked && <>
-            {!confirmRotate
-              ? <Button type="button" variant="outline" onClick={() => {setConfirmRotate(true);setRotateError('');}}><RotateCw size={15} />{uiT("Rotate key")}</Button>
-              : <div role="group" aria-label={uiT("Confirm API key rotation")}><span>{uiT("Rotate this key now? The current secret stops working.")}</span><Button type="button" variant="destructive" disabled={rotating} onClick={() => void rotate()}>{rotating ? uiT("Rotating…") : uiT("Confirm rotate")}</Button><Button type="button" variant="outline" disabled={rotating} onClick={() => setConfirmRotate(false)}>{uiT("Keep key")}</Button></div>}
-            {rotateError && <p role="alert" className="key-page-error">{uiT(rotateError)}</p>}
-            {!confirmRevoke
-              ? <Button type="button" variant="outline" onClick={() => setConfirmRevoke(true)}><Ban size={15} />{uiT("Revoke key")}</Button>
-              : <div role="group" aria-label={uiT("Confirm API key revocation")}><span>{uiT("Revoke this key now?")}</span><Button type="button" variant="destructive" disabled={revoking} onClick={() => void revoke()}>{revoking ? uiT("Revoking…") : uiT("Confirm revoke")}</Button><Button type="button" variant="outline" disabled={revoking} onClick={() => setConfirmRevoke(false)}>{uiT("Keep key")}</Button></div>}
+            <Button ref={rotateButtonRef} type="button" variant="outline" onClick={() => { setConfirmRotate(true); setRotateError(''); }}><RotateCw size={15} />{uiT("Rotate key")}</Button>
+            <Button ref={revokeButtonRef} type="button" variant="outline" onClick={() => { setConfirmRevoke(true); setRevokeError(''); }}><Ban size={15} />{uiT("Revoke key")}</Button>
           </>}
-        </div>}
+        </div>
       </section>
-      {initialScope && keyPath && <KeyGuardrails
-        key={`${token}:${key.id}:guardrails:${guardrailRefresh}`}
-        token={token}
-        endpoint={`${keyPath}/guardrail`}
-        workspaceEndpoint={`${adminCollectionPath.replace(/\/keys$/, '')}/guardrails`}
-        root={root}
-        canWrite={canWrite}
-        active={!key.revoked && !key.expired}
-      />}
       {initialScope && keyPath && <KeyLimits key={`${token}:${key.id}:usage`} token={token} projectKey={key} keyPath={keyPath} onInspectRequest={(attemptId,opener)=>setCapacityRequest({attemptId,opener,nonce:Date.now()})} />}
-      {initialScope && <KeySourceAccess key={`${token}:${key.id}:source`} projectKey={key} />}
-      {initialScope && <KeySpendingLimits key={`${token}:${key.id}:spending`} projectKey={key} />}
       {initialScope && <GatewayActivity
         key={`${token}:${key.id}`}
         compact
@@ -309,6 +301,61 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         externalRequest={capacityRequest}
         onExternalRequestClose={()=>setCapacityRequest(null)}
       />}
+      <Dialog open={editing && Boolean(initialScope) && Boolean(keyPath)} onOpenChange={open => { if (!open) { restoreEditFocus.current = true; setEditing(false); setError(''); } }}>
+        <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-hidden sm:max-w-2xl" onCloseAutoFocus={event => { if (editButtonRef.current?.isConnected) { event.preventDefault(); editButtonRef.current.focus(); } }}>
+          <DialogHeader className="shrink-0">
+            <DialogTitle>{uiT("Edit API key", "编辑 API 密钥")}</DialogTitle>
+            <DialogDescription>{uiT("Update model access, throughput limits, source IP restrictions, spending allowance, and Guardrails.", "更新此密钥的模型访问范围、速率限制、来源 IP 限制、消费额度及护栏策略。")}</DialogDescription>
+          </DialogHeader>
+          {editing && initialScope && keyPath && <KeySettingsEditor
+            key={`${key.id}:${key.revision ?? 0}`}
+            token={token}
+            projectKey={key}
+            models={models}
+            canWrite={canWrite}
+            canConfigureSpending={canConfigureSpending}
+            metadataPath={`${collectionPath}/${encodeURIComponent(key.id)}`}
+            guardrailPath={`${keyPath}/guardrail`}
+            workspaceGuardrailsPath={`${adminCollectionPath.replace(/\/keys$/, '')}/guardrails`}
+            unitLimitPath={`${keyPath}/units/limit`}
+            onKeyChanged={updateKey}
+            onSaved={updated => {
+              updateKey(updated);
+              restoreEditFocus.current = true;
+              setEditing(false);
+              setNotice('Key settings saved.');
+            }}
+            onReload={() => { restoreEditFocus.current = true; setEditing(false); setRevision(value => value + 1); }}
+            onCancel={() => { restoreEditFocus.current = true; setEditing(false); setError(''); }}
+          />}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmRotate} onOpenChange={open => { if (!rotating) { setConfirmRotate(open); if (!open) setRotateError(''); } }}>
+        <DialogContent onCloseAutoFocus={event => { if (!rotatedSecret && rotateButtonRef.current?.isConnected) { event.preventDefault(); rotateButtonRef.current.focus(); } }}>
+          <DialogHeader>
+            <DialogTitle>{uiT("Rotate API key")}</DialogTitle>
+            <DialogDescription>{uiT("Rotate this key now? The current secret stops working.")}</DialogDescription>
+          </DialogHeader>
+          {rotateError && <Alert variant="destructive"><AlertDescription>{uiT(rotateError)}</AlertDescription></Alert>}
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={rotating} onClick={() => { setConfirmRotate(false); setRotateError(''); }}>{uiT("Keep key")}</Button>
+            <Button type="button" variant="destructive" disabled={rotating} onClick={() => void rotate()}>{rotating ? uiT("Rotating…") : uiT("Confirm rotate")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmRevoke} onOpenChange={open => { if (!revoking) { setConfirmRevoke(open); if (!open) setRevokeError(''); } }}>
+        <DialogContent onCloseAutoFocus={event => { if (revokeButtonRef.current?.isConnected) { event.preventDefault(); revokeButtonRef.current.focus(); } }}>
+          <DialogHeader>
+            <DialogTitle>{uiT("Revoke API key")}</DialogTitle>
+            <DialogDescription>{uiT("Revoke this key now?")}</DialogDescription>
+          </DialogHeader>
+          {revokeError && <Alert variant="destructive"><AlertDescription>{uiT(revokeError)}</AlertDescription></Alert>}
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={revoking} onClick={() => { setConfirmRevoke(false); setRevokeError(''); }}>{uiT("Keep key")}</Button>
+            <Button type="button" variant="destructive" disabled={revoking} onClick={() => void revoke()}>{revoking ? uiT("Revoking…") : uiT("Confirm revoke")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>}
     <Dialog open={Boolean(rotatedSecret)} onOpenChange={open => { if (!open) { setRotatedSecret(''); setCopiedRotatedSecret(false); } }}>
       <DialogContent>

@@ -16,6 +16,7 @@ import type {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,12 +64,14 @@ export function RegistrationPolicySection({
   const { t } = useLocalizedMessages();
   const [policy, setPolicy] = useState<PlatformRegistrationPolicy | null>(null);
   const [draftMode, setDraftMode] = useState<RegistrationMode>('approval_required');
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saveErrorKind, setSaveErrorKind] = useState<'conflict' | 'failed' | ''>('');
   const [savedNotice, setSavedNotice] = useState(false);
   const activePolicy = useRef<AbortController | null>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadPolicy = useCallback(async () => {
     activePolicy.current?.abort();
@@ -120,6 +123,7 @@ export function RegistrationPolicySection({
       );
       setPolicy(result.data);
       setDraftMode(result.data.mode);
+      setDialogOpen(false);
       setSavedNotice(true);
       invalidateQueries(key => key.startsWith('public::/api/v1/auth/config'));
       onPolicySaved?.(result.data);
@@ -135,16 +139,43 @@ export function RegistrationPolicySection({
     }
   }
 
+  const currentModeLabel =
+    policy?.mode === 'approval_required'
+      ? t('Limited Preview · Administrator approval required', '有限预览 · 注册需管理员审批')
+      : t('Closed · Invitation or administrator setup only', '关闭注册 · 仅限邀请或管理员开通');
+  const draftModeLabel =
+    draftMode === 'approval_required'
+      ? t('Limited Preview · Administrator approval required', '有限预览 · 注册需管理员审批')
+      : t('Closed · Invitation or administrator setup only', '关闭注册 · 仅限邀请或管理员开通');
+
   return (
     <section className="space-y-4" aria-label={t('Registration policy', '注册策略')}>
-      <div>
-        <h2 className="text-lg font-semibold">{t('Limited Preview & registration access', '有限预览与注册准入')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t(
-            'Control whether visitors can submit registration requests on /register for administrator approval, or restrict onboarding to invitations and manual setup.',
-            '控制访客是否可通过 /register 提交有限预览注册申请并由管理员审批，或仅限邀请与管理员手工创建。',
-          )}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{t('Limited Preview & registration access', '有限预览与注册准入')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t(
+              'Control whether visitors can submit registration requests on /register for administrator approval, or restrict onboarding to invitations and manual setup.',
+              '控制访客是否可通过 /register 提交有限预览注册申请并由管理员审批，或仅限邀请与管理员手工创建。',
+            )}
+          </p>
+        </div>
+        {policy && (
+          <Button
+            ref={editButtonRef}
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setDraftMode(policy.mode);
+              setSaveErrorKind('');
+              setSavedNotice(false);
+              setDialogOpen(true);
+            }}
+          >
+            {t('Edit policy', '编辑策略')}
+          </Button>
+        )}
       </div>
 
       {loading && !policy ? (
@@ -171,73 +202,120 @@ export function RegistrationPolicySection({
               </AlertDescription>
             </Alert>
           )}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="grid min-w-0 gap-2">
-              <Label htmlFor="platform-registration-mode">{t('Registration mode', '注册模式')}</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    id="platform-registration-mode"
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    className="w-full max-w-full justify-between gap-4 sm:w-[400px]"
-                    aria-label={t('Registration mode', '注册模式')}
-                  >
-                    <span className="truncate">
-                      {draftMode === 'approval_required'
-                        ? t('Limited Preview · Administrator approval required', '有限预览 · 注册需管理员审批')
-                        : t('Closed · Invitation or administrator setup only', '关闭注册 · 仅限邀请或管理员开通')}
-                    </span>
-                    <IconChevronDown size={16} aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[400px] max-w-[calc(100vw-2rem)]">
-                  <DropdownMenuRadioGroup
-                    value={draftMode}
-                    onValueChange={value => {
-                      setDraftMode(value as RegistrationMode);
-                      setSaveErrorKind('');
-                      setSavedNotice(false);
-                    }}
-                  >
-                    <DropdownMenuRadioItem value="approval_required">
-                      {t('Limited Preview · Administrator approval required', '有限预览 · 注册需管理员审批')}
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="disabled">
-                      {t('Closed · Invitation or administrator setup only', '关闭注册 · 仅限邀请或管理员开通')}
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <Button
-              type="button"
-              disabled={saving || draftMode === policy.mode}
-              onClick={() => void save()}
-            >
-              {saving ? t('Saving…', '保存中…') : t('Save policy', '保存策略')}
-            </Button>
-          </div>
+          <dl className="rounded-[var(--radius-panel)] bg-card p-5 text-sm">
+            <dt className="text-xs text-muted-foreground">{t('Registration mode', '注册模式')}</dt>
+            <dd className="mt-1 font-medium">{currentModeLabel}</dd>
+          </dl>
           {savedNotice && (
             <p role="status" className="text-sm text-foreground">
               {t('Registration policy saved.', '注册策略已保存。')}
             </p>
           )}
-          {saveErrorKind && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {saveErrorKind === 'conflict'
-                  ? t(
-                      'Registration policy changed before saving. Reloaded the latest revision.',
-                      '保存前注册策略已被修改，正在重新加载最新版本。',
-                    )
-                  : t('Could not save registration policy. Try again.', '无法保存注册策略，请重试。')}
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
       ) : null}
+
+      <Dialog
+        open={dialogOpen && Boolean(policy)}
+        onOpenChange={open => {
+          if (!saving) {
+            setDialogOpen(open);
+            if (!open && policy) {
+              setDraftMode(policy.mode);
+              setSaveErrorKind('');
+            }
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[90dvh] overflow-y-auto"
+          onCloseAutoFocus={event => {
+            if (editButtonRef.current?.isConnected) {
+              event.preventDefault();
+              editButtonRef.current.focus();
+            }
+          }}
+        >
+          {policy && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t('Edit registration policy', '编辑注册策略')}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    'Choose whether visitors can submit registration requests on /register or limit onboarding to invitations and administrator creation.',
+                    '选择是否允许访客通过 /register 提交注册申请，或仅限邀请与管理员开通。',
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4">
+                <div className="grid min-w-0 gap-2">
+                  <Label htmlFor="platform-registration-mode">{t('Registration mode', '注册模式')}</Label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        id="platform-registration-mode"
+                        type="button"
+                        variant="outline"
+                        disabled={saving}
+                        className="w-full justify-between gap-4"
+                        aria-label={t('Registration mode', '注册模式')}
+                      >
+                        <span className="truncate">{draftModeLabel}</span>
+                        <IconChevronDown size={16} aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-w-[calc(100vw-2rem)]">
+                      <DropdownMenuRadioGroup
+                        value={draftMode}
+                        onValueChange={value => {
+                          setDraftMode(value as RegistrationMode);
+                          setSaveErrorKind('');
+                          setSavedNotice(false);
+                        }}
+                      >
+                        <DropdownMenuRadioItem value="approval_required">
+                          {t('Limited Preview · Administrator approval required', '有限预览 · 注册需管理员审批')}
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="disabled">
+                          {t('Closed · Invitation or administrator setup only', '关闭注册 · 仅限邀请或管理员开通')}
+                        </DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {saveErrorKind && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {saveErrorKind === 'conflict'
+                        ? t(
+                            'Registration policy changed before saving. Reloaded the latest revision.',
+                            '保存前注册策略已被修改，正在重新加载最新版本。',
+                          )
+                        : t('Could not save registration policy. Try again.', '无法保存注册策略，请重试。')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setDraftMode(policy.mode);
+                    setSaveErrorKind('');
+                  }}
+                >
+                  {t('Cancel', '取消')}
+                </Button>
+                <Button type="button" disabled={saving || draftMode === policy.mode} onClick={() => void save()}>
+                  {saving ? t('Saving…', '保存中…') : t('Save policy', '保存策略')}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

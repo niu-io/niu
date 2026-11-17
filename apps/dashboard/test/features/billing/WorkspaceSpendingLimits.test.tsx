@@ -11,11 +11,14 @@ describe('workspace spending controls', () => {
     const fetch = vi.fn(async () => Response.json({data:[{...account,limit_nanos:'10000000000',revision:'2'},{...account,currency:'USD',limit_nanos:'10000000000',revision:'2'}]}));
     vi.stubGlobal('fetch',fetch);render(<WorkspaceSpendingLimits {...props}/>);
     const user=userEvent.setup();
-    await user.click(await screen.findByRole('button',{name:'Edit CNY spending limit'}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const editBtn = await screen.findByRole('button',{name:'Edit CNY spending limit'});
+    await user.click(editBtn);
     await user.clear(screen.getByLabelText('Lifetime limit (CNY)'));
     await user.type(screen.getByLabelText('Lifetime limit (CNY)'),'25');
     await user.click(screen.getByRole('button',{name:'Cancel'}));
-    expect(document.activeElement).toBe(screen.getByRole('button',{name:'Edit CNY spending limit'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(editBtn));
     expect(screen.getByText('¥0.00 committed of ¥10.00')).toBeTruthy();
     expect(screen.getByText('$0.00 committed of $10.00')).toBeTruthy();
     expect(screen.queryByRole('button',{name:'Edit USD spending limit'})).toBeNull();
@@ -31,6 +34,7 @@ describe('workspace spending controls', () => {
     const user=userEvent.setup();await user.click(await screen.findByRole('button',{name:'Add CNY spending limit'}));
     await user.type(screen.getByLabelText('Lifetime limit (CNY)'),'0');
     await user.click(screen.getByRole('button',{name:'Save limit'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('¥0.00 committed of ¥0.00');
     expect(JSON.parse(fetch.mock.calls.find(([,init])=>init.method==='PUT')![1].body)).toEqual({limit_nanos:'0',expected_revision:'0'});
     expect(fetch.mock.calls.every(([url])=>String(url).includes('/organizations/company/projects/workspace/spending-limit'))).toBe(true);

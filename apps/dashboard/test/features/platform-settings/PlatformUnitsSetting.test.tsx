@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import PlatformSettingsRoute from '@/features/platform-settings/page';
@@ -44,7 +44,18 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   expect(screen.queryByText(/per unit/)).toBeNull();
   expect(screen.queryByLabelText(/decimal scale/i)).toBeNull();
   expect(screen.queryByLabelText(/^rounding$/i)).toBeNull();
+  expect(screen.queryByLabelText('Unit display name')).toBeNull();
+  expect(screen.queryByLabelText('Payment currency')).toBeNull();
   expect(screen.getByRole('button', { name: 'Switch billing mode' })).toBeTruthy();
+
+  const user = userEvent.setup();
+  const editDefBtn = screen.getByRole('button', { name: 'Edit definition' });
+  await user.click(editDefBtn);
+  const defDialog = screen.getByRole('dialog');
+  expect(within(defDialog).getByLabelText('Unit display name')).toBeTruthy();
+  await user.click(within(defDialog).getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(editDefBtn));
 });
 
 it('separates General and Branded Credits & billing mode into tabs on Admin Settings', async () => {

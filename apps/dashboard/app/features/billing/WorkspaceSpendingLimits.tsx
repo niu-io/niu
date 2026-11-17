@@ -5,6 +5,7 @@ import { amountFromNanos, amountToNanos, formatUnitAtoms, money, unitAmountFromA
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -79,7 +80,9 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
   const [saved, setSaved] = useState(false);
   const saveController = useRef<AbortController | null>(null);
   const readGeneration = useRef(0);
-  const cancelFocusCurrency = useRef<string | null>(null);
+  const unitTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const currencyTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const closingCurrencyRef = useRef<string | null>(null);
   const loadedScope = useRef(`${token}:${base}`);
   const lastTrigger = useRef({ reload: 0, refresh });
   useEffect(() => () => { saveController.current?.abort(); }, [token, base]);
@@ -141,6 +144,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
   }, [token, base, unitBase, reload, refresh, platformBillingMode, platformUnit]);
   function edit(account: SpendingAccount) {
     if (reloadRequired || loading || error || saving) return;
+    closingCurrencyRef.current = account.currency;
     setEditing(account); setAmount(account.limit_nanos === null ? '' : amountFromNanos(account.limit_nanos));
     setSaveError(''); setSaved(false);
   }
@@ -202,6 +206,8 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     }
   }
   const activeUnit = unitLimit?.unit ?? (platformUnit ? { definition_revision: platformUnit.revision, name: platformUnit.name, display_precision: platformUnit.display_precision, atoms_per_unit: platformUnit.atoms_per_unit } : null);
+  const activeUnitName = activeUnit?.name ?? uiT("Credits");
+  const activeUnitPrecision = activeUnit?.display_precision ?? 2;
   const amountValid = (() => {
     const value = amount.trim();
     if (!value) return false;
@@ -218,62 +224,228 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     <div className="space-y-1"><h2 className="text-base font-semibold">{uiT("Spending limits")}</h2><p className="text-sm text-muted-foreground">{uiT("Lifetime limits include charges and reserved requests.")}</p></div>
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Spending limits unavailable")}</AlertTitle><AlertDescription>{uiT("Could not load this workspace’s spending limits.")}<Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry spending limits")}</Button></AlertDescription></Alert>}
     {unitReadError && <Alert variant="destructive"><AlertTitle>{uiT("Credits spending limit unavailable")}</AlertTitle><AlertDescription>{uiT("Could not refresh the Credits spending limit. The last loaded value is still shown.")}<Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry Credits limit")}</Button></AlertDescription></Alert>}
-    {unitLimit && (activeUnit || platformBillingMode === 'credits' || unitLimit.limit_atoms !== null || BigInt(unitLimit.committed_atoms || '0') > 0n) && (() => {
-      const unitName = activeUnit?.name ?? uiT("Credits");
-      const prec = activeUnit?.display_precision ?? 2;
-      return <div className="space-y-3 py-2" aria-label={uiT("Workspace Credits spending limit")}>
+    {unitLimit && (activeUnit || platformBillingMode === 'credits' || unitLimit.limit_atoms !== null || BigInt(unitLimit.committed_atoms || '0') > 0n) && (
+      <div className="space-y-3 py-2" aria-label={uiT("Workspace Credits spending limit")}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-medium">{unitName}</h3>
+            <h3 className="font-medium">{activeUnitName}</h3>
             <p className="text-sm text-muted-foreground">
               {unitLimit.limit_atoms === null
-                ? uiF("No workspace {0} limit set ({1} committed).", [unitName, formatUnitAtoms(unitLimit.committed_atoms, unitName, prec)])
-                : uiF("{0} committed of {1}{2}", [formatUnitAtoms(unitLimit.committed_atoms, unitName, prec), formatUnitAtoms(unitLimit.limit_atoms, unitName, prec), unitLimit.remaining_atoms !== null ? uiF(" · {0} remaining", [formatUnitAtoms(unitLimit.remaining_atoms, unitName, prec)]) : ''])}
+                ? uiF("No workspace {0} limit set ({1} committed).", [activeUnitName, formatUnitAtoms(unitLimit.committed_atoms, activeUnitName, activeUnitPrecision)])
+                : uiF("{0} committed of {1}{2}", [formatUnitAtoms(unitLimit.committed_atoms, activeUnitName, activeUnitPrecision), formatUnitAtoms(unitLimit.limit_atoms, activeUnitName, activeUnitPrecision), unitLimit.remaining_atoms !== null ? uiF(" · {0} remaining", [formatUnitAtoms(unitLimit.remaining_atoms, activeUnitName, activeUnitPrecision)]) : ''])}
             </p>
           </div>
-          {canConfigure && !editingUnit && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" disabled={unitSaving || loading} onClick={() => { setEditingUnit(true); setUnitAmount(unitLimit.limit_atoms === null ? '' : unitAmountFromAtoms(unitLimit.limit_atoms, prec)); setUnitSaveError(''); setUnitSaved(false); }}>
-                {unitLimit.limit_atoms === null ? uiF("Set {0} limit", [unitName]) : uiF("Edit {0} limit", [unitName])}
-              </Button>
-              {unitLimit.limit_atoms !== null && (
-                <Button variant="ghost" size="sm" disabled={unitSaving || loading} onClick={() => void saveUnitLimit(null)}>
-                  {uiT("Set unlimited")}</Button>
-              )}
-            </div>
+          {canConfigure && (
+            <Button
+              ref={unitTriggerRef}
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={unitSaving}
+              onClick={() => {
+                setUnitAmount(unitLimit.limit_atoms === null ? '' : unitAmountFromAtoms(unitLimit.limit_atoms, activeUnitPrecision));
+                setUnitSaveError('');
+                setUnitSaved(false);
+                setEditingUnit(true);
+              }}
+            >
+              {unitLimit.limit_atoms === null ? uiF("Set {0} limit", [activeUnitName]) : uiF("Edit {0} limit", [activeUnitName])}
+            </Button>
           )}
         </div>
-        {canConfigure && editingUnit && (
-          <form onSubmit={submitUnitLimit} className="space-y-3 max-w-lg">
-            <div className="space-y-2">
-              <Label htmlFor="workspace-unit-spending-amount">{uiT("Lifetime limit (")}{unitName})</Label>
-              <Input autoFocus id="workspace-unit-spending-amount" inputMode="decimal" value={unitAmount} disabled={unitSaving} onChange={event => setUnitAmount(event.target.value)} required />
-              <p className="text-sm text-muted-foreground">{uiT("No periodic reset. A zero limit blocks new paid requests in")}{" "}{unitName}.</p>
-            </div>
-            {unitSaveError && <p role="alert" className="text-sm text-destructive">{uiT(unitSaveError)}</p>}
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={unitSaving || !unitAmount.trim()}>{unitSaving ? uiT("Saving…") : uiT("Save Credits limit")}</Button>
-              <Button type="button" variant="ghost" disabled={unitSaving} onClick={() => setEditingUnit(false)}>{uiT("Cancel")}</Button>
-            </div>
-          </form>
-        )}
-        {unitSaved && <p role="status" className="text-sm text-muted-foreground">{unitName}{" "}{uiT("spending limit saved.")}</p>}
-      </div>;
-    })()}
+        {unitSaved && <p role="status" className="text-sm text-muted-foreground">{activeUnitName}{" "}{uiT("spending limit saved.")}</p>}
+      </div>
+    )}
     {!platformCurrency && <p className="text-sm text-muted-foreground">{uiT("Spending limits will be available after the platform currency is configured in Admin.")}</p>}
     {loading && !accounts && <ListRowsSkeleton rows={2} label={uiT("Loading spending limits…")} />}
     {!error && accounts?.length === 0 && !loading && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available yet.")}</EmptyDescription></EmptyHeader></Empty>}
-    {!error && accounts?.filter(account => account.currency === platformCurrency || account.limit_nanos !== null || BigInt(account.committed_nanos) > 0n).map(account => <div key={account.currency} className="space-y-3 py-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="font-medium">{account.currency}</h3><p className="text-sm text-muted-foreground">{account.limit_nanos === null ? uiT("No workspace limit set.") : uiF("{0} committed of {1}", [money(account.committed_nanos, account.currency), money(account.limit_nanos, account.currency)])}</p></div>
-        {canConfigure && account.currency === platformCurrency && editing?.currency !== account.currency && <Button ref={element => { if (element && cancelFocusCurrency.current === account.currency) { cancelFocusCurrency.current = null; element.focus(); } }} variant="outline" size="sm" disabled={saving || loading || reloadRequired} aria-label={uiF("{0} {1} spending limit", [account.limit_nanos === null ? uiT("Add") : uiT("Edit"), account.currency])} onClick={() => edit(account)}>{account.limit_nanos === null ? uiT("Add limit") : uiT("Edit limit")}</Button>}
+    {!error && accounts?.filter(account => account.currency === platformCurrency || account.limit_nanos !== null || BigInt(account.committed_nanos) > 0n).map(account => (
+      <div key={account.currency} className="space-y-2 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-medium">{account.currency}</h3>
+            <p className="text-sm text-muted-foreground">
+              {account.limit_nanos === null
+                ? uiT("No workspace limit set.")
+                : uiF("{0} committed of {1}", [money(account.committed_nanos, account.currency), money(account.limit_nanos, account.currency)])}
+            </p>
+          </div>
+          {canConfigure && account.currency === platformCurrency && (
+            <Button
+              ref={element => {
+                currencyTriggerRefs.current[account.currency] = element;
+              }}
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={saving || reloadRequired}
+              aria-label={uiF("{0} {1} spending limit", [account.limit_nanos === null ? uiT("Add") : uiT("Edit"), account.currency])}
+              onClick={() => edit(account)}
+            >
+              {account.limit_nanos === null ? uiT("Add limit") : uiT("Edit limit")}
+            </Button>
+          )}
+        </div>
       </div>
-      {canConfigure && account.currency === platformCurrency && editing?.currency === account.currency && <form onSubmit={save} className="space-y-3 max-w-lg">
-        <div className="space-y-2"><Label htmlFor="workspace-spending-amount">{uiT("Lifetime limit (")}{account.currency})</Label><Input autoFocus id="workspace-spending-amount" inputMode="decimal" value={amount} disabled={saving || reloadRequired} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-spending-help" aria-invalid={Boolean(amount.trim()) && !amountValid} required/><p id="workspace-spending-help" className="text-sm text-muted-foreground">{uiT("No periodic reset. A zero limit blocks new paid requests.")}</p>{Boolean(amount.trim()) && !amountValid && <p role="alert" className="text-sm text-destructive">{uiT("Enter a valid amount with up to 9 decimal places.")}</p>}</div>
-        {saveError && <p role="alert" className="text-sm text-destructive">{uiT(saveError)}</p>}
-        <div className="flex flex-wrap gap-2">{reloadRequired ? <Button type="button" disabled={loading} onClick={() => {setEditing(null);setReload(value => value + 1);}}>{uiT("Reload limits")}</Button> : <Button type="submit" disabled={saving || loading || !amountValid}>{saving ? uiT("Saving…") : uiT("Save limit")}</Button>}<Button type="button" variant="ghost" disabled={saving || reloadRequired} onClick={() => { cancelFocusCurrency.current = account.currency; setEditing(null); }}>{uiT("Cancel")}</Button></div>
-      </form>}
-    </div>)}
+    ))}
     {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Spending limit saved.")}</p>}
+    <Dialog
+      open={editing !== null}
+      onOpenChange={open => {
+        if (!open && !saving && !reloadRequired) {
+          setEditing(null);
+          setSaveError('');
+        }
+      }}
+    >
+      <DialogContent
+        className="max-h-[90dvh] overflow-y-auto"
+        onCloseAutoFocus={event => {
+          const currency = closingCurrencyRef.current;
+          const trigger = currency ? currencyTriggerRefs.current[currency] : null;
+          if (trigger?.isConnected) {
+            event.preventDefault();
+            trigger.focus();
+          }
+        }}
+      >
+        {editing && (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {uiF("{0} {1} spending limit", [editing.limit_nanos === null ? uiT("Add") : uiT("Edit"), editing.currency])}
+              </DialogTitle>
+              <DialogDescription>
+                {uiT("No periodic reset. A zero limit blocks new paid requests.")}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={save} className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="workspace-spending-amount">{uiT("Lifetime limit (")}{editing.currency})</Label>
+                <Input
+                  autoFocus
+                  id="workspace-spending-amount"
+                  inputMode="decimal"
+                  value={amount}
+                  disabled={saving || reloadRequired}
+                  onChange={event => setAmount(event.target.value)}
+                  aria-describedby="workspace-spending-help"
+                  aria-invalid={Boolean(amount.trim()) && !amountValid}
+                  required
+                />
+                {Boolean(amount.trim()) && !amountValid && (
+                  <p role="alert" className="text-sm text-destructive">{uiT("Enter a valid amount with up to 9 decimal places.")}</p>
+                )}
+              </div>
+              {saveError && <p role="alert" className="text-sm text-destructive">{uiT(saveError)}</p>}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saving || reloadRequired}
+                  onClick={() => {
+                    setEditing(null);
+                    setSaveError('');
+                  }}
+                >
+                  {uiT("Cancel")}
+                </Button>
+                {reloadRequired ? (
+                  <Button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setEditing(null);
+                      setSaveError('');
+                      setReload(value => value + 1);
+                    }}
+                  >
+                    {uiT("Reload limits")}
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={saving || loading || !amountValid}>
+                    {saving ? uiT("Saving…") : uiT("Save limit")}
+                  </Button>
+                )}
+              </DialogFooter>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+    <Dialog
+      open={editingUnit && Boolean(unitLimit)}
+      onOpenChange={open => {
+        if (!open && !unitSaving) {
+          setEditingUnit(false);
+          setUnitSaveError('');
+        }
+      }}
+    >
+      <DialogContent
+        className="max-h-[90dvh] overflow-y-auto"
+        onCloseAutoFocus={event => {
+          if (unitTriggerRef.current?.isConnected) {
+            event.preventDefault();
+            unitTriggerRef.current.focus();
+          }
+        }}
+      >
+        {unitLimit && (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {unitLimit.limit_atoms === null ? uiF("Set {0} limit", [activeUnitName]) : uiF("Edit {0} limit", [activeUnitName])}
+              </DialogTitle>
+              <DialogDescription>
+                {uiT("No periodic reset. A zero limit blocks new paid requests in")}{" "}{activeUnitName}.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={submitUnitLimit} className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="workspace-unit-spending-amount">{uiT("Lifetime limit (")}{activeUnitName})</Label>
+                <Input
+                  autoFocus
+                  id="workspace-unit-spending-amount"
+                  inputMode="decimal"
+                  value={unitAmount}
+                  disabled={unitSaving}
+                  onChange={event => setUnitAmount(event.target.value)}
+                  required
+                />
+              </div>
+              {unitSaveError && <p role="alert" className="text-sm text-destructive">{uiT(unitSaveError)}</p>}
+              <DialogFooter>
+                {unitLimit.limit_atoms !== null && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="sm:mr-auto"
+                    disabled={unitSaving || loading}
+                    onClick={() => void saveUnitLimit(null)}
+                  >
+                    {uiT("Set unlimited")}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={unitSaving}
+                  onClick={() => {
+                    setEditingUnit(false);
+                    setUnitSaveError('');
+                  }}
+                >
+                  {uiT("Cancel")}
+                </Button>
+                <Button type="submit" disabled={unitSaving || !unitAmount.trim()}>
+                  {unitSaving ? uiT("Saving…") : uiT("Save Credits limit")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   </section>;
 }

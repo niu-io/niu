@@ -123,7 +123,8 @@ describe('dashboard route layout', () => {
       return originalFetch(input,init);
     }));
     const router = renderAt(`/admin/providers/${id}/settings?view=general#profile`);
-    await screen.findByLabelText('Name', {exact:true});
+    await screen.findByRole('heading', { name: 'Business profile' });
+    expect(screen.getByRole('button', { name: 'Edit profile' })).toBeTruthy();
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider/settings'));
     expect(router.state.location.search).toBe('?view=general');
     expect(router.state.location.hash).toBe('#profile');
@@ -175,12 +176,15 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/organizations/org/projects/production' && init?.method==='PATCH'
       ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/api/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
     const router=renderAt('/workspaces/production/settings'); const user=userEvent.setup();
-    await user.clear(await screen.findByLabelText('Workspace name'));
-    await user.type(screen.getByLabelText('Workspace name'),'Customer support');
-    await user.click(screen.getByRole('button',{name:'Save changes',exact:true}));
-    await user.click(screen.getByRole('button',{name:'Switch workspace in header',exact:true}));
-    await user.click(await screen.findByRole('menuitemradio',{name:'Default',exact:true}));
-    await waitFor(()=>expect((screen.getByLabelText('Workspace name') as HTMLInputElement).value).toBe('Default'));
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const renameDialog = screen.getByRole('dialog');
+    await user.clear(within(renameDialog).getByLabelText('Workspace name'));
+    await user.type(within(renameDialog).getByLabelText('Workspace name'),'Customer support');
+    await user.click(within(renameDialog).getByRole('button',{name:'Save changes',exact:true}));
+    await waitFor(() => expect(finishRename).toBeTypeOf('function'));
+    await router.navigate('/workspaces/default/settings');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('button',{name:'Switch workspace'}).textContent).toContain('Default'));
     const destination=router.state.location.pathname;
     await act(async()=>finishRename(Response.json({id:'production',name:'Customer support'})));
     await waitFor(()=>expect(screen.queryByText('Workspace renamed.')).toBeNull());
@@ -326,9 +330,12 @@ describe('dashboard route layout', () => {
     }));
     const router = renderAt('/workspaces/production/settings');
     const user = userEvent.setup();
-    await user.clear(await screen.findByLabelText('Workspace name'));
-    await user.type(screen.getByLabelText('Workspace name'), 'Customer support');
-    await user.click(screen.getByRole('button',{name:'Save changes',exact:true}));
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const renameDialog = screen.getByRole('dialog');
+    await user.clear(within(renameDialog).getByLabelText('Workspace name'));
+    await user.type(within(renameDialog).getByLabelText('Workspace name'), 'Customer support');
+    await user.click(within(renameDialog).getByRole('button',{name:'Save changes',exact:true}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('Workspace renamed.');
     expect(router.state.location.pathname).toBe('/workspaces/customer-support/settings');
     expect(screen.getByRole('button',{name:'Switch workspace'}).textContent).toContain('Customer support');
