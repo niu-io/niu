@@ -22,6 +22,7 @@ import { useDraftNavigation } from '../useDraftNavigation';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
 import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
 import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
+import ChatTurnAttachments, { type ChatAttachment } from './ChatTurnAttachments';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ type ComparisonResult = {
   customerChargeStatus: string;
   customerChargeCurrency: string | null;
 };
-type SavedTurn = { prompt: string; results: ComparisonResult[]; attachments?: Array<{name: string; type: string; content: string}> };
+type SavedTurn = { prompt: string; results: ComparisonResult[]; attachments?: ChatAttachment[] };
 type SavedComparison = SavedTurn & { title?: string; id: string; reference?: string; createdAt: number; turns?: SavedTurn[]; settings?: { systemPrompt: string; maxTokens: number; temperature: number; logPayloads?: boolean } };
 type ComparisonMetric = 'requests' | 'elapsed' | 'prompt' | 'completion' | 'total' | 'cash';
 const maxComparisonModels = 4;
@@ -1131,8 +1132,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 </div>
                 : !results
                 ? null
-                : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results }]).map((turn, turnIndex) => <div className="playground-comparison-thread" id={`generation-turn-${turnIndex + 1}`} tabIndex={-1} key={turnIndex}>
-                  <div className="playground-user-prompt"><span>{uiT("You")}</span><p>{turn.prompt}</p></div>
+                : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results, attachments: activeComparison?.attachments }]).map((turn, turnIndex) => <div className="playground-comparison-thread" id={`generation-turn-${turnIndex + 1}`} tabIndex={-1} key={turnIndex}>
+                  <div className="playground-user-prompt min-w-0"><span>{uiT("You")}</span>
+                    <ChatTurnAttachments key={activeComparisonId ?? 'new'} attachments={turn.attachments ?? []} />
+                    <p>{turn.prompt}</p>
+                  </div>
                   {error && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
                     <div className={turn.results.length === 1 ? "sr-only" : "playground-results-heading"}><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
