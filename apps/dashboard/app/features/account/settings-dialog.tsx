@@ -35,7 +35,7 @@ export default function SettingsDialog({context, children, pendingSection}: {con
   };
   return <Dialog open={open} onOpenChange={value => { if (!value) close(); }}>
     <DialogContent onEscapeKeyDown={event => {
-      const back = document.querySelector<HTMLButtonElement>('[data-global-settings-dialog] [data-settings-member-back]');
+      const back = document.querySelector<HTMLButtonElement>('[data-global-settings-dialog] [data-settings-back], [data-global-settings-dialog] [data-settings-member-back]');
       if (back) { event.preventDefault(); if (!back.disabled) back.click(); }
     }} onKeyDownCapture={event => {if(event.key.toLowerCase() === 'b' && (event.metaKey || event.ctrlKey)){event.preventDefault();event.stopPropagation();}}} data-global-settings-dialog className="flex h-[min(760px,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl" onOpenAutoFocus={event => {
       event.preventDefault();
