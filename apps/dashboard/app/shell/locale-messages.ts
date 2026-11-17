@@ -4970,4 +4970,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Messages · tools": "Messages · 工具",
   "Gemini · streaming": "Gemini · 流式",
   "Gemini": "Gemini",
+  "Only workspaces without saved records can be deleted. Spending-limit history also prevents deletion, even without requests.": "只有没有保存记录的工作空间才能删除。消费限额历史也会阻止删除，即使没有请求。",
+  "Saving a spending limit retains audit history and prevents deleting this workspace, even without requests.": "保存消费限额后会保留审计记录，即使没有请求，也无法删除此工作空间。",
+  "This workspace has saved records or is the installation default and cannot be deleted": "此工作空间是默认工作空间或包含保存记录（包括消费限额历史），无法删除。未删除任何数据。",
 };
