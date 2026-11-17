@@ -57,3 +57,63 @@ Compilation across gateway/storage targets, the gateway build and generated API
 consistency completed. These checks do not replace a real image response, positive
 accounting reconciliation or the corrected hosted save/reload/export journey;
 those acceptance requirements remain open in `niu-sjbh`.
+
+## Correction and actual hosted verification
+
+Core `1a32fb9eef4828d8d81318b702dc0fef9cf9e7a7` was deployed for this
+verification. The priced Chat validator accepts bounded user image-URL content
+for a route advertising image input. Text-only route rejection remains explicit.
+Key token-rate admission uses the route input limit plus the output bound for
+images, rather than treating encoded image bytes as a sound token estimate.
+Migration 0437 records that distinct estimator without rewriting historical
+admissions. Existing text bounds retain their original estimator.
+
+An actual native priced image request with a one-token-per-minute key limit was
+rejected before dispatch; independent request inventory remained empty. Applying
+the migration to a retained database with four actual prior admission rows left
+those rows byte-identical. This is bounded admission/migration evidence, not an
+upstream image-completion claim. Backend compilation, build, all-target static
+checks, generated API checks and documentation build completed; fixture outcomes
+were not used.
+
+The hosted browser then submitted the public Niu mark PNG once with a fresh
+prompt asking for blade count, colors and visible text. The unsent draft was
+read independently and reloaded before submission. The completed answer counted
+seven curved blades, described warm yellow/orange/coral colors, and reported no
+text. Independent visual inspection of the input agrees with those observations;
+this does not establish general model quality.
+
+The saved session and downloaded JSON export retain the same prompt, attachment,
+model, completed text and stop reason. The export intentionally omits diagnostic
+fields retained in the backend session; equality was checked on the exported
+fields rather than assuming identical schemas. The decoded PNG is byte-identical
+to the original: 22,353 bytes, SHA-256
+`4ff254f73bd098c41eccaa9f78440592749bf6a44196f86d85851e874dbc8491`.
+Independent request evidence reports one confirmed completed invocation,
+245 input tokens, 3,253 output tokens, 3,498 total, and a settled USD-zero customer
+charge under the applicable zero tariff. Reload retained the completed answer.
+The temporary key was revoked and its old token returned 401.
+
+A separate actual API image request exercised the isolated, noncash-funded
+compatibility tariff documented in
+[positive customer charge verification](positive-customer-charge-2026-11-18.md).
+Its conservative reservation was 1,008,192 nanos; the fresh key had the same
+explicit cap. Independent records agree on 235 input and 4,096 output tokens.
+The Provider reported all 4,096 output tokens as reasoning, an empty final answer,
+and `finish_reason=length`. This verifies bounded execution/accounting, **not**
+a successful answer to the image question; no automatic retry was submitted.
+The visible successful answer is the separate browser request described above.
+
+At the configured customer rates, the raw token charge was 8,427 nanos and the
+10,000-nano minimum applied. Request charge and key committed amount both equal
+10,000. Final account balance and key remaining amount both equal 998,192 nanos;
+reserved balance is zero, reservation inventory is empty, and the independently
+summed ledger equals that balance. The key was revoked with a subsequent 401.
+The funding adjustment was explicitly noncash credit, not a payment or revenue
+claim. Default-platform positive pricing and merchant payment acceptance remain
+outside this bounded run.
+
+The deployed asset graph was independently checked: all 249 assets reachable
+from the previous dashboard entry remained byte-identical and both health and
+readiness endpoints returned 200. This bounds retained-client compatibility;
+it does not replace full release regression or acceptance of a later merged tip.
