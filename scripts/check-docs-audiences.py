@@ -22,6 +22,9 @@ contracts = ['install', 'agents', 'inference', 'pools', 'evaluations', 'events']
 
 for page in ['index.html', 'getting-started/index.html', 'agents/index.html', 'guides/personal-assistant/index.html']:
     html = (a.dist / page).read_text()
+    assert 'docs-sidebar-header' in html and 'docs-sidebar-brand' in html, (
+        f'Missing split sidebar brand header in {page}'
+    )
     parsed = Links()
     parsed.feed(html)
     assert not any('/docs/docs/' in link for link in parsed.links), f'Duplicated base in {page}'
