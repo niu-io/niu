@@ -93,3 +93,40 @@ The write-trace repair and later successful runs narrow the issue but do not era
 it. Exact merged hosted acceptance must cover initial send, reload, query-free
 revisit, new generation and revoked-key recovery before this bead is closed.
 A separate browser profile remains outside the local verification above.
+
+## Exact merged hosted follow-up
+
+Core `3f949559156ff2499a900e6890b3e29ed6ed4dde` was deployed to staging.
+Two fresh one-hour keys were restricted to the configured DeepSeek route, each
+with a zero-USD Niu spending limit. Independent model discovery showed zero
+customer input/output rates. The browser explicitly selected the second key and
+sent a fresh prompt. The saved result contains exactly
+`HOSTED_CHAT_KEY_20261118_0430`, with 47 input and 31 output tokens, a completed
+outcome and zero customer charge. Independent key-scoped inventory contains one
+request for the selected key and none for the alternate.
+
+An independent owner-scoped draft read after completion matched the selected
+key at revision 174. Reload restored the same key and response. A fresh tab
+opened the canonical URL without a key query and restored both. Starting a new
+generation saved a null session and the same key at revision 175. These checks
+use fresh page memory in the existing authenticated browser, not a separate
+browser profile.
+
+The selected key was revoked while the alternate and existing workspace keys
+remained available. Reload displayed the localized invalid-key recovery notice
+and no replacement selection. Explicitly selecting the alternate updated the
+backend draft; another query-free revisit restored that choice and the saved
+reply. Both temporary credentials were then revoked and independently denied
+with HTTP 401. Their credentials were removed from the local evidence files.
+
+The rendered desktop response and narrow key dialog/menu were inspected. At
+390 CSS pixels the document was 390 pixels wide, and the dialog and menu stayed
+inside the viewport. The settled menu retained normal text alignment; the
+selected menu capture showed the check on the right. Escape dismissed the menu,
+and completing an available-key selection restored focus to its trigger.
+After final cleanup revoked the alternate too, the dialog correctly had no
+valid selection and disabled completion; Escape still dismissed it and restored
+focus. The source-backed Operate criteria in the UX review skill—explicit
+recovery, stable choices and legible state—are met for this bounded journey.
+Separate-browser-profile acceptance remains outside this run. The earlier
+native settled omission remains preserved above without an invented cause.

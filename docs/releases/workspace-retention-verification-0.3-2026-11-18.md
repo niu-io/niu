@@ -52,3 +52,25 @@ limit was changed and no new workspace was created during this copy verification
 The original zero-limit verification workspace remains intentionally retained
 with its immutable audit record. The temporary loopback session was removed and
 local servers stopped. Hosted acceptance of this new copy remains pending.
+
+## Merged hosted acceptance
+
+On deployed core `3f949559156ff2499a900e6890b3e29ed6ed4dde`, the retained
+zero-limit workspace was revisited through its actual settings page. The deletion
+section and monetary limit editor both displayed the Chinese audit-retention
+explanation before any save or deletion attempt. Cancelling the limit editor
+restored focus to Edit USD spending limit and did not change configuration.
+
+An actual browser deletion attempt returned HTTP 409. Its dialog displayed the
+localized retained-record explanation and stated that no data was deleted.
+Independent history reads before and after were byte-identical, and the workspace
+remained available. Cancellation restored focus to Delete workspace. No audit
+history or storage protection was bypassed.
+
+The real create-workspace dialog also displayed the advance explanation before
+saving a limit. Its 390-pixel layout contained exactly one dialog and had a
+390-pixel document width. The desktop limit editor and narrow deletion-error
+state were visually inspected: explanations wrapped within their containers and
+both primary and cancellation actions remained reachable. The create view was
+cancelled without creating another workspace. These current hosted observations
+complete the scoped copy and protected-deletion acceptance for `niu-5il0`.
