@@ -82,3 +82,14 @@ key. A suspected initialization ordering problem did not reproduce, so it did no
 prompt another code change. The configured local text route was explicitly shown
 as unverified and was not invoked. This does not replace the candidate's pending
 qualified hosted text-send acceptance.
+
+## Actual saved Chat export
+
+On the same hosted core, reopening the saved marker conversation and choosing
+Export from its history menu downloaded `niu-chat.json`. Independent file parsing
+found format `niu-chat`, version 1, exactly one turn and one response. Prompt,
+model, content, complete phase, stop reason, empty attachments and creation time
+matched the separately read backend record. The file is 403 bytes with SHA-256
+`02433f79c727102b0af7086dc4504fa570a3703e1e9a0df5366cd2ea8405f907`.
+No new inference was submitted. This verifies export of that saved conversation;
+attachment export and final-candidate acceptance remain separate scope.
