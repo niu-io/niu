@@ -1,5 +1,9 @@
 # Niu 0.3 release readiness — expanded execution, 2026-11-17
 
+Later repair and actual paid-video evidence is recorded in the
+[repair verification](repair-verification-0.3-2026-11-17.md). The decision and
+observations below describe this earlier snapshot, not the repaired candidate.
+
 **Decision: do not promote this candidate.** Actual execution found a fresh-key handoff defect, an inaccessible public container distribution, inconsistent release provenance, and a deployed video qualification gap. This decision does not depend on fixture results or on treating missing checklist entries as product defects.
 
 Tracking: `niu-nrcn`. This record extends the [earlier API verification](current-input-0.3-2026-11-17.md); [redacted structured observations](evidence/expanded-readiness-0.3-2026-11-17.json) retain the final request and artifact checks. Current task state and repair ownership remain in Beads. No production promotion, release publication, or product implementation was performed during this review.
