@@ -26,7 +26,7 @@ import { videoStatusLabel } from '../video/status';
 import '../video/video.css';
 
 function hasActiveTurn(session: VideoGenerationsSession): boolean {
-  return session.turns.some(turn => Boolean(turn.task && ['queued', 'running', 'submission_unknown'].includes(turn.task.status)));
+  return session.turns.some(turn => Boolean(turn.task && ['queued', 'running', 'unknown', 'submission_unknown'].includes(turn.task.status)));
 }
 
 /** Saved instructions and their results only. Opening a session never dispatches. */

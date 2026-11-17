@@ -49,3 +49,50 @@ settlement remains outside this artifact acceptance claim.
 Integrated-candidate hosted verification and a new request using the effective
 output configuration remain required by the linked release gate. This record
 does not qualify untested Providers or infer a universal output dimension rule.
+
+## Integrated browser submission with configured output
+
+On integrated release `acb5863e`, the Chinese browser composer selected the
+configured route and a dedicated model-limited credential, displayed 480p / 16:9 /
+2.0 seconds and Provider-account funding, then submitted one current yellow-cube
+request. Independent scoped inventory contained exactly one new request. The
+saved intent was dispatched with an existing job identity, initially reporting
+`unknown`. The browser remained at “Waiting for a confirmed status”; this exposed
+the missing unknown-state polling branch recorded in `niu-iyrf`.
+
+A single explicit status refresh of that same job returned `succeeded`, without
+another submission. Its downloaded MP4 was 764,459 bytes, SHA-256
+`be43ef06a4331ef60e11235f5b7b73b699f0dfac2c1b3317723855b060066f7d`.
+Independent full decode and probe confirmed H.264/AAC, 854 × 480, 30 fps and
+2.020000 seconds; the inspected frame showed the requested yellow wooden cube.
+The job billing retained the configured seconds estimate of `2/1` with Estimate
+provenance. Owner-funded charge, price and measured billing usage remained
+unknown. This is an output-estimate qualification, not a procurement invoice.
+The new current-input run brings this dimension/configuration verification to
+seven requests and 15 requested seconds. The status-recovery defect remains open
+until its actual browser correction is exercised.
+
+## Automatic unknown-state recovery correction
+
+A second current-input browser request exercised the local correction against
+staging, using a green wooden cube prompt and the same two-second output settings.
+The saved turn first displayed an unknown status, then Running, then Succeeded
+without a manual status refresh or a second submission. The browser video reported
+854 × 480, 2.02 seconds and no media error. Its downloaded file matched the API
+artifact byte-for-byte: 734,707 bytes, SHA-256
+`d49452472bd42b6d93238722b9a23f12a896e21821b0b005a8bbcb679615229f`.
+A full independent decode and probe confirmed H.264/AAC and 30 fps; its inspected
+frame showed the requested green cube. The persisted billing estimate remained
+seconds `2/1`, with owner-funded price and charges unknown.
+
+This correction polls acknowledged `unknown` jobs through existing status and
+Provider refresh operations. It does not retry submission-uncertain requests or
+create replacement jobs. The matching saved-session freshness decision and legacy
+view polling condition were updated together. Hosted acceptance of the correction
+remains pending; the actual automatic-completion observation above is from the
+changed local dashboard with the real staging backend.
+
+The dedicated key inventory contains two requests for these configured-output
+checks, bringing this dimension/configuration/recovery series to eight requests
+and 17 requested seconds. Exact upstream settlement is not inferred from video
+duration or Niu's owner-funded billing fields.

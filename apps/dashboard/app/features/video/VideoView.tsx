@@ -101,11 +101,12 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
   const [search,setSearch]=useSearchParams();
+  const latestSearch=useRef(search);latestSearch.current=search;
   const location=useLocation();
   const {isMobile,setOpenMobile}=useSidebar();
   const [keys,setKeys]=useState<ProjectKey[]>([]);
   const [allKeys,setAllKeys]=useState<ProjectKey[]>([]);
-  const keyReference=(id:string)=>allKeys.find(key=>key.id===id)?.slug || id;
+  const keyReference=(id:string)=>allKeys.find(key=>key.id===id)?.slug || availableKeys.keys.find(key=>key.id===id)?.slug || id;
   const [keysScope,setKeysScope]=useState('');
   const [keysError,setKeysError]=useState('');
   const [keysRevision,setKeysRevision]=useState(0);
@@ -207,7 +208,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const composerControls=Object.fromEntries(Object.entries(controls).filter(([name])=>['duration','seed','frames_per_second','resolution','ratio','omni_reference_task_type','watermark','camera_fixed','return_last_frame'].includes(name))) as VideoComposerDraftPayload['controls'];
   const composerValue:VideoComposerDraftPayload={keyId:keyId||null,sessionId:draftSessionId,model:modelId||null,prompt,controls:composerControls,references:draftReferences};
   const draft=useVideoDraft({client:intentClient,scope:workspace?{organizationId:workspace.organization_id,projectId:workspace.id}:null,
-    identity:composerIdentity,contextIdentity:JSON.stringify([composerIdentity,keyId,modelId]),enabled:Boolean(token&&workspace&&mutableComposer),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent,value:composerValue,
+    identity:composerIdentity,enabled:Boolean(token&&workspace&&mutableComposer),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent,value:composerValue,
     restore:saved=>{
       const force=acceptDraft.current;acceptDraft.current=false;
       // A late read may only fill composer fields the user has not edited. A
@@ -245,7 +246,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const originalKey=allKeys.find(key=>key.id===keyId);
   const keyCanReadModel=keys.some(key=>key.id===keyId&&(!savedModel||!key.allowed_models||key.allowed_models.includes('*')||key.allowed_models.includes(savedModel)));
   const base=keyId && keysScope===keyScopeIdentity && keyCanReadModel ? keyId : '';
-  const historicalReadOnly=Boolean((intentDocument||savedTask)&&!base&&!loading);
+  const historicalReadOnly=Boolean(!loading&&(originalKey?.revoked||originalKey?.expired||((intentDocument||savedTask)&&!base)));
   const responseScope = useRef({ identity: '', generation: 0 });
   const responseIdentity = JSON.stringify([token, base]);
   if (responseScope.current.identity !== responseIdentity) responseScope.current = { identity: responseIdentity, generation: responseScope.current.generation + 1 };
@@ -293,7 +294,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       primeQuery(token,scopePath,payload,{persist:true});
       const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setAllKeys(payload.data);setKeysScope(keyScopeIdentity);
       setKeyId(current=>{
-        const requested=search.get('key');
+        const requested=latestSearch.current.get('key');
         if(requested)return payload.data.find(key=>key.slug===requested||key.id===requested)?.id ?? requested;
         const restored=restoredComposer.current;
         if(restored?.identity===composerIdentity&&restored.keyId)return restored.keyId;
@@ -484,7 +485,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
 
   // Only reconcile an existing job. Polling never creates or retries a submission.
   useEffect(()=>{
-    if(!base || !selected || !job || !['queued','running'].includes(job.status))return;
+    if(!base || !selected || !job || !['queued','running','unknown'].includes(job.status))return;
     const controller=new AbortController();let pending=false;
     const timer=window.setInterval(async()=>{
       if(pending || lock.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden'))return;pending=true;
@@ -513,7 +514,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
     }
     composerEdits.current={prompt:true,key:true,model:true,controls:true,references:true,images:true};
     restoredComposer.current={identity:composerIdentity,keyId:id,model:modelId||null};
-    setComposerEdited(true);setKeyId(id);
+    setComposerEdited(true);setKeyId(id);setKeysRevision(value=>value+1);
     const next=new URLSearchParams(search);next.set('key',keyReference(id));next.delete('job');next.delete('intent');next.set('new','video');
     if(modelId)next.set('model',modelId);
     setSearch(next);setQuote(null);setUncertain(false);

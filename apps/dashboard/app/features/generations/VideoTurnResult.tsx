@@ -185,7 +185,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
 
   // Only reconcile an existing saved job. Polling never creates or retries it.
   useEffect(() => {
-    if (!client || !scope || !workspaceId || !activeTaskId || !['queued', 'running'].includes(activeTaskState)) return;
+    if (!client || !scope || !workspaceId || !activeTaskId || !['queued', 'running', 'unknown'].includes(activeTaskState)) return;
     const controller = new AbortController();
     let pending = false;
     const timer = window.setInterval(async () => {
@@ -199,7 +199,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
           primeVideoTask(token, workspaceId, value);
           setTask(value);
           setDetailError('');
-          if (!['queued', 'running'].includes(value.state)) setRevision(item => item + 1);
+          if (!['queued', 'running', 'unknown'].includes(value.state)) setRevision(item => item + 1);
         }
       } catch (caught) {
         if (!controller.signal.aborted) setDetailError(message(caught));
