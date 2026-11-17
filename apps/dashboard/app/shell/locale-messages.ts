@@ -4160,7 +4160,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Evidence unavailable": "证据不可用",
   "Next steps": "下一步",
   "Review routing": "查看路由",
-  "The Provider rejected the request with status 429, typically a rate limit. Check the Provider's limits and current routing; Niu does not retry automatically.": "Provider 以 429 拒绝了请求，通常表示触发限流。请检查 Provider 的限额与当前路由；Niu 不会自动重试。",
+  "The Provider returned HTTP 429. Review the Provider response and current routing before retrying; Niu does not retry automatically.": "Provider 返回 HTTP 429。重试前请检查 Provider 响应和当前路由；Niu 不会自动重试。",
   "The Provider account or region does not allow this service. Contact the Provider before retrying.": "Provider 账户或地区不允许此服务。请先联系 Provider 再重试。",
   "The upstream call did not complete. Check Provider status and routing before sending another request; the recorded outcome may be uncertain.": "上游调用未完成。请先检查 Provider 状态与路由再发送新请求；已记录的结果可能不确定。",
   "Review the recorded upstream status and routing. Do not infer a cause that the recorded evidence does not support.": "请查看已记录的上游状态与路由。不要推断记录证据不支持的原因。",
