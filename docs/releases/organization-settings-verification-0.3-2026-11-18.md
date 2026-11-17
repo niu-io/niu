@@ -62,3 +62,18 @@ paths were verified; this run did not create a new organization or claim new
 organization provisioning acceptance. Hosted verification of this candidate
 remains separate. Dashboard type checks, lint and production build completed as
 code hygiene. No fixture outcome is used as evidence.
+
+## Combined member and organization changes
+
+After merging both Settings repairs at `60b634b8`, the actual local dashboard
+connected to the staging API retained one Settings dialog for workspace creation,
+organization creation and member invitation. Workspace creation focused its name
+field. Escape from each secondary view returned focus to its corresponding
+Create workspace, Create organization or Invite member trigger while retaining
+Settings; a second Escape closed Settings. The member invitation was visually
+inspected at 390px, with document width also 390px and no horizontal overflow.
+No new business records were created in this merge verification. The temporary
+loopback session cookie was removed afterward. Dashboard type/lint checks and
+production build completed on the combined source. This supplements the separate
+mutation/readback records above and in the member verification record; hosted
+candidate deployment and acceptance remain outstanding.
