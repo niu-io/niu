@@ -137,7 +137,7 @@
   padding-inline-start: 0.5rem;
   border-inline-start: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
 }
-.sidebar-content a {
+.sidebar-content a:not(.docs-brand) {
   position: relative;
   border-radius: 0.5rem;
   padding: 0.4rem 0.625rem;
@@ -146,16 +146,16 @@
   color: var(--muted-foreground);
   transition: background-color 0.14s ease, color 0.14s ease;
 }
-.sidebar-content a:hover {
+.sidebar-content a:not(.docs-brand):hover {
   background: color-mix(in srgb, var(--accent) 55%, transparent);
   color: var(--foreground);
 }
-.sidebar-content a[aria-current='page'] {
+.sidebar-content a:not(.docs-brand)[aria-current='page'] {
   background: var(--accent);
   color: var(--foreground);
   font-weight: 600;
 }
-.sidebar-content a[aria-current='page']::before {
+.sidebar-content a:not(.docs-brand)[aria-current='page']::before {
   content: '';
   position: absolute;
   inset-inline-start: -0.5625rem;
@@ -1154,7 +1154,7 @@ a[data-slot='button'][data-variant='outline']:hover {
   border-inline-start: 0;
 }
 .sidebar-content li { margin-top: 3px; }
-.sidebar-content a {
+.sidebar-content a:not(.docs-brand) {
   display: flex;
   align-items: center;
   min-height: 40px;
@@ -1164,12 +1164,12 @@ a[data-slot='button'][data-variant='outline']:hover {
   line-height: 20px;
   color: var(--sidebar-foreground);
 }
-.sidebar-content a[aria-current='page'] {
+.sidebar-content a:not(.docs-brand)[aria-current='page'] {
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
   font-weight: 550;
 }
-.sidebar-content a[aria-current='page']::before { content: none; }
+.sidebar-content a:not(.docs-brand)[aria-current='page']::before { content: none; }
 .sidebar-content ul ul { border-inline-start: 0; padding-inline-start: 0; margin-inline-start: 0; }
 
 /* Starlight draws nested tree guides on list items, not only the list. */
@@ -1199,7 +1199,80 @@ a[data-slot='button'][data-variant='outline']:hover {
 }
 
 /* Compact public Docs lockup; shared product rail artwork is unaffected. */
-.docs-header .docs-public-name .niu-brand { height: 1.75rem; }
+:is(.docs-header, .docs-sidebar-header) .docs-public-name .niu-brand { height: 1.75rem; }
+.docs-brand { transition: opacity 140ms ease; }
+.docs-brand:hover { opacity: 0.86; }
+.docs-sidebar-header { display: none; }
+
+/* Unified left-right split shell on desktop: full-height left sidebar owns the brand lockup,
+   while the top navigation and utility controls sit in the right-column header. */
+@media (min-width: 50rem) {
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .sidebar-pane {
+    inset-block: 0;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .sidebar-content {
+    padding-top: 0;
+    gap: 0;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-sidebar-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    flex: 0 0 var(--sl-nav-height);
+    min-height: var(--sl-nav-height);
+    margin-inline: -10px;
+    margin-bottom: 8px;
+    padding-inline: 22px;
+    background: var(--sidebar);
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-sidebar-header::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    height: 12px;
+    background: linear-gradient(to bottom, var(--sidebar), transparent);
+    pointer-events: none;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .header {
+    inset-inline-start: var(--sl-sidebar-width);
+    width: calc(100% - var(--sl-sidebar-width));
+    padding-block: 0;
+    padding-inline: 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-header > .docs-brand {
+    display: none;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-header nav {
+    align-items: stretch;
+    height: 100%;
+    margin-inline-start: 0;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-header nav a {
+    display: inline-flex;
+    align-items: center;
+    padding-block: 0;
+    margin-bottom: -1px;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .public-session {
+    margin-inline-start: auto;
+  }
+}
+
+@media (min-width: 50rem) and (max-width: 69.999rem) {
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .header {
+    padding-inline: 1.25rem;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-header {
+    gap: 0.75rem;
+  }
+  :root[data-has-sidebar]:not(:has(.docs-api-explorer)) .docs-header nav {
+    gap: 1rem;
+  }
+}
 
 /* Keep the public header anchored when article length changes scrollbar presence. */
 html { scrollbar-gutter: stable; }

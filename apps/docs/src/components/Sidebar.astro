@@ -1,4 +1,5 @@
 ---
+import NiuBrand from '../../../dashboard/app/components/NiuBrand';
 import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
 import MobileMenuFooter from './MobileMenuFooter.astro';
 import MobileMenuTools from './MobileMenuTools';
@@ -7,6 +8,11 @@ import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.ast
 const section = documentationSection(Astro.url.pathname);
 const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => section !== 'Docs' ? entry.label === section : !['API', 'SDK', 'Compare'].includes(entry.label));
 ---
+<div class="docs-sidebar-header">
+  <a class="docs-brand docs-sidebar-brand" href="/" aria-label="Niu home">
+    <span class="docs-public-name"><NiuBrand /></span>
+  </a>
+</div>
 <div class="docs-mobile-public"><nav aria-label="Public navigation">{documentationNavigation.map(({label,href})=><a href={href} aria-current={publicNavigationActive(Astro.url.pathname,label)?'page':undefined}>{label}</a>)}<a href="/models/" data-public-models-link hidden><span data-lang="en">Models</span><span data-lang="zh">模型</span></a></nav><MobileMenuTools client:load /></div>
 <SidebarPersister><SidebarSublist sublist={sidebar} /></SidebarPersister>
 <div class="md:sl-hidden"><MobileMenuFooter /></div>

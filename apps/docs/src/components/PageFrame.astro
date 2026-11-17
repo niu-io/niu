@@ -116,9 +116,12 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       if (el.dataset.origText === undefined) el.dataset.origText = (el.textContent || '').trim();
       return el.dataset.origText;
     };
-    document.querySelectorAll('.docs-article-eyebrow, .sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a').forEach((el) => {
+    document.querySelectorAll('.docs-article-eyebrow, .sidebar-content summary span.large, .sidebar-content a:not(.docs-brand) span, .docs-mobile-public nav a').forEach((el) => {
       const o = orig(el);
       if (Object.hasOwn(DICT, o)) el.textContent = isZh ? DICT[o] : o;
+    });
+    document.querySelectorAll('.docs-brand').forEach((el) => {
+      el.setAttribute('aria-label', isZh ? 'Niu 首页' : 'Niu home');
     });
     const h1 = document.querySelector('h1#_top');
     if (h1) {
@@ -645,9 +648,12 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
     localizeSearchModal(isZh, root);
 
-    // 3. Sidebar group labels, sidebar links, and mobile public nav
+    // 3. Brand label, sidebar group labels, sidebar links, and mobile public nav
+    root.querySelectorAll<HTMLElement>('.docs-brand').forEach((el) => {
+      el.setAttribute('aria-label', isZh ? 'Niu 首页' : 'Niu home');
+    });
     root.querySelectorAll<HTMLElement>(
-      '.sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a'
+      '.sidebar-content summary span.large, .sidebar-content a:not(.docs-brand) span, .docs-mobile-public nav a'
     ).forEach((el) => {
       const orig = rememberOriginalText(el);
       const zh = translation(SIDEBAR_AND_TITLE_ZH, orig);
