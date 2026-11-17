@@ -49,9 +49,12 @@ Promotion of `release/<minor>` into `main` requires all of the following:
 - A staging deployment of that same commit.
 - Recorded staging acceptance evidence bound to that commit, including hosted
   journeys where the release checklist requires them. Run
-  `python3 scripts/release-checklist.py --check` against the release gate and
-  require a passing result; this validates recorded evidence, not the journeys
-  themselves.
+  `python3 scripts/release-checklist.py --parent <current-gate-id> --check`
+  against the explicitly agreed current gate and require `ELIGIBLE` (exit 0).
+  The script validates records, not the journeys themselves. `BLOCKED` (exit 1)
+  reports recorded blockers; `ASSESSMENT_INCOMPLETE` (exit 2) means missing scope
+  or evidence, not a confirmed product failure. Retired gates do not define the
+  current release requirements; neither nonzero result authorizes promotion.
 - Review of the resulting diff into `main` by the release owner.
 
 If staging fails, fix on `release/<minor>` and retest. `main` stays on the last
