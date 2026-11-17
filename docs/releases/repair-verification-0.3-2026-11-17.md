@@ -115,3 +115,33 @@ AMD64 startup and final tag/source/bundle/image correspondence still need the fi
 artifacts. Preserve v0.3.0; publish corrections as a new patch after the retained
 staging gate. The public-image finding is failed prebuilt-image retrieval, not proof
 that every legacy source-build installation path fails.
+
+## Additional effective video dimensions — 2026-11-18
+
+Two additional current-input BabelArk Wan tasks were submitted sequentially under
+the existing operator budget, each at 720p for two seconds. The current public
+model page lists USD 0.0442 per second for 720p: advertised total USD 0.1768 for
+these two requests, or USD 0.3094 including the earlier three-second run. These
+figures are not a Provider account invoice. The page did not list a 480p quote,
+so no 480p paid request was made.
+
+Both original saved jobs progressed from uncertain status to success through
+explicit status refresh; no generation retry was issued. Independent scoped
+request inspection contained exactly two records for the temporary credential.
+
+| Requested ratio | Downloaded artifact | Independently inspected output |
+| --- | --- | --- |
+| 9:16 | 1,608,568 bytes; SHA-256 `cf9c79ace30c9f0a333035faec9e97a1130b60a5b40a2ea0fbf0d3aba3914466` | H.264/AAC, 720×1280, 30fps, 2.020 seconds |
+| 1:1 | 1,628,572 bytes; SHA-256 `9e9b9c68f6ee06bad317ae66db6f2f78d24c7b03fa844eb15fdf5d786d3a8c6f` | H.264/AAC, 960×960, 30fps, 2.020 seconds |
+
+Both complete files decoded successfully, and extracted frames were visually
+inspected. In particular, the square output is 960×960, not a guessed 720×720.
+Together with the earlier landscape artifact, all three configured 720p ratios
+now have observed output dimensions. This does not establish the 480p mappings
+or other Providers' behavior. No schema was modified.
+
+Billing remained `owner_funded`, with null usage, price and customer charge. The
+one-hour model-restricted credential was revoked with HTTP 204 and independently
+rejected with HTTP 401 afterward; its token was removed from local verification
+state. Saved results remain durable. These observations precede the next
+integrated staging deployment and do not substitute for its acceptance.
