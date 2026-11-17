@@ -57,3 +57,42 @@ Those review records are retained; no direct database deletion bypassed retentio
 The final accepted deployment still requires the same actor-bound checks. Device
 authorization and revocation, populated commercial-data projections, UI behavior,
 and complete API coverage are outside this run. The release case stays open.
+
+## Current candidate actor and device authorization follow-up
+
+The complete independent-actor sequence was repeated against deployed core
+`3f949559156ff2499a900e6890b3e29ed6ed4dde` with fresh organizations,
+workspaces, expiring actors and restricted keys. Foreign draft read/write each
+returned 403, and authorized readback preserved the exact original draft.
+Same-workspace actors retained separate personal drafts. Foreign key listing
+and workspace rename returned 404 without changing the foreign workspace.
+The inference key returned 401 on the administrator session endpoint and 403
+on undelegated routing access.
+
+After owner-to-viewer demotion, the unchanged original token could read its own
+draft but could neither create a key nor rename the workspace (403). A stale
+role update returned 409; revocation returned 204 and the original token then
+returned 401. The other owner remained authorized. All temporary actors and keys
+were revoked and independently denied; audited scopes correctly retained their
+records rather than allowing cleanup to erase history.
+
+A separate fresh key limited to Conatus attempted the existing DeepSeek model.
+The actual response was 404 `not_found_error`, and the independent key-scoped
+request inventory remained empty. The key had a zero-USD cap, was revoked and
+then returned 401. No invocation was dispatched in these authorization checks.
+
+The current built plugin's real packaged login command also completed browser
+approval for a 15-minute Default-workspace connection with model invocation
+explicitly disabled. Both the Chinese approval summary and command-line result
+reported discovery-only authority. Independent `/v1/key` inspection confirmed
+`invocation_allowed=false`; an actual Chat request returned 403 and its scoped
+request inventory contained zero attempts. The approval summary was visually
+inspected at 390 pixels, with document width also 390 pixels.
+
+The approval page linked to the workspace key list. Its issued connection was
+revoked through the actual action menu and confirmation dialog. A separate HTTP
+read immediately returned 401 for the original credential, and the private
+credential file was removed. This verifies approval scope, denied invocation
+and user-facing revocation on the current candidate; populated commercial-data
+projections and complete security release coverage remain separate acceptance
+work rather than inferred successes.
