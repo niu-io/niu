@@ -76,3 +76,87 @@ This follow-up covers the packaged connection command, actual browser approval,
 private credential persistence, bundled MCP discovery, invocation denial and
 revocation. It does not establish loading or operation inside Codex, Claude
 Code or DeepSeek Harness, and does not close `CLIENT-03` or `SECURITY-03`.
+
+## Actual native-host follow-up
+
+These checks used installed hosts, actual generated packages and current hosted
+API reads. They did not run a model-agent task or use a fixture HTTP service.
+They remain development-artifact evidence, not final published qualification.
+
+Claude Code 2.1.211 loaded the standalone artifact from `653a77ed` with its native
+plugin-directory option in a task-created isolated configuration/workspace.
+Its component inventory identified Niu 0.3.0, the `niu` and `niu-connect` skills,
+and one MCP service. Its native MCP health command resolved the plugin-root path,
+started the bundled stdio executable and reported Connected. The explicitly
+selected credential path was absent; this checks host loading and transport,
+not authenticated Claude Code tool execution or onboarding.
+
+A marketplace built from `864790fb` was installed by Codex CLI 0.169.0 through
+its native plugin command. A separate native inventory read reported the plugin
+installed and enabled. All 33 installed files matched the generated artifact's
+SHA-256 map byte-for-byte. Native uninstall removed the package cache, and parsed
+user configuration afterward exactly matched the pre-install configuration.
+An unrelated, preexisting invalid marketplace initially blocked host discovery;
+a process-only source override selected the task-built marketplace. The original
+marketplace configuration was not repaired or replaced. No model-agent turn or
+Codex-authenticated MCP operation was performed.
+
+DeepSeek Harness 0.2.1-rc.5 installed the current bundle in an isolated native
+profile. Its actual tool/skill services discovered Niu. In the same running host,
+`inspect_key` first returned a missing-credential error, then loaded a newly issued
+15-minute staging credential and executed `inspect_key` and `list_models`.
+Independent HTTP reads matched stable grant identity/permissions and model data.
+The model response's `selected_at` represented separate read times 46 seconds
+apart and was checked separately from content equality.
+
+Administrative revocation returned HTTP 204; an independent request with the
+original credential returned HTTP 401, and the same native host rejected the
+revoked credential and its subsequent removal. The key-scoped administrative
+attempt inventory was empty. Temporary credentials were removed and the native
+package uninstalled.
+
+The first unload assertion incorrectly expected host-shared MCP resource tools
+to remain after removing the only MCP connection. This is excluded as a Niu
+defect claim. A separate real two-connection host run retained a peer bundled MCP
+process while unloading Niu. Every other tool remained registered, the peer
+continued responding identically, and Niu's skill provider disappeared. Native
+uninstall and a subsequent profile dump independently confirmed package removal.
+Neither connection used a simulated gateway or dispatched inference.
+
+These observations add native loading, install identity, authenticated reads,
+credential reload/revocation and unload coexistence. Final-candidate artifacts,
+native authorized inference/result inspection, complete onboarding and published
+installation remain required under `CLIENT-03`.
+
+## Current candidate native invocation and result inspection
+
+A fresh DeepSeek Harness bundle was built from `4c78a70b`. Its complete source
+inputs (SDKs, integrations, builders, bundled reference documents, branding,
+version and license) were independently compared with deployed core
+`3f949559156ff2499a900e6890b3e29ed6ed4dde`; there were no differences.
+The output files were individually SHA-256 recorded. This is a development
+candidate artifact, not a claim about a published package or release tag.
+
+The actual installed DeepSeek Harness `0.2.1-rc.5` loaded this bundle in an
+isolated profile. A deterministic native runtime probe called its registered Niu
+tools; no coding-agent task or delegated model agent was started. With no
+credential, key inspection failed. A fresh one-hour, single-model credential
+with a zero-USD Niu cap was then written to the explicit private credential file.
+The same process discovered the permitted DeepSeek model and independently
+checked its zero customer rates, minimum charge and request fee before invocation.
+
+The host's `create_chat_completion` tool returned exactly
+`NATIVE_FINAL_20261118_0445`, with 45 input and 41 output tokens (including 29
+reported reasoning tokens). Its `get_generation` tool returned
+`confirmed_completed`, provider-reported usage and a zero customer charge.
+A separate direct HTTP generation read matched the complete tool response.
+Independent administrative request inventory contained exactly one record,
+with the same attempt identity, token counts and customer charge.
+
+The credential was revoked and direct HTTP returned 401. The same native host
+process rejected it, then also rejected the removed credential file. The host
+was stopped, its task plugin was uninstalled, and a native profile dump confirmed
+that the Niu plugin was no longer configured. Active credential material was
+removed. This verifies current native discovery, invocation, result inspection
+and revocation recovery; it does not establish positive-price billing, published
+artifact identity, or the remaining host-specific onboarding flows.

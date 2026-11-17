@@ -641,7 +641,28 @@ pub(super) async fn begin_retry_attempt(
         ));
     }
     let evaluation = request_evaluation_binding(headers, protocol, request_body)?;
-    let token_bound = request_token_bound(request_body, &protocol);
+    let (token_bound, token_bound_estimator) = if protocol
+        == crate::guardrails::input::Protocol::Chat
+        && super::priced_chat::has_image_input(request_body)
+        && model.pricing.is_some()
+    {
+        // Image URLs and compressed bytes do not bound image tokens. Reserve the
+        // same operator-attested input ceiling used for monetary admission.
+        let bound = model.pricing.as_ref().and_then(|price| {
+            price
+                .max_input_tokens
+                .checked_add(completion_bound.unwrap_or(price.max_output_tokens))
+        });
+        (
+            bound,
+            niu_storage::TokenBoundEstimator::RouteInputLimitPlusOutput,
+        )
+    } else {
+        (
+            request_token_bound(request_body, &protocol),
+            niu_storage::TokenBoundEstimator::SerializedUtf8PlusOutput,
+        )
+    };
     let scope = principal.scope();
     let retained_input = [&snapshot.workspace_policy, &snapshot.key_policy]
         .into_iter()
@@ -731,6 +752,7 @@ pub(super) async fn begin_retry_attempt(
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
+                    token_bound_estimator,
                     inspected_guardrails: Some(snapshot),
                     operation_id: retry.map_or_else(Uuid::new_v4, |(operation, _)| operation),
                     attempt_id: Uuid::new_v4(),
@@ -785,6 +807,7 @@ pub(super) async fn begin_retry_attempt(
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
+                    token_bound_estimator,
                     inspected_guardrails: Some(snapshot),
                     operation_id: retry.map_or_else(Uuid::new_v4, |(operation, _)| operation),
                     attempt_id: Uuid::new_v4(),
@@ -837,6 +860,7 @@ pub(super) async fn begin_retry_attempt(
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
+                    token_bound_estimator,
                     inspected_guardrails: snapshot,
                     scope,
                     model: public_model,

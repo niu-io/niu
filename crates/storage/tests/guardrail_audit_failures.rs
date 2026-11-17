@@ -115,6 +115,7 @@ async fn admit(store: &Store, f: &Fixture) -> Result<(), StoreError> {
                             route_generation: None,
                             managed_route: None,
                             token_bound: None,
+                            token_bound_estimator: Default::default(),
                             inspected_guardrails: None,
                             operation_id: operation,
                             attempt_id: attempt,
