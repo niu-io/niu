@@ -34,7 +34,28 @@ change scope; never remove requirements merely to manufacture GREEN.
 
 The [v0.2.29 architecture hardening record](releases/architecture-hardening-2026-10-30.md) documents the later patch candidate, current-input checks and deployment evidence. The generated v0.2.26 evidence below remains historical; its GREEN result does not qualify a different candidate.
 
-## Current 0.3 assessment (2026-11-17)
+## Current 0.3 acceptance scope (2026-11-18)
+
+The explicit release-readiness goal is tracked by `niu-nrcn`. Its current
+acceptance cases cover immutable deployment/build provenance, new-user onboarding,
+organization/workspace/member settings, supported invocation and saved results,
+configured video and recovery, real merchant settlement, customer charging and
+commercial boundaries, independent-actor security, SDK/MCP/native consumers,
+public installation/upgrade/restore, and a complete known-finding audit.
+
+These cases organize the authorized current goal; they do not reinstate the
+retired gate or silently remove any existing release-scope finding. Scope and
+execution state live in Beads. Candidate revisions remain unset until the next
+integrated staging deployment. Earlier current-input run records remain useful
+historical evidence, but cannot establish GREEN for that new candidate.
+
+Use `python3 scripts/release-checklist.py --parent niu-nrcn --check` to inspect
+record completeness. The scope was recorded while the candidate was unset, and
+the command reported `ASSESSMENT_INCOMPLETE`; that observation is not a product
+failure or release acceptance. Real merchant configuration/authorization and final
+published-artifact verification remain required by the goal.
+
+## Historical assessment correction (2026-11-17)
 
 **Assessment incomplete; product readiness has not been established.**
 
