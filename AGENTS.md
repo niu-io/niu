@@ -44,6 +44,10 @@ Never use a native HTML `<select>` / `<option>` control, the shadcn Select compo
 
 Use the shadcn CLI as the source for standard UI primitives. Use its installed `Button`, `Input`, `Textarea`, `Checkbox`, `Label`, `Dialog`, `DropdownMenu`, `Popover`, `Sidebar`, `Tabs`, `Card`, `Badge`, `Alert`, `Table`, and `Tooltip` components directly at their call sites. Do not hand-build or add wrapper components that duplicate those controls, overlays, navigation, tables, or form primitives; do not create a parallel component library. Do not substitute raw native buttons, text fields, checkboxes, textareas, or data tables where the corresponding shadcn component exists. Keep custom components for Niu-specific behavior, page compositions with no shadcn equivalent, and branded assets. When a needed primitive is missing, install it with the shadcn CLI before considering a custom implementation.
 
+## Dialogs and page simplicity
+
+Keep management and detail pages as scannable reading and inspection surfaces (tables or concise single-panel key-value summaries) without multi-card sprawl or walls of explanatory prose. Every page-level create, edit, rename, publish, limit-setting, and destructive confirmation action must open an installed shadcn `Dialog` (`DialogHeader`, bounded scrollable body such as `max-h-[90dvh] overflow-y-auto`, and `DialogFooter` with cancellation and primary submit actions, restoring focus to its trigger via `onCloseAutoFocus`). Never replace a read view in place with an inline edit form, embed permanent mutation forms inside a summary page, or expand inline confirmation strips on pages. Conversely, never open a nested `Dialog` inside an already-open modal (such as the global `Settings` dialog); keep secondary flows inside an active modal inline or in-dialog views.
+
 ## Icons
 
 Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the sidebar and account menu.

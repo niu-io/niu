@@ -39,6 +39,7 @@ export default function ContentRules({
   token,
   endpoint,
   showHeading = true,
+  hideTester = false,
 }: {
   stage: "input" | "output";
   outputMode?: "buffered_full" | "observe_only";
@@ -48,6 +49,7 @@ export default function ContentRules({
   token: string;
   endpoint: string;
   showHeading?: boolean;
+  hideTester?: boolean;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const [sample, setSample] = useState("");
@@ -343,86 +345,88 @@ export default function ContentRules({
         ))}
         {invalid && <p role="alert">{uiT(invalid)}</p>}
       </section>
-      <section className="guardrails-section guardrails-content-section">
-        <h3>{stage === "input" ? uiT("Test input patterns", "测试输入匹配模式") : uiT("Test output patterns", "测试输出匹配模式")}</h3>
-        <p className="guardrails-muted">
-          {uiT("Tests only the rules shown here. Use synthetic text; nothing is saved or sent to a model.")}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" aria-label={!showHeading ? (stage === "input" ? uiT("Input test protocol") : uiT("Output test protocol")) : uiT("Test protocol")}>
-                {protocol === "chat"
-                  ? uiT("Chat")
-                  : protocol === "responses"
-                    ? uiT("Responses")
-                    : uiT("Embeddings")}
-                <ChevronDown />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuRadioGroup
-                value={protocol}
-                onValueChange={(value) => setProtocol(value as Protocol)}
-              >
-                <DropdownMenuRadioItem value="chat">{uiT("Chat")}</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="responses">
-                  {uiT("Responses")}</DropdownMenuRadioItem>
-                {stage === "input" && (
-                  <DropdownMenuRadioItem value="embeddings">
-                    {uiT("Embeddings")}</DropdownMenuRadioItem>
-                )}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <span className="text-xs text-muted-foreground">{uiT("Simulates the request API format being inspected")}</span>
-        </div>
-        <div className="flex w-full items-center justify-between gap-2">
-          <Label htmlFor={`${stage}-sample`}>{!showHeading ? (stage === "input" ? uiT("Input sample text") : uiT("Output sample text")) : uiT("Sample text")}</Label>
-          {!sample.trim() && (
-            <Button type="button" variant="ghost" size="xs" onClick={() => setSample("Contact alice@example.com or use key sk-niu-demo-1234567890abcdef.")}>
-              {uiT("Fill example")}
-            </Button>
-          )}
-        </div>
-        <Textarea
-          className="guardrails-sample"
-          id={`${stage}-sample`}
-          value={sample}
-          maxLength={32000}
-          placeholder={uiT("Enter synthetic sample text")}
-          onChange={(event) => setSample(event.target.value)}
-        />
-        <Button
-          variant="outline"
-          aria-label={!showHeading ? (stage === "input" ? uiT("Test input patterns") : uiT("Test output patterns")) : undefined}
-          disabled={
-            testing || Boolean(invalid) || !rules.length || !sample.trim()
-          }
-          onClick={() => void test()}
-        >
-          {testing ? uiT("Testing…") : uiT("Test patterns")}
-        </Button>
-        {!rules.length && <p className="guardrails-muted">{uiT("Select a pattern above to enable testing.")}</p>}
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{uiT(error)}</AlertDescription>
-          </Alert>
-        )}
-        {result && (
-          <div role="status">
-            <p>
-              {result.outcome === "matched" ? uiT("Match observed · response unchanged") : result.outcome === "clear" ? uiT("No match observed · response unchanged") : result.outcome === "blocked"
-                ? uiT("Blocked")
-                : result.outcome === "indeterminate"
-                  ? uiF("Not fully inspectable ({0})", [inspectionReason])
-                  : result.redacted
-                    ? uiT("Allowed after redaction")
-                    : uiT("Allowed without redaction")}
-            </p>
-            {Boolean(result.matches?.length) && <div><p>{uiT("Matched rules")}</p><ul>{result.matches!.map(match => <li key={match.index}>{uiF("Rule {0} · {1}", [match.index, match.action === "block" ? uiT("Block") : uiT("Redact")])}{match.pattern ? uiF(" · pattern {0}", [match.pattern]) : match.preset ? uiF(" · preset {0}", [match.preset]) : ""}</li>)}</ul></div>}
+      {!hideTester && (
+        <section className="guardrails-section guardrails-content-section">
+          <h3>{stage === "input" ? uiT("Test input patterns", "测试输入匹配模式") : uiT("Test output patterns", "测试输出匹配模式")}</h3>
+          <p className="guardrails-muted">
+            {uiT("Tests only the rules shown here. Use synthetic text; nothing is saved or sent to a model.")}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" aria-label={!showHeading ? (stage === "input" ? uiT("Input test protocol") : uiT("Output test protocol")) : uiT("Test protocol")}>
+                  {protocol === "chat"
+                    ? uiT("Chat")
+                    : protocol === "responses"
+                      ? uiT("Responses")
+                      : uiT("Embeddings")}
+                  <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup
+                  value={protocol}
+                  onValueChange={(value) => setProtocol(value as Protocol)}
+                >
+                  <DropdownMenuRadioItem value="chat">{uiT("Chat")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="responses">
+                    {uiT("Responses")}</DropdownMenuRadioItem>
+                  {stage === "input" && (
+                    <DropdownMenuRadioItem value="embeddings">
+                      {uiT("Embeddings")}</DropdownMenuRadioItem>
+                  )}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="text-xs text-muted-foreground">{uiT("Simulates the request API format being inspected")}</span>
           </div>
-        )}
-      </section>
+          <div className="flex w-full items-center justify-between gap-2">
+            <Label htmlFor={`${stage}-sample`}>{!showHeading ? (stage === "input" ? uiT("Input sample text") : uiT("Output sample text")) : uiT("Sample text")}</Label>
+            {!sample.trim() && (
+              <Button type="button" variant="ghost" size="xs" onClick={() => setSample("Contact alice@example.com or use key sk-niu-demo-1234567890abcdef.")}>
+                {uiT("Fill example")}
+              </Button>
+            )}
+          </div>
+          <Textarea
+            className="guardrails-sample"
+            id={`${stage}-sample`}
+            value={sample}
+            maxLength={32000}
+            placeholder={uiT("Enter synthetic sample text")}
+            onChange={(event) => setSample(event.target.value)}
+          />
+          <Button
+            variant="outline"
+            aria-label={!showHeading ? (stage === "input" ? uiT("Test input patterns") : uiT("Test output patterns")) : undefined}
+            disabled={
+              testing || Boolean(invalid) || !rules.length || !sample.trim()
+            }
+            onClick={() => void test()}
+          >
+            {testing ? uiT("Testing…") : uiT("Test patterns")}
+          </Button>
+          {!rules.length && <p className="guardrails-muted">{uiT("Select a pattern above to enable testing.")}</p>}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{uiT(error)}</AlertDescription>
+            </Alert>
+          )}
+          {result && (
+            <div role="status">
+              <p>
+                {result.outcome === "matched" ? uiT("Match observed · response unchanged") : result.outcome === "clear" ? uiT("No match observed · response unchanged") : result.outcome === "blocked"
+                  ? uiT("Blocked")
+                  : result.outcome === "indeterminate"
+                    ? uiF("Not fully inspectable ({0})", [inspectionReason])
+                    : result.redacted
+                      ? uiT("Allowed after redaction")
+                      : uiT("Allowed without redaction")}
+              </p>
+              {Boolean(result.matches?.length) && <div><p>{uiT("Matched rules")}</p><ul>{result.matches!.map(match => <li key={match.index}>{uiF("Rule {0} · {1}", [match.index, match.action === "block" ? uiT("Block") : uiT("Redact")])}{match.pattern ? uiF(" · pattern {0}", [match.pattern]) : match.preset ? uiF(" · preset {0}", [match.preset]) : ""}</li>)}</ul></div>}
+            </div>
+          )}
+        </section>
+      )}
     </>
   );
 }

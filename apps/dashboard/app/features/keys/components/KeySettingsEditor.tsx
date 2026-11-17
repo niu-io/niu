@@ -239,7 +239,8 @@ export default function KeySettingsEditor({ token, projectKey, models, canWrite,
     } finally { if (!controller.signal.aborted) setSaving(false); }
   }
 
-  return <form className="grid gap-4 py-1" onSubmit={event => { event.preventDefault(); void save(); }}>
+  return <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={event => { event.preventDefault(); void save(); }}>
+    <div className="-mx-2 grid min-h-0 flex-1 gap-4 overflow-y-auto px-2 py-1">
     <section className="grid gap-4 rounded-xl bg-muted/45 p-4" aria-label={uiT("API key details")}>
       <h3 className="text-sm font-medium">{uiT("API key details")}</h3>
       <div className="grid gap-2 sm:grid-cols-[1fr_20rem] sm:items-center"><Label htmlFor="key-edit-name">{uiT("Name")}</Label><Input id="key-edit-name" value={name} maxLength={200} disabled={saving || conflict} onChange={event => setName(event.target.value)} autoFocus /></div>
@@ -288,9 +289,10 @@ export default function KeySettingsEditor({ token, projectKey, models, canWrite,
     </section>
 
     {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}
-    <div className="flex flex-wrap justify-end gap-2">
+    </div>
+    <div className="flex shrink-0 flex-wrap justify-end gap-2 pt-1">
       {conflict ? <Button type="button" onClick={onReload}>{uiT("Reload key")}</Button> : <>
-        <Button type="button" variant="ghost" disabled={saving} onClick={onCancel}>{uiT("Cancel")}</Button>
+        <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>{uiT("Cancel")}</Button>
         <Button type="submit" disabled={saving || conflict || invalid || !changed || !name.trim() || !selectedModels.length}>{saving ? uiT("Saving…") : uiT("Save changes")}</Button>
       </>}
     </div>

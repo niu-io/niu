@@ -4,10 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, createMemoryRouter, RouterProvider } from 'react-router';
 import KeyDetailView from '@/features/keys/components/KeyDetailView';
 vi.mock('@/features/executions/components/GatewayActivity', () => ({ default: () => null }));
-vi.mock('@/features/keys/components/KeyGuardrails', () => ({ default: () => null }));
 vi.mock('@/features/keys/components/KeyLimits', () => ({ default: () => null }));
-vi.mock('@/features/keys/components/KeySourceAccess', () => ({ default: () => null }));
-vi.mock('@/features/keys/components/KeySpendingLimits', () => ({ default: () => null }));
 it('requires reloading a conflicting key before another edit', async () => {
   let record={id:'saved',revision:1,name:'Original key',allowed_models:['*'],expires_at_ms:Date.now()+86400000,revoked:false,expired:false};
   const fetcher=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=> {
@@ -18,9 +15,10 @@ it('requires reloading a conflicting key before another edit', async () => {
     return Response.json({data:[record]});
   });
   vi.stubGlobal('fetch',fetcher);
-  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite canConfigureSpending initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
   const user=userEvent.setup();
   await user.click(await screen.findByRole('button',{name:'Edit key'}));
+  expect(screen.getByRole('dialog', { name: 'Edit API key' })).toBeTruthy();
   await user.clear(screen.getByLabelText('Name'));await user.type(screen.getByLabelText('Name'),'My edit');
   await user.click(screen.getByRole('button',{name:'Save changes'}));
   await screen.findByText('This key changed. Reload it before editing again.');
@@ -28,26 +26,34 @@ it('requires reloading a conflicting key before another edit', async () => {
   expect(screen.queryByRole('button',{name:'Save changes'})).toBeNull();
   await user.click(screen.getByRole('button',{name:'Reload key'}));
   await screen.findByRole('heading',{name:'Other editor name'});
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   await user.click(screen.getByRole('button',{name:'Edit key'}));
   expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Other editor name');
   expect((screen.getByRole('button',{name:'Save changes'}) as HTMLButtonElement).disabled).toBe(true);
   expect(fetcher.mock.calls.filter(([,init])=>init?.method==='PATCH').length).toBe(1);
 });
-it('edits key metadata with its revision and allows cancelling without saving', async () => {
+it('edits key metadata inside a dialog with its revision, preserves read facts, and restores focus on cancel', async () => {
   const record={id:'saved',revision:3,name:'Application key',allowed_models:['*'],expires_at_ms:Date.now()+86400000,revoked:false,expired:false};
   const fetcher=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='PATCH' ? Response.json({revision:4}) : Response.json({data:[record]}));
   vi.stubGlobal('fetch',fetcher);
-  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
-  const user=userEvent.setup();await user.click(await screen.findByRole('button',{name:'Edit key'}));
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite canConfigureSpending initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  const user=userEvent.setup();
+  const editButton = await screen.findByRole('button',{name:'Edit key'});
+  await user.click(editButton);
+  expect(screen.getByRole('dialog', { name: 'Edit API key' })).toBeTruthy();
+  expect(document.querySelector('dl.key-detail-facts')?.textContent).toContain('All configured models');
   expect((screen.getByRole('button',{name:'Save changes'}) as HTMLButtonElement).disabled).toBe(true);
   await user.clear(screen.getByLabelText('Name'));await user.type(screen.getByLabelText('Name'),'Updated key');
   await user.click(screen.getByRole('button',{name:'Cancel'}));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(document.activeElement).toBe(editButton);
   expect(fetcher.mock.calls.some(([,init])=>init?.method==='PATCH')).toBe(false);
-  await user.click(screen.getByRole('button',{name:'Edit key'}));
+  await user.click(editButton);
   expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Application key');
   await user.clear(screen.getByLabelText('Name'));await user.type(screen.getByLabelText('Name'),'Updated key');
   await user.click(screen.getByRole('button',{name:'Save changes'}));
   await screen.findByRole('heading',{name:'Updated key'});
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   const saved=fetcher.mock.calls.find(([,init])=>init?.method==='PATCH');
   expect(JSON.parse(saved![1]!.body as string)).toEqual({name:'Updated key',allowed_models:['*'],expected_revision:3});
 });
@@ -73,14 +79,15 @@ it('hides stale key details and ignores a late revocation after changing scope',
     if(String(input).includes('/workspaces/next/')) return new Promise<Response>(resolve=>{finishRead=resolve;});
     return Promise.resolve(Response.json({data:[record('Previous workspace key')]}));
   }));
-  const view=(projectId:string)=><MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token={projectId} models={[]} canWrite initialScope={{organizationId:'org',projectId}}/>}/></Routes></MemoryRouter>;
+  const view=(projectId:string)=><MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token={projectId} models={[]} canWrite canConfigureSpending={false} initialScope={{organizationId:'org',projectId}}/>}/></Routes></MemoryRouter>;
   const rendered=render(view('demo'));const user=userEvent.setup();
   await screen.findByRole('heading',{name:'Previous workspace key'});
   await user.click(screen.getByRole('button',{name:'Revoke key'}));
+  expect(screen.getByRole('dialog', { name: 'Revoke API key' })).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Confirm revoke'}));
   rendered.rerender(view('next'));
   expect(screen.queryByRole('heading',{name:'Previous workspace key'})).toBeNull();
-  expect(screen.queryByRole('group',{name:'Confirm API key revocation'})).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.queryByText('This key could not be found or accessed in this workspace.')).toBeNull();
   finishRead(Response.json({data:[record('Current workspace key')]}));
   await screen.findByRole('heading',{name:'Current workspace key'});
@@ -88,6 +95,13 @@ it('hides stale key details and ignores a late revocation after changing scope',
   await user.click(screen.getByRole('button',{name:'Revoke key'}));
   expect(screen.queryByText('Key revoked. Requests using it will be rejected.')).toBeNull();
   expect((screen.getByRole('button',{name:'Confirm revoke'}) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('opens the edit dialog automatically when navigated with editKey intent', async () => {
+  const record={id:'saved',slug:'saved',revision:1,name:'Application key',allowed_models:['*'],expires_at_ms:null,revoked:false,expired:false};
+  vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[record]})));
+  render(<MemoryRouter initialEntries={[{pathname:'/workspaces/demo/keys/saved', state:{editKey:true}}]}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite canConfigureSpending initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
+  expect(await screen.findByRole('dialog', { name: 'Edit API key' })).toBeTruthy();
 });
 
 it('offers a neutral, workspace-scoped recovery when the key is absent', async () => {

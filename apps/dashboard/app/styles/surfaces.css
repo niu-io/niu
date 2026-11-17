@@ -353,5 +353,4 @@
 .niu-workspace-sidebar:hover .sidebar-header-toggle .sidebar-toggle-expand-icon { display: block; }
 
 @media (max-width: 380px) {
-  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { max-width: 56px; }
-}
+  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { max-width: 56px; }}

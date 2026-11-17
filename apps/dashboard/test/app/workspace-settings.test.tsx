@@ -25,7 +25,7 @@ const secondWorkspace = {
 let context: DashboardContext;
 let applyWorkspaceRename: ReturnType<typeof vi.fn>;
 let deleteWorkspace: ReturnType<typeof vi.fn>;
-let pushContext: ((next: DashboardContext) => void) | null;
+let pushContext: ((next: DashboardContext | ((prev: DashboardContext) => DashboardContext)) => void) | null;
 let fetchMock: FetchMock;
 
 function jsonResponse(value: unknown, status = 200) {
@@ -96,7 +96,13 @@ function switchWorkspace(next = secondWorkspace) {
 }
 
 beforeEach(() => {
-  applyWorkspaceRename = vi.fn();
+  applyWorkspaceRename = vi.fn((id: string, nextName: string) => {
+    pushContext?.(prev => ({
+      ...prev,
+      workspace: prev.workspace?.id === id ? { ...prev.workspace, name: nextName } : prev.workspace,
+      workspaces: prev.workspaces.map(item => (item.id === id ? { ...item, name: nextName } : item)),
+    }));
+  });
   deleteWorkspace = vi.fn();
   context = {
     token: 'fixture',
@@ -120,7 +126,10 @@ beforeEach(() => {
 describe('workspace settings', () => {
   it('renders general settings and workspace spending limits directly without external billing shortcut buttons', async () => {
     renderSettings();
-    await screen.findByLabelText('Workspace name');
+    await screen.findByRole('heading', { name: 'General' });
+    expect(screen.getByText('Example workspace')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rename workspace' })).toBeTruthy();
+    expect(screen.queryByLabelText('Workspace name')).toBeNull();
     expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.queryByRole('tablist')).toBeNull();
     expect(screen.getByRole('region', { name: 'Workspace spending limits' })).toBeTruthy();
@@ -168,13 +177,15 @@ describe('workspace settings', () => {
     });
     renderSettings();
     const user = userEvent.setup();
-    const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
     await user.clear(input);
     await user.type(input, 'Changed name');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Saving…' })).toBeTruthy());
     switchWorkspace();
-    await waitFor(() => expect(input.value).toBe('Remaining workspace'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('Remaining workspace')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Saving…' })).toBeNull();
     await act(async () => {
       rejectSave(new TypeError('Failed to fetch'));
@@ -196,13 +207,15 @@ describe('workspace settings', () => {
     });
     renderSettings();
     const user = userEvent.setup();
-    const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
     await user.clear(input);
     await user.type(input, 'Customer support');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Saving…' })).toBeTruthy());
     switchWorkspace();
-    await waitFor(() => expect(input.value).toBe('Remaining workspace'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('Remaining workspace')).toBeTruthy();
     await act(async () => {
       resolveSave(jsonResponse({ id: workspace.id, name: 'Customer support' }));
     });
@@ -223,10 +236,11 @@ describe('workspace settings', () => {
     });
     renderSettings();
     const user = userEvent.setup();
-    const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
     await user.clear(input);
     await user.type(input, 'Renamed workspace');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Saving…' })).toBeTruthy());
     expect((screen.getByRole('button', { name: 'Saving…' }) as HTMLButtonElement).disabled).toBe(true);
@@ -238,19 +252,21 @@ describe('workspace settings', () => {
       resolveSave(jsonResponse({ id: workspace.id, name: 'Renamed workspace' }));
     });
 
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByText('Workspace renamed.')).toBeTruthy();
     expect(applyWorkspaceRename).toHaveBeenCalledWith(workspace.id, 'Renamed workspace');
-    expect(input.value).toBe('Renamed workspace');
+    expect(screen.getByText('Renamed workspace')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Saving…' })).toBeNull();
   });
 
   it('validates the UTF-8 name limit before dispatching the mutation', async () => {
     renderSettings();
     const user = userEvent.setup();
-    const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
     await user.clear(input);
     await user.type(input, '名'.repeat(100));
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('1–200 bytes');
@@ -271,13 +287,15 @@ describe('workspace settings', () => {
     });
     renderSettings();
     const user = userEvent.setup();
-    const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
     await user.clear(input);
     await user.type(input, 'A rejected name');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Name must contain 1 to 200 bytes');
+    expect(screen.getByRole('dialog')).toBeTruthy();
     expect(input.value).toBe('A rejected name');
     expect(input.disabled).toBe(false);
     expect(screen.queryByText('Workspace renamed.')).toBeNull();
@@ -296,10 +314,11 @@ describe('workspace settings', () => {
     });
     renderSettings();
     const user = userEvent.setup();
-    const input = (await screen.findByLabelText('Workspace name')) as HTMLInputElement;
+    await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
     await user.clear(input);
     await user.type(input, 'Retried workspace');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('may or may not have been saved');
@@ -307,17 +326,37 @@ describe('workspace settings', () => {
     expect(input.value).toBe('Retried workspace');
     expect(screen.queryByRole('button', { name: 'Saving…' })).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByText('Workspace renamed.')).toBeTruthy();
     expect(renameRequests()).toHaveLength(2);
     expect(applyWorkspaceRename).toHaveBeenCalledWith(workspace.id, 'Retried workspace');
+  });
+
+  it('cancels a rename draft, closes the dialog, and returns focus to its trigger', async () => {
+    renderSettings();
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole('button', { name: 'Rename workspace' });
+    await user.click(trigger);
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, 'Unsaved name');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel', exact: true }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(screen.getByText('Example workspace')).toBeTruthy();
+    expect(renameRequests()).toHaveLength(0);
+
+    await user.click(trigger);
+    expect((screen.getByLabelText('Workspace name') as HTMLInputElement).value).toBe('Example workspace');
   });
 
   it('prevents deletion of the persisted default regardless of its display name', async () => {
     context = { ...context, workspace: { ...workspace, name: 'Renamed default', is_default: true } };
     snapshot(context);
     renderSettings();
-    expect(await screen.findByLabelText('Workspace name')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'General' })).toBeTruthy();
+    expect(screen.getByText('Renamed default')).toBeTruthy();
     expect(screen.queryByText('The default workspace cannot be deleted.')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete workspace' })).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -349,7 +388,7 @@ describe('workspace settings', () => {
     operator.project_id = workspace.id;
     snapshot(context);
     renderSettings();
-    await screen.findByLabelText('Workspace name');
+    await screen.findByRole('heading', { name: 'General' });
     expect(screen.queryByRole('button', { name: 'Delete workspace' })).toBeNull();
   });
 
@@ -372,7 +411,7 @@ describe('workspace settings', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('disables the rename form without write permission', async () => {
+  it('hides the rename action without write permission', async () => {
     const session = context.session;
     if (!session) throw new Error('Fixture session is missing.');
     context = {
@@ -384,8 +423,10 @@ describe('workspace settings', () => {
     };
     snapshot(context);
     renderSettings();
-    expect(((await screen.findByLabelText('Workspace name')) as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
+    await screen.findByRole('heading', { name: 'General' });
+    expect(screen.getByText('Example workspace')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Rename workspace' })).toBeNull();
+    expect(screen.queryByLabelText('Workspace name')).toBeNull();
   });
 });
 

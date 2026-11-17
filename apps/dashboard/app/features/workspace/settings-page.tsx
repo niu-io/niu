@@ -100,9 +100,11 @@ export default function WorkspaceSettings() {
   const [searchParams] = useSearchParams();
   const workspace = context.workspace;
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const renameButtonRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const fetcher = useFetcher<WorkspaceSettingsActionData>();
   const [name, setName] = useState(workspace ? workspaceDisplayName(workspace.name) : '');
+  const [renameOpen, setRenameOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [renameOutcome, setRenameOutcome] = useState<RenameOutcome | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -113,6 +115,7 @@ export default function WorkspaceSettings() {
 
   useLayoutEffect(() => {
     operationScope.current += 1;
+    setRenameOpen(false);
     setDeleteBusy(false);
     setRenameOutcome(null);
     setConfirming(false);
@@ -145,6 +148,7 @@ export default function WorkspaceSettings() {
       if (isCurrentWorkspace) {
         setName(confirmedName);
         setRenameOutcome({ workspaceId: data.workspaceId, kind: 'success', name: confirmedName });
+        setRenameOpen(false);
       }
       return;
     }
@@ -246,60 +250,48 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      <section aria-labelledby="workspace-general-title" className="space-y-5 rounded-[var(--radius-panel)] bg-card p-5">
-        <h2 id="workspace-general-title" className="sr-only">
-          {t('General', '常规设置')}
-        </h2>
-        <form onSubmit={rename} aria-busy={renaming} className="grid gap-5">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="grid w-full max-w-md min-w-[16rem] gap-2">
-              <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
-              <Input
-                ref={nameInputRef}
-                id="workspace-name"
-                required
-                maxLength={WORKSPACE_NAME_MAX_BYTES}
-                value={name}
-                disabled={!canEdit || busy}
-                aria-invalid={nameError?.code === 'invalid-name' ? true : undefined}
-                aria-describedby={nameError?.code === 'invalid-name' ? 'workspace-name-error' : undefined}
-                onChange={event => {
-                  setName(event.target.value);
-                  setRenameOutcome(null);
-                }}
-              />
-            </div>
-            <div className="flex gap-2">
-              {nameChanged && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => {
-                    setName(currentName);
-                    setRenameOutcome(null);
-                    nameInputRef.current?.focus();
-                  }}
-                >
-                  {t('Cancel', '取消')}
-                </Button>
-              )}
-              <Button disabled={!canEdit || busy || !name.trim() || !nameChanged}>
-                {renaming ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}
-              </Button>
-            </div>
+      <section aria-labelledby="workspace-general-title" className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="workspace-general-title" className="text-base font-semibold">
+            {t('General', '常规设置')}
+          </h2>
+          {canEdit && (
+            <Button
+              ref={renameButtonRef}
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              aria-label={t('Rename workspace', '重命名工作空间')}
+              onClick={() => {
+                setName(currentName);
+                setRenameOutcome(null);
+                setRenameOpen(true);
+              }}
+            >
+              {t('Rename', '重命名')}
+            </Button>
+          )}
+        </div>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{t('Workspace name', '工作空间名称')}</dt>
+            <dd className="mt-1 font-medium break-words">{currentName}</dd>
           </div>
-          {visibleOutcome?.kind === 'success' && (
-            <p role="status" className="text-sm text-muted-foreground">
-              {t('Workspace renamed.', '工作空间已重命名。')}
-            </p>
-          )}
-          {nameError && (
-            <p id="workspace-name-error" role="alert" className="text-sm text-destructive">
-              {renameErrorText(nameError)}
-            </p>
-          )}
-        </form>
+          {workspace.slug ? (
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{t('URL slug', '路径标识')}</dt>
+              <dd className="mt-1">
+                <code className="font-mono text-xs break-all text-muted-foreground">{`/workspaces/${workspace.slug}`}</code>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        {visibleOutcome?.kind === 'success' && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {t('Workspace renamed.', '工作空间已重命名。')}
+          </p>
+        )}
       </section>
       {context.token && (
         <WorkspaceSpendingLimits
@@ -344,6 +336,79 @@ export default function WorkspaceSettings() {
         </p>
       )}
       <Dialog
+        open={renameOpen}
+        onOpenChange={open => {
+          if (!renaming) {
+            setRenameOpen(open);
+            if (!open) {
+              setName(currentName);
+              setRenameOutcome(null);
+            }
+          }
+        }}
+      >
+        <DialogContent
+          onCloseAutoFocus={event => {
+            if (renameButtonRef.current?.isConnected) {
+              event.preventDefault();
+              renameButtonRef.current.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{t('Rename workspace', '重命名工作空间')}</DialogTitle>
+            <DialogDescription>
+              {t(
+                'Update the display name shown in the sidebar and workspace switcher.',
+                '修改侧边栏与工作空间切换器中显示的显示名称。',
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={rename} aria-busy={renaming} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label>
+              <Input
+                ref={nameInputRef}
+                id="workspace-name"
+                required
+                autoFocus
+                maxLength={WORKSPACE_NAME_MAX_BYTES}
+                value={name}
+                disabled={!canEdit || busy}
+                aria-invalid={nameError?.code === 'invalid-name' ? true : undefined}
+                aria-describedby={nameError?.code === 'invalid-name' ? 'workspace-name-error' : undefined}
+                onChange={event => {
+                  setName(event.target.value);
+                  setRenameOutcome(null);
+                }}
+              />
+            </div>
+            {nameError && (
+              <p id="workspace-name-error" role="alert" className="text-sm text-destructive">
+                {renameErrorText(nameError)}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={renaming}
+                onClick={() => {
+                  setRenameOpen(false);
+                  setName(currentName);
+                  setRenameOutcome(null);
+                }}
+              >
+                {t('Cancel', '取消')}
+              </Button>
+              <Button type="submit" disabled={!canEdit || busy || !name.trim() || !nameChanged}>
+                {renaming ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
         open={confirming}
         onOpenChange={open => {
           if (!deleteBusy) {
@@ -385,7 +450,7 @@ export default function WorkspaceSettings() {
           )}
           <DialogFooter>
             <Button
-              variant="ghost"
+              variant="outline"
               disabled={deleteBusy}
               onClick={() => {
                 setConfirming(false);
