@@ -697,7 +697,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
 
   function failureNextStep(failure: { kind: string; upstream_http_status?: number | null }): string {
     if (failure.kind === 'upstream_http_error' && failure.upstream_http_status === 429) {
-      return uiT("The Provider rejected the request with status 429, typically a rate limit. Check the Provider's limits and current routing; Niu does not retry automatically.");
+      return uiT("The Provider returned HTTP 429. Review the Provider response and current routing before retrying; Niu does not retry automatically.");
     }
     if (failure.kind === 'upstream_account_restricted' || failure.kind === 'upstream_region_unavailable') {
       return uiT("The Provider account or region does not allow this service. Contact the Provider before retrying.");
