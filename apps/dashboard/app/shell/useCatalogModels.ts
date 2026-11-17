@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { fetchQuery, isAbortError, peekQuery } from '@/lib/query-cache';
 import type { Model } from './dashboard-context';

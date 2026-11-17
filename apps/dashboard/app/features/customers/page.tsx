@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { ReactNode } from 'react';
@@ -74,7 +75,7 @@ export default function CustomersRoute() {
 export function Customers({ token, canSetup, onWorkspaceCreated }: { token: string; canSetup: boolean; onWorkspaceCreated: () => void }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { currency: platformCurrency } = usePlatformCurrency();
-  const client = useMemo(() => new NiuAdminClient({ adminToken: token, baseURL: new URL('/api/v1', location.origin).href }), [token]);
+  const client = useMemo(() => new NiuAdminClient({ fetch, adminToken: token, baseURL: new URL('/api/v1', location.origin).href }), [token]);
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
   const initialValid = initialPage && Array.isArray(initialPage.data) ? initialPage : undefined;
   const [companies, setCompanies] = useState<Company[]>(() => initialValid?.data ?? []);

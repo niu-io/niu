@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useRef, useState } from 'react';
 import { peekQuery, primeQuery } from '@/lib/query-cache';
 

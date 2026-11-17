@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import { pinyin } from 'pinyin-pro';
@@ -206,7 +207,7 @@ export function clientLoader(args: LoaderFunctionArgs) {
         after ? `?after=${encodeURIComponent(after)}` : ''
       }`,
       fetcher: async (signal, snapshot) => {
-        const client = new NiuAdminClient({
+        const client = new NiuAdminClient({ fetch,
           adminToken: snapshot.token,
           baseURL: new URL('/api/v1', url.origin).href,
         });
@@ -289,7 +290,7 @@ function RoutingView({
   );
   const client = useMemo(
     () =>
-      new NiuAdminClient({
+      new NiuAdminClient({ fetch,
         adminToken: token,
         baseURL: new URL('/api/v1', window.location.origin).href,
       }),

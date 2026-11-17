@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -19,7 +20,7 @@ export default function LegacyVideoLink({context,fallback,jobOverride}:{context:
   const { t: uiT } = useUILocale();
   const location=useLocation();
   const navigate=useNavigate();
-  const client=useMemo(()=>context.token ? new NiuAdminClient({adminToken:context.token,baseURL:new URL('/api/v1',window.location.origin).href}) : null,[context.token]);
+  const client=useMemo(()=>context.token ? new NiuAdminClient({ fetch,adminToken:context.token,baseURL:new URL('/api/v1',window.location.origin).href}) : null,[context.token]);
   const workspace=context.workspace;
   const search=useMemo(()=>new URLSearchParams(location.search),[location.search]);
   const intent=search.get('intent')??'';

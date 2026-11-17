@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyDescription, EmptyMedia, EmptyTitle, EmptyContent } from '@/components/ui/empty';
 import { cachedKeyGet } from '@/features/keys/api';
 import { peekQuery, primeQuery, invalidateForMutation } from '@/lib/query-cache';

@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { PlatformUnitInfo } from '../lib/money';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';

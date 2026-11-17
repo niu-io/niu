@@ -10,28 +10,28 @@
       "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
     },
     "app/features/routing/page.tsx": {
-      "lines": 1932,
-      "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives."
+      "lines": 1933,
+      "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/commercial-position/page.tsx": {
       "lines": 1458,
       "reason": "Financial report page owns filters, chart series and table sections. Period helpers extracted to period.ts; split remaining report sections under niu-4rp.15."
     },
     "app/features/playground/components/PlaygroundView.tsx": {
-      "lines": 1355,
-      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog. Key-recovery repair adds only draft selection restoration and preserves canonical-navigation query scope; no new UI composition. Saved attachment inspection is delegated to ChatTurnAttachments; the view adds only the turn-level composition and legacy attachment fallback."
+      "lines": 1356,
+      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog. Key-recovery repair adds only draft selection restoration and preserves canonical-navigation query scope; no new UI composition. Saved attachment inspection is delegated to ChatTurnAttachments; the view adds only the turn-level composition and legacy attachment fallback. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/shell/useWorkspaceController.ts": {
-      "lines": 1135,
-      "reason": "Application-shell workspace controller. Session, workspace directory and recovery state are interdependent; split only with parity tests for shell recovery. The scope-change branch drops old Generations resource URLs and restores the target backend draft."
+      "lines": 1136,
+      "reason": "Application-shell workspace controller. Session, workspace directory and recovery state are interdependent; split only with parity tests for shell recovery. The scope-change branch drops old Generations resource URLs and restores the target backend draft. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/customers/unit-accounts.tsx": {
       "lines": 1027,
       "reason": "Customer unit-account editor. Split pending alongside the customer-account form extraction."
     },
     "app/features/executions/components/GatewayActivity.tsx": {
-      "lines": 875,
-      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15. Key reference/label derivation is extracted to features/keys/key-labels.ts, charge grouping to charge-groups.ts, charge summary card to ChargeSummaryCard.tsx, and request detail sheet to GatewayRequestDetailSheet.tsx; the view adds only its memoized lookup."
+      "lines": 876,
+      "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15. Key reference/label derivation is extracted to features/keys/key-labels.ts, charge grouping to charge-groups.ts, charge summary card to ChargeSummaryCard.tsx, and request detail sheet to GatewayRequestDetailSheet.tsx; the view adds only its memoized lookup. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/provider-business/admin.tsx": {
       "lines": 1005,
@@ -42,8 +42,8 @@
       "reason": "Shared cache core owns authority isolation, request generations and invalidation. Splitting would scatter a single consistency contract; keep as one reviewed module."
     },
     "app/features/evaluations/page.tsx": {
-      "lines": 897,
-      "reason": "Evaluation run page. Split pending with the evaluation components under niu-4rp.15."
+      "lines": 898,
+      "reason": "Evaluation run page. Split pending with the evaluation components under niu-4rp.15. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     }
   }
 }

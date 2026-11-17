@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import {
@@ -81,7 +82,7 @@ export function clientLoader(args: LoaderFunctionArgs) {
     return {
       endpoint: `/api/v1/workspaces/${encodeURIComponent(workspace.id)}/events`,
       fetcher: async (signal, snapshot) => {
-        const client = new NiuAdminClient({
+        const client = new NiuAdminClient({ fetch,
           adminToken: snapshot.token,
           baseURL: new URL('/api/v1', url.origin).href,
         });
@@ -156,7 +157,7 @@ function EventSubscriptionsView({
   const { t: uiT, format: uiF } = useUILocale();
   const client = useMemo(
     () =>
-      new NiuAdminClient({
+      new NiuAdminClient({ fetch,
         adminToken: token,
         baseURL: new URL('/api/v1', window.location.origin).href,
       }),

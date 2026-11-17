@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { keyRequest, workspaceKeyPath, type ProjectKey } from '@/features/keys/api';
@@ -168,7 +169,7 @@ export function useMaterials(
   const [loading, setLoading] = useState(true);
   const admin = useMemo(
     () =>
-      new NiuAdminClient({
+      new NiuAdminClient({ fetch,
         adminToken: context.token,
         baseURL: new URL('/api/v1', window.location.origin).href,
       }),

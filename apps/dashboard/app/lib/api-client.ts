@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { fetchQuery, invalidateForMutation, invalidateQueries, peekQuery, prefetchQuery, type FetchQueryOptions } from './query-cache';
 
 export class ApiRequestError extends Error {

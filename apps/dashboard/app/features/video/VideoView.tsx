@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { validateSavedVideoReferences } from './request';
@@ -173,7 +174,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const intentId=intentDocument?.reference===intentReference ? intentDocument.id : intentReference;
   const routeIntent=useRef(intentId);
   routeIntent.current=intentId;
-  const intentClient=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
+  const intentClient=useMemo(()=>token ? new NiuAdminClient({ fetch,adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
   const [nativeTools,setNativeTools]=useState<{identity:string;state:'loading'|'supported'|'unsupported'|'error';module?:NativeProviderModule;error?:string}>({identity:'',state:'loading'});
   const toolsIdentity=JSON.stringify([token,workspace?.organization_id,workspace?.id,keyId,modelId]);
   const toolsState=nativeTools.identity===toolsIdentity ? nativeTools.state : 'loading';

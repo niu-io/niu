@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { requestOutcomeLabel } from '@/lib/request-status';
 import { formatLocalizedMessage } from '@/shell/ui-locale';
 import { translateUI } from '@/shell/ui-locale';

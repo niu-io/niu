@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { IconVideo } from '@tabler/icons-react';
 import { fetchQuery, isQueryFresh, peekQuery } from '@/lib/query-cache';
@@ -34,7 +35,7 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
   const {token,workspace}=context;
   const route=useLocation();
   const navigate=useNavigate();
-  const client=useMemo(()=>new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',location.origin).href}),[token]);
+  const client=useMemo(()=>new NiuAdminClient({ fetch,adminToken:token,baseURL:new URL('/api/v1',location.origin).href}),[token]);
   // Recovery reads use an active key from this session's workspace, never a URL
   // identifier. The server still rechecks ownership, model access and the
   // original task before it returns a result.

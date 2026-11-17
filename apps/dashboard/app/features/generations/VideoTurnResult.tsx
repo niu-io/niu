@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useLocale as useUILocale, translateUI } from '@/shell/ui-locale';
 import { formatDurationMs } from '@/lib/duration';
 import { isQueryFresh, peekQuery } from '@/lib/query-cache';
@@ -78,7 +79,7 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
   const activeDiagTaskRef = useRef<string | null>(initialTask?.id ?? null);
   const lastDiagFetchRef = useRef({ taskId: '', refreshKey: 0, revision: 0 });
   const lastDiagStateRef = useRef({ taskId: initialTask?.id ?? '', state: initialTask?.state ?? '' });
-  const client = useMemo(() => token ? new NiuAdminClient({adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
+  const client = useMemo(() => token ? new NiuAdminClient({ fetch,adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
   const orgId = workspace?.organization_id ?? '';
   const workspaceId = workspace?.id ?? '';
   const scope = useMemo<TenantScope | null>(() => orgId && workspaceId ? {organizationId: orgId, projectId: workspaceId} : null, [orgId, workspaceId]);
