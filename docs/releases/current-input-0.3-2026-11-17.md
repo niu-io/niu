@@ -1,5 +1,7 @@
 # Current-input Niu 0.3 verification — 2026-11-17
 
+Later the same day, browser access was recovered and installation, upgrade, recovery, agent consent and additional live journeys were executed. See the [expanded readiness record](release-readiness-0.3-2026-11-17.md) for the current conclusion and reproduced blockers. The limits below describe this earlier run only.
+
 **The tested core API journey works; formal release readiness is not established.** This run found a concrete release-artifact provenance mismatch, rather than inferring product failures from missing checklist entries. Tracking: `niu-nrcn`; artifact finding: `niu-16wj`. Machine-readable observations: [evidence](evidence/current-input-0.3-2026-11-17.json).
 
 ## Actual candidate and method
