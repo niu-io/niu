@@ -43,9 +43,9 @@ function pickDefaultVideoModel(list: VideoModel[]): VideoModel | undefined {
 }
 
 /** The saved result stays on this page. The next video is described here. */
-export default function VideoSessionComposer({context, session, onSubmitted, available, keyId, onRestoreKey, keyEditRevision}: {
+export default function VideoSessionComposer({context, session, onSubmitted, available, keyId, onRestoreKey, keyEditRevision, onKeySelectionReadyChange}: {
   context: DashboardContext; session: VideoGenerationsSession; onSubmitted: () => void;
-  available: ReturnType<typeof useGenerationKeys>; keyId: string; onRestoreKey: (key: string) => void; keyEditRevision: number;
+  available: ReturnType<typeof useGenerationKeys>; keyId: string; onRestoreKey: (key: string) => void; keyEditRevision: number; onKeySelectionReadyChange: (ready:boolean) => void;
 }) {
   const { t: uiT } = useUILocale();
   const {token, workspace} = context;
@@ -74,7 +74,6 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   const [error, setError] = useState('');
   const modelIdRef = useRef(modelId);
   modelIdRef.current = modelId;
-  const loadedKeyRef = useRef(initialModels ? activeKeyId : '');
   const client = useMemo(() => token ? new NiuAdminClient({ fetch,adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
   const model = models.find(item => item.id === modelId);
   const payload:VideoComposerDraftPayload={keyId:activeKeyId||null,sessionId:session.id,model:modelId||null,prompt,controls:Object.fromEntries(Object.entries(controls).filter(([name])=>['duration','seed','frames_per_second','resolution','ratio','omni_reference_task_type','watermark','camera_fixed','return_last_frame'].includes(name))) as VideoComposerDraftPayload['controls'],references};
@@ -91,6 +90,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       setControls(Object.fromEntries(Object.entries(saved.controls).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
     }});
   const restoringDraft=Boolean(token&&workspace&&!session.archived)&&!draft.ready&&!draft.error;
+  useEffect(()=>{onKeySelectionReadyChange(!restoringDraft&&!busy&&!loading);},[restoringDraft,busy,loading,onKeySelectionReadyChange]);
   const navigation=useDraftNavigation({hasUnsavedChanges:()=>!busy&&edited&&(!draft.ready||draft.dirty),flush:async()=>Boolean(await draft.flush())});
   useEffect(() => {
     const controller = new AbortController();
@@ -104,11 +104,10 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
     const cached = peekQuery<VideoModel[]>(token, cacheKey, {persist: true});
     if (cached) {
       setModels(cached);
-      if (restoreContext.current?.key!==activeKeyId && (loadedKeyRef.current !== activeKeyId || !cached.some(item => item.id === modelIdRef.current))) {
+      if (restoreContext.current?.key!==activeKeyId && !cached.some(item => item.id === modelIdRef.current)) {
         const next = pickDefaultVideoModel(cached);
         setModelId(next?.id ?? '');
         setControls(next ? initialControls(next) : {});
-        loadedKeyRef.current = activeKeyId;
       }
       setLoading(false);
       if (isQueryFresh(token, cacheKey, VIDEO_MODELS_FRESH_MS)) {
@@ -128,13 +127,12 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
         if (controller.signal.aborted || !payload) return;
         primeQuery(token, cacheKey, payload.data, {persist: true});
         setModels(payload.data);
-        const keepCurrent = restoreContext.current?.key===activeKeyId || (loadedKeyRef.current === activeKeyId && payload.data.some(item => item.id === modelIdRef.current));
+        const keepCurrent = restoreContext.current?.key===activeKeyId || payload.data.some(item => item.id === modelIdRef.current);
         if (!keepCurrent) {
           const next = pickDefaultVideoModel(payload.data);
           setModelId(next?.id ?? '');
           setControls(next ? initialControls(next) : {});
         }
-        loadedKeyRef.current = activeKeyId;
       })
       .catch(caught => { if (!controller.signal.aborted && !cached) setError(message(caught)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });

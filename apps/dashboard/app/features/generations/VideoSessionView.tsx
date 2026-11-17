@@ -49,6 +49,7 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
   const composerKey=composerSelection.scope===composerScope?composerSelection.key:'';
   const setComposerKey=(key:string)=>setComposerSelection({scope:composerScope,key});
   const [keyEditRevision,setKeyEditRevision]=useState(0);
+  const [keySelectionReady,setKeySelectionReady]=useState(false);
   const activeComposerKey=composerKey || keys[0]?.id || '';
   const sessionCacheKey=workspace?videoSessionCacheKey(workspace.id,id):'';
   const viewKey=`${workspace?.id??''}:${id}`;
@@ -184,7 +185,7 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
     initialRunId: run ?? null,
   };
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<div className="playground-toolbar-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="playground-key-trigger video-key-choice" aria-label={uiT("Video API key")} disabled={Boolean(session?.archived)}><IconKey size={16}/><span className="truncate">{keys.find(key=>key.id===activeComposerKey)?.name ?? uiT("Choose API key")}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeComposerKey} onValueChange={value=>{setComposerKey(value);setKeyEditRevision(revision=>revision+1);}}>{keys.map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!keys.length&&<DropdownMenuLabel>{uiT(availableKeys.loading?"Loading keys…":"No active API key")}</DropdownMenuLabel>}</DropdownMenuContent></DropdownMenu><Button variant="ghost" size="icon" aria-label={uiT("Refresh session")} onClick={bumpRevision}><IconRefresh size={16}/></Button></div>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
+    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<div className="playground-toolbar-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="playground-key-trigger video-key-choice" aria-label={uiT("Video API key")} disabled={Boolean(session?.archived)||!keySelectionReady}><IconKey size={16}/><span className="truncate">{keys.find(key=>key.id===activeComposerKey)?.name ?? uiT("Choose API key")}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeComposerKey} onValueChange={value=>{if(!keySelectionReady)return;setComposerKey(value);setKeyEditRevision(revision=>revision+1);}}>{keys.map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!keys.length&&<DropdownMenuLabel>{uiT(availableKeys.loading?"Loading keys…":"No active API key")}</DropdownMenuLabel>}</DropdownMenuContent></DropdownMenu><Button variant="ghost" size="icon" aria-label={uiT("Refresh session")} onClick={bumpRevision}><IconRefresh size={16}/></Button></div>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
     <section className="video-main playground-chat-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation playground-transcript">
       {error?<p role="alert" className="video-error">{uiT(error)}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
         {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}
@@ -198,7 +199,7 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
         })}
       </>}
     </div>
-    {session && <VideoSessionComposer key={session.id} context={context} session={session} onSubmitted={bumpRevision} available={availableKeys} keyId={activeComposerKey} onRestoreKey={setComposerKey} keyEditRevision={keyEditRevision} />}
+    {session && <VideoSessionComposer key={session.id} context={context} session={session} onSubmitted={bumpRevision} available={availableKeys} keyId={activeComposerKey} onRestoreKey={setComposerKey} keyEditRevision={keyEditRevision} onKeySelectionReadyChange={setKeySelectionReady} />}
     </div></section>
   </div>;
 }

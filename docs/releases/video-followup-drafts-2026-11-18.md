@@ -128,3 +128,31 @@ The temporary key had exactly one persisted inference request. Revocation return
 test library image was deleted (204), and the task browser session logged out
 (204). The production Dashboard build also completed; that is packaging evidence,
 not a substitute for the actual flow above.
+
+## Header restoration and compatible key changes
+
+A subsequent current-input check found the prompt disabled during initial draft
+loading while its parent key picker remained enabled. A natural-network key
+selection retained the prompt, so that attempt did not establish data loss.
+A 1,500 ms network-latency observation timed out before the control appeared;
+it made no selection, and normal network conditions were restored. No synthetic
+response or fixture was used as acceptance evidence.
+
+The header now shares the composer's readiness state: initial draft restoration,
+model loading and active submission disable key changes. Actual fresh-page
+observation showed both prompt and key picker disabled with “Loading saved
+draft…”, followed by the original prompt and selected key before editing became
+available. The radio callback also rejects changes while the header is not ready.
+
+The same walkthrough exposed an actual compatible-key reset: switching between
+keys that both offered the same Wan model changed two seconds/9:16 to the
+three-second/16:9 defaults. Cached and refreshed model discovery now preserve the
+current controls when the selected model remains available. Explicit model
+changes still initialize that model's controls.
+
+The repaired current-input switch, immediate navigation, independent backend
+read and revisit retained the exact prompt, requested key, Wan model and
+`duration=2`, `ratio=9:16`, `resolution=480p` at revision 50. The settings popover
+was inspected at 390×844; document width remained 390 and the retained controls
+were visible and usable. This check submitted no video. Its marker draft was
+cleared with the matching revision, and the task browser session was revoked.
