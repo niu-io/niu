@@ -15723,7 +15723,7 @@ HTTP 422: Malformed body or missing explicit price_id
 
 `GET /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
 
-Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Absent saved enrollment means workspace pricing, version zero and null price_id. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
+Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Without a saved enrollment, version is zero and the workspace inherits a published platform text price for the model in the installation currency when available; price_id and effective_price then describe that platform selection. Without a matching published platform price, price_id and effective_price are null and pricing_source is workspace. An explicit saved null price_id selects compatibility workspace tariffs instead of inheriting the platform default; its saved version is retained. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
 
 Implementation: `implemented`. Operation: `getRetailTextEnrollment`.
 
