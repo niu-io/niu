@@ -8,6 +8,7 @@ fn request(scope: TenantScope, key: Uuid) -> GatewayAdmission {
         route_generation: None,
         managed_route: None,
         token_bound: None,
+        token_bound_estimator: Default::default(),
         inspected_guardrails: None,
         operation_id: Uuid::new_v4(),
         attempt_id: Uuid::new_v4(),

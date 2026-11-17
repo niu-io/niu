@@ -41,10 +41,10 @@ pub(super) fn validate_priced_request(
         || object
             .get("messages")
             .and_then(Value::as_array)
-            .is_none_or(|messages| messages.is_empty() || !messages.iter().all(text_message))
+            .is_none_or(|messages| messages.is_empty() || !messages.iter().all(priced_message))
     {
         return Err(ApiError::invalid_request(
-            "This priced route supports one text or function-tool completion with text-only message content",
+            "This priced route supports one text or function-tool completion with text and supported user image content",
         ));
     }
     // Match the existing priced input-size admission policy. Include serialized
@@ -140,6 +140,14 @@ pub(super) fn validate_priced_request(
 }
 
 pub(super) fn text_message(message: &Value) -> bool {
+    message_shape(message, false)
+}
+
+fn priced_message(message: &Value) -> bool {
+    message_shape(message, true)
+}
+
+fn message_shape(message: &Value, allow_images: bool) -> bool {
     let Some(message) = message.as_object() else {
         return false;
     };
@@ -172,8 +180,9 @@ pub(super) fn text_message(message: &Value) -> bool {
         }
         _ => return false,
     };
-    message.get("content").is_some_and(text_content)
-        || (has_calls && message.get("content").is_none_or(Value::is_null))
+    message.get("content").is_some_and(|content| {
+        text_content(content) || (allow_images && role == Some("user") && image_content(content))
+    }) || (has_calls && message.get("content").is_none_or(Value::is_null))
 }
 
 /// The same bounded text shape is used for price and key-token admission.
@@ -193,6 +202,84 @@ pub(super) fn text_content(content: &Value) -> bool {
                             .get("cache_control")
                             .is_none_or(crate::guardrails::input::valid_message_cache_control)
                 })
+        })
+}
+
+/// Image input is billed in provider-reported prompt tokens. Additional media
+/// modalities and hosted tools are not admitted through this token-only shape.
+fn image_content(content: &Value) -> bool {
+    content.as_array().is_some_and(|parts| {
+        !parts.is_empty()
+            && parts
+                .iter()
+                .all(|part| text_content(&Value::Array(vec![part.clone()])) || image_part(part))
+    })
+}
+
+fn image_part(part: &Value) -> bool {
+    use base64::Engine;
+    let Some(part) = part.as_object() else {
+        return false;
+    };
+    if part.get("type").and_then(Value::as_str) != Some("image_url")
+        || part
+            .keys()
+            .any(|key| !["type", "image_url"].contains(&key.as_str()))
+    {
+        return false;
+    }
+    let Some(image) = part.get("image_url").and_then(Value::as_object) else {
+        return false;
+    };
+    if image
+        .keys()
+        .any(|key| !["url", "detail"].contains(&key.as_str()))
+        || image
+            .get("detail")
+            .is_some_and(|detail| !matches!(detail.as_str(), Some("auto" | "low" | "high")))
+    {
+        return false;
+    }
+    let Some(url) = image.get("url").and_then(Value::as_str) else {
+        return false;
+    };
+    if let Some((header, encoded)) = url.split_once(',')
+        && [
+            "data:image/png;base64",
+            "data:image/jpeg;base64",
+            "data:image/webp;base64",
+            "data:image/gif;base64",
+        ]
+        .contains(&header)
+    {
+        return !encoded.is_empty()
+            && base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .is_ok();
+    }
+    // Niu forwards the URL; it never fetches caller-supplied image locations.
+    reqwest::Url::parse(url).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.host_str().is_some()
+            && url.username().is_empty()
+            && url.password().is_none()
+    })
+}
+
+pub(super) fn has_image_input(body: &Value) -> bool {
+    body.get("messages")
+        .and_then(Value::as_array)
+        .is_some_and(|messages| {
+            messages.iter().any(|message| {
+                message
+                    .get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|parts| {
+                        parts.iter().any(|part| {
+                            part.get("type").and_then(Value::as_str) == Some("image_url")
+                        })
+                    })
+            })
         })
 }
 
