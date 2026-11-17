@@ -778,7 +778,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); });
     return () => controller.abort();
   }, [apiSettingsOpen, token, organization, workspaceId, keysPath]);
-  const keyChoices = [...sessionKeys, ...workspaceKeys.filter(key => !sessionKeys.some(saved => saved.id === key.id))];
+  // Saved metadata owns slugs and availability; issued secrets are loading hints.
+  const keyChoices = [...workspaceKeys, ...sessionKeys.filter(key => !workspaceKeysReady && !workspaceKeys.some(saved => saved.id === key.id))];
   const noAvailableKeys = workspaceKeysReady && !keyLoadError && !availableKeys.loading && !availableKeys.error && keyChoices.length === 0 && availableKeys.keys.length === 0;
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
@@ -800,10 +801,9 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const chatEndpoint = '/v1/chat/completions';
   const keyIds = keyChoices.map(key => key.id).join('\u0000') + '\u0000' + workspaceKeys.map(key => key.slug ?? '').join('\u0000');
   const preferredKey = new URLSearchParams(location.search).get('key');
-  const requestedKeyMissing = Boolean(workspaceKeysReady && !availableKeys.loading && !keyLoadError && !availableKeys.error && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)));
+  const requestedKeyMissing = Boolean(workspaceKeysReady && !availableKeys.loading && !keyLoadError && !availableKeys.error && preferredKey && !workspaceKeys.some(key => key.id === preferredKey || key.slug === preferredKey));
   const keyBlocked = requestedKeyMissing;
   const preferredModel = new URLSearchParams(location.search).get('model');
-
   useEffect(() => {
     const resolved = workspaceKeys.find(key => key.slug === preferredKey || key.id === preferredKey);
     const preferred = resolved?.id ?? preferredKey;
