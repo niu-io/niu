@@ -59,3 +59,27 @@ Actual confirmation dispatch, changed-authority rejection, independent final
 media inspection and exact hosted-candidate acceptance remain unverified for this
 correction. Existing Wan artifacts do not qualify Seedance. Fixture results are
 not evidence. Current work status and next actions remain in Beads.
+
+## Actual authority loss and recovery
+
+A new 15-minute key restricted to Seedance 2 Mini was selected for a fresh
+three-second, 480p, 16:9 draft. The key was revoked after opening confirmation
+(HTTP 204). Confirming produced no generation: independent request inventory
+returned HTTP 200 with zero rows. A transient dialog observation displayed the
+changed-access warning, but the settled page showed the raw bearer-token error;
+this is server rejection evidence, not proof of immediate client invalidation.
+
+The settled recovery error exposed a sibling gap: the revoked key stayed in the
+picker. The correction invalidates the workspace key-directory cache and reloads
+it when the SDK operation returns HTTP 401. Repeating the actual revoked-key
+attempt showed the active-key guidance and removed that key from the menu.
+Choosing an existing active key retained the exact prompt and the three-second,
+16:9, 480p controls. Backend draft readback returned HTTP 200, and request
+inventory for the revoked key still had zero rows. The narrow settings panel was
+visually inspected with the preserved values visible. No paid submission occurred.
+
+The test key independently returned HTTP 401 after revocation, its locally retained
+token was removed, the matching test draft was cleared with revision protection
+(HTTP 200), and browser logout returned HTTP 204. Successful confirmed dispatch,
+ambiguous-outcome recovery, final media and hosted-candidate acceptance remain
+outside this evidence; the issue stays open.

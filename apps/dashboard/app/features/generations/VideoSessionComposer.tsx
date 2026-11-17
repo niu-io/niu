@@ -2,7 +2,7 @@ import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconAdjustmentsHorizontal as Settings } from '@tabler/icons-react';
-import type { VideoModel, VideoModelList } from '@niu-io/sdk';
+import { NiuAPIError, type VideoModel, type VideoModelList } from '@niu-io/sdk';
 import { NiuAdminClient, type VideoIntentRequest, type VideoComposerDraftPayload } from '@niu-io/sdk/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { workspaceKeyPath } from '../keys/api';
 import { useVideoDraft } from '../video/useVideoDraft';
 import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { Label } from '@/components/ui/label';
@@ -17,7 +18,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
-import { isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
+import { invalidateQueries, isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import type { useGenerationKeys } from './useGenerationKeys';
@@ -186,6 +187,10 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       if(ticket){if(await draft.clearMatching(ticket))draft.reload();else setError('Video submission was confirmed, but its draft could not be cleared. The saved draft may remain; do not resubmit it.');}
       onSubmitted();
     } catch (caught) {
+      if (caught instanceof NiuAPIError && caught.status === 401) {
+        invalidateQueries(workspaceKeyPath(workspace.id));
+        available.reload();
+      }
       setError(message(caught));
     } finally {
       submitLock.current = false;
