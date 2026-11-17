@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useMemo } from 'react';
 import type { Model } from './dashboard-context';
 import { useCachedQuery } from '@/lib/query-cache';

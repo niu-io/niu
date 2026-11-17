@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -41,7 +42,7 @@ export default function LibraryRoute() {
 export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=false}:{token:string;scope:TenantScope;canWrite:boolean;workspaceSlug?:string;compact?:boolean}) {
   const { t: uiT, format: uiF } = useUILocale();
   const tenantScope=useMemo(()=>({organizationId:scope.organizationId,projectId:scope.projectId}),[scope.organizationId,scope.projectId]);
-  const client=useMemo(()=>new NiuAdminClient({baseURL:`${window.location.origin}/api/v1`,adminToken:token}),[token]);
+  const client=useMemo(()=>new NiuAdminClient({ fetch,baseURL:`${window.location.origin}/api/v1`,adminToken:token}),[token]);
   const [kind,setKind]=useState<keyof typeof kinds>('all'), [query,setQuery]=useState('');
   const cacheKey=`library:${tenantScope.organizationId}:${tenantScope.projectId}:${kind}`;
   // Cached pages are optional hydration; a failed refresh is surfaced below.

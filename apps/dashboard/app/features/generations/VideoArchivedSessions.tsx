@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
 import { IconVideo } from '@tabler/icons-react';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -15,7 +16,7 @@ export default function VideoArchivedSessions({context,open,disabled=false}:{con
   const {token,workspace}=context;
   const identity=JSON.stringify([token,workspace?.organization_id,workspace?.id,open]);
   const current=useRef(identity);current.current=identity;
-  const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',location.origin).href}) : null,[token]);
+  const client=useMemo(()=>token ? new NiuAdminClient({ fetch,adminToken:token,baseURL:new URL('/api/v1',location.origin).href}) : null,[token]);
   const [rows,setRows]=useState<VideoGenerationsSessionSummary[]>([]);
   const [cursor,setCursor]=useState<string|null>(null);
   const [error,setError]=useState('');

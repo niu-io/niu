@@ -8,6 +8,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useLocation, useNavigate, type Location } from 'react-router';
+import { onUnauthorizedRequest } from '@/lib/authenticated-fetch';
 import { loadAuthConfig } from '@/lib/auth-config';
 import { clearSessionCache, syncCacheAuthority } from '@/lib/query-cache';
 import { canManagePlatform, type AdminSession, type Workspace, type WorkspaceProblem } from './dashboard-context';
@@ -85,7 +86,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
       if (restoring && authenticationPath.current === '/installation') return Promise.resolve();
       if (restoring && restoreInFlightRef.current) return restoreInFlightRef.current;
       const run = (async () => {
-        setError('');
+        if (!restoring) setError('');
         connectionController.current?.abort();
         const controller = new AbortController();
         connectionController.current = controller;
@@ -229,6 +230,46 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     return () => controller.abort();
   }, [authenticate, token, health?.status, isInstallationRoute]);
 
+  const expireSession = useCallback(() => {
+    connectionController.current?.abort();
+    connectionController.current = null;
+    callbacksRef.current?.abortModels();
+    connectionRevision.current += 1;
+    clearSessionCache();
+    syncedAuthorityRef.current = '';
+    resetActiveSessionSnapshot();
+    setToken('');
+    setDraftToken('');
+    callbacksRef.current?.resetModels(false);
+    callbacksRef.current?.resetWorkspacesForSignOut();
+    setSession(null);
+    setError('Your session has expired or been revoked. Sign in again.');
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    let pending = false;
+    const unsubscribe = onUnauthorizedRequest(credential => {
+      if (credential !== token || pending || signOutPending.current || modeRequest.current) return;
+      pending = true;
+      const revision = connectionRevision.current;
+      const currentModeRevision = modeRevision.current;
+      void fetch('/api/v1/session', {
+        headers: { authorization: `Bearer ${token}` },
+        cache: 'no-store',
+        signal: controller.signal,
+      }).then(response => {
+        if (response.status === 401 && !controller.signal.aborted
+          && revision === connectionRevision.current
+          && currentModeRevision === modeRevision.current) expireSession();
+      }).catch(() => {
+        // A network failure does not establish that the session is invalid.
+      }).finally(() => { pending = false; });
+    });
+    return () => { unsubscribe(); controller.abort(); };
+  }, [token, principalKey, expireSession]);
+
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const refreshWorkspace = useCallback(() => {
     if (refreshInFlightRef.current) return refreshInFlightRef.current;
@@ -254,19 +295,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           return;
         }
         if (response.status === 401) {
-          controller.abort();
-          if (connectionController.current === controller) connectionController.current = null;
-          callbacksRef.current?.abortModels();
-          connectionRevision.current += 1;
-          clearSessionCache();
-          syncedAuthorityRef.current = '';
-          resetActiveSessionSnapshot();
-          setToken('');
-          setDraftToken('');
-          callbacksRef.current?.resetModels(false);
-          callbacksRef.current?.resetWorkspacesForSignOut();
-          setSession(null);
-          setError('Your session has expired or been revoked. Sign in again.');
+          expireSession();
           return;
         }
         if (response.ok) {
@@ -355,7 +384,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     });
     refreshInFlightRef.current = run;
     return run;
-  }, [token, gateway, navigate, syncAuthorityImmediate]);
+  }, [token, gateway, navigate, syncAuthorityImmediate, expireSession]);
 
   useEffect(() => {
     if (!token) return;

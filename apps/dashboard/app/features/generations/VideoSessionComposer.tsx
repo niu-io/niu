@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { IconArrowUp as ArrowUp, IconChevronDown as ChevronDown } from '@tabler/icons-react';
@@ -62,7 +63,7 @@ export default function VideoSessionComposer({context, session, onSubmitted}: {
   const modelIdRef = useRef(modelId);
   modelIdRef.current = modelId;
   const loadedKeyRef = useRef(initialModels ? activeKeyId : '');
-  const client = useMemo(() => token ? new NiuAdminClient({adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
+  const client = useMemo(() => token ? new NiuAdminClient({ fetch,adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
   const model = models.find(item => item.id === modelId);
   useEffect(() => {
     setKeyId(activeKeyId);

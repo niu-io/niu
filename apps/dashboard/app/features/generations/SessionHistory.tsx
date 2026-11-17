@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
 import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { createPortal } from 'react-dom';
@@ -68,7 +69,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const [deleteError,setDeleteError]=useState('');
   const actionButtons=useRef(new Map<string,HTMLButtonElement>());
   const menuOpener=useRef<HTMLButtonElement|null>(null);
-  const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
+  const client=useMemo(()=>token ? new NiuAdminClient({ fetch,adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(false);
   const [revision,setRevision]=useState(0);

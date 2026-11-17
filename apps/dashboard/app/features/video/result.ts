@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { NiuAPIError } from '@niu-io/sdk';
 export class ResultReadError extends Error {constructor(message:string,readonly status?:number){super(message);}}
 const resultFailures: Record<string,{status:number;message:string}> = {

@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { keyChoiceLabels, type KeyFilterOption as KeyOption } from '@/features/keys/key-labels';
 import { executionStatusLabel as statusLabel, requestOutcomeLabel as requestStatus } from '@/lib/request-status';
 import { readLocale as readUILocale } from '@/shell/ui-locale';

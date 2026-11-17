@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { readLocale as readUILocale, translateUI } from '@/shell/ui-locale';
 import type {
   KeySpendingAccount,
