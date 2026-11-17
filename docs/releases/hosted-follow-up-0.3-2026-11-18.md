@@ -39,3 +39,42 @@ All 12 current health requests returned HTTP 200 in 0.81–1.03 seconds. No prox
 DNS or service configuration was changed during this investigation. Current
 health does not prove a causal repair of the historical 502, so `niu-mvhk`
 remains open.
+
+## Retained provider-side evidence for the historical 502
+
+A new read-only provider-log investigation covers the complete interval
+2026-11-13 17:18–17:28 UTC (2026-11-14 01:18–01:28 CST). Pagination was exhausted
+for each query. This changes the earlier interpretation: a local proxy alone
+cannot explain failures that the hosting provider independently recorded.
+
+The provider request logs contain 18 HTTP 502 and 20 HTTP 503 responses on the
+custom domain. The health-only subset contains 103 requests: 90 HTTP 200 and
+13 HTTP 502. Complete application health logs contain 90 HTTP 200 completions.
+Every successful provider health response is within 0.8 milliseconds of an
+application completion; no failed response is within 100 milliseconds of one
+(the nearest differences range from 240 milliseconds to 15 seconds). Request
+identifiers differ between these log layers, so this is timestamp correlation,
+not an identity join. The evidence locates the observed 502 in provider request
+serving without a matching application completion; it does not establish the
+reason for the difference between custom and service hostnames.
+
+The same interval contains 15 application readiness failures and database pool
+acquisition failures. Independently retrieved database logs show a server process
+terminated by signal 9 at 17:20:09 UTC, interrupted-database recovery, rejected
+connections during recovery, and readiness to accept connections at 17:20:30.
+The sender and reason for the signal remain unidentified; no OOM claim follows.
+
+The service uses `/readyz` and one instance. Render documents removal from routing
+after 15 seconds of failed checks and restart after 60 seconds. Readiness-driven
+routing withdrawal is consistent with the timeline, but remains an inference.
+See [Render health checks](https://render.com/docs/health-checks). The database
+failure mechanism and its verified query repair are recorded separately in
+[database reliability verification](database-reliability-verification-0.3-2026-11-17.md).
+
+For the current hosted core, complete provider queries covering 2026-11-17
+19:15–19:58:23 UTC found no HTTP 502/503/504 and no durable-storage-operation
+failure messages. Fourteen recorded health/readiness requests returned HTTP 200.
+Actual authenticated actor-isolation and revocation flows completed in this
+interval; see [current security isolation](current-security-isolation-2026-11-18.md).
+These are bounded recovery observations. Exact accepted-candidate recovery and
+final release qualification remain required under `niu-mvhk` and `niu-nrcn.1`.
