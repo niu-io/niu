@@ -71,3 +71,14 @@ was independently measured at 1353 pixels after the browser restored its viewpor
 it is excluded from narrow-layout evidence. The initial reload screenshot also
 contained an in-progress draft-loading state and is not final settled-layout
 acceptance. No claim of complete responsive verification is made here.
+
+## Related candidate verification
+
+The Chat key-recovery candidate is tracked in PR #193 and `niu-jjvd`. Additional
+current-input browser inspection of its independent native installation restored
+an existing unsent draft through an explicit key URL. A subsequent browser edit
+was independently read from the backend and survived reload with the same selected
+key. A suspected initialization ordering problem did not reproduce, so it did not
+prompt another code change. The configured local text route was explicitly shown
+as unverified and was not invoked. This does not replace the candidate's pending
+qualified hosted text-send acceptance.
