@@ -16,7 +16,7 @@ export type NamedImageReference = ImageReference & { name: string };
 export type ImageReferencesProps={model:VideoModel;images:NamedImageReference[];onChange:(images:NamedImageReference[])=>void;disabled:boolean;onReadingChange?:(reading:boolean,failed?:boolean)=>void;client?:NiuAdminClient;scope?:TenantScope;references?:SavedVideoReferences;onReferencesChange?:(references:SavedVideoReferences)=>void};
 export default function ImageReferences(props:ImageReferencesProps) {
   const { t: uiT } = useUILocale();
-  if(props.model.workspace_asset){
+  if(props.model.workspace_asset || props.references?.some(reference=>reference.type==='workspace_asset')){
     if(!props.client||!props.scope||!props.references||!props.onReferencesChange)return <p className="video-muted">{uiT("Saved image attachments are not configured for this workspace.")}</p>;
     return <SavedImageReferences {...props} client={props.client} scope={props.scope} references={props.references} onReferencesChange={props.onReferencesChange}/>;
   }
@@ -104,7 +104,7 @@ function SavedImageReferences({model,client,scope,references,onReferencesChange,
  const previewUrls=useRef(previews);previewUrls.current=previews;
  const previewFailures=useRef(previewErrors);previewFailures.current=previewErrors;
  const identity=JSON.stringify([scope.organizationId,scope.projectId,model.id]);
- const rule=model.image_url,maximum=model.workspace_asset!.maximum_items;
+ const rule=model.image_url,maximum=model.workspace_asset?.maximum_items??0;
  const workspaceReferences=references.filter(reference=>reference.type==='workspace_asset');
  const ids=JSON.stringify(workspaceReferences.map(reference=>reference.workspace_asset.asset_id));
  const hasProvider=references.some(reference=>reference.type==='provider_asset');
@@ -212,7 +212,7 @@ function SavedImageReferences({model,client,scope,references,onReferencesChange,
   }catch{if(!controller.signal.aborted)setError('Saved images could not be reviewed. Uploads remain unconfirmed.');}finally{requests.current.delete(controller);if(sequence.current===ticket)setLibraryLoading(false);}
  }
  return <div className="video-references">
-  <Input ref={input} type="file" className="hidden" aria-label={uiT("Upload saved video reference images")} multiple={maximum>1} accept="image/png,image/jpeg,image/webp" onChange={event=>void upload(event.target.files)} disabled={disabled||uploading||uncertain||hasProvider}/>
+  <Input ref={input} type="file" className="hidden" aria-label={uiT("Upload saved video reference images")} multiple={maximum>1} accept="image/png,image/jpeg,image/webp" onChange={event=>void upload(event.target.files)} disabled={disabled||uploading||uncertain||hasProvider||!model.workspace_asset}/>
   {workspaceReferences.map(reference=>{const id=reference.workspace_asset.asset_id,asset=metadata[id],name=asset?.name??uiT("Saved image");return <div className="video-reference" key={id}>
    <span className="video-reference-preview" aria-hidden="true">{previews[id]?<img src={previews[id]} alt=""/>:previewing[id]?<IconLoader2 size={16} className="animate-spin"/>:<IconPhoto size={16}/>}</span>
    <span className="video-reference-name" style={{minWidth:"min(100%, 10rem)"}}>{name}</span>
@@ -222,9 +222,11 @@ function SavedImageReferences({model,client,scope,references,onReferencesChange,
    {metadataErrors[id]&&<p role="alert" className="video-error">{uiT(metadataErrors[id])}</p>}
   </div>;})}
   {progress&&<p role="status" className="video-muted">{uiF("Saving image {0} of {1}…",[progress.done,progress.total])}</p>}
-  <Button type="button" variant="ghost" disabled={disabled||uploading||uncertain||hasProvider||workspaceReferences.length>=maximum} onClick={()=>input.current?.click()}><IconPaperclip size={16}/>{uploading?uiT("Saving image…"):uiT("Attach image")}</Button>
-  <DropdownMenu open={libraryOpen} onOpenChange={open=>{setLibraryOpen(open);if(open)void review();}}><DropdownMenuTrigger asChild><Button type="button" variant="ghost" disabled={disabled||uploading||hasProvider||workspaceReferences.length>=maximum}>{libraryLoading?uiT("Loading saved images…"):uncertain?uiT("Review saved images"):uiT("Use saved image")}</Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-w-[calc(100vw-2rem)]">{libraryLoading&&<DropdownMenuItem disabled>{uiT("Loading saved images…")}</DropdownMenuItem>}{!libraryLoading&&!library.length&&<DropdownMenuItem disabled>{error?uiT("Saved images unavailable. Close and retry."):uiT("No saved images")}</DropdownMenuItem>}{library.map(asset=><DropdownMenuItem key={asset.id} onSelect={()=>choose(asset)}><span className="min-w-0 whitespace-normal break-words">{asset.name} · {new Date(asset.created_at_ms).toLocaleString(readUILocale())}</span></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
+  {model.workspace_asset&&rule&&<>
+  <Button type="button" variant="ghost" disabled={disabled||uploading||uncertain||hasProvider||!rule||workspaceReferences.length>=maximum} onClick={()=>input.current?.click()}><IconPaperclip size={16}/>{uploading?uiT("Saving image…"):uiT("Attach image")}</Button>
+  <DropdownMenu open={libraryOpen} onOpenChange={open=>{setLibraryOpen(open);if(open)void review();}}><DropdownMenuTrigger asChild><Button type="button" variant="ghost" disabled={disabled||uploading||hasProvider||!model.workspace_asset||workspaceReferences.length>=maximum}>{libraryLoading?uiT("Loading saved images…"):uncertain?uiT("Review saved images"):uiT("Use saved image")}</Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-w-[calc(100vw-2rem)]">{libraryLoading&&<DropdownMenuItem disabled>{uiT("Loading saved images…")}</DropdownMenuItem>}{!libraryLoading&&!library.length&&<DropdownMenuItem disabled>{error?uiT("Saved images unavailable. Close and retry."):uiT("No saved images")}</DropdownMenuItem>}{library.map(asset=><DropdownMenuItem key={asset.id} onSelect={()=>choose(asset)}><span className="min-w-0 whitespace-normal break-words">{asset.name} · {new Date(asset.created_at_ms).toLocaleString(readUILocale())}</span></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
   <p className="video-muted">{uiT("Adding an image allows Niu to inspect and process it for this video request.")}</p>
+  </>}
   {hasProvider&&<p className="video-muted">{uiT("Provider materials and workspace images cannot be mixed in one request.")}</p>}
   {error&&<p role="alert" className="video-error">{uiT(error)}</p>}
  </div>;

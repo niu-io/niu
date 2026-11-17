@@ -96,3 +96,14 @@ The dedicated key inventory contains two requests for these configured-output
 checks, bringing this dimension/configuration/recovery series to eight requests
 and 17 requested seconds. Exact upstream settlement is not inferred from video
 duration or Niu's owner-funded billing fields.
+
+### Saved-session follow-up — 2026-11-18
+
+The draft-recovery correction was exercised with one additional actual
+480p/16:9/two-second request from the saved-session composer. `run-1112` completed
+automatically and its browser/API downloads matched: 733,480 bytes,
+SHA-256 `8959badecb0becd83c658ab68162f0edc5bbfe8c97f6e9ce723263dc322d5cb7`,
+854×480 H.264/AAC at 30 fps, 2.02 seconds. Full decode and visual frame inspection
+confirmed the artifact. This makes nine real requests and 19 requested seconds
+in the dimension/configuration/recovery series; it is not an upstream invoice.
+See [follow-up draft evidence](video-followup-drafts-2026-11-18.md).
