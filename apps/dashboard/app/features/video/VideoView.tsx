@@ -162,8 +162,10 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const [submittedPrompt,setSubmittedPrompt]=useState('');
   const lock=useRef(false);
   const historyTriggerRef=useRef<HTMLButtonElement>(null);
+  const unquotedTriggerRef=useRef<HTMLElement|null>(null);
   const loadedBase=useRef('');
   const estimateController=useRef<AbortController|null>(null);
+  const lastEstimatedInput=useRef('');
   const submitPending=useRef(false);
   const navigate=useNavigate();
   const selected=savedTask?.reference===selectedReference ? savedTask.id : selectedReference;
@@ -517,6 +519,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   }
   async function estimate(): Promise<boolean> {
     if(!form.body || !base || lock.current || uncertain || readingImages)return false;
+    lastEstimatedInput.current=JSON.stringify([responseIdentity,scopePath,form.body]);
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
     setBusy('estimate');setError('');
     let ok=false;
@@ -532,6 +535,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
     if (busy === 'estimate') { submitPending.current = true; setPendingSubmit(true); return; }
     if (busy) return;
     if (unquotedOwnerFunded) {
+      unquotedTriggerRef.current=document.activeElement instanceof HTMLElement ? document.activeElement:null;
       setUnquotedConfirmation({body:JSON.stringify(form.body),generation:currentGeneration(),job:selected,intent:intentId});
       return;
     }
@@ -555,12 +559,12 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
     setPendingSubmit(false);
     void saveOrSubmitRequest('submit');
   }, [pendingSubmit, busy, quoteMatches]);
-  const autoEstimateBody = JSON.stringify(form.body);
+  const autoEstimateIdentity = JSON.stringify([responseIdentity,scopePath,form.body]);
   useEffect(() => {
-    if (!mutableComposer || !canWrite || !autoEstimateBody || !base || busy || uncertain || readingImages || restoringIntent || quoteMatches) return;
+    if (!mutableComposer || !canWrite || !form.body || unquotedOwnerFunded || !base || busy || uncertain || readingImages || restoringIntent || quoteMatches || lastEstimatedInput.current === autoEstimateIdentity) return;
     const timer = window.setTimeout(() => { void estimate(); }, 900);
     return () => window.clearTimeout(timer);
-  }, [autoEstimateBody, canWrite, base, busy, uncertain, readingImages, restoringIntent, quoteMatches]);
+  }, [autoEstimateIdentity, mutableComposer, canWrite, unquotedOwnerFunded, base, busy, uncertain, readingImages, restoringIntent, quoteMatches]);
   async function saveOrSubmitRequest(action:'save'|'submit',confirmedOwnerFunded=false) {
     const submit=action==='submit';
     if(!form.body || (submit&&(submissionStopped||(!quoteMatches&&!(confirmedOwnerFunded&&unquotedOwnerFunded)))) || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent)return;
@@ -743,7 +747,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             {!canWrite && !composerCover && <small className="video-muted">{unquotedOwnerFunded ? uiT("Generation needs write access.") : uiT("Read access can estimate; generation needs write access.")}</small>}
           </div>
         </form>
-        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent><DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
+        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();unquotedTriggerRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
         <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{uiT("Reference materials & verification")}</DialogTitle><DialogDescription>{uiT("Manage reference materials and human verification required by this video model.")}</DialogDescription></DialogHeader>{toolsModule&&<ProviderGenerationTools toolsKey={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} modelId={modelId} keyId={keyId} module={toolsModule}/>}</DialogContent></Dialog>
         </>}
       </div>
