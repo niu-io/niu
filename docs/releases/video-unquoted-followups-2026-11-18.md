@@ -113,3 +113,27 @@ This adds exact hosted cancellation, focus-return and changed-authority rejectio
 evidence to the successful hosted unquoted Wan dispatch/artifact record in
 `hosted-video-recovery-2026-11-18.md`. Changed request-context invalidation remains
 a distinct evidence limit, so `niu-qycy` stays open. Fixture outcomes were not used.
+
+## Changed-session navigation and a new prompt
+
+A further current-input check on hosted `fd1ec05d` used the actual generation
+history link from a Chat session to the saved Video session. A fresh restricted
+key and a teal-cube prompt opened the unquoted confirmation. Native browser
+history back changed the active session to Chat and removed the dialog. Forward
+returned to Video, restoring the exact prompt and selected key without restoring
+the old confirmation. Changing the prompt to a violet pyramid and activating
+Generate opened a new confirmation; Escape cancelled it. The Chinese dialog was
+visually inspected with its consequence, model and distinct actions visible.
+
+Independent backend draft readback at revision 100 matched the changed prompt
+and selected key. The scoped request inventory contained no inference requests.
+Revision-checked cleanup and readback returned an empty draft at revision 101;
+credential revocation returned 204 and direct reuse returned 401. The retained
+token and login material were removed, browser logout returned 204, and Login
+loaded before the verification browser closed. No Provider inference occurred.
+
+This establishes the actual cross-session navigation and changed-prompt path.
+It does not establish every concurrent context mutation or final 0.3.1 candidate
+acceptance. No component state or browser visibility property was fabricated.
+The earlier full-document history observation remains valid for its different,
+unchanged-request path. Current execution state remains in Beads.
