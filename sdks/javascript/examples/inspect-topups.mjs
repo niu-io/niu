@@ -12,7 +12,7 @@ try {
   const client = new NiuAdminClient({adminToken:required('NIU_ADMIN_TOKEN'),baseURL:required('NIU_ADMIN_BASE_URL')});
   const organization = required('NIU_ORGANIZATION_ID');
   const {data:availability} = await client.getCustomerPaymentMethods(organization);
-  if (availability?.currency !== 'CNY' || typeof availability.available !== 'boolean'
+  if (typeof availability?.currency !== 'string' || !/^[A-Z]{3}$/.test(availability.currency) || typeof availability.available !== 'boolean'
     || !Array.isArray(availability.payment_methods)
     || availability.payment_methods.some(value => typeof value !== 'string' || !/^[A-Za-z0-9.-]{1,64}$/.test(value))
     || (availability.available ? availability.unavailable_reason !== null || availability.payment_methods.length === 0
