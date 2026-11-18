@@ -160,3 +160,29 @@ that the Niu plugin was no longer configured. Active credential material was
 removed. This verifies current native discovery, invocation, result inspection
 and revocation recovery; it does not establish positive-price billing, published
 artifact identity, or the remaining host-specific onboarding flows.
+
+## Codex native authenticated read and recovery follow-up
+
+At 2026-11-18 00:52 UTC, Codex CLI 0.169.0 loaded the standalone plugin
+runtime built from `4a76b1c1` against hosted core `c2d3634e`. The 33 generated
+files were individually SHA-256 recorded. This was a development artifact,
+not a published candidate. Process-only configuration selected the bundled
+MCP executable and a private credential path; no user configuration was edited.
+
+The actual native app-server protocol created an ephemeral runtime and reported
+one selected MCP service with 51 tools. Deterministic native tool calls started
+no model-agent turn. `inspect_key` initially reported the missing credential.
+After writing a fresh, 15-minute, single-model credential, the same native host
+executed `inspect_key` and `list_models`. Independent direct HTTP reads matched
+all fields except the key usage-window end, which reflected reads 1.1 seconds
+apart. The independent key-scoped request inventory contained zero requests;
+no inference or Provider charge was generated.
+
+Administrative revocation returned HTTP 204 and an independent key read returned
+401. The same native host rejected both the revoked credential and its subsequent
+file removal. The temporary token was removed, the task-owned host stopped, and
+the user configuration remained byte-for-byte unchanged. This qualifies native
+authenticated discovery and credential recovery for these development inputs;
+it does not qualify Codex inference, host-specific browser onboarding, or final
+published installation. The existing `CLIENT-03` ownership and open acceptance
+scope are preserved.
