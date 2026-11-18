@@ -1418,7 +1418,7 @@ pub async fn update(
 ///         "estimator",
 ///         "estimator_revision"
 ///       ],
-///       "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation requires a positive frame-rate control or an observed output frame rate. Unmapped combinations reject requests unless allow_unmapped_output is enabled; their estimates remain unavailable. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
+///       "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation requires a positive frame-rate control or an observed output frame rate. With allow_unmapped_output enabled, owner-funded generation accepts other supported combinations without an estimate. Customer-funded generation still requires a mapped pair. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
 ///       "properties": {
 ///         "estimator": {
 ///           "type": "string",
@@ -1428,7 +1428,7 @@ pub async fn update(
 ///           ]
 ///         },
 ///         "observed_frames_per_second": {"type":"integer","minimum":1,"maximum":4294967295,"description":"Observed output FPS for pixel estimates when no request FPS control exists. Never sent upstream."},
-///         "allow_unmapped_output": {"type":"boolean","default":false,"description":"Allow otherwise supported combinations without an effective output estimate."},
+///         "allow_unmapped_output": {"type":"boolean","default":false,"description":"Allow owner-funded generation for otherwise supported combinations without an effective output estimate."},
 ///         "estimator_revision": {
 ///           "type": "string",
 ///           "minLength": 1,
