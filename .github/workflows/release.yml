@@ -92,6 +92,19 @@ jobs:
           cd /tmp/niu-release
           sha256sum compose.yaml install.sh niu.example.toml *.tgz *.tar.gz SOURCE_COMMIT IMAGE_DIGEST > SHA256SUMS
 
+      - name: Link packaged clients and plugins in the release notes
+        working-directory: /tmp/niu-release
+        run: |
+          download_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          {
+            printf '\n## Client and plugin downloads\n\n'
+            for archive in *.tgz *.tar.gz; do
+              test -f "$archive"
+              printf -- '- [%s](%s/%s)\n' "$archive" "$download_url" "$archive"
+            done
+            printf '\nVerify downloaded files against [SHA256SUMS](%s/SHA256SUMS).\n' "$download_url"
+          } >> /tmp/release-notes.md
+
       - name: Publish a new GitHub Release with immutable assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
