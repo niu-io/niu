@@ -4,7 +4,7 @@
 
 ## Quick start
 
-Install the built package from the immutable Niu release; a source checkout is not required:
+The published v0.2.14 archive provides 28 tools. For its model discovery and invocation tools, install the release archive:
 
 ```sh
 npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
@@ -23,7 +23,7 @@ NIU_BASE_URL='http://127.0.0.1:2555/v1' \
 niu-mcp
 ```
 
-For MCP development, run `pnpm install --frozen-lockfile` from the Niu checkout root, then `pnpm --dir sdks/mcp build`. Configure `node` with the absolute path to that checkout's `sdks/mcp/bin/niu-mcp.mjs` and optional `--hosted`; a relative path fails when the agent runs in a different workspace.
+For the 0.3 candidate tools, including workspace pools, evaluations and event subscriptions, check out the desired commit from `release/0.3`. Run `pnpm install --frozen-lockfile` from the Niu checkout root, then `pnpm --dir sdks/mcp build`. Configure `node` with the absolute path to that checkout's `sdks/mcp/bin/niu-mcp.mjs` and optional `--hosted`; a relative path fails when the agent runs in a different workspace.
 
 ### Optional environment variables
 
