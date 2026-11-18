@@ -104,3 +104,41 @@ closure. Reload had already removed all one-shot transport instrumentation.
 The series now totals fifteen video requests and 31 requested seconds, not an
 expense statement. This completes the hosted response-loss recovery scope of
 `niu-j993`; release-wide final-candidate acceptance remains a separate gate.
+
+## Hosted legacy acknowledged-job reconciliation
+
+On core `fd1ec05d5e095684b7c55d2ce25be6c1c95b40ba`, a fresh restricted
+credential submitted exactly one actual two-second, 480p, 16:9 orange-cube
+request through the Video API. The 202 response was `unknown`, with durable
+reference `run-1152`. The legacy run page displayed “Status unavailable” and
+“Waiting for a confirmed status”. Selecting its authorized credential caused
+an automatic refresh of that same job followed by a status read, both HTTP 200.
+The page changed to succeeded without manual Provider refresh or resubmission.
+
+Independent credential-scoped inventory contained exactly one request. Browser
+and API downloads were identical: 715,478 bytes, SHA-256
+`994324985bda8c9890a10205ded666d9e6e8861d63a87ae4e6f41d207aad5324`.
+Full FFmpeg decode completed without errors; the extracted frame and final
+browser view were inspected and showed the requested orange cube. The player
+reported readyState 4 at 854×480. Billing remained `owner_funded`, with a
+2-second quantity estimate and null charge amount; this is not free Provider
+usage. This brings the tracked video series to sixteen requests and 33 requested
+seconds, not an invoice total.
+
+The first navigation incorrectly used a nonexistent slug from the key-creation
+response, yielding `key=undefined`; the page correctly required key selection.
+The UI menu selected the actual newly created key. A pre-navigation observer
+was unavailable on the new document, so an observer was installed in the live
+page before the accepted automatic refresh. These diagnostic limitations do not
+establish product defects or additional submissions.
+
+Hidden-tab acceptance remains open. Opening a second blank tab and bringing it
+to the front did not produce a hidden visibility event: the original document
+still reported visible after twelve seconds. This run therefore provides no
+evidence for hidden-tab cancellation. The completed task was not resubmitted
+solely to compensate for that automation limitation.
+
+The task's otherwise empty composer draft was cleared with its observed revision;
+independent readback was empty at revision 92. Browser logout returned 204 and
+Login loaded. The temporary credential was revoked and independent reuse denied
+401. Fixture outcomes were disregarded.
