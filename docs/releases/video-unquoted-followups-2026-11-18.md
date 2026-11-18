@@ -83,3 +83,57 @@ token was removed, the matching test draft was cleared with revision protection
 (HTTP 200), and browser logout returned HTTP 204. Successful confirmed dispatch,
 ambiguous-outcome recovery, final media and hosted-candidate acceptance remain
 outside this evidence; the issue stays open.
+
+## Hosted cancellation and authority loss
+
+On hosted core `fd1ec05d5e095684b7c55d2ce25be6c1c95b40ba`, a fresh
+credential restricted to Seedance 2 Mini opened the saved-session unquoted
+confirmation with a current verification prompt. The fee warning and consequence
+text were present. Desktop and 390px screenshots were inspected. Escape and
+keyboard Cancel each preserved the prompt and returned focus to Generate.
+
+Browser history navigation left the confirmation and then returned to the same
+request; the browser restored that confirmation. The subsequent attempt to click
+the underlying Generate action was correctly blocked by its modal overlay. This
+is not evidence of changed-request invalidation: the restored request identity
+was unchanged. An initial selector omitted the required dialog name and failed
+before observation; a fresh snapshot supplied the actual dialog target.
+
+While confirmation remained open, actual credential revocation returned 204 and
+direct reuse returned 401. Confirming then created no inference request; an
+independent scoped inventory remained empty. After asynchronous recovery settled,
+the page asked for a valid API key and omitted the revoked key from the menu.
+Explicitly selecting an active key restored the exact prompt, Seedance model,
+five-second duration, 16:9 ratio and 480p; the backend draft matched at revision
+97. Revision-checked cleanup and independent readback returned an empty draft at
+revision 98; browser logout returned 204 and Login loaded. No Provider request
+was submitted and this does not qualify Seedance execution.
+
+This adds exact hosted cancellation, focus-return and changed-authority rejection
+evidence to the successful hosted unquoted Wan dispatch/artifact record in
+`hosted-video-recovery-2026-11-18.md`. Changed request-context invalidation remains
+a distinct evidence limit, so `niu-qycy` stays open. Fixture outcomes were not used.
+
+## Changed-session navigation and a new prompt
+
+A further current-input check on hosted `fd1ec05d` used the actual generation
+history link from a Chat session to the saved Video session. A fresh restricted
+key and a teal-cube prompt opened the unquoted confirmation. Native browser
+history back changed the active session to Chat and removed the dialog. Forward
+returned to Video, restoring the exact prompt and selected key without restoring
+the old confirmation. Changing the prompt to a violet pyramid and activating
+Generate opened a new confirmation; Escape cancelled it. The Chinese dialog was
+visually inspected with its consequence, model and distinct actions visible.
+
+Independent backend draft readback at revision 100 matched the changed prompt
+and selected key. The scoped request inventory contained no inference requests.
+Revision-checked cleanup and readback returned an empty draft at revision 101;
+credential revocation returned 204 and direct reuse returned 401. The retained
+token and login material were removed, browser logout returned 204, and Login
+loaded before the verification browser closed. No Provider inference occurred.
+
+This establishes the actual cross-session navigation and changed-prompt path.
+It does not establish every concurrent context mutation or final 0.3.1 candidate
+acceptance. No component state or browser visibility property was fabricated.
+The earlier full-document history observation remains valid for its different,
+unchanged-request path. Current execution state remains in Beads.
