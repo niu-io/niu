@@ -9,9 +9,11 @@ For coding-agent setup, paste the prompt on [Overview](/docs/) or follow [Instal
 
 1. **Open the dashboard and select a workspace.** Sign in with your member account. For local development, use the account configured by the launcher.
 2. **Create an API key.** Open **API keys → New API key**, enter a name, choose the intended model access and expiration, then select **Create key**. Key creation requires write access. A viewer should ask a workspace owner or administrator for application access.
-3. **Copy the secret and base URL.** The secret is shown once. Keep it in your application's secret store; it cannot be retrieved later. Model grants, enabled routes, source restrictions, limits and applicable customer funding determine what the key can call.
+3. **Copy the secret and base URL.** Keep the secret in your application's secret store. With workspace write access, you can reveal and copy a recoverable secret again from the API keys list or key details. Older keys created before secret recovery was available may require rotation. Rotation immediately invalidates the old key, so coordinate the application update. Model grants, enabled routes, source restrictions, limits and applicable customer funding determine what the key can call.
 
 If you are setting up a new installation, first [deploy Niu](/docs/deployment/single-container/) or run `pnpm dev`. A platform administrator must then [connect a Provider and model routes](/docs/admin/suppliers/) and configure any applicable [customer pricing](/docs/admin/pricing/). Workspace ownership alone does not grant platform administration. An empty model list is a reason to check this setup with your administrator.
+
+Commercial workspaces also require platform service provisioning. If a request returns `503 service_not_ready`, contact the installation administrator to check this workspace’s service configuration. Adding customer credit or creating another key does not fix platform readiness. Administrators should follow the [commercial workspace provisioning steps](/docs/deployment/single-container/#commercial-workspace-provisioning).
 
 ## Make a request
 
@@ -76,9 +78,11 @@ use the [deployment guide](/docs/deployment/single-container/).
 
 1. **打开控制台并选择工作空间。** 使用成员账户登录。本地开发时，使用启动器配置的账户。
 2. **创建 API 密钥。** 打开 **API 密钥 → 新建 API 密钥**，填写名称，选择允许访问的模型和到期时间，然后选择 **创建密钥**。创建密钥需要写权限；只读成员应向工作空间所有者或管理员申请应用访问权限。
-3. **复制密钥和基础 URL。** 密钥只显示一次，请保存在应用的机密存储中，之后无法再次读取。模型的授权、已启用路由、来源限制、限额以及适用的客户资金共同决定该密钥可以调用什么。
+3. **复制密钥和基础 URL。** 请将密钥保存在应用的机密存储中。具备工作空间写权限的成员可以在 API 密钥列表或详情中再次显示并复制可恢复的密钥。早期创建且不支持恢复的密钥可能需要轮换；轮换会立即使旧密钥失效，请协调应用更新。模型的授权、已启用路由、来源限制、限额以及适用的客户资金共同决定该密钥可以调用什么。
 
 如果你正在配置新的安装，请先[部署 Niu](/docs/deployment/single-container/)或运行 `pnpm dev`。平台管理员随后需要[连接模型供应商和模型路由](/docs/admin/suppliers/)，并配置适用的[客户价格](/docs/admin/pricing/)。仅拥有工作空间并不会获得平台管理权限。如果模型列表为空，请与管理员一起检查这些配置。
+
+商业工作空间还需要平台完成服务配置。如果请求返回 `503 service_not_ready`，请联系实例管理员检查此工作空间的服务配置。增加客户余额或重新创建密钥不能解决平台就绪问题。管理员应按照[商业工作空间配置步骤](/docs/deployment/single-container/#商业工作空间配置)处理。
 
 ## 发起请求
 
