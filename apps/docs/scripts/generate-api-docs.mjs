@@ -415,6 +415,7 @@ const checker=program.getTypeChecker();
 const entry=program.getSourceFile(path.join(root,'sdks/javascript/src/index.ts'));
 const exports=checker.getExportsOfModule(checker.getSymbolAtLocation(entry));
 const printer=ts.createPrinter({newLine:ts.NewLineKind.LineFeed});
+const releaseLine = fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim().split('.').slice(0, 2).join('.');
 const sdkIndex=['The reference is emitted from the TypeScript SDK source, including inferred return types. Import the public exports from `@niu-io/sdk`.', '', '## Clients and functions', ''];
 const types=[];
 let symbols=0;
@@ -426,7 +427,7 @@ for(const exported of exports.sort((a,b)=>a.name.localeCompare(b.name))) {
  const node=file?.statements.find(n=>n.name?.text===symbol.name);
  if(!node) throw new Error('Missing public declaration '+symbol.name);
  symbols++;
- const sourceLink='https://github.com/niu-io/niu/blob/main/'+path.relative(root,original.getSourceFile().fileName).split(path.sep).join('/');
+ const sourceLink=`https://github.com/niu-io/niu/blob/release/${releaseLine}/`+path.relative(root,original.getSourceFile().fileName).split(path.sep).join('/');
  const slug=exported.name.toLowerCase();
  const lines=[`[SDK source](${sourceLink}). [All SDK types](/docs/api/sdk/).`, '', ...block('typescript',printer.printNode(ts.EmitHint.Unspecified,node,file))];
  if(ts.isClassDeclaration(node)) {

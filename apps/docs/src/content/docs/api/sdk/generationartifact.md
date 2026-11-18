@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for GenerationArtifact"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/generations-inventory.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/generations-inventory.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 /** Provider reference availability and the retained library copy remain independent.
