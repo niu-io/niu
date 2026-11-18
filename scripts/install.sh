@@ -311,18 +311,19 @@ cmd_upgrade() {
   mkdir -p "${dir}/backups"
   local timestamp
   timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  local backup_file="${dir}/backups/niu-pre-upgrade-${timestamp}.sql.gz"
+  local backup_file="${dir}/backups/niu-pre-upgrade-${timestamp}-$$.sql.gz"
 
   echo "1/4 Backing up PostgreSQL database to ${backup_file} ..."
   (
     cd "$dir"
+    umask 077
+    set -o noclobber
     docker compose --env-file "$env_file" exec -T postgres pg_dump -U niu -d niu | gzip >"$backup_file"
   )
   if [[ ! -s "$backup_file" ]]; then
     echo "error: PostgreSQL backup is empty; refusing to upgrade." >&2
     exit 1
   fi
-  set_env_var "$env_file" NIU_PREVIOUS_BACKUP "$backup_file"
 
   echo "2/4 Preparing target image ${target_image} ..."
   prepare_image "$dir" "$target_tag" "$target_image"
@@ -343,11 +344,18 @@ cmd_upgrade() {
     docker compose --env-file "$env_file" run --rm --no-deps -e NIU_DATABASE_URL niu --check-encryption
   )
 
-  if [[ -n "$current_image" ]]; then
-    set_env_var "$env_file" NIU_PREVIOUS_IMAGE "$current_image"
-  fi
-  set_env_var "$env_file" NIU_VERSION "$target_tag"
-  set_env_var "$env_file" NIU_IMAGE "$target_image"
+  (
+    local next_env
+    next_env="$(mktemp "${env_file}.upgrade.XXXXXXXX")"
+    trap 'rm -f "$next_env"' EXIT
+    cp "$env_file" "$next_env"
+    set_env_var "$next_env" NIU_PREVIOUS_IMAGE "$current_image"
+    set_env_var "$next_env" NIU_PREVIOUS_VERSION "$current_version"
+    set_env_var "$next_env" NIU_PREVIOUS_BACKUP "$backup_file"
+    set_env_var "$next_env" NIU_VERSION "$target_tag"
+    set_env_var "$next_env" NIU_IMAGE "$target_image"
+    mv "$next_env" "$env_file"
+  )
 
   echo "4/4 Applying container update and verifying readiness ..."
   (
@@ -400,7 +408,12 @@ cmd_rollback() {
 
   echo "Rolling back Niu to ${prev_image} ..."
   set_env_var "$env_file" NIU_IMAGE "$prev_image"
-  set_env_var "$env_file" NIU_VERSION "${prev_image##*:}"
+  local prev_version
+  prev_version="$(get_env_var "$env_file" NIU_PREVIOUS_VERSION)"
+  if [[ -z "$prev_version" && "$prev_image" != *@* ]]; then
+    prev_version="${prev_image##*:}"
+  fi
+  set_env_var "$env_file" NIU_VERSION "$prev_version"
   (
     cd "$dir"
     docker compose --env-file "$env_file" up -d niu
