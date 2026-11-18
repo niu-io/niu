@@ -27,7 +27,7 @@ Installing MCP or completing `/connect` does not prove live authority or workspa
 | Poll resource events or manage signed webhooks | [Resource events](/docs/events.md) | `events:read` / `events:write`; HTTPS port 443 webhooks, one-time `signing_secret` |
 | Inspect request billing, latency, and tokens | `GET /v1/generations/{id}` (`get_generation`) | Customer charges & token breakdown only; see [Inference contract](/docs/inference.md) |
 | Generate video jobs and fetch results | [Video reference](/docs/reference/video/) | `invocation_protocols` includes `video`; inspect `/v1/video/models` first |
-| Browse complete REST schemas | [OpenAPI spec](/docs/openapi/public.json) | Complete machine schema (`345`+ public routes; schema presence != key grant) |
+| Browse complete REST schemas | [OpenAPI spec](/docs/openapi/public.json) | Published request and response schemas. Each operation requires its documented permissions. |
 | Browse MCP tools and TypeScript SDK | [MCP guide](/docs/guides/mcp/) · [SDK reference](/docs/api/sdk/) | Exact client schemas and tool parameters |
 | End-to-end sample walkthrough | [Build with Niu](/docs/guides/personal-assistant/) | Human walkthrough + runnable personal-assistant starter |
 
