@@ -1,5 +1,17 @@
 # 0.3.1 staging replacement verification — 2026-11-18
 
+## Subsequent integrated replacement
+
+PR 212 integrated the scoped onboarding and member corrections into release commit `c3008ded8df5d2b9fcde1f3edd21f6986f463b22`. Its tree matched reviewed candidate `a65103517961041a75a17be66e8c527278caf12d`. That candidate's non-fixture Rust, web and documentation checks completed; actual package inspection confirmed released migration immutability and final public-boundary scanning of 4,243 files. These are build/artifact checks, not integrated behavior acceptance. Separate exact-release-tip checks were dispatched; their outstanding jobs are not claimed complete here.
+
+Hosted composition `3450d3192af01a8d6ec6768b75c040afcb7f9a7e` pins that release commit, retaining the current previous dashboard (`18178194`, version 0.3.1 without a release date) and the bounded transition dashboard (`6fb59ef2`, version 0.3.0). The exact composition became live. All 248 independently captured previous-live resource URLs returned 200 with identical lengths and SHA-256 hashes, with no retries. Both `/healthz` and `/readyz` returned 200.
+
+The authenticated document opened before replacement preserved its observation marker and performance time origin. It navigated from Overview to Usage after deployment, displayed the actual empty test-workspace data, and loaded one additional asset without an observed resource failure. Reloading subsequently restored workspace data. This establishes the observed old-document navigation and resource retention; it is not continuous availability measurement across deployment.
+
+The actual hosted member follow-up is recorded in [member verification](member-readiness-0.3.1-findings-2026-11-18.md#integrated-hosted-verification). Direct SSH binary-version inspection was unavailable with the existing SSH authorization; the CLI fallback also did not resolve the service for execution. Do not describe a runtime binary version read as completed. The exact live composition, pinned build inputs, actual deployed assets and user journeys are the evidence available here. Production and published tags were not changed. Current-candidate acceptance cases were reset without inheriting earlier GREEN results, while previous assessments remain historical evidence in Beads.
+
+## Earlier replacement record
+
 Tracking: `niu-nrcn`, `niu-nrcn.1`, `niu-sdwx`.
 
 ## Immutable candidate
