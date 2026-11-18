@@ -99,3 +99,36 @@ This satisfies the scoped recovery acceptance for `niu-mm90.1`. The missing
 output-estimator condition still displays an untranslated English alert in the
 Chinese interface alongside the localized Provider-charge warning; that observed
 gap remains with `niu-pfsr`. Final `VIDEO-03` acceptance remains separate.
+
+## Exact hosted credential recovery acceptance
+
+On hosted core `fd1ec05d5e095684b7c55d2ce25be6c1c95b40ba`, a fresh
+model-limited credential was selected with the keyboard and a current copper-cube
+verification draft was entered. Navigation persisted revision 93; an independent
+backend read matched the prompt, key, Wan model and controls. Fresh navigation
+restored the same draft before the credential was revoked.
+
+Actual revocation returned 204 and direct credential reuse returned 401. The
+member browser session remained usable. After reload, the header identified the
+selected key as revoked and the composer explicitly said the API key had been
+revoked, with an available-key action and a create-key link. It did not show
+missing-video-route guidance. Desktop and 390px screenshots were inspected;
+recovery actions remained readable and inside the viewport.
+
+A replacement credential was created after that page had loaded. Opening the
+key menu asynchronously discovered it. Keyboard Enter selected the new key;
+the exact prompt remained, the composer and generation action became usable,
+and the URL used the new key's readable slug rather than a UUID. Navigation
+persisted revision 94 with the replacement key; independent backend inspection
+matched it. Query-free fresh navigation restored the replacement and prompt,
+without reverting to the revoked key. At 390px, the open menu fit the viewport
+and its selection check appeared on the right. No claim is made about the
+immediate Escape focus probe, which returned no accessible label before the
+closing transition settled.
+
+Both scoped request inventories were empty. The task draft was cleared only
+after matching its current prompt, key and revision; independent readback was
+empty at revision 95. The replacement key was revoked (204) and direct reuse
+was denied (401). Final browser logout returned 204 and Login loaded. No
+Estimate or Generate action was invoked. This completes `niu-do9r` together
+with the documented earlier correction; fixture outcomes were disregarded.
