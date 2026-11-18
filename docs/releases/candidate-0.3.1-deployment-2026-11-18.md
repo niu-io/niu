@@ -82,3 +82,11 @@ real merchant settlement, remaining video qualification and independently
 retrieved final published delivery artifacts still require their scoped evidence.
 The entire accepted scope remains unchanged in Beads. No fixture outcome supports
 any readiness or behavior claim.
+
+## Linux ARM64 upgrade from v0.2.26
+
+The retained v0.2.26 gateway created an organization and workspace on PostgreSQL 17 after the organization received 10,000 USD nanounits of local test credit. A separate database restored from that installation's backup contained one workspace at schema 389.
+
+The candidate image built from commit `f3cb3725a2ebfa2e57e9a053840df1f4000a6e37` had local image ID `sha256:99b0dbf4c898c0648a2aaea8f727393659bc6203695187e906bfc224aac38160`. Its OCI revision and gateway version identified the same commit. Starting the container against the restored database applied migrations through 437. An independent SQL query confirmed all migration records indicated success. After readiness, the API returned the original workspace identifier, name, organization and balance. An API rename persisted across a second container start. The original name was then restored and read back.
+
+This run used a locally built ARM64 image. Anonymous retrieval of the final release image and AMD64 startup require separate evidence. Tracked in Beads `niu-nrcn.10`.
