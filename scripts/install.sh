@@ -274,14 +274,14 @@ restore_database() {
     echo "error: PostgreSQL did not become ready for restore." >&2
     return 1
   fi
-  if ! (cd "$dir" && docker compose --env-file "$env_file" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U niu -d niu \
-      -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' >/dev/null); then
-    echo "error: could not reset the public schema before restore." >&2
-    return 1
-  fi
-  if ! (cd "$dir" && gzip -dc "$backup" | docker compose --env-file "$env_file" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U niu -d niu >/dev/null); then
+  # Send COMMIT only after gzip has verified the complete stream. Closing the
+  # connection on a decompression or SQL error rolls back the schema reset too.
+  if ! (cd "$dir" && {
+    printf '%s\n' 'BEGIN; DROP SCHEMA public CASCADE; CREATE SCHEMA public;' &&
+      gzip -dc "$backup" &&
+      printf '%s\n' 'COMMIT;'
+  } | docker compose --env-file "$env_file" exec -T postgres \
+      psql -X -v ON_ERROR_STOP=1 -U niu -d niu >/dev/null); then
     echo "error: PostgreSQL restore failed." >&2
     return 1
   fi
