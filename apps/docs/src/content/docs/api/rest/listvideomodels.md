@@ -466,6 +466,11 @@ Content type: `application/json`.
                   "OutputSecondsV1"
                 ]
               },
+              "allow_unmapped_output": {
+                "type": "boolean",
+                "default": false,
+                "description": "Additional configured choices support owner-funded generation without an output estimate."
+              },
               "specifications": {
                 "type": "object",
                 "additionalProperties": false,

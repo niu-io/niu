@@ -176,9 +176,10 @@ fn projection_with_images(
     // Restrict choices to the qualified output mapping when one exists. With
     // unknown output, preserve the Provider's explicitly configured controls.
     for (name, resolution) in [("resolution", true), ("ratio", false)] {
-        if let (Some(output), Some(niu_media::Control::Choice { values, .. })) =
-            (output, controls.get_mut(name))
-        {
+        if let (Some(output), Some(niu_media::Control::Choice { values, .. })) = (
+            output.filter(|schema| !(owner_funded && schema.allow_unmapped_output)),
+            controls.get_mut(name),
+        ) {
             values.retain(|value| {
                 output.specifications.iter().any(|spec| {
                     value
@@ -211,7 +212,7 @@ fn projection_with_images(
         "maximum_content_items":schema.maximum_content_items,
         "controls":controls,"required_controls":schema.required_controls,
         "exclusive_controls":exclusive,
-        "output":output.map(|output| json!({"specifications":output.specifications,"meter":output.estimator.meter(),"estimator":output.estimator}))
+        "output":output.map(|output| json!({"specifications":output.specifications,"allow_unmapped_output":owner_funded && output.allow_unmapped_output,"meter":output.estimator.meter(),"estimator":output.estimator}))
     });
     // Ordinary references follow the selected Provider schema; local inspection
     // is an explicit customer policy, not a prerequisite for Provider URLs.

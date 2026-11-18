@@ -237,9 +237,12 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
         if (draft.required) result.required_controls.push(name);
       }
       if (outputEnabled) {
+        const previous = schema?.output;
+        const observedFps = estimator === 'SeedancePixelsV1' && !result.controls.frames_per_second
+          ? previous?.observed_frames_per_second : undefined;
         for (const name of ['resolution','ratio','duration','frames_per_second'] as const) {
           const rule = result.controls[name];
-          if (name === 'frames_per_second' && estimator === 'OutputSecondsV1' && !rule) continue;
+          if (name === 'frames_per_second' && (estimator === 'OutputSecondsV1' || observedFps !== undefined) && !rule) continue;
           if (!rule || !('default' in rule) || (rule.default === null && !result.required_controls.includes(name))) throw new Error(estimator === 'OutputSecondsV1' ? 'Output estimates require resolution, aspect ratio and duration controls, each with a default or required value. Any frame rate control also needs a default or required value.' : 'Output estimates require resolution, aspect ratio, duration and frame rate controls, each with a default or required value.');
           if ((name === 'duration' || name === 'frames_per_second') && (rule.kind !== 'integer' || rule.minimum <= 0 || (name === 'frames_per_second' && rule.maximum > 4_294_967_295))) throw new Error('Output duration and frame rate need positive integer limits.');
         }
@@ -251,10 +254,9 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
           return {...row,width:schemaInteger(row.width,uiT('Output width'),1,4_294_967_295),height:schemaInteger(row.height,uiT('Output height'),1,4_294_967_295)};
         });
         if (new Set(specifications.map(row => JSON.stringify([row.resolution,row.ratio]))).size !== specifications.length) throw new Error('Use only one output mapping for each resolution and aspect ratio.');
-        if (resolution.default && ratio.default && !specifications.some(row => row.resolution === resolution.default && row.ratio === ratio.default)) throw new Error('Map the default resolution and aspect ratio to output pixels.');
-        const previous = schema?.output;
-        const unchanged = previous && previous.estimator === estimator && JSON.stringify(ordered(previous.specifications)) === JSON.stringify(ordered(specifications));
-        result.output = {specifications,estimator,estimator_revision:unchanged ? previous.estimator_revision : crypto.randomUUID()};
+        if (!previous?.allow_unmapped_output && resolution.default && ratio.default && !specifications.some(row => row.resolution === resolution.default && row.ratio === ratio.default)) throw new Error('Map the default resolution and aspect ratio to output pixels.');
+        const unchanged = previous && previous.estimator === estimator && previous.observed_frames_per_second === observedFps && JSON.stringify(ordered(previous.specifications)) === JSON.stringify(ordered(specifications));
+        result.output = {...previous,specifications,estimator,observed_frames_per_second:observedFps,estimator_revision:unchanged ? previous.estimator_revision : crypto.randomUUID()};
       }
       const pairs = exclusive.trim() ? exclusive.split('\n').filter(line => line.trim()) : [];
       if (pairs.length > 32) throw new Error('Use at most 32 incompatible control pairs.');
