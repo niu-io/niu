@@ -156,3 +156,31 @@ read and revisit retained the exact prompt, requested key, Wan model and
 was inspected at 390×844; document width remained 390 and the retained controls
 were visible and usable. This check submitted no video. Its marker draft was
 cleared with the matching revision, and the task browser session was revoked.
+
+## Hosted text-draft recovery, 2026-11-18
+
+On hosted core `fd1ec05d5e095684b7c55d2ce25be6c1c95b40ba`, an initially
+empty actor draft at revision 80 was edited through the saved Video session.
+Navigation to Usage completed a save; an independent draft API read at revision
+83 retained the current verification prompt, selected key and Wan model,
+two-second duration, 9:16 ratio, 480p and the original session binding.
+Actual browser logout returned 204. Reauthentication returned to that session
+and restored the prompt and all settings. The open settings panel at 390px
+was visually inspected with its controls inside the viewport.
+
+An unrelated legacy run initially required an active key, so the first wait
+for an input timed out; the rendered key-remedy state explained the absence.
+After explicitly choosing an existing authorized key, editing its follow-up
+created a separate current prompt with no session binding. Navigation persisted
+revision 85; independent API inspection and a fresh revisit matched it.
+A second actual logout and login again restored the legacy prompt. Its desktop
+view was visually inspected with the original blue-cube output still displayed.
+No Generate or Estimate action was invoked.
+
+After leaving the composer, cleanup required the exact observed revision and
+verification prompt before clearing. Independent readback returned an empty
+draft at revision 86. Final logout returned 204 and Login loaded. This run adds
+exact hosted text-draft/reauthentication evidence. Retained image references
+and unsupported-model recovery remain a separate hosted acceptance requirement;
+the earlier local scope/isolation evidence is not relabeled as hosted evidence.
+Fixture outcomes were disregarded.
