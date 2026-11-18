@@ -63,21 +63,22 @@ jobs:
             --commit "$(git rev-parse HEAD)" --digest "$IMAGE_DIGEST" \
             --output /tmp/niu-release/IMAGE_DIGEST
 
-      - name: Set up Node for the standalone MCP package
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 22
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
-      - name: Build and package the MCP client
-        working-directory: sdks/mcp
+      - name: Build and package the standalone SDK and MCP clients
         run: |
-          npm install --ignore-scripts --package-lock=false
-          npm run build
-          mkdir -p /tmp/mcp-release
-          npm pack --pack-destination /tmp/mcp-release
+          pnpm --filter @niu-io/sdk --filter @niu-io/mcp install --frozen-lockfile
           mkdir -p /tmp/niu-release
-          cp "$GITHUB_WORKSPACE/compose.yaml" "$GITHUB_WORKSPACE/scripts/install.sh" "$GITHUB_WORKSPACE/config/niu.example.toml" /tmp/niu-release/
-          cp /tmp/mcp-release/*.tgz /tmp/niu-release/
+          for package in sdks/javascript sdks/mcp; do
+            pnpm --dir "$package" build
+            npm pack "./$package" --pack-destination /tmp/niu-release
+          done
+          cp compose.yaml scripts/install.sh config/niu.example.toml /tmp/niu-release/
           git rev-parse HEAD > /tmp/niu-release/SOURCE_COMMIT
           cd /tmp/niu-release
           sha256sum compose.yaml install.sh niu.example.toml *.tgz SOURCE_COMMIT IMAGE_DIGEST > SHA256SUMS
