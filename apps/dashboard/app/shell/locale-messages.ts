@@ -1,5 +1,9 @@
 /** System copy only. Customer names and persisted API values stay unchanged. */
 export const UI_MESSAGES_ZH: Record<string, string> = {
+  "Role saved.": "角色已保存。",
+  "Role saved, but recent activity could not be refreshed.": "角色已保存，但无法刷新近期活动。",
+  "The role could not be saved against the current state. Reload the saved role before saving again.": "角色状态已变化，无法保存。请重新加载已保存的角色后再保存。",
+  "The save could not be confirmed. Reload the saved role before saving again.": "无法确认保存结果。请重新加载已保存的角色后再保存。",
   "This draft includes saved reference materials. Open the full composer to review them.": "此草稿包含已保存的参考素材。请打开完整编辑器检查这些素材。",
   "Open saved draft": "打开已保存草稿",
   "This slug is already in use. Choose a different slug.": "此路径标识已被使用，请选择其他路径标识。",

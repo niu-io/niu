@@ -22,8 +22,10 @@ const expiryChoices = [
   { label: '1 year', days: 365 },
 ];
 
-function roleLabel(role: Operator['role']) {
-  return translateUI(role[0].toUpperCase() + role.slice(1));
+function roleLabel(role: Operator['role'], uiT: (en: string, zh?: string) => string) {
+  if (role === 'admin') return uiT('Admin', '管理员');
+  if (role === 'owner') return uiT('Owner', '所有者');
+  return uiT('Viewer', '查看者');
 }
 
 function displayScope(operator: Operator, organizations: NamedResource[], projects: NamedResource[]) {
@@ -136,12 +138,12 @@ export default function OperatorDetails({ operator, organizations, projects, ses
     <div className="operator-detail-heading">
       <span className="operator-detail-avatar">{operator.name.trim().charAt(0).toUpperCase() || 'O'}</span>
       <div className="operator-detail-copy"><p className="eyebrow">{uiT("MEMBER", "成员")}</p><h2 className="scroll-mt-20" id="operator-detail-title">{operator.name}</h2><p>{displayScope(operator, organizations, projects)}</p></div>
-      <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role)}</span>
+      <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role, uiT)}</span>
     </div>
     <p className="operator-scope-footnote px-4">{uiT({ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role])}{!operator.project_id && operator.role !== 'viewer' && <> {uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</>}</p>
     {canChangeRole && <div className="space-y-3 px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="grid gap-2"><Label htmlFor="operator-role">{uiT("Role")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+        <div className="grid gap-2"><Label htmlFor="operator-role">{uiT("Role")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole, uiT)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draftRole} onValueChange={value => setDraftRole(value as Operator['role'])}>
               <DropdownMenuRadioItem value="viewer">{uiT("Viewer · read workspace data")}</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="admin">{uiT("Admin · change workspace data")}</DropdownMenuRadioItem>
@@ -219,7 +221,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
             : event.actor_operator_id === operator.id ? operator.name : uiT("Workspace user");
           return <li key={event.id}>
             <span className="operator-activity-mark" aria-hidden="true" />
-            <div className="operator-activity-copy"><strong>{activityLabel(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleLabel(event.before_role) + ' → ' + roleLabel(event.after_role) : ''}</strong><small>{uiT("By")}{" "}{actor}</small></div>
+            <div className="operator-activity-copy"><strong>{activityLabel(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleLabel(event.before_role, uiT) + ' → ' + roleLabel(event.after_role, uiT) : ''}</strong><small>{uiT("By")}{" "}{actor}</small></div>
             <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString(readUILocale())}</time>
           </li>;
         })}</ol>}

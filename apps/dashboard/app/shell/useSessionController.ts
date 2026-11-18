@@ -42,7 +42,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
   const { t } = useLocale();
   const location = useLocation();
   const navigate = useNavigate();
-  const { health, checked: healthChecked } = gateway;
+  const { health, checked: healthChecked, check: checkGateway } = gateway;
 
   const [token, setToken] = useState('');
   const [draftToken, setDraftToken] = useState('');
@@ -279,7 +279,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
       const revision = connectionRevision.current;
       const controller = token ? connectionController.current : null;
     if (token && (!controller || controller.signal.aborted)) return;
-    if (!(await gateway.check())) return;
+    if (!(await checkGateway())) return;
     let authorityChanged = false;
     if (token && controller && revision === connectionRevision.current && !controller.signal.aborted) {
       try {
@@ -384,7 +384,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     });
     refreshInFlightRef.current = run;
     return run;
-  }, [token, gateway, navigate, syncAuthorityImmediate, expireSession]);
+  }, [token, checkGateway, navigate, syncAuthorityImmediate, expireSession]);
 
   useEffect(() => {
     if (!token) return;
