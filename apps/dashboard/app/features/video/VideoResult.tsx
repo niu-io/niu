@@ -7,6 +7,7 @@ import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter,DialogClose} from '@/components/ui/dialog';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator} from '@/components/ui/dropdown-menu';
 import {evictMediaBlob,fetchMediaBlob,peekMediaBlob,primeMediaBlob} from '@/lib/media-cache';
+import {downloadMedia} from '@/lib/media-download';
 import {assetMediaCacheKey,taskMediaCacheKey} from '@/features/generations/video-cache';
 import {readVideoResultResponse,videoResultError} from './result';
 import {NiuAdminClient,type TenantScope,type GenerationTask} from '@niu-io/sdk/admin';
@@ -99,8 +100,10 @@ export default function VideoResult({client,scope,task,keyId,canWrite,libraryHre
       let blob:Blob;
       if(fresh){
         if(!authority||!keyId)return;
-        const response=await client.refreshDashboardVideoResult(tenantScope,keyId,task,kind,{signal:request.signal});
-        blob=await readVideoResultResponse(response,kind,request.signal);
+        blob=await downloadMedia(request.signal,async()=>{
+          const response=await client.refreshDashboardVideoResult(tenantScope,keyId,task,kind,{signal:request.signal});
+          return readVideoResultResponse(response,kind,request.signal);
+        });
         if(!request.signal.aborted&&availability?.[kind]==='available')primeMediaBlob(mediaScope,taskMediaCacheKey(tenantScope,task,kind),blob);
       }else{
         blob=await fetchMediaBlob(

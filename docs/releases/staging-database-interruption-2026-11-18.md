@@ -54,3 +54,19 @@ was cleared and read back, and the browser signed out. No paid generation was
 created. Successful unquoted execution remains unverified and depends on resolving
 this service instability; this attempt does not qualify Seedance or erase prior
 configured-Wan evidence.
+
+## Hosted recovery window after the next deployment
+
+The complete 01:24–01:33 UTC provider window for core `6fb59ef2` contains five
+custom-domain HTTP 503 responses: four video-content reads and one workspace
+key-list read. Thirty-two sampled readiness requests returned 200. Application
+logs independently record a readiness storage I/O failure at 01:25:38 and a
+key-list database statement timeout (SQLSTATE 57014) at 01:29:50. The latter
+matches the browser's temporary key-unavailable state during response recovery.
+These observations do not establish another database process termination; that
+requires a separate database-log correlation. Successful retry and completed
+video artifacts do not resolve either the storage timeout or preview rejection.
+
+The preview admission correction has since entered the integration branch at
+`fd1ec05d`; its exact hosted acceptance remains separate. No database capacity
+change has been made while approval for recurring cost is pending.
