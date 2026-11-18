@@ -31,7 +31,7 @@ additional model/input combinations remain unverified.
 
 `GET /v1/video/models` (`client.video.models.list()`) returns configured video controls for the current workspace key. The signed-in dashboard uses `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models`, exposed as `admin.listDashboardVideoModels(scope, keyId)`, with read permission and an active selected key. Key secrets are not required by the dashboard session path.
 
-Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Unmapped resolution/ratio choices, unsupported meters/channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
+Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Owner-funded models with partial estimate coverage retain the configured resolution and ratio choices. Other mapped models restrict choices to their output specifications. Unsupported meters, channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
 
 With configured required image detectors and current processing consent,
 `input_types` can also contain `image_url`. Its limits intersect the model schema
@@ -60,11 +60,16 @@ The optional `video_schema.output` management contract maps each qualified
 resolution/aspect-ratio pair to positive pixel width and height. It declares
 `estimator` (`SeedancePixelsV1` or `OutputSecondsV1`) and a reviewed
 `estimator_revision`. Resolution, ratio and duration controls must have explicit defaults or be
-required. Pixel estimation also requires a positive frame-rate control; seconds
-estimation may omit it. Configured duration/frame rate must be positive.
-Duplicate pairs, unadvertised choices, missing default mappings and invalid
-specifications are rejected. Requests with an unmapped combination fail before
-dispatch. Pricing configuration choices omit resolutions without a mapping.
+required. Pixel estimation uses either a positive frame-rate control or a positive
+`observed_frames_per_second` value. The latter describes measured output and
+stays out of the upstream request. Seconds estimation may omit frame rate.
+
+Strict mappings require the default combination and reject unlisted pairs.
+Setting `allow_unmapped_output` to true allows owner-funded generation with
+other configured pairs. Output dimensions and usage estimates for those pairs
+remain unknown. Customer-funded requests under a partial mapping still require
+a listed pair. Duplicate pairs, unadvertised choices and invalid dimensions are
+rejected. Pricing configuration choices omit resolutions without a mapping.
 
 The validation engine resolves effective dimensions, duration and FPS with the
 schema and estimator revisions. Seedance's configured pixel estimator includes

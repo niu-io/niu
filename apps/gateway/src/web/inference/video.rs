@@ -882,6 +882,16 @@ pub(super) async fn draft_terms(
     let selling = if owner_funded {
         None
     } else {
+        if schema
+            .output
+            .as_ref()
+            .is_some_and(|output| output.allow_unmapped_output)
+            && request.effective_output().is_none()
+        {
+            return Err(ApiError::unsupported_message(
+                "Customer-funded video requires a mapped output specification for this resolution and aspect ratio",
+            ));
+        }
         let resolution = request
             .effective_controls()
             .get("resolution")
