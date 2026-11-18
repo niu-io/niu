@@ -2391,6 +2391,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Delete group": "删除分组",
   "Add material": "添加材料",
   "Inspect": "查看",
+  "Could not confirm the saved request. Your draft is retained. Retrying this unchanged draft uses the same request.": "无法确认已保存请求。草稿已保留；重试未修改的草稿会继续使用同一请求。",
   "Check status": "检查状态",
   "Materials could not be loaded. Retry before continuing.": "无法加载材料，请重试后继续。",
   "Create group": "创建分组",

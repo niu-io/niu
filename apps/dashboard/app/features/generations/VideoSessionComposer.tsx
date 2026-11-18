@@ -1,8 +1,8 @@
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconAdjustmentsHorizontal as Settings } from '@tabler/icons-react';
-import type { VideoModel, VideoModelList } from '@niu-io/sdk';
+import { NiuAPIError, type VideoModel, type VideoModelList } from '@niu-io/sdk';
 import { NiuAdminClient, type VideoIntentRequest, type VideoComposerDraftPayload } from '@niu-io/sdk/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { workspaceKeyPath } from '../keys/api';
 import { useVideoDraft } from '../video/useVideoDraft';
 import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { Label } from '@/components/ui/label';
@@ -17,13 +18,13 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
-import { isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
+import { invalidateQueries, isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import type { useGenerationKeys } from './useGenerationKeys';
 import { VIDEO_MODELS_FRESH_MS, videoModelsCacheKey } from './video-cache';
 import { controlLabels, initialControls, videoRequest, validateSavedVideoReferences, type ControlValues } from '../video/request';
-import { prepareVideoSessionIntent } from '../video/session-intent';
+import { matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
 import { VideoIntent } from '../video/intent';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import '../video/video.css';
@@ -49,6 +50,14 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
 }) {
   const { t: uiT } = useUILocale();
   const {token, workspace} = context;
+  const [search, setSearch] = useSearchParams();
+  const navigate = useNavigate();
+  const pendingReference = search.get('pending');
+  const updatePendingReference = (reference: string | null) => setSearch(current => {
+    const next = new URLSearchParams(current);
+    if (reference) next.set('pending', reference); else next.delete('pending');
+    return next;
+  }, {replace: true});
   const canWrite = Boolean(context.session?.permissions.write);
   const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, context.workspaces ?? [workspace])}` : '/workspaces/default';
   const keys = available.keys.filter(key => key.workspace.id === workspace?.id);
@@ -72,6 +81,9 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [unquotedConfirmation, setUnquotedConfirmation] = useState<string | null>(null);
+  const submitLock = useRef(false);
+  const generateRef = useRef<HTMLButtonElement>(null);
   const modelIdRef = useRef(modelId);
   modelIdRef.current = modelId;
   const client = useMemo(() => token ? new NiuAdminClient({ fetch,adminToken: token, baseURL: new URL('/api/v1', window.location.origin).href}) : null, [token]);
@@ -89,6 +101,11 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       setModelId(restoredModel);modelIdRef.current=restoredModel;
       setControls(Object.fromEntries(Object.entries(saved.controls).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
     }});
+  const unquotedOwnerFunded = model?.mode === 'owner_funded' && model.output === null;
+  const confirmationIdentity = JSON.stringify([token, workspace?.id, context.session?.operator?.id, session.id, keyEditRevision, canWrite, payload, model]);
+  const latestConfirmationIdentity = useRef(confirmationIdentity);
+  latestConfirmationIdentity.current = confirmationIdentity;
+  const confirmationMatches = unquotedOwnerFunded && unquotedConfirmation === confirmationIdentity;
   const restoringDraft=Boolean(token&&workspace&&!session.archived)&&!draft.ready&&!draft.error;
   useEffect(()=>{onKeySelectionReadyChange(!restoringDraft&&!busy&&!loading);},[restoringDraft,busy,loading,onKeySelectionReadyChange]);
   const navigation=useDraftNavigation({hasUnsavedChanges:()=>!busy&&edited&&(!draft.ready||draft.dirty),flush:async()=>Boolean(await draft.flush())});
@@ -138,8 +155,8 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [token, activeKeyId, cover]);
-  async function generate() {
-    if (!client || !workspace || !model || !activeKeyId || !canWrite || busy || restoringDraft || cover) return;
+  async function generate(confirmedIdentity?: string) {
+    if (!client || !workspace || !model || !activeKeyId || !canWrite || busy || submitLock.current || pendingReference || loading || restoringDraft || cover) return;
     setError('');
     if (model.requires_image && !references.length) { setError('This model requires a reference image.'); return; }
     let request: VideoIntentRequest;
@@ -149,41 +166,108 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       request.content.push(...references);
     }
     catch (caught) { setError(message(caught)); return; }
+    if (unquotedOwnerFunded && confirmedIdentity !== confirmationIdentity) {
+      setUnquotedConfirmation(confirmationIdentity);
+      return;
+    }
+    setUnquotedConfirmation(null);
+    submitLock.current = true;
     setBusy(true);
+    let preparingSavedDraft = false;
+    let preparedReference = '';
     try {
       const ticket=await draft.flush();
-      const estimate = await fetch('/v1/video/estimate', {
-        method: 'POST', headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': activeKeyId, 'content-type': 'application/json'},
-        body: JSON.stringify(request),
+      if (latestConfirmationIdentity.current !== confirmationIdentity) throw new Error("The request or access changed. Close this dialog and review the current request.");
+      if (!unquotedOwnerFunded) {
+        const estimate = await fetch('/v1/video/estimate', {
+          method: 'POST', headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': activeKeyId, 'content-type': 'application/json'},
+          body: JSON.stringify(request),
       });
       const estimated = await estimate.json().catch(() => null);
       if (!estimate.ok) throw new Error(estimated?.error?.message ?? 'The video could not be estimated.');
-      const intentId = crypto.randomUUID();
+      }
+      const {intentId, turnId} = ticket
+        ? await videoDraftSubmissionIds(ticket.identity, ticket.revision)
+        : {intentId: crypto.randomUUID(), turnId: crypto.randomUUID()};
       const intent = new VideoIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, intentId);
-      await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
-        sessionId: session.id, turnId: crypto.randomUUID(), intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
+      preparingSavedDraft = Boolean(ticket);
+      const prepared = await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
+        sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
       });
+      if (!prepared.intent.reference) throw new Error('The saved video request identity does not match this link.');
+      preparedReference = prepared.intent.reference;
+      updatePendingReference(preparedReference);
+      // The input now belongs to a durable, actor-private saved request. Retire
+      // only its matching draft before dispatch, so a lost response or reload
+      // cannot present the same input as a fresh generation.
+      if (ticket && !await draft.clearMatching(ticket)) {
+        throw new Error('The request was saved, but its unfinished draft remains. Open the saved request before submitting.');
+      }
+      setPrompt('');setReferences([]);setEdited(false);setRestored(false);
+      draft.reload();
       await intent.restore();
       await intent.submit();
-      setPrompt('');setReferences([]);setEdited(false);setRestored(false);
-      if(ticket){if(await draft.clearMatching(ticket))draft.reload();else setError('Video submission was confirmed, but its draft could not be cleared. The saved draft may remain; do not resubmit it.');}
+      updatePendingReference(null);
       onSubmitted();
     } catch (caught) {
-      setError(message(caught));
+      if (caught instanceof NiuAPIError && caught.status === 401) {
+        invalidateQueries(workspaceKeyPath(workspace.id));
+        available.reload();
+      }
+      setError(preparingSavedDraft && !preparedReference
+        ? 'Could not confirm the saved request. Your draft is retained. Retrying this unchanged draft uses the same request.'
+        : message(caught));
+      onSubmitted();
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   }
-  return <><Dialog open={navigation.failed} onOpenChange={open=>{if(!open)navigation.stay();}}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event=>{event.preventDefault();promptRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={navigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={navigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog><form className="playground-composer" onSubmit={event => { event.preventDefault(); void generate(); }}>
+  async function recoverSubmission() {
+    if (!client || !workspace || !pendingReference || busy || submitLock.current || loading || restoringDraft || !draft.ready) return;
+    setBusy(true);setError('');
+    try {
+      const {data: intent} = await client.getVideoIntent({organizationId: workspace.organization_id, projectId: workspace.id}, pendingReference);
+      if (intent.session_binding?.session_id !== session.id) throw new Error('The saved video request identity does not match this link.');
+      if (intent.job) {
+        if (prompt.trim() && model && intent.request && activeKeyId === intent.key_id) {
+          const currentRequest = videoRequest(references.length ? {...model, requires_image: false} : model, prompt, controls) as VideoIntentRequest;
+          currentRequest.content.push(...references);
+          if (matchesVideoIntentRequest(currentRequest, intent.request)) {
+            const ticket = await draft.flush();
+            if (!ticket || !await draft.clearMatching(ticket)) throw new Error('Video submission was confirmed, but its draft could not be cleared. The saved draft may remain; do not resubmit it.');
+            setPrompt('');setReferences([]);setEdited(false);setRestored(false);draft.reload();
+          }
+        }
+        // Reuse the saved-request resolver to focus the original result, rather
+        // than leave the user at an unrelated earlier turn in this session.
+        navigate(`/generations?intent=${encodeURIComponent(pendingReference)}&workspace=${encodeURIComponent(workspacePathSegment(workspace,context.workspaces??[workspace]))}`, {replace: true});
+        onSubmitted();
+      } else {
+        setError('Restore the original submission status before continuing.');
+      }
+    } catch (caught) { setError(message(caught)); }
+    finally { setBusy(false); }
+  }
+  return <><Dialog open={unquotedConfirmation !== null} onOpenChange={open => { if (!open) setUnquotedConfirmation(null); }}>
+    <DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); generateRef.current?.focus(); }}>
+      <DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader>
+      <p className="break-words text-sm">{model && catalogTitle({id: model.id})}</p>
+      {!confirmationMatches && <p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}
+      <DialogFooter><Button variant="outline" onClick={() => setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches || !canWrite || busy || loading || restoringDraft || Boolean(cover)} onClick={() => { if (confirmationMatches && unquotedConfirmation) void generate(unquotedConfirmation); }}>{uiT("Generate video")}</Button></DialogFooter>
+    </DialogContent>
+  </Dialog><Dialog open={navigation.failed} onOpenChange={open=>{if(!open)navigation.stay();}}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event=>{event.preventDefault();promptRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={navigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={navigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog><form className="playground-composer" onSubmit={event => { event.preventDefault(); void generate(); }}>
     <div className={`playground-composer-surface${cover ? ' is-blocked' : ''}`}>
       <div className="video-composer-fields">
         {draft.error&&<div role="alert" className="video-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={()=>{setEdited(false);draft.reload();}}>{uiT("Load saved draft")}</Button></div>}
+        {pendingReference && <div role="status" className="video-muted"><p>{uiT("The outcome is unresolved. Do not resubmit this generation.")}</p><Button type="button" variant="outline" disabled={busy || loading || restoringDraft || !draft.ready} onClick={() => void recoverSubmission()}>{uiT("Check status")}</Button><Button asChild variant="link"><Link to={`/generations?intent=${encodeURIComponent(pendingReference)}&workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace,context.workspaces??[workspace]):'default')}`}>{uiT("Open saved request")}</Link></Button></div>}
         {restoringDraft&&<p role="status" className="video-muted">{uiT("Loading saved draft…")}</p>}
         {(draft.saving||navigation.pending)&&<p role="status" className="video-muted">{uiT("Saving draft…")}</p>}
         <Label htmlFor="session-video-prompt" className="sr-only">{uiT("Prompt")}</Label>
         <Textarea ref={promptRef} id="session-video-prompt" placeholder={uiT("Describe your video…")} rows={2} value={prompt} onChange={event => {setEdited(true);setPrompt(event.target.value);}} disabled={busy || loading || restoringDraft || Boolean(cover)} />
         {references.length>0&&<p className="video-muted">{uiT("This draft includes saved reference materials. Open the full composer to review them.")}{" "}<Button asChild variant="link"><Link to={`/generations?new=video&workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace,context.workspaces??[workspace]):'default')}`}>{uiT("Open saved draft")}</Link></Button></p>}
-        {error && !cover && <p role="alert" className="video-error">{['This model requires a reference image.', 'Video models could not be loaded.', 'The video could not be estimated.', 'Enter a prompt.'].includes(error) ? uiT(error) : error}</p>}
+        {unquotedOwnerFunded && !cover && <p role="status" className="video-muted">{uiT("Estimate unavailable. Your Provider may charge your account.")}</p>}
+        {error && !cover && <p role="alert" className="video-error">{uiT(error)}</p>}
         <div className="playground-composer-actions"><div className="video-composer-options">
           {models.length > 0 ? <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" className="video-model-choice" aria-label={uiT("Video model")} disabled={busy || restoringDraft}>{modelId && <ProviderLogo provider={modelIdentity(context.models?.find(item => item.id === modelId) ?? { id: modelId })} size="small" />}<span className="truncate">{modelId ? catalogTitle({ id: modelId }) : uiT("Choose video model")}{modelId && catalogTitle({ id: modelId }) !== modelId ? <span className="sr-only"> {modelId}</span> : null}</span><ChevronDown size={14} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id => { setEdited(true);restoreContext.current=null; const next = models.find(item => item.id === id); setModelId(id); setControls(next ? initialControls(next) : {}); }}>{models.map(item => { const label = catalogTitle({ id: item.id }); return <DropdownMenuRadioItem key={item.id} value={item.id}><ProviderLogo provider={modelIdentity(context.models?.find(candidate => candidate.id === item.id) ?? { id: item.id })} size="small" />{label}{label !== item.id ? <span className="sr-only"> {item.id}</span> : null}</DropdownMenuRadioItem>; })}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu> : <Button type="button" variant="ghost" className="video-model-choice" disabled>{uiT("Choose video model")}</Button>}
           {model&&<Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={uiT("Additional settings")} disabled={busy || restoringDraft}><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" aria-label={uiT("Video settings")} className="video-settings-popover"><h2>{uiT("Video settings")}</h2><div className="video-controls">
@@ -196,7 +280,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
           </div></PopoverContent></Popover>}
 
         </div>
-        <Button type="submit" size="icon" aria-label={uiT("Generate video")} disabled={busy || loading || restoringDraft || !prompt.trim() || !model || references.length>0 || (model.requires_image&&!references.length) || Boolean(cover)}><ArrowUp size={20} /></Button>
+        <Button ref={generateRef} type="submit" size="icon" aria-label={uiT("Generate video")} disabled={busy || Boolean(pendingReference) || loading || restoringDraft || !prompt.trim() || !model || references.length>0 || (model.requires_image&&!references.length) || Boolean(cover)}><ArrowUp size={20} /></Button>
         </div>
         {model?.requires_image && !references.length && <p className="video-muted">{uiT("This model requires a reference image.")}</p>}
       </div>
