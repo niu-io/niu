@@ -11,6 +11,24 @@ Always check the active deployment origin selected by the user and confirm requi
 - `niu-agent-marketplace.tar.gz` — native marketplace bundle for Claude Code and Codex.
 - `niu-deepseek-harness.tar.gz` — native Cordis bundle for DeepSeek Harness.
 
+### Verify release identity before executing a package
+
+Download the selected archive, `SHA256SUMS`, and `SOURCE_COMMIT` from the same
+exact release. Verify the archive and `SOURCE_COMMIT` against their entries in
+`SHA256SUMS` using SHA-256; do not execute an archive with a missing or mismatched
+entry. Resolve that release's Git tag to its commit (peel an annotated tag), and
+require the full commit to equal `SOURCE_COMMIT`. Matching checksums alone do not
+prove that a release was built from its named tag.
+
+Inspect the extracted native plugin manifest before installation: its version
+must match the selected Niu release. The standalone MCP package has its own
+package version (`0.1.0`); do not confuse that version with the Niu release that
+contains it. Preserve the release tag, full source commit, selected archive hash,
+and native manifest version in the installation receipt. Stop on an identity
+mismatch; do not silently choose a different tag or an unverified source build.
+These integrity checks establish consistency, not a signature or independent
+trust in the release publisher.
+
 ---
 
 ## Track 1: Universal Browser Device-Auth (Any Coding Agent)
