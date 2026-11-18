@@ -81,3 +81,9 @@ empty and independent direct reuse returned 401. Logout returned204 and Login
 loaded. Temporary login and primary key files were removed and the browser closed.
 The failed saved chat and its isolated workspace remain as audit evidence. Current
 execution and remaining acceptance stay in Beads; no fixture outcome is evidence.
+
+## Rendered key-recovery guidance follow-up
+
+On 2026-11-18 the documentation built from revision `30712643` was served locally and inspected in an actual browser. English and Chinese Quickstart pages show write-authorized secret recovery, legacy-key limitations and immediate old-key invalidation on rotation. Both deployment-page translations distinguish ordinary secret-free lists from explicit reveal, and require inventory reconciliation after a lost mutation response. This copy agrees with the hosted reveal-after-navigation observation above; no new runtime inference was made from the docs build.
+
+Desktop screenshots of both pages and both languages were inspected. A 390 CSS-pixel Chinese deployment view wrapped the recovery paragraphs with document scroll width 390. Existing Niu document hierarchy, list numbering and section spacing were retained. The review applies the UX review skill's NN/g meaningful-language and recovery criterion; it is a scoped copy review, not an accessibility certification. The local documentation server and browser space were closed afterward. Integration and hosted delivery remain separate from this local rendered-artifact verification.
