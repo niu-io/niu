@@ -56,3 +56,40 @@ uncached-server rejection reproduction remain open. During the run, key loading
 and the gateway briefly became unavailable before automatic recovery; subsequent
 readiness/auth-config requests returned 200. This remains separate reliability
 evidence, not a claim that the queue resolves gateway availability.
+
+## Hosted acceptance, 2026-11-18
+
+The hosted distribution at `4ff6ed6a18c335a54a74e4c4f41373098bda845c`
+served core `fd1ec05d5e095684b7c55d2ce25be6c1c95b40ba`. The current
+saved session contained ten real completed videos. Only this verification
+account's matching task-video cache records were removed; a fresh document
+removed its memory cache. Cookies and unrelated browser storage were retained.
+
+An observer around actual fetch and body readers recorded ten HTTP 200 responses,
+with a maximum of two simultaneous downloads measured through body completion.
+All ten videos reached readyState 4 without media errors. Their delivered files
+fully decoded with FFmpeg and all ten SHA-256 digests matched earlier independently
+retained artifacts. No generation was submitted.
+
+A second cold-cache entry was left after the first two downloads started. Both
+were aborted; the eight queued requests never started. Returning to the same
+session completed ten downloads with the same maximum concurrency of two and
+all ten players ready. An initial observer wait targeted the remembered Chat
+route instead of the Video session; it timed out before any video requests and
+is excluded from acceptance. Selecting the actual Video history entry performed
+the cancellation run above.
+
+Desktop and 390px screenshots were inspected. The video, download action and
+composer remained accessible; document width equaled the narrow viewport width.
+The last output was visibly the expected turquoise cube. The earlier local
+Assets sibling preview and Escape-focus verification remain applicable to the
+same queue implementation; this hosted run did not repeat that sibling flow.
+All 248 prior-deployment JavaScript/CSS URLs returned byte-identical content
+after this cutover. This proves URL retention, not every already-open document
+interaction. Browser logout returned 204 and Login loaded afterward.
+
+The earlier deployment's actual video-content HTTP 503 responses are documented
+in `staging-database-interruption-2026-11-18.md`. They establish a real failure,
+but do not isolate every rejection to frontend concurrency. This acceptance
+closes the bounded preview-queue correction, not database reliability or the
+overall release gate. Fixture outcomes were not used.
