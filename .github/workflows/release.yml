@@ -76,7 +76,7 @@ jobs:
           mkdir -p /tmp/niu-release
           for package in sdks/javascript sdks/mcp; do
             pnpm --dir "$package" build
-            npm pack "./$package" --pack-destination /tmp/niu-release
+            pnpm --dir "$package" pack --pack-destination /tmp/niu-release
           done
           cp compose.yaml scripts/install.sh config/niu.example.toml /tmp/niu-release/
           git rev-parse HEAD > /tmp/niu-release/SOURCE_COMMIT
