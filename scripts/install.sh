@@ -294,6 +294,9 @@ cmd_upgrade() {
     exit 1
   fi
 
+  dir="$(cd "$dir" && pwd)"
+  env_file="${dir}/.env"
+
   local current_image
   current_image="$(get_env_var "$env_file" NIU_IMAGE)"
   local current_version
@@ -327,7 +330,17 @@ cmd_upgrade() {
   echo "3/4 Running pre-upgrade encryption verification ..."
   (
     cd "$dir"
-    NIU_IMAGE="$target_image" docker compose --env-file "$env_file" run --rm --no-deps niu --check-encryption
+    local inspection_db="niu_upgrade_check_${timestamp}_$$"
+    local password
+    password="$(get_env_var "$env_file" POSTGRES_PASSWORD)"
+    docker compose --env-file "$env_file" exec -T postgres createdb -U niu "$inspection_db"
+    trap 'docker compose --env-file "$env_file" exec -T postgres dropdb -U niu "$inspection_db"' EXIT
+    gzip -dc "$backup_file" | docker compose --env-file "$env_file" exec -T postgres \
+      psql -X -v ON_ERROR_STOP=1 -U niu -d "$inspection_db" >/dev/null
+    export NIU_IMAGE="$target_image"
+    export NIU_DATABASE_URL="postgres://niu:${password}@postgres:5432/${inspection_db}"
+    docker compose --env-file "$env_file" run --rm --no-deps -e NIU_DATABASE_URL niu --migrate-only
+    docker compose --env-file "$env_file" run --rm --no-deps -e NIU_DATABASE_URL niu --check-encryption
   )
 
   if [[ -n "$current_image" ]]; then
