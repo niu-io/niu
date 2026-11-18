@@ -42,8 +42,9 @@ the reported deployment completion: these establish retained-session access
 after replacement, not continuous authenticated sampling across the routing
 switch. No in-flight inference stream was exercised in this run.
 
-The independent public observation prefix from 02:52:06 through 03:05:09 UTC
-contained 134 health/readiness requests, all returning 200. This finite window
+The completed independent public observation from 02:52:06 through 03:15:40 UTC
+contained 240 health/readiness requests, all returning 200. Its observation log
+has SHA-256 `3c3e7b3a645dc1a9bb24287bc47e245b6452b2c0a1e8a07e237a3e8c1ec6e648`. This finite window
 spans the reported replacement. It does not resolve the previously observed
 database interruptions or establish sustained availability.
 

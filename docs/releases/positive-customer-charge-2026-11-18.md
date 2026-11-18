@@ -83,3 +83,38 @@ platform inheritance from explicit-null compatibility behavior. Runtime selectio
 is unchanged. API generation and consistency checks completed. Remaining billing
 acceptance includes platform-default positive charges, rendered customer journeys,
 Credits-mode behavior and real merchant settlement under its separate authority.
+
+## Current 0.3.1 candidate follow-up
+
+On core `18178194c24f1ea932165ee53a72cdc45f49207d`, hosted composition
+`a9880be3ddb19024ec26cbba0b71e25b63900d64`, a new current-input request used
+the same isolated compatibility tariff. Read-only inspection of all three
+published platform text prices found zero rates and fixed charges. No global
+price was changed; positive platform-default pricing remains a separate gap.
+
+The isolated starting balance was 998,192 nanounits. An explicit 2,000-nanounit
+noncash grant funded the exact 1,000,192-nanounit admission bound, and a fresh
+model-restricted key had that exact spending cap. One actual request returned
+`BILLING_031_CURRENT_20261118`, 45 input tokens and 35 output tokens, with stop
+finish reason. Independent key-filtered inventory contained exactly one completed
+request. The calculated token amount was 115 nanounits, so the configured
+10,000-nanounit minimum applied. The final balance was 990,192, reservations
+were empty, and the independent ledger sum equaled the balance.
+
+A fresh ordinary organization owner then read current billing, balance,
+transactions and requests. Procurement, commercial position, platform financial
+summary and platform-pricing reads each returned 403. The current customer CSV
+contained three actual historical/current requests, including this new request.
+Independent parsing compared the complete multiset of input/output token counts,
+customer currencies and customer charges with the independently read request
+inventory, and found an exact match. The CSV was 1,163 bytes, SHA-256
+`69f21245cf60665be6fbf3844ef8a6d6ad5fd8097bb7f5177a7c7b8e519692ce`.
+Inspected customer projections and export fields did not contain the enumerated
+procurement-expense, margin or credential fields. Both temporary credentials were
+revoked and direct reuse returned 401.
+
+This verifies a fresh positive compatibility charge and customer export on the
+current candidate. Noncash test credit is not merchant settlement or revenue.
+It does not close platform-default positive pricing, rendered billing/Credits
+journeys, real merchant payment, or the full BILLING-03 case. Fixture outcomes
+were not used.
