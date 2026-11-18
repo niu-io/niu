@@ -1214,7 +1214,9 @@ pub(super) async fn estimate_as(
         ..
     } = validate_admission(&state, &principal, &body, model).await?;
     let output = request.effective_output().ok_or_else(|| {
-        ApiError::unsupported_message("No output estimate is available for this video configuration")
+        ApiError::unsupported_message(
+            "No output estimate is available for this video configuration",
+        )
     })?;
     let usage = output
         .estimate(niu_metered_cost::Quantity::integer(0))
