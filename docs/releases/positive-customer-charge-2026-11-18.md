@@ -118,3 +118,11 @@ current candidate. Noncash test credit is not merchant settlement or revenue.
 It does not close platform-default positive pricing, rendered billing/Credits
 journeys, real merchant payment, or the full BILLING-03 case. Fixture outcomes
 were not used.
+
+## Candidate f3cb3725
+
+A fresh staging call using 41 input tokens and 17 output tokens incurred the configured minimum customer charge of 10,000 USD nanounits. The isolated account had received noncash test credit. One completed request appeared in the workspace. Its charge matched the key's committed spending. The resulting balance of 990,192 nanounits equaled the ledger sum, with zero outstanding reservations.
+
+A second key with a zero USD limit received HTTP 402 with error type `budget_exceeded`. The balance, ledger and reservations were identical before and after that request. Comparing the customer CSV files before and after both calls showed the same three historical rows and exactly one new billed row. All four rows matched independent API usage and charge records. The final CSV had SHA-256 `e1e613d945ac7e9a9993c2cdce72645910a00aeae838c5033c55cc3ade42d306`.
+
+These observations cover inference accounting. Live merchant settlement still needs a configured merchant and an authorized checkout amount. Tracked in Beads `niu-nrcn.7` and `niu-nrcn.6`.
