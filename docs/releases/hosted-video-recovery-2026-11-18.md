@@ -72,3 +72,35 @@ This adds actual hosted unquoted Wan dispatch, one-request automatic acknowledge
 job reconciliation, and final artifact evidence. It does not resolve database
 reliability, qualify the legacy view's automatic polling, or reproduce a fresh
 interrupted submission on this hosted revision.
+
+## Fresh hosted submission with its accepted response lost
+
+A fresh, restricted key submitted a two-second, 480p, 16:9 turquoise-cube input
+with the restored configured Wan estimator. A one-shot browser transport wrapper
+awaited the actual submit response, recorded its HTTP 202 receipt privately, then
+threw a network error before the application could receive it. It immediately
+restored the original fetch implementation. No synthetic HTTP response, fake
+Provider or fixture result was used; the actual job ran upstream.
+
+The page retained `input-1042` in its pending URL, cleared the matching draft,
+and disabled Generate. Reload retained that identity. A real temporary key-loading
+failure interrupted recovery; retrying that read restored the pending warning,
+empty prompt and disabled Generate. Keyboard Check status then used only GET
+requests and focused the original `run-1151`, which completed automatically.
+Independent scoped inventory remained exactly one attempt before and after
+completion. This successful recovery does not erase the key-loading failure or
+the separately observed busy preview rejection on the initial session load.
+
+Browser and API downloads matched at 791,174 bytes, SHA-256
+`4c815ceb302ead8932dfdde986f20b149b96f87edf04a3d8bf4c447b4b70554a`.
+Independent probing and full decoding verified H.264/AAC, 854 × 480, 30 fps and
+2.020 seconds. The extracted frame and settled 390px result showed the requested
+turquoise cube; the target player reached readyState 4 without error.
+
+The matching backend draft was independently empty after recovery. The temporary
+key was revoked (204) and independently denied (401); token and temporary login
+file were removed. Browser logout returned 204 and reload reached Sign in before
+closure. Reload had already removed all one-shot transport instrumentation.
+The series now totals fifteen video requests and 31 requested seconds, not an
+expense statement. This completes the hosted response-loss recovery scope of
+`niu-j993`; release-wide final-candidate acceptance remains a separate gate.
