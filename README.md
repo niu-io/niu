@@ -11,13 +11,13 @@ Niu provides model information, request evidence and authorized management capab
 
 Start with [Build with Niu](https://niu.io/docs/guides/personal-assistant/). See the [product principles](docs/product/agent-oriented-principles.md) for the agreed direction and current integration limits; native coding-agent plugins and agent-managed event subscriptions are not claimed as shipped.
 
-For the **0.3.0 source preview**, give your coding agent this instruction:
+For the **0.3.1 source candidate**, give your coding agent this instruction:
 
 ```text
 Install and configure Niu by following https://niu.io/docs/install.md.
 ```
 
-The installation contract checks package and deployment availability first. The preview is not published; use a matching source checkout and development deployment only when explicitly selected. [Native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
+The installation contract checks package and deployment availability first. This candidate is not published; use a matching source checkout and development deployment only when explicitly selected. [Native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
 
 This repository is the complete self-hosted monorepo: single-process Rust gateway, workspace and Provider management dashboard, opt-in public model catalog, developer documentation, OpenAPI 3.1 contracts, client SDKs, built-in open-source plugins, and container packaging.
 
@@ -50,13 +50,13 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.2.30`; it does not install the unpublished 0.3.0 source preview. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+The command below targets the unpublished `v0.3.1` candidate. Run it only after that exact release and its checksum-verified image are available; before publication, use an explicitly selected matching source build. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.1`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.3.0 --dir /opt/niu
+./scripts/install.sh install --version v0.3.1 --dir /opt/niu
 ```
 
-For the 0.3.0 source preview, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
+For the 0.3 source line, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
 
 Once running on port `2555`:
 
@@ -106,7 +106,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.3.0 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.3.1 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu

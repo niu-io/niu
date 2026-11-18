@@ -11,14 +11,14 @@ A coding agent (such as Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, 
 
 Each model call is a normal Niu request and uses the exact model or workspace routing policy (`pool/<slug>`) the agent specifies. The server never guesses or substitutes another model, does not sign in to the dashboard, and never exposes Provider purchase costs or platform margins.
 
-## Install the released server
+## Install a pinned server
 
 For any coding agent (including Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or Zed), start with the [machine-readable installation contract](/docs/install.md), which covers universal `/connect` browser device-auth and native host bundles (where model invocation is off by default and management scopes are selected explicitly).
 
-To install the standalone MCP package manually with npm, pin the package asset from [Niu v0.3.0](https://github.com/niu-io/niu/releases/tag/v0.3.0):
+The `v0.3.1` candidate is not yet published. After verifying that the exact release and integrity metadata are available, install the standalone MCP package with npm from [Niu v0.3.1](https://github.com/niu-io/niu/releases/tag/v0.3.1):
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.0/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
 ```
 
 Use `niu-mcp` as the command in your agent's MCP configuration. It can start from your application's workspace. If the editor does not inherit your shell's PATH, replace the command with the absolute executable path returned by `command -v niu-mcp`; JSON configuration does not expand shell variables or `~`. Do not use a path relative to the Niu repository.
@@ -150,10 +150,10 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 
 对于任意编程智能体（包括 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或 Zed），建议优先遵循[机器可读安装规范](/docs/install.md)，通过通用 `/connect` 浏览器设备授权或原生宿主扩展包完成接入（其中模型调用权限默认关闭，管理权限范围可按需勾选）。
 
-如需通过 npm 手动安装独立的 MCP 软件包，请固定安装来自 [Niu v0.3.0](https://github.com/niu-io/niu/releases/tag/v0.3.0) 的软件包产物：
+`v0.3.1` 候选尚未发布。确认该版本及完整性元数据已发布后，可通过 npm 安装来自 [Niu v0.3.1](https://github.com/niu-io/niu/releases/tag/v0.3.1) 的软件包产物：
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.0/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
 ```
 
 在智能体的 MCP 配置中将命令设置为 `niu-mcp`。它可以从你的应用程序工作区直接启动。如果编辑器未继承你终端 Shell 的 `PATH`，请将该命令替换为 `command -v niu-mcp` 返回的可执行文件绝对路径；JSON 配置文件不会展开 Shell 变量或 `~`。请勿使用相对于 Niu 代码仓库的相对路径。
