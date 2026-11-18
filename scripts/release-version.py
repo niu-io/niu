@@ -351,7 +351,9 @@ chmod +x install.sh
 The upgrade command automatically backs up PostgreSQL (`pg_dump`), verifies `NIU_VENDOR_ENCRYPTION_KEY` compatibility (`niu-gateway --check-encryption`), and rolls back on failure:
 
 ```sh
-./scripts/install.sh upgrade --version {tag} --dir /opt/niu
+curl -fsSL {REPO_URL}/releases/download/{tag}/install.sh -o install.sh
+chmod +x install.sh
+./install.sh upgrade --version {tag} --dir /opt/niu
 ```"""
     parts.append(install_section)
 
