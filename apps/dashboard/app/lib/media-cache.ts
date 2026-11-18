@@ -1,4 +1,5 @@
 import { getActiveCacheAuthority, subscribeCacheReset } from './query-cache';
+import { downloadMedia } from './media-download';
 
 type MemoryBlobEntry = { blob: Blob; updatedAt: number; size: number; generation: number };
 type PersistedBlobRecord = { key: string; authority: string; type: string; size: number; updatedAt: number; bytes: ArrayBuffer };
@@ -209,7 +210,7 @@ export async function fetchMediaBlob(
           if (persisted && !controller.signal.aborted && isGenerationCurrent(fullKey, entryGlobalGen, entryGen)) { writeMemory(fullKey, persisted, Date.now(), entryGen); return persisted; }
         }
         if (controller.signal.aborted) throw makeAbortError();
-        const blob = await fetcher(controller.signal);
+        const blob = await downloadMedia(controller.signal, () => fetcher(controller.signal));
         if (!controller.signal.aborted && isGenerationCurrent(fullKey, entryGlobalGen, entryGen)) {
           const now = Date.now(); writeMemory(fullKey, blob, now, entryGen);
           if (persist && persistAuthority) await writePersistedBlob(fullKey, persistAuthority, blob, now, entryGlobalGen, entryGen);
