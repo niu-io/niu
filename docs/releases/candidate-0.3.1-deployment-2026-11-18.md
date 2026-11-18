@@ -13,9 +13,12 @@ Tracking: `niu-nrcn`, `niu-nrcn.1`, `niu-sdwx`.
 
 Version preparation merged through PR 204. Its actual package build, runtime
 contents inspection and final static-asset scan completed. Required fixture
-diagnostics executed, but their outcomes were disregarded. Public checks were
-also dispatched for the exact merged release tip; their completion remains a
-separate record requirement.
+diagnostics executed, but their outcomes were disregarded. The exact merged release-tip public build completed in run `44226163500`.
+Inspection of its actual logs confirmed the non-root runtime user, executable,
+dashboard/docs/catalog assets and absence of source/dependency directories.
+The final extracted runtime resources passed the public-boundary scan. These are
+artifact-content checks, not runtime or installation acceptance. Required fixture
+commands ran; their outcomes were disregarded.
 
 The staging deployment of the pinned composition became live at 03:01 UTC.
 Its workflow completed. Production configuration, production deployment and
