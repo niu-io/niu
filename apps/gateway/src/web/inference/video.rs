@@ -882,6 +882,16 @@ pub(super) async fn draft_terms(
     let selling = if owner_funded {
         None
     } else {
+        if schema
+            .output
+            .as_ref()
+            .is_some_and(|output| output.allow_unmapped_output)
+            && request.effective_output().is_none()
+        {
+            return Err(ApiError::unsupported_message(
+                "Customer-funded video requires a mapped output specification for this resolution and aspect ratio",
+            ));
+        }
         let resolution = request
             .effective_controls()
             .get("resolution")
@@ -1204,7 +1214,9 @@ pub(super) async fn estimate_as(
         ..
     } = validate_admission(&state, &principal, &body, model).await?;
     let output = request.effective_output().ok_or_else(|| {
-        ApiError::unsupported_message("No effective video output estimator is configured")
+        ApiError::unsupported_message(
+            "No output estimate is available for this video configuration",
+        )
     })?;
     let usage = output
         .estimate(niu_metered_cost::Quantity::integer(0))

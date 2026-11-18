@@ -751,6 +751,7 @@ export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; 
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
 export type VideoOutputSchema = {
+  observed_frames_per_second?: number; allow_unmapped_output?: boolean;
   specifications: Array<{ resolution: string; ratio: string; width: number; height: number }>;
   estimator: 'SeedancePixelsV1' | 'OutputSecondsV1'; estimator_revision: string;
 };

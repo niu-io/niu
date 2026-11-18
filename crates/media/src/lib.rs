@@ -585,7 +585,8 @@ impl VideoSchema {
             .output
             .as_ref()
             .map(|output| output.resolve(&effective, &self.revision))
-            .transpose()?;
+            .transpose()?
+            .flatten();
         Ok(ValidatedVideoRequest {
             body,
             body_sha256,

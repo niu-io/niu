@@ -67,6 +67,7 @@ export type VideoModel = {
     exclusive_controls: string[][];
     /** The meter follows the configured estimator; discovery is not a billing quote. */
     output: ({
+        allow_unmapped_output?: boolean;
         specifications: Array<{
             resolution: string;
             ratio: string;

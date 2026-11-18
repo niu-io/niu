@@ -501,6 +501,14 @@ estimated amount and independently reviewed maximum charge are exact decimal
 nanounit strings. Owner-funded amounts remain null. The estimate is nonbinding;
 submission rechecks current rates, configuration and available funds.
 
+For an owner-funded model with `output.allow_unmapped_output === true`,
+use the model's controls to discover supported resolution and aspect ratio
+choices. The pairs in `output.specifications` have measured or configured
+dimensions for estimation. Other supported pairs can return HTTP 501
+(`unsupported_operation_error`) from the estimate endpoint. A missing estimate
+leaves the Provider expense unknown. Request generation separately under the
+workspace owner's spending authority.
+
 Read saved video customer billing with `await client.video.jobs.billing(job.id)`.
 The call performs one authenticated GET without polling or settlement. Exact
 customer amounts are decimal strings in billionths of the declared currency;

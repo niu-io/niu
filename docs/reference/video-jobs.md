@@ -31,7 +31,7 @@ additional model/input combinations remain unverified.
 
 `GET /v1/video/models` (`client.video.models.list()`) returns configured video controls for the current workspace key. The signed-in dashboard uses `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models`, exposed as `admin.listDashboardVideoModels(scope, keyId)`, with read permission and an active selected key. Key secrets are not required by the dashboard session path.
 
-Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Unmapped resolution/ratio choices, unsupported meters/channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
+Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Owner-funded models with partial estimate coverage retain the configured resolution and ratio choices. Other mapped models restrict choices to their output specifications. Unsupported meters, channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
 
 With configured required image detectors and current processing consent,
 `input_types` can also contain `image_url`. Its limits intersect the model schema
@@ -48,7 +48,7 @@ Discovery makes no upstream request, creates no job and reserves no funds. It is
 
 ## Configure model constraints
 
-In Admin → Suppliers, open a Supplier → API keys & routes → Model routes → Add/Edit mapping → Configure video. General, Inputs, Controls, Output and Rules separate the exact channel, request limits, supported input roles/transports, generation ranges/choices/defaults and incompatible combinations. Limits are entered from the applicable contract, not supplied as universal presets. Apply configuration changes the mapping draft; Save mapping persists it through `POST /admin/v1/vendors/{id}/models` with the current `expected_revision`. Cancel discards the editor draft; removal takes effect only after the mapping is saved.
+For a connection linked to a Provider profile, open the Provider in Admin, open its Models tab, choose **Edit model**, then open the video configuration. For a personal connection without a linked Provider profile, use the authorized vendor model API. Read the mapping from `GET /api/v1/vendors/{id}/models` before updating it so you can preserve its other capabilities and supply its current revision. General, Inputs, Controls, Output and Rules separate the exact channel, request limits, supported input roles/transports, generation ranges/choices/defaults and incompatible combinations. Limits are entered from the applicable contract, not supplied as universal presets. Apply configuration changes the mapping draft; saving the model persists it through `POST /api/v1/vendors/{id}/models` with the current `expected_revision`. Cancel discards the editor draft; removal takes effect only after the mapping is saved.
 
 The saved `capabilities.video_schema` follows the versioned `VideoSchema` management contract. Alias and upstream model bindings are taken from the enclosing mapping; internal schema revisions are not displayed. Changed constraints or bindings get a new revision; applying unchanged constraints retains it. Existing backend validation rejects invalid versions, bounds, defaults, transports and mismatched bindings. Model/capability changes invalidate affected Supplier offer reviews, while existing jobs retain their original pinned terms. Purchase rates, customer selling rates and bounded liability remain separate configuration.
 
@@ -60,11 +60,16 @@ The optional `video_schema.output` management contract maps each qualified
 resolution/aspect-ratio pair to positive pixel width and height. It declares
 `estimator` (`SeedancePixelsV1` or `OutputSecondsV1`) and a reviewed
 `estimator_revision`. Resolution, ratio and duration controls must have explicit defaults or be
-required. Pixel estimation also requires a positive frame-rate control; seconds
-estimation may omit it. Configured duration/frame rate must be positive.
-Duplicate pairs, unadvertised choices, missing default mappings and invalid
-specifications are rejected. Requests with an unmapped combination fail before
-dispatch. Pricing configuration choices omit resolutions without a mapping.
+required. Pixel estimation uses either a positive frame-rate control or a positive
+`observed_frames_per_second` value. The latter describes measured output and
+stays out of the upstream request. Seconds estimation may omit frame rate.
+
+Strict mappings require the default combination and reject unlisted pairs.
+Setting `allow_unmapped_output` to true allows owner-funded generation with
+other configured pairs. Output dimensions and usage estimates for those pairs
+remain unknown. Customer-funded requests under a partial mapping still require
+a listed pair. Duplicate pairs, unadvertised choices and invalid dimensions are
+rejected. Pricing configuration choices omit resolutions without a mapping.
 
 The validation engine resolves effective dimensions, duration and FPS with the
 schema and estimator revisions. Seedance's configured pixel estimator includes

@@ -10,6 +10,8 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
 export type VideoOutputSchema = {
+    observed_frames_per_second?: number;
+    allow_unmapped_output?: boolean;
     specifications: Array<{
         resolution: string;
         ratio: string;

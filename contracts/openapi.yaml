@@ -3127,6 +3127,7 @@ components:
           properties:
             meter: { type: string, enum: [video_tokens, seconds] }
             estimator: { type: string, enum: [SeedancePixelsV1, OutputSecondsV1] }
+            allow_unmapped_output: { type: boolean, default: false, description: 'Additional configured choices support owner-funded generation without an output estimate.' }
             specifications: { $ref: './generated/handler-operations.json#/components/schemas/VideoOutputSchema/properties/specifications' }
     VideoSchema:
       $ref: './generated/handler-operations.json#/components/schemas/VideoSchema'
