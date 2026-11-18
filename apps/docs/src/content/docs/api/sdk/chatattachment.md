@@ -10,7 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type ChatAttachment = {
     name: string;
-    type: string;
+    type: "image" | "text";
     content: string;
 };
 ```

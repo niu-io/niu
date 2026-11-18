@@ -1120,7 +1120,7 @@ export type VideoComposerDraftState = {data:{
 export type ChatDraftState = { data: { payload: ChatDraftPayload | null; revision: number } };
 export type ChatSessionPage = { data: ChatSession[]; next_cursor: string | null };
 export type ChatSessionPageQuery = { archived?: boolean; limit?: number; after?: string };
-export type ChatAttachment = { name: string; type: string; content: string };
+export type ChatAttachment = { name: string; type: "image" | "text"; content: string };
 export type ChatTurn = { prompt: string; results: ChatResult[]; attachments?: ChatAttachment[] };
 /** Reconstruct completed text exchanges for one comparison branch. */
 export function chatBranchMessages(turns: readonly ChatTurn[], model: string): Array<{ role: 'user' | 'assistant'; content: string }> {
