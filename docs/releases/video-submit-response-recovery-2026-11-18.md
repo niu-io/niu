@@ -97,3 +97,44 @@ Preparation-write interruption before a readable saved reference is returned,
 settled collapsed-navigation inspection and exact hosted-candidate acceptance
 remain outside this evidence. The separate unquoted Seedance execution scope is
 not qualified by these configured Wan runs. Fixture outcomes are disregarded.
+
+## Preparation-response interruption follow-up
+
+The composer now derives internal intent and turn identities from the confirmed
+backend draft scope and revision. Repeating the unchanged confirmed draft after a
+reload therefore resumes its existing preparation. Editing or retiring that draft
+advances its revision. The browser member credential is a stable session sentinel;
+no private input or credential is added to the readable URL. If preparation cannot
+be confirmed, the composer explains that the retained unchanged draft can be retried.
+This guarantee requires a confirmed backend draft; it does not qualify the separate
+best-effort path when draft persistence itself is unavailable.
+
+An actual current-input run interrupted the first intent PUT response after staging
+returned HTTP 200. The saved request was `input-1007`, still without a generation.
+Reload restored the exact backend draft at revision 66. A second one-shot response
+interruption on explicit retry returned the same intent, reference and revision.
+Independent scoped request inventory remained zero. Removing the interruption,
+reloading and explicitly submitting the same input resumed that request and bound
+one session turn to `run-1116`. It reached succeeded. Independent inventory contained
+exactly one request, so neither preparation interruption generated a replacement.
+
+The requested lime cube appeared in the extracted frame. Both browser and API
+artifacts were byte-identical: 1,530,812 bytes, SHA-256
+`677ec544d2c4e8cc615fb934786b583d0022565b02fc24113d5608e7e71771b0`.
+Independent probing found H.264/AAC, 1280×720, 30 fps and 2.020 seconds; the entire
+file decoded without error. The browser reported readyState 4 and no media error.
+At 390px, the retained input, recovery guidance and generation action fit without
+clipping. This is preparation recovery evidence, not the missing settled layout
+inspection of the different pending-submission warning.
+
+The scoped temporary key was revoked with HTTP 204 and independently denied with
+HTTP 401; its plaintext token was removed. Browser sign-out reached the login page,
+and the ordinary forwarding proxy was restored. The verification series now totals
+thirteen video requests and 27 requested seconds, not an exact expense statement.
+One administrative inventory read returned HTTP 503 before a later successful read;
+that observation remains reliability evidence and is not erased by the retry.
+An initial diagnostic incorrectly used inference/installation authentication for
+an actor-private metadata route and received 401/404; the authenticated browser
+read of that original metadata returned 200. Those diagnostic errors do not establish
+product authorization defects. Exact hosted-candidate acceptance, the earlier
+settled pending-warning layout check and unquoted Seedance execution remain open.

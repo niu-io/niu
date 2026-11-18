@@ -24,7 +24,7 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import type { useGenerationKeys } from './useGenerationKeys';
 import { VIDEO_MODELS_FRESH_MS, videoModelsCacheKey } from './video-cache';
 import { controlLabels, initialControls, videoRequest, validateSavedVideoReferences, type ControlValues } from '../video/request';
-import { matchesVideoIntentRequest, prepareVideoSessionIntent } from '../video/session-intent';
+import { matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
 import { VideoIntent } from '../video/intent';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import '../video/video.css';
@@ -173,6 +173,8 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
     setUnquotedConfirmation(null);
     submitLock.current = true;
     setBusy(true);
+    let preparingSavedDraft = false;
+    let preparedReference = '';
     try {
       const ticket=await draft.flush();
       if (latestConfirmationIdentity.current !== confirmationIdentity) throw new Error("The request or access changed. Close this dialog and review the current request.");
@@ -184,13 +186,17 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       const estimated = await estimate.json().catch(() => null);
       if (!estimate.ok) throw new Error(estimated?.error?.message ?? 'The video could not be estimated.');
       }
-      const intentId = crypto.randomUUID();
+      const {intentId, turnId} = ticket
+        ? await videoDraftSubmissionIds(ticket.identity, ticket.revision)
+        : {intentId: crypto.randomUUID(), turnId: crypto.randomUUID()};
       const intent = new VideoIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, intentId);
+      preparingSavedDraft = Boolean(ticket);
       const prepared = await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
-        sessionId: session.id, turnId: crypto.randomUUID(), intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
+        sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
       });
       if (!prepared.intent.reference) throw new Error('The saved video request identity does not match this link.');
-      updatePendingReference(prepared.intent.reference);
+      preparedReference = prepared.intent.reference;
+      updatePendingReference(preparedReference);
       // The input now belongs to a durable, actor-private saved request. Retire
       // only its matching draft before dispatch, so a lost response or reload
       // cannot present the same input as a fresh generation.
@@ -208,7 +214,9 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
         invalidateQueries(workspaceKeyPath(workspace.id));
         available.reload();
       }
-      setError(message(caught));
+      setError(preparingSavedDraft && !preparedReference
+        ? 'Could not confirm the saved request. Your draft is retained. Retrying this unchanged draft uses the same request.'
+        : message(caught));
       onSubmitted();
     } finally {
       submitLock.current = false;

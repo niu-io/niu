@@ -26,6 +26,23 @@ export function matchesVideoIntentRequest(request: VideoIntentRequest, saved: Vi
   return Object.entries(request).every(([key, value]) => canonical(value) === canonical(saved[key]));
 }
 
+/** A confirmed backend draft revision is a durable preparation identity.
+ * Reloads and concurrent clients reuse its references; retiring/editing the draft
+ * advances the revision before an intentional new generation. No prompt or
+ * credential is exposed in a browser URL by these internal UUIDs. */
+export async function videoDraftSubmissionIds(identity: string, revision: number) {
+  if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('A confirmed draft revision is required.');
+  async function reference(kind: string) {
+    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(['niu.video.draft.v1', identity, revision, kind]))));
+    // UUIDv8 carries application-defined, deterministically derived bytes.
+    hash[6] = (hash[6] & 0x0f) | 0x80;
+    hash[8] = (hash[8] & 0x3f) | 0x80;
+    const hex = Array.from(hash.slice(0, 16), value => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+  return {intentId: await reference('intent'), turnId: await reference('turn')};
+}
+
 function checkInput(input: VideoSessionIntentInput) {
   for (const id of [input.sessionId, input.turnId, input.intentId, input.keyId]) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id) || id === '00000000-0000-0000-0000-000000000000') throw new Error('Stable nonnil Video references are required.');
