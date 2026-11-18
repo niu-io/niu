@@ -169,6 +169,11 @@ release_image() {
     printf '%s' "$image"
   elif [[ "$status" == 404 ]]; then
     rm -f "$manifest"
+    # v0.3.1 introduced digest-pinned releases.
+    if [[ ! "$tag" =~ ^v0\.([012]\.[0-9]+|3\.0)(-[0-9A-Za-z.-]+)?$ ]]; then
+      echo "error: release ${tag} requires a published IMAGE_DIGEST." >&2
+      return 1
+    fi
     echo "Release ${tag} has no pinned image manifest; using the legacy tag/source-build path." >&2
     printf '%s:%s' "$IMAGE_REPO" "$tag"
   else
@@ -190,6 +195,9 @@ cmd_install() {
     exit 1
   }
 
+  local target_image
+  target_image="$(release_image "$tag")"
+
   ensure_files "$dir" "$tag"
   local env_file="${dir}/.env"
   touch "$env_file"
@@ -208,8 +216,6 @@ cmd_install() {
     set_env_var "$env_file" OPENROUTER_API_KEY "${OPENROUTER_API_KEY:-sk-or-v1-replace-me}"
   fi
 
-  local target_image
-  target_image="$(release_image "$tag")"
   set_env_var "$env_file" NIU_HOST_PORT "$port"
   set_env_var "$env_file" NIU_VERSION "$tag"
   set_env_var "$env_file" NIU_IMAGE "$target_image"

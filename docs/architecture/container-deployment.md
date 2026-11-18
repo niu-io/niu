@@ -48,7 +48,8 @@ uses that digest for installation and upgrades; an unavailable pinned image is a
 failure, not permission to substitute another build. This publication gate does
 not replace staging acceptance or a fresh installation of the resulting artifact.
 
-Older releases without `IMAGE_DIGEST` retain the legacy image-tag and remote
+Starting with v0.3.1, a missing `IMAGE_DIGEST` stops installation and upgrade.
+Releases through v0.3.0 without `IMAGE_DIGEST` retain the legacy image-tag and remote
 tagged-source fallback with an explicit warning. The installer never tags an
 arbitrary local checkout as a requested release. Legacy fallback does not repair
 an existing tag/asset provenance mismatch; publish a new accepted patch instead.
