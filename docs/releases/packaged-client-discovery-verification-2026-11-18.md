@@ -186,3 +186,21 @@ authenticated discovery and credential recovery for these development inputs;
 it does not qualify Codex inference, host-specific browser onboarding, or final
 published installation. The existing `CLIENT-03` ownership and open acceptance
 scope are preserved.
+
+The subsequent Codex native invocation used the same built runtime and a fresh
+15-minute credential restricted to `qiniu/deepseek-v4.1-flash`, with a zero-USD
+Niu spending cap. A current model read independently confirmed zero prompt and
+completion rates, minimum charge and request fee before submission. The native
+`create_chat_completion` tool returned exactly `CODEX_NATIVE_20261118_0058` for
+the current input. The native `get_generation` response exactly matched an
+independent direct HTTP read. Administrative request inventory contained exactly
+one matching `confirmed_completed` attempt, with 48 prompt tokens, 91 completion
+tokens and zero customer charge. This is an actual model completion dispatched
+through a deterministic native tool call, not a coding-agent task or fixture.
+
+Revocation again returned 204, independent access returned 401, and the same host
+rejected revoked and removed credentials. The task host stopped and user
+configuration remained byte-identical. This adds Codex native invocation and
+result inspection for the recorded development artifact. It does not establish
+positive-price billing or replace final published-artifact and onboarding
+acceptance.
