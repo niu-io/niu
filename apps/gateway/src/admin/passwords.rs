@@ -353,7 +353,9 @@ pub(super) fn worker_error(error: PasswordWorkError) -> ApiError {
 
 pub(super) fn runtime(state: &AppState) -> Result<&Runtime, ApiError> {
     state.password_auth.as_deref().ok_or_else(|| {
-        ApiError::unsupported_message("Production password sign-in is not configured")
+        ApiError::unsupported_message(
+            "Ask the installation administrator to set NIU_AUTH_PUBLIC_ORIGIN to the trusted HTTPS origin for browser authentication",
+        )
     })
 }
 
