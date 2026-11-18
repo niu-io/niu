@@ -45,7 +45,7 @@ import { keyRequest, workspaceKeyPath, type ProjectKey } from '@/features/keys/a
 import { formatUnitAtoms, money } from '@/lib/money';
 import { formatDurationMs, formatDurationSeconds } from '@/lib/duration';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import { controlLabels, initialControls, videoRequest, type ControlValues } from './request';
+import { controlLabels, initialControls, needsUnquotedConfirmation, videoRequest, type ControlValues } from './request';
 import VideoResult from './VideoResult';
 import VideoBilling from './VideoBilling';
 import VideoLifecycle from './VideoLifecycle';
@@ -276,7 +276,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   useEffect(()=>{setImages([]);setWaitingForImages(false);},[base,modelId]);
 
   const quoteMatches = Boolean(quote && quotedBody === JSON.stringify(form.body));
-  const unquotedOwnerFunded = model?.mode === 'owner_funded' && model.output === null;
+  const unquotedOwnerFunded = needsUnquotedConfirmation(model, controls);
   const confirmationMatches = Boolean(unquotedConfirmation && unquotedOwnerFunded && unquotedConfirmation.body === JSON.stringify(form.body) && unquotedConfirmation.generation === currentGeneration() && unquotedConfirmation.job === selected && unquotedConfirmation.intent === intentId);
 
 
@@ -756,7 +756,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             {!canWrite && !composerCover && <small className="video-muted">{unquotedOwnerFunded ? uiT("Generation needs write access.") : uiT("Read access can estimate; generation needs write access.")}</small>}
           </div>
         </form>
-        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();unquotedTriggerRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
+        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();unquotedTriggerRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
         <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{uiT("Reference materials & verification")}</DialogTitle><DialogDescription>{uiT("Manage reference materials and human verification required by this video model.")}</DialogDescription></DialogHeader>{toolsModule&&<ProviderGenerationTools toolsKey={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} modelId={modelId} keyId={keyId} module={toolsModule}/>}</DialogContent></Dialog>
         </>}
       </div>

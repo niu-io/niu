@@ -23,7 +23,7 @@ import { workspacePathSegment } from '@/shell/workspace-route';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import type { useGenerationKeys } from './useGenerationKeys';
 import { VIDEO_MODELS_FRESH_MS, videoModelsCacheKey } from './video-cache';
-import { controlLabels, initialControls, videoRequest, validateSavedVideoReferences, type ControlValues } from '../video/request';
+import { controlLabels, initialControls, needsUnquotedConfirmation, videoRequest, validateSavedVideoReferences, type ControlValues } from '../video/request';
 import { matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
 import { VideoIntent } from '../video/intent';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
@@ -101,7 +101,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       setModelId(restoredModel);modelIdRef.current=restoredModel;
       setControls(Object.fromEntries(Object.entries(saved.controls).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
     }});
-  const unquotedOwnerFunded = model?.mode === 'owner_funded' && model.output === null;
+  const unquotedOwnerFunded = needsUnquotedConfirmation(model, controls);
   const confirmationIdentity = JSON.stringify([token, workspace?.id, context.session?.operator?.id, session.id, keyEditRevision, canWrite, payload, model]);
   const latestConfirmationIdentity = useRef(confirmationIdentity);
   latestConfirmationIdentity.current = confirmationIdentity;
@@ -251,7 +251,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   }
   return <><Dialog open={unquotedConfirmation !== null} onOpenChange={open => { if (!open) setUnquotedConfirmation(null); }}>
     <DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); generateRef.current?.focus(); }}>
-      <DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader>
       <p className="break-words text-sm">{model && catalogTitle({id: model.id})}</p>
       {!confirmationMatches && <p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}
       <DialogFooter><Button variant="outline" onClick={() => setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches || !canWrite || busy || loading || restoringDraft || Boolean(cover)} onClick={() => { if (confirmationMatches && unquotedConfirmation) void generate(unquotedConfirmation); }}>{uiT("Generate video")}</Button></DialogFooter>

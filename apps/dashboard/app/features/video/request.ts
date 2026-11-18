@@ -8,6 +8,14 @@ const controlLabel = (name: string) => translateUI(controlLabels[name] ?? name);
 export function initialControls(model: VideoModel): ControlValues {
   return Object.fromEntries(Object.entries(model.controls).filter(([,control]) => control.default !== null).map(([name,control])=>[name,typeof control.default === 'boolean' ? control.default : String(control.default)]));
 }
+export function needsUnquotedConfirmation(model: VideoModel | null | undefined, controls: ControlValues): boolean {
+  if (model?.mode !== 'owner_funded') return false;
+  if (!model.output) return true;
+  if (!model.output.allow_unmapped_output) return false;
+  const resolution = controls.resolution || model.controls.resolution?.default;
+  const ratio = controls.ratio || model.controls.ratio?.default;
+  return !model.output.specifications.some(spec => spec.resolution === resolution && spec.ratio === ratio);
+}
 export function videoRequest(model: VideoModel, prompt: string, controls: ControlValues, images: ImageReference[] = []): VideoCreateRequest {
   if (!prompt.trim()) throw new Error('Enter a prompt.');
   if (new TextEncoder().encode(prompt).length > model.text.maximum_bytes) throw new Error('The prompt exceeds this model’s text limit.');

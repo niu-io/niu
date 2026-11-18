@@ -2865,7 +2865,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Reset settings": "重置设置",
   "This model has no native Provider tools.": "此模型没有原生 Provider 工具。",
   "Generate video with your Provider account": "使用你的 Provider 账户生成视频",
-  "No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.": "此模型未配置输出估算，Provider 可能向你的账户收费。此操作发送一次请求，结果不确定时必须先检查，再考虑重新提交。",
+  "No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.": "当前视频配置暂无输出量估算，Provider 可能向你的账户收费。此操作发送一次请求，结果不确定时必须先检查，再考虑重新提交。",
   "The request or access changed. Close this dialog and review the current request.": "请求或访问权限已改变。请关闭对话框并审阅当前请求。",
   "Generate video": "生成视频",
   "Provider tools": "Provider 工具",
