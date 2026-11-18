@@ -204,3 +204,13 @@ configuration remained byte-identical. This adds Codex native invocation and
 result inspection for the recorded development artifact. It does not establish
 positive-price billing or replace final published-artifact and onboarding
 acceptance.
+
+## Release-branch package consumption and inference
+
+The SDK and MCP package checks used fresh source archives of release commit `99ed9dbff27b0e2cf004c1eb7ea2f987256350f2`. Each built tarball was installed offline into an empty consumer directory. The SDK archive had SHA-256 `f6f91b34cd44bb5c5df5a343079bc1068c80b52871e5176f106bb13746ef7e7e`. All eight declared entry points loaded in Node.js, and a strict NodeNext TypeScript consumer compiled against their declarations.
+
+The installed SDK verification example used a fresh model-scoped key against staging core `c3008ded`. The ordinary completion returned text with 37 input and 30 output tokens. The stream returned text and a finish event with 37 input and 12 output tokens. Independent request inventory contained exactly those two completed requests with zero customer charge. The example requested payload retention to be disabled.
+
+The MCP archive had SHA-256 `2d85f339067a5da5aefa12a949a76f00362580df00f80d78fc8f27e034e2ba7d`. Its installed executable negotiated protocol version `2025-03-26` and listed 51 distinct tools. Against staging, catalog discovery matched all four model IDs in the independent public API response. Scoped model discovery matched the sole model granted to the key. A separate fresh key submitted one bounded completion. The response was exactly `MCP_RELEASE_031_OK`. Independent inventory contained one completed request with 41 input and 40 output tokens and zero customer charge. The temporary credentials were revoked and direct reuse returned 401.
+
+Anonymous retrieval of the historical MCP tarball linked from the README succeeded. The archive from tag `v0.2.14` installed in a clean prefix. Public npm registry queries returned 404 for the two package names and their 0.1.0 versions. The SDK guide documents installation from a source build. Current execution status for native host installation and final distribution remains in `niu-nrcn.9`.
