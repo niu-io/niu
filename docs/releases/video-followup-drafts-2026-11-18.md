@@ -184,3 +184,38 @@ exact hosted text-draft/reauthentication evidence. Retained image references
 and unsupported-model recovery remain a separate hosted acceptance requirement;
 the earlier local scope/isolation evidence is not relabeled as hosted evidence.
 Fixture outcomes were disregarded.
+
+## Hosted retained-image recovery, 2026-11-18
+
+Hosted core `fd1ec05d5e095684b7c55d2ce25be6c1c95b40ba` received a fresh
+upload of the actual 22,353-byte PNG. An empty actor draft was saved with a
+current verification prompt and a typed reference to that uploaded asset.
+The saved-session page restored the reference and linked to the full composer.
+The full composer displayed the meaningful filename and decoded 512×512 image,
+with an explicit unsupported-model error and disabled generation action.
+Desktop and 390px screenshots were inspected: image, name, keyboard-accessible
+removal control, prompt, error and actions remained inside the viewport.
+
+Keyboard Enter on Remove removed only the reference. Independent draft readback
+at revision 88 had no references; the generation action became enabled. The
+workspace asset still returned 200 and downloaded byte-identically to the source:
+SHA-256 `4ff254f73bd098c41eccaa9f78440592749bf6a44196f86d85851e874dbc8491`.
+Reattaching the reference with the observed revision, actually logging out, then
+logging back in restored the current prompt and decoded image; unsupported
+generation was again disabled. No Estimate or Generate action was invoked.
+
+An initial observer expected the filename in image alt text, whereas the
+preview uses an adjacent visible filename and empty alt; that diagnostic wait
+timed out and was replaced with an actual decoded-image predicate. After the
+narrow keyboard removal, a desktop-sidebar locator was unavailable in the
+mobile layout; no navigation occurred until the current desktop state was
+observed. Neither automation mismatch is reported as product behavior.
+
+Cleanup ran after leaving the composer and required the exact current prompt,
+reference and revision. Independent readback confirmed an empty draft at
+revision 90. Only this newly uploaded test asset was then deleted (204).
+Browser logout returned 204 and Login loaded. Together with the preceding
+hosted text-draft/reauthentication run and the earlier same-implementation
+conflict, principal/workspace-isolation and actual follow-up evidence, this
+completes the bounded `niu-woo7` and `niu-s69p` acceptance. Overall release
+acceptance and database reliability remain separate. No fixture outcome is used.
