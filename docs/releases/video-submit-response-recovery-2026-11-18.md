@@ -138,3 +138,29 @@ an actor-private metadata route and received 401/404; the authenticated browser
 read of that original metadata returned 200. Those diagnostic errors do not establish
 product authorization defects. Exact hosted-candidate acceptance, the earlier
 settled pending-warning layout check and unquoted Seedance execution remain open.
+
+## Combined-candidate pending warning inspection
+
+The combined local Dashboard at `60fd5739`, backed by the actual staging service,
+was opened with the existing saved request `input-1007` in its pending URL state.
+This deliberately revisits an actual retained request; it does not simulate a new
+lost response or submit another generation.
+
+Settled screenshots were inspected at 1024 × 900 with workspace navigation both
+expanded and collapsed, and at 390 × 844. The composer widths were respectively
+464, 640 and 390 pixels. Document width matched viewport width; the warning and
+both recovery actions remained readable without clipping. The narrow warning
+wrapped above its actions, and Generate stayed disabled. An initial screenshot
+during the sidebar transition was excluded in favor of the settled layout.
+
+Keyboard Enter on Check status removed the pending query and focused the original
+`run-1116`. All browser fetches captured for that action were GET requests; no
+generation was resubmitted. Independent administrative inventory still contained
+exactly the one original completed attempt. The immediate focused-result image
+was still loading, so that capture does not requalify final media readiness; the
+independently decoded artifact evidence above remains the relevant media record.
+Logout returned 204 and reload reached Sign in before the browser was closed.
+
+This closes the previously missing settled pending-warning layout inspection.
+It does not replace exact hosted-candidate acceptance or successful unquoted
+Provider execution. Fixture outcomes were not used.
