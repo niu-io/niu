@@ -4214,6 +4214,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Choose the models this workspace may call.": "选择此工作空间可调用的模型。",
   "Ask a workspace administrator to create or share a key.": "请工作空间管理员创建或共享 API 密钥。",
   "Connect a Provider and import its models.": "接入模型供应商并导入其模型。",
+  "Output limit exceeds the priced route bound": "最大输出 Token 数超过此模型路由允许的上限。请在对话设置中降低最大输出 Token 数后重试。",
+  "This service is not ready to process the request; contact the platform administrator": "服务尚未就绪，无法处理此请求；请联系平台管理员确认此工作空间的服务配置。",
   "Ask a platform administrator to make a model available.": "请平台管理员提供可用模型。",
   "Read the API quickstart": "阅读 API 快速开始",
   "Use HTTP or SDK examples with your workspace key.": "使用工作空间密钥参考 HTTP 或 SDK 示例。",
