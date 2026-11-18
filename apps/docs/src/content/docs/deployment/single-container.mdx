@@ -100,6 +100,16 @@ New keys can access all model routes available in their workspace. Keys with exp
 
 Non-streaming responses include `x-niu-operation-id` and `x-niu-attempt-id` after dispatch, including provider errors. Streaming responses include these IDs on successful establishment. Every HTTP request also accepts or generates an edge correlation header (`x-request-id`) and echoes it on responses, including pre-dispatch authentication (`401`) and readiness (`503`) responses. The OpenAI-compatible streaming adapter persists completion and valid usage at the terminal event. Request `stream_options: {"include_usage": true}` when supported by the provider; the JavaScript SDK does this automatically. Missing/conflicting usage stays unknown, and interrupted streams remain uncertain. SSE events larger than 64 KiB are rejected. `/readyz` verifies database reachability, embedded migration schema currency, active routing registry resolution, and encryption key operability within a bounded timeout; `/healthz` reports process liveness.
 
+## Commercial workspace provisioning
+
+Before commercial requests, an installation administrator must configure customer prices/spending capacity and separate platform procurement capacity. Workspace creation, customer gifts and standard-price enrollment do not create a procurement budget.
+
+Inspect it with the installation administrator credential: `GET /admin/v1/organizations/{organization_id}/projects/{project_id}/budget?currency=USD`. Null `data` means unconfigured. Use the route’s actual currency; no conversion is implied.
+
+For a missing budget, `POST /admin/v1/organizations/{organization_id}/projects/{project_id}/budget` accepts `{"currency":"USD","limit_nanos":"0"}`. Use zero only when the platform explicitly authorizes zero procurement expenditure and the route’s procurement rates are zero. It does not authorize paid supply. For paid supply, choose an explicitly authorized lifetime amount in currency nanounits (one currency unit is 1,000,000,000 nanounits), considering existing commitments. An example amount is not spending authorization. Keep administrator credentials and procurement configuration outside customer applications.
+
+Read back the configuration before a new bounded request, then inspect its request record and customer charge. Missing or exhausted procurement capacity returns `503 service_not_ready`; customer balance exhaustion remains `402 budget_exceeded`. Adding customer credit does not repair platform capacity. A catalog listing or saved key does not prove readiness. See the [billing contract](https://github.com/niu-io/niu/blob/release/0.3/docs/architecture/billing.md).
+
 ## Rolling deployments, migrations, and observability
 
 For zero-downtime rolling upgrades across multiple gateway instances:
@@ -219,6 +229,16 @@ docker compose up -d --build niu
 新建密钥可以访问其所属工作空间内所有可用的模型路由。带有明确模型限制的密钥将收到过滤后的模型列表。在调度准入时会重新检查密钥的吊销和过期状态。设置默认工作空间需要安装引导令牌；安装引导令牌与已认证的成员会话均可创建组织。限定作用域的操作员可以根据其角色管理被允许的工作空间资源；操作员与会话管理则需要所有者（owner）权限。
 
 非流式响应在调度后（包括供应商报错时）会包含 `x-niu-operation-id` 和 `x-niu-attempt-id` 响应头。流式响应在成功建立连接时包含这些 ID。每个 HTTP 请求还会接收或生成边缘关联请求头（`x-request-id`），并在响应中原样回传（包括分发前的 `401` 认证响应与 `503` 就绪检查响应）。兼容 OpenAI 的流式适配器会在结束事件处持久化完成状态和有效用量。当供应商支持时，请请求 `stream_options: {"include_usage": true}`；JavaScript SDK 会自动执行此操作。缺失或冲突的用量将保持未知状态，中断的流则保持不确定状态。超过 64 KiB 的 SSE 事件会被拒绝。`/readyz` 在有界超时内校验数据库连通性、内嵌迁移 Schema 版本一致性、活跃路由注册表解析以及加密密钥可用性；`/healthz` 报告进程存活状态。
+
+## 商业工作空间配置
+
+商业请求开始前，实例管理员必须分别配置客户价格与消费能力，以及平台采购容量。创建工作空间、发放客户余额和标准价格授权都不会创建采购预算。
+
+使用实例管理员凭据调用 `GET /admin/v1/organizations/{organization_id}/projects/{project_id}/budget?currency=USD`。`data` 为 null 表示尚未配置。请使用路由实际币种；系统不会自动换汇。
+
+对于缺失的预算，`POST /admin/v1/organizations/{organization_id}/projects/{project_id}/budget` 接受 `{"currency":"USD","limit_nanos":"0"}`。仅当平台明确授权采购支出为零，且路由采购费率为零时才使用零值；它不授权付费供给。付费供给的累计金额必须由管理员明确授权，并考虑已有承诺。金额单位为币种纳单位（一个币种单位等于 1,000,000,000 纳单位）。示例金额不是消费授权。管理员凭据和采购配置不得进入客户应用。
+
+先读回配置，再发起新的有界请求，完成后检查请求记录与客户费用。采购容量缺失或耗尽返回 `503 service_not_ready`；客户余额不足仍返回 `402 budget_exceeded`。增加客户余额不能修复平台容量。目录中存在模型或已保存密钥，不代表服务已经就绪。详见[计费契约](https://github.com/niu-io/niu/blob/release/0.3/docs/architecture/billing.md)。
 
 ## 滚动部署、数据库迁移与可观测性
 
