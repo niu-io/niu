@@ -54,3 +54,24 @@ The fresh-key finding violates the expected task continuation and recognizable r
 The release decision is **blocked by observed failures**, not delegated to the operator for manual verification. Positive-charge accounting is established for an isolated native installation using real free upstream inference; live merchant settlement is not. Video execution, generated-media integrity and uncertain paid-job recovery cannot be qualified from estimate failures or old saved jobs. Configure and qualify those routes under explicit bounded spending authority before accepting that branch.
 
 This review also does not certify sustained production reliability, every integration/protocol, every administrative workflow, or all role/resource combinations. The current release gate still requires exact-tip CI and staging acceptance after repairs. Keep `niu-nrcn` open until its retained acceptance scope is met; publish a coherent immutable patch candidate instead of moving the existing tag.
+
+## Payment configuration reinspection — 2026-11-18
+
+A read-only inspection of the two authorized running Niu deployments checked
+both service environment configuration and the platform's persisted settings.
+The environment responses were complete within their requested page limits.
+Neither supplied a native EPay, Zhifux or Stripe merchant configuration through
+environment settings. Persisted EPay settings were disabled and had no merchant,
+key or endpoint. The platform configuration reported EPay and Zhifux checkout
+disabled; the mock-payment control endpoint independently returned available and
+enabled for both deployments.
+
+Stripe-shaped checkout readiness in this configuration therefore does not prove
+real payment settlement. Account verification remained absent and callback
+verification false. This inspection did not locate an existing reusable real
+merchant configuration; it does not assert that no merchant account exists
+elsewhere. No configuration, checkout, order or payment was changed or created.
+Service identifiers and raw administrative responses remain in the private
+verification archive. `niu-nrcn.6` retains the real-checkout/settlement requirement
+and the outstanding operator configuration/authority dependency. Fixture results
+were not used.
