@@ -32,6 +32,10 @@ impl OutputEstimator {
 #[serde(deny_unknown_fields)]
 pub struct OutputSchema {
     pub specifications: Vec<OutputSpecification>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_frames_per_second: Option<u32>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_unmapped_output: bool,
     pub estimator: OutputEstimator,
     pub estimator_revision: String,
 }
@@ -48,7 +52,11 @@ pub struct EffectiveVideoOutput {
 }
 impl OutputSchema {
     pub(crate) fn validate(&self, schema: &VideoSchema) -> Result<(), ValidationError> {
-        if !valid_name(&self.estimator_revision)
+        if self.observed_frames_per_second.is_some_and(|fps| {
+            fps == 0
+                || self.estimator != OutputEstimator::SeedancePixelsV1
+                || schema.controls.contains_key("frames_per_second")
+        }) || !valid_name(&self.estimator_revision)
             || self.specifications.is_empty()
             || self.specifications.len() > 256
         {
@@ -56,7 +64,8 @@ impl OutputSchema {
         }
         for name in ["resolution", "ratio", "duration", "frames_per_second"] {
             if name == "frames_per_second"
-                && self.estimator == OutputEstimator::OutputSecondsV1
+                && (self.estimator == OutputEstimator::OutputSecondsV1
+                    || self.observed_frames_per_second.is_some())
                 && !schema.controls.contains_key(name)
             {
                 continue;
@@ -73,7 +82,8 @@ impl OutputSchema {
         }
         for name in ["duration", "frames_per_second"] {
             if name == "frames_per_second"
-                && self.estimator == OutputEstimator::OutputSecondsV1
+                && (self.estimator == OutputEstimator::OutputSecondsV1
+                    || self.observed_frames_per_second.is_some())
                 && !schema.controls.contains_key(name)
             {
                 continue;
@@ -97,10 +107,11 @@ impl OutputSchema {
                 .controls
                 .get("ratio")
                 .and_then(Control::default_value),
-        ) && !self
-            .specifications
-            .iter()
-            .any(|v| v.resolution == resolution && v.ratio == ratio)
+        ) && !self.allow_unmapped_output
+            && !self
+                .specifications
+                .iter()
+                .any(|v| v.resolution == resolution && v.ratio == ratio)
         {
             return Err(ValidationError::InvalidSchema);
         }
@@ -129,7 +140,7 @@ impl OutputSchema {
         &self,
         controls: &Map<String, Value>,
         revision: &str,
-    ) -> Result<EffectiveVideoOutput, ValidationError> {
+    ) -> Result<Option<EffectiveVideoOutput>, ValidationError> {
         let resolution = controls
             .get("resolution")
             .and_then(Value::as_str)
@@ -141,16 +152,25 @@ impl OutputSchema {
         let specification = self
             .specifications
             .iter()
-            .find(|v| v.resolution == resolution && v.ratio == ratio)
-            .ok_or(ValidationError::InvalidControl)?
-            .clone();
+            .find(|v| v.resolution == resolution && v.ratio == ratio);
+        let Some(specification) = specification.cloned() else {
+            return if self.allow_unmapped_output {
+                Ok(None)
+            } else {
+                Err(ValidationError::InvalidControl)
+            };
+        };
         let duration_seconds = controls
             .get("duration")
             .and_then(Value::as_u64)
             .filter(|v| *v > 0)
             .ok_or(ValidationError::InvalidControl)?;
         let frames_per_second = match controls.get("frames_per_second") {
-            None if self.estimator == OutputEstimator::OutputSecondsV1 => None,
+            None if self.observed_frames_per_second.is_some()
+                || self.estimator == OutputEstimator::OutputSecondsV1 =>
+            {
+                self.observed_frames_per_second
+            }
             value => Some(
                 value
                     .and_then(Value::as_u64)
@@ -159,14 +179,14 @@ impl OutputSchema {
                     .ok_or(ValidationError::InvalidControl)?,
             ),
         };
-        Ok(EffectiveVideoOutput {
+        Ok(Some(EffectiveVideoOutput {
             specification,
             duration_seconds,
             frames_per_second,
             schema_revision: revision.into(),
             estimator: self.estimator,
             estimator_revision: self.estimator_revision.clone(),
-        })
+        }))
     }
 }
 
