@@ -2859,6 +2859,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Reserves up to": "最多预留",
   ". Final charge follows reported usage.": "。最终费用按已报告用量计算。",
   "Estimate unavailable. Your Provider may charge your account.": "估算不可用，Provider 可能向你的账户收费。",
+  "No output estimate is available for this video configuration": "当前视频配置暂无输出量估算。",
   "No effective video output estimator is configured": "此模型尚未配置视频输出估算。",
   "Video settings": "视频设置",
   "Reset settings": "重置设置",
