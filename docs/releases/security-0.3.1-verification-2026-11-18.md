@@ -97,3 +97,19 @@ It is not an exhaustive penetration test or overall release acceptance.
 Reading retained billing records does not establish a new positive-charge
 invocation on 0.3.1, real merchant settlement or the remaining BILLING-03 scope.
 Database reliability and all other release cases retain their own requirements.
+
+## Integrated candidate revalidation
+
+On 2026-11-18, fresh current-input checks ran against core `c3008ded8df5d2b9fcde1f3edd21f6986f463b22`, composition `3450d3192af01a8d6ec6768b75c040afcb7f9a7e`, retaining the website revision above. The live composition was checked before and after the operations. The earlier candidate's acceptance is historical; it is not inherited by this candidate.
+
+Two new organizations/workspaces and three new owner identities repeated the actual data and mutation journey. Foreign draft reads and writes returned 403, with the exact authorized draft preserved. A separate owner in the same workspace had no personal draft. Foreign key listing and workspace rename returned 404; independent readback preserved the original name. Inference credentials could not access administration (401) or undelegated routing (403).
+
+Demotion changed the unchanged owner's token immediately: draft read remained 200, while key issuance and rename returned 403. Stale role comparison returned 409. Revocation returned 204 and original-token reuse returned 401, while the independent remaining owner remained authorized. Independent inventory contained exactly the one intended key and the original workspace name. All temporary keys and actors were revoked and their original credentials denied. Workspace deletion returned 409, preserving audit records.
+
+A separate fresh key was restricted to a currently configured Conatus model. Current model discovery also confirmed the DeepSeek model used for the negative request. Independent key readback confirmed the grant. A real request for that out-of-grant model returned 404 `not_found_error`; independently read key-scoped request inventory remained empty. Revocation returned 204 and original-token reuse returned 401.
+
+A new ordinary organization owner read the retained isolated billing scope through the current deployment. Billing, balance, transactions and requests returned 200. The three retained request identities matched their original actual text/image invocation records, each charged 10,000 nanounits. Ledger amounts reconciled to the unchanged 990,192-nanounit balance. Customer projections contained none of the inspected procurement, expense, margin or credential fields; the procurement, commercial-position, financial-summary and pricing administration requests each returned 403.
+
+A newly downloaded customer CSV contained three rows and 1,163 bytes, SHA-256 `69f21245cf60665be6fbf3844ef8a6d6ad5fd8097bb7f5177a7c7b8e519692ce`. Independent parsing matched every input-token/output-token/customer-charge tuple to current request readback. The temporary customer owner was revoked and original-token reuse returned 401. No new inference, credit grant or merchant payment was performed for this projection inspection.
+
+These observations revalidate the described API isolation, live role/credential changes, model grant and populated customer export boundaries. Current-candidate browser device authorization remains outstanding, so SECURITY-03 is not yet accepted for this candidate. The retained-request inspection does not establish a new positive-price invocation or the remaining BILLING-03 UI and payment requirements. No fixture outcome supports these conclusions.
