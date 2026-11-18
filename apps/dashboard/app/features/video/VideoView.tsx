@@ -25,6 +25,7 @@ import { ScanFace } from 'lucide-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobState, VideoModelList, VideoTransportTimings } from '@niu-io/sdk';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask, type VideoComposerDraftPayload } from '@niu-io/sdk/admin';
 import { useVideoDraft, type VideoDraftTicket } from './useVideoDraft';
+import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { VideoIntent } from './intent';
 import { prepareVideoSessionIntent } from './session-intent';
 import { findVideoIntent, videoSessionTitle } from './intent-history';
@@ -101,11 +102,12 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
   const [search,setSearch]=useSearchParams();
+  const latestSearch=useRef(search);latestSearch.current=search;
   const location=useLocation();
   const {isMobile,setOpenMobile}=useSidebar();
   const [keys,setKeys]=useState<ProjectKey[]>([]);
   const [allKeys,setAllKeys]=useState<ProjectKey[]>([]);
-  const keyReference=(id:string)=>allKeys.find(key=>key.id===id)?.slug || id;
+  const keyReference=(id:string)=>allKeys.find(key=>key.id===id)?.slug || availableKeys.keys.find(key=>key.id===id)?.slug || id;
   const [keysScope,setKeysScope]=useState('');
   const [keysError,setKeysError]=useState('');
   const [keysRevision,setKeysRevision]=useState(0);
@@ -118,6 +120,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const [draftReferences,setDraftReferences]=useState<VideoComposerDraftPayload['references']>([]);
   const [draftSessionId,setDraftSessionId]=useState<string|null>(null);
   const [composerEdited,setComposerEdited]=useState(false);
+  const [draftRestored,setDraftRestored]=useState(false);
   const restoredComposer=useRef<{identity:string;keyId:string|null;model:string|null}|null>(null);
   // Composer fields the user changed before a slow saved-draft read settled.
   // A late restore may fill untouched fields but must never revert these.
@@ -203,18 +206,21 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   },[intentClient,workspace?.organization_id,workspace?.id,selected,intentId,busy==='create',revision]);
   const scopePath=workspace ? workspaceKeyPath(workspace.id) : '';
   const composerIdentity=JSON.stringify([token,scopePath,session?.operator?.id??session?.kind]);
-  const mutableComposer=!selected&&!intentId;
+  const mutableComposer=!intentId||Boolean(intentDocument?.job);
+  const selectedTaskReady=!selectedReference||Boolean(savedTask&&(savedTask.id===selectedReference||savedTask.reference===selectedReference));
+  const followUpSessionId=savedTask?.session_id??intentDocument?.session_binding?.session_id??null;
   const composerControls=Object.fromEntries(Object.entries(controls).filter(([name])=>['duration','seed','frames_per_second','resolution','ratio','omni_reference_task_type','watermark','camera_fixed','return_last_frame'].includes(name))) as VideoComposerDraftPayload['controls'];
-  const composerValue:VideoComposerDraftPayload={keyId:keyId||null,sessionId:draftSessionId,model:modelId||null,prompt,controls:composerControls,references:draftReferences};
+  const composerValue:VideoComposerDraftPayload={keyId:keyId||null,sessionId:selectedReference?followUpSessionId:draftSessionId,model:modelId||null,prompt,controls:composerControls,references:draftReferences};
   const draft=useVideoDraft({client:intentClient,scope:workspace?{organizationId:workspace.organization_id,projectId:workspace.id}:null,
-    identity:composerIdentity,contextIdentity:JSON.stringify([composerIdentity,keyId,modelId]),enabled:Boolean(token&&workspace&&mutableComposer),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent,value:composerValue,
+    identity:composerIdentity,enabled:Boolean(token&&workspace&&mutableComposer&&selectedTaskReady),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent||(Boolean(selectedReference)&&!composerEdited&&!draftRestored),value:composerValue,
     restore:saved=>{
       const force=acceptDraft.current;acceptDraft.current=false;
       // A late read may only fill composer fields the user has not edited. A
       // dispatch that already started, or an uncertain outcome, keeps the
       // current input and context untouched.
       if(lock.current||submitPending.current||uncertain||dispatchAttempted.current)return;
-      if(!saved)return;
+      if(!saved || (selectedReference&&saved.sessionId!==followUpSessionId))return;
+      setDraftRestored(true);
       const edits=composerEdits.current;
       const requestedKey=search.get('key');
       const requestedModel=search.get('model');
@@ -238,14 +244,15 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       setComposerEdited(force?false:Object.values(composerEdits.current).some(Boolean));
       if(force)composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};
     }});
-  useEffect(()=>{setSubmittedPrompt('');setPrompt('');setDraftReferences([]);setDraftSessionId(null);setComposerEdited(false);restoredComposer.current=null;composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};acceptDraft.current=false;dispatchAttempted.current=false;},[composerIdentity]);
+  useEffect(()=>{setDraftRestored(false);setSubmittedPrompt('');setPrompt('');setDraftReferences([]);setDraftSessionId(null);setComposerEdited(false);restoredComposer.current=null;composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};acceptDraft.current=false;dispatchAttempted.current=false;},[composerIdentity]);
+  const draftNavigation=useDraftNavigation({hasUnsavedChanges:()=>mutableComposer&&!busy&&composerEdited&&(!draft.ready||draft.dirty),flush:async()=>Boolean(await draft.flush())});
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const savedModel=intentDocument?.model??savedTask?.model;
   const submissionStopped=intentDocument?.submission_state==='not_dispatched';
   const originalKey=allKeys.find(key=>key.id===keyId);
   const keyCanReadModel=keys.some(key=>key.id===keyId&&(!savedModel||!key.allowed_models||key.allowed_models.includes('*')||key.allowed_models.includes(savedModel)));
   const base=keyId && keysScope===keyScopeIdentity && keyCanReadModel ? keyId : '';
-  const historicalReadOnly=Boolean((intentDocument||savedTask)&&!base&&!loading);
+  const historicalReadOnly=Boolean(!loading&&(originalKey?.revoked||originalKey?.expired||((intentDocument||savedTask)&&!base)));
   const responseScope = useRef({ identity: '', generation: 0 });
   const responseIdentity = JSON.stringify([token, base]);
   if (responseScope.current.identity !== responseIdentity) responseScope.current = { identity: responseIdentity, generation: responseScope.current.generation + 1 };
@@ -293,7 +300,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       primeQuery(token,scopePath,payload,{persist:true});
       const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setAllKeys(payload.data);setKeysScope(keyScopeIdentity);
       setKeyId(current=>{
-        const requested=search.get('key');
+        const requested=latestSearch.current.get('key');
         if(requested)return payload.data.find(key=>key.slug===requested||key.id===requested)?.id ?? requested;
         const restored=restoredComposer.current;
         if(restored?.identity===composerIdentity&&restored.keyId)return restored.keyId;
@@ -484,7 +491,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
 
   // Only reconcile an existing job. Polling never creates or retries a submission.
   useEffect(()=>{
-    if(!base || !selected || !job || !['queued','running'].includes(job.status))return;
+    if(!base || !selected || !job || !['queued','running','unknown'].includes(job.status))return;
     const controller=new AbortController();let pending=false;
     const timer=window.setInterval(async()=>{
       if(pending || lock.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden'))return;pending=true;
@@ -513,7 +520,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
     }
     composerEdits.current={prompt:true,key:true,model:true,controls:true,references:true,images:true};
     restoredComposer.current={identity:composerIdentity,keyId:id,model:modelId||null};
-    setComposerEdited(true);setKeyId(id);
+    setComposerEdited(true);setKeyId(id);setKeysRevision(value=>value+1);
     const next=new URLSearchParams(search);next.set('key',keyReference(id));next.delete('job');next.delete('intent');next.set('new','video');
     if(modelId)next.set('model',modelId);
     setSearch(next);setQuote(null);setUncertain(false);
@@ -586,7 +593,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         if(retainedIntent&&intentDocument?.session_binding===undefined)throw new Error('The saved session context could not be confirmed. Reload before continuing.');
         ownedIntentId=intent.id;routeIntent.current=intent.id;
         const originalBinding=intentDocument?.id===intent.id?intentDocument.session_binding:null;
-        const sessionId=originalBinding?.session_id??search.get('session')??draftSessionId??crypto.randomUUID();
+        const sessionId=originalBinding?.session_id??(selectedReference?followUpSessionId:search.get('session')??draftSessionId)??crypto.randomUUID();
         const turnId=originalBinding?.turn_id??search.get('turn')??crypto.randomUUID();
         const next=new URLSearchParams(search);next.set('intent',intent.id);next.set('session',sessionId);next.set('turn',turnId);next.delete('new');if(!next.get('workspace'))next.set('workspace',workspacePathSegment(workspace,context.workspaces??[workspace]));next.set('key',keyReference(keyId));setSearch(next,{replace:true});
         await prepareVideoSessionIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},{sessionId,turnId,intentId:intent.id,keyId,title:boundedVideoTitle(prompt, model?.id ?? ''),request:form.body as VideoIntentRequest});
@@ -672,6 +679,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       }] : [],
   };
   return <div className="video-shell">
+    <Dialog open={draftNavigation.failed} onOpenChange={open=>{if(!open)draftNavigation.stay();}}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event=>{event.preventDefault();document.getElementById('video-prompt')?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={draftNavigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={draftNavigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog>
     <GenerationSessionBindings trigger={historyTriggerRef} title={generationTitle} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions"><DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant={originalKey ? "outline" : "default"} className="playground-key-trigger video-key-choice" aria-label={uiT("Video API key")} disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ` ${uiT("· Revoked")}`:originalKey.expired ? ` ${uiT("· Expired")}`:keyIpRestricted ? ` ${uiT("· Source IP restricted")}`:''}` : (loading ? uiT("Loading keys…") : keysError ? uiT("API keys unavailable") : uiT("Choose API key"))}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace,context.workspaces??[chosen.workspace]))}&key=${encodeURIComponent(chosen.slug || id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${workspaceDisplayName(key.workspace.name)}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{availableKeys.loading && !availableKeys.keys.length && !keys.length && <DropdownMenuLabel>{uiT("Loading keys…")}</DropdownMenuLabel>}{(availableKeys.error || keysError) && <DropdownMenuLabel>{uiT("Some API keys could not be loaded.")}</DropdownMenuLabel>}{!availableKeys.loading && !availableKeys.error && !keysError && !availableKeys.keys.length && !keys.length && <DropdownMenuLabel>{uiT("No active API key")}</DropdownMenuLabel>}<DropdownMenuItem asChild><Link to={`${workspacePath}/keys`}><KeyIcon />{uiT("Manage API keys")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>} history={{context: (context), currentKeys: (allKeys), activeVideo: (selected), activeVideoSession: (search.get('session') || (search.get('new') === 'video' ? 'new-video' : '')), disabled: (Boolean(busy))}} />
     <section className="video-main playground-chat-main" aria-label={uiT("Video generation")}>
 
@@ -710,7 +718,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             {draftReferences.length>0&&<p className="video-muted">{draftReferences.length===1 ? uiT("1 saved material reference. Current access and inspection are checked when submitting.") : uiF("{0} saved material references. Current access and inspection are checked when submitting.", [draftReferences.length])}</p>}
             {mutableComposer&&draft.ready&&restoredComposer.current&&!base&&!loading&&<p className="video-muted">{uiT("The saved API key is unavailable for generation. Your draft is retained. Choose an active API key to continue.")}</p>}
             <div className="video-composer-fields">
-              {model&&intentClient&&workspace&&<ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{composerEdits.current.references=true;setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={next=>{composerEdits.current.images=true;setImages(next);}} disabled={Boolean(busy) || uncertain || (!model.workspace_asset&&draftReferences.length>0) || Boolean(intentId && !intentDocument?.job)} onReadingChange={(reading,failed)=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}else if(failed)setWaitingForImages(false);}}/>}
+              {model&&intentClient&&workspace&&<ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{composerEdits.current.references=true;setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={next=>{composerEdits.current.images=true;setImages(next);}} disabled={Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} onReadingChange={(reading,failed)=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}else if(failed)setWaitingForImages(false);}}/>}
 
               <Label htmlFor="video-prompt" className="sr-only">{uiT("Prompt")}</Label><Textarea id="video-prompt" placeholder={uiT("Describe your video…")} rows={2} value={prompt} onChange={event=>{composerEdits.current.prompt=true;setComposerEdited(true);setPrompt(event.target.value);}} disabled={Boolean(composerCover) || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!composerCover)void submitComposer();}}}/>
               {prompt && form.error && <p role="alert" className="video-error">{uiT(form.error)}</p>}

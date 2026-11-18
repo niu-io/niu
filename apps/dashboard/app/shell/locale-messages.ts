@@ -1,5 +1,7 @@
 /** System copy only. Customer names and persisted API values stay unchanged. */
 export const UI_MESSAGES_ZH: Record<string, string> = {
+  "This draft includes saved reference materials. Open the full composer to review them.": "此草稿包含已保存的参考素材。请打开完整编辑器检查这些素材。",
+  "Open saved draft": "打开已保存草稿",
   "This slug is already in use. Choose a different slug.": "此路径标识已被使用，请选择其他路径标识。",
   "This organization slug is already in use. Choose a different slug.": "此组织路径标识已被使用，请选择其他路径标识。",
   "This email already belongs to a member of this organization. Change the existing member's role instead of inviting them again.": "此邮箱已属于组织内的一位成员。请修改现有成员的角色，无需再次邀请。",
