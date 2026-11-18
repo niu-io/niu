@@ -63,9 +63,14 @@ key-list read. Thirty-two sampled readiness requests returned 200. Application
 logs independently record a readiness storage I/O failure at 01:25:38 and a
 key-list database statement timeout (SQLSTATE 57014) at 01:29:50. The latter
 matches the browser's temporary key-unavailable state during response recovery.
-These observations do not establish another database process termination; that
-requires a separate database-log correlation. Successful retry and completed
-video artifacts do not resolve either the storage timeout or preview rejection.
+Separate, completely paginated database logs for 01:25:30–01:26:10 contain
+234 records and confirm another process killed by signal 9 at 01:25:38.045.
+The terminated process was reading one Provider configuration by ID. Recovery
+accepted connections at 01:25:47.047. This correlates the readiness I/O failure
+with a database restart; it does not identify the signal sender or prove that
+the ordinary Provider read caused it. The later key-list timeout remains a
+separate observed failure. Successful retry and completed video artifacts do
+not resolve either the storage timeout or preview rejection.
 
 The preview admission correction has since entered the integration branch at
 `fd1ec05d`; its exact hosted acceptance remains separate. No database capacity
