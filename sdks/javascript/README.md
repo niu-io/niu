@@ -27,7 +27,7 @@ const embeddings = await niu.embeddings.create({
 
 ## Verify client setup
 
-The packaged `examples/verify-inference.mjs` checks key-scoped model discovery, one nonstreaming text request and one completed text stream. Set `NIU_API_KEY` to a key generated in your workspace's Keys page, using a private environment. For the configured local development demo:
+The packaged `examples/verify-inference.mjs` checks key-scoped model discovery, one nonstreaming text request and one completed text stream. Each request defaults to 64 output tokens. Set `NIU_MAX_OUTPUT_TOKENS` to a positive integer within your budget when the model needs more room for reasoning and visible text. Set `NIU_API_KEY` to a key generated in your workspace's Keys page, using a private environment. For the configured local development demo:
 
 ```sh
 NIU_BASE_URL=http://localhost:2566/v1 \
