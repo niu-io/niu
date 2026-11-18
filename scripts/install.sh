@@ -358,17 +358,12 @@ cmd_upgrade() {
   )
 
   echo "4/4 Applying container update and verifying readiness ..."
-  (
-    cd "$dir"
-    docker compose --env-file "$env_file" up -d niu
-  )
-
-  if wait_for_ready "$port" 60; then
+  if (cd "$dir" && docker compose --env-file "$env_file" up -d niu) && wait_for_ready "$port" 60; then
     echo "Upgrade to Niu ${target_tag} completed successfully."
     return 0
   fi
 
-  echo "error: Niu ${target_tag} failed readiness checks. Rolling back to ${current_image:-previous image} ..." >&2
+  echo "error: Niu ${target_tag} could not start or become ready. Rolling back to ${current_image:-previous image} ..." >&2
   if [[ -n "$current_image" ]]; then
     set_env_var "$env_file" NIU_IMAGE "$current_image"
     [[ -n "$current_version" ]] && set_env_var "$env_file" NIU_VERSION "$current_version"
