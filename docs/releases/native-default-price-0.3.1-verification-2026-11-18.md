@@ -70,3 +70,49 @@ Provider invoice verification, hosted default-price mutation, published package
 retrieval, Linux installation or upgrade qualification. Original credentials are
 revoked and temporary database services stopped. Remaining case requirements
 stay open in Beads. No fixture outcome is used as evidence.
+
+## Follow-up: runtime secrets and real post-restore invocation
+
+A new isolated run of the same exact native candidate preserved its configuration
+and runtime secrets in private files before execution. It made one actual request
+returning `RESTORE_BEFORE_031_20261118`, with 44 input and 39 output tokens.
+The default platform tariff applied its 10,000-nanounit minimum. The observer
+waited for the actual asynchronous timing record to become complete before taking
+the comparison snapshot. The local task key was revoked and returned 401.
+
+After stopping the gateway, the real database was dumped and restored into a
+separate database. A fresh process environment loaded the administrator credential,
+database password and vendor-encryption key from the saved private configuration,
+with the restored database selected. The restored balance and settled request
+records exactly matched their pre-backup API values and independent SQL snapshot.
+The original revoked key returned 401 against the restored service.
+
+An explicit 10,000-nanounit noncash adjustment replenished the conservative request
+reservation. A new restricted local key then made a distinct post-restore request
+using the restored encrypted Provider connection. It returned exactly
+`RESTORE_AFTER_031_20261118`, with 45 input and 26 output tokens. This demonstrates
+actual credential decryption and usable upstream access after restore; no Provider
+credential was replaced or bypassed. The second charge was 10,000 nanounits.
+Local and independently queried hosted inventories contained exactly two completed
+attempts. The restored ledger contained 20,000 nanounits in total charges and
+ended at 990,192, with no reservations. This was noncash verification funding,
+not payment settlement. Both local keys and the hosted connection key were revoked;
+each direct token reuse returned 401.
+
+A separate observer reopened only PostgreSQL and independently compared the
+original and restored data. The first charge was unchanged; the two restored
+charge token pairs were exactly 44/39 and 45/26; both ledger sums were 990,192.
+The restored database had two timing records and two revoked local keys. The
+original database had its one revoked key. Independent archive inspection verified
+the PostgreSQL custom format and included customer-charge and Provider tables.
+An initial archive-table assertion used a nonexistent `vendor_credentials` table
+name; inspection corrected it to `vendors`, which stores `credential_ciphertext`.
+This observer-input correction did not repeat any inference or alter the archive.
+
+This follow-up archive is 1,684,135 bytes, SHA-256
+`298a27cc9985ae6f2a6d20d51d58caeb2db11f039adb74977b25fa30c3e56648`.
+It and the runtime secrets remain private. Database services were stopped after
+inspection. The follow-up supplies the previously missing native runtime-secret,
+post-restore revocation and actual upstream-recovery evidence. It still does not
+qualify anonymous published artifacts, a packaged native/Linux installation or
+an upgrade from a retained release; those requirements remain open in Beads.
