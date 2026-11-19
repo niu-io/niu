@@ -2,9 +2,14 @@
 """Refresh the public Beads snapshot, excluding private issues and owner emails."""
 
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
+
+
+# Render deployment, service and database identifiers belong in the live tracker.
+RENDER_RESOURCE_ID = re.compile(r'\b(?:dep|srv|dpg)-[a-z0-9]{14,}(?:-[a-z0-9]+)*\b')
 
 
 def main():
@@ -24,7 +29,8 @@ def main():
     ) as temporary:
         temporary_path = Path(temporary.name)
         for issue in issues:
-            temporary.write(json.dumps(issue, ensure_ascii=False, sort_keys=True) + '\n')
+            line = json.dumps(issue, ensure_ascii=False, sort_keys=True)
+            temporary.write(RENDER_RESOURCE_ID.sub('[internal resource reference omitted]', line) + '\n')
     temporary_path.replace(destination)
     print(f'Exported {len(issues)} issues to .beads/issues.jsonl (private issues and owner emails omitted).')
 
