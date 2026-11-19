@@ -18,8 +18,8 @@
       "reason": "Financial report page owns filters, chart series, table sections and the shared empty state for missing currency. Period helpers extracted to period.ts; split remaining report sections under niu-4rp.15."
     },
     "app/features/playground/components/PlaygroundView.tsx": {
-      "lines": 1356,
-      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog. Key-recovery repair adds only draft selection restoration and preserves canonical-navigation query scope; no new UI composition. Saved attachment inspection is delegated to ChatTurnAttachments; the view adds only the turn-level composition and legacy attachment fallback. Session recovery adds one shared authenticated-fetch import; no additional view logic."
+      "lines": 1376,
+      "reason": "Chat/generation view composes session history, composer and video-turn UI. Extract session state and turn rendering under niu-4rp.15. Navigation save behavior is isolated in useDraftNavigation; the view composes only its recovery dialog. Key-recovery repair adds only draft selection restoration and preserves canonical-navigation query scope; no new UI composition. Saved attachment inspection is delegated to ChatTurnAttachments; the view adds only the turn-level composition and legacy attachment fallback. Session recovery adds one shared authenticated-fetch import; no additional view logic. The save-before-display checkpoint shares the active generation and cancellation state so reopening a session recovers its visible response."
     },
     "app/shell/useWorkspaceController.ts": {
       "lines": 1136,
