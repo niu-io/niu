@@ -112,7 +112,8 @@ function checkoutLink(order: Topup) {
     const url = new URL(order.checkout_url);
     const hostedMock = url.origin === window.location.origin && /^\/api\/plugins\/v1\/mock-payments\/checkout\/[a-f0-9]{48}$/.test(url.pathname) && !url.search;
     const mock = hostedMock || import.meta.env.DEV && url.protocol === 'http:' && url.hostname === '127.0.0.1' && !!url.port && /^\/checkout\/[a-f0-9]{48}$/.test(url.pathname) && !url.search;
-    return (url.protocol === 'https:' || mock) && !url.username && !url.password && !url.hash ? url.href : null;
+    const stripeCheckout = url.origin === 'https://checkout.stripe.com' && /^\/(?:c|g)\/pay\/cs_(?:test|live)_[A-Za-z0-9]+\/?$/.test(url.pathname);
+    return (url.protocol === 'https:' || mock) && !url.username && !url.password && (!url.hash || stripeCheckout) ? url.href : null;
   } catch { return null; }
 }
 
