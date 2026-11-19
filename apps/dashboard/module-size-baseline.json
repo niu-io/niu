@@ -14,8 +14,8 @@
       "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/commercial-position/page.tsx": {
-      "lines": 1458,
-      "reason": "Financial report page owns filters, chart series and table sections. Period helpers extracted to period.ts; split remaining report sections under niu-4rp.15."
+      "lines": 1461,
+      "reason": "Financial report page owns filters, chart series, table sections and the shared empty state for missing currency. Period helpers extracted to period.ts; split remaining report sections under niu-4rp.15."
     },
     "app/features/playground/components/PlaygroundView.tsx": {
       "lines": 1356,
