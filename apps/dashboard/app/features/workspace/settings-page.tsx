@@ -249,8 +249,8 @@ export default function WorkspaceSettings() {
   }
 
   return (
-    <div className="w-full min-w-0 space-y-4">
-      <section aria-labelledby="workspace-general-title" className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
+    <div className="w-full min-w-0 divide-y divide-border/60 rounded-[var(--radius-panel)] bg-card px-5">
+      <section aria-labelledby="workspace-general-title" className="space-y-4 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="workspace-general-title" className="text-base font-semibold">
             {t('General', '常规设置')}
@@ -295,7 +295,7 @@ export default function WorkspaceSettings() {
       </section>
       {context.token && (
         <WorkspaceSpendingLimits
-          className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5"
+          className="space-y-4 py-5"
           token={context.token}
           organization={workspace.organization_id}
           project={workspace.id}
@@ -304,7 +304,7 @@ export default function WorkspaceSettings() {
         />
       )}
       {canDelete && !workspace.is_default && (
-        <section aria-labelledby="workspace-delete-title" className="space-y-3 rounded-[var(--radius-panel)] bg-card p-5">
+        <section aria-labelledby="workspace-delete-title" className="space-y-3 py-5">
           <h2 id="workspace-delete-title" className="text-base font-semibold">
             {t('Delete workspace', '删除工作空间')}
           </h2>

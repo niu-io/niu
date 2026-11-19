@@ -382,7 +382,7 @@ describe('dashboard route layout', () => {
   it('names Billing correctly and includes it in workspace navigation', async () => {
     mockHealth();
     renderAt('/workspaces/default/billing');
-    expect(await screen.findByRole('heading', { name: 'Billing', exact: true })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Billing and rates', exact: true })).toBeTruthy();
     expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/workspaces/default/settings');
     expect((await within(screen.getByLabelText('Breadcrumb')).findByRole('link', {name: 'Default', exact: true})).getAttribute('href')).toBe('/workspaces/default');
     expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
