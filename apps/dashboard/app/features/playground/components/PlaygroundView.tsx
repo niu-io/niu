@@ -989,7 +989,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       setAttachments([]);
       setActiveComparisonId(comparisonId);
       setResults(initialResults);
-      setHistory(current => [saved, ...current.filter(item => item.id !== comparisonId)]);
+      const initialSnapshot = { ...saved };
+      setHistory(current => [initialSnapshot, ...current.filter(item => item.id !== comparisonId)]);
       if ((location.pathname === '/generations' || location.pathname.startsWith('/generations/')) && saved.reference) {
         const targetPath = `/generations/${encodeURIComponent(saved.reference)}`;
         if (location.pathname !== targetPath) {
@@ -1027,8 +1028,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
       if (generation !== comparisonGeneration.current) return;
       if (controller.signal.aborted) {
-        setResults(completed);
-        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
         return;
       }
       const attemptIds = completed.flatMap(result => result.attemptId ? [result.attemptId] : []);
@@ -1047,14 +1046,10 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         });
         saved.results = priced;
         saved.turns = [...previousTurns, { ...currentTurn, results: priced }];
-        setResults(priced);
-        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
       } catch {
         if (controller.signal.aborted || generation !== comparisonGeneration.current) return;
         saved.results = completed;
         saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
-        setResults(completed);
-        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
         setNotice('Responses are ready. Customer charges are not available yet.');
       }
     } catch (cause) {
