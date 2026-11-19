@@ -12,6 +12,10 @@ import tempfile
 RENDER_RESOURCE_ID = re.compile(r'\b(?:dep|srv|dpg)-[a-z0-9]{14,}(?:-[a-z0-9]+)*\b')
 
 
+LOCAL_EVIDENCE_PATH = re.compile(r"/tmp/niu-[\w./-]*[\w-]")
+HOSTED_ORIGIN = re.compile(r"\bniu-staging\.onrender\.com\b")
+
+
 def main():
     root = Path(__file__).resolve().parents[1]
     result = subprocess.run(
@@ -30,7 +34,10 @@ def main():
         temporary_path = Path(temporary.name)
         for issue in issues:
             line = json.dumps(issue, ensure_ascii=False, sort_keys=True)
-            temporary.write(RENDER_RESOURCE_ID.sub('[internal resource reference omitted]', line) + '\n')
+            line = RENDER_RESOURCE_ID.sub('[internal resource reference omitted]', line)
+            line = LOCAL_EVIDENCE_PATH.sub('[local evidence path omitted]', line)
+            line = HOSTED_ORIGIN.sub('[staging origin omitted]', line)
+            temporary.write(line + '\n')
     temporary_path.replace(destination)
     print(f'Exported {len(issues)} issues to .beads/issues.jsonl (private issues and owner emails omitted).')
 
