@@ -155,9 +155,11 @@ jobs:
         # or migration bytes are replaced; this reconstructs a historical package.
         run: docker buildx build --load --file Dockerfile --tag niu-io/niu:previous ./previous-source
       - name: Build single-container product
-        run: docker buildx build --load --tag niu-io/niu:ci .
+        run: docker buildx build --load --build-arg NIU_CORE_GIT_COMMIT="$GITHUB_SHA" --tag niu-io/niu:ci .
       - name: Inspect runtime package contents
         run: |
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' niu-io/niu:ci)" = "$GITHUB_SHA"
+          test "$(docker run --rm niu-io/niu:ci --version)" = "niu-gateway $(cat VERSION) ($GITHUB_SHA)"
           test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
           docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/dashboard/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/dashboard/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test ! -e /app/catalog/models/index.html && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
       - name: Scan final runtime assets
