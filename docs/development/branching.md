@@ -41,6 +41,19 @@ that minor continue on it until the next minor branch replaces it.
 - Delete branches after merge. Keep deliberate archival snapshots under an
   explicit name with a README explaining why they are retained.
 
+## When to verify published artifacts
+
+Before tagging, run the hosted staging journeys and the installation, upgrade
+and restore checks against artifacts built from the exact release tip. Keep
+their evidence bound to that commit. Once staging accepts that commit, tag it
+on the release branch. The tag triggers the release workflow.
+
+Before merging into `main`, independently download the published assets and
+verify their checksums, source commit, image digest and anonymous accessibility.
+Keep the distribution case open until both its pre-tag installation checks and
+its published-artifact checks have passed. If publication or retrieval fails,
+keep production on its current revision and preserve the tag.
+
 ## Staging gate before production
 
 Promotion of `release/<minor>` into `main` requires all of the following:
