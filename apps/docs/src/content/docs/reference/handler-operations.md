@@ -39275,7 +39275,7 @@ Content type: `application/json`.
 
 ### Responses
 
-HTTP 200: Invitation metadata and the caller's binding state.
+HTTP 200: Invitation metadata, including its current lifecycle status and the caller's binding state. A canceled invitation can be previewed.
 
 Content type: `application/json`.
 
@@ -39297,7 +39297,7 @@ HTTP 400: Missing or malformed invitation token.
 
 HTTP 403: Member session required.
 
-HTTP 404: Invitation is invalid, expired, canceled or already used.
+HTTP 404: No invitation matches the supplied token.
 
 HTTP 413: Body exceeds the bounded request size.
 

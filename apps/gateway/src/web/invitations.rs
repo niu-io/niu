@@ -226,10 +226,10 @@ pub struct InvitationTokenInput {
 ///     "x-niu-implementation": "implemented",
 ///     "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberInvitationToken"}}}},
 ///     "responses": {
-///       "200": {"description": "Invitation metadata and the caller's binding state.", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/MemberInvitationPreview"}}}}}},
+///       "200": {"description": "Invitation metadata, including its current lifecycle status and the caller's binding state. A canceled invitation can be previewed.", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/MemberInvitationPreview"}}}}}},
 ///       "400": {"description": "Missing or malformed invitation token."},
 ///       "403": {"description": "Member session required."},
-///       "404": {"description": "Invitation is invalid, expired, canceled or already used."},
+///       "404": {"description": "No invitation matches the supplied token."},
 ///       "413": {"description": "Body exceeds the bounded request size."},
 ///       "503": {"description": "Storage unavailable."}
 ///     }

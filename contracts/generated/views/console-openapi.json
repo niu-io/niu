@@ -4515,7 +4515,7 @@
         },
         "responses": {
           "200": {
-            "description": "Invitation metadata and the caller's binding state.",
+            "description": "Invitation metadata, including its current lifecycle status and the caller's binding state. A canceled invitation can be previewed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4539,7 +4539,7 @@
             "description": "Member session required."
           },
           "404": {
-            "description": "Invitation is invalid, expired, canceled or already used."
+            "description": "No invitation matches the supplied token."
           },
           "413": {
             "description": "Body exceeds the bounded request size."
