@@ -557,10 +557,19 @@ pub(crate) async fn gate(
                 "/admin/v1/organizations/{organization}/projects",
             ]
             .contains(&path.as_str()));
+    let rename = request.method() == axum::http::Method::PATCH
+        && matches!(
+            path.as_str(),
+            "/api/v1/workspaces/{workspace}"
+                | "/admin/v1/workspaces/{workspace}"
+                | "/api/v1/organizations/{organization}/projects/{project}"
+                | "/admin/v1/organizations/{organization}/projects/{project}"
+        );
     let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
         && request.method() == axum::http::Method::GET;
     if customer_feature(&path)
         && !directory
+        && !rename
         && !lookup
         && !credential_maintenance(&path, request.method())
         && !saved_history(&path, request.method())
