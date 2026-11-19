@@ -8,7 +8,7 @@ import { IconChartBar } from '@tabler/icons-react';
 export type RequestBucket = { start_ms: number; end_ms: number; request_count: number };
 type ModelUsage = {model_alias: string; request_count: number; prompt_tokens: string; completion_tokens: string; usage_count: number};
 const baseConfig = {
-  request_count: {label: 'Requests', color: 'var(--chart-1)'},
+  request_count: {label: 'Requests', color: 'var(--brand-orange)'},
   input: {label: 'Input tokens', color: 'var(--chart-1)'},
   output: {label: 'Output tokens', color: 'var(--chart-2)'},
 };
