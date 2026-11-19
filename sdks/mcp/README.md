@@ -4,14 +4,16 @@
 
 ## Quick start
 
-Install the published v0.3.0 archive to use its 51 tools, including model discovery and invocation:
+For a release archive, follow the [installation contract](https://niu.io/docs/install.md) and verify its checksum and source commit against the selected tag before installing. The published v0.3.0 archive has a source-commit mismatch. The v0.3.1 archive is pending publication.
+
+To use a source build, check out your selected commit from `release/0.3` and run these commands from the checkout root:
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.0/niu-io-mcp-0.1.0.tgz
-NIU_API_KEY='your-workspace-api-key' niu-mcp --hosted
+pnpm --filter @niu-io/mcp install --frozen-lockfile
+pnpm --dir sdks/mcp build
 ```
 
-In an agent's MCP configuration, use `"command": "niu-mcp"` and `"args": ["--hosted"]`. The executable works from your application's workspace. If the editor does not inherit PATH, use the absolute path returned by `command -v niu-mcp`; JSON does not expand shell variables or `~`.
+Configure the agent to run `node` with the absolute path to the built checkout's `sdks/mcp/bin/niu-mcp.mjs`. Add `--hosted` for the hosted gateway and supply `NIU_API_KEY` through the agent's environment.
 
 The hosted client pins `https://niu.io/v1` in [`hosted/niu.io.json`](hosted/niu.io.json). A customer key is never stored in that file.
 
@@ -20,10 +22,8 @@ For a self-hosted or local Niu gateway, set its `/v1` address and omit `--hosted
 ```sh
 NIU_API_KEY='your-workspace-api-key' \
 NIU_BASE_URL='http://127.0.0.1:2555/v1' \
-niu-mcp
+node /absolute/path/to/niu/sdks/mcp/bin/niu-mcp.mjs
 ```
-
-To run the exact MCP source from a 0.3 release candidate, check out the desired commit from `release/0.3`. Run `pnpm install --frozen-lockfile` from the Niu checkout root, then `pnpm --dir sdks/mcp build`. Configure `node` with the absolute path to that checkout's `sdks/mcp/bin/niu-mcp.mjs` and optional `--hosted`; a relative path fails when the agent runs in a different workspace.
 
 ### Optional environment variables
 
