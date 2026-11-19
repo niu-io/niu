@@ -634,28 +634,29 @@ pub(crate) async fn gate(
             Ok(value) => value,
             Err(error) => return error.into_response(),
         };
-        match inspect_organization(&state, organization)
-            .await
-            .map(|readiness| readiness.ready)
-        {
-            Ok(true) => {}
-            Ok(false) => {
-                let reason = base_readiness
-                    .ok()
-                    .and_then(|value| value.reason)
-                    .unwrap_or("readiness_unavailable");
-                return (axum::http::StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":{
-                    "type":"payment_setup_required", "code":reason,
-                    "message":"This action requires platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
-                }}))).into_response();
+        let reason = match inspect_organization(&state, organization).await {
+            Ok(Readiness { ready: true, .. }) => return next.run(request).await,
+            Ok(readiness) => readiness.reason.unwrap_or("readiness_unavailable"),
+            Err(_) => "readiness_unavailable",
+        };
+        let message = match reason {
+            "currency_required" => {
+                "Ask your service administrator to configure the platform currency, then retry."
             }
-            Err(_) => {
-                return (axum::http::StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":{
-                    "type":"payment_setup_required", "code":"readiness_unavailable",
-                    "message":"This action requires platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
-                }}))).into_response();
+            "payment_setup_required" => {
+                "Check Billing for available funding methods. If none are available, ask your service administrator to arrange funding. Retry after funds are credited."
             }
-        }
+            _ => {
+                "Payment readiness could not be checked. Retry shortly. If the problem persists, contact your service administrator."
+            }
+        };
+        return (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "type":"payment_setup_required", "code":reason, "message":message
+            }})),
+        )
+            .into_response();
     }
     next.run(request).await
 }
