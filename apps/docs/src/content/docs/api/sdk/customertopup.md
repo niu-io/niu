@@ -16,6 +16,8 @@ export type CustomerTopup = {
     payment_method: string;
     status: 'reconciliation_required' | 'pending' | 'paid' | 'closed';
     checkout_url: string | null;
+    /** True for simulated funding, including Stripe sandbox payments. */
+    simulated?: boolean;
     /** Original pinned purchase quantity; null for monetary wallet funding. */
     credits?: {
         credit_atoms: string;

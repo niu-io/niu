@@ -12,6 +12,7 @@ export type CustomerTopupInput = {
     /** Required in Credits mode; forbidden for a new currency-mode checkout. */
     quote_id?: string;
     currency?: string;
+    /** Use the gateway returned by payment-method discovery. Stripe handles new hosted orders; legacy values support historical replay. */
     payment_gateway?: 'epay' | 'stripe' | 'zhifux';
     amount_nanos: string;
     payment_method: string;

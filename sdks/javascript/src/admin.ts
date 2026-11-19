@@ -866,6 +866,7 @@ export type CustomerTopupInput = {
   /** Required in Credits mode; forbidden for a new currency-mode checkout. */
   quote_id?: string;
   currency?: string;
+  /** Use the gateway returned by payment-method discovery. Stripe handles new hosted orders; legacy values support historical replay. */
   payment_gateway?: 'epay' | 'stripe' | 'zhifux';
   amount_nanos: string; payment_method: string; idempotency_key: string;
 };
@@ -879,6 +880,8 @@ export type CustomerPaymentMethods = {
 export type CustomerTopup = {
   id: string; currency: string; amount_nanos: string; payment_method: string;
   status: 'reconciliation_required' | 'pending' | 'paid' | 'closed'; checkout_url: string | null;
+  /** True for simulated funding, including Stripe sandbox payments. */
+  simulated?: boolean;
   /** Original pinned purchase quantity; null for monetary wallet funding. */
   credits?: {
     credit_atoms: string; definition_revision: string; rule_revision: string;
