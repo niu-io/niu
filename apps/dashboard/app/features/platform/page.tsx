@@ -1,3 +1,4 @@
+import { BankConfiguration } from "../billing/BankDetails";
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
@@ -147,6 +148,7 @@ function PaymentConfiguration({token}: {token: string}) {
     }
   }
   return <section className="@container space-y-5">
+    <BankConfiguration token={token}/>
     {configuration && <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{uiT("Verify payment setup before offering a gateway to customers.")}</p><Button variant="outline" size="sm" disabled={verificationBusy} onClick={()=>void refreshVerification()}>{verificationBusy?uiT("Refreshing status…"):uiT("Refresh verification")}</Button></div>}
     {verificationError && <p role="alert" className="text-sm text-destructive">{uiT(verificationError)}</p>}
 

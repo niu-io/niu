@@ -1,3 +1,4 @@
+import { CustomerBankDetails } from "./BankDetails";
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useLocale } from '@/shell/ui-locale';
@@ -400,6 +401,7 @@ export default function TopupFunding({ token, organization, canCreate, unitSnaps
       {canCreate && availability && !availability.available && <p className="text-sm text-muted-foreground">{availability.unavailable_reason === 'currency_account_missing' ? t(`Online top-ups require a ${availability.currency} account.`, `在线充值需要 ${availability.currency} 账户。`) : <>{t("Online top-ups are currently unavailable.")}{" "}{t("This can mean no payment gateway is configured or the payment service is unavailable. Ask an installation administrator to check payment configuration, then refresh. Existing orders remain available.")}</>}</p>}
       <Button variant="ghost" size="icon-sm" aria-label={t("Refresh top-ups")} title={t("Refresh top-ups")} disabled={busy || loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16}/></Button>
     </div>
+    <CustomerBankDetails key={organization + token} token={token} organization={organization} revision={revision}/>
     {(mockEnabled || orders.some(order => order.simulated || (import.meta.env.DEV && order.checkout_url?.startsWith('http://127.0.0.1:')))) && <Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">{t("Mock payments · Real model costs")}</AlertTitle><AlertDescription>{t("Top-ups are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s API keys publicly.")}</AlertDescription></Alert>}
     {loadError && <Alert variant="destructive"><AlertDescription>{t(loadError)}<Button variant="outline" disabled={busy} onClick={() => loadFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>{t("Retry top-ups")}</Button></AlertDescription></Alert>}
     {loading && !availability && <TableSkeleton columns={3} rows={3} label={t("Loading payments…")} />}

@@ -461,6 +461,16 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(DefaultBodyLimit::max(450000)),
     )
     .dual_route(
+        "/platform/payments/bank",
+        get(crate::payments::bank::read)
+            .put(crate::payments::bank::save)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
+        "/organizations/{organization}/billing/bank",
+        get(crate::payments::bank::customer),
+    )
+    .dual_route(
         "/platform/payments/integrations",
         get(crate::payments::integrations),
     )

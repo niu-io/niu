@@ -1,4 +1,5 @@
 //! Trusted merchant reconciliation. No browser-return URL grants funding.
+pub(crate) mod bank;
 mod configuration;
 pub(crate) mod mock_runtime;
 pub(crate) mod readiness;

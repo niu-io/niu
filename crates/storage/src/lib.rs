@@ -247,6 +247,7 @@ mod company_directory;
 mod company_write_authorization;
 mod workspace_creation;
 pub use workspace_creation::{WorkspaceCreationKey, WorkspaceCreationLimit};
+mod bank_details;
 mod billing;
 pub use billing::{CustomerCategoryRates, CustomerTariffPublication};
 mod customer_balance_grants;
