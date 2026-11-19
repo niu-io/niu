@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkspaceLibrary } from '@/features/library/page';
+import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import { useWorkspaceProviderAssetSections } from '@/features/provider-modules/registry';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
@@ -13,7 +14,9 @@ import { IconSparkles } from '@tabler/icons-react';
 export default function WorkspaceAssetsRoute() {
   const { t: uiT } = useUILocale();
   const { t } = useLocale();
-  const { token, workspace, session, workspaces } = useDashboardContext();
+  const context = useDashboardContext();
+  const { token, workspace, session, workspaces } = context;
+  const videoKey = useWorkspaceVideo(context);
   const { section } = useParams();
   const [search] = useSearchParams();
   const navigate = useNavigate();
@@ -83,9 +86,9 @@ export default function WorkspaceAssetsRoute() {
     <div className="space-y-5">
       <PageHeader
         title={t('Assets', '素材库')}
-        action={
+        action={videoKey &&
           <Button asChild variant="outline">
-            <Link to={`/generations?new=video&workspace=${encodeURIComponent(workspaceSlug)}`}>
+            <Link to={`/generations?new=video&workspace=${encodeURIComponent(workspaceSlug)}&key=${encodeURIComponent(videoKey)}`}>
               <IconSparkles size={16} aria-hidden="true" />
               <span>{t('Create video', '生成视频')}</span>
             </Link>

@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { money } from '@/lib/money';
+import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import ProviderLogo from '@/components/ProviderLogo';
@@ -789,6 +790,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const noAvailableKeys = workspaceKeysReady && !keyLoadError && !availableKeys.loading && !availableKeys.error && keyChoices.length === 0 && availableKeys.keys.length === 0;
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
+  const videoKey = useWorkspaceVideo(dashboard, managedKey?.id ?? '');
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
   const billingSummary = !managedKey
     ? uiT("Usage is billed according to the workspace of your API key. Choose a saved workspace key to see how usage is billed.")
@@ -1128,11 +1130,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             ? <Empty className="playground-chat-empty border-0 bg-transparent"><EmptyHeader><EmptyMedia variant="icon"><FlaskConical size={20} /></EmptyMedia><EmptyTitle><h2>{uiT("Add an API key")}</h2></EmptyTitle><EmptyDescription>{uiT("Use an API key to authorize generations and track usage.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage keys")}</Link></Button></EmptyContent></Empty>
             : !results && !prompt.trim()
                 ? <div className="playground-first-run">
-                  <div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}>
+                  {videoKey && <div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}>
                     <Button variant="secondary" size="sm" aria-pressed="true"><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Button>
-                    <Button variant="ghost" size="sm" asChild><Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}`}><Video size={16} />{uiT("Video", "视频")}</Link></Button>
-                  </div>
-                  <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2><p>{uiT("Write, build, compare models or generate a video.")}</p>{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
+                    <Button variant="ghost" size="sm" asChild><Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}&key=${encodeURIComponent(managedKey?.slug || videoKey)}`}><Video size={16} />{uiT("Video", "视频")}</Link></Button>
+                  </div>}
+                  <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2>{videoKey && <p>{uiT("Write, build, compare models or generate a video.")}</p>}{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
                   <div className="playground-starter-picker" aria-label={uiT("Example tasks")}>
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <Tabs value={promptCategory} onValueChange={value => setPromptCategory(value as typeof promptCategory)} className="playground-starter-tabs">

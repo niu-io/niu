@@ -3,22 +3,22 @@ import { cachedKeyGet, keyRequest, workspaceKeyPath, type ProjectKey } from '@/f
 import { useCachedQuery } from '@/lib/query-cache';
 
 /** Discover usable video models with workspace/key authorization, cached per session+workspace so sidebar items never pop on navigation. */
-export function useWorkspaceVideo(context: DashboardContext) {
+export function useWorkspaceVideo(context: DashboardContext, selectedKeyId?: string) {
   const workspace = context.workspace;
   const cacheKey =
-    context.token && workspace
-      ? `workspace-video:${workspace.organization_id}:${workspace.id}`
+    context.token && workspace && selectedKeyId !== ''
+      ? `workspace-video:${workspace.organization_id}:${workspace.id}:${selectedKeyId ?? "any"}`
       : null;
 
-  const { data } = useCachedQuery<boolean>(
+  const { data } = useCachedQuery<string | null>(
     context.token,
     cacheKey,
     async signal => {
-      if (!workspace || !context.token) return false;
+      if (!workspace || !context.token) return null;
       const base = workspaceKeyPath(workspace.id);
-      const keys = await cachedKeyGet<{ data: ProjectKey[] }>(context.token, base, { signal });
-      const queue = [...keys.data.filter(key => !key.revoked && !key.expired)];
-      let found = false;
+      const keys = selectedKeyId ? { data: [] } : await cachedKeyGet<{ data: ProjectKey[] }>(context.token, base, { signal });
+      const queue = selectedKeyId ? [{ id: selectedKeyId, slug: undefined }] : keys.data.filter(key => !key.revoked && !key.expired);
+      let found: string | null = null;
       await Promise.all(
         Array.from({ length: Math.min(4, queue.length) }, async () => {
           while (queue.length && !found && !signal.aborted) {
@@ -32,7 +32,7 @@ export function useWorkspaceVideo(context: DashboardContext) {
                 signal,
                 { 'x-niu-key-id': key.id },
               );
-              if (page.data.length) found = true;
+              if (page.data.length) found = key.slug || key.id;
             } catch {
               /* Failed discovery does not advertise a capability. */
             }
@@ -44,5 +44,5 @@ export function useWorkspaceVideo(context: DashboardContext) {
     { enabled: Boolean(cacheKey), keepPreviousData: false, freshMs: 60_000 },
   );
 
-  return Boolean(data);
+  return data ?? null;
 }
