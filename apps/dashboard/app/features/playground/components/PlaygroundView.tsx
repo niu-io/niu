@@ -957,6 +957,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     const controller = new AbortController();
     comparisonController.current = controller;
     let persistenceStarted = false;
+    let pendingSnapshot: SavedComparison | null = null;
+    let checkpoint: Promise<void> | null = null;
+    let checkpointError: unknown;
+    async function persistVisibleResults() {
+      while (pendingSnapshot && generation === comparisonGeneration.current && !controller.signal.aborted) {
+        const snapshot = pendingSnapshot;
+        pendingSnapshot = null;
+        await saveComparison(snapshot);
+        if (generation !== comparisonGeneration.current || controller.signal.aborted) return;
+        setResults(snapshot.results);
+        setHistory(items => items.map(item => item.id === comparisonId ? snapshot : item));
+      }
+    }
     setRunning(true);
     try {
       // Stop must take effect while the composer draft is still saving, and a
@@ -993,16 +1006,23 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         saved.results = saved.results.map(result => result.model === next.model ? next : result);
         saved.turns = [...previousTurns, { ...currentTurn, results: saved.results }];
         if (generation !== comparisonGeneration.current) return;
-        setResults(current => current?.map(item => item.model === next.model ? { ...item, ...next } : item) ?? current);
-        setHistory(current => current.map(item => item.id === comparisonId
-          ? { ...saved }
-          : item));
+        // Coalesce updates received during a write. Only show response text that
+        // another browser can already recover from the saved conversation.
+        if (checkpointError || (!next.content && next.phase === 'streaming')) return;
+        pendingSnapshot = { ...saved };
+        if (!checkpoint) {
+          checkpoint = persistVisibleResults().catch(cause => {
+            checkpointError = cause;
+          }).finally(() => { checkpoint = null; });
+        }
       };
       const completed = await Promise.all(selectedModels.map(model => {
         const messages: ConversationMessage[] = systemPrompt.trim() ? [{ role: 'system', content: systemPrompt.trim() }] : [];
         messages.push(...branchMessages(previousTurns, model), userMessage(currentTurn));
         return runModel(model, apiKey, messages, maxTokens, temperature, controller.signal, updateResult, chatEndpoint, logPayloads, managedKey?.id);
       }));
+      await checkpoint;
+      if (checkpointError) throw checkpointError;
       saved.results = completed;
       saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
       if (generation !== comparisonGeneration.current) return;
