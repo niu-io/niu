@@ -126,6 +126,8 @@ ensure_files() {
   if [[ ! -f "${dir}/config/niu.example.toml" ]]; then
     curl --fail --silent --show-error --location \
       "${GITHUB_REPO_RAW}/${tag}/config/niu.example.toml" -o "${dir}/config/niu.example.toml"
+    # The non-root gateway reads this public template through a bind mount.
+    chmod 644 "${dir}/config/niu.example.toml"
   fi
 }
 
