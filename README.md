@@ -67,7 +67,7 @@ Once running on port `2555`:
 
 ### 2. Optional Resale Funding & Inference
 
-In `NIU_OPERATING_MODE=resale`, customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
+In `NIU_OPERATING_MODE=resale`, customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the company that owns the evaluation workspace using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
 
 ```sh
 # 0. Choose one installation token from the generated NIU_ADMIN_TOKENS value
@@ -79,11 +79,15 @@ curl -X PUT http://localhost:2555/api/v1/platform/currency \
   -H "Content-Type: application/json" \
   -d '{"currency": "USD"}'
 
-# 2. Grant initial credits (e.g. $10.00 = 10000000000 nanounits) to the default company.
-#    Currency is a path segment; amount_nanos is an exact positive integer.
-ORG_ID=$(curl -fsSL http://localhost:2555/api/v1/organizations \
-  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
-curl -X POST "http://localhost:2555/api/v1/organizations/$ORG_ID/billing/accounts/USD/grants" \
+# 2. On a new installation, create the evaluation company once and keep its ID.
+# For an existing workspace, set ORG_ID to its organization_id and skip creation.
+ORG_ID=$(curl -fsS -X POST http://localhost:2555/api/v1/organizations \
+  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Evaluation company","currency":"USD"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# Grant $10 of evaluation credit to this company. Reuse the key when retrying this grant.
+curl -fsS -X POST "http://localhost:2555/api/v1/organizations/${ORG_ID:?Choose the evaluation company}/billing/accounts/USD/grants" \
   -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"amount_nanos": "10000000000", "reason": "Self-hosted evaluation", "idempotency_key": "00000000-0000-4000-8000-000000000001"}'
