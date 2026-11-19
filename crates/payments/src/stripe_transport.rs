@@ -256,9 +256,13 @@ impl Client {
         .map_err(|_| Error)?
     }
     pub fn new(api_key: String, live_mode: bool) -> Result<Self, Error> {
-        let prefix = if live_mode { "sk_live_" } else { "sk_test_" };
-        if !api_key.starts_with(prefix)
-            || api_key.len() <= prefix.len()
+        let prefixes = if live_mode {
+            ["sk_live_", "rk_live_"]
+        } else {
+            ["sk_test_", "rk_test_"]
+        };
+        if !prefixes.iter().any(|prefix| api_key.starts_with(prefix))
+            || api_key.len() <= prefixes[0].len()
             || api_key.len() > 512
             || !api_key
                 .bytes()
