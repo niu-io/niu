@@ -49,8 +49,8 @@ export function BankConfiguration({ token }: { token: string }) {
   }
   return <section className="space-y-2" aria-label={t('Bank transfer', '对公转账')}>
     <h2 className="font-medium">{t('Bank transfer', '对公转账')}</h2>
-    <p className="text-sm text-muted-foreground">{config?.details ? [config.details.beneficiary, config.details.bank, config.details.currency].join(' · ') :
-      config ? t('Hidden from customers until configured.', '配置后才会向客户展示。') : t('Loading…', '加载中…')}</p>
+    {!(error && !config) && <p className="text-sm text-muted-foreground">{config?.details ? [config.details.beneficiary, config.details.bank, config.details.currency].join(' · ') :
+      config ? t('Hidden from customers until configured.', '配置后才会向客户展示。') : t('Loading…', '加载中…')}</p>}
     <div className="flex gap-2">
       <Button ref={edit} variant="outline" disabled={!config} onClick={e => {
         trigger.current=e.currentTarget; setDraft(config?.details ?? empty); setError(''); setAction('edit');
@@ -87,7 +87,7 @@ export function CustomerBankDetails({ token, organization, revision }: {token: s
     const controller = new AbortController();
     setDetails(null);
     request<{data: (Details & {memo:string}) | null}>(token, '/api/v1/organizations/'+organization+'/billing/bank', 'GET', undefined, controller.signal)
-      .then(r => { if (!controller.signal.aborted) setDetails(r.data); }).catch(() => {});
+      .then(r => { if (!controller.signal.aborted) setDetails(r.data); }).catch(() => { /* Transfer instructions stay hidden when they cannot be loaded. */ });
     return () => controller.abort();
   },[token,organization,revision]);
   if (!details) return null;

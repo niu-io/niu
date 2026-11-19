@@ -7,13 +7,13 @@ import { useLocale } from '@/shell/ui-locale';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { IconArrowDownRight, IconArrowUpRight, IconCalendarStats, IconChevronDown, IconFileTypePdf, IconMinus, IconRefresh } from '@tabler/icons-react';
+import { IconCoin, IconArrowDownRight, IconArrowUpRight, IconCalendarStats, IconChevronDown, IconFileTypePdf, IconMinus, IconRefresh } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useBranding } from '@/shell/branding';
 import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge'; import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { Badge } from '@/components/ui/badge'; import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -515,10 +515,13 @@ function CommercialStatement({ token }: { token: string }) {
     rolling: uiT('Rolling day window'),
   };
 
-    if (!currency) return <section className="space-y-3" aria-label={uiT("Financial reports")}>
-    <p>{currencyReady === false ? uiT("Loading platform currency…") : currencyFailed ? uiT("Could not load the platform currency.") : uiT("Set the platform currency before viewing financial reports.")}</p>
-    {currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>{uiT("Retry")}</Button> : currencyReady !== false && <Button asChild><Link to="/admin/settings">{uiT("Open platform settings")}</Link></Button>}
-  </section>;
+    if (!currency) return <Empty className="min-h-48 py-8" aria-label={uiT("Financial reports")}>
+    <EmptyHeader>
+      <EmptyMedia variant="icon"><IconCoin size={18} aria-hidden="true" /></EmptyMedia>
+      <EmptyDescription>{currencyReady === false ? uiT("Loading platform currency…") : currencyFailed ? uiT("Could not load the platform currency.") : uiT("Set the platform currency before viewing financial reports.")}</EmptyDescription>
+    </EmptyHeader>
+    {(currencyFailed || currencyReady !== false) && <EmptyContent>{currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>{uiT("Retry")}</Button> : <Button asChild><Link to="/admin/settings">{uiT("Open platform settings")}</Link></Button>}</EmptyContent>}
+  </Empty>;
 
   return (
     <section className="commercial-statement min-w-0 space-y-6" aria-label={uiT("Financial statements")}>
