@@ -24750,9 +24750,7 @@ Content type: `application/json`.
           "id": {
             "type": "string",
             "enum": [
-              "epay",
-              "stripe",
-              "zhifux"
+              "stripe"
             ]
           },
           "name": {
@@ -24809,7 +24807,7 @@ HTTP 403: Platform administration authority required
 
 `POST /api/v1/organizations/{organization}/billing/topups`
 
-Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
+Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. New online orders use Stripe and its configured currency and minor-unit precision. Replay the same idempotency key and intent after an uncertain response. Verified payment gates funding. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
 
 Implementation: `implemented`. Operation: `createCustomerTopup`.
 
@@ -24860,9 +24858,7 @@ Content type: `application/json`.
     "payment_gateway": {
       "type": "string",
       "enum": [
-        "epay",
-        "stripe",
-        "zhifux"
+        "stripe"
       ],
       "description": "Optional explicit integration. Never falls through to a different gateway; omission preserves default priority."
     },
@@ -25234,9 +25230,7 @@ Select one configured integration without falling through to another.
 {
   "type": "string",
   "enum": [
-    "epay",
-    "stripe",
-    "zhifux"
+    "stripe"
   ]
 }
 ```
@@ -25285,9 +25279,7 @@ Content type: `application/json`.
             "null"
           ],
           "enum": [
-            "epay",
             "stripe",
-            "zhifux",
             null
           ],
           "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."
@@ -28060,7 +28052,7 @@ HTTP 503: Storage unavailable
 
 `GET /api/v1/platform/configuration`
 
-Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.
+Requires platform management permission. Returns configuration-presence flags without merchant credentials. Stripe reflects the loaded checkout adapter. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.
 
 Implementation: `implemented`. Operation: `getPlatformConfiguration`.
 
@@ -28108,8 +28100,6 @@ Content type: `application/json`.
               "name": {
                 "type": "string",
                 "enum": [
-                  "Zhifux",
-                  "EPay",
                   "Stripe"
                 ]
               },

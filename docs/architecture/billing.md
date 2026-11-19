@@ -2,7 +2,7 @@
 
 Status: current ledger behavior. [Architecture](../../ARCHITECTURE.md) is the runtime overview. This document is the billing contract.
 
-Niu calculates customer charges and Supplier earnings in the public gateway. Prepaid company balance admits paid requests. Customer top-ups can arrive through a configured Stripe, EPay, or Zhifux checkout and credit that balance after verification. Supplier settlement records an external payment; it does not send one.
+Niu calculates customer charges and Supplier earnings in the public gateway. Prepaid company balance admits paid requests. Customer top-ups can arrive through a configured Stripe checkout and credit that balance after verification. Supplier settlement records an external payment; it does not send one.
 
 ## Three independent amounts
 
@@ -86,7 +86,7 @@ Migrations `0017_provider_business.sql` and `0018_customer_billing.sql` added th
 
 ## Current scope
 
-Text input, cached input, and output tokens use the integer schedule above. Video estimates use the separate integer media calculator. Prepaid balance, credit limits, reservations, and verified top-ups are enforced in PostgreSQL. Stripe, EPay, and Zhifux are checkout adapters for those top-ups.
+Text input, cached input, and output tokens use the integer schedule above. Video estimates use the separate integer media calculator. Prepaid balance, credit limits, reservations, and verified top-ups are enforced in PostgreSQL. Stripe accepts new online top-ups. EPay and Zhifux remain available only for historical order reconciliation.
 
 Currency conversion, automatic Supplier bank payout, volume tiers, and a credit-note API for unresolved usage are not implemented. A model whose usage needs an unsupported dimension must not be given a text-only tariff and treated as fully priced.
 

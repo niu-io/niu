@@ -2194,7 +2194,7 @@ pub async fn publish_media_offer(
 ///   "operation": {
 ///     "operationId": "getPlatformConfiguration",
 ///     "summary": "Read platform payment configuration presence",
-///     "description": "Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.",
+///     "description": "Requires platform management permission. Returns configuration-presence flags without merchant credentials. Stripe reflects the loaded checkout adapter. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -2231,8 +2231,6 @@ pub async fn publish_media_offer(
 ///                           "name": {
 ///                             "type": "string",
 ///                             "enum": [
-///                               "Zhifux",
-///                               "EPay",
 ///                               "Stripe"
 ///                             ]
 ///                           },
@@ -2325,7 +2323,7 @@ pub async fn platform_configuration(
     installation(&state, &headers).await?;
     Ok(Json(json!({"data":{
         "verification": crate::payments::readiness::verification(&state).await?,
-        "payment_gateways": [{"name":"Zhifux","configured":state.payments.is_some()},{"name":"EPay","configured":state.store.payment_gateway_configuration().await.map_err(ApiError::from_store)?.is_some() || state.epay_payments.is_some()},{"name":"Stripe","configured":state.stripe_payments.is_some()}]
+        "payment_gateways": [{"name":"Stripe","configured":state.stripe_payments.is_some()}]
     }})))
 }
 

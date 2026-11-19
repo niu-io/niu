@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/organizations/{organization}/billing/topups`
 
-Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
+Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. New online orders use Stripe and its configured currency and minor-unit precision. Replay the same idempotency key and intent after an uncertain response. Verified payment gates funding. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
 
 Operation: `createCustomerTopup`.
 
@@ -73,9 +73,7 @@ Location: **path**. **Required.**
     "payment_gateway": {
       "type": "string",
       "enum": [
-        "epay",
-        "stripe",
-        "zhifux"
+        "stripe"
       ],
       "description": "Optional explicit integration. Never falls through to a different gateway; omission preserves default priority."
     },
@@ -246,6 +244,6 @@ Durable storage unavailable; no successful creation is implied
 
 ## Behavior and supported scope
 
-Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
+Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. New online orders use Stripe and its configured currency and minor-unit precision. Replay the same idempotency key and intent after an uncertain response. Verified payment gates funding. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
 
 **Supported scope:** implemented

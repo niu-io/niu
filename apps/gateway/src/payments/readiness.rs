@@ -103,46 +103,7 @@ async fn verification_from_facts(
     facts: niu_storage::PaymentReadinessFacts,
 ) -> Result<Verification, ApiError> {
     let currency = facts.currency.clone();
-    let epay =
-        super::configuration::runtime_from_configuration(state, facts.epay_configuration.clone())
-            .await?;
     let mut gateways = Vec::new();
-    let checkout_enabled = epay
-        .as_ref()
-        .and_then(|r| r.checkout.as_ref())
-        .is_some_and(|c| !c.methods.is_empty());
-    let currency_supported = currency.as_deref() == Some("CNY");
-    let callback_verified =
-        if let Some(digest) = epay.as_ref().and_then(|r| epay_configuration_digest(r)) {
-            facts.callback_verified("epay", &digest)
-        } else {
-            false
-        };
-    gateways.push(GatewayVerification {
-        gateway: "epay",
-        checkout_enabled,
-        currency_supported,
-        account_verified: None,
-        callback_verified,
-        ready: checkout_enabled && currency_supported && callback_verified,
-    });
-    let checkout_enabled = state
-        .payments
-        .as_ref()
-        .is_some_and(|r| !r.payment_methods.is_empty());
-    let callback_verified = if let Some(runtime) = state.payments.as_ref() {
-        facts.callback_verified("zhifux", &zhifux_configuration_digest(runtime))
-    } else {
-        false
-    };
-    gateways.push(GatewayVerification {
-        gateway: "zhifux",
-        checkout_enabled,
-        currency_supported,
-        account_verified: None,
-        callback_verified,
-        ready: checkout_enabled && currency_supported && callback_verified,
-    });
     let checkout = state
         .stripe_payments
         .as_ref()

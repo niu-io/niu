@@ -144,17 +144,6 @@ pub(super) async fn runtime_snapshot(
     runtime_snapshot_from_configuration(state, configuration).await
 }
 
-/// Reuse a configuration row that the caller already read with its readiness
-/// facts; the revision and ciphertext cache still decide whether to decrypt.
-pub(super) async fn runtime_from_configuration(
-    state: &AppState,
-    configuration: Option<(i64, Vec<u8>)>,
-) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
-    runtime_snapshot_from_configuration(state, configuration)
-        .await
-        .map(|(_, runtime)| runtime)
-}
-
 async fn runtime_snapshot_from_configuration(
     state: &AppState,
     configuration: Option<(i64, Vec<u8>)>,
@@ -443,10 +432,8 @@ pub(crate) async fn save(
         _ => None,
     };
     let _guard = state.payment_configuration_guard.write().await;
-    if input.enabled && super::mock_runtime::enabled().await {
-        return Err(ApiError::invalid_request(
-            "Disable mock payments before enabling EPay",
-        ));
+    if input.enabled {
+        return Err(ApiError::invalid_request("EPay is closed to new top-ups"));
     }
     let (current_revision, previous) = settings(&state).await?;
     let expected = input
