@@ -1,3 +1,4 @@
+import { pollVisibleVideoJob } from '../video/visible-job-poll';
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useLocale as useUILocale, translateUI } from '@/shell/ui-locale';
 import { formatDurationMs } from '@/lib/duration';
@@ -186,28 +187,23 @@ export default function VideoTurnResult({context, sessionId, turn, turnIndex = 1
   // Only reconcile an existing saved job. Polling never creates or retries it.
   useEffect(() => {
     if (!client || !scope || !workspaceId || !activeTaskId || !['queued', 'running', 'unknown'].includes(activeTaskState)) return;
-    const controller = new AbortController();
-    let pending = false;
-    const timer = window.setInterval(async () => {
-      if (pending || lock.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
-      pending = true;
+    return pollVisibleVideoJob(async signal => {
+      if (lock.current) return;
       try {
-        if (canWrite && keyId) await checkProviderRef.current(activeTaskId, controller.signal);
+        if (canWrite && keyId) await checkProviderRef.current(activeTaskId, signal);
+        if (signal.aborted) return;
         const queryRef = activeTaskRef || activeTaskId;
-        const value = savedTask(await client.generations(scope).tasks.retrieve(queryRef, {signal: controller.signal}), queryRef, sessionId, turn.id);
-        if (!controller.signal.aborted) {
+        const value = savedTask(await client.generations(scope).tasks.retrieve(queryRef, {signal: signal}), queryRef, sessionId, turn.id);
+        if (!signal.aborted) {
           primeVideoTask(token, workspaceId, value);
           setTask(value);
           setDetailError('');
           if (!['queued', 'running', 'unknown'].includes(value.state)) setRevision(item => item + 1);
         }
       } catch (caught) {
-        if (!controller.signal.aborted) setDetailError(message(caught));
-      } finally {
-        pending = false;
+        if (!signal.aborted) setDetailError(message(caught));
       }
-    }, 5000);
-    return () => {window.clearInterval(timer);controller.abort();};
+    });
   }, [client, scope, workspaceId, activeTaskId, activeTaskState, activeTaskRef, keyId, canWrite, sessionId, turn.id, token]);
 
   async function reloadStatus() {

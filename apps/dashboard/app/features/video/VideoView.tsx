@@ -1,3 +1,4 @@
+import { pollVisibleVideoJob } from './visible-job-poll';
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -492,20 +493,18 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   // Only reconcile an existing job. Polling never creates or retries a submission.
   useEffect(()=>{
     if(!base || !selected || !job || !['queued','running','unknown'].includes(job.status))return;
-    const controller=new AbortController();let pending=false;
-    const timer=window.setInterval(async()=>{
-      if(pending || lock.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden'))return;pending=true;
+    return pollVisibleVideoJob(async signal => {
+      if (lock.current) return;
       try {
-        if(canWrite)await request(token,base,`/v1/video/jobs/${encodeURIComponent(job?.id ?? selected)}/refresh`,{},controller.signal);
-        const status=await request<VideoJobState>(token,base,`/v1/video/jobs/${encodeURIComponent(job.id)}`,undefined,controller.signal);
-        if(!controller.signal.aborted){
+        if(canWrite)await request(token,base,`/v1/video/jobs/${encodeURIComponent(job?.id ?? selected)}/refresh`,{},signal);
+        if (signal.aborted) return;
+        const status=await request<VideoJobState>(token,base,`/v1/video/jobs/${encodeURIComponent(job.id)}`,undefined,signal);
+        if(!signal.aborted){
           setJob(status);setDetailError('');
           if(!['queued','running'].includes(status.status))setRevision(value=>value+1);
         }
-      }catch(error){if(!controller.signal.aborted)setDetailError(message(error));}
-      finally{pending=false;}
-    },5000);
-    return()=>{window.clearInterval(timer);controller.abort();};
+      }catch(error){if(!signal.aborted)setDetailError(message(error));}
+    });
   },[token,base,selected,job?.status,canWrite]);
 
   function openJob(id:string) {const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyReference(keyId));setSearch(next);if(isMobile)setOpenMobile(false);}
