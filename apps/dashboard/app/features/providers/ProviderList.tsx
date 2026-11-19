@@ -122,7 +122,7 @@ export default function ProviderList() {
   return <>
     {preset && <ProviderConnectDialog key={preset.id} preset={preset} onClose={() => setPreset(null)} onSaved={() => { invalidateForMutation(token, PROVIDERS_PATH, 'POST'); setRevision(value => value + 1); window.dispatchEvent(new Event('niu:provider-profile-updated')); }} />}
     <PageHeader title={uiT("Providers")} action={<Button className="header-icon-action" aria-label={uiT("Add Provider")} title={uiT("Add Provider")} onClick={event => { dialogTrigger.current = event.currentTarget; open('add'); }}><Plus className="size-4" /><span>{uiT("Add Provider")}</span></Button>} />
-    <div className="empty-region space-y-5 py-5">
+    <div className="empty-region space-y-5 pb-5 pt-0">
       <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Manage upstream supply for customer billing. Commercial offers and customer prices are required.") : uiT("Connect Providers for your internal workspaces. You pay each Provider directly.")}</p>
 
       <h2 className="text-[15px] font-semibold">{uiT("Configured Providers")}</h2>

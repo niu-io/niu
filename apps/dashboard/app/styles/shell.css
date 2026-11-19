@@ -52,7 +52,6 @@
 .dashboard-login-brand:hover { opacity: .86; }
 .dashboard-login-brand img { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
 .dashboard-login-brand > span:first-of-type { min-width: 0; white-space: nowrap; }
-.dashboard-login-product { flex-shrink: 0; color: var(--muted-foreground); font-size: 13px; font-weight: 500; letter-spacing: 0; }
 .dashboard-login-nav { display: flex; align-items: center; gap: 4px; }
 .dashboard-login-nav [data-slot="button"] { height: 32px; padding-inline: 11px; border-radius: 7px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; }
 .dashboard-login-nav [data-slot="button"]:hover { color: var(--foreground); background: color-mix(in srgb, var(--foreground) 6%, transparent); }
@@ -74,10 +73,8 @@
 .dashboard-login-error { margin: 0; padding: 10px 13px; border-radius: 10px; border: 0; background: color-mix(in srgb, var(--destructive) 10%, var(--card)); color: var(--destructive); font-size: 13px; line-height: 1.45; }
 .dashboard-login-unavailable { display: grid; gap: 10px; }
 .dashboard-login-unavailable > [data-slot="button"] { width: 100%; height: 38px; border-radius: 10px; }
-.dashboard-login-submit[data-slot="button"] { width: 100%; height: 42px; min-height: 42px; margin-top: 4px; border-radius: 10px; border: 0; background: linear-gradient(135deg, #d9692e, #a9461a); color: #fff; font-size: 14px; font-weight: 500; letter-spacing: -.01em; box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 4px 14px -4px rgb(237 134 69 / 32%); transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease; }
-.dashboard-login-submit[data-slot="button"]:hover:not(:disabled) { color: #fff; background: linear-gradient(135deg, #df6f34, #b34c1e); filter: brightness(1.05); box-shadow: inset 0 1px 0 rgb(255 255 255 / 28%), 0 6px 18px -4px rgb(237 134 69 / 40%); }
+.dashboard-login-submit[data-slot="button"] { width: 100%; height: 42px; min-height: 42px; margin-top: 4px; border-radius: 10px; font-size: 14px; font-weight: 600; }
 .dashboard-login-submit[data-slot="button"]:active:not(:disabled) { transform: translateY(.5px); }
-.dashboard-login-submit[data-slot="button"]:disabled { opacity: .48; box-shadow: none; }
 .dashboard-login-secondary { display: grid; gap: 10px; margin-top: 14px; padding-top: 4px; border-top: 0; }
 .dashboard-login-switch[data-slot="button"] { width: 100%; height: 36px; min-height: 36px; border-radius: 8px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; gap: 7px; }
 .dashboard-login-switch[data-slot="button"]:hover:not(:disabled) { color: var(--foreground); background: color-mix(in srgb, var(--foreground) 5%, transparent); }

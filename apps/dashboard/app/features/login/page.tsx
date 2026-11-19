@@ -317,7 +317,7 @@ export default function LoginRoute() {
         )}
         {!configurationFailed && !signInNotConfigured && registrationOpen && (
           <p className="dashboard-login-hint dashboard-login-access-help">
-            {t('Installation or organization owner setup:', '实例管理员入口：')}{' '}
+            {t('Installation administrator?', '实例管理员？')}{' '}
             <Link className="underline underline-offset-2" to="/installation">
               {t('Administrator token sign-in', '管理员令牌登录')}
             </Link>

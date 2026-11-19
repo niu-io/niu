@@ -24,6 +24,7 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { navigation } from './navigation';
 import { useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import AccountMenu from './AccountMenu';
+import ThemeMenu from './ThemeMenu';
 import ProductRailLink from './ProductRailLink';
 import { canManagePlatform, type DashboardContext } from './dashboard-context';
 import { useBranding } from './branding';
@@ -195,8 +196,9 @@ export function ShellAccount() {
       </SidebarMenuItem>
       {footerLinks.map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild tooltip={item.tooltip} isActive={item.active}><ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>{item.subtitle && <span className="ml-auto max-w-24 truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{item.subtitle}</span>}</ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}
     </SidebarMenu>
-    <div className="flex items-center pt-1 group-data-[collapsible=icon]:justify-center">
+    <div className="flex items-center gap-1 pt-1 group-data-[collapsible=icon]:justify-center">
       <div className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none"><AccountMenu context={value.context} workspacePath={value.workspacePath} supplierArea={pathname.startsWith('/admin/providers')} mobile sidebar showDestinations={false} /></div>
+      <ThemeMenu context={value.context} />
     </div>
   </SidebarFooter>;
 }

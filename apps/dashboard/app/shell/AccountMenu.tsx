@@ -48,8 +48,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
       {sidebar ? <DropdownMenuTrigger asChild>
         <SidebarMenuButton className="h-9 font-medium" data-account-menu-trigger aria-label={uiT("Account menu")} title={label}>
           <div className="shrink-0" aria-hidden="true">{accountAvatar}</div>
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-          <ChevronDown className="text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">{!profile && installation ? t('Administrator', '管理员') : label}</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger> : mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start gap-2 px-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0" data-account-menu-trigger aria-label={uiT("Account menu")} title={label}>{profile ? <Avatar className="size-6 shrink-0"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : <span className="rail-avatar size-6 shrink-0" aria-hidden="true">{avatarInitial}</span>}<span className="min-w-0 flex-1 truncate text-left text-sm font-medium group-data-[collapsible=icon]:hidden">{label}</span><ChevronDown size={16} className="shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" data-account-menu-trigger aria-label={uiT("Account menu")} title={t('Account', '账户')}>
         {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
