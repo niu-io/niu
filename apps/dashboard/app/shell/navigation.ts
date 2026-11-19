@@ -28,7 +28,7 @@ export const navigation: Array<NavItem> = [
   { destination: 'Global', to: '/generations', label: 'Generations', labelZh: '多模态生成', icon: IconSparkles },
   { destination: 'Workspace', to: '.', label: 'Overview', labelZh: '概览', icon: LayoutDashboard },
   { destination: 'Workspace', to: 'models', label: 'Models', labelZh: '模型', icon: Boxes },
-  { destination: 'Workspace', to: 'keys', label: 'API keys', labelZh: 'API 密钥', icon: KeyRound },
+  { destination: 'Workspace', to: 'keys', label: 'Keys', labelZh: '密钥', icon: KeyRound },
   { destination: 'Workspace', to: 'executions', label: 'Logs', labelZh: '请求日志', icon: Logs },
   { destination: 'Workspace', to: 'assets', label: 'Assets', labelZh: '素材库', icon: IconPhoto, hidden: true },
   { destination: 'Workspace', to: 'routing', label: 'Routing', labelZh: '模型路由', icon: IconRoute, hidden: true },

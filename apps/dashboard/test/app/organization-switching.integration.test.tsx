@@ -39,7 +39,7 @@ describe('organization switching', () => {
     await user.type(await screen.findByLabelText('Password'), 'fixture-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => { expect(router.state.location.pathname).not.toBe('/login'); expect(router.state.navigation.state).toBe('idle'); });
-    await screen.findByRole('heading', { name: 'API keys' });
+    await screen.findByRole('heading', { name: 'Keys' });
     await waitFor(() => expect(requests.some(item => item.path === '/api/v1/models?organization_id=org-2&project_id=project-2')).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Settings', exact: true }));
@@ -51,8 +51,8 @@ describe('organization switching', () => {
     expect(within(settingsDialog).getByRole('link', { name: 'Members for Shared name' }).getAttribute('href')).toBe('/settings/members?workspace=shared-name-project2');
     await user.click(within(settingsDialog).getByRole('link', { name: 'Shared name', exact: true }));
     await screen.findByRole('heading', { name: 'Overview' });
-    await user.click(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'API keys', exact: true }));
-    await screen.findByRole('heading', { name: 'API keys' });
+    await user.click(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Keys', exact: true }));
+    await screen.findByRole('heading', { name: 'Keys' });
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(1);
     expect(screen.queryByText('Research', { exact: true })).toBeNull();
@@ -193,7 +193,7 @@ describe('organization switching', () => {
     await user.type(await screen.findByLabelText('Email'), 'alice@example.test');
     await user.type(await screen.findByLabelText('Password'), 'fixture-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByRole('heading', { name: 'API keys' });
+    await screen.findByRole('heading', { name: 'Keys' });
 
     // Switch organization via AccountMenu using operator session endpoint + slug
     await user.click(screen.getByRole('button', { name: 'Account menu' }));

@@ -65,7 +65,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
               <DropdownMenuContent align="end" collisionPadding={12}>
                 <DropdownMenuItem asChild><Link to={`${path}/settings`}><IconSettings/>{t('Workspace settings', '工作空间设置')}</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to={`${path}/executions`}><IconList/>{t('View logs', '查看请求日志')}</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link to={`${path}/keys`}><IconKey/>{t('API keys', 'API 密钥')}</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to={`${path}/keys`}><IconKey/>{t('Keys', '密钥')}</Link></DropdownMenuItem>
                 {context.session?.permissions.manage_operators && <DropdownMenuItem asChild><Link to={`/settings/members?workspace=${encodeURIComponent(workspacePathSegment(workspace, context.workspaces))}`}><IconUsers/>{t('Members', '成员')}</Link></DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu></TableCell>

@@ -41,7 +41,7 @@ describe('workspace overview quick start', () => {
   it('keeps API key creation out of the guidance for a read-only member', () => {
     render(quickStart({canWrite: false}));
     expect(screen.queryByRole('link', {name: 'Create an API key'})).toBeNull();
-    expect(screen.getByRole('link', {name: 'API keys'}).getAttribute('href')).toBe('/workspaces/demo/keys');
+    expect(screen.getByRole('link', {name: 'Keys'}).getAttribute('href')).toBe('/workspaces/demo/keys');
     expect(screen.getByText('Ask a workspace administrator to create or share a key.')).toBeTruthy();
   });
 

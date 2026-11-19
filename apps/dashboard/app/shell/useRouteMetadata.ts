@@ -145,7 +145,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                     pools: t('Routing', '模型路由'),
                     routing: t('Routing', '模型路由'),
                     overview: t('Overview', '概览'),
-                    keys: t('API keys', 'API 密钥'),
+                    keys: t('Keys', '密钥'),
                     models: t('Models', '模型'),
                     usage: t('Usage', '调用量'),
                     settlements: t('Settlements', '结算账单'),

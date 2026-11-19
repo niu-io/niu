@@ -243,7 +243,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
               const Icon =
                 item.label === 'Incidents' ? IconAlertTriangle : item.label === 'Settings'
                   ? Settings2
-                  : item.label === 'API keys'
+                  : item.label === 'Keys'
                     ? KeyRound
                     : item.label === 'Members' || item.label === 'Customers'
                       ? Users

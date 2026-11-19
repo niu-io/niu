@@ -31,7 +31,7 @@ it('shows the seeded default project as a workspace without changing its existin
   await user.type(await screen.findByLabelText('Email'), 'demo@example.test');
     await user.type(await screen.findByLabelText('Password'), 'fixture-password');
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
-  expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Keys' })).toBeTruthy();
   expect(router.state.location.pathname).toBe('/workspaces/default-project/keys');
   expect(screen.getByRole('button', { name: 'Switch workspace' }).textContent).toContain('Default workspace');
 

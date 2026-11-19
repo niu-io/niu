@@ -447,7 +447,7 @@ it('keeps the single primary New API key action in the header while showing Show
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast']} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
   expect(await screen.findByText('No active API keys')).toBeTruthy();
-  const keyListSection = screen.getByRole('region', { name: 'API keys' });
+  const keyListSection = screen.getByRole('region', { name: 'Keys' });
   expect(within(keyListSection).queryByRole('button', { name: 'New API key' })).toBeNull();
   expect(within(keyListSection).getByRole('button', { name: 'Show all keys' })).toBeTruthy();
 

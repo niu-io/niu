@@ -175,14 +175,14 @@ export default function AgentConnection({ context, sidebar = false }: { context:
               <Button asChild variant="link" className="px-0">
                 <Link to={keysRoute} onClick={() => setOpen(false)}>
                   <KeyRound aria-hidden="true" />
-                  {t('API keys', 'API 密钥')}
+                  {t('Keys', '密钥')}
                 </Link>
               </Button>
             ) : (
               <Button asChild variant="link" className="px-0">
                 <a href={`${basePath}${keysRoute}`}>
                   <KeyRound aria-hidden="true" />
-                  {t('API keys', 'API 密钥')}
+                  {t('Keys', '密钥')}
                 </a>
               </Button>
             )}

@@ -265,6 +265,6 @@ it('tailors AgentConnection setup prompt by selected task goal and links to API 
   await user.click(screen.getByRole('menuitemradio', { name: 'Wire inference into my app' }));
   expect(promptField.value).toContain('/docs/inference.md');
   expect(promptField.value).toContain('team-workspace');
-  expect(screen.getByRole('link', { name: 'API keys' }).getAttribute('href')).toBe('/workspaces/team-workspace/keys');
+  expect(screen.getByRole('link', { name: 'Keys' }).getAttribute('href')).toBe('/workspaces/team-workspace/keys');
   expect(screen.getByRole('link', { name: 'Setup guide' }).getAttribute('href')).toContain('/docs/agents/');
 });

@@ -252,8 +252,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const modelsHref = providerId ? `/admin/providers/${encodeURIComponent(providerSlug ?? providerId)}/models` : '';
 
   return <>
-    {providerId && <div className="supplier-section-heading"><h2 className="sr-only">{uiT("API keys")}</h2><p>{uiT("Manage upstream API keys, request limits and cooldowns for this Provider.")}</p></div>}
-    <PageHeader title={uiT("API keys")} action={!fixedConnectionId && canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
+    {providerId && <div className="supplier-section-heading"><h2 className="sr-only">{uiT("Keys")}</h2><p>{uiT("Manage upstream API keys, request limits and cooldowns for this Provider.")}</p></div>}
+    <PageHeader title={uiT("Keys")} action={!fixedConnectionId && canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
     {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
     <div className="supplier-detail-layout">
       {connections.length > 1 && <ProviderDirectory

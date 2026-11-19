@@ -123,7 +123,7 @@ describe('provider API key administration workflow', () => {
     const api = stubVendorApi({ existing: [openRouter] });
     renderView(<MemoryRouter initialEntries={['/providers?supplier=openrouter-primary']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="openrouter-primary" /></MemoryRouter>);
     await screen.findByRole('heading', { name: openRouter.name });
-    expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Keys' })).toBeTruthy();
     expect(screen.getByText(/Manage upstream API keys, request limits and cooldowns/)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Models' }).getAttribute('href')).toBe('/admin/providers/openrouter-primary/models');
     expect(screen.queryByRole('button', { name: 'Import models' })).toBeNull();
@@ -367,7 +367,7 @@ describe('provider API key administration workflow', () => {
     await screen.findByRole('heading', { name: openRouter.name });
     expect(calls).toContain('/api/v1/vendors?supplier=business-fixture');
     expect(calls).not.toContain('/api/v1/vendors');
-    expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Keys' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
   });
 

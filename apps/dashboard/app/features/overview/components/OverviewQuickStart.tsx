@@ -23,7 +23,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
   const firstStep: Step = hasModels
     ? canWrite
       ? { to: `${workspaceRoot}/keys`, label: uiT("Create an API key"), detail: uiT("Choose the models this workspace may call.") }
-      : { to: `${workspaceRoot}/keys`, label: uiT("API keys"), detail: uiT("Ask a workspace administrator to create or share a key.") }
+      : { to: `${workspaceRoot}/keys`, label: uiT("Keys"), detail: uiT("Ask a workspace administrator to create or share a key.") }
     : canManagePlatform
       ? { to: '/admin/providers', label: uiT("Connect provider"), detail: uiT("Connect a Provider and import its models.") }
       : { to: modelsHref, label: uiT("Browse models"), detail: uiT("Ask a platform administrator to make a model available.") };

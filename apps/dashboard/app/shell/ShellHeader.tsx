@@ -243,7 +243,7 @@ export default function ShellHeader({
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
                     <ProductRailLink to={`${activeWorkspacePath}/keys`}>
-                      {t('API keys', 'API 密钥')}
+                      {t('Keys', '密钥')}
                     </ProductRailLink>
                   </BreadcrumbLink>
                 </BreadcrumbItem>

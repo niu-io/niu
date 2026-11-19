@@ -531,7 +531,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Compare models": "对比模型",
   "Connect provider": "接入供应商",
   "Browse models": "浏览模型",
-  "API keys": "API 密钥",
+  "Keys": "密钥",
   "Shared pool": "平台共享池",
   "Organization-scoped pool": "企业专属模型池",
   "All scopes": "全部范围",

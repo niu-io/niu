@@ -143,9 +143,9 @@ describe('dashboard route layout', () => {
     expect(breadcrumb.queryByText('Admin')).toBeNull();
     expect(breadcrumb.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
-    await user.click(within(tabs).getByRole('tab', { name: 'API keys' }));
+    await user.click(within(tabs).getByRole('tab', { name: 'Keys' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys' }).getAttribute('aria-selected')).toBe('true'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Keys' }).getAttribute('aria-selected')).toBe('true'));
     await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
@@ -277,11 +277,11 @@ describe('dashboard route layout', () => {
 
   it('uses the current Assets title after navigating from API keys', async () => {
     mockHealth(); const router = renderAt('/workspaces/default/keys');
-    await screen.findByRole('heading', { name: 'API keys', level: 1 });
+    await screen.findByRole('heading', { name: 'Keys', level: 1 });
     await router.navigate('/workspaces/default/assets');
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/assets'));
     expect(await screen.findByRole('heading', { name: 'Assets', level: 1 })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'API keys', level: 1 })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Keys', level: 1 })).toBeNull();
   });
 
   it('links to standalone Docs in a new tab without selecting a dashboard route', async () => {
@@ -668,7 +668,7 @@ describe('dashboard route layout', () => {
       expect(router.state.location.pathname).toBe(originalPath);
       expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toEqual([]);
     } else {
-      expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
+      expect(await screen.findByRole('heading', { name: 'Keys' })).toBeTruthy();
       expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
       await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50&status=active'));
     }
@@ -698,7 +698,7 @@ describe('dashboard route layout', () => {
     const user = userEvent.setup();
     const router = renderAt('/workspaces/project-1/keys?tab=active#list', true);
     await signIn(user);
-    await screen.findByRole('heading', { name: 'API keys' });
+    await screen.findByRole('heading', { name: 'Keys' });
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'Second project' }));
@@ -732,7 +732,7 @@ describe('dashboard route layout', () => {
     const user = userEvent.setup();
     renderAt('/workspaces/project-1/keys', true);
     await signIn(user);
-    await screen.findByRole('heading', { name: 'API keys' });
+    await screen.findByRole('heading', { name: 'Keys' });
 
     const trigger = screen.getByRole('button', { name: 'Switch workspace' });
     trigger.focus();
@@ -810,7 +810,7 @@ describe('dashboard route layout', () => {
     const user = userEvent.setup();
     const router = renderAt('/workspaces/project-1/keys?tab=active#list', true);
     await signIn(user);
-    await screen.findByRole('heading', { name: 'API keys' });
+    await screen.findByRole('heading', { name: 'Keys' });
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
     await user.click(screen.getByRole('menuitem', { name: 'Create workspace' }));
@@ -1049,7 +1049,7 @@ describe('dashboard route layout', () => {
 
       await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
       const reopenedNav = await screen.findByRole('navigation', { name: 'Main navigation' });
-      await user.click(within(reopenedNav).getByRole('link', { name: 'API keys', exact: true }));
+      await user.click(within(reopenedNav).getByRole('link', { name: 'Keys', exact: true }));
       await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/keys'));
       await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
 
@@ -1087,7 +1087,7 @@ it('keeps workspace configuration reachable before payment setup is ready', asyn
   vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input).split('?')[0] === '/api/v1/payments/readiness'
     ? Promise.resolve(Response.json({data: {ready: false, reason: 'payment_setup_required'}})) : original(input, init)));
   renderAt('/workspaces/default/keys');
-  expect(await screen.findByRole('heading', {name: 'API keys'})).toBeTruthy();
+  expect(await screen.findByRole('heading', {name: 'Keys'})).toBeTruthy();
   expect(screen.queryByRole('region', {name: 'Service setup'})).toBeNull();
   expect(await screen.findByRole('button', {name: 'New API key'})).toBeTruthy();
 });
