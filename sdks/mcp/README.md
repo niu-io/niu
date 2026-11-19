@@ -4,10 +4,10 @@
 
 ## Quick start
 
-The published v0.2.14 archive provides 28 tools. For its model discovery and invocation tools, install the release archive:
+Install the published v0.3.0 archive to use its 51 tools, including model discovery and invocation:
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.0/niu-io-mcp-0.1.0.tgz
 NIU_API_KEY='your-workspace-api-key' niu-mcp --hosted
 ```
 
@@ -23,7 +23,7 @@ NIU_BASE_URL='http://127.0.0.1:2555/v1' \
 niu-mcp
 ```
 
-For the 0.3 candidate tools, including workspace pools, evaluations and event subscriptions, check out the desired commit from `release/0.3`. Run `pnpm install --frozen-lockfile` from the Niu checkout root, then `pnpm --dir sdks/mcp build`. Configure `node` with the absolute path to that checkout's `sdks/mcp/bin/niu-mcp.mjs` and optional `--hosted`; a relative path fails when the agent runs in a different workspace.
+To run the exact MCP source from a 0.3 release candidate, check out the desired commit from `release/0.3`. Run `pnpm install --frozen-lockfile` from the Niu checkout root, then `pnpm --dir sdks/mcp build`. Configure `node` with the absolute path to that checkout's `sdks/mcp/bin/niu-mcp.mjs` and optional `--hosted`; a relative path fails when the agent runs in a different workspace.
 
 ### Optional environment variables
 
