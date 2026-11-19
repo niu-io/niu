@@ -809,7 +809,12 @@ impl Store {
             sqlx::query("SELECT organization_id FROM customer_unit_accounts WHERE organization_id=$1 FOR NO KEY UPDATE")
                 .bind(organization).fetch_one(&mut *tx).await?;
             let lot = Uuid::new_v4();
-            let simulated = saved.aggregator == "stripe" && saved.merchant == "NiuMockPayments";
+            let channel = format!("{}:{}", saved.aggregator, saved.merchant);
+            let simulated: bool = sqlx::query_scalar("SELECT niu_simulated_payment($1,$2)")
+                .bind(&channel)
+                .bind(platform_reference)
+                .fetch_one(&mut *tx)
+                .await?;
             let provenance = if simulated { "simulated" } else { "purchased" };
             let backing = if simulated { 0 } else { saved.amount_nanos };
             sqlx::query(
@@ -828,7 +833,6 @@ impl Store {
             .bind(backing)
             .execute(&mut *tx)
             .await?;
-            let channel = format!("{}:{}", saved.aggregator, saved.merchant);
             let inserted = sqlx::query("INSERT INTO customer_unit_funding_receipts
                 (channel,payment_reference,organization_id,account_id,currency,unit_lot_id,amount_nanos)
                 VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING")

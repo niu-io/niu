@@ -17,7 +17,7 @@ WITH raw_bounds AS MATERIALIZED (
     -- The immutable receipt channel records checkout provenance. Current plugin
     -- settings cannot reclassify historical simulated money as cash.
     SELECT DISTINCT account_id FROM customer_funding_receipts
-    WHERE channel='stripe:NiuMockPayments'
+    WHERE niu_simulated_payment(channel,payment_reference)
 ), retail AS (
     SELECT c.attempt_id,c.organization_id,c.project_id,c.currency,c.amount_nanos,c.created_at
         FROM customer_charges c CROSS JOIN bounds
@@ -186,8 +186,8 @@ WITH raw_bounds AS MATERIALIZED (
     UNION ALL
     SELECT channel,payment_reference,currency,amount_nanos,created_at FROM customer_unit_funding_receipts
 ), receipts AS (
-    SELECT COALESCE(sum(amount_nanos::numeric) FILTER (WHERE channel<>'stripe:NiuMockPayments'),0) AS amount,
-        COALESCE(sum(amount_nanos::numeric) FILTER (WHERE channel='stripe:NiuMockPayments'),0) AS simulated_amount
+    SELECT COALESCE(sum(amount_nanos::numeric) FILTER (WHERE NOT niu_simulated_payment(channel,payment_reference)),0) AS amount,
+        COALESCE(sum(amount_nanos::numeric) FILTER (WHERE niu_simulated_payment(channel,payment_reference)),0) AS simulated_amount
     FROM payment_receipts CROSS JOIN bounds
     WHERE currency=$1 AND created_at>=bounds.since AND created_at<bounds.until
 ), invoice_receipts AS (
@@ -219,7 +219,7 @@ WITH raw_bounds AS MATERIALIZED (
         FROM customer_balance_entries entry
         JOIN customer_funding_receipts receipt ON receipt.entry_id=entry.reverses_entry_id
         WHERE entry.currency=$1 AND entry.kind='funding_reversal'
-            AND receipt.channel<>'stripe:NiuMockPayments'
+            AND NOT niu_simulated_payment(receipt.channel,receipt.payment_reference)
             AND entry.created_at>=bounds.since AND entry.created_at<bounds.until
     ),0) + COALESCE((
         SELECT sum(rev.refund_backing_nanos::numeric)

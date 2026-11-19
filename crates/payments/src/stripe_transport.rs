@@ -270,7 +270,14 @@ impl Client {
         {
             return Err(Error);
         }
+        // Keep explicit payment-method selection stable across merchant account upgrades.
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            "Stripe-Version",
+            reqwest::header::HeaderValue::from_static("2024-06-20"),
+        );
         let http = reqwest::Client::builder()
+            .default_headers(headers)
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .retry(reqwest::retry::never())
