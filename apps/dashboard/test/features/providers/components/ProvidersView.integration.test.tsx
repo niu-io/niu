@@ -179,7 +179,7 @@ describe('provider API key administration workflow', () => {
     render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
     await screen.findByRole('heading', { name: openRouter.name });
-    await user.click(screen.getByRole('button', { name: 'Edit API key' }));
+    await user.click(screen.getByRole('button', { name: 'Edit key' }));
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'vendor-secret-rotation');
     await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
     await user.click(screen.getByRole('button', { name: 'Review disable' }));
@@ -329,7 +329,7 @@ describe('provider API key administration workflow', () => {
     const user = userEvent.setup();
     render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Edit API key' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit key' }));
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'retry-this-credential');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
@@ -342,14 +342,14 @@ describe('provider API key administration workflow', () => {
     const user = userEvent.setup();
     const view = render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Edit API key' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit key' }));
     const credential = await screen.findByLabelText('Replace provider API key (optional)');
     await user.type(credential, 'temporary-draft-only');
     view.rerender(<ProvidersView token="installation-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
     expect(screen.getByRole('heading', { name: 'Platform administrator access required' })).toBeTruthy();
 
     view.rerender(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit API key' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit key' }));
     const resetInput = await screen.findByLabelText('Replace provider API key (optional)') as HTMLInputElement;
     expect(resetInput.value).toBe('');
   });

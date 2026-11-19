@@ -158,9 +158,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                       ? t('Overview', '概览')
                       : t('Providers', '模型供应商')))
                 : activePath === 'keys/new'
-                  ? t('New API key', '新建 API 密钥')
+                  ? t('New key', '新建密钥')
                   : activePath.startsWith('keys/')
-                    ? t('API key', 'API 密钥')
+                    ? t('Key', '密钥')
                     : activePath === 'events' || activePath.startsWith('events/')
                       ? t('Event subscriptions', '事件订阅')
                       : activePath === 'models'

@@ -144,7 +144,7 @@ it('requests a short overview preview while preserving totals and access to the 
   expect(screen.getByRole('link', {name:/Workspace usage/}).getAttribute('href')).toBe('/workspaces/demo/usage');
   expect(screen.getByRole('link', {name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions');
   expect(screen.queryByRole('button', {name:'Load older requests'})).toBeNull();
-  for (const heading of ['Customer charge breakdown', 'Top API keys', 'Delivery status', 'Model usage']) {
+  for (const heading of ['Customer charge breakdown', 'Top keys', 'Delivery status', 'Model usage']) {
     expect(screen.queryByRole('heading', {name: heading})).toBeNull();
   }
 });
@@ -850,7 +850,7 @@ describe('gateway activity', () => {
 
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    for (const heading of ['Customer charge breakdown', 'Top API keys', 'Delivery status', 'Model usage']) {
+    for (const heading of ['Customer charge breakdown', 'Top keys', 'Delivery status', 'Model usage']) {
       expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
     }
     expect(screen.getByText('Matching requests')).toBeTruthy();
@@ -875,7 +875,7 @@ describe('gateway activity', () => {
 
     render(<MemoryRouter initialEntries={['/workspaces/default/usage?from=2026-09-01&to=2026-09-05&modelAlias=fast&status=confirmed_completed']}><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top keys' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View requests' }).getAttribute('href')).toBe('/workspaces/default/executions?from=2026-09-01&to=2026-09-05&modelAlias=fast&key=build-app&status=confirmed_completed');
   });
 
@@ -891,7 +891,7 @@ describe('gateway activity', () => {
 
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top keys' })).toBeTruthy();
     expect(screen.getByText('Build app')).toBeTruthy();
     expect(screen.getByText('36 tokens')).toBeTruthy();
     expect(screen.getByText(/2 requests · 2 with reported usage/)).toBeTruthy();
@@ -929,7 +929,7 @@ describe('gateway activity', () => {
 
     render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top keys' })).toBeTruthy();
     expect(screen.getAllByText('Unknown').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/1 request · 0 with reported usage · 1 unknown/)).toBeTruthy();
   });

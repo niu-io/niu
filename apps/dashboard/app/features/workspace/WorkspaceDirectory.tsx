@@ -42,7 +42,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
       : context.workspaceError ? <div role="alert" className="grid justify-items-start gap-3"><p>{t('Could not load your workspaces.', '无法加载您的工作空间。')}</p><Button variant="secondary" onClick={context.reloadWorkspaces}>{t('Try again', '重试')}</Button></div>
       : context.workspaces.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{t('No workspaces available.', '暂无可用工作空间。')}</EmptyTitle></EmptyHeader></Empty>
       : <Table aria-label={uiT("Workspaces")}>
-        <TableHeader><TableRow><TableHead>{t('Name', '名称')}</TableHead><TableHead className="hidden sm:table-cell text-right">{t('Active API keys', '有效 API 密钥')}</TableHead><TableHead className="hidden sm:table-cell text-right">{t('Requests · 30 days', '近 30 天请求数')}</TableHead><TableHead className="hidden sm:table-cell">{t('Last request', '最近请求')}</TableHead><TableHead className="w-12 text-right"><span className="sr-only">{t('Actions', '操作')}</span></TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead>{t('Name', '名称')}</TableHead><TableHead className="hidden sm:table-cell text-right">{t('Active keys', '有效密钥')}</TableHead><TableHead className="hidden sm:table-cell text-right">{t('Requests · 30 days', '近 30 天请求数')}</TableHead><TableHead className="hidden sm:table-cell">{t('Last request', '最近请求')}</TableHead><TableHead className="w-12 text-right"><span className="sr-only">{t('Actions', '操作')}</span></TableHead></TableRow></TableHeader>
         <TableBody>{context.workspaces.map(workspace => {
           const name = workspaceDisplayName(workspace.name);
           const path = `/workspaces/${workspacePathSegment(workspace, context.workspaces)}`;
@@ -52,7 +52,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
 
               {workspace.created_at_ms != null && <p className="mt-1 text-xs text-muted-foreground">{isZh ? `创建于 ${date(workspace.created_at_ms)}` : uiF("Created {0}", [date(workspace.created_at_ms)])}</p>}
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:hidden">
-                <div><dt className="text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</dt><dd className="mt-1"><Link className="hover:underline" to={`${path}/keys`}>{workspace.active_key_count?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link></dd></div>
+                <div><dt className="text-muted-foreground">{t('Active keys', '有效密钥')}</dt><dd className="mt-1"><Link className="hover:underline" to={`${path}/keys`}>{workspace.active_key_count?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link></dd></div>
                 <div><dt className="text-muted-foreground">{t('Requests · 30 days', '近 30 天请求数')}</dt><dd className="mt-1"><Link className="hover:underline" to={`${path}/executions`}>{workspace.requests_30d?.toLocaleString(locale) ?? t('Unavailable', '不可用')}</Link></dd></div>
                 <div className="col-span-2"><dt className="text-muted-foreground">{t('Last request', '最近请求')}</dt><dd className="mt-1">{workspace.last_request_at_ms != null ? date(workspace.last_request_at_ms) : workspace.requests_30d == null ? t('Unavailable', '不可用') : t('No requests yet', '暂无请求')}</dd></div>
               </dl>

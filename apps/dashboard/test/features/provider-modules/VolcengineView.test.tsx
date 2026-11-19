@@ -329,7 +329,7 @@ it('treats source IP policy rejection during discovery as a key policy state wit
   expect(configureLink.getAttribute('href')).toBe(
     '/workspaces/media-workspace/keys/production-gateway-key-2',
   );
-  const manageLink = screen.getByRole('link', { name: 'Manage API keys' });
+  const manageLink = screen.getByRole('link', { name: 'Manage keys' });
   expect(manageLink.getAttribute('href')).toBe('/workspaces/media-workspace/keys');
 
   await user.click(screen.getByRole('button', { name: 'Use Demo API key' }));

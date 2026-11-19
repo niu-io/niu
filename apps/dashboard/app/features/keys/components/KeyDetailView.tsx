@@ -258,7 +258,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     {error && <div className="grid justify-items-start gap-2"><p role="alert" className="key-page-error">{uiT(error)}</p>{loadFailed && <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Retry API key")}</Button>}</div>}
     {notice && <p role="status" className="key-revoke-notice"><Check size={15} />{uiT(notice)}</p>}
     {(loading || (Boolean(collectionPath) && loadedScope !== scopeIdentity && !loadFailed)) && !key && <section className="key-detail-card border-0 bg-transparent p-0 shadow-none"><FormSectionSkeleton fields={3} label={uiT("Loading key…")} /></section>}
-    {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="key-detail-card key-not-found border-0 bg-muted/40 p-6 shadow-none"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to API keys")}</Link></section>}
+    {!loading && !loadFailed && loadedScope === scopeIdentity && !key && <section className="key-detail-card key-not-found border-0 bg-muted/40 p-6 shadow-none"><KeyRound size={20} /><strong>{uiT("This key could not be found or accessed in this workspace.")}</strong><Link to={`${root}/keys`}>{uiT("Return to keys")}</Link></section>}
     {key && <>
       {(key.revoked || key.expired) && <Alert className="mb-4"><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>{key.revoked ? uiT("This API key was revoked and cannot send new requests.", "此 API 密钥已撤销，无法发送新请求。") : uiT("This API key has expired and cannot send new requests.", "此 API 密钥已过期，无法发送新请求。")}</span>{canWrite && initialScope && <Button asChild variant="outline" size="sm"><Link to={`${root}/keys`} state={{createKey: true}}>{uiT("Create replacement key", "创建替代密钥")}</Link></Button>}</AlertDescription></Alert>}
       <section className="key-detail-card rounded-[var(--radius-panel)] border-0 bg-card p-6 shadow-none" aria-label={uiT("API key details")}>
@@ -304,7 +304,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
       <Dialog open={editing && Boolean(initialScope) && Boolean(keyPath)} onOpenChange={open => { if (!open) { restoreEditFocus.current = true; setEditing(false); setError(''); } }}>
         <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-hidden sm:max-w-2xl" onCloseAutoFocus={event => { if (editButtonRef.current?.isConnected) { event.preventDefault(); editButtonRef.current.focus(); } }}>
           <DialogHeader className="shrink-0">
-            <DialogTitle>{uiT("Edit API key", "编辑 API 密钥")}</DialogTitle>
+            <DialogTitle>{uiT("Edit key", "编辑密钥")}</DialogTitle>
             <DialogDescription>{uiT("Update model access, throughput limits, source IP restrictions, spending allowance, and Guardrails.", "更新此密钥的模型访问范围、速率限制、来源 IP 限制、消费额度及护栏策略。")}</DialogDescription>
           </DialogHeader>
           {editing && initialScope && keyPath && <KeySettingsEditor

@@ -5,7 +5,7 @@ import { workspacePath } from './api';
 export const handle: RouteHandle = {
   destination: 'Workspace',
   navTo: 'keys',
-  title: { en: 'New API key', zh: '新建 API 密钥' },
+  title: { en: 'New key', zh: '新建密钥' },
 };
 
 export default function NewKeyRoute() {

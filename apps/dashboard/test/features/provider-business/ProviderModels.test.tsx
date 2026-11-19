@@ -269,9 +269,9 @@ it('keeps imported commercial routes disabled and unpriced until an offer qualif
 it('links to API key management instead of embedding a second credential editor',async()=>{
  setup(); render(<MemoryRouter><ProviderModels {...props}/></MemoryRouter>);
  await screen.findByText('team/chat');
- const link=screen.getByRole('link',{name:'Manage API keys'});
+ const link=screen.getByRole('link',{name:'Manage keys'});
  expect(link.getAttribute('href')).toBe('/admin/providers/example/keys');
- expect(screen.queryByRole('button',{name:'Edit API key'})).toBeNull();
+ expect(screen.queryByRole('button',{name:'Edit key'})).toBeNull();
 });
 it('keeps the first model on an owner-funded credential private',async()=>{
  setup(true); render(<MemoryRouter><ProviderModels {...props}/></MemoryRouter>);

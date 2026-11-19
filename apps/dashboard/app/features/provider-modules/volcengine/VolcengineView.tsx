@@ -528,7 +528,7 @@ export default function VolcengineView({
             onContextChange?.({ keyId: fallbackKey?.slug || fallbackChoice.keyId, model: fallbackChoice.module.model_alias });
           }}>{uiF('Use {0}', [fallbackChoice.keyName])}</Button>}
           {restrictedTargetKey && <Button asChild variant="outline" size="sm">{inRouter ? <Link to={`${workspaceKeysHref}/${encodeURIComponent(restrictedTargetKey.slug || restrictedTargetKey.id)}`}>{uiT('Configure source IP access')}</Link> : <a href={`${workspaceKeysHref}/${encodeURIComponent(restrictedTargetKey.slug || restrictedTargetKey.id)}`}>{uiT('Configure source IP access')}</a>}</Button>}
-          <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceKeysHref}>{uiT('Manage API keys')}</Link> : <a href={workspaceKeysHref}>{uiT('Manage API keys')}</a>}</Button>
+          <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceKeysHref}>{uiT('Manage keys')}</Link> : <a href={workspaceKeysHref}>{uiT('Manage keys')}</a>}</Button>
           <Button variant="ghost" size="sm" disabled={contextLocked} onClick={data.retry}>{uiT('Recheck access')}</Button>
         </div>
       </div>}
@@ -538,10 +538,10 @@ export default function VolcengineView({
         <Button variant="outline" disabled={contextLocked} onClick={data.retry}>{uiT('Retry discovery')}</Button>
       </div>}
       {!nativeContext && !data.discoveryLoading && !chosenModel && !data.selectedKeyIpRestricted && <div className="space-y-2 text-sm">
-        {noActiveKeys && data.discoveryErrors.length === 0 && <p className="font-medium">{uiT('No active API keys')}</p>}
+        {noActiveKeys && data.discoveryErrors.length === 0 && <p className="font-medium">{uiT('No active keys')}</p>}
         <p className="text-muted-foreground">{noActiveKeys && data.discoveryErrors.length === 0 ? uiT('Add an API key and choose a supported model to read Provider materials.') : chosenKey && modelChoices.length === 0 ? data.discoveryErrors.length > 0 ? uiT('Native tool discovery is incomplete. Retry discovery or choose a discovered context.') : uiT('No models supporting Provider materials were found for this key. Choose another key or review your workspace models.') : data.contextKeys.length === 0 && data.discoveryErrors.length === 0 ? uiT('Add an API key and choose a supported model to read Provider materials.') : uiT('Choose an API key and model to read its materials.')}</p>
         {data.discoveryErrors.length === 0 && ((chosenKey && modelChoices.length === 0) || noActiveKeys) && <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceKeysHref}>{uiT('Manage API keys')}</Link> : <a href={workspaceKeysHref}>{uiT('Manage API keys')}</a>}</Button>
+          <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceKeysHref}>{uiT('Manage keys')}</Link> : <a href={workspaceKeysHref}>{uiT('Manage keys')}</a>}</Button>
           <Button asChild variant="outline" size="sm">{inRouter ? <Link to={workspaceModelsHref}>{uiT('View models')}</Link> : <a href={workspaceModelsHref}>{uiT('View models')}</a>}</Button>
         </div>}
       </div>}

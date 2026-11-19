@@ -18,7 +18,7 @@ it('requires reloading a conflicting key before another edit', async () => {
   render(<MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite canConfigureSpending initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
   const user=userEvent.setup();
   await user.click(await screen.findByRole('button',{name:'Edit key'}));
-  expect(screen.getByRole('dialog', { name: 'Edit API key' })).toBeTruthy();
+  expect(screen.getByRole('dialog', { name: 'Edit key' })).toBeTruthy();
   await user.clear(screen.getByLabelText('Name'));await user.type(screen.getByLabelText('Name'),'My edit');
   await user.click(screen.getByRole('button',{name:'Save changes'}));
   await screen.findByText('This key changed. Reload it before editing again.');
@@ -40,7 +40,7 @@ it('edits key metadata inside a dialog with its revision, preserves read facts, 
   const user=userEvent.setup();
   const editButton = await screen.findByRole('button',{name:'Edit key'});
   await user.click(editButton);
-  expect(screen.getByRole('dialog', { name: 'Edit API key' })).toBeTruthy();
+  expect(screen.getByRole('dialog', { name: 'Edit key' })).toBeTruthy();
   expect(document.querySelector('dl.key-detail-facts')?.textContent).toContain('All configured models');
   expect((screen.getByRole('button',{name:'Save changes'}) as HTMLButtonElement).disabled).toBe(true);
   await user.clear(screen.getByLabelText('Name'));await user.type(screen.getByLabelText('Name'),'Updated key');
@@ -101,14 +101,14 @@ it('opens the edit dialog automatically when navigated with editKey intent', asy
   const record={id:'saved',slug:'saved',revision:1,name:'Application key',allowed_models:['*'],expires_at_ms:null,revoked:false,expired:false};
   vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[record]})));
   render(<MemoryRouter initialEntries={[{pathname:'/workspaces/demo/keys/saved', state:{editKey:true}}]}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="test" models={['fast']} canWrite canConfigureSpending initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
-  expect(await screen.findByRole('dialog', { name: 'Edit API key' })).toBeTruthy();
+  expect(await screen.findByRole('dialog', { name: 'Edit key' })).toBeTruthy();
 });
 
 it('offers a neutral, workspace-scoped recovery when the key is absent', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data: []})));
   render(<MemoryRouter initialEntries={['/workspaces/demo/keys/missing']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token="missing-test" models={[]} canWrite={false} initialScope={{organizationId:'org',projectId:'demo'}}/>}/></Routes></MemoryRouter>);
   await screen.findByText('This key could not be found or accessed in this workspace.');
-  expect(screen.getByRole('link', {name:'Return to API keys'}).getAttribute('href')).toBe('/workspaces/demo/keys');
+  expect(screen.getByRole('link', {name:'Return to keys'}).getAttribute('href')).toBe('/workspaces/demo/keys');
 });
 
 it('redirects an old key ID bookmark to its stable slug and edits by the API ID', async () => {

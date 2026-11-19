@@ -798,7 +798,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       </section>}
 
       {statisticsOnly && !error && <section className="panel activity-key-breakdown" aria-labelledby="activity-key-title">
-        <div className="panel-heading"><div><h2 id="activity-key-title">{uiT("Top API keys")}</h2><p>{uiT("Workspace keys ranked by reported token volume for this date range.")}</p></div><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("Investigate requests")}</Link></div>
+        <div className="panel-heading"><div><h2 id="activity-key-title">{uiT("Top keys")}</h2><p>{uiT("Workspace keys ranked by reported token volume for this date range.")}</p></div><Link to={requestEvidenceHref(workspaceRoot, filters)}>{uiT("Investigate requests")}</Link></div>
         {loading && !summary ? <ListRowsSkeleton rows={3} label={uiT("Loading API key usage…")} /> : aggregate.usage_by_key.length ? <div className="activity-key-usage-list">
           {aggregate.usage_by_key.map((item, index) => {
             const reportedTokens = BigInt(item.prompt_tokens) + BigInt(item.completion_tokens);

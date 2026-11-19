@@ -798,7 +798,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         ? uiT("Uses your own Provider API key. Usage is billed by your Provider, not deducted from Niu credits.")
         : billingSources.every(source => source === 'niu_credits')
           ? uiT("Usage is charged to your Niu credits at the applicable model prices.")
-          : uiT("This comparison uses both Niu credits and your own Provider API keys. Each model is billed through its configured source.");
+          : uiT("This comparison uses both Niu credits and your own Provider keys. Each model is billed through its configured source.");
   const allowedModels = managedKey?.allowed_models ?? selectedKey?.allowedModels;
   const usableModels = useMemo(() => allowedModels && !allowedModels.includes('*')
     ? modelAliases.filter(model => allowedModels.includes(model))
@@ -1130,7 +1130,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           {selectedModels.some(model => unverifiedModels.includes(model)) && <Alert role="status"><AlertDescription>{uiT("Chat support is unverified for")}{" "}{selectedModels.filter(model => unverifiedModels.includes(model)).join(', ')}{uiT(". Confirm support with your platform administrator before sending.")}</AlertDescription></Alert>}
           {modelsError && <div role="alert" className="playground-chat-error">{uiT(modelsError)}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>{uiT("Retry model catalog")}</Button>}</div>}
           {!initialScope
-            ? <Empty className="playground-chat-empty border-0 bg-transparent"><EmptyHeader><EmptyMedia variant="icon"><FlaskConical size={20} /></EmptyMedia><EmptyTitle><h2>{uiT("Add an API key")}</h2></EmptyTitle><EmptyDescription>{uiT("Use an API key to authorize generations and track usage.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage API keys")}</Link></Button></EmptyContent></Empty>
+            ? <Empty className="playground-chat-empty border-0 bg-transparent"><EmptyHeader><EmptyMedia variant="icon"><FlaskConical size={20} /></EmptyMedia><EmptyTitle><h2>{uiT("Add an API key")}</h2></EmptyTitle><EmptyDescription>{uiT("Use an API key to authorize generations and track usage.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage keys")}</Link></Button></EmptyContent></Empty>
             : !results && !prompt.trim()
                 ? <div className="playground-first-run">
                   <div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}>

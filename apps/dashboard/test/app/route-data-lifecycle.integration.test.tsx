@@ -456,7 +456,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(router.state.location.hash).toBe('#breakdown');
   });
 
-  it('renders TableSkeleton instead of No API keys yet while /workspaces/:workspace/keys is loading (niu-xa7o)', async () => {
+  it('renders TableSkeleton instead of No keys yet while /workspaces/:workspace/keys is loading (niu-xa7o)', async () => {
     let resolveKeys: ((res: Response) => void) | undefined;
     let keysRequests = 0;
 
@@ -484,7 +484,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(router.state.location.pathname).toBe('/workspaces/alpha/keys');
     expect(screen.getByText('Loading keys…')).toBeTruthy();
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
-    expect(screen.queryByText('No API keys yet')).toBeNull();
+    expect(screen.queryByText('No keys yet')).toBeNull();
     expect(keysRequests).toBe(1);
 
     await act(async () => {
@@ -509,7 +509,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
 
     expect(await screen.findByText('Skeleton Verified Key')).toBeTruthy();
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
-    expect(screen.queryByText('No API keys yet')).toBeNull();
+    expect(screen.queryByText('No keys yet')).toBeNull();
     expect(keysRequests).toBe(1);
   });
 });

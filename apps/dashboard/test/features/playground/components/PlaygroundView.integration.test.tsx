@@ -1444,7 +1444,7 @@ it('does not carry saved-workspace billing claims over when no workspace key is 
   expect(screen.getByLabelText('Usage billing').textContent).not.toContain('both Niu credits');
   resolveKeys(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
   await screen.findByRole('button', {name:'API key: Default'});
-  expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider API keys');
+  expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider keys');
   expect(screen.getByLabelText('Usage billing').closest('.playground-composer-surface')).toBeNull();
   expect(screen.getByLabelText('Usage billing').closest('form')).toBeNull();
   expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).endsWith('/chat/completions'))).toBe(false);

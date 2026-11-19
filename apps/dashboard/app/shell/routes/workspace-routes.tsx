@@ -107,7 +107,7 @@ export const workspaceRoute: RouteObject = {
       lazy: bindLazy(routeImporters.keysNew, {
         destination: 'Workspace',
         navTo: 'keys',
-        title: { en: 'New API key', zh: '新建 API 密钥' },
+        title: { en: 'New key', zh: '新建密钥' },
       }),
     },
     {
@@ -116,7 +116,7 @@ export const workspaceRoute: RouteObject = {
       lazy: bindLazy(routeImporters.keyDetail, {
         destination: 'Workspace',
         navTo: 'keys',
-        title: { en: 'API key', zh: 'API 密钥' },
+        title: { en: 'Key', zh: '密钥' },
       }),
     },
     {

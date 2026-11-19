@@ -223,7 +223,7 @@ export default function ConnectAgent() {
           <Check className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div className="space-y-1">
             <h2 className="font-semibold">{grant.state === 'denied' ? t('Connection declined', '已拒绝连接') : t('Authorization approved', '已批准授权')}</h2>
-            <p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace API keys page.', '返回 Agent，它将验证连接。你可以在工作空间 API 密钥页面撤销签发的密钥。')}</p>
+            <p className="text-sm text-muted-foreground">{grant.state === 'denied' ? t('Your agent has not been granted access.', '尚未向 Agent 授予访问权限。') : t('Return to your agent. It will verify the connection. You can revoke the issued key in the workspace keys page.', '返回 Agent，它将验证连接。你可以在工作空间密钥页面撤销签发的密钥。')}</p>
           </div>
         </div>
         {grant.state === 'approved' && approvedSummary && (

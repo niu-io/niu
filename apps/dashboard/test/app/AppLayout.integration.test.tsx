@@ -1089,5 +1089,5 @@ it('keeps workspace configuration reachable before payment setup is ready', asyn
   renderAt('/workspaces/default/keys');
   expect(await screen.findByRole('heading', {name: 'Keys'})).toBeTruthy();
   expect(screen.queryByRole('region', {name: 'Service setup'})).toBeNull();
-  expect(await screen.findByRole('button', {name: 'New API key'})).toBeTruthy();
+  expect(await screen.findByRole('button', {name: 'New key'})).toBeTruthy();
 });

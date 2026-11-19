@@ -194,7 +194,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
           <DropdownMenuContent align="end">{connections.map(connection => <DropdownMenuItem key={connection.id} disabled={busy} onSelect={() => void importModels(connection)}>{uiF('Import from {0}', [connection.name || uiT("Unnamed API key")])}</DropdownMenuItem>)}</DropdownMenuContent>
         </DropdownMenu>}
         <Button size="sm" variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Refresh")}</Button>
-        <Button asChild size="sm" variant="ghost"><Link to={keysHref}>{uiT("Manage API keys")}</Link></Button>
+        <Button asChild size="sm" variant="ghost"><Link to={keysHref}>{uiT("Manage keys")}</Link></Button>
       </div>
     </div>
     {notice && <p role="status" className="text-sm">{uiT(notice)}</p>}

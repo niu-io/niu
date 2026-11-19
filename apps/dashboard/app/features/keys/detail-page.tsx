@@ -9,7 +9,7 @@ import KeyDetailView from './components/KeyDetailView';
 export const handle: RouteHandle = {
   destination: 'Workspace',
   navTo: 'keys',
-  title: { en: 'API key', zh: 'API 密钥' },
+  title: { en: 'Key', zh: '密钥' },
 };
 
 export function clientLoader(args: LoaderFunctionArgs) {
