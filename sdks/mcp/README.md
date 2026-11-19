@@ -4,7 +4,7 @@
 
 ## Quick start
 
-For a release archive, follow the [installation contract](https://niu.io/docs/install.md) and verify its checksum and source commit against the selected tag before installing. The published v0.3.0 archive has a source-commit mismatch. The v0.3.1 archive is pending publication.
+For a release archive, follow the [installation contract](https://github.com/niu-io/niu/blob/release/0.3/apps/docs/public/install.md) and verify its checksum and source commit against the selected tag before installing. The published v0.3.0 archive has a source-commit mismatch. The v0.3.1 archive is pending publication.
 
 To use a source build, check out your selected commit from `release/0.3` and run these commands from the checkout root:
 
