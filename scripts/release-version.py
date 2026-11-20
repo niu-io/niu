@@ -7,6 +7,7 @@ import argparse
 from datetime import date
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +15,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = ROOT / "VERSION"
 CARGO_TOML = ROOT / "Cargo.toml"
+CARGO_LOCK = ROOT / "Cargo.lock"
 PACKAGE_JSON = ROOT / "package.json"
+SDK_PACKAGE_RELATIVE_PATHS = (
+    Path("sdks/javascript/package.json"),
+    Path("sdks/mcp/package.json"),
+    Path("sdks/agent-connect/package.json"),
+)
+SDK_PACKAGE_JSONS = tuple(ROOT / rel for rel in SDK_PACKAGE_RELATIVE_PATHS)
+MCP_RPC_TS_RELATIVE_PATH = Path("sdks/mcp/src/rpc.ts")
+MCP_RPC_TS = ROOT / MCP_RPC_TS_RELATIVE_PATH
 COMPOSE_YAML = ROOT / "compose.yaml"
 INSTALL_SH = ROOT / "scripts" / "install.sh"
 README_MD = ROOT / "README.md"
@@ -35,10 +45,23 @@ COMPOSE_IMAGE_PATTERN = re.compile(
 INSTALL_SH_VERSION_PATTERN = re.compile(
     r'^(DEFAULT_VERSION="v)([^"]+)(")', re.MULTILINE
 )
-README_IMAGE_PATTERN = re.compile(r"(ghcr\.io/niu-io/niu:v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)")
-README_FLAG_VERSION_PATTERN = re.compile(r"(--version\s+v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)")
+README_IMAGE_PATTERN = re.compile(
+    r"(ghcr\.io/niu-io/niu:v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"
+)
+README_FLAG_VERSION_PATTERN = re.compile(
+    r"(--version\s+v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"
+)
+MCP_RPC_VERSION_PATTERN = re.compile(
+    r'(serverInfo:\s*\{\s*name:\s*"niu",\s*version:\s*")([^"]+)("\s*\})'
+)
 CONVENTIONAL_COMMIT_PATTERN = re.compile(
     r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
+)
+CARGO_LOCK_NIU_PATTERN = re.compile(
+    r'(\[\[package\]\]\s*\nname\s*=\s*"niu-[^"]+"\s*\nversion\s*=\s*")([^"]+)(")'
+)
+CARGO_LOCK_GATEWAY_PATTERN = re.compile(
+    r'\[\[package\]\]\s*\nname\s*=\s*"niu-gateway"\s*\nversion\s*=\s*"([^"]+)"'
 )
 
 
@@ -51,39 +74,34 @@ def parse_version(raw: str) -> str:
     return cleaned
 
 
-CARGO_LOCK = ROOT / "Cargo.lock"
-CARGO_LOCK_NIU_PATTERN = re.compile(
-    r'(\[\[package\]\]\s*\nname\s*=\s*"niu-[^"]+"\s*\nversion\s*=\s*")([^"]+)(")'
-)
-CARGO_LOCK_GATEWAY_PATTERN = re.compile(
-    r'\[\[package\]\]\s*\nname\s*=\s*"niu-gateway"\s*\nversion\s*=\s*"([^"]+)"'
-)
+def _resolve_path(root: Path, relative: str | Path) -> Path:
+    return root / relative
 
 
-def read_versions() -> dict[str, str]:
-    version_file = VERSION_FILE.read_text(encoding="utf-8").strip()
-    cargo_text = CARGO_TOML.read_text(encoding="utf-8")
+def read_versions(root: Path = ROOT) -> dict[str, str]:
+    version_file = _resolve_path(root, "VERSION").read_text(encoding="utf-8").strip()
+    cargo_text = _resolve_path(root, "Cargo.toml").read_text(encoding="utf-8")
     cargo_match = CARGO_WS_VERSION_PATTERN.search(cargo_text)
     if not cargo_match:
         raise RuntimeError("could not find [workspace.package] version in Cargo.toml")
     cargo_version = cargo_match.group(2)
 
-    cargo_lock_text = CARGO_LOCK.read_text(encoding="utf-8")
+    cargo_lock_text = _resolve_path(root, "Cargo.lock").read_text(encoding="utf-8")
     cargo_lock_match = CARGO_LOCK_GATEWAY_PATTERN.search(cargo_lock_text)
     if not cargo_lock_match:
         raise RuntimeError("could not find niu-gateway package version in Cargo.lock")
     cargo_lock_version = cargo_lock_match.group(1)
 
-    package_data = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
+    package_data = json.loads(_resolve_path(root, "package.json").read_text(encoding="utf-8"))
     package_version = str(package_data.get("version", ""))
 
-    compose_text = COMPOSE_YAML.read_text(encoding="utf-8")
+    compose_text = _resolve_path(root, "compose.yaml").read_text(encoding="utf-8")
     compose_match = COMPOSE_IMAGE_PATTERN.search(compose_text)
     if not compose_match:
         raise RuntimeError("could not find default ghcr.io/niu-io/niu:v<version> image in compose.yaml")
     compose_version = compose_match.group(2)
 
-    install_sh_text = INSTALL_SH.read_text(encoding="utf-8")
+    install_sh_text = _resolve_path(root, "scripts/install.sh").read_text(encoding="utf-8")
     install_sh_match = INSTALL_SH_VERSION_PATTERN.search(install_sh_text)
     if not install_sh_match:
         raise RuntimeError('could not find DEFAULT_VERSION="v<version>" in scripts/install.sh')
@@ -91,7 +109,7 @@ def read_versions() -> dict[str, str]:
     if "(default: ${DEFAULT_VERSION})" not in install_sh_text:
         raise RuntimeError("scripts/install.sh usage() must interpolate ${DEFAULT_VERSION}")
 
-    readme_text = README_MD.read_text(encoding="utf-8")
+    readme_text = _resolve_path(root, "README.md").read_text(encoding="utf-8")
     readme_image_match = README_IMAGE_PATTERN.search(readme_text)
     if not readme_image_match:
         raise RuntimeError("could not find ghcr.io/niu-io/niu:v<version> in README.md")
@@ -99,7 +117,7 @@ def read_versions() -> dict[str, str]:
     if len(readme_flag_versions) != 1:
         raise RuntimeError(f"inconsistent --version tags in README.md: {sorted(readme_flag_versions)}")
 
-    return {
+    versions = {
         "VERSION": version_file,
         "Cargo.toml": cargo_version,
         "Cargo.lock": cargo_lock_version,
@@ -110,19 +128,46 @@ def read_versions() -> dict[str, str]:
         "README.md(--version)": next(iter(readme_flag_versions)),
     }
 
+    for rel_path in SDK_PACKAGE_RELATIVE_PATHS:
+        sdk_pkg_path = _resolve_path(root, rel_path)
+        if not sdk_pkg_path.exists():
+            raise RuntimeError(f"missing SDK package manifest: {rel_path.as_posix()}")
+        sdk_pkg_data = json.loads(sdk_pkg_path.read_text(encoding="utf-8"))
+        versions[rel_path.as_posix()] = str(sdk_pkg_data.get("version", ""))
 
-def check_operator_docs_consistency() -> list[str]:
+    mcp_rpc_path = _resolve_path(root, MCP_RPC_TS_RELATIVE_PATH)
+    if mcp_rpc_path.exists():
+        mcp_rpc_text = mcp_rpc_path.read_text(encoding="utf-8")
+        mcp_rpc_match = MCP_RPC_VERSION_PATTERN.search(mcp_rpc_text)
+        if mcp_rpc_match:
+            versions[MCP_RPC_TS_RELATIVE_PATH.as_posix()] = mcp_rpc_match.group(2)
+
+    return versions
+
+
+def check_operator_docs_consistency(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     # Check that server/operator config docs use NIU_ADMIN_TOKENS (not singular NIU_ADMIN_TOKEN)
     # except for explicit shell client Bearer examples ($NIU_ADMIN_TOKEN).
     singular_token_re = re.compile(r"(?<!\$)\bNIU_ADMIN_TOKEN\b")
-    for doc_path in (README_MD, SECURITY_MD, ARCHITECTURE_MD, ENV_EXAMPLE, COMPOSE_YAML, RENDER_YAML, INSTALL_SH):
+    doc_paths = (
+        _resolve_path(root, "README.md"),
+        _resolve_path(root, "SECURITY.md"),
+        _resolve_path(root, "ARCHITECTURE.md"),
+        _resolve_path(root, ".env.example"),
+        _resolve_path(root, "compose.yaml"),
+        _resolve_path(root, "render.yaml"),
+        _resolve_path(root, "scripts/install.sh"),
+    )
+    for doc_path in doc_paths:
         text = doc_path.read_text(encoding="utf-8")
         for lineno, line in enumerate(text.splitlines(), 1):
             if singular_token_re.search(line):
-                errors.append(f"{doc_path.relative_to(ROOT)}:{lineno}: singular NIU_ADMIN_TOKEN found (expected NIU_ADMIN_TOKENS)")
+                errors.append(
+                    f"{doc_path.relative_to(root)}:{lineno}: singular NIU_ADMIN_TOKEN found (expected NIU_ADMIN_TOKENS)"
+                )
 
-    arch_text = ARCHITECTURE_MD.read_text(encoding="utf-8")
+    arch_text = _resolve_path(root, "ARCHITECTURE.md").read_text(encoding="utf-8")
     if "32 connections per process (`NIU_DATABASE_MAX_CONNECTIONS`" not in arch_text:
         errors.append("ARCHITECTURE.md does not document the 32 default for NIU_DATABASE_MAX_CONNECTIONS")
     if "This remains unimplemented" in arch_text or "bootstrap_route_registry" not in arch_text:
@@ -130,8 +175,8 @@ def check_operator_docs_consistency() -> list[str]:
     return errors
 
 
-def check_versions(expected_tag: str | None) -> int:
-    versions = read_versions()
+def check_versions(expected_tag: str | None, root: Path = ROOT) -> int:
+    versions = read_versions(root)
     canonical = versions["VERSION"]
     parse_version(canonical)
 
@@ -153,19 +198,26 @@ def check_versions(expected_tag: str | None) -> int:
             )
             return 1
 
-    doc_errors = check_operator_docs_consistency()
+    if extract_changelog_section(canonical, root=root) is None:
+        print(
+            f"CHANGELOG.md is missing a non-empty '## [{canonical}]' section.",
+            file=sys.stderr,
+        )
+        return 1
+
+    doc_errors = check_operator_docs_consistency(root)
     if doc_errors:
         print("Operator documentation consistency errors:\n  " + "\n  ".join(doc_errors), file=sys.stderr)
         return 1
 
-    print(f"Niu version and operator documentation verified: v{canonical}")
+    print(f"Niu version, changelog, and operator documentation verified: v{canonical}")
     return 0
 
 
-def list_semver_tags() -> list[str]:
+def list_semver_tags(root: Path = ROOT) -> list[str]:
     result = subprocess.run(
         ["git", "tag", "--list", "v*.*.*", "--sort=version:refname"],
-        cwd=ROOT,
+        cwd=root,
         capture_output=True,
         text=True,
         check=True,
@@ -183,18 +235,18 @@ def list_semver_tags() -> list[str]:
     return tags
 
 
-def resolve_previous_tag(target_tag: str) -> str | None:
-    tags = list_semver_tags()
+def resolve_previous_tag(target_tag: str, root: Path = ROOT) -> str | None:
+    tags = list_semver_tags(root)
     if target_tag in tags:
         idx = tags.index(target_tag)
         return tags[idx - 1] if idx > 0 else None
     return tags[-1] if tags else None
 
 
-def collect_commits(rev_range: str) -> list[tuple[str, str]]:
+def collect_commits(rev_range: str, root: Path = ROOT) -> list[tuple[str, str]]:
     result = subprocess.run(
         ["git", "log", "--no-merges", "--pretty=format:%h%x09%s", rev_range],
-        cwd=ROOT,
+        cwd=root,
         capture_output=True,
         text=True,
         check=True,
@@ -257,10 +309,11 @@ def format_categorized_markdown(commits: list[tuple[str, str]], include_sha: boo
     return "\n\n".join(sections)
 
 
-def extract_changelog_section(version: str) -> str | None:
-    if not CHANGELOG_MD.exists():
+def extract_changelog_section(version: str, root: Path = ROOT) -> str | None:
+    changelog_md = _resolve_path(root, "CHANGELOG.md")
+    if not changelog_md.exists():
         return None
-    text = CHANGELOG_MD.read_text(encoding="utf-8")
+    text = changelog_md.read_text(encoding="utf-8")
     pattern = re.compile(
         rf"^## \[{re.escape(version)}\](?: - [^\n]+)?\n(?P<body>.*?)(?=^## \[|^\[Unreleased\]:|\Z)",
         re.MULTILINE | re.DOTALL,
@@ -272,13 +325,29 @@ def extract_changelog_section(version: str) -> str | None:
     return body if body else None
 
 
-def update_changelog_for_version(version: str) -> bool:
-    if not CHANGELOG_MD.exists():
+def extract_changelog_date(version: str, root: Path = ROOT) -> str | None:
+    changelog_md = _resolve_path(root, "CHANGELOG.md")
+    if not changelog_md.exists():
+        return None
+    text = changelog_md.read_text(encoding="utf-8")
+    pattern = re.compile(
+        rf"^## \[{re.escape(version)}\] - (?P<date>\d{{4}}-\d{{2}}-\d{{2}})\s*$",
+        re.MULTILINE,
+    )
+    match = pattern.search(text)
+    if not match:
+        return None
+    return match.group("date")
+
+
+def update_changelog_for_version(version: str, root: Path = ROOT) -> bool:
+    changelog_md = _resolve_path(root, "CHANGELOG.md")
+    if not changelog_md.exists():
         return False
-    if extract_changelog_section(version) is not None:
+    if extract_changelog_section(version, root=root) is not None:
         return False
 
-    text = CHANGELOG_MD.read_text(encoding="utf-8")
+    text = changelog_md.read_text(encoding="utf-8")
     unreleased_pattern = re.compile(
         r"(^## \[Unreleased\]\n)(?P<unreleased>.*?)(?=^## \[)",
         re.MULTILINE | re.DOTALL,
@@ -289,11 +358,14 @@ def update_changelog_for_version(version: str) -> bool:
 
     unreleased_body = match.group("unreleased").strip()
     target_tag = f"v{version}"
-    prev_tag = resolve_previous_tag(target_tag)
+    prev_tag = resolve_previous_tag(target_tag, root=root)
     if not unreleased_body:
         rev_range = f"{prev_tag}..HEAD" if prev_tag else "HEAD"
-        commits = collect_commits(rev_range)
-        unreleased_body = format_categorized_markdown(commits, include_sha=False) or "### Changed\n- Maintenance and stability updates."
+        commits = collect_commits(rev_range, root=root)
+        unreleased_body = (
+            format_categorized_markdown(commits, include_sha=False)
+            or "### Changed\n- Maintenance and stability updates."
+        )
 
     today = date.today().isoformat()
     new_section = f"## [Unreleased]\n\n## [{version}] - {today}\n\n{unreleased_body}\n\n"
@@ -307,22 +379,22 @@ def update_changelog_for_version(version: str) -> bool:
             new_links += f"\n[{version}]: {REPO_URL}/compare/{prev_tag}...v{version}"
         updated = unreleased_link_pattern.sub(new_links, updated, count=1)
 
-    CHANGELOG_MD.write_text(updated, encoding="utf-8")
+    changelog_md.write_text(updated, encoding="utf-8")
     return True
 
 
-def build_release_notes(raw_tag: str | None) -> str:
-    versions = read_versions()
+def build_release_notes(raw_tag: str | None, root: Path = ROOT) -> str:
+    versions = read_versions(root)
     version = parse_version(raw_tag) if raw_tag else versions["VERSION"]
     tag = f"v{version}"
-    prev_tag = resolve_previous_tag(tag)
+    prev_tag = resolve_previous_tag(tag, root=root)
 
-    tag_exists = tag in list_semver_tags()
+    tag_exists = tag in list_semver_tags(root)
     end_ref = tag if tag_exists else "HEAD"
     rev_range = f"{prev_tag}..{end_ref}" if prev_tag else end_ref
-    commits = collect_commits(rev_range)
+    commits = collect_commits(rev_range, root=root)
 
-    changelog_body = extract_changelog_section(version)
+    changelog_body = extract_changelog_section(version, root=root)
     auto_commits_body = format_categorized_markdown(commits, include_sha=True)
 
     parts: list[str] = []
@@ -365,67 +437,93 @@ chmod +x install.sh
     return "\n\n---\n\n".join(parts) + "\n"
 
 
-def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> int:
-    version = parse_version(raw_version)
-    VERSION_FILE.write_text(f"{version}\n", encoding="utf-8")
+def _update_json_package_version(path: Path, version: str) -> None:
+    package_data = json.loads(path.read_text(encoding="utf-8"))
+    package_data["version"] = version
+    path.write_text(json.dumps(package_data, indent=2) + "\n", encoding="utf-8")
 
-    cargo_text = CARGO_TOML.read_text(encoding="utf-8")
+
+def set_version(raw_version: str, create_tag: bool, update_changelog: bool, root: Path = ROOT) -> int:
+    version = parse_version(raw_version)
+    _resolve_path(root, "VERSION").write_text(f"{version}\n", encoding="utf-8")
+
+    cargo_toml = _resolve_path(root, "Cargo.toml")
+    cargo_text = cargo_toml.read_text(encoding="utf-8")
     cargo_updated, count = CARGO_WS_VERSION_PATTERN.subn(rf"\g<1>{version}\g<3>", cargo_text, count=1)
     if count != 1:
         raise RuntimeError("failed to update [workspace.package] version in Cargo.toml")
-    CARGO_TOML.write_text(cargo_updated, encoding="utf-8")
+    cargo_toml.write_text(cargo_updated, encoding="utf-8")
 
-    package_data = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
-    package_data["version"] = version
-    PACKAGE_JSON.write_text(json.dumps(package_data, indent=2) + "\n", encoding="utf-8")
+    _update_json_package_version(_resolve_path(root, "package.json"), version)
+    for rel_path in SDK_PACKAGE_RELATIVE_PATHS:
+        sdk_pkg_path = _resolve_path(root, rel_path)
+        if not sdk_pkg_path.exists():
+            raise RuntimeError(f"missing SDK package manifest: {rel_path.as_posix()}")
+        _update_json_package_version(sdk_pkg_path, version)
 
-    compose_text = COMPOSE_YAML.read_text(encoding="utf-8")
+    mcp_rpc_path = _resolve_path(root, MCP_RPC_TS_RELATIVE_PATH)
+    if mcp_rpc_path.exists():
+        mcp_rpc_text = mcp_rpc_path.read_text(encoding="utf-8")
+        mcp_rpc_updated, rpc_count = MCP_RPC_VERSION_PATTERN.subn(
+            rf"\g<1>{version}\g<3>", mcp_rpc_text, count=1
+        )
+        if rpc_count == 1:
+            mcp_rpc_path.write_text(mcp_rpc_updated, encoding="utf-8")
+
+    compose_yaml = _resolve_path(root, "compose.yaml")
+    compose_text = compose_yaml.read_text(encoding="utf-8")
     compose_updated, count = COMPOSE_IMAGE_PATTERN.subn(rf"\g<1>{version}\g<3>", compose_text, count=1)
     if count != 1:
         raise RuntimeError("failed to update default image tag in compose.yaml")
-    COMPOSE_YAML.write_text(compose_updated, encoding="utf-8")
+    compose_yaml.write_text(compose_updated, encoding="utf-8")
 
-    install_sh_text = INSTALL_SH.read_text(encoding="utf-8")
+    install_sh = _resolve_path(root, "scripts/install.sh")
+    install_sh_text = install_sh.read_text(encoding="utf-8")
     install_sh_updated, count = INSTALL_SH_VERSION_PATTERN.subn(rf"\g<1>{version}\g<3>", install_sh_text, count=1)
     if count != 1:
         raise RuntimeError("failed to update DEFAULT_VERSION in scripts/install.sh")
-    INSTALL_SH.write_text(install_sh_updated, encoding="utf-8")
+    install_sh.write_text(install_sh_updated, encoding="utf-8")
 
-    readme_text = README_MD.read_text(encoding="utf-8")
+    readme_md = _resolve_path(root, "README.md")
+    readme_text = readme_md.read_text(encoding="utf-8")
     readme_updated, img_count = README_IMAGE_PATTERN.subn(rf"\g<1>{version}", readme_text)
     readme_updated, flag_count = README_FLAG_VERSION_PATTERN.subn(rf"\g<1>{version}", readme_updated)
     if img_count == 0 or flag_count == 0:
         raise RuntimeError("failed to update version references in README.md")
-    README_MD.write_text(readme_updated, encoding="utf-8")
+    readme_md.write_text(readme_updated, encoding="utf-8")
 
-    cargo_lock_text = CARGO_LOCK.read_text(encoding="utf-8")
+    cargo_lock = _resolve_path(root, "Cargo.lock")
+    cargo_lock_text = cargo_lock.read_text(encoding="utf-8")
     cargo_lock_updated, lock_count = CARGO_LOCK_NIU_PATTERN.subn(
         rf"\g<1>{version}\g<3>", cargo_lock_text
     )
     if lock_count == 0:
         raise RuntimeError("failed to update workspace package versions in Cargo.lock")
-    CARGO_LOCK.write_text(cargo_lock_updated, encoding="utf-8")
+    cargo_lock.write_text(cargo_lock_updated, encoding="utf-8")
 
-    import shutil
     cargo_bin = (
         shutil.which("cargo")
         or shutil.which("cargo", path=f"/opt/homebrew/bin:{Path.home() / '.cargo' / 'bin'}")
     )
-    if cargo_bin:
+    if cargo_bin and (root / "crates").is_dir():
         subprocess.run(
             [cargo_bin, "metadata", "--format-version", "1"],
-            cwd=ROOT,
+            cwd=root,
             stdout=subprocess.DEVNULL,
             check=True,
         )
 
-    if update_changelog and update_changelog_for_version(version):
+    if update_changelog and update_changelog_for_version(version, root=root):
         print(f"Updated CHANGELOG.md with section [{version}]")
 
-    print(f"Updated VERSION, Cargo.toml, Cargo.lock, package.json, compose.yaml, and scripts/install.sh to v{version}")
+    print(
+        "Updated VERSION, Cargo.toml, Cargo.lock, package.json, "
+        "sdks/{javascript,mcp,agent-connect}/package.json, compose.yaml, "
+        f"README.md, and scripts/install.sh to v{version}"
+    )
     if create_tag:
         tag = f"v{version}"
-        subprocess.run(["git", "tag", "-a", tag, "-m", f"Release {tag}"], cwd=ROOT, check=True)
+        subprocess.run(["git", "tag", "-a", tag, "-m", f"Release {tag}"], cwd=root, check=True)
         print(f"Created annotated Git tag {tag}")
     return 0
 
@@ -450,6 +548,9 @@ def main() -> int:
     notes_parser.add_argument("--tag", help="version or Git tag (defaults to VERSION)")
     notes_parser.add_argument("--output", type=Path, help="write release notes to file instead of stdout")
 
+    date_parser = subparsers.add_parser("date", help="print the YYYY-MM-DD release date from CHANGELOG.md")
+    date_parser.add_argument("--tag", help="version or Git tag (defaults to VERSION)")
+
     args = parser.parse_args()
     try:
         if args.command == "check":
@@ -461,6 +562,17 @@ def main() -> int:
                 print(f"Wrote release notes to {args.output}")
             else:
                 sys.stdout.write(notes)
+            return 0
+        if args.command == "date":
+            version = parse_version(args.tag) if args.tag else VERSION_FILE.read_text(encoding="utf-8").strip()
+            release_date = extract_changelog_date(version)
+            if not release_date:
+                print(
+                    f"error: CHANGELOG.md has no dated '## [{version}] - YYYY-MM-DD' heading",
+                    file=sys.stderr,
+                )
+                return 1
+            print(release_date)
             return 0
         return set_version(args.version, args.tag, not args.no_changelog)
     except (ValueError, RuntimeError, subprocess.CalledProcessError) as error:

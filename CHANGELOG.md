@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-20
+
+Release hardening, native protocol completion, Stripe checkout, and Dashboard UX refinement.
+
+### Added
+- Complete native protocol support across `/v1/responses`, `/v1/messages`, and Gemini endpoints, plus image-input admission with explicit token reservations.
+- Limited preview registration with administrator approval, merchant-managed Stripe Checkout for account top-ups, and optional published bank transfer instructions.
+- API key reveal and repeated copy across storage, gateway, and Dashboard UI, plus an evaluations 3-step workflow overview with direct creation and editing.
+- Standalone `@niu-io/sdk` release tarball alongside `@niu-io/mcp` and coding-agent plugin archives in GitHub Releases, with digest-pinned GHCR images (`IMAGE_DIGEST`) and `SHA256SUMS` verification.
+
+### Changed
+- Refine Dashboard surfaces with Manus-aligned tonal styling, grouped Admin navigation, simplified Overview checklist, dialog-based management editors, and unified left-right split documentation layout.
+- Retire EPay and ZhifuX from new checkout creation and readiness checks while retaining historical order verification; pin Stripe Checkout API version and classify sandbox receipts as simulated.
+- Require an explicit private password for optional demo accounts, canonicalize workspace and key routes/labels, and isolate fixture diagnostics from blocking CI checks.
+- Align CI workflows and collector publishing with the `release/*` branch model, pin workflow actions by commit SHA, enforce pre-publish checks before GHCR push, embed `VITE_NIU_RELEASE_DATE` in release builds, and synchronize `@niu-io/sdk`, `@niu-io/mcp`, and `@niu-io/agent-connect` package versions with `VERSION`.
+
+### Fixed
+- Harden Chat and Video persistence and recovery across interrupted responses, key replacement, saved attachments, follow-up drafts, and hidden-tab polling suspension.
+- Harden `scripts/install.sh` with canonicalized `--dir` paths across install/upgrade/rollback/status, SIGPIPE-safe `/dev/urandom` secret generation, `SHA256SUMS`-verified atomic asset downloads, `gzip`/`docker compose`/argument guards, pre-upgrade backup encryption verification, and atomic database restore rollback.
+- Bound log export queries and key directory pagination, keep Settings organization/member/top-up flows inside the Settings modal, and clarify factual Provider 429 and admission recovery guidance.
+
+### Verification
+- Dated candidate-bound staging acceptance and native upgrade/rollback records remain distinct from non-gating fixture diagnostics; published-asset provenance checks follow tagging.
+
 ## [0.3.0] - 2026-11-02
 
 Agent-oriented UX, documentation and native coding-agent integrations.
@@ -579,7 +603,8 @@ Agent-oriented UX, documentation and native coding-agent integrations.
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/niu-io/niu/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/niu-io/niu/compare/v0.2.31...v0.3.0
 [0.2.28]: https://github.com/niu-io/niu/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/niu-io/niu/compare/v0.2.26...v0.2.27

@@ -2,7 +2,9 @@ name: API contract consistency
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'release/*'
     paths:
       - '.github/workflows/contracts.yml'
       - 'apps/gateway/src/**'
@@ -35,7 +37,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.14'
       - name: Check generated handler contracts and documentation
