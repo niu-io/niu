@@ -325,3 +325,41 @@ it('renders video configuration as an inline in-dialog subview without nesting d
  expect(screen.getAllByRole('dialog')).toHaveLength(1);
  await waitFor(()=>expect(document.activeElement).toBe(configureVideo));
 });
+it('surfaces the 4-step commercial sellability checklist and distinguishes live vs selling-price-missing models',async()=>{
+  const readyOffer = { id: 'offer-live', model_alias: 'team/live', active: true, qualified: true, route_ready: true, rate_kind: 'text' as const, currency: 'USD', prompt_rate: '100', completion_rate: '200' };
+  const unpricedOffer = { id: 'offer-unpriced', model_alias: 'team/unpriced', active: true, qualified: true, route_ready: true, rate_kind: 'text' as const, currency: 'USD', prompt_rate: '100', completion_rate: '200' };
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path.includes('/api/v1/models?include_uncallable=true')) {
+      return Response.json({
+        data: [
+          { id: 'team/live', callable: true, readiness_issues: [] },
+          { id: 'team/unpriced', callable: false, readiness_issues: ['selling_price_missing'] },
+        ],
+      });
+    }
+    if (path.includes('/vendors/credential-one/models')) {
+      return Response.json({
+        data: [
+          { ...model, alias: 'team/live', upstream_model: 'upstream/live', available: true },
+          { ...model, alias: 'team/unpriced', upstream_model: 'upstream/unpriced', available: true },
+        ],
+      });
+    }
+    return Response.json({ data: [connection] });
+  }));
+  render(<MemoryRouter><ProviderModels {...props} token="sellability-checklist-test" offers={[readyOffer as never, unpricedOffer as never]} /></MemoryRouter>);
+  const checklist = await screen.findByLabelText('Commercial sellability checklist');
+  expect(checklist.textContent).toContain('1. Connection:');
+  expect(checklist.textContent).toContain('2. Model routes:');
+  expect(checklist.textContent).toContain('3. Purchase rates:');
+  expect(checklist.textContent).toContain('4. Customer selling price:');
+  expect(checklist.textContent).toContain('1/2 live');
+  const liveRow = (await screen.findByText('team/live')).closest('tr');
+  if (!liveRow) throw new Error('Expected live model row');
+  expect(within(liveRow).getByText('Live for customers')).toBeTruthy();
+  const unpricedRow = screen.getByText('team/unpriced').closest('tr');
+  if (!unpricedRow) throw new Error('Expected unpriced model row');
+  expect(within(unpricedRow).getByText('Selling price missing')).toBeTruthy();
+  expect(within(unpricedRow).getByRole('link', { name: 'Set price' }).getAttribute('href')).toBe('/admin/pricing?model=team%2Funpriced&publish=text');
+});

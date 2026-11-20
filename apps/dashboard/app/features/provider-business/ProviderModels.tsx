@@ -19,6 +19,7 @@ import { modelCapabilityLabels, modelCheckLabel } from '@/features/providers/mod
 import type { ProviderOffer } from '@niu-io/sdk/admin';
 
 type Entry = { connection: ProviderConnection; model: ProviderModel };
+type CatalogReadiness = { callable: boolean; readiness_issues: string[] };
 type CheckState = { identity: string; sequence: number; pending: boolean; result?: ProviderModelCheck; error?: string };
 function peekScopedModels(token: string, providerId: string): { connections: ProviderConnection[]; entries: Entry[] } | null {
   if (!token || !providerId) return null;
@@ -52,6 +53,8 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
   const initial = peekScopedModels(token, providerId);
   const [connections, setConnections] = useState<ProviderConnection[]>(() => initial?.connections ?? []);
   const [entries, setEntries] = useState<Entry[]>(() => initial?.entries ?? []);
+  const [catalogReadiness, setCatalogReadiness] = useState<Record<string, CatalogReadiness>>({});
+  const [readinessLoaded, setReadinessLoaded] = useState(false);
   const [loading, setLoading] = useState(() => !initial);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -104,11 +107,42 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
         const response = await cachedGet<{data: ProviderModel[]}>(token, `/api/v1/vendors/${encodeURIComponent(connection.id)}/models`, { signal: controller.signal, force });
         return response.data.map(model => ({ connection, model }));
       }));
-      if (!controller.signal.aborted) { setConnections(scoped); setEntries(models.flat()); }
+      const nextReadiness: Record<string, CatalogReadiness> = {};
+      let nextReadinessLoaded = false;
+      if (commercialEnabled && canManage) {
+        try {
+          const catalogResponse = await cachedGet<{ data: Array<{ id?: unknown; callable?: unknown; readiness_issues?: unknown }> }>(
+            token,
+            '/api/v1/models?include_uncallable=true',
+            { signal: controller.signal, force },
+          );
+          if (Array.isArray(catalogResponse?.data)) {
+            for (const item of catalogResponse.data) {
+              if (typeof item?.id === 'string' && typeof item?.callable === 'boolean') {
+                nextReadiness[item.id] = {
+                  callable: item.callable,
+                  readiness_issues: Array.isArray(item.readiness_issues)
+                    ? item.readiness_issues.filter((value): value is string => typeof value === 'string')
+                    : [],
+                };
+                nextReadinessLoaded = true;
+              }
+            }
+          }
+        } catch {
+          // Selling-price readiness is supplementary; keep unknown rather than inferring live status.
+        }
+      }
+      if (!controller.signal.aborted) {
+        setConnections(scoped);
+        setEntries(models.flat());
+        setCatalogReadiness(nextReadiness);
+        setReadinessLoaded(nextReadinessLoaded);
+      }
     })().catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Models could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [token, providerId, revision]);
+  }, [token, providerId, revision, commercialEnabled, canManage]);
   const keysHref = `/admin/providers/${encodeURIComponent(providerSlug)}/keys`;
   const aliases = [...new Set([...entries.map(entry => entry.model.alias), ...offers.map(offer => offer.model_alias)])]
     .sort((a, b) => a.localeCompare(b)).filter(alias => {
@@ -203,6 +237,26 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     {actionError && <p role="alert" className="text-sm text-destructive">{uiT(actionError)}</p>}
     {loading ? <TableSkeleton columns={commercialEnabled ? 5 : 4} rows={4} label={uiT("Loading models…")} /> : error ? <div role="alert"><p>{uiT(error)}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry loading models")}</Button></div> : <>
       {!connections.length && <p className="text-sm text-muted-foreground">{uiT("Connect a Provider API key before adding models.")}{" "}<Link className="underline text-foreground" to={keysHref}>{uiT("Connect API key")}</Link></p>}
+      {commercialEnabled && aliases.length > 0 && (() => {
+        const commercialAliases = aliases.filter(alias => {
+          const aliasRoutes = entries.filter(entry => entry.model.alias === alias);
+          const aliasOffer = offers.find(item => item.model_alias === alias);
+          return aliasRoutes.some(entry => !entry.connection.owner_funded) || Boolean(aliasOffer);
+        });
+        if (!commercialAliases.length) return null;
+        const hasReadyConnection = connections.some(c => !c.owner_funded && c.has_credential && c.enabled);
+        const enabledRoutesCount = commercialAliases.filter(alias => entries.some(e => e.model.alias === alias && !e.connection.owner_funded && e.connection.has_credential && e.connection.enabled && e.model.enabled)).length;
+        const readyOffersCount = commercialAliases.filter(alias => { const offer = offers.find(item => item.model_alias === alias); return Boolean(offer?.active && offer?.route_ready); }).length;
+        const liveCustomerCount = readinessLoaded ? commercialAliases.filter(alias => catalogReadiness[alias]?.callable === true).length : null;
+        return <section aria-label={uiT("Commercial sellability checklist")} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{uiT("Sellability checklist:")}</span>
+          <span>{uiT("1. Connection:")} <strong className="font-medium text-foreground">{hasReadyConnection ? uiT("Ready") : uiT("Missing")}</strong></span>
+          <span>{uiT("2. Model routes:")} <strong className="font-medium text-foreground">{enabledRoutesCount}/{commercialAliases.length}</strong></span>
+          <span>{uiT("3. Purchase rates:")} <strong className="font-medium text-foreground">{offersComplete ? `${readyOffersCount}/${commercialAliases.length}` : uiT("Not loaded")}</strong></span>
+          <span>{uiT("4. Customer selling price:")} <strong className="font-medium text-foreground">{liveCustomerCount != null ? uiF("{0}/{1} live", [liveCustomerCount, commercialAliases.length]) : uiT("Managed in Pricing")}</strong></span>
+          <Link className="ml-auto text-foreground underline underline-offset-2" to="/admin/pricing">{uiT("Open Pricing")}</Link>
+        </section>;
+      })()}
       {!aliases.length ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{query ? uiT("No models match this filter.") : uiT("No models configured yet.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
         <TableHeader><TableRow><TableHead className="whitespace-nowrap">{uiT("Model")}</TableHead><TableHead>{uiT("Upstream route")}</TableHead><TableHead className="hidden whitespace-nowrap lg:table-cell">{uiT("Route status")}</TableHead>{commercialEnabled && <TableHead className="hidden whitespace-nowrap lg:table-cell">{uiT("Commercial offer")}</TableHead>}<TableHead className="whitespace-nowrap text-right">{uiT("Actions")}</TableHead></TableRow></TableHeader>
         <TableBody>{aliases.slice(0, limit).map(alias => {
@@ -247,11 +301,18 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
               </div>
             </TableCell>
             {commercialEnabled && <TableCell className="hidden align-middle whitespace-nowrap lg:table-cell">
-              {(commercial || offer) ? <div className="inline-flex items-center gap-1">
-                <Badge variant={offer?.active && offer?.route_ready ? "secondary" : "outline"} className="font-normal">{supplyStatus}</Badge>
-                <Button size="xs" variant="ghost" className="px-1.5" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>
-                {offer?.active && offer?.route_ready && <Button asChild size="xs" variant="ghost" className="px-1.5"><Link to={`/admin/pricing?model=${encodeURIComponent(alias)}&publish=${media ? 'media' : 'text'}`}>{uiT("Set price")}</Link></Button>}
-              </div> : <span className="text-xs text-muted-foreground">—</span>}
+              {(commercial || offer) ? (() => {
+                const readiness = catalogReadiness[alias];
+                const liveForCustomers = readiness?.callable === true;
+                const missingSellingPrice = readiness?.callable === false && readiness.readiness_issues.includes('selling_price_missing');
+                return <div className="inline-flex flex-wrap items-center gap-1">
+                  <Badge variant={offer?.active && offer?.route_ready ? "secondary" : "outline"} className="font-normal">{supplyStatus}</Badge>
+                  {liveForCustomers && <Badge variant="secondary" className="font-normal">{uiT("Live for customers")}</Badge>}
+                  {!liveForCustomers && missingSellingPrice && offer?.active && offer?.route_ready && <Badge variant="outline" className="font-normal">{uiT("Selling price missing")}</Badge>}
+                  <Button size="xs" variant="ghost" className="px-1.5" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>
+                  {offer?.active && offer?.route_ready && <Button asChild size="xs" variant="ghost" className="px-1.5"><Link to={`/admin/pricing?model=${encodeURIComponent(alias)}&publish=${media ? 'media' : 'text'}`}>{uiT("Set price")}</Link></Button>}
+                </div>;
+              })() : <span className="text-xs text-muted-foreground">—</span>}
             </TableCell>}
             <TableCell className="align-middle whitespace-nowrap text-right">
               <div className="inline-flex items-center justify-end gap-1">

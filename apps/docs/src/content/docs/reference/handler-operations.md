@@ -24876,7 +24876,7 @@ Content type: `application/json`.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "pattern": "^[A-Za-z0-9.-]+$",
+      "pattern": "^[A-Za-z0-9._-]+$",
       "description": "Must be enabled for the configured merchant."
     },
     "idempotency_key": {

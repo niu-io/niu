@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilities, modelCapabilityTags, type CapabilityGroup } from '../model-capabilities';
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
@@ -119,7 +120,55 @@ function modelSource(model: Model): CatalogSource {
   return model.billing_source === 'own_api_key' ? 'own_api_key' : 'catalog';
 }
 
+function isUncallable(model: Model): boolean {
+  return model.callable === false;
+}
+
+function readinessIssues(model: Model): string[] {
+  return Array.isArray(model.readiness_issues) ? model.readiness_issues : [];
+}
+
+function readinessBadgeText(model: Model, uiT: (en: string, zh?: string) => string): string {
+  const issues = readinessIssues(model);
+  const missingProcurement = issues.includes('procurement_pricing_missing');
+  const missingSelling = issues.includes('selling_price_missing');
+  if (missingProcurement && missingSelling) return uiT("Purchase rate & selling price missing");
+  if (missingSelling) return uiT("Selling price not published");
+  if (missingProcurement) return uiT("Purchase rate missing");
+  return uiT("Not callable");
+}
+
+function readinessDetailText(model: Model, isPlatformAdmin: boolean, uiT: (en: string, zh?: string) => string): string {
+  const issues = readinessIssues(model);
+  const missingProcurement = issues.includes('procurement_pricing_missing');
+  const missingSelling = issues.includes('selling_price_missing');
+  if (missingProcurement && missingSelling) {
+    return isPlatformAdmin
+      ? uiT("This commercial model cannot be invoked yet. Configure the Provider purchase rate and publish a customer selling price before customers can send requests.")
+      : uiT("This commercial model cannot be invoked yet because its purchase rate and customer selling price have not been published. Contact your platform administrator.");
+  }
+  if (missingSelling) {
+    return isPlatformAdmin
+      ? uiT("This commercial model cannot be invoked yet. Publish a customer selling price in Pricing before customers can send requests.")
+      : uiT("This commercial model cannot be invoked yet because its customer selling price has not been published. Contact your platform administrator.");
+  }
+  if (missingProcurement) {
+    return isPlatformAdmin
+      ? uiT("This commercial model cannot be invoked yet. Configure an active Provider purchase rate before customers can send requests.")
+      : uiT("This commercial model cannot be invoked yet because its Provider purchase rate is not configured. Contact your platform administrator.");
+  }
+  return isPlatformAdmin
+    ? uiT("This commercial model cannot be invoked yet. Complete its Provider and customer pricing setup before sending requests.")
+    : uiT("This commercial model cannot be invoked yet. Contact your platform administrator to complete its pricing setup.");
+}
+
+function pricingSetupHref(model: Model): string {
+  const publish = isVideoModel(model) && !hasChatOutput(model) ? 'media' : 'text';
+  return `/admin/pricing?model=${encodeURIComponent(model.id)}&publish=${publish}`;
+}
+
 function catalogTier(model: Model): number {
+  if (isUncallable(model)) return 4;
   if (model.billing_source === 'own_api_key') {
     return model.catalog ? 2 : 3;
   }
@@ -142,6 +191,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     setLimit(20);
   }
   const { token, workspace, workspaces, session } = useDashboardContext();
+  const isPlatformAdmin = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const { billingMode } = usePlatformCurrency();
   const showUnitPricing = (model: Model) => model.customer_unit_pricing != null && (billingMode === 'credits' || model.customer_pricing == null);
   const params = useParams();
@@ -463,21 +513,31 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               ? `${new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(model.catalog.context_length)} ${uiT("context")}`
               : null;
             const tags = modelCapabilityTags(model);
+            const uncallable = isUncallable(model);
+            const issues = readinessIssues(model);
+            const missingProcurement = issues.includes('procurement_pricing_missing');
+            const missingSelling = issues.includes('selling_price_missing');
             return <article className="models-card" key={model.id}>
             <div className="models-card-top">
               <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5"><Link className="text-foreground hover:underline" to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{cardTitle}</Link>{cardTitle !== model.id && <span className="truncate font-mono text-xs text-muted-foreground">{model.id}</span>}</div></div>
               <div className="models-card-rates">
                 {contextText && <span>{contextText}</span>}
-                {model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
               </div>
             </div>
             {showDesc && <p className="models-description">{rawDesc}</p>}
             <div className="models-card-meta">
               {tags.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{uiT(tag)}</Badge>)}</div>}
-              {hasChatOutput(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
-              {canTryUnverifiedChat(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
-              {isVideoModel(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
-              {!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>}
+              {uncallable ? <>
+                <span className="text-muted-foreground">{uiT("Not ready for requests")}</span>
+                {isPlatformAdmin && missingProcurement && <Link className="text-foreground underline underline-offset-2" to="/admin/providers">{uiT("Complete Provider rate")}</Link>}
+                {isPlatformAdmin && (missingSelling || !missingProcurement) && <Link className="text-foreground underline underline-offset-2" to={pricingSetupHref(model)}>{uiT("Publish selling price")}</Link>}
+              </> : <>
+                {hasChatOutput(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
+                {canTryUnverifiedChat(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
+                {isVideoModel(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
+                {!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>}
+              </>}
             </div>
           </article>;
           })}
@@ -497,13 +557,22 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
       </Collapsible>)}
-      <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
-        ? uiT("Uses an administrator-managed upstream connection. Its owning account pays the Provider directly; this does not spend Niu credits. Upstream balance and model permissions still apply.")
-        : selected.billing_source === 'niu_credits'
-          ? isVideoModel(selected) && !hasChatOutput(selected)
-            ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")
-            : uiT("Niu charges, when applicable, use workspace credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.", "适用时，Niu 费用使用工作空间额度结算。已发布价格不保证模型访问权限或供给可用，提交请求时会检查。")
-          : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
+      {isUncallable(selected) ? (
+        <Alert role="status">
+          <AlertDescription className="space-y-1">
+            <p className="font-medium text-foreground">{readinessBadgeText(selected, uiT)}</p>
+            <p>{readinessDetailText(selected, isPlatformAdmin, uiT)}</p>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
+          ? uiT("Uses an administrator-managed upstream connection. Its owning account pays the Provider directly; this does not spend Niu credits. Upstream balance and model permissions still apply.")
+          : selected.billing_source === 'niu_credits'
+            ? isVideoModel(selected) && !hasChatOutput(selected)
+              ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")
+              : uiT("Niu charges, when applicable, use workspace credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.", "适用时，Niu 费用使用工作空间额度结算。已发布价格不保证模型访问权限或供给可用，提交请求时会检查。")
+            : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
+      )}
       <dl className="model-route-facts">
         {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
         {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
@@ -517,20 +586,27 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         {modelProviderName(selected) && <div><dt>{uiT("Provider")}</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
-      <div className="model-route-cta">
-        {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
-        {publicMode ? (
-          <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
-        ) : (
-          <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
-        )}
-      </div>
-      {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
-      {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
-      {hasGenerationOutput(selected) && <><div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
-      {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
-      <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
-      <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p></>}
+      {isUncallable(selected) ? (
+        isPlatformAdmin ? <div className="model-route-cta">
+          {readinessIssues(selected).includes('procurement_pricing_missing') && <Button asChild variant={readinessIssues(selected).includes('selling_price_missing') ? 'outline' : 'default'}><Link to="/admin/providers">{uiT("Complete Provider rate")}</Link></Button>}
+          {(readinessIssues(selected).includes('selling_price_missing') || !readinessIssues(selected).includes('procurement_pricing_missing')) && <Button asChild><Link to={pricingSetupHref(selected)}>{uiT("Publish selling price")}</Link></Button>}
+        </div> : null
+      ) : <>
+        <div className="model-route-cta">
+          {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
+          {publicMode ? (
+            <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
+          ) : (
+            <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
+          )}
+        </div>
+        {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
+        {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
+        {hasGenerationOutput(selected) && <><div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
+        {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
+        <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
+        <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p></>}
+      </>}
       {!publicMode && <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>}
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("Model unavailable")}</EmptyTitle><EmptyDescription>{uiT("This model is no longer in the catalog.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>{uiT("Browse models")}</Link></Button></EmptyContent></Empty> : null}
   </div>;

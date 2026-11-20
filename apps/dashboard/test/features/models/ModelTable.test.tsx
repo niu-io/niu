@@ -4,10 +4,20 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Routes, Route, Link } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import ModelTable from '@/features/models/components/ModelTable';
+const mockedContext = vi.hoisted(() => ({
+  token: '',
+  workspace: null as null | { id: string; organization_id: string; name: string },
+  session: null as null | { kind: 'installation' | 'operator'; permissions?: { read: boolean; write: boolean; manage_operators: boolean; platform_admin?: boolean } },
+}));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
-vi.mock('@/shell/dashboard-context', () => ({ useDashboardContext: () => ({ token: '', workspace: null }) }));
+vi.mock('@/shell/dashboard-context', () => ({ useDashboardContext: () => mockedContext }));
 vi.mock('@/shell/useModelPopularity', () => ({ useModelPopularity: (models: unknown[]) => ({ models }) }));
-afterEach(cleanup);
+afterEach(() => {
+  mockedContext.token = '';
+  mockedContext.workspace = null;
+  mockedContext.session = null;
+  cleanup();
+});
 const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true, catalog: {output_modalities:['text']} }));
 it('searches and opens a model without losing the catalog filter on return', async () => {
   const user = userEvent.setup();
@@ -351,4 +361,67 @@ it('renders model card titles and meta action links with default foreground colo
   const tryVideoLink = screen.getByRole('link', { name: 'Try in Video' });
   expect(tryVideoLink.className).toContain('text-foreground');
   expect(tryVideoLink.className).not.toContain('text-primary');
+});
+
+it('hides active generation and curl CTAs for uncallable commercial models and links admins to missing pricing steps', () => {
+  const uncallableModel = {
+    id: 'openai/unpriced-commercial',
+    provider: 'openrouter',
+    billing_source: 'niu_credits' as const,
+    public_catalog: false,
+    callable: false,
+    readiness_issues: ['procurement_pricing_missing', 'selling_price_missing'],
+    catalog: { name: 'Unpriced Commercial', output_modalities: ['text'] },
+  };
+  const internalOwnKey = {
+    id: 'internal/direct-chat',
+    provider: 'openrouter',
+    billing_source: 'own_api_key' as const,
+    public_catalog: true,
+    callable: true,
+    readiness_issues: [],
+    catalog: { name: 'Internal Direct', output_modalities: ['text'] },
+  };
+
+  // Non-admin list view: explicit readiness state, no active generation CTA on uncallable model,
+  // while own_api_key/internal model remains callable.
+  const customerList = render(
+    <MemoryRouter initialEntries={['/models']}>
+      <Routes>
+        <Route path="/models/*" element={<SidebarProvider><ModelTable models={[uncallableModel, internalOwnKey]} /></SidebarProvider>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  const uncallableCard = screen.getByRole('link', { name: 'Unpriced Commercial' }).closest('article');
+  if (!uncallableCard) throw new Error('Expected uncallable model card');
+  expect(within(uncallableCard).getByText('Purchase rate & selling price missing')).toBeTruthy();
+  expect(within(uncallableCard).getByText('Not ready for requests')).toBeTruthy();
+  expect(within(uncallableCard).queryByRole('link', { name: 'Open Generations' })).toBeNull();
+  expect(within(uncallableCard).queryByRole('link', { name: 'Try in Chat' })).toBeNull();
+  expect(within(uncallableCard).queryByRole('link', { name: 'Publish selling price' })).toBeNull();
+
+  const internalCard = screen.getByRole('link', { name: 'Internal Direct' }).closest('article');
+  if (!internalCard) throw new Error('Expected internal model card');
+  expect(within(internalCard).getByText('Upstream-funded · no Niu charge')).toBeTruthy();
+  expect(within(internalCard).getByRole('link', { name: 'Open Generations' })).toBeTruthy();
+  customerList.unmount();
+
+  // Platform admin detail view: no Open Generations / API key / curl example, direct links to remedy steps.
+  mockedContext.session = {
+    kind: 'installation',
+    permissions: { read: true, write: true, manage_operators: true, platform_admin: true },
+  };
+  render(
+    <MemoryRouter initialEntries={['/models/openai/unpriced-commercial']}>
+      <Routes>
+        <Route path="/models/*" element={<SidebarProvider><ModelTable models={[uncallableModel]} /></SidebarProvider>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole('status').textContent).toContain('Purchase rate & selling price missing');
+  expect(screen.queryByRole('link', { name: 'Open Generations' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Create an API key' })).toBeNull();
+  expect(document.querySelector('pre.model-route-example')).toBeNull();
+  expect(screen.getByRole('link', { name: 'Complete Provider rate' }).getAttribute('href')).toBe('/admin/providers');
+  expect(screen.getByRole('link', { name: 'Publish selling price' }).getAttribute('href')).toBe('/admin/pricing?model=openai%2Funpriced-commercial&publish=text');
 });

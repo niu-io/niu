@@ -584,7 +584,7 @@ function RoutePoolEditorDialog({
   const [displayName, setDisplayName] = useState(base?.display_name ?? '');
   const [description, setDescription] = useState(base?.description ?? '');
   const [organizationId, setOrganizationId] = useState<string | null>(base?.organization_id ?? null);
-  const [publicCatalog, setPublicCatalog] = useState(base ? Boolean(base.public_catalog) : true);
+  const [publicCatalog, setPublicCatalog] = useState(base ? Boolean(base.public_catalog) : false);
   const [billingMode, setBillingMode] = useState<ModelRoutePoolBillingMode>(base?.billing_mode ?? 'pool_tariff');
   const [enabled, setEnabled] = useState(base?.enabled ?? true);
   const [candidates, setCandidates] = useState<ModelRoutePoolCandidate[]>(

@@ -62,7 +62,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   const internalShared = accessScope === 'internal';
   const [alias, setAlias] = useState(model?.alias ?? initialAlias);
   const [upstreamModel, setUpstreamModel] = useState(model?.upstream_model ?? '');
-  const [publicCatalog, setPublicCatalog] = useState(model?.public_catalog ?? !personal);
+  const [publicCatalog, setPublicCatalog] = useState(model?.public_catalog ?? internalShared);
   const [enabled, setEnabled] = useState(model?.enabled ?? true);
   const [capabilities, setCapabilities] = useState<ModelCapabilities>(() => ({ ...emptyCapabilities(), ...model?.capabilities }));
   const [catalogQuery, setCatalogQuery] = useState('');
@@ -87,12 +87,12 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   useEffect(() => {
     setAlias(model?.alias ?? initialAlias);
     setUpstreamModel(model?.upstream_model ?? '');
-    setPublicCatalog(model?.public_catalog ?? !personal);
+    setPublicCatalog(model?.public_catalog ?? internalShared);
     setEnabled(model?.enabled ?? true);
     setCapabilities({ ...emptyCapabilities(), ...model?.capabilities });
     setCatalogQuery('');
     setCatalogOpen(false);
-  }, [model?.alias, model?.revision, personal]);
+  }, [model?.alias, model?.revision, internalShared]);
 
   function chooseProviderModel(item: ProviderCatalogModel) {
     setUpstreamModel(item.id);
@@ -235,7 +235,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
     </div>}
     <div className="model-route-switches">
       <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>{uiT("Enabled for inference")}</strong><small>{uiT("Disabled mappings remain in the directory.")}</small></span></Label>
-      {personal ? <p className="text-sm text-muted-foreground">{uiT("Private model. Available only to the account that owns this API key.")}</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>{uiT("Show in public catalog")}</strong><small>{internalShared ? uiT("Shared with internal workspaces; also publish this alias in the unauthenticated model list.") : uiT("Publish this alias in the unauthenticated model list.")}</small></span></Label>}
+      {personal ? <p className="text-sm text-muted-foreground">{uiT("Private model. Available only to the account that owns this API key.")}</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>{uiT("Show in public catalog")}</strong><small>{internalShared ? uiT("Shared with internal workspaces; also publish this alias in the unauthenticated model list.") : uiT("Publish this alias in the unauthenticated model list once pricing is ready.")}</small></span></Label>}
     </div>
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button ref={videoTriggerRef} type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
