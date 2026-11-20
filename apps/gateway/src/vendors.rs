@@ -24,10 +24,10 @@ pub(crate) use bootstrap::collect_seeds_from_env;
 #[cfg(test)]
 pub(crate) use models::resolve_model;
 pub(crate) use models::{
-    ResolvedModel, effective_models, generation_catalog_with_pools,
-    require_customer_tariff_model, require_selectable_credential, resolve_scoped_model,
-    resolve_scoped_model_excluding, rule_conditions_match, scoped_managed_catalog, scoped_models,
-    select_candidate, supports_protocol,
+    ResolvedModel, effective_models, generation_catalog_with_pools, require_customer_tariff_model,
+    require_selectable_credential, resolve_scoped_model, resolve_scoped_model_excluding,
+    rule_conditions_match, scoped_managed_catalog, scoped_models, select_candidate,
+    supports_protocol,
 };
 pub(crate) use startup::{
     validate_retained_content, validate_saved_codex_credentials, validate_saved_credentials,

@@ -41,7 +41,8 @@ async fn json_call(
     let value = if bytes.is_empty() {
         Value::Null
     } else {
-        serde_json::from_slice(&bytes).unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()))
+        serde_json::from_slice(&bytes)
+            .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()))
     };
     (status, headers, value)
 }
@@ -120,11 +121,17 @@ async fn api_key_secrets_are_encrypted_audited_scoped_rewrappable_and_purged(poo
     assert_eq!(ciphertext.first(), Some(&1));
     assert!(!String::from_utf8_lossy(&ciphertext).contains("niu_"));
     assert_eq!(
-        cipher_a.open_api_key_secret(scope, key_id, &ciphertext).unwrap(),
+        cipher_a
+            .open_api_key_secret(scope, key_id, &ciphertext)
+            .unwrap(),
         raw_token
     );
     // Wrong key ID AAD must fail authentication.
-    assert!(cipher_a.open_api_key_secret(scope, Uuid::new_v4(), &ciphertext).is_err());
+    assert!(
+        cipher_a
+            .open_api_key_secret(scope, Uuid::new_v4(), &ciphertext)
+            .is_err()
+    );
 
     // Startup/offline encryption validation must pass with cipher_a and fail with None / cipher_b.
     crate::admin::validate_saved_api_key_secrets(&state.store, Some(&cipher_a))
@@ -154,7 +161,8 @@ async fn api_key_secrets_are_encrypted_audited_scoped_rewrappable_and_purged(poo
 
     // Single-key reveal requires Write permission (Viewer -> 403).
     let single_path = format!("{create_path}/{key_id}?reveal=true");
-    let (status, _, _) = json_call(&app, Method::GET, &single_path, Some(&viewer.token), None).await;
+    let (status, _, _) =
+        json_call(&app, Method::GET, &single_path, Some(&viewer.token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 
     // Single-key reveal with Write permission returns secret + Cache-Control: no-store + audit row.
@@ -168,7 +176,12 @@ async fn api_key_secrets_are_encrypted_audited_scoped_rewrappable_and_purged(poo
         Some("no-store")
     );
     assert_eq!(revealed["token"], raw_token);
-    assert!(revealed["token_preview"].as_str().unwrap().starts_with("niu_"));
+    assert!(
+        revealed["token_preview"]
+            .as_str()
+            .unwrap()
+            .starts_with("niu_")
+    );
 
     let audit_actor: String = sqlx::query_scalar(
         "SELECT actor FROM key_audit_events WHERE key_id = $1 AND action = 'revealed'",
@@ -209,11 +222,13 @@ async fn api_key_secrets_are_encrypted_audited_scoped_rewrappable_and_purged(poo
         .unwrap();
 
     // Expired key secret is purged by background cleanup.
-    sqlx::query("UPDATE api_keys SET expires_at = clock_timestamp() - interval '1 second' WHERE id = $1")
-        .bind(key_id)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE api_keys SET expires_at = clock_timestamp() - interval '1 second' WHERE id = $1",
+    )
+    .bind(key_id)
+    .execute(&pool)
+    .await
+    .unwrap();
     let purged = state.store.purge_expired_key_secrets().await.unwrap();
     assert_eq!(purged, 1);
     let remaining: Option<Vec<u8>> =
@@ -268,10 +283,12 @@ async fn api_key_secrets_are_encrypted_audited_scoped_rewrappable_and_purged(poo
         )
         .await
         .unwrap();
-    sqlx::query("UPDATE agent_authorizations SET next_poll_at = clock_timestamp() - interval '10 seconds'")
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE agent_authorizations SET next_poll_at = clock_timestamp() - interval '10 seconds'",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let agent_key = state
         .store
         .exchange_agent_authorization(&pending.device_secret)
@@ -450,9 +467,19 @@ async fn multimodal_capture_allows_1_to_8_mib_and_responses_honors_store_false(p
             ]
         }]
     });
-    let (status, _, body) =
-        json_call(&app, Method::POST, "/v1/responses", Some(&key.token), Some(resp_body)).await;
-    assert_ne!(status, StatusCode::PAYLOAD_TOO_LARGE, "must not return 413: {body}");
+    let (status, _, body) = json_call(
+        &app,
+        Method::POST,
+        "/v1/responses",
+        Some(&key.token),
+        Some(resp_body),
+    )
+    .await;
+    assert_ne!(
+        status,
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "must not return 413: {body}"
+    );
     assert_eq!(status, StatusCode::OK, "{body}");
 
     // 1b. /v1/messages with >1 MiB base64 PDF under default capture.
@@ -467,9 +494,19 @@ async fn multimodal_capture_allows_1_to_8_mib_and_responses_honors_store_false(p
             ]
         }]
     });
-    let (status, _, body) =
-        json_call(&app, Method::POST, "/v1/messages", Some(&key.token), Some(msg_body)).await;
-    assert_ne!(status, StatusCode::PAYLOAD_TOO_LARGE, "must not return 413: {body}");
+    let (status, _, body) = json_call(
+        &app,
+        Method::POST,
+        "/v1/messages",
+        Some(&key.token),
+        Some(msg_body),
+    )
+    .await;
+    assert_ne!(
+        status,
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "must not return 413: {body}"
+    );
     assert_eq!(status, StatusCode::OK, "{body}");
 
     // 1c. /v1beta/models/mm-gemini:generateContent with >1 MiB base64 PDF under default capture.
@@ -490,7 +527,11 @@ async fn multimodal_capture_allows_1_to_8_mib_and_responses_honors_store_false(p
         Some(gem_body),
     )
     .await;
-    assert_ne!(status, StatusCode::PAYLOAD_TOO_LARGE, "must not return 413: {body}");
+    assert_ne!(
+        status,
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "must not return 413: {body}"
+    );
     assert_eq!(status, StatusCode::OK, "{body}");
 
     // 1d. /v1/chat/completions STILL enforces the 1 MiB limit with HTTP 413.
@@ -560,7 +601,10 @@ async fn multimodal_capture_allows_1_to_8_mib_and_responses_honors_store_false(p
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(no_store_count, 0, "store: false on /v1/responses must not persist payload");
+    assert_eq!(
+        no_store_count, 0,
+        "store: false on /v1/responses must not persist payload"
+    );
 
     let stored_count: i64 =
         sqlx::query_scalar("SELECT count(*) FROM request_payloads WHERE attempt_id = $1")
@@ -568,7 +612,10 @@ async fn multimodal_capture_allows_1_to_8_mib_and_responses_honors_store_false(p
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(stored_count, 1, "default capture on /v1/responses should persist payload");
+    assert_eq!(
+        stored_count, 1,
+        "default capture on /v1/responses should persist payload"
+    );
 
     server.abort();
 }
@@ -720,8 +767,14 @@ async fn messages_projects_document_citations_in_buffered_and_streaming_paths(po
     .await;
     assert_eq!(status, StatusCode::OK, "{buffered}");
     assert_eq!(buffered["content"][0]["text"], "Grass is green.");
-    assert_eq!(buffered["content"][0]["citations"][0]["type"], "char_location");
-    assert_eq!(buffered["content"][0]["citations"][0]["cited_text"], "Grass is green.");
+    assert_eq!(
+        buffered["content"][0]["citations"][0]["type"],
+        "char_location"
+    );
+    assert_eq!(
+        buffered["content"][0]["citations"][0]["cited_text"],
+        "Grass is green."
+    );
 
     // Streaming response projects sanitized citations_delta without mid-stream error.
     let response = app
@@ -737,11 +790,20 @@ async fn messages_projects_document_citations_in_buffered_and_streaming_paths(po
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let sse_text = String::from_utf8(
-        to_bytes(response.into_body(), 65536).await.unwrap().to_vec(),
+        to_bytes(response.into_body(), 65536)
+            .await
+            .unwrap()
+            .to_vec(),
     )
     .unwrap();
-    assert!(sse_text.contains("\"type\":\"citations_delta\""), "{sse_text}");
-    assert!(sse_text.contains("\"type\":\"char_location\""), "{sse_text}");
+    assert!(
+        sse_text.contains("\"type\":\"citations_delta\""),
+        "{sse_text}"
+    );
+    assert!(
+        sse_text.contains("\"type\":\"char_location\""),
+        "{sse_text}"
+    );
     assert!(sse_text.contains("event: message_stop"), "{sse_text}");
     assert!(!sse_text.contains("event: error"), "{sse_text}");
 
@@ -797,7 +859,8 @@ async fn password_login_rejects_malformed_email_with_400_and_counts_global_once_
                 .to_string(),
             ))
             .unwrap();
-        req.extensions_mut().insert(axum::extract::ConnectInfo(peer));
+        req.extensions_mut()
+            .insert(axum::extract::ConnectInfo(peer));
         let response = app.clone().oneshot(req).await.unwrap();
         assert_eq!(
             response.status(),
@@ -1038,7 +1101,11 @@ async fn running_gateway_serves_without_503_immediately_after_migration_0435(poo
     // replica MUST continue serving 200 OK (never 503!) and observe public_catalog=true.
     let (status, _, after) =
         json_call(&running_app, Method::GET, "/catalog/v1/models", None, None).await;
-    assert_eq!(status, StatusCode::OK, "must not return 503 after migration 0435: {after}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "must not return 503 after migration 0435: {after}"
+    );
     assert_eq!(after["data"].as_array().unwrap().len(), 1);
     assert_eq!(after["data"][0]["id"], "comm/rolling");
 }
@@ -1129,8 +1196,14 @@ async fn unpriced_commercial_models_are_gated_in_resale_catalogs_and_visible_whe
         "/api/v1/models?organization_id={}&project_id={}",
         scope.organization_id, scope.project_id
     );
-    let (status, _, ws_cat) =
-        json_call(&app, Method::GET, &ws_models_path, Some(&member.token), None).await;
+    let (status, _, ws_cat) = json_call(
+        &app,
+        Method::GET,
+        &ws_models_path,
+        Some(&member.token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(ws_cat["data"].as_array().unwrap().is_empty(), "{ws_cat}");
 
@@ -1177,8 +1250,7 @@ async fn unpriced_commercial_models_are_gated_in_resale_catalogs_and_visible_whe
         .unwrap();
     let (_, _, pub_cat) = json_call(&app, Method::GET, "/catalog/v1/models", None, None).await;
     assert!(pub_cat["data"].as_array().unwrap().is_empty());
-    let (_, _, api_cat) =
-        json_call(&app, Method::GET, "/v1/models", Some(&key.token), None).await;
+    let (_, _, api_cat) = json_call(&app, Method::GET, "/v1/models", Some(&key.token), None).await;
     assert!(api_cat["data"].as_array().unwrap().is_empty());
 
     // Publish platform retail selling price -> NOW visible and callable everywhere!
@@ -1212,14 +1284,19 @@ async fn unpriced_commercial_models_are_gated_in_resale_catalogs_and_visible_whe
     assert_eq!(pub_cat["data"][0]["id"], "comm/unpriced");
     assert_eq!(pub_cat["data"][0]["callable"], true);
 
-    let (_, _, api_cat) =
-        json_call(&app, Method::GET, "/v1/models", Some(&key.token), None).await;
+    let (_, _, api_cat) = json_call(&app, Method::GET, "/v1/models", Some(&key.token), None).await;
     assert_eq!(api_cat["data"].as_array().unwrap().len(), 1);
     assert_eq!(api_cat["data"][0]["id"], "comm/unpriced");
     assert_eq!(api_cat["data"][0]["callable"], true);
 
-    let (_, _, ws_cat) =
-        json_call(&app, Method::GET, &ws_models_path, Some(&member.token), None).await;
+    let (_, _, ws_cat) = json_call(
+        &app,
+        Method::GET,
+        &ws_models_path,
+        Some(&member.token),
+        None,
+    )
+    .await;
     assert_eq!(ws_cat["data"].as_array().unwrap().len(), 1);
     assert_eq!(ws_cat["data"][0]["callable"], true);
     assert_eq!(ws_cat["data"][0]["readiness_issues"], json!([]));

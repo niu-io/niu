@@ -269,10 +269,9 @@ pub async fn capture(
                     // Multimodal routes permit up to 8 MiB for base64 images/PDFs.
                     // Skip payload capture above the 1 MiB capture cap and forward
                     // the original stream intact so the route's own body limit applies.
-                    let reassembled = futures_util::stream::iter(
-                        prefix.into_iter().map(Ok::<_, axum::Error>),
-                    )
-                    .chain(rest.into_data_stream());
+                    let reassembled =
+                        futures_util::stream::iter(prefix.into_iter().map(Ok::<_, axum::Error>))
+                            .chain(rest.into_data_stream());
                     return next
                         .run(Request::from_parts(parts, Body::from_stream(reassembled)))
                         .await;

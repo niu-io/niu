@@ -69,7 +69,8 @@ async fn migration_0435_atomically_publishes_new_generation_without_emptying_act
     .unwrap();
 
     let identity = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    let store = Store::from_pool(pool.clone()).with_route_compiler(Arc::new(StaticTestCompiler(identity)));
+    let store =
+        Store::from_pool(pool.clone()).with_route_compiler(Arc::new(StaticTestCompiler(identity)));
     store.bootstrap_route_registry(vec![], None).await.unwrap();
 
     // Seed one commercial route (public_catalog=false), one personal route (public_catalog=false),
@@ -199,7 +200,10 @@ async fn migration_0435_atomically_publishes_new_generation_without_emptying_act
         pub_after.compiled["pools"]["pool/shared"]["public_catalog"],
         json!(true)
     );
-    assert_eq!(pub_after.compiled["pools"]["pool/shared"]["revision"], json!(2));
+    assert_eq!(
+        pub_after.compiled["pools"]["pool/shared"]["revision"],
+        json!(2)
+    );
 
     // 4. Starting a new replica with NIU_ROUTING_EXPECTED_GENERATION set to the
     // active generation must succeed (no StoreError::Conflict).
@@ -247,13 +251,12 @@ async fn migration_0439_backfills_bank_memo_without_volatile_not_null_add_column
     // Run remaining migrations including 0439..=latest.
     MIGRATOR.run(&pool).await.unwrap();
 
-    let memos: Vec<String> = sqlx::query_scalar(
-        "SELECT bank_memo FROM organizations WHERE id = ANY($1) ORDER BY id",
-    )
-    .bind(vec![org_a, org_b])
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let memos: Vec<String> =
+        sqlx::query_scalar("SELECT bank_memo FROM organizations WHERE id = ANY($1) ORDER BY id")
+            .bind(vec![org_a, org_b])
+            .fetch_all(&pool)
+            .await
+            .unwrap();
     assert_eq!(memos.len(), 2);
     assert_ne!(memos[0], memos[1]);
     assert!(memos.iter().all(|m| m.starts_with("NIU-") && m.len() == 16));

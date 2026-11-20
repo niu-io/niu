@@ -111,8 +111,7 @@ pub struct KeyMetadataUpdate<'a> {
     pub actor: &'a str,
 }
 
-pub type KeySecretSealer<'a> =
-    dyn Fn(Uuid, &str) -> Result<Vec<u8>, StoreError> + Send + Sync + 'a;
+pub type KeySecretSealer<'a> = dyn Fn(Uuid, &str) -> Result<Vec<u8>, StoreError> + Send + Sync + 'a;
 
 impl Store {
     pub async fn issue_key(

@@ -675,7 +675,9 @@ mod tests {
             "event: message_stop\n",
             "data: {\"type\":\"message_stop\"}\n\n"
         );
-        let out = messages.feed(stream.as_bytes()).expect("valid citation stream");
+        let out = messages
+            .feed(stream.as_bytes())
+            .expect("valid citation stream");
         let text = String::from_utf8(out).unwrap();
         assert!(text.contains("\"type\":\"citations_delta\""));
         assert!(text.contains("\"type\":\"page_location\""));

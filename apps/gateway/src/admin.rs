@@ -179,11 +179,9 @@ pub(crate) async fn validate_saved_api_key_secrets(
         let cipher =
             cipher.ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for persisted API key secrets")?;
         for (id, scope, ciphertext) in page {
-            cipher
-                .open_api_key_secret(scope, id, &ciphertext)
-                .map_err(|_| {
-                    "Cannot authenticate persisted API key secrets with configured encryption key"
-                })?;
+            cipher.open_api_key_secret(scope, id, &ciphertext).map_err(
+                |_| "Cannot authenticate persisted API key secrets with configured encryption key",
+            )?;
             after = Some(id);
         }
     }

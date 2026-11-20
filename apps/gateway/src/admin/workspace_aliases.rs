@@ -1292,7 +1292,13 @@ pub async fn get_key(
     Path((workspace, key)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
-) -> Result<([(axum::http::header::HeaderName, &'static str); 1], Json<Value>), ApiError> {
+) -> Result<
+    (
+        [(axum::http::header::HeaderName, &'static str); 1],
+        Json<Value>,
+    ),
+    ApiError,
+> {
     let reveal = query.reveal == Some(true);
     let (auth, scope) = authorize_workspace(
         &state,
@@ -1311,9 +1317,7 @@ pub async fn get_key(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    if reveal
-        && let Some(cipher) = state.vendor_cipher.as_deref()
-    {
+    if reveal && let Some(cipher) = state.vendor_cipher.as_deref() {
         let actor = super::key_audit_actor(auth);
         let secrets = state
             .store

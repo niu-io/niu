@@ -1773,19 +1773,23 @@ async fn enterprise_ready(
 ///   }
 /// }
 /// ```
-fn commercial_model_readiness(
+struct CommercialReadinessContext<'a> {
     operating_mode: crate::state::OperatingMode,
+    billing_mode: &'a str,
+    text_prices: &'a std::collections::BTreeMap<String, Value>,
+    media_priced_models: &'a std::collections::BTreeSet<String>,
+    unit_prices: &'a std::collections::BTreeMap<String, Value>,
+}
+
+fn commercial_model_readiness(
+    ctx: &CommercialReadinessContext<'_>,
     name: &str,
     model: &crate::config::ModelConfig,
     is_own_api_key: bool,
     is_video: bool,
     pool: Option<&niu_storage::ModelRoutePool>,
-    billing_mode: &str,
-    text_prices: &std::collections::BTreeMap<String, Value>,
-    media_priced_models: &std::collections::BTreeSet<String>,
-    unit_prices: &std::collections::BTreeMap<String, Value>,
 ) -> (bool, Vec<&'static str>) {
-    if operating_mode == crate::state::OperatingMode::Internal || is_own_api_key {
+    if ctx.operating_mode == crate::state::OperatingMode::Internal || is_own_api_key {
         return (true, Vec::new());
     }
     if let Some(pool) = pool {
@@ -1794,10 +1798,10 @@ fn commercial_model_readiness(
         }
         let has_procurement_pricing = model.pricing.is_some();
         let alias_has_price = |alias: &str| {
-            if billing_mode == "credits" {
-                unit_prices.contains_key(alias)
+            if ctx.billing_mode == "credits" {
+                ctx.unit_prices.contains_key(alias)
             } else {
-                text_prices.contains_key(alias)
+                ctx.text_prices.contains_key(alias)
             }
         };
         let has_selling_price = match pool.billing_mode {
@@ -1817,12 +1821,12 @@ fn commercial_model_readiness(
         return (issues.is_empty(), issues);
     }
     let has_procurement_pricing = is_video || model.pricing.is_some();
-    let has_selling_price = if billing_mode == "credits" {
-        unit_prices.contains_key(name)
+    let has_selling_price = if ctx.billing_mode == "credits" {
+        ctx.unit_prices.contains_key(name)
     } else if is_video {
-        media_priced_models.contains(name)
+        ctx.media_priced_models.contains(name)
     } else {
-        text_prices.contains_key(name)
+        ctx.text_prices.contains_key(name)
     };
     let mut issues = Vec::new();
     if !has_procurement_pricing {
@@ -1892,17 +1896,20 @@ async fn public_models(
                     .routes
                     .get(model)
                     .is_some_and(niu_storage::VendorCatalogRoute::is_internal_shared);
+            let readiness_ctx = CommercialReadinessContext {
+                operating_mode: state.operating_mode,
+                billing_mode: &billing_mode,
+                text_prices: &prices,
+                media_priced_models: &media_priced_models,
+                unit_prices: &unit_prices,
+            };
             let (callable, _) = commercial_model_readiness(
-                state.operating_mode,
+                &readiness_ctx,
                 model,
                 route,
                 is_own_api_key,
                 is_video,
                 catalog.pools.get(model),
-                &billing_mode,
-                &prices,
-                &media_priced_models,
-                &unit_prices,
             );
             if !callable {
                 return None;
@@ -2451,17 +2458,20 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 .get(name)
                 .filter(|route| route.model.capabilities.get("video_schema").is_some())
                 .map(super::inference::video_models::configured_preview);
+            let readiness_ctx = CommercialReadinessContext {
+                operating_mode: state.operating_mode,
+                billing_mode: &billing_mode,
+                text_prices: &prices,
+                media_priced_models: &media_priced_models,
+                unit_prices: &sanitized_unit_prices,
+            };
             let (callable, _) = commercial_model_readiness(
-                state.operating_mode,
+                &readiness_ctx,
                 name,
                 model,
                 internal_shared,
                 video_configuration.is_some(),
                 catalog.pools.get(name),
-                &billing_mode,
-                &prices,
-                &media_priced_models,
-                &sanitized_unit_prices,
             );
             if !callable {
                 return None;
@@ -2576,8 +2586,7 @@ async fn admin_models(
     if organization_id.is_some_and(|id| !authorization.permits_organization(id)) {
         return Err(ApiError::not_found());
     }
-    let catalog =
-        crate::vendors::generation_catalog_with_pools(&state, organization_id).await?;
+    let catalog = crate::vendors::generation_catalog_with_pools(&state, organization_id).await?;
     let (billing_mode, mut unit_prices) = state
         .store
         .customer_unit_model_prices()
@@ -2684,17 +2693,20 @@ async fn admin_models(
                 .get(name)
                 .filter(|route| route.model.capabilities.get("video_schema").is_some())
                 .map(super::inference::video_models::configured_preview);
+            let readiness_ctx = CommercialReadinessContext {
+                operating_mode: state.operating_mode,
+                billing_mode: &billing_mode,
+                text_prices: effective_text_prices,
+                media_priced_models: &media_priced_models,
+                unit_prices: &unit_prices,
+            };
             let (callable, readiness_issues) = commercial_model_readiness(
-                state.operating_mode,
+                &readiness_ctx,
                 name,
                 model,
                 is_own_api_key,
                 video_configuration.is_some(),
                 catalog.pools.get(name),
-                &billing_mode,
-                effective_text_prices,
-                &media_priced_models,
-                &unit_prices,
             );
             if !callable && !include_uncallable {
                 return None;

@@ -4595,7 +4595,10 @@ mod epay_tests {
         let response = app
             .oneshot(
                 Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
-                    .header("authorization", "Bearer stripe-test-installation-token-123456789")
+                    .header(
+                        "authorization",
+                        "Bearer stripe-test-installation-token-123456789",
+                    )
                     .header("content-type", "application/json")
                     .body(Body::from(
                         json!({
