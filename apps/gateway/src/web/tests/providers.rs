@@ -1093,6 +1093,19 @@ async fn supplier_rate_http_updates_require_current_revision(pool: PgPool) {
 #[ignore = "requires PostgreSQL"]
 async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tariff(pool: PgPool) {
     let mut state = test_state(None, pool.clone());
+    Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap()
+        .pricing = Some(crate::config::RoutePricing {
+        currency: "USD".into(),
+        api_prompt_rate: 100_000_000,
+        api_completion_rate: 200_000_000,
+        cash_prompt_rate: 100_000_000,
+        cash_completion_rate: 200_000_000,
+        max_input_tokens: 1024,
+        max_output_tokens: 512,
+    });
     state
         .store
         .configure_platform_currency("USD")
@@ -1108,7 +1121,10 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
     let app = router(state);
     let (status, unpriced) = call(&app, Method::GET, "/v1/models", &key.token, None).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(unpriced["data"][0]["customer_pricing"].is_null());
+    assert!(
+        unpriced["data"].as_array().unwrap().is_empty(),
+        "unpriced commercial model must not be advertised as callable on /v1/models: {unpriced}"
+    );
     let rates = niu_storage::ProviderOfferInput {
         model_alias: "fast".into(),
         currency: "USD".into(),
@@ -1203,7 +1219,10 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         .await
         .unwrap();
     let (_, other) = call(&app, Method::GET, "/v1/models", &foreign_key.token, None).await;
-    assert!(other["data"][0]["customer_pricing"].is_null());
+    assert!(
+        other["data"].as_array().unwrap().is_empty(),
+        "foreign workspace without a published selling price must not see uncallable commercial model: {other}"
+    );
     let other_dashboard = format!(
         "/admin/v1/models?organization_id={}&project_id={}",
         foreign_scope.organization_id, foreign_scope.project_id

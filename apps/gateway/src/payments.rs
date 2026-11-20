@@ -634,7 +634,7 @@ pub(crate) async fn notify(
 ///                 "type": "string",
 ///                 "minLength": 1,
 ///                 "maxLength": 64,
-///                 "pattern": "^[A-Za-z0-9.-]+$",
+///                 "pattern": "^[A-Za-z0-9._-]+$",
 ///                 "description": "Must be enabled for the configured merchant."
 ///               },
 ///               "idempotency_key": {
@@ -840,7 +840,7 @@ pub(crate) async fn create_topup(
         || !input
             .payment_method
             .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
     {
         return Err(ApiError::invalid_request(
             "Choose an enabled payment method",
@@ -4528,5 +4528,94 @@ mod epay_tests {
         .await
         .unwrap();
         assert_eq!(entries, 1);
+    }
+
+    #[sqlx::test(migrator = "niu_storage::MIGRATOR")]
+    #[ignore = "requires PostgreSQL"]
+    async fn stripe_wechat_pay_topup_accepted_by_gateway_validation_and_postgres(
+        pool: sqlx::PgPool,
+    ) {
+        let store = niu_storage::Store::from_pool(pool.clone());
+        store.configure_platform_currency("USD").await.unwrap();
+        let company = store
+            .create_prepaid_organization("Stripe WeChat Pay Org", "USD")
+            .await
+            .unwrap();
+        let idempotency_key = Uuid::new_v4();
+        let order = store
+            .create_customer_topup(
+                company,
+                &niu_storage::TopupInput {
+                    currency: "USD",
+                    amount_nanos: 2_000_000_000,
+                    aggregator: "stripe",
+                    merchant: "fixtureMerchant",
+                    payment_method: "wechat_pay",
+                    idempotency_key,
+                },
+            )
+            .await
+            .unwrap();
+        let mut state = AppState::new(
+            toml::from_str("[models]").unwrap(),
+            store.clone(),
+            crate::state::TokenSet::parse(
+                "NIU_ADMIN_TOKENS",
+                "stripe-test-installation-token-123456789".into(),
+            )
+            .unwrap(),
+            std::collections::HashMap::new(),
+        );
+        state.stripe_payments = Some(std::sync::Arc::new(StripeRuntime {
+            merchant: "fixtureMerchant".into(),
+            endpoint_secret: "whsec_fixture_only".into(),
+            live_mode: false,
+            checkout: Some(StripeCheckout {
+                client: niu_payments::stripe_transport::Client::new(
+                    "sk_test_fixture_only".into(),
+                    false,
+                )
+                .unwrap(),
+                currency: "usd".into(),
+                success_url: "https://niu.example/settings/billing".into(),
+                cancel_url: "https://niu.example/settings/billing".into(),
+                methods: vec!["card".into(), "alipay".into(), "wechat_pay".into()],
+            }),
+        }));
+        store
+            .bind_customer_topup_checkout(
+                company,
+                order.id,
+                "cs_test_wechat_fixture",
+                "https://checkout.stripe.com/c/pay/cs_test_wechat_fixture#saved",
+            )
+            .await
+            .unwrap();
+        let app = crate::web::router(state);
+        let response = app
+            .oneshot(
+                Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+                    .header("authorization", "Bearer stripe-test-installation-token-123456789")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "amount_nanos": "2000000000",
+                            "payment_method": "wechat_pay",
+                            "idempotency_key": idempotency_key
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let payload: Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 16384)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(payload["data"]["payment_method"], "wechat_pay");
     }
 }

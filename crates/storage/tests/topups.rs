@@ -1065,3 +1065,35 @@ async fn stripe_session_references_settle_once_and_preserve_legacy_limits(pool: 
         .await
         .unwrap();
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn stripe_wechat_pay_payment_method_persists_cleanly(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let company = store
+        .create_prepaid_organization("WeChat Pay Stripe Org", "USD")
+        .await
+        .unwrap();
+    let order = store
+        .create_customer_topup(
+            company,
+            &TopupInput {
+                currency: "USD",
+                amount_nanos: 5_000_000_000,
+                aggregator: "stripe",
+                merchant: "fixtureMerchant",
+                payment_method: "wechat_pay",
+                idempotency_key: Uuid::new_v4(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(order.payment_method, "wechat_pay");
+    let loaded = store
+        .customer_topup(company, order.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.payment_method, "wechat_pay");
+}

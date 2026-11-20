@@ -440,7 +440,7 @@ impl Store {
             || !input
                 .payment_method
                 .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
         {
             return Err(StoreError::InvalidPrice);
         }

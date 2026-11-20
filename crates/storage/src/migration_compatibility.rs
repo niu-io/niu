@@ -17,6 +17,8 @@ use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 const INITIAL_SCHEMA: &str = include_str!("../migrations/0001_initial_schema.sql");
 const ORIGINAL_174: &str = include_str!("../compatibility/0174_original.sql");
+const ORIGINAL_435: &str = include_str!("../compatibility/0435_original.sql");
+const ORIGINAL_439: &str = include_str!("../compatibility/0439_original.sql");
 const MARKER_PREFIX: &str = "-- @niu-legacy-migration ";
 /// Retain the lock used by earlier Gateway versions. Acquire it before SQLx's
 /// migration lock so mixed-version startup uses the same lock order.
@@ -219,8 +221,31 @@ async fn run_locked(connection: &mut PgConnection) -> Result<(), StoreError> {
             tx.commit().await?;
         }
     }
+    let mut current_migrations = MIGRATOR.migrations.to_vec();
+    if exists {
+        for (version, original_sql) in [(435_i64, ORIGINAL_435), (439_i64, ORIGINAL_439)] {
+            let applied_checksum: Option<Vec<u8>> = sqlx::query_scalar(
+                "SELECT checksum FROM _sqlx_migrations WHERE version = $1 AND success",
+            )
+            .bind(version)
+            .fetch_optional(&mut *connection)
+            .await?;
+            if let Some(current) = current_migrations.iter_mut().find(|m| m.version == version) {
+                let original = Migration::new(
+                    version,
+                    current.description.clone(),
+                    current.migration_type,
+                    Cow::Borrowed(original_sql),
+                    current.no_tx,
+                );
+                if applied_checksum.as_deref() == Some(original.checksum.as_ref()) {
+                    *current = original;
+                }
+            }
+        }
+    }
     Migrator {
-        migrations: MIGRATOR.migrations.clone(),
+        migrations: Cow::Owned(current_migrations),
         ignore_missing: MIGRATOR.ignore_missing,
         locking: false,
         no_tx: MIGRATOR.no_tx,
@@ -228,6 +253,31 @@ async fn run_locked(connection: &mut PgConnection) -> Result<(), StoreError> {
     .run_direct(connection)
     .await?;
     Ok(())
+}
+
+pub(crate) fn accepted_migration_checksum(version: i64, checksum: &[u8]) -> bool {
+    let Some(current) = MIGRATOR.migrations.iter().find(|m| m.version == version) else {
+        return false;
+    };
+    if checksum == current.checksum.as_ref() {
+        return true;
+    }
+    let original_sql = match version {
+        435 => Some(ORIGINAL_435),
+        439 => Some(ORIGINAL_439),
+        _ => None,
+    };
+    if let Some(sql) = original_sql {
+        let original = Migration::new(
+            version,
+            current.description.clone(),
+            current.migration_type,
+            Cow::Borrowed(sql),
+            current.no_tx,
+        );
+        return checksum == original.checksum.as_ref();
+    }
+    false
 }
 
 #[cfg(test)]

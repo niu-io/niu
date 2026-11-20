@@ -307,12 +307,15 @@ impl Store {
         if !valid_invocation_protocols(&protocols) {
             return Err(StoreError::InvalidKey);
         }
+        // One-time agent authorization credentials are returned directly to the
+        // polling agent; do not persist a revealable copy in api_keys.
         let issued = Self::issue_key_with_expiry_in_tx(
             &mut tx,
             scope,
             &format!("Niu for {client}"),
             &models.ok_or(StoreError::Unauthorized)?,
             ttl,
+            None,
         )
         .await?;
         sqlx::query("UPDATE api_keys SET invocation_allowed=a.invocation_allowed,invocation_protocols=a.invocation_protocols FROM agent_authorizations a WHERE api_keys.id=$1 AND a.id=$2")

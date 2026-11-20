@@ -92,6 +92,7 @@ pub use encrypted_content::{EncryptedContent, EncryptedContentDomain};
 pub use encryption_rotation::{
     EncryptionRewrapTarget, EncryptionRotation, EncryptionRotationLease,
 };
+pub use password_logins::is_valid_email_address;
 mod branding;
 mod route_publication;
 pub use route_publication::{RouteRegistryCompiler, RouteRegistryPublication};
@@ -342,7 +343,9 @@ pub use codex_report::{
     CodexRateOverride, CodexRateSnapshot, CodexUsageImportFinish, CodexUsageImportStart,
     CodexUsageResponseInput, CodexUsageTokens,
 };
-pub use keys::{IssuedKey, KeyMutationResult, KeyMutationStatus, KeyView, Principal};
+pub use keys::{
+    IssuedKey, KeyMutationResult, KeyMutationStatus, KeySecretSealer, KeyView, Principal,
+};
 pub use pricing::{PriceInput, TokenRates};
 pub use provider_integrations::ProviderIntegration;
 pub use providers::{
@@ -784,7 +787,10 @@ impl Store {
                 .any(|((version, success, checksum), migration)| {
                     !success
                         || *version != migration.version
-                        || checksum.as_slice() != migration.checksum.as_ref()
+                        || !migration_compatibility::accepted_migration_checksum(
+                            *version,
+                            checksum.as_slice(),
+                        )
                 })
         {
             return Err(StoreError::Conflict);

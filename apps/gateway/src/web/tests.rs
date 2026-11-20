@@ -500,6 +500,7 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
 }
 
 mod branding;
+mod release_031_fixes;
 // Completion evidence is queued after the provider response. Tests must observe
 // the committed result rather than assume the background writer has run already.
 async fn wait_for_attempt_evidence(

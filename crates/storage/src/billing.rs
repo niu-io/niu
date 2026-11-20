@@ -645,6 +645,61 @@ SELECT jsonb_build_object(
         Ok(prices)
     }
 
+    /// Model aliases that have at least one published standard media selling
+    /// price in the active platform currency.
+    pub async fn public_standard_media_priced_models(
+        &self,
+    ) -> Result<std::collections::BTreeSet<String>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let aliases: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT h.model_alias \
+             FROM platform_retail_price_heads h \
+             JOIN platform_currency c ON c.singleton AND c.currency = h.currency \
+             WHERE h.rate_kind = 'media' AND h.current_revision IS NOT NULL",
+        )
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        Ok(aliases.into_iter().collect())
+    }
+
+    /// Model aliases that have a published media selling price applicable to
+    /// the workspace (platform standard media price, explicit enrollment, or
+    /// legacy workspace media price card).
+    pub async fn workspace_media_priced_models(
+        &self,
+        scope: TenantScope,
+    ) -> Result<std::collections::BTreeSet<String>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let aliases: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT model_alias FROM ( \
+                 SELECT h.model_alias \
+                 FROM platform_retail_price_heads h \
+                 JOIN platform_currency c ON c.singleton AND c.currency = h.currency \
+                 WHERE h.rate_kind = 'media' AND h.current_revision IS NOT NULL \
+                 UNION \
+                 SELECT h.model_alias \
+                 FROM retail_media_enrollments e \
+                 JOIN platform_retail_price_heads h ON h.id = e.price_id \
+                 WHERE e.organization_id = $1 AND e.project_id = $2 \
+                   AND e.price_id IS NOT NULL AND h.current_revision IS NOT NULL \
+                 UNION \
+                 SELECT c.model_alias \
+                 FROM customer_media_rate_cards c \
+                 LEFT JOIN customer_media_rate_retirements r \
+                     ON r.organization_id = c.organization_id AND r.revision = c.revision \
+                 WHERE c.organization_id = $1 \
+                   AND COALESCE(r.effective_until, c.effective_until) IS NULL \
+             ) priced",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        Ok(aliases.into_iter().collect())
+    }
+
     /// Complete customer catalog prices; this compatibility map has no cursor.
     /// Never joins Provider offers or upstream costs.
     pub async fn customer_model_prices(

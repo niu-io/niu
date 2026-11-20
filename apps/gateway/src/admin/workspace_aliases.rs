@@ -781,18 +781,13 @@ pub async fn list_keys(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let reveal = query.reveal == Some(true);
-    let (_, scope) = authorize_workspace(
-        &state,
-        &headers,
-        workspace,
-        if reveal {
-            AdminPermission::Write
-        } else {
-            AdminPermission::Read
-        },
-    )
-    .await?;
+    if query.reveal == Some(true) {
+        return Err(ApiError::invalid_request(
+            "API key secrets can only be revealed when retrieving a single key",
+        ));
+    }
+    let (_, scope) =
+        authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
     if query.limit.is_some() || query.after.is_some() || query.status.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
@@ -800,7 +795,7 @@ pub async fn list_keys(
                 "Key page limit must be between 1 and 100",
             ));
         }
-        let (mut data, next_cursor) = state
+        let (data, next_cursor) = state
             .store
             .key_detail_directory_page(
                 scope,
@@ -812,29 +807,15 @@ pub async fn list_keys(
             )
             .await
             .map_err(ApiError::from_store)?;
-        if reveal {
-            state
-                .store
-                .attach_key_secrets(scope, &mut data)
-                .await
-                .map_err(ApiError::from_store)?;
-        }
         return Ok(Json(
             serde_json::json!({"data": data, "next_cursor": next_cursor}),
         ));
     }
-    let mut data = state
+    let data = state
         .store
         .list_key_details(scope)
         .await
         .map_err(ApiError::from_store)?;
-    if reveal {
-        state
-            .store
-            .attach_key_secrets(scope, &mut data)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
     Ok(Json(serde_json::json!({"data": data})))
 }
 
@@ -1145,10 +1126,11 @@ pub async fn create_key(
         ip_policy: input.allowed_cidrs.map(|cidrs| (Some(cidrs), 0)),
     };
     let request = key_mutation_request(&headers)?;
+    let sealer = super::key_secret_sealer(&state, scope);
     let issued = if let Some(request) = request {
         state
             .store
-            .issue_key_request(
+            .issue_key_request_with_sealer(
                 scope,
                 request,
                 &input.name,
@@ -1156,19 +1138,21 @@ pub async fn create_key(
                 input.ttl_seconds,
                 policies,
                 actor,
+                sealer.as_deref(),
             )
             .await
             .map_err(ApiError::from_store)?
     } else {
         let issued = state
             .store
-            .issue_key_with_policies(
+            .issue_key_with_policies_and_sealer(
                 scope,
                 &input.name,
                 &input.allowed_models,
                 input.ttl_seconds,
                 policies,
                 actor,
+                sealer.as_deref(),
             )
             .await
             .map_err(ApiError::from_store)?;
@@ -1308,9 +1292,9 @@ pub async fn get_key(
     Path((workspace, key)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
-) -> Result<Json<Value>, ApiError> {
+) -> Result<([(axum::http::header::HeaderName, &'static str); 1], Json<Value>), ApiError> {
     let reveal = query.reveal == Some(true);
-    let (_, scope) = authorize_workspace(
+    let (auth, scope) = authorize_workspace(
         &state,
         &headers,
         workspace,
@@ -1327,14 +1311,34 @@ pub async fn get_key(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    if reveal {
-        state
+    if reveal
+        && let Some(cipher) = state.vendor_cipher.as_deref()
+    {
+        let actor = super::key_audit_actor(auth);
+        let secrets = state
             .store
-            .attach_key_secrets(scope, std::slice::from_mut(&mut detail))
+            .reveal_key_secrets(scope, &[key], &actor)
             .await
             .map_err(ApiError::from_store)?;
+        if let Some(ciphertext) = secrets.get(&key) {
+            let secret = cipher
+                .open_api_key_secret(scope, key, ciphertext)
+                .map_err(|_| ApiError::unavailable())?;
+            let preview = if secret.len() >= 12 {
+                format!("{}••••••••{}", &secret[..8], &secret[secret.len() - 4..])
+            } else {
+                "niu_••••••••".to_string()
+            };
+            if let Some(obj) = detail.as_object_mut() {
+                obj.insert("token".to_string(), Value::String(secret));
+                obj.insert("token_preview".to_string(), Value::String(preview));
+            }
+        }
     }
-    Ok(Json(detail))
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(detail),
+    ))
 }
 
 /// ```openapi
@@ -1947,16 +1951,17 @@ pub async fn rotate_key(
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
     let (_, scope) =
         authorize_workspace(&state, &headers, workspace, AdminPermission::Write).await?;
+    let sealer = super::key_secret_sealer(&state, scope);
     let issued = if let Some(request) = key_mutation_request(&headers)? {
         state
             .store
-            .rotate_key_request(scope, request, key)
+            .rotate_key_request_with_sealer(scope, request, key, sealer.as_deref())
             .await
             .map_err(ApiError::from_store)?
     } else {
         let issued = state
             .store
-            .rotate_key(scope, key)
+            .rotate_key_with_sealer(scope, key, sealer.as_deref())
             .await
             .map_err(ApiError::from_store)?;
         niu_storage::KeyMutationResult {

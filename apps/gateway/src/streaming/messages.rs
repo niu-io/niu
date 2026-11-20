@@ -11,6 +11,131 @@ const USAGE_FIELDS: [&str; 4] = [
     "cache_read_input_tokens",
 ];
 
+const MAX_CITATIONS_PER_BLOCK: usize = 256;
+const MAX_CITED_TEXT_BYTES: usize = 65_536;
+const MAX_DOCUMENT_TITLE_BYTES: usize = 512;
+const MAX_DOCUMENT_INDEX: u64 = 10_000;
+
+/// Allowlist-project one Anthropic document citation object so no arbitrary
+/// upstream metadata can cross the customer boundary.
+pub(crate) fn sanitize_citation(value: &Value) -> Option<Value> {
+    let obj = value.as_object()?;
+    let kind = obj.get("type")?.as_str()?;
+    let cited_text = obj
+        .get("cited_text")?
+        .as_str()
+        .filter(|s| s.len() <= MAX_CITED_TEXT_BYTES)?;
+    let document_index = obj
+        .get("document_index")?
+        .as_u64()
+        .filter(|index| *index <= MAX_DOCUMENT_INDEX)?;
+    let document_title = match obj.get("document_title") {
+        None | Some(Value::Null) => Value::Null,
+        Some(Value::String(title)) if title.len() <= MAX_DOCUMENT_TITLE_BYTES => {
+            Value::String(title.clone())
+        }
+        Some(_) => return None,
+    };
+    match kind {
+        "char_location" => {
+            if !obj.keys().all(|k| {
+                [
+                    "type",
+                    "cited_text",
+                    "document_index",
+                    "document_title",
+                    "start_char_index",
+                    "end_char_index",
+                ]
+                .contains(&k.as_str())
+            }) {
+                return None;
+            }
+            let start = obj.get("start_char_index")?.as_u64()?;
+            let end = obj.get("end_char_index")?.as_u64()?;
+            if end < start {
+                return None;
+            }
+            Some(json!({
+                "type": "char_location",
+                "cited_text": cited_text,
+                "document_index": document_index,
+                "document_title": document_title,
+                "start_char_index": start,
+                "end_char_index": end,
+            }))
+        }
+        "page_location" => {
+            if !obj.keys().all(|k| {
+                [
+                    "type",
+                    "cited_text",
+                    "document_index",
+                    "document_title",
+                    "start_page_number",
+                    "end_page_number",
+                ]
+                .contains(&k.as_str())
+            }) {
+                return None;
+            }
+            let start = obj.get("start_page_number")?.as_u64()?;
+            let end = obj.get("end_page_number")?.as_u64()?;
+            if start == 0 || end < start {
+                return None;
+            }
+            Some(json!({
+                "type": "page_location",
+                "cited_text": cited_text,
+                "document_index": document_index,
+                "document_title": document_title,
+                "start_page_number": start,
+                "end_page_number": end,
+            }))
+        }
+        "content_block_location" => {
+            if !obj.keys().all(|k| {
+                [
+                    "type",
+                    "cited_text",
+                    "document_index",
+                    "document_title",
+                    "start_block_index",
+                    "end_block_index",
+                ]
+                .contains(&k.as_str())
+            }) {
+                return None;
+            }
+            let start = obj.get("start_block_index")?.as_u64()?;
+            let end = obj.get("end_block_index")?.as_u64()?;
+            if end < start {
+                return None;
+            }
+            Some(json!({
+                "type": "content_block_location",
+                "cited_text": cited_text,
+                "document_index": document_index,
+                "document_title": document_title,
+                "start_block_index": start,
+                "end_block_index": end,
+            }))
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn sanitize_citations(value: &Value) -> Option<Vec<Value>> {
+    if value.is_null() {
+        return Some(Vec::new());
+    }
+    let items = value.as_array()?;
+    if items.len() > MAX_CITATIONS_PER_BLOCK {
+        return None;
+    }
+    items.iter().map(sanitize_citation).collect()
+}
+
 struct Messages {
     public_model: String,
     tools: Option<crate::native_messages_tools::StreamTools>,
@@ -176,21 +301,23 @@ impl Messages {
                         json!({"type":kind,"index":self.blocks,"content_block":{"type":"redacted_thinking","data":data}}),
                     );
                 }
-                if block_type != Some("text")
-                    || !value["content_block"]["text"].is_string()
-                    || value["content_block"]
-                        .get("citations")
-                        .is_some_and(|v| !v.is_null() && v.as_array().is_none_or(|a| !a.is_empty()))
-                {
+                if block_type != Some("text") || !value["content_block"]["text"].is_string() {
                     return Err("Unsupported Messages block");
                 }
+                let citations = match value["content_block"].get("citations") {
+                    None => Vec::new(),
+                    Some(raw) => sanitize_citations(raw).ok_or("Unsupported Messages block")?,
+                };
                 self.active = true;
                 self.has_output |= value["content_block"]["text"]
                     .as_str()
-                    .is_some_and(|s| !s.is_empty());
-                Ok(
-                    json!({"type":kind,"index":self.blocks,"content_block":{"type":"text","text":value["content_block"]["text"]}}),
-                )
+                    .is_some_and(|s| !s.is_empty())
+                    || !citations.is_empty();
+                let mut block = json!({"type":"text","text":value["content_block"]["text"]});
+                if !citations.is_empty() {
+                    block["citations"] = Value::Array(citations);
+                }
+                Ok(json!({"type":kind,"index":self.blocks,"content_block":block}))
             }
             "content_block_delta" if self.active && self.stop.is_none() => {
                 if value["index"].as_u64() != Some(self.blocks) {
@@ -235,6 +362,28 @@ impl Messages {
                         }
                         _ => return Err("Invalid Messages thinking delta"),
                     }
+                }
+                if value["delta"]["type"] == "citations_delta" {
+                    let delta_obj = value["delta"]
+                        .as_object()
+                        .ok_or("Unsupported Messages delta")?;
+                    if !delta_obj
+                        .keys()
+                        .all(|k| ["type", "citation"].contains(&k.as_str()))
+                    {
+                        return Err("Unsupported Messages delta");
+                    }
+                    let citation = sanitize_citation(&value["delta"]["citation"])
+                        .ok_or("Unsupported Messages citation")?;
+                    self.has_output = true;
+                    return Ok(json!({
+                        "type": kind,
+                        "index": self.blocks,
+                        "delta": {
+                            "type": "citations_delta",
+                            "citation": citation
+                        }
+                    }));
                 }
                 if value["delta"]["type"] != "text_delta" || !value["delta"]["text"].is_string() {
                     return Err("Unsupported Messages delta");
@@ -505,5 +654,45 @@ mod tests {
         let completion = messages.completion();
         assert_eq!(completion.usage, Some((25, 12)));
         assert!(completion.token_categories.is_none());
+    }
+
+    #[test]
+    fn messages_stream_projects_sanitized_document_citations_and_rejects_extra_fields() {
+        let mut messages = Messages::new("anthropic/claude-sonnet-4".to_owned(), None);
+        let stream = concat!(
+            "event: message_start\n",
+            "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_cit\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-20250514\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":30,\"output_tokens\":1}}}\n\n",
+            "event: content_block_start\n",
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\",\"citations\":[]}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"citations_delta\",\"citation\":{\"type\":\"page_location\",\"cited_text\":\"Section 2 states...\",\"document_index\":0,\"document_title\":\"Spec.pdf\",\"start_page_number\":2,\"end_page_number\":2}}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"According to page 2...\"}}\n\n",
+            "event: content_block_stop\n",
+            "data: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+            "event: message_delta\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":10}}\n\n",
+            "event: message_stop\n",
+            "data: {\"type\":\"message_stop\"}\n\n"
+        );
+        let out = messages.feed(stream.as_bytes()).expect("valid citation stream");
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("\"type\":\"citations_delta\""));
+        assert!(text.contains("\"type\":\"page_location\""));
+        assert!(text.contains("\"cited_text\":\"Section 2 states...\""));
+        assert!(messages.done);
+        assert_eq!(messages.completion().usage, Some((30, 10)));
+
+        // Unknown nested metadata inside a citation must be rejected.
+        let mut bad = Messages::new("anthropic/claude-sonnet-4".to_owned(), None);
+        let bad_stream = concat!(
+            "event: message_start\n",
+            "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_bad\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-20250514\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":10,\"output_tokens\":1}}}\n\n",
+            "event: content_block_start\n",
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"citations_delta\",\"citation\":{\"type\":\"char_location\",\"cited_text\":\"hi\",\"document_index\":0,\"document_title\":null,\"start_char_index\":0,\"end_char_index\":2,\"provider_cost\":\"0.01\"}}}\n\n"
+        );
+        assert!(bad.feed(bad_stream.as_bytes()).is_err());
     }
 }

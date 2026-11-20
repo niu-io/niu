@@ -9202,6 +9202,7 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
             "organization_id": null,
             "display_name": "Shared Routing Pool",
             "public_catalog": true,
+            "billing_mode": "candidate_tariff",
             "enabled": true,
             "expected_revision": 0,
             "candidates": [{"alias": "comm/chat", "priority": 100, "weight": 100, "enabled": true}]

@@ -103,6 +103,12 @@ pub(crate) fn spawn(
             {
                 tracing::warn!("Expired provider verification cleanup requires retry");
             }
+            if *cleanup_shutdown.borrow() {
+                break;
+            }
+            if recovery_store.purge_expired_key_secrets().await.is_err() {
+                tracing::warn!("Expired API key secret cleanup requires retry");
+            }
         }
     });
     let recovery_store = store;

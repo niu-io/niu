@@ -619,19 +619,19 @@ async fn catalog_models(
     )
 }
 
-/// Pair the visible catalog and managed routing metadata from one registry read.
-/// Pool aliases shadow managed definitions, so a pool cannot inherit a hidden
-/// video's capability merely because its alias matches that definition.
-pub(crate) async fn generation_catalog(
+/// Pair the visible catalog, managed routing metadata, and active pools from one
+/// registry read. Pool aliases shadow managed definitions, so a pool cannot
+/// inherit a hidden video's capability merely because its alias matches that definition.
+pub(crate) struct GenerationCatalog {
+    pub models: BTreeMap<String, ModelConfig>,
+    pub routes: BTreeMap<String, niu_storage::VendorCatalogRoute>,
+    pub pools: BTreeMap<String, niu_storage::ModelRoutePool>,
+}
+
+pub(crate) async fn generation_catalog_with_pools(
     state: &AppState,
     organization_id: Option<uuid::Uuid>,
-) -> Result<
-    (
-        BTreeMap<String, ModelConfig>,
-        BTreeMap<String, niu_storage::VendorCatalogRoute>,
-    ),
-    ApiError,
-> {
+) -> Result<GenerationCatalog, ApiError> {
     let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     if let Some(published) = super::publication::snapshot(state).await? {
         let (unavailable, cooling_down) = state
@@ -655,7 +655,18 @@ pub(crate) async fn generation_catalog(
             })
             .map(|(alias, route)| (alias.clone(), route.metadata.clone()))
             .collect();
-        return Ok((models, routes));
+        let pools = published
+            .registry
+            .pools
+            .iter()
+            .filter(|(alias, _)| models.contains_key(*alias))
+            .map(|(alias, pool)| (alias.clone(), pool.clone()))
+            .collect();
+        return Ok(GenerationCatalog {
+            models,
+            routes,
+            pools,
+        });
     }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
     let models = super::catalog_compiler::compile_catalog(
@@ -664,19 +675,25 @@ pub(crate) async fn generation_catalog(
         organization_id,
         allow_internal,
     )?;
+    let pools: BTreeMap<String, niu_storage::ModelRoutePool> = inputs
+        .pools
+        .into_iter()
+        .filter(|pool| models.contains_key(&pool.alias))
+        .map(|pool| (pool.alias.clone(), pool))
+        .collect();
     let routes = inputs
         .routes
         .into_iter()
         .filter(|route| {
-            models.contains_key(&route.model.alias)
-                && !inputs
-                    .pools
-                    .iter()
-                    .any(|pool| pool.alias == route.model.alias)
+            models.contains_key(&route.model.alias) && !pools.contains_key(&route.model.alias)
         })
         .map(|route| (route.model.alias.clone(), route))
         .collect();
-    Ok((models, routes))
+    Ok(GenerationCatalog {
+        models,
+        routes,
+        pools,
+    })
 }
 
 pub(crate) async fn resolve_model(

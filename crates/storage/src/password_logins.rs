@@ -50,6 +50,10 @@ pub(crate) fn email_address(email: &str) -> Option<String> {
     Some(email)
 }
 
+pub fn is_valid_email_address(email: &str) -> bool {
+    email_address(email).is_some()
+}
+
 impl Store {
     /// Non-secret configuration for an authorized member manager. Callers must
     /// check the member scope first; this does not grant identity discovery.
@@ -180,10 +184,19 @@ impl Store {
         Ok(())
     }
 
-    /// Shared sign-in limits: five attempts per normalized email and 120 across
-    /// the installation in a window that expires 60 seconds after its first
-    /// attempt. Count successes and failures alike; admission precedes hashing.
+    /// Shared sign-in limits: 30 attempts per client IP (when supplied), five
+    /// attempts per normalized email, and 120 across the installation in a
+    /// window that expires 60 seconds after its first attempt. All buckets are
+    /// evaluated in one transaction with a single global increment per attempt.
     pub async fn admit_member_password_login(&self, email: &str) -> Result<bool, StoreError> {
+        self.admit_member_password_login_with_ip(email, None).await
+    }
+
+    pub async fn admit_member_password_login_with_ip(
+        &self,
+        email: &str,
+        client_ip: Option<&str>,
+    ) -> Result<bool, StoreError> {
         let Some(email) = email_address(email) else {
             return Ok(false);
         };
@@ -192,12 +205,19 @@ impl Store {
         // cleanup keeps inactive counters from becoming permanent identity data.
         sqlx::query("DELETE FROM password_login_admission WHERE (kind,bucket) IN (SELECT kind,bucket FROM password_login_admission WHERE window_start < now()-interval '24 hours' ORDER BY window_start LIMIT 128 FOR UPDATE SKIP LOCKED)")
             .execute(&mut *tx).await?;
-        let bucket = Sha256::digest(email.as_bytes());
-        if !login_window(&mut tx, "identity", bucket.as_slice(), 5).await? {
+        if !login_window(&mut tx, "global", &[0u8; 32], 120).await? {
             crate::commit_tx(tx).await?;
             return Ok(false);
         }
-        let allowed = login_window(&mut tx, "global", &[0u8; 32], 120).await?;
+        if let Some(ip) = client_ip {
+            let ip_bucket = Sha256::digest(format!("ip:{ip}").as_bytes());
+            if !login_window(&mut tx, "ip", ip_bucket.as_slice(), 30).await? {
+                crate::commit_tx(tx).await?;
+                return Ok(false);
+            }
+        }
+        let bucket = Sha256::digest(email.as_bytes());
+        let allowed = login_window(&mut tx, "identity", bucket.as_slice(), 5).await?;
         crate::commit_tx(tx).await?;
         Ok(allowed)
     }

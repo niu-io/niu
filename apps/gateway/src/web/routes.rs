@@ -1773,6 +1773,67 @@ async fn enterprise_ready(
 ///   }
 /// }
 /// ```
+fn commercial_model_readiness(
+    operating_mode: crate::state::OperatingMode,
+    name: &str,
+    model: &crate::config::ModelConfig,
+    is_own_api_key: bool,
+    is_video: bool,
+    pool: Option<&niu_storage::ModelRoutePool>,
+    billing_mode: &str,
+    text_prices: &std::collections::BTreeMap<String, Value>,
+    media_priced_models: &std::collections::BTreeSet<String>,
+    unit_prices: &std::collections::BTreeMap<String, Value>,
+) -> (bool, Vec<&'static str>) {
+    if operating_mode == crate::state::OperatingMode::Internal || is_own_api_key {
+        return (true, Vec::new());
+    }
+    if let Some(pool) = pool {
+        if pool.organization_id.is_some() {
+            return (true, Vec::new());
+        }
+        let has_procurement_pricing = model.pricing.is_some();
+        let alias_has_price = |alias: &str| {
+            if billing_mode == "credits" {
+                unit_prices.contains_key(alias)
+            } else {
+                text_prices.contains_key(alias)
+            }
+        };
+        let has_selling_price = match pool.billing_mode {
+            niu_storage::RoutePoolBillingMode::PoolTariff => alias_has_price(&pool.alias),
+            niu_storage::RoutePoolBillingMode::CandidateTariff => pool
+                .candidates
+                .iter()
+                .any(|candidate| candidate.enabled && alias_has_price(&candidate.alias)),
+        };
+        let mut issues = Vec::new();
+        if !has_procurement_pricing {
+            issues.push("procurement_pricing_missing");
+        }
+        if !has_selling_price {
+            issues.push("selling_price_missing");
+        }
+        return (issues.is_empty(), issues);
+    }
+    let has_procurement_pricing = is_video || model.pricing.is_some();
+    let has_selling_price = if billing_mode == "credits" {
+        unit_prices.contains_key(name)
+    } else if is_video {
+        media_priced_models.contains(name)
+    } else {
+        text_prices.contains_key(name)
+    };
+    let mut issues = Vec::new();
+    if !has_procurement_pricing {
+        issues.push("procurement_pricing_missing");
+    }
+    if !has_selling_price {
+        issues.push("selling_price_missing");
+    }
+    (issues.is_empty(), issues)
+}
+
 async fn public_models(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1780,12 +1841,21 @@ async fn public_models(
     let principal = state
         .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
         .await?;
-    let mut models =
-        crate::vendors::scoped_models(&state, principal.scope().organization_id).await?;
-    models.extend(crate::codex::private_models(&state, principal.scope()).await?);
+    let mut catalog = crate::vendors::generation_catalog_with_pools(
+        &state,
+        Some(principal.scope().organization_id),
+    )
+    .await?;
+    let codex_models = crate::codex::private_models(&state, principal.scope()).await?;
+    catalog.models.extend(codex_models);
     let mut prices = state
         .store
         .customer_model_prices(principal.scope())
+        .await
+        .map_err(ApiError::from_store)?;
+    let media_priced_models = state
+        .store
+        .workspace_media_priced_models(principal.scope())
         .await
         .map_err(ApiError::from_store)?;
     let (billing_mode, mut unit_prices) = state
@@ -1793,6 +1863,7 @@ async fn public_models(
         .customer_unit_model_prices()
         .await
         .map_err(ApiError::from_store)?;
+    let mut own_api_key_models = std::collections::BTreeSet::new();
     for route in state
         .store
         .accessible_vendor_routes(
@@ -1804,11 +1875,38 @@ async fn public_models(
     {
         prices.remove(&route.model.alias);
         unit_prices.remove(&route.model.alias);
+        own_api_key_models.insert(route.model.alias);
     }
-    let data: Vec<_> = models
+    let data: Vec<_> = catalog
+        .models
         .iter()
         .filter(|(name, _)| principal.allows_model(name))
-        .map(|(model, route)| {
+        .filter_map(|(model, route)| {
+            let is_video = catalog
+                .routes
+                .get(model)
+                .is_some_and(|r| r.model.capabilities.get("video_schema").is_some());
+            let is_own_api_key = own_api_key_models.contains(model)
+                || model.starts_with("codex/")
+                || catalog
+                    .routes
+                    .get(model)
+                    .is_some_and(niu_storage::VendorCatalogRoute::is_internal_shared);
+            let (callable, _) = commercial_model_readiness(
+                state.operating_mode,
+                model,
+                route,
+                is_own_api_key,
+                is_video,
+                catalog.pools.get(model),
+                &billing_mode,
+                &prices,
+                &media_priced_models,
+                &unit_prices,
+            );
+            if !callable {
+                return None;
+            }
             let customer_pricing = if billing_mode == "credits" {
                 None
             } else {
@@ -1829,14 +1927,15 @@ async fn public_models(
             } else {
                 None
             };
-            json!({
+            Some(json!({
                 "id": model,
                 "object": "model",
                 "owned_by": "niu",
+                "callable": true,
                 "capabilities": chat_tool_capabilities(route),
                 "customer_pricing": customer_pricing,
                 "customer_unit_pricing": customer_unit_pricing
-            })
+            }))
         })
         .collect();
     Ok(Json(json!({"object": "list", "data": data})))
@@ -2318,10 +2417,15 @@ fn sanitize_public_unit_price(mut value: Value) -> Value {
 }
 
 async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    let (models, generation_routes) = crate::vendors::generation_catalog(&state, None).await?;
+    let catalog = crate::vendors::generation_catalog_with_pools(&state, None).await?;
     let prices = state
         .store
         .public_standard_text_prices()
+        .await
+        .map_err(ApiError::from_store)?;
+    let media_priced_models = state
+        .store
+        .public_standard_media_priced_models()
         .await
         .map_err(ApiError::from_store)?;
     let (billing_mode, unit_prices) = state
@@ -2333,13 +2437,35 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
         .into_iter()
         .map(|(alias, value)| (alias, sanitize_public_unit_price(value)))
         .collect();
-    let data: Vec<_> = models
+    let data: Vec<_> = catalog
+        .models
         .iter()
         .filter(|(_, model)| model.public_catalog)
-        .map(|(name, model)| {
-            let internal_shared = generation_routes
+        .filter_map(|(name, model)| {
+            let internal_shared = catalog
+                .routes
                 .get(name)
                 .is_some_and(niu_storage::VendorCatalogRoute::is_internal_shared);
+            let video_configuration = catalog
+                .routes
+                .get(name)
+                .filter(|route| route.model.capabilities.get("video_schema").is_some())
+                .map(super::inference::video_models::configured_preview);
+            let (callable, _) = commercial_model_readiness(
+                state.operating_mode,
+                name,
+                model,
+                internal_shared,
+                video_configuration.is_some(),
+                catalog.pools.get(name),
+                &billing_mode,
+                &prices,
+                &media_priced_models,
+                &sanitized_unit_prices,
+            );
+            if !callable {
+                return None;
+            }
             let billing_source = if internal_shared {
                 "own_api_key"
             } else {
@@ -2355,16 +2481,13 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
             } else {
                 None
             };
-            let video_configuration = generation_routes
-                .get(name)
-                .filter(|route| route.model.capabilities.get("video_schema").is_some())
-                .map(super::inference::video_models::configured_preview);
             let tools = chat_tool_capabilities(model);
-            json!({
+            Some(json!({
                 "id": name,
                 "object": "model",
                 "owned_by": "niu",
                 "public_catalog": model.public_catalog,
+                "callable": true,
                 "catalog": model.catalog.customer_metadata(),
                 "billing_mode": billing_mode,
                 "billing_source": billing_source,
@@ -2396,7 +2519,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                     "supports_generate_content_streaming": model.supports_generate_content_streaming,
                     "supports_responses": model.supports_responses
                 }
-            })
+            }))
         })
         .collect();
     Ok(Json(json!({
@@ -2411,6 +2534,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
 struct AdminModelScope {
     organization_id: Option<uuid::Uuid>,
     project_id: Option<uuid::Uuid>,
+    include_uncallable: Option<bool>,
 }
 
 /// Catalog descriptions cannot override the actual Video-only route boundary.
@@ -2452,14 +2576,16 @@ async fn admin_models(
     if organization_id.is_some_and(|id| !authorization.permits_organization(id)) {
         return Err(ApiError::not_found());
     }
-    let (models, generation_routes) =
-        crate::vendors::generation_catalog(&state, organization_id).await?;
+    let catalog =
+        crate::vendors::generation_catalog_with_pools(&state, organization_id).await?;
     let (billing_mode, mut unit_prices) = state
         .store
         .customer_unit_model_prices()
         .await
         .map_err(ApiError::from_store)?;
     let mut prices = std::collections::BTreeMap::new();
+    let mut readiness_text_prices = std::collections::BTreeMap::new();
+    let media_priced_models;
     let mut personal_models = std::collections::BTreeSet::new();
     if let Some(project_id) = scope.project_id {
         let organization_id = organization_id.ok_or_else(ApiError::not_found)?;
@@ -2482,6 +2608,11 @@ async fn admin_models(
             .customer_model_prices(workspace_scope)
             .await
             .map_err(ApiError::from_store)?;
+        media_priced_models = state
+            .store
+            .workspace_media_priced_models(workspace_scope)
+            .await
+            .map_err(ApiError::from_store)?;
         // Personal credentials do not incur a Niu customer tariff.
         for route in state
             .store
@@ -2496,12 +2627,51 @@ async fn admin_models(
             unit_prices.remove(&route.model.alias);
             personal_models.insert(route.model.alias);
         }
+    } else {
+        readiness_text_prices = state
+            .store
+            .public_standard_text_prices()
+            .await
+            .map_err(ApiError::from_store)?;
+        media_priced_models = state
+            .store
+            .public_standard_media_priced_models()
+            .await
+            .map_err(ApiError::from_store)?;
+        if let Some(organization_id) = organization_id {
+            for route in state
+                .store
+                .accessible_vendor_routes(
+                    organization_id,
+                    state.operating_mode == crate::state::OperatingMode::Internal,
+                )
+                .await
+                .map_err(ApiError::from_store)?
+            {
+                personal_models.insert(route.model.alias);
+            }
+        }
     }
-    let data: Vec<_> = models
+    let effective_text_prices = if scope.project_id.is_some() {
+        &prices
+    } else {
+        &readiness_text_prices
+    };
+    let include_uncallable = scope
+        .include_uncallable
+        .unwrap_or(authorization.is_installation() && scope.project_id.is_none());
+    let data: Vec<_> = catalog
+        .models
         .iter()
-        .map(|(name, model)| {
+        .filter_map(|(name, model)| {
             // Funding ownership is independent of whether a selling price exists.
             // Only report it after the requested workspace has been authorized.
+            let is_own_api_key = personal_models.contains(name)
+                || name.starts_with("codex/")
+                || catalog
+                    .routes
+                    .get(name)
+                    .is_some_and(niu_storage::VendorCatalogRoute::is_internal_shared);
             let billing_source = scope.project_id.map(|_| {
                 if personal_models.contains(name) {
                     "own_api_key"
@@ -2509,10 +2679,26 @@ async fn admin_models(
                     "niu_credits"
                 }
             });
-            let video_configuration = generation_routes
+            let video_configuration = catalog
+                .routes
                 .get(name)
                 .filter(|route| route.model.capabilities.get("video_schema").is_some())
                 .map(super::inference::video_models::configured_preview);
+            let (callable, readiness_issues) = commercial_model_readiness(
+                state.operating_mode,
+                name,
+                model,
+                is_own_api_key,
+                video_configuration.is_some(),
+                catalog.pools.get(name),
+                &billing_mode,
+                effective_text_prices,
+                &media_priced_models,
+                &unit_prices,
+            );
+            if !callable && !include_uncallable {
+                return None;
+            }
             let generation_capabilities =
                 configured_generation_capabilities(model, video_configuration);
             let capabilities = json!({
@@ -2531,11 +2717,13 @@ async fn admin_models(
                 "supports_responses": model.supports_responses
             });
             if authorization.is_installation() {
-                json!({
-                "id": name,
-                "provider": model.provider,
-                "upstream_model": model.upstream_model,
-                "public_catalog": model.public_catalog,
+                Some(json!({
+                    "id": name,
+                    "provider": model.provider,
+                    "upstream_model": model.upstream_model,
+                    "public_catalog": model.public_catalog,
+                    "callable": callable,
+                    "readiness_issues": readiness_issues,
                     "catalog": model.catalog.customer_metadata(),
                     "customer_pricing": prices.get(name),
                     "customer_unit_pricing": unit_prices.get(name),
@@ -2549,17 +2737,19 @@ async fn admin_models(
                     "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                     "supports_structured_output": model.supports_structured_output,
                     "supports_messages": model.supports_messages,
-                "supports_messages_streaming": model.supports_messages_streaming,
-                "supports_messages_tools": model.supports_messages_tools,
-                "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
-                "supports_generate_content": model.supports_generate_content,
-                "supports_generate_content_streaming": model.supports_generate_content_streaming,
+                    "supports_messages_streaming": model.supports_messages_streaming,
+                    "supports_messages_tools": model.supports_messages_tools,
+                    "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
+                    "supports_generate_content": model.supports_generate_content,
+                    "supports_generate_content_streaming": model.supports_generate_content_streaming,
                     "supports_responses": model.supports_responses
-                })
+                }))
             } else {
-                json!({
+                Some(json!({
                     "id": name,
                     "public_catalog": model.public_catalog,
+                    "callable": callable,
+                    "readiness_issues": readiness_issues,
                     "catalog": model.catalog.customer_metadata(),
                     "customer_pricing": prices.get(name),
                     "customer_unit_pricing": unit_prices.get(name),
@@ -2567,7 +2757,7 @@ async fn admin_models(
                     "billing_source": billing_source,
                     "generation_capabilities": generation_capabilities,
                     "capabilities": capabilities
-                })
+                }))
             }
         })
         .collect();

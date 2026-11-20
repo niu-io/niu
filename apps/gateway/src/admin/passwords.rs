@@ -367,21 +367,16 @@ pub async fn login(
     let runtime = runtime(&state)?;
     runtime.check_origin(&headers)?;
     let Json(input) = input.map_err(|_| ApiError::invalid_request("Invalid sign-in request"))?;
-    if input.email.len() > 254 || input.password.len() > 1024 {
+    if input.email.len() > 254
+        || input.password.len() > 1024
+        || !niu_storage::is_valid_email_address(&input.email)
+    {
         return Err(ApiError::invalid_request("Invalid sign-in request"));
     }
-    if let Some(ip) = crate::request_source::current_ip()
-        && !state
-            .store
-            .admit_member_password_login(&format!("ip-{ip}@niu.internal"))
-            .await
-            .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::sign_in_limited());
-    }
+    let client_ip = crate::request_source::current_ip().map(|ip| ip.to_string());
     if !state
         .store
-        .admit_member_password_login(&input.email)
+        .admit_member_password_login_with_ip(&input.email, client_ip.as_deref())
         .await
         .map_err(ApiError::from_store)?
     {

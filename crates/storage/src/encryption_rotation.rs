@@ -56,6 +56,7 @@ pub enum EncryptionRewrapTarget {
     InspectedImage(Uuid),
     WorkspaceAsset(Uuid),
     ProviderVerification(Uuid),
+    ApiKeySecret(Uuid),
 }
 
 impl EncryptionRewrapTarget {
@@ -137,6 +138,12 @@ impl EncryptionRewrapTarget {
                 "inspected_image_source_content",
                 "ciphertext",
                 "source_id=($1->>'id')::uuid",
+                json!({"id":id}),
+            ),
+            Self::ApiKeySecret(id) => (
+                "api_keys",
+                "token_secret_ciphertext",
+                "id=($1->>'id')::uuid",
                 json!({"id":id}),
             ),
         }

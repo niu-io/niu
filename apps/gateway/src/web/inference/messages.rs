@@ -1630,13 +1630,18 @@ fn normalize(
                         if object
                             .keys()
                             .any(|key| !["type", "text", "citations"].contains(&key.as_str()))
-                            || part.get("citations").is_some_and(|v| {
-                                !v.is_null() && !v.as_array().is_some_and(Vec::is_empty)
-                            })
                         {
                             return None;
                         }
-                        Some(json!({"type":"text", "text":part["text"].as_str()?}))
+                        let citations = match part.get("citations") {
+                            None => Vec::new(),
+                            Some(raw) => crate::streaming::messages::sanitize_citations(raw)?,
+                        };
+                        let mut out = json!({"type":"text", "text":part["text"].as_str()?});
+                        if !citations.is_empty() {
+                            out["citations"] = Value::Array(citations);
+                        }
+                        Some(out)
                     }
                     "thinking" => {
                         if object

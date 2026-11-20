@@ -144,6 +144,51 @@ fn audit_actor(authorization: crate::state::AdminAuthorization) -> OperatorAudit
     }
 }
 
+pub(super) fn key_audit_actor(authorization: crate::state::AdminAuthorization) -> String {
+    match authorization {
+        crate::state::AdminAuthorization::Installation => "bootstrap_administrator".to_owned(),
+        crate::state::AdminAuthorization::Operator(operator) => format!("operator:{}", operator.id),
+    }
+}
+
+pub(super) fn key_secret_sealer(
+    state: &AppState,
+    scope: TenantScope,
+) -> Option<Box<niu_storage::KeySecretSealer<'static>>> {
+    let cipher = state.vendor_cipher.clone()?;
+    Some(Box::new(move |key_id: Uuid, token: &str| {
+        cipher
+            .seal_api_key_secret(scope, key_id, token)
+            .map_err(|_| niu_storage::StoreError::InvalidKey)
+    }))
+}
+
+pub(crate) async fn validate_saved_api_key_secrets(
+    store: &niu_storage::Store,
+    cipher: Option<&crate::vendors::crypto::CredentialCipher>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut after = None;
+    loop {
+        let page = store
+            .api_key_secret_page(after)
+            .await
+            .map_err(|_| "Cannot read revealable API key secrets")?;
+        if page.is_empty() {
+            return Ok(());
+        }
+        let cipher =
+            cipher.ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for persisted API key secrets")?;
+        for (id, scope, ciphertext) in page {
+            cipher
+                .open_api_key_secret(scope, id, &ciphertext)
+                .map_err(|_| {
+                    "Cannot authenticate persisted API key secrets with configured encryption key"
+                })?;
+            after = Some(id);
+        }
+    }
+}
+
 pub(crate) async fn authorize_project(
     state: &AppState,
     headers: &HeaderMap,
@@ -1800,16 +1845,19 @@ pub async fn issue_key(
     {
         return Err(ApiError::invalid_request("Every granted model must exist"));
     }
+    let scope = TenantScope {
+        organization_id,
+        project_id,
+    };
+    let sealer = key_secret_sealer(&state, scope);
     let issued = state
         .store
-        .issue_key_with_expiry(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
+        .issue_key_with_expiry_and_sealer(
+            scope,
             &input.name,
             &input.allowed_models,
             input.ttl_seconds,
+            sealer.as_deref(),
         )
         .await
         .map_err(ApiError::from_store)?;
@@ -3118,15 +3166,14 @@ pub async fn rotate_key(
         project_id,
     )
     .await?;
+    let scope = TenantScope {
+        organization_id,
+        project_id,
+    };
+    let sealer = key_secret_sealer(&state, scope);
     let issued = state
         .store
-        .rotate_key(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            key_id,
-        )
+        .rotate_key_with_sealer(scope, key_id, sealer.as_deref())
         .await
         .map_err(ApiError::from_store)?;
     Ok((

@@ -1,6 +1,6 @@
 //! Bounded protocol-specific SSE inspection; customer output excludes supplier commercial metadata.
 mod generate_content;
-mod messages;
+pub(crate) mod messages;
 pub(crate) mod output_policy;
 use crate::{admission::GatewayWrites, usage::UsageAttempt};
 use axum::body::{Body, Bytes};

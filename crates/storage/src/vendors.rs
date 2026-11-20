@@ -743,7 +743,7 @@ impl Store {
         .bind(vendor)
         .fetch_one(&mut *tx)
         .await?;
-        let publish_public_catalog = !personal_only;
+        let publish_public_catalog = owner_funded && !personal_only;
         if entries
             .iter()
             .any(|e| e.pricing.is_some() || e.public_catalog || e.expected_revision.is_some())
