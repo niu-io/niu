@@ -43,11 +43,29 @@ test('additional management rights must be named explicitly and use the finite a
  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Codex',capabilities:['pools:write','pools:write']}),/duplicate/);
 });
 
- test('DeepSeek Harness uses the same bounded browser handoff and rejects invented hosts',async()=>{
-  let n=0;let requested;
-  const credential=await authorizeDevice({baseURL:'https://niu.example',clientName:'DeepSeek Harness',showVerification:async value=>assert.equal(value.clientName,'DeepSeek Harness'),fetchImpl:async(url,options)=>{if(!n++){requested=JSON.parse(options.body);return response(201,start);}return response(200,{token,token_type:'Bearer'});}});
-  assert.equal(requested.client_name,'DeepSeek Harness');assert.equal(credential.token,token);
-  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Invented host'}),/Choose/);
+test('task context is optional, bounded, and shown to the verification surface',async()=>{
+ let requested;let verified;let count=0;
+ const credential=await authorizeDevice({baseURL:'https://niu.example',clientName:'Codex',task:'  Compare two routing policies  ',showVerification:async value=>{verified=value;},fetchImpl:async(url,options)=>{if(!count++){requested=JSON.parse(options.body);return response(201,start);}return response(200,{token,token_type:'Bearer'});}});
+ assert.equal(requested.task,'Compare two routing policies');
+ assert.equal(verified.task,'Compare two routing policies');
+ assert.equal(credential.token,token);
+ for(const bad of ['', '   ', 'x'.repeat(201), 'line\nbreak']) {
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Codex',task:bad,fetchImpl:async()=>{throw new Error('must not send');}}),/Task description/);
+ }
+ let omitted;
+ await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Codex',showVerification:async()=>{},fetchImpl:async(url,options)=>{omitted=JSON.parse(options.body);return response(201,{...start,verification_uri:'https://evil.example'});}}),/invalid authorization/);
+ assert.equal(Object.hasOwn(omitted,'task'),false);
+});
+
+ test('Universal coding-agent hosts and workspace hints use bounded browser handoff while invalid names fail locally',async()=>{
+  let n=0;let requested;let verified;
+  const credential=await authorizeDevice({baseURL:'https://niu.example',clientName:'  Cursor  ',workspace:'team-alpha',showVerification:async value=>{verified=value;},fetchImpl:async(url,options)=>{if(!n++){requested=JSON.parse(options.body);return response(201,start);}return response(200,{token,token_type:'Bearer'});}});
+  assert.equal(requested.client_name,'Cursor');assert.equal(verified.clientName,'Cursor');assert.equal(credential.token,token);
+  assert.equal(new URL(verified.url).searchParams.get('workspace'),'team-alpha');
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'   '}),/printable client name/);
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Bad\nClient'}),/printable client name/);
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'x'.repeat(81)}),/printable client name/);
+  await assert.rejects(authorizeDevice({baseURL:'https://niu.example',clientName:'Windsurf',workspace:'Team Alpha!'}),/workspace slug/);
  });
 
 

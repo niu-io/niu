@@ -37,7 +37,7 @@ impl Store {
                 .bind(i64::from(limit) + 1)
                 .fetch_one(&mut *tx)
                 .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if !exists {
             return Ok(None);
         }

@@ -97,3 +97,7 @@ authentication, old-tab compatibility and data integrity afterward. Preserve the
 previous successful image and its compatible runtime configuration for a prompt
 rollback. Rollback must use retained verified artifacts rather than rebuilding a
 mutable branch. Fixes require regression verification before another promotion.
+
+## Deployment operating policy
+
+Set `NIU_OPERATING_MODE=resale` explicitly on the hosted production and staging distribution before deploying a core version that supports this variable. New community deployments default to `internal` when omitted; invalid values fail startup. Confirm the session reports the intended operating mode during acceptance. There is no dashboard mode switch. Internal use must not enable or make existing commercial/shared routes free; incompatible static/shared startup configuration is rejected, with historical billing retained. Changing the deployment policy requires deliberate migration planning and consistent replica configuration. Payment live/test selection is independent and must not become a production free-use bypass. End-user BYOK and tenant reseller authority are not implemented by this variable.

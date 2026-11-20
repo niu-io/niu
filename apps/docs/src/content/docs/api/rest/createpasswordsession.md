@@ -145,7 +145,7 @@ Email or password is incorrect, or the member was revoked during verification.
 
 ### HTTP 403
 
-Supplied browser Origin is not permitted.
+Pending Limited Preview registration awaiting administrator approval
 
 ### HTTP 429
 

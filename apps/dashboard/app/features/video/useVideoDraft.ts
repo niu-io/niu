@@ -19,24 +19,16 @@ function checked(result:VideoComposerDraftState){
   return data;
 }
 /** Backend-owned mutable composition. No browser storage or immutable intents. */
-export function useVideoDraft({client,scope,identity,contextIdentity,enabled,canWrite,edited,paused,value,restore}:{
-  client:Client|null;scope:TenantScope|null;identity:string;contextIdentity:string;enabled:boolean;canWrite:boolean;edited:boolean;paused:boolean;
+export function useVideoDraft({client,scope,identity,enabled,canWrite,edited,paused,value,restore}:{
+  client:Client|null;scope:TenantScope|null;identity:string;enabled:boolean;canWrite:boolean;edited:boolean;paused:boolean;
   value:VideoComposerDraftPayload;restore:(payload:VideoComposerDraftPayload|null)=>void;
 }){
-  const live=useRef({identity,contextIdentity,value});live.current={identity,contextIdentity,value};
+  const live=useRef({identity,value});live.current={identity,value};
   const onRestore=useRef(restore);onRestore.current=restore;
   const initial:State={identity,ready:false,saving:false,error:'',conflict:false,confirmed:'',revision:0};
   const [state,setState]=useState(initial),[reload,setReload]=useState(0);
   const write=useRef<AbortController|null>(null);
   const control=useRef<(()=>Promise<VideoDraftTicket|null>)|null>(null);
-  const previousContext=useRef(contextIdentity);
-  useEffect(()=>{
-    if(previousContext.current===contextIdentity)return;
-    previousContext.current=contextIdentity;
-    // A request already accepted by the backend cannot be undone by abort.
-    // Preserve the latest input and require an explicit authoritative reload.
-    write.current?.abort();
-  },[contextIdentity]);
   useEffect(()=>{
     if(!enabled||!client||!scope){control.current=null;setState({...initial,identity});return;}
     const controller=new AbortController();
@@ -51,20 +43,22 @@ export function useVideoDraft({client,scope,identity,contextIdentity,enabled,can
           const payload=live.current.value,body=serialized(payload);
           if(body===confirmed)return {identity,revision,payload};
           const pending=new AbortController();write.current=pending;
-          const context=live.current.contextIdentity;
           const abort=()=>pending.abort();controller.signal.addEventListener('abort',abort,{once:true});
           setState({identity,ready:true,saving:true,error:'',conflict:false,confirmed,revision});
           try{
             const saved=checked(await client.saveVideoComposerDraft(scope,payload,revision,{signal:pending.signal}));
             if(!valid())return null;
-            if(pending.signal.aborted||context!==live.current.contextIdentity)throw new Error('Draft context changed');
+            // Same-scope key/model edits wait for the acknowledged revision.
+            // The next loop saves the latest composition; aborting this write
+            // would make a successful backend save look unconfirmed.
+            if(pending.signal.aborted)throw new Error('Draft save interrupted');
             if(saved.revision!==revision+1||serialized(saved.payload)!==body)throw new Error('Unconfirmed draft');
             revision=saved.revision;confirmed=body;
           }catch(error){
             failed=true;
             if(valid())setState({identity,ready:true,saving:false,error:error instanceof NiuAPIError&&error.status===409
-              ? 'This Video draft changed in another tab. Your input is still here. Load the saved draft before continuing.'
-              : 'Could not confirm your saved Video draft. Your input is still here. Load the saved draft before continuing.',conflict:true,confirmed,revision});
+              ? 'This Video draft changed in another tab. Your input is still here; it will not update the saved draft unless you load it.'
+              : 'Could not confirm your saved Video draft. Your input is still here; generation can continue without updating it.',conflict:true,confirmed,revision});
             return null;
           }finally{controller.signal.removeEventListener('abort',abort);if(write.current===pending)write.current=null;}
         }
@@ -81,7 +75,7 @@ export function useVideoDraft({client,scope,identity,contextIdentity,enabled,can
       onRestore.current(saved.payload);
       confirmed=saved.payload===null?'':serialized(saved.payload);
       ready=true;setState({identity,ready:true,saving:false,error:'',conflict:false,confirmed,revision});
-    }).catch(()=>{if(valid())setState({...initial,identity,error:'Could not load your saved Video draft. Your input is still here.'});});
+    }).catch(()=>{if(valid())setState({...initial,identity,error:'Could not load your saved Video draft. Your input is still here; generation can continue without a saved draft.'});});
     return()=>{controller.abort();write.current?.abort();control.current=null;};
   // Scope belongs to identity; value/restore are live refs, not load dependencies.
   // eslint-disable-next-line react-hooks/exhaustive-deps

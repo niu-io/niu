@@ -37,11 +37,9 @@ Content type: `application/json`.
   "properties": {
     "client_name": {
       "type": "string",
-      "enum": [
-        "Claude Code",
-        "Codex",
-        "DeepSeek Harness"
-      ]
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Self-reported coding-agent client name (trimmed printable characters, 1-80 characters; for example Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or a custom agent)."
     },
     "capabilities": {
       "type": "array",
@@ -59,6 +57,12 @@ Content type: `application/json`.
         ]
       },
       "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Self-reported task context shown to the approver. It is not authority and is never used for backend permission checks."
     }
   }
 }
@@ -115,7 +119,7 @@ HTTP 429: Creation admission limit reached
 
 `GET /api/v1/auth/agents/{code}`
 
-Requires a current user session. Returns only client name and state, never device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label is self-reported. No-store.
+Requires a current user session. Returns bounded request metadata: client name, state, requested management capabilities and self-reported task context. It never returns the device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label and task are self-reported, not authenticated authority. No-store.
 
 Implementation: `implemented`. Operation: `getAgentAuthorization`.
 
@@ -162,7 +166,8 @@ Content type: `application/json`.
       "required": [
         "client_name",
         "state",
-        "capabilities"
+        "capabilities",
+        "task"
       ],
       "properties": {
         "client_name": {
@@ -176,6 +181,14 @@ Content type: `application/json`.
             "denied",
             "consumed"
           ]
+        },
+        "task": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200,
+          "description": "Self-reported task context supplied by the client. Explain the request but never treat it as an authorization grant."
         },
         "capabilities": {
           "type": "array",
@@ -208,7 +221,7 @@ HTTP 404: Request unavailable or expired
 
 `POST /api/v1/auth/agents/{code}`
 
-Requires an exact trusted same-origin Origin and a current Operator with write access to the selected workspace. Installation credentials and inference keys cannot approve. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
+Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models, ttl_seconds and an explicit invocation_allowed value, and checks write access to that workspace. Approved invocation also records the exact model interfaces; omitted interface scope never defaults to a paid grant. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope, fixed model names, financial boundary and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.
 
 Implementation: `implemented`. Operation: `decideAgentAuthorization`.
 
@@ -255,11 +268,35 @@ Content type: `application/json`.
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "approve",
-    "organization_id",
-    "workspace_id",
-    "allowed_models",
-    "ttl_seconds"
+    "approve"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "approve": {
+          "enum": [
+            false
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "approve": {
+          "enum": [
+            true
+          ]
+        }
+      },
+      "required": [
+        "organization_id",
+        "workspace_id",
+        "allowed_models",
+        "ttl_seconds",
+        "invocation_allowed",
+        "invocation_protocols"
+      ]
+    }
   ],
   "properties": {
     "approve": {
@@ -286,6 +323,46 @@ Content type: `application/json`.
       "type": "integer",
       "minimum": 60,
       "maximum": 86400
+    },
+    "invocation_allowed": {
+      "type": "boolean",
+      "description": "Required on approval. Whether the issued credential may dispatch inference at all. False preserves separately granted discovery and management access. There is no omitted default; an absent value is rejected."
+    },
+    "invocation_protocols": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "chat",
+          "responses",
+          "messages",
+          "content",
+          "embeddings",
+          "video",
+          "decisions"
+        ]
+      },
+      "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "pools:read",
+          "pools:write",
+          "events:read",
+          "events:write",
+          "evaluations:read",
+          "evaluations:write"
+        ]
+      },
+      "description": "Optional narrowed management capabilities approved by the human reviewer. When omitted, requested capabilities are preserved."
     }
   }
 }
@@ -309,7 +386,7 @@ HTTP 409: Request already decided or expired
 
 `POST /api/v1/auth/agents/token`
 
-Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key and consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.
+Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key with the exact approved model names, invocation switch and model interfaces, then consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.
 
 Implementation: `implemented`. Operation: `exchangeAgentAuthorization`.
 
@@ -1431,6 +1508,596 @@ HTTP 413: Request exceeds the 24 MiB transport limit.
 HTTP 409: Guarded creation/update does not match current owned state.
 
 HTTP 503: Storage unavailable or bounded write wait exceeded.
+
+## Read upstream connection incidents and recovery evidence
+
+`GET /api/v1/vendors/{vendor}/incidents`
+
+Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions, qualified OpenRouter authentication refusals, and repeated 5xx or connection/timeout failures within five minutes. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current enabled connection and model mapping revisions. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.
+
+Implementation: `implemented`. Operation: `listVendorIncidents`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`vendor` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+Durable incident reference from next_before.
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 200: Sanitized operational incidents
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "model",
+          "cause",
+          "status",
+          "first_observed_at",
+          "last_observed_at",
+          "observations",
+          "recovered_at"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "account_restricted",
+              "authentication_rejected",
+              "repeated_upstream_failures"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "resolved"
+            ]
+          },
+          "first_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observations": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recovered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid cursor
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Connection unavailable
+
+HTTP 503: Operational evidence unavailable
+
+## Read platform upstream connection incidents
+
+`GET /api/v1/incidents`
+
+Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply. coverage.proactive_probe is not_configured: Niu opens incidents only from observed requests, not from idle-connection health probes, so this view cannot certify an unrequested connection as healthy.
+
+Implementation: `implemented`. Operation: `listConnectionIncidents`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`status` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "resolved"
+  ]
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 200: Sanitized connection incident page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before",
+    "coverage"
+  ],
+  "properties": {
+    "coverage": {
+      "type": "object",
+      "required": [
+        "request_observed",
+        "proactive_probe"
+      ],
+      "properties": {
+        "request_observed": {
+          "type": "boolean",
+          "const": true
+        },
+        "proactive_probe": {
+          "type": "string",
+          "const": "not_configured"
+        }
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "model",
+          "cause",
+          "status",
+          "first_observed_at",
+          "last_observed_at",
+          "observations",
+          "recovered_at",
+          "connection_name",
+          "provider",
+          "notifications"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "connection_name": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "account_restricted",
+              "authentication_rejected",
+              "repeated_upstream_failures"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "resolved"
+            ]
+          },
+          "first_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observations": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recovered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "provider": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "name",
+              "slug"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              }
+            }
+          },
+          "notifications": {
+            "type": "object",
+            "required": [
+              "state",
+              "workspaces",
+              "delivered",
+              "failed",
+              "cancelled",
+              "queued",
+              "sending",
+              "not_configured",
+              "authority_inactive"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "delivered",
+                  "incomplete",
+                  "failed",
+                  "sending",
+                  "queued",
+                  "no_recipients"
+                ]
+              },
+              "workspaces": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "delivered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cancelled": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "queued": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sending": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "not_configured": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "authority_inactive": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid filter or cursor
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 503: Incident evidence unavailable
+
+## Read active upstream incidents affecting this workspace
+
+`GET /api/v1/workspaces/{workspace}/incidents`
+
+Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. notifications states whether this exact workspace has an enabled, currently authorized incident receiver and whether the current lifecycle event is queued, sending, acknowledged, failed or not configured; an absent receiver is never reported as sent. No upstream requests or mutations. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listWorkspaceIncidents`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Workspace-scoped active incident projection
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "more",
+    "notifications"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "model",
+          "owner_funded"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "owner_funded": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "more": {
+      "type": "boolean"
+    },
+    "notifications": {
+      "type": "object",
+      "required": [
+        "state",
+        "incidents",
+        "subscribers",
+        "authorized",
+        "delivered",
+        "failed",
+        "cancelled",
+        "queued",
+        "sending",
+        "not_configured",
+        "authority_inactive"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "none",
+            "not_configured",
+            "authority_inactive",
+            "delivered",
+            "failed",
+            "sending",
+            "queued"
+          ]
+        },
+        "incidents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "subscribers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authorized": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delivered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cancelled": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "queued": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_configured": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authority_inactive": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace authority required
+
+HTTP 404: Workspace unavailable
+
+HTTP 503: Incident evidence unavailable
+
+## Resolve a platform incident to its connection
+
+`GET /api/v1/incidents/{incident}/connection`
+
+Platform administration required. Resolves a durable incident reference to its connection identifier for authorized management navigation. Returns no credential, upstream URL, request content or financial information. A missing incident returns 404. This read does not change configuration or call the Provider. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `resolveIncidentConnection`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`incident` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 200: Internal connection routing identifier
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "connection_id"
+      ],
+      "properties": {
+        "connection_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid incident reference
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Incident unavailable
+
+HTTP 503: Evidence unavailable
 
 ## Read latest 100 workspace preparation refusals
 
@@ -4958,7 +5625,8 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "password_login",
-    "browser_token_login"
+    "browser_token_login",
+    "registration_mode"
   ],
   "properties": {
     "password_login": {
@@ -4969,6 +5637,14 @@ Content type: `application/json`.
     },
     "demo_login": {
       "type": "boolean"
+    },
+    "registration_mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ],
+      "description": "Public registration capability: disabled (invite/admin setup only) or approval_required (Limited Preview)."
     }
   }
 }
@@ -5434,6 +6110,660 @@ HTTP 503: Durable storage unavailable.
 HTTP 400: Invalid JSON, unknown fields or invalid input.
 
 HTTP 409: expected_revision does not match the saved profile; reload before retrying.
+
+## Request a Limited Preview account pending administrator approval
+
+`POST /api/v1/auth/registrations`
+
+Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 15 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `submitLimitedPreviewRegistration`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Parameters
+
+`Origin` (header, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "email",
+    "password"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "email": {
+      "type": "string",
+      "maxLength": 254
+    },
+    "password": {
+      "type": "string",
+      "minLength": 15,
+      "maxLength": 1024,
+      "writeOnly": true
+    },
+    "organization_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "workspace_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Registration accepted for Limited Preview administrator review.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "const": "pending_approval"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid registration fields or password policy failure.
+
+HTTP 403: Registration is disabled on this deployment or Origin rejected.
+
+HTTP 429: Registration submission rate limit or worker capacity reached.
+
+Response header: `Retry-After`.
+
+```json
+{
+  "type": "string",
+  "const": "60"
+}
+```
+
+HTTP 501: Password authentication is not configured on this deployment.
+
+HTTP 503: Durable storage or credential processing is unavailable.
+
+## Read Limited Preview registration policy
+
+`GET /api/v1/platform/registration`
+
+Platform administration required. Returns the saved registration policy revision and whether password sign-in is active.
+
+Implementation: `implemented`. Operation: `getPlatformRegistrationPolicy`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Current registration policy.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationPolicySnapshot"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+## Update Limited Preview registration policy
+
+`PUT /api/v1/platform/registration`
+
+Platform administration required. Switches public registration between approval_required (Limited Preview) and disabled using optimistic expected_revision.
+
+Implementation: `implemented`. Operation: `savePlatformRegistrationPolicy`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "expected_revision"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ]
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Updated registration policy.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationPolicySnapshot"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid policy mode or revision.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Policy changed concurrently; refresh revision and retry.
+
+## List Limited Preview registration requests
+
+`GET /api/v1/platform/registrations`
+
+Platform administration required. Returns submitted registration requests, counts by status, and the current policy. Password hashes are never returned.
+
+Implementation: `implemented`. Operation: `listPlatformRegistrations`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`status` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "pending",
+    "approved",
+    "rejected"
+  ]
+}
+```
+
+`cursor` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Registration requests page and summary counts.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/RegistrationQueuePage"
+}
+```
+
+HTTP 400: Invalid status filter, cursor, or limit.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+## Approve a Limited Preview registration
+
+`POST /api/v1/platform/registrations/{registration}/approve`
+
+Platform administration required. Atomically creates the customer organization (and balance account in configured platform currency when present), initial workspace with human-readable slug, organization-wide owner operator, and password credentials from the applicant's submitted Argon2id hash.
+
+Implementation: `implemented`. Operation: `approvePlatformRegistration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`registration` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "organization_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "workspace_name": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Registration approved and workspace owner provisioned.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationRequestRecord"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid approval payload or name override.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Request already reviewed, stale revision, or email already bound to an active account.
+
+## Reject a Limited Preview registration
+
+`POST /api/v1/platform/registrations/{registration}/reject`
+
+Platform administration required. Marks the pending request rejected and clears its stored password hash without creating an account.
+
+Implementation: `implemented`. Operation: `rejectPlatformRegistration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`registration` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Registration rejected.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RegistrationRequestRecord"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid rejection payload.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Request already reviewed or stale revision.
+
+## Switch the active organization for the current member session
+
+`PUT /api/v1/session/organization`
+
+Requires an authenticated member session. Accepts an organization UUID, durable slug, or retained slug alias already granted to this account identity. Updates the active operator membership bound to the session and returns the refreshed session identity.
+
+Implementation: `implemented`. Operation: `switchSessionOrganization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "organization_id"
+  ],
+  "properties": {
+    "organization": {
+      "type": "string",
+      "description": "Organization UUID or slug."
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization UUID or slug."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Updated session identity scoped to the selected organization.
+
+HTTP 400: Invalid organization reference or JSON body.
+
+HTTP 401: Invalid, expired or revoked member session.
+
+HTTP 403: Installation credentials cannot switch member organization scope.
+
+HTTP 404: No active membership in the requested organization.
+
+## Link an issued operator access token to the current member account
+
+`POST /api/v1/session/memberships`
+
+Requires an authenticated member session and a valid, unrevoked operator session token. Links the target operator membership to the caller's account identity with explicit token proof, switches the current session to that membership, and returns the updated session identity. Rejects tokens already linked to a different account identity with 409.
+
+Implementation: `implemented`. Operation: `claimSessionMembership`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Issued operator access token."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Membership linked and active session switched.
+
+HTTP 400: Invalid or expired invite token.
+
+HTTP 401: Invalid, expired or revoked member session.
+
+HTTP 403: Installation credentials cannot claim member memberships.
+
+HTTP 409: The operator membership is already linked to a different account identity.
 
 ## Read credential safe-failure cooldown
 
@@ -6079,6 +7409,20 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`status` (query, optional)
+
+Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "inactive"
+  ]
+}
+```
 
 `workspace` (path, required)
 
@@ -7590,6 +8934,136 @@ HTTP 403: Credential lacks read permission.
 
 HTTP 404: No authorized workspace matches the reference.
 
+## Resolve an authorized canonical organization route
+
+`GET /api/v1/organizations/by-route/{route_slug}`
+
+Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.
+
+Implementation: `implemented`. Operation: `resolveOrganizationRoute`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`route_slug` (path, required)
+
+```json
+{
+  "type": "string",
+  "maxLength": 81
+}
+```
+
+### Responses
+
+HTTP 200: Authorized organization identity.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/CompanyMetadata"
+}
+```
+
+HTTP 401: Invalid or inference-only credential.
+
+HTTP 403: Credential lacks read permission.
+
+HTTP 404: No authorized organization matches the reference.
+
+## Rename an organization
+
+`PATCH /api/v1/organizations/{organization}`
+
+Requires installation write access or an organization-wide owner membership. Trims the saved name and preserves the immutable organization slug and aliases.
+
+Implementation: `implemented`. Operation: `renameOrganization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Updated organization metadata.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/CompanyMetadata"
+}
+```
+
+HTTP 400: Invalid name or identifier.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Organization-wide owner or installation write permission required.
+
+HTTP 404: Organization missing or outside authorized scope.
+
 ## List an authorized page of workspaces
 
 `GET /api/v1/workspaces`
@@ -7831,7 +9305,7 @@ HTTP 503: Storage unavailable
 
 `POST /api/v1/workspaces`
 
-Requires installation write access or a company-scoped member allowed to create workspaces, platform currency setup, and either payment readiness or a funded/granted/approved-credit arrangement for the selected company. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.
+Requires installation write access or a company-scoped member allowed to create workspaces. Workspace creation does not require payment readiness and does not authorize paid execution. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.
 
 Implementation: `implemented`. Operation: `createWorkspace`.
 
@@ -7900,11 +9374,11 @@ HTTP 409: The requested slug is already in use, or Idempotency-Key belongs to di
 
 HTTP 503: Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input.
 
-## Create a company and its initial zero-funded account
+## Create an organization and its initial zero-funded account
 
 `POST /api/v1/organizations`
 
-Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.
+Authorized for installation administrators and authenticated member accounts. Atomically creates the organization, a durable URL-safe slug, and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. When called by a member session, also provisions an organization-wide owner membership for the account. The current session keeps its existing organization until an explicit PUT /api/v1/session/organization selects the new organization; switch before making scoped writes. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated and preserved without trimming. Optional Idempotency-Key is durable and actor-scoped: repeating the same input returns the original organization identity and current name with 201; different input returns 409. A deleted organization returns 404 without recreation. Without the header each successful call creates an organization. On uncertain outcomes retry the same key and input.
 
 Implementation: `implemented`. Operation: `createOrganization`.
 
@@ -7955,6 +9429,13 @@ Content type: `application/json`.
       "maxLength": 200,
       "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
     },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Optional unique slug; generated from name when omitted. The value default is reserved."
+    },
     "currency": {
       "type": "string",
       "pattern": "^[A-Z]{3}$",
@@ -7966,7 +9447,7 @@ Content type: `application/json`.
 
 ### Responses
 
-HTTP 201: Company identity and initial account currency.
+HTTP 201: Organization identity, slug, and initial account currency.
 
 Content type: `application/json`.
 
@@ -7975,6 +9456,7 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "id",
+    "slug",
     "name",
     "currency"
   ],
@@ -7983,30 +9465,40 @@ Content type: `application/json`.
       "type": "string",
       "format": "uuid"
     },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
     "name": {
       "type": "string"
     },
     "currency": {
       "type": "string",
       "pattern": "^[A-Z]{3}$"
+    },
+    "operator_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Provisioned owner membership identifier when created by a member session."
     }
   }
 }
 ```
 
-HTTP 400: Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
+HTTP 400: Invalid name/slug/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
 
 HTTP 401: Missing, invalid, expired or revoked management credential.
 
-HTTP 403: Installation administrator required; company/workspace members cannot create companies.
+HTTP 403: Credential lacks management access.
 
 HTTP 422: Missing required field, unknown field, or invalid JSON field type.
 
 HTTP 503: Storage unavailable; creation outcome may be uncertain.
 
-HTTP 404: The company from the original idempotent creation was deleted.
+HTTP 404: The organization from the original idempotent creation was deleted.
 
-HTTP 409: Idempotency-Key was already used with a different name or currency.
+HTTP 409: The requested slug is already in use, or Idempotency-Key was already used with different input.
 
 ## Create a workspace in the selected company
 
@@ -8687,6 +10179,20 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`status` (query, optional)
+
+Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "active",
+    "inactive"
+  ]
+}
+```
+
 `organization` (path, required)
 
 ```json
@@ -9000,6 +10506,17 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`q` (query, optional)
+
+Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
+
+```json
+{
+  "type": "string",
+  "maxLength": 128
+}
+```
 
 `http_status` (query, optional)
 
@@ -12766,11 +14283,11 @@ HTTP 409: Cursor is unavailable or out of scope
 
 HTTP 404: No issued gift in this company and currency
 
-## Discover named customer accounts for platform financial administration
+## Discover named customer accounts and Credits summaries for platform financial administration
 
 `GET /api/v1/platform/customer-accounts`
 
-Explicit platform administration only, independent of ordinary company membership. Named companies and their current currency balance summaries; companies without accounts have an empty accounts array. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.
+Explicit platform administration only, independent of ordinary company membership. Named companies, their current currency balance summaries, and a standard-unit Credits summary when issued lots exist; companies without accounts have an empty accounts array. The Credits summary exposes no atoms, lots or provenance. It is a display summary, not a spendable-capacity guarantee; the organization unit-balance endpoint remains authoritative for exact lot and expiry detail. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `listPlatformCustomerAccounts`.
 
@@ -12829,7 +14346,8 @@ Content type: `application/json`.
         "required": [
           "organization_id",
           "organization_name",
-          "accounts"
+          "accounts",
+          "credits"
         ],
         "properties": {
           "organization_id": {
@@ -12889,6 +14407,38 @@ Content type: `application/json`.
                 "posted_credit_exhausted": {
                   "type": "boolean"
                 }
+              }
+            }
+          },
+          "credits": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Largest positive standard-unit Credits balance summary; the current definition breaks equal-amount ties. Null when the company has no issued Credits lots. Exact decimal string in standard units; no atoms, lots or provenance. additional_units counts other unit definitions with a positive balance.",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "display_precision",
+              "available",
+              "additional_units"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "available": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+              },
+              "additional_units": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           }
@@ -14178,7 +15728,7 @@ HTTP 422: Malformed body or missing explicit price_id
 
 `GET /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
 
-Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Absent saved enrollment means workspace pricing, version zero and null price_id. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
+Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Without a saved enrollment, version is zero and the workspace inherits a published platform text price for the model in the installation currency when available; price_id and effective_price then describe that platform selection. Without a matching published platform price, price_id and effective_price are null and pricing_source is workspace. An explicit saved null price_id selects compatibility workspace tariffs instead of inheriting the platform default; its saved version is retained. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
 
 Implementation: `implemented`. Operation: `getRetailTextEnrollment`.
 
@@ -15730,7 +17280,7 @@ HTTP 503: Durable storage unavailable
 
 `GET /api/v1/organizations/{organization}/billing/media-rate-models`
 
-Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings and the billing unit derived from a validated output estimator. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
 
 Implementation: `implemented`. Operation: `listCustomerMediaRateModels`.
 
@@ -15816,7 +17366,8 @@ Content type: `application/json`.
           "schema_revision",
           "channel",
           "resolutions",
-          "reference_video"
+          "reference_video",
+          "meter"
         ],
         "properties": {
           "model_alias": {
@@ -15856,6 +17407,13 @@ Content type: `application/json`.
           },
           "reference_video": {
             "type": "boolean"
+          },
+          "meter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Billing unit derived from the validated output estimator; null when the model has no configured output mapping."
           }
         }
       }
@@ -18893,7 +20451,7 @@ HTTP 503: Storage unavailable
 
 `GET /api/v1/organizations/{organization}/billing/units`
 
-Organization-wide billing owner/admin or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.
+Organization-wide billing owner/admin, platform administration, or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.
 
 Implementation: `implemented`. Operation: `getCustomerUnitBalance`.
 
@@ -19234,7 +20792,7 @@ HTTP 401: Authentication unavailable or revoked
 
 HTTP 403: Management read access required
 
-HTTP 404: Company absent or outside permitted billing scope
+HTTP 404: Company absent or outside permitted billing or platform scope
 
 HTTP 503: Storage unavailable
 
@@ -22963,11 +24521,11 @@ HTTP 502: Encryption unavailable or stored configuration cannot be opened
 
 HTTP 422: Malformed JSON shape, missing fields or unknown fields
 
-## Read payment or scoped funding readiness
+## Read deployment service and payment readiness
 
 `GET /api/v1/payments/readiness`
 
-Anonymous reads describe installation payment configuration only. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.
+Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup, credential inspection, model discovery, non-inference routing/evaluation/event management and funding recovery stay available. No amounts, merchant credentials or identities are returned.
 
 Implementation: `implemented`. Operation: `getPaymentReadiness`.
 
@@ -23197,9 +24755,7 @@ Content type: `application/json`.
           "id": {
             "type": "string",
             "enum": [
-              "epay",
-              "stripe",
-              "zhifux"
+              "stripe"
             ]
           },
           "name": {
@@ -23256,7 +24812,7 @@ HTTP 403: Platform administration authority required
 
 `POST /api/v1/organizations/{organization}/billing/topups`
 
-Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
+Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. New online orders use Stripe and its configured currency and minor-unit precision. Replay the same idempotency key and intent after an uncertain response. Verified payment gates funding. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
 
 Implementation: `implemented`. Operation: `createCustomerTopup`.
 
@@ -23307,9 +24863,7 @@ Content type: `application/json`.
     "payment_gateway": {
       "type": "string",
       "enum": [
-        "epay",
-        "stripe",
-        "zhifux"
+        "stripe"
       ],
       "description": "Optional explicit integration. Never falls through to a different gateway; omission preserves default priority."
     },
@@ -23681,9 +25235,7 @@ Select one configured integration without falling through to another.
 {
   "type": "string",
   "enum": [
-    "epay",
-    "stripe",
-    "zhifux"
+    "stripe"
   ]
 }
 ```
@@ -23732,9 +25284,7 @@ Content type: `application/json`.
             "null"
           ],
           "enum": [
-            "epay",
             "stripe",
-            "zhifux",
             null
           ],
           "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."
@@ -24424,6 +25974,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24434,6 +25988,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24520,6 +26078,10 @@ Content type: `application/json`.
         "openrouter",
         "newapi",
         "litellm",
+        "fastrouter",
+        "babelark",
+        "qiniu",
+        "deepseek",
         "custom"
       ]
     },
@@ -24564,6 +26126,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24574,6 +26140,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24671,6 +26241,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24681,6 +26255,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24770,6 +26348,10 @@ Content type: `application/json`.
         "openrouter",
         "newapi",
         "litellm",
+        "fastrouter",
+        "babelark",
+        "qiniu",
+        "deepseek",
         "custom",
         null
       ]
@@ -24815,6 +26397,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -24825,6 +26411,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },
@@ -24947,11 +26537,195 @@ HTTP 401: Missing or unusable session.
 
 HTTP 503: Storage unavailable.
 
+## Authorize and enable the current Provider offer
+
+`PUT /api/v1/providers/{provider}/offers/{offer}/authorization`
+
+Platform administration required. Atomically authorizes and enables the exact current rate revision for the Provider-owned enabled route and saved credential. A stale revision or unavailable route returns 409. Repeating a successful request for the same current revision returns its existing authorization. This does not verify upstream access, create a workspace selling price, or grant customer access. Media liability requirements remain independent.
+
+Implementation: `implemented`. Operation: `authorizeProviderOffer`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rate_revision"
+  ],
+  "properties": {
+    "rate_revision": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Authorized and enabled
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "active",
+        "authorization_id"
+      ],
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "authorization_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Offer revision or route is unavailable
+
+## Revoke a Provider offer authorization
+
+`DELETE /api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}`
+
+Platform administration required. Revokes the specified authorization and pauses the offer if it is still current. Historical attempts and records remain unchanged. Repeating the same revocation is safe. This does not revoke a different current authorization.
+
+Implementation: `implemented`. Operation: `revokeProviderOfferAuthorization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`authorization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Authorization revoked
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revoked"
+      ],
+      "properties": {
+        "revoked": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Authorization does not match this Provider and offer
+
 ## Create a Provider business identity
 
 `POST /api/v1/providers`
 
-Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.
+Requires platform administration. Creation grants no membership, commercial authorization, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.
 
 Implementation: `implemented`. Operation: `createProviderBusiness`.
 
@@ -25056,7 +26830,7 @@ HTTP 503: Storage unavailable
 
 `GET /api/v1/providers/{provider}`
 
-Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.
+Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or review evidence. Internal identity is for routing, not display.
 
 Implementation: `implemented`. Operation: `getProviderProfile`.
 
@@ -25483,7 +27257,7 @@ HTTP 503: Storage unavailable or transaction lock/statement timeout
 
 `POST /api/v1/providers/{provider}/offers`
 
-Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.
+Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer; an administrator must explicitly authorize the new revision before dispatch eligibility returns. Procurement budgets and customer charges remain independent.
 
 Implementation: `implemented`. Operation: `publishProviderPayoutRates`.
 
@@ -25678,7 +27452,7 @@ HTTP 422: JSON schema mismatch; context_tiers must be an array, never null
 
 `GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}`
 
-Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.
+Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, authorize or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.
 
 Implementation: `implemented`. Operation: `getProviderOfferRevision`.
 
@@ -25754,496 +27528,11 @@ HTTP 404: Platform administration required or quote identity not found.
 
 HTTP 503: Storage unavailable.
 
-## Record a Provider business qualification review
-
-`PUT /api/v1/providers/{provider}/qualification`
-
-Platform administration required; Provider membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Provider conflicts.
-
-Implementation: `implemented`. Operation: `qualifyProviderBusiness`.
-
-### Authentication
-
-Each array entry is an alternative; schemes within one entry are required together.
-
-```json
-[
-  {
-    "bearerAuth": []
-  }
-]
-```
-
-### Parameters
-
-`provider` (path, required)
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### Request body
-
-Required.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "supply_rights_sha256",
-    "supply_capability_sha256",
-    "data_handling_sha256",
-    "valid_until_ms"
-  ],
-  "properties": {
-    "supply_rights_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "supply_capability_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "data_handling_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "valid_until_ms": {
-      "type": "integer",
-      "format": "int64",
-      "maximum": 253402300799999,
-      "description": "Unix epoch milliseconds; must be strictly later than server time."
-    }
-  }
-}
-```
-
-### Responses
-
-HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
-
-HTTP 401: Missing or invalid administrator authentication.
-
-HTTP 403: Authenticated principal lacks platform management permission.
-
-HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
-
-HTTP 415: Request is not JSON.
-
-HTTP 422: JSON has missing, unknown or incorrectly typed fields.
-
-HTTP 500: Unexpected internal persistence failure.
-
-HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
-
-HTTP 200: Qualification transaction committed.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "required": [
-    "data"
-  ],
-  "properties": {
-    "data": {
-      "type": "object",
-      "required": [
-        "qualification_status"
-      ],
-      "properties": {
-        "qualification_status": {
-          "type": "string",
-          "enum": [
-            "qualified"
-          ]
-        }
-      }
-    }
-  }
-}
-```
-
-## Record a Provider offer qualification review
-
-`PUT /api/v1/providers/{provider}/offers/{offer}/qualification`
-
-Platform administration required. Requires current Provider business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.
-
-Implementation: `implemented`. Operation: `qualifyProviderOffer`.
-
-### Authentication
-
-Each array entry is an alternative; schemes within one entry are required together.
-
-```json
-[
-  {
-    "bearerAuth": []
-  }
-]
-```
-
-### Parameters
-
-`provider` (path, required)
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-`offer` (path, required)
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### Request body
-
-Required.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "rate_revision",
-    "model_identity_sha256",
-    "protocol_matrix_sha256",
-    "data_handling_sha256",
-    "availability_sha256",
-    "agreed_rates_sha256",
-    "protocol_matrix_version",
-    "valid_until_ms"
-  ],
-  "properties": {
-    "rate_revision": {
-      "type": "string",
-      "format": "uuid",
-      "description": "Must equal the current immutable offer rate revision."
-    },
-    "model_identity_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "protocol_matrix_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "data_handling_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "availability_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "agreed_rates_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    },
-    "protocol_matrix_version": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 100,
-      "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved trimmed."
-    },
-    "valid_until_ms": {
-      "type": "integer",
-      "format": "int64",
-      "maximum": 253402300799999,
-      "description": "Unix epoch milliseconds; must be strictly later than server time."
-    }
-  }
-}
-```
-
-### Responses
-
-HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
-
-HTTP 401: Missing or invalid administrator authentication.
-
-HTTP 403: Authenticated principal lacks platform management permission.
-
-HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
-
-HTTP 415: Request is not JSON.
-
-HTTP 422: JSON has missing, unknown or incorrectly typed fields.
-
-HTTP 500: Unexpected internal persistence failure.
-
-HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
-
-HTTP 200: Qualification transaction committed.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "required": [
-    "data"
-  ],
-  "properties": {
-    "data": {
-      "type": "object",
-      "required": [
-        "qualification_status"
-      ],
-      "properties": {
-        "qualification_status": {
-          "type": "string",
-          "enum": [
-            "qualified"
-          ]
-        }
-      }
-    }
-  }
-}
-```
-
-## Revoke the current Provider business qualification
-
-`POST /api/v1/providers/{provider}/qualification/revoke`
-
-Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Provider offers while clearing their current reviews atomically. Missing/deleted Provider or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.
-
-Implementation: `implemented`. Operation: `revokeProviderBusinessQualification`.
-
-### Authentication
-
-Each array entry is an alternative; schemes within one entry are required together.
-
-```json
-[
-  {
-    "bearerAuth": []
-  }
-]
-```
-
-### Parameters
-
-`provider` (path, required)
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### Request body
-
-Required.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "reason_sha256"
-  ],
-  "properties": {
-    "reason_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    }
-  }
-}
-```
-
-### Responses
-
-HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
-
-HTTP 401: Missing or invalid administrator authentication.
-
-HTTP 403: Authenticated principal lacks platform management permission.
-
-HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
-
-HTTP 415: Request is not JSON.
-
-HTTP 422: JSON has missing, unknown or incorrectly typed fields.
-
-HTTP 500: Unexpected internal persistence failure.
-
-HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
-
-HTTP 200: Qualification transaction committed.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "required": [
-    "data"
-  ],
-  "properties": {
-    "data": {
-      "type": "object",
-      "required": [
-        "qualification_status"
-      ],
-      "properties": {
-        "qualification_status": {
-          "type": "string",
-          "enum": [
-            "revoked"
-          ]
-        }
-      }
-    }
-  }
-}
-```
-
-## Revoke the current Provider offer qualification
-
-`POST /api/v1/providers/{provider}/offers/{offer}/qualification/revoke`
-
-Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Provider, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.
-
-Implementation: `implemented`. Operation: `revokeProviderOfferQualification`.
-
-### Authentication
-
-Each array entry is an alternative; schemes within one entry are required together.
-
-```json
-[
-  {
-    "bearerAuth": []
-  }
-]
-```
-
-### Parameters
-
-`provider` (path, required)
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-`offer` (path, required)
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### Request body
-
-Required.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "reason_sha256"
-  ],
-  "properties": {
-    "reason_sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-    }
-  }
-}
-```
-
-### Responses
-
-HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
-
-HTTP 401: Missing or invalid administrator authentication.
-
-HTTP 403: Authenticated principal lacks platform management permission.
-
-HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
-
-HTTP 415: Request is not JSON.
-
-HTTP 422: JSON has missing, unknown or incorrectly typed fields.
-
-HTTP 500: Unexpected internal persistence failure.
-
-HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
-
-HTTP 200: Qualification transaction committed.
-
-Content type: `application/json`.
-
-```json
-{
-  "type": "object",
-  "required": [
-    "data"
-  ],
-  "properties": {
-    "data": {
-      "type": "object",
-      "required": [
-        "qualification_status"
-      ],
-      "properties": {
-        "qualification_status": {
-          "type": "string",
-          "enum": [
-            "revoked"
-          ]
-        }
-      }
-    }
-  }
-}
-```
-
 ## Record an already completed external Provider payment
 
 `POST /api/v1/providers/{provider}/settlements`
 
-Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.
+Platform administration required; Provider membership does not grant this write. Does not transfer funds or overpay. Send either attempt_ids (legacy request-level selection) or currency plus cutoff_ms (period settlement); from_ms is an optional inclusive lower bound. Period settlement selects every unpaid earning of that Provider and currency created on or before cutoff_ms, computes the exact total and ignores request-level identifiers supplied in that mode. The period response reports the recorded amount, entry count, and unpaid amount remaining in that currency; neither mode returns customer, request, credential or customer-price detail. Reuse the supplied idempotency key with the identical mode, reference and period bounds for retries; entry order is irrelevant. Changed replay, duplicate payment reference, unavailable selection, or a period with no positive unpaid earnings returns 409. No customer balance credit or Provider authorization is created.
 
 Implementation: `implemented`. Operation: `recordExternalProviderPayment`.
 
@@ -26278,42 +27567,87 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "idempotency_key",
-    "payment_reference",
-    "attempt_ids"
-  ],
-  "properties": {
-    "idempotency_key": {
-      "type": "string",
-      "format": "uuid"
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "payment_reference",
+        "attempt_ids"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "payment_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+        },
+        "attempt_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Legacy internal selection IDs from platform earning history. New callers should use the period mode."
+        }
+      }
     },
-    "payment_reference": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
-    },
-    "attempt_ids": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 1000,
-      "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "description": "Internal selection IDs from the platform earning history; never display IDs or require users to paste them."
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "payment_reference",
+        "currency",
+        "cutoff_ms"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "payment_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "One currency without conversion."
+        },
+        "from_ms": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "maximum": 253402300799999,
+          "description": "Optional inclusive earning creation lower bound. Omit to include all unpaid earnings through the cutoff."
+        },
+        "cutoff_ms": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "maximum": 253402300799999,
+          "description": "Inclusive upper bound on earning creation time, Unix milliseconds."
+        }
+      }
     }
-  }
+  ]
 }
 ```
 
 ### Responses
 
-HTTP 200: Recorded or replayed settlement identity.
+HTTP 200: Recorded or replayed settlement. Period settlement additionally reports amount, entry count and remaining unpaid balance.
 
 Content type: `application/json`.
 
@@ -26333,6 +27667,26 @@ Content type: `application/json`.
         "id": {
           "type": "string",
           "format": "uuid"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "amount_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "entry_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "remaining_unpaid_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "remaining_entry_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
@@ -26340,13 +27694,152 @@ Content type: `application/json`.
 }
 ```
 
-HTTP 400: Invalid reference, entry set, or currency mix.
+HTTP 400: Invalid reference, mixed mode fields, bad currency or cutoff, or amount overflow.
 
 HTTP 401: Invalid administrative credential.
 
 HTTP 403: Platform administration required.
 
-HTTP 409: Provider or earnings unavailable, changed replay, or duplicate payment reference.
+HTTP 409: Provider or earnings unavailable, changed replay, duplicate payment reference, or no unpaid earnings in the period.
+
+HTTP 503: Storage unavailable.
+
+## Preview an unpaid Provider balance through a cutoff
+
+`GET /api/v1/providers/{provider}/settlements/preview`
+
+Platform administration required. Read-only: creates no earning, payment, settlement entry or audit event and transfers no funds. Selects every unpaid earning of this Provider and currency created on or before cutoff_ms, optionally bounded below by from_ms (inclusive). Returns only aggregate count and exact amount plus the unpaid amount and count that would remain in that currency; never returns request IDs, customer, workspace, credential or customer-price detail. The write endpoint independently revalidates the same unpaid rows.
+
+Implementation: `implemented`. Operation: `previewProviderPeriodSettlement`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (query, required)
+
+One currency without conversion.
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`from_ms` (query, optional)
+
+Inclusive earning creation lower bound. Omit for all unpaid earnings through the cutoff.
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+`cutoff_ms` (query, required)
+
+Inclusive earning creation cutoff, Unix milliseconds.
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+### Responses
+
+HTTP 200: Aggregate unpaid selection and remaining balance.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "from_ms",
+        "cutoff_ms",
+        "entry_count",
+        "amount_nanos",
+        "remaining_unpaid_nanos",
+        "remaining_entry_count"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "from_ms": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cutoff_ms": {
+          "type": "integer"
+        },
+        "entry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "amount_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "remaining_unpaid_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "remaining_entry_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency, cutoff or period range.
+
+HTTP 401: Invalid administrative credential.
+
+HTTP 403: Platform administration required.
+
+HTTP 404: Provider not found or deleted.
 
 HTTP 503: Storage unavailable.
 
@@ -26354,7 +27847,7 @@ HTTP 503: Storage unavailable.
 
 `GET /api/v1/providers`
 
-Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.
+Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Commercial authorization is explicit and never inferred from configuration counts.
 
 Implementation: `implemented`. Operation: `listProviderBusinesses`.
 
@@ -26394,7 +27887,6 @@ Content type: `application/json`.
           "api_keys",
           "models",
           "members",
-          "qualification_status",
           "slug"
         ],
         "properties": {
@@ -26426,10 +27918,20 @@ Content type: `application/json`.
             "minimum": 0,
             "description": "Saved model offers with agreed Provider rates."
           },
+          "internal_api_keys": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Administrator-managed connections attributed to direct upstream-funded internal use; not end-user BYOK self-service."
+          },
+          "internal_model_routes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Saved internal-use model mappings, including disabled entries; not live verification or sellable inventory."
+          },
           "ready_offers": {
             "type": "integer",
             "minimum": 0,
-            "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+            "description": "Active offers with a current exact-revision commercial authorization or a current legacy review, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
           },
           "enabled_api_keys": {
             "type": "integer",
@@ -26438,13 +27940,6 @@ Content type: `application/json`.
           "enabled_model_routes": {
             "type": "integer",
             "minimum": 0
-          },
-          "qualification_status": {
-            "type": "string",
-            "enum": [
-              "qualified",
-              "unqualified"
-            ]
           },
           "slug": {
             "type": "string",
@@ -26562,7 +28057,7 @@ HTTP 503: Storage unavailable
 
 `GET /api/v1/platform/configuration`
 
-Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.
+Requires platform management permission. Returns configuration-presence flags without merchant credentials. Stripe reflects the loaded checkout adapter. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.
 
 Implementation: `implemented`. Operation: `getPlatformConfiguration`.
 
@@ -26610,8 +28105,6 @@ Content type: `application/json`.
               "name": {
                 "type": "string",
                 "enum": [
-                  "Zhifux",
-                  "EPay",
                   "Stripe"
                 ]
               },
@@ -26693,7 +28186,7 @@ HTTP 503: Configuration storage unavailable
 
 `GET /api/v1/providers/{provider}/offers/{offer}/revisions`
 
-Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.
+Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not authorize, activate or reprice offers. Internal identifiers are API references, not UI labels.
 
 Implementation: `implemented`. Operation: `listProviderOfferHistory`.
 
@@ -27209,7 +28702,7 @@ HTTP 503: Storage unavailable.
 
 `GET /api/v1/providers/{provider}/offers`
 
-Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
+Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unauthorized drafts; does not activate an offer or establish commercial authorization. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
 
 Implementation: `implemented`. Operation: `listProviderOffersPage`.
 
@@ -27316,7 +28809,8 @@ Content type: `application/json`.
             "type": "boolean"
           },
           "qualified": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Compatibility field indicating a current exact-revision commercial authorization or a current legacy evidence review and required route binding. It is not proof of live upstream access, an active offer, an agreed rate or a customer selling price."
           },
           "revision": {
             "type": "string",
@@ -27447,6 +28941,346 @@ HTTP 404: Provider missing or unauthorized.
 HTTP 409: Missing or foreign continuation alias.
 
 HTTP 503: Storage unavailable.
+
+## Discover supported Provider service adapters
+
+`GET /api/v1/providers/presets`
+
+Platform administration required. Returns connection instructions and observed price-source support, not saved connections, inventory, entitlements or invoice prices. OpenAI-compatible transport never establishes price compatibility. No upstream request is issued.
+
+Implementation: `implemented`. Operation: `listProviderPresets`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Prepared Provider descriptors.
+
+## Read Provider-adapter advertised price evidence
+
+`GET /api/v1/providers/{provider}/pricing`
+
+Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.
+
+Implementation: `implemented`. Operation: `discoverProviderPricing`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Unified advertised pricing evidence with completeness limits.
+
+HTTP 502: Source failure; retry the read without mutating configuration.
+
+## Read normalized metadata through a Provider credential
+
+`GET /api/v1/providers/{provider}/metadata`
+
+Platform administration required. credential selects one saved connection owned by this Provider; no key values are returned. Reuses bounded authenticated catalog discovery and explicit inherited service identity. Catalog access does not verify inference or publish models/prices.
+
+Implementation: `implemented`. Operation: `discoverProviderMetadata`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`credential` (query, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Normalized model metadata, price evidence when present, and discovery scope.
+
+HTTP 404: Provider/credential binding unavailable.
+
+## Capture an immutable Provider quote version
+
+`POST /api/v1/providers/{provider}/pricing`
+
+Platform administration required. Performs bounded price discovery and appends source evidence only if saved Provider adapter identity/revision still matches. Unknown/partial sources remain explicit. Does not change any customer tariff, route, balance or charge. Never blindly replay after uncertainty; retain the returned revision for historical estimates.
+
+Implementation: `implemented`. Operation: `captureProviderPriceEvidence`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Immutable quote revision, capture time, adapter binding and evidence.
+
+HTTP 409: Adapter identity changed; no snapshot saved.
+
+## Read an immutable Provider quote version
+
+`GET /api/v1/providers/{provider}/pricing/{revision}`
+
+Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.
+
+Implementation: `implemented`. Operation: `getProviderPriceEvidence`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`revision` (path, required)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+### Responses
+
+HTTP 200: Original quote evidence and source identity.
+
+HTTP 404: Version unavailable under this Provider.
+
+## Estimate supplied billable quantities against an immutable quote
+
+`POST /api/v1/providers/{provider}/estimate`
+
+Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.
+
+Implementation: `implemented`. Operation: `estimateProviderQuoteCost`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "model",
+    "quantities"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "quantities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "meter",
+          "units"
+        ],
+        "properties": {
+          "meter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "units": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "condition": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Quote-bound estimate with currency totals and unknown coverage.
+
+## Inspect captured quote versions and recover uncertain refreshes
+
+`GET /api/v1/providers/{provider}/pricing/history`
+
+Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.
+
+Implementation: `implemented`. Operation: `listProviderPriceHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 50,
+  "default": 20
+}
+```
+
+### Responses
+
+HTTP 200: Quote version summaries and optional next_after cursor.
 
 ## Inspect operational usage of Provider-owned configurations
 
@@ -27843,6 +29677,63 @@ HTTP 503: Storage or credential encryption unavailable.
 
 HTTP 401: Invalid or expired administrative credential.
 
+## Retire a Provider API-key connection without deleting history
+
+`POST /api/v1/vendors/{id}/retire`
+
+Platform administration required. Disables the connection and every model binding, erases the stored credential and appends an immutable retirement audit event. Existing offers, requests, earnings, incidents and audit history are retained; in-flight attempts keep their pinned configuration, while new dispatch is blocked. Idempotent for an already retired connection. Not a hard delete.
+
+Implementation: `implemented`. Operation: `retireVendorConnection`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Retired connection wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/Vendor"
+    }
+  }
+}
+```
+
+HTTP 404: Vendor does not exist.
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 403: Platform administration permission required.
+
 ## Update one Provider API-key configuration or rotate its credential
 
 `PUT /api/v1/vendors/{id}`
@@ -27920,7 +29811,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `GET /api/v1/vendors/{id}/models`
 
-Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.
+Management reads include route eligibility in available, an owner_funded flag and the effective access_scope. Owner-funded routes use their funding account and are excluded from shared commercial supply and customer tariffs; personal scope restricts them to that account, while internal scope shares them with every organization on an Internal-use installation. Internal-scope and commercial routes honor their explicit public_catalog publication flag; personal routes remain private. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.
 
 Implementation: `implemented`. Operation: `listVendorModels`.
 
@@ -28161,6 +30052,7 @@ Content type: `application/json`.
           "enum": [
             "connected",
             "credentials_rejected",
+            "account_chat_banned",
             "endpoint_unavailable",
             "private_endpoint_blocked",
             "invalid_endpoint",
@@ -28495,6 +30387,47 @@ HTTP 403: Installation administration required.
 
 HTTP 503: Storage unavailable.
 
+## Discover and import Provider models
+
+`POST /api/v1/vendors/{id}/import`
+
+Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.
+
+Implementation: `implemented`. Operation: `importPersonalProviderModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Import counts and discovery evidence.
+
+HTTP 400: Unsupported catalog identifiers.
+
+HTTP 409: Connection changed or an alias conflicts; no models imported.
+
+HTTP 502: Upstream catalog read failed; saved connection is retained.
+
 ## Read the active routing generation
 
 `GET /api/v1/routing-registry`
@@ -28563,7 +30496,7 @@ HTTP 503: Publication is unavailable or its format is unsupported
 
 ## Create or revise a model candidate pool
 
-`PUT /api/v1/pools`
+`PUT /api/v1/routing`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Ordered routing rules evaluate first-match AND conditions before falling back to default_action. Highest eligible priority wins, with weighted selection within that tier. Billing mode selects either unified pool pricing (pool_tariff) or pass-through candidate pricing (candidate_tariff). Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
@@ -28753,7 +30686,7 @@ HTTP 422: Malformed body schema or unknown fields; framework rejection may use p
 
 ## Read immutable model candidate pool revisions
 
-`GET /api/v1/pools/history`
+`GET /api/v1/routing/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -28840,7 +30773,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## List platform-managed model route pools
 
-`GET /api/v1/pools/index`
+`GET /api/v1/routing/index`
 
 Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.
 
@@ -28926,9 +30859,9 @@ HTTP 403: Platform administration required.
 
 ## List platform-managed model route pools
 
-`GET /api/v1/pools`
+`GET /api/v1/routing`
 
-Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /pools/{reference}. The /pools/index route retains its existing collection contract.
+Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /routing/{reference}. The /routing/index route retains its existing collection contract.
 
 Implementation: `implemented`. Operation: `listPools`.
 
@@ -29037,7 +30970,7 @@ HTTP 403: Platform administration required.
 
 ## Read an installation-managed model candidate pool
 
-`GET /api/v1/pools/{reference}`
+`GET /api/v1/routing/{reference}`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400.
 
@@ -29100,7 +31033,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## Read immutable model candidate pool revisions
 
-`GET /api/v1/pools/{reference}/history`
+`GET /api/v1/routing/{reference}/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400.
 
@@ -29192,9 +31125,9 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## Dry-run routing preview for a model route pool
 
-`POST /api/v1/pools/{reference}/preview`
+`POST /api/v1/routing/{reference}/preview`
 
-Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.
+Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.
 
 Implementation: `implemented`. Operation: `previewPool`.
 
@@ -29241,7 +31174,9 @@ Content type: `application/json`.
       "enum": [
         "chat",
         "responses",
-        "messages"
+        "messages",
+        "embeddings",
+        "generate_content"
       ]
     },
     "streaming": {
@@ -29326,7 +31261,7 @@ HTTP 404: Pool not found
 
 ## Audit routing and billing strategy for a model route pool
 
-`GET /api/v1/pools/{reference}/audit`
+`GET /api/v1/routing/{reference}/audit`
 
 Returns pricing readiness, margin safety, configured weight shares vs. observed traffic shares, completion rate, latency, customer revenue, upstream cost, and strategy findings for a model route pool.
 
@@ -29397,6 +31332,244 @@ HTTP 401: Authentication required
 HTTP 403: Platform administration required
 
 HTTP 404: Pool not found
+
+## Create one validated structured decision
+
+`POST /v1/decisions`
+
+Explicit System 1 decision capability. Requires a concrete, workspace-visible Chat model granted to the calling key and explicitly declared structured-output support; workspace pools, Auto policies and codex aliases are rejected so routing cannot silently substitute a generated response for a decision. The caller supplies a bounded input and a closed, flat output schema of 1-16 string, boolean, integer or number properties. Exactly {"abstain":true} is an explicit abstention and is returned as a null decision; any other document must satisfy the schema exactly. Invalid, missing, timed-out or over-bound output is rejected with x-niu-decision-outcome/x-niu-decision-failure evidence and never falls back to another response type. The model is called once, without transport retry, through ordinary inference admission; key grants, workspace spending caps, billing, guardrails, rate/concurrency limits and cancellation still apply. Niu builds a bounded prompt from schema metadata and caller input only; it does not include Provider aliases, credentials, procurement prices, installation margins or other internal prompts, and it disables ordinary Logs payload capture for the nested call. The response may omit a decision when the model abstains; inspect evidence and the x-niu-attempt-id generation record for usage and authoritative customer charges. This is not calibrated probability evidence, task-quality evidence, a streaming API, idempotency or a guarantee of live model behavior.
+
+Implementation: `implemented`. Operation: `createDecision`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "input",
+    "output_schema"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "One concrete workspace Chat model alias. pool/ and codex/ aliases are rejected."
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "UTF-8 text; at most 16 KiB serialized."
+        },
+        {
+          "type": "object",
+          "description": "Arbitrary JSON object; at most 16 KiB serialized."
+        }
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "properties",
+        "required",
+        "additionalProperties"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "properties": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 16,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "boolean",
+                  "integer",
+                  "number"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "enum": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              },
+              "minimum": {
+                "type": "number"
+              },
+              "maximum": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "required": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 50,
+      "maximum": 5000,
+      "default": 2000
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024,
+      "default": 128
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: The model returned a schema-valid decision, or an explicit abstention. A null decision is an abstention, never a missing decision promoted to a label.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision",
+    "evidence"
+  ],
+  "properties": {
+    "decision": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Validated decision object, or null for an explicit abstention."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "model",
+        "calls",
+        "latency_ms",
+        "tokens_estimated",
+        "timeout_ms",
+        "max_output_tokens"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "decided",
+            "abstained"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "calls": {
+          "type": "integer",
+          "const": 1
+        },
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "tokens_estimated": {
+          "type": "boolean"
+        },
+        "latency_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeout_ms": {
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Malformed or unbounded request, pool/Auto alias, unsupported input shape, or invalid closed output_schema.
+
+HTTP 401: Missing, expired or revoked credential
+
+HTTP 403: The key is not authorized to invoke models or the request is denied by policy
+
+HTTP 404: The model is not visible to the workspace or not granted to the key
+
+HTTP 501: The model does not declare the Chat and structured-output capabilities required for decisions
+
+HTTP 502: Malformed, missing or over-bound model output; the call may have incurred customer charges
+
+HTTP 504: The decision call exceeded timeout_ms; the call may have incurred charges or remain unresolved
 
 ## Inspect and temporarily retain one exact inline image
 
@@ -29602,7 +31775,7 @@ Implementation: `implemented`. Operation: `createChatCompletion`.
 
 ### Supported scope
 
-Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools or structured format remain unsupported. Observation-only plain-text streams preserve delivery and asynchronously record clear, matched or indeterminate without transforming output. Mandatory and observation rules compose across workspace/key scopes. Optional collection and inspection have separate bounded capacity; observation overload does not deny the request. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.
+Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools or structured format remain unsupported. Observation-only plain-text streams preserve delivery and asynchronously record clear, matched or indeterminate without transforming output. Mandatory and observation rules compose across workspace/key scopes. Optional collection and inspection have separate bounded capacity; observation overload does not deny the request. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls, text-only tool results and user image_url inputs on models declaring image input. Images use reported prompt-token accounting; no separately billed media operations are admitted. Image TPM admission reserves the configured route input-token ceiling plus the output bound instead of estimating image tokens from compressed bytes or URL length. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools, audio/video input and image output remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.
 
 ### Authentication
 
@@ -29623,7 +31796,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 `x-niu-log-payloads` (header, optional)
 
-Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content unless store is false. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
 
 ```json
 {
@@ -29658,6 +31831,17 @@ Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:rea
   "type": "string",
   "maxLength": 200,
   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+}
+```
+
+`x-niu-routing-context` (header, optional)
+
+Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
 }
 ```
 
@@ -30049,6 +32233,17 @@ Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:rea
 }
 ```
 
+`x-niu-routing-context` (header, optional)
+
+Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
+}
+```
+
 ### Request body
 
 Required.
@@ -30204,17 +32399,17 @@ HTTP 429: API key request, concurrency or token rate limit exceeded.
 
 HTTP 503: Durable storage or configured route unavailable.
 
-## Generate native buffered Gemini text
+## Generate native Gemini content or streamGenerateContent
 
 `POST /v1beta/models/{model_action}`
 
-Set provider gemini and supports_generate_content true on a static route, or create a managed gemini credential and opt its model mapping into supports_generate_content. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Native SDK compatibility and successful end-to-end billing remain unverified as documented.
+Requires provider gemini with supports_generate_content enabled; streaming additionally requires supports_generate_content_streaming. model_action accepts {model}:generateContent or {model}:streamGenerateContent (URL-encode slashes inside aliases). Streaming returns JSON array chunks by default or SSE when ?alt=sse is supplied; query ?key= is rejected (use Authorization: Bearer or x-niu-api-key). Supports client functionDeclarations (normalized offline schema checks) and toolConfig.functionCallingConfig (AUTO/ANY/NONE), thought and thoughtSignature pass-through, generationConfig.thinkingConfig, responseMimeType (application/json) with responseSchema/responseJsonSchema, and unpriced user inlineData (image/* or application/pdf within 8 MiB; rejected with 400 on priced routes). Total input accounting combines promptTokenCount and toolUsePromptTokenCount; total output equals totalTokenCount minus total input. Missing terminal evidence or mid-stream interruptions retain holds and uncertainty.
 
 Implementation: `implemented`. Operation: `generateContent`.
 
 ### Supported scope
 
-Static or managed gemini routes only; successful native upstream completion remains unverified.
+Static or managed gemini routes supporting buffered :generateContent and streaming :streamGenerateContent (?alt=sse SSE or JSON array stream), client functionDeclarations/toolConfig, thinkingConfig, responseMimeType/responseSchema, and unpriced inlineData.
 
 ### Authentication
 
@@ -30242,6 +32437,19 @@ Each array entry is an alternative; schemes within one entry are required togeth
 }
 ```
 
+`alt` (query, optional)
+
+Use alt=sse with :streamGenerateContent to receive text/event-stream instead of a JSON array stream. Unsupported on :generateContent.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "sse"
+  ]
+}
+```
+
 `x-niu-evaluation` (header, optional)
 
 Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.
@@ -30251,6 +32459,17 @@ Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:rea
   "type": "string",
   "maxLength": 200,
   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+}
+```
+
+`x-niu-routing-context` (header, optional)
+
+Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
 }
 ```
 
@@ -30265,14 +32484,13 @@ Content type: `application/json`.
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "contents",
-    "generationConfig"
+    "contents"
   ],
   "properties": {
     "contents": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 128,
+      "maxItems": 256,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -30292,16 +32510,7 @@ Content type: `application/json`.
             "minItems": 1,
             "maxItems": 128,
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "text"
-              ],
-              "properties": {
-                "text": {
-                  "type": "string"
-                }
-              }
+              "type": "object"
             }
           }
         }
@@ -30318,7 +32527,6 @@ Content type: `application/json`.
           "type": "string",
           "enum": [
             "user",
-            "model",
             "system"
           ]
         },
@@ -30341,12 +32549,20 @@ Content type: `application/json`.
         }
       }
     },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object"
+      }
+    },
+    "toolConfig": {
+      "type": "object"
+    },
     "generationConfig": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "maxOutputTokens"
-      ],
       "properties": {
         "maxOutputTokens": {
           "type": "integer",
@@ -30374,6 +32590,19 @@ Content type: `application/json`.
           "minimum": 1,
           "maximum": 10000
         },
+        "seed": {
+          "type": "integer"
+        },
+        "presencePenalty": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "frequencyPenalty": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
         "stopSequences": {
           "type": "array",
           "maxItems": 5,
@@ -30382,6 +32611,22 @@ Content type: `application/json`.
             "minLength": 1,
             "maxLength": 512
           }
+        },
+        "thinkingConfig": {
+          "type": "object"
+        },
+        "responseMimeType": {
+          "type": "string",
+          "enum": [
+            "text/plain",
+            "application/json"
+          ]
+        },
+        "responseSchema": {
+          "type": "object"
+        },
+        "responseJsonSchema": {
+          "type": "object"
         }
       }
     }
@@ -30446,15 +32691,7 @@ Content type: `application/json`.
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "text"
-                  ],
-                  "properties": {
-                    "text": {
-                      "type": "string"
-                    }
-                  }
+                  "additionalProperties": true
                 }
               }
             }
@@ -30463,7 +32700,12 @@ Content type: `application/json`.
             "type": "string",
             "enum": [
               "STOP",
-              "MAX_TOKENS"
+              "MAX_TOKENS",
+              "SAFETY",
+              "RECITATION",
+              "BLOCKLIST",
+              "PROHIBITED_CONTENT",
+              "SPII"
             ]
           }
         }
@@ -30473,6 +32715,13 @@ Content type: `application/json`.
       "type": "object",
       "properties": {
         "promptTokenCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "toolUsePromptTokenCount": {
           "type": [
             "integer",
             "null"
@@ -30510,6 +32759,14 @@ Content type: `application/json`.
       }
     }
   }
+}
+```
+
+Content type: `text/event-stream`.
+
+```json
+{
+  "type": "string"
 }
 ```
 
@@ -33632,17 +35889,17 @@ HTTP 404: Saved Video task missing or actor-private
 
 HTTP 503: Saved diagnostics unavailable
 
-## Create a native text Message, optionally streamed
+## Create a native Message, optionally streamed
 
 `POST /v1/messages`
 
-Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 1 MiB and conservative configured pricing bounds. No Chat translation. Media, beta headers and unsupported fields are rejected before dispatch. Buffered client tools require supports_messages_tools; route pools filter this capability. Tool definitions are limited to name, description and bounded offline object input_schema. tool_choice supports auto/any/none/tool and optional disable_parallel_tool_use. History requires uniquely identified assistant tool_use blocks followed immediately by matching user tool_result blocks with string content, before ordinary user text. Tools must remain declared for tool history. Streaming tools additionally require supports_messages_streaming_tools, supports_messages_tools and supports_messages_streaming; pools filter all required capabilities. Only sequential content blocks are supported; interleaved tool blocks fail safely. Native input_json_delta fragments are bounded to 64 KiB per tool and 256 KiB per message, parsed and schema-validated before content_block_stop is emitted. Tool IDs must be unique. Consumers must wait for message_stop before executing tool calls; error events and incomplete streams do not establish valid completion. Tool names, IDs and arguments are validated and projected; Niu does not execute tools. Required text input/output inspection rejects tool requests before dispatch rather than silently skipping tool content. A tool_use stop is a completed provider turn, not completion of a client task. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text and opted-in tool events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.
+Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.
 
 Implementation: `implemented`. Operation: `createMessage`.
 
 ### Supported scope
 
-Native text and client tools with separately enabled text/tool streaming. Media and extended thinking remain unsupported.
+Native Anthropic Messages with streaming, client tools, Extended Thinking, cache_control, unpriced image/PDF blocks, and safe anthropic-beta forwarding. output_config.format remains unsupported.
 
 ### Authentication
 
@@ -33672,6 +35929,16 @@ Each array entry is an alternative; schemes within one entry are required togeth
 }
 ```
 
+`anthropic-beta` (header, optional)
+
+Optional comma-separated safe Anthropic beta flags. Unknown or hosted-tool betas are rejected with 501.
+
+```json
+{
+  "type": "string"
+}
+```
+
 `x-niu-evaluation` (header, optional)
 
 Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:read delegation and the pinned protocol-bound effective request hash. A mismatch is rejected before dispatch. Not forwarded upstream. This is not idempotency or authority for a paid evaluation budget; discover admitted attempts after an uncertain response before considering replay. Untagged requests do not establish verified sample equivalence.
@@ -33681,6 +35948,17 @@ Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:rea
   "type": "string",
   "maxLength": 200,
   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+}
+```
+
+`x-niu-routing-context` (header, optional)
+
+Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
 }
 ```
 
@@ -33776,6 +36054,75 @@ Content type: `application/json`.
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "top_k": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "thinking": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "disabled",
+                "adaptive"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "budget_tokens"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "enabled"
+            },
+            "budget_tokens": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 1000000
+            }
+          }
+        }
+      ]
+    },
+    "output_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
     },
     "stop_sequences": {
       "type": "array",
@@ -33883,6 +36230,9 @@ Content type: `application/json`.
                         },
                         "input": {
                           "type": "object"
+                        },
+                        "cache_control": {
+                          "type": "object"
                         }
                       }
                     },
@@ -33891,8 +36241,7 @@ Content type: `application/json`.
                       "additionalProperties": false,
                       "required": [
                         "type",
-                        "tool_use_id",
-                        "content"
+                        "tool_use_id"
                       ],
                       "properties": {
                         "type": {
@@ -33904,12 +36253,43 @@ Content type: `application/json`.
                           "maxLength": 200
                         },
                         "content": {
-                          "type": "string"
+                          "oneOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "object"
+                              }
+                            }
+                          ]
                         },
                         "is_error": {
                           "type": "boolean"
+                        },
+                        "cache_control": {
+                          "type": "object"
                         }
                       }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "type"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "document",
+                            "thinking",
+                            "redacted_thinking"
+                          ]
+                        }
+                      },
+                      "additionalProperties": true
                     }
                   ]
                 }
@@ -33951,6 +36331,9 @@ Content type: `application/json`.
               }
             },
             "additionalProperties": true
+          },
+          "cache_control": {
+            "type": "object"
           }
         }
       }
@@ -34512,17 +36895,17 @@ Niu operation UUID grouping the request execution. Distinct from the attempt UUI
 }
 ```
 
-## Create a text response
+## Create a native OpenAI Response
 
 `POST /v1/responses`
 
-The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Local buffered_full output rules retain real text streams until a validated terminal response and complete inspection, then emit compatible filtered lifecycle events. Withheld output emits a safe guardrail_output_withheld SSE error without a successful terminal event; known execution is still charged. Complete text and total input stream bounds are 1 MiB and 2 MiB, with four concurrent collectors per process. Observation-only text streaming preserves delivery and asynchronously records clear, matched or indeterminate without transforming output. Required and observation rules can compose across workspace/key policies; optional collection/inspection pressure does not block the request. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply. Canonical OpenRouter pools permit at most one different-credential successor after an immediate authentication refusal with durable nonexecution, released holds and no prior charge. The operation retains its original tariff, funding and shared deadline under a Responses-specific retry policy. No retry follows uncertainty or a stream already returned to the client.
+Requires an OpenAI-compatible route with supports_responses enabled. Supports single-turn string input and stateless multi-turn input arrays containing user/system/developer/assistant messages, function_call and matched function_call_output history items, reasoning items, and unpriced input_image parts (max 8 MiB request body; priced routes reject vision inputs and remain bounded to 1 MiB text/tool requests). Client function tools require supports_tool_calls (plus supports_streaming_tool_calls when streaming); structured output (text.format json_object or json_schema) requires supports_structured_output; reasoning effort/summary checks catalog capability when declared. Niu validates declared schemas offline and never executes tools or stores prior responses on the server: store must be absent or false, and previous_response_id, conversation, background, and hosted server tools are rejected explicitly. Streaming emits Responses SSE events and validates terminal output before settlement; disconnects retain holds and uncertainty.
 
 Implementation: `implemented`. Operation: `createResponse`.
 
 ### Supported scope
 
-Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.
+Stateless OpenAI Responses API supporting multi-turn item arrays, client function tools and tool loops, structured JSON Schema output, reasoning effort/summary, truncation, and unpriced input_image inputs (8 MiB body limit; priced routes remain text/tool-only within 1 MiB). Hosted server tools and server-stored state (previous_response_id, store: true) remain unsupported.
 
 ### Authentication
 
@@ -34581,6 +36964,17 @@ Opt-in evaluation-slug@revision/sample binding. Requires current evaluations:rea
 }
 ```
 
+`x-niu-routing-context` (header, optional)
+
+Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
+}
+```
+
 ### Request body
 
 Required.
@@ -34601,8 +36995,20 @@ Content type: `application/json`.
       "minLength": 1
     },
     "input": {
-      "type": "string",
-      "minLength": 1
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object"
+          }
+        }
+      ]
     },
     "instructions": {
       "type": "string"
@@ -34633,6 +37039,121 @@ Content type: `application/json`.
     "user": {
       "type": "string",
       "maxLength": 512
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "name"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "function"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "strict": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "tool_choice": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "auto",
+            "required"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "name"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "function"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "parallel_tool_calls": {
+      "type": "boolean"
+    },
+    "text": {
+      "type": "object",
+      "properties": {
+        "verbosity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "format": {
+          "type": "object"
+        }
+      }
+    },
+    "reasoning": {
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "concise",
+            "detailed"
+          ]
+        }
+      }
+    },
+    "truncation": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "auto"
+      ]
+    },
+    "store": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
     },
     "stream": {
       "type": "boolean",
@@ -34794,6 +37315,37 @@ Content type: `application/json`.
                 "type": "array"
               },
               "encrypted_content": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "call_id",
+              "name",
+              "arguments"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "function_call"
+              },
+              "call_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "arguments": {
+                "type": "string"
+              },
+              "status": {
                 "type": "string"
               }
             },
@@ -36562,6 +39114,313 @@ HTTP 503: Storage or bounded delivery unavailable
 
 HTTP 504: Upstream query or delivery timed out
 
+## Create a one-time member invitation
+
+`POST /api/v1/organizations/{organization}/invitations`
+
+Current organization Owner or installation administrator only. Creates a short-lived, purpose-bound invitation for one email, role and workspace/organization scope. The response returns the redemption token exactly once and stores only its SHA-256 digest. A new invitation for the same organization, workspace and email replaces any earlier pending invitation, invalidating its link. This installation has no configured email provider: delivery is `not_configured`, no email is sent, and the owner receives a copyable one-time link. The invitation cannot grant broader rights than the caller may assign, and an email that already has active access in the organization is rejected. No reusable access token or session is created. Responses are not cached.
+
+Implementation: `implemented`. Operation: `createMemberInvitation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MemberInvitationCreate"
+}
+```
+
+### Responses
+
+HTTP 201: Invitation created; the redemption token is returned once.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/CreatedMemberInvitation"
+}
+```
+
+HTTP 400: Invalid email, role, scope or expiry.
+
+HTTP 403: Member management requires organization Owner authority.
+
+HTTP 404: Organization or workspace is outside the caller's scope.
+
+HTTP 409: The email already belongs to an active member of this organization.
+
+HTTP 413: Body exceeds the bounded request size.
+
+HTTP 503: Storage unavailable.
+
+## List scoped member invitations
+
+`GET /api/v1/organizations/{organization}/invitations`
+
+Current organization Owner or installation administrator only. Returns at most 100 recent invitations visible in the caller's scope: project-scoped Owners see only their workspace's invitations, while organization-wide authority sees organization-wide and workspace invitations. Redemption secrets and token digests are never returned. Status is derived from acceptance, cancellation and current expiry.
+
+Implementation: `implemented`. Operation: `listMemberInvitations`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Scoped invitation metadata without secrets.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MemberInvitation"
+      }
+    }
+  }
+}
+```
+
+HTTP 403: Member management requires organization Owner authority.
+
+HTTP 404: Organization is outside the caller's scope.
+
+HTTP 503: Storage unavailable.
+
+## Preview a signed-in recipient's invitation
+
+`POST /api/v1/invitations/preview`
+
+Authenticated member session required; installation credentials are rejected. Resolves one invitation secret supplied in the request body so it does not appear in a request path. Returns the inviting organization, workspace, role, intended email, expiry, lifecycle status and whether the current account email matches. The invitation token is never returned. Acceptance still requires an exact email match and a pending unexpired invitation.
+
+Implementation: `implemented`. Operation: `previewMemberInvitation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MemberInvitationToken"
+}
+```
+
+### Responses
+
+HTTP 200: Invitation metadata, including its current lifecycle status and the caller's binding state. A canceled invitation can be previewed.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MemberInvitationPreview"
+    }
+  }
+}
+```
+
+HTTP 400: Missing or malformed invitation token.
+
+HTTP 403: Member session required.
+
+HTTP 404: No invitation matches the supplied token.
+
+HTTP 413: Body exceeds the bounded request size.
+
+HTTP 503: Storage unavailable.
+
+## Accept a one-time member invitation
+
+`POST /api/v1/session/invitations`
+
+Authenticated member session required; installation credentials are rejected. Atomically revalidates invitation state, expiry, version, email binding, inviter authority and target scope, then creates the exact invited member role/scope for the caller's account identity and switches the current session to it. No reusable operator access token is issued. The redemption secret is consumed exactly once. Replay by the same account identity returns the completed membership with replayed true; another identity is denied. Existing operator sessions and roles are not broadened. Returns the refreshed session plus accepted invitation metadata. Responses are not cached.
+
+Implementation: `implemented`. Operation: `acceptMemberInvitation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MemberInvitationToken"
+}
+```
+
+### Responses
+
+HTTP 200: Invitation accepted or reconciled; the refreshed session is scoped to the invited role and workspace.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "invitation",
+    "replayed"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "description": "Refreshed session identity."
+    },
+    "invitation": {
+      "$ref": "#/components/schemas/MemberInvitation"
+    },
+    "replayed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+HTTP 400: Malformed invitation token.
+
+HTTP 403: Signed-in account email does not match the invitation, or the inviter no longer has authority.
+
+HTTP 404: Invitation is invalid, expired, canceled or already used by another identity.
+
+HTTP 409: The account already belongs to the organization; change the existing member instead.
+
+HTTP 413: Body exceeds the bounded request size.
+
+HTTP 503: Storage unavailable.
+
+## Cancel a pending member invitation
+
+`DELETE /api/v1/invitations/{invitation}`
+
+Current organization Owner or installation administrator with authority over the invitation's exact scope. Cancellation prevents further redemption and records an immutable lifecycle event. Repeated cancellation is idempotent. Accepted invitations cannot be canceled here because the resulting member must be managed in the member list. Foreign and organization-wide invitations outside a project-scoped caller's authority are concealed with 404.
+
+Implementation: `implemented`. Operation: `cancelMemberInvitation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`invitation` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 204: Invitation is canceled or was already canceled.
+
+HTTP 400: Invalid invitation reference.
+
+HTTP 403: Member management requires organization Owner authority.
+
+HTTP 404: Invitation is outside the caller's scope.
+
+HTTP 409: Invitation was already accepted; manage the member instead.
+
+HTTP 503: Storage unavailable.
+
 ## Change a scoped customer member role
 
 `PATCH /api/v1/operators/{operator}`
@@ -36998,8 +39857,20 @@ Content type: `application/json`.
   "required": [
     "model",
     "group_id",
-    "url",
     "kind"
+  ],
+  "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+  "oneOf": [
+    {
+      "required": [
+        "url"
+      ]
+    },
+    {
+      "required": [
+        "workspace_asset_id"
+      ]
+    }
   ],
   "properties": {
     "model": {
@@ -37012,7 +39883,14 @@ Content type: `application/json`.
     "url": {
       "type": "string",
       "maxLength": 8192,
-      "format": "uri"
+      "format": "uri",
+      "writeOnly": true,
+      "description": "Public HTTPS source. Not retained in operation history."
+    },
+    "workspace_asset_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Active workspace material; the Gateway mints a short-lived public fetch capability only at dispatch."
     },
     "name": {
       "type": "string",
@@ -39504,7 +42382,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 `GET /v1/models`
 
-Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
+Requires a current workspace API key and filters aliases by its model grants and organization access. Tool capability flags reflect the configured route, not a guarantee of admission or live upstream availability. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
 
 Implementation: `implemented`. Operation: `listModels`.
 
@@ -39580,6 +42458,22 @@ Content type: `application/json`.
               "object",
               "null"
             ]
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tool_calls",
+              "streaming_tool_calls"
+            ],
+            "properties": {
+              "tool_calls": {
+                "type": "boolean"
+              },
+              "streaming_tool_calls": {
+                "type": "boolean"
+              }
+            }
           }
         }
       }
@@ -39646,9 +42540,31 @@ Content type: `application/json`.
         "rate_limits",
         "usage_window",
         "allowed_cidrs",
-        "management_capabilities"
+        "management_capabilities",
+        "invocation_allowed",
+        "invocation_protocols"
       ],
       "properties": {
+        "invocation_allowed": {
+          "type": "boolean",
+          "description": "Current credential invocation authority, independent of discovery and resource management."
+        },
+        "invocation_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "responses",
+              "messages",
+              "content",
+              "decisions",
+              "embeddings",
+              "video"
+            ]
+          },
+          "description": "Exact approved model interfaces. An interface outside this list is denied even when invocation_allowed is true."
+        },
         "object": {
           "type": "string",
           "const": "api_key"
@@ -42577,9 +45493,174 @@ HTTP 409: Revision, quota or cursor conflict
 
 HTTP 503: Required encryption or storage unavailable
 
+## Reconcile an incident event in the current workspace
+
+`GET /v1/incidents/{reference}`
+
+Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state, recovery time and the current lifecycle event's durable notification state for this exact workspace. notification reports not_configured, authority_inactive, queued, sending, delivered, failed or partial from enabled incident subscriptions and current delegation; a 2xx receiver acknowledgement is not processing or task success. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `getWorkspaceIncidentEvent`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`reference` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^incident-[0-9a-f]{32}$"
+}
+```
+
+### Responses
+
+HTTP 200: Workspace-scoped incident
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "reference",
+        "model",
+        "owner_funded",
+        "status",
+        "recovered_at",
+        "notification"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "owner_funded": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "resolved"
+          ]
+        },
+        "recovered_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "notification": {
+          "type": "object",
+          "required": [
+            "state",
+            "event",
+            "subscribers",
+            "authorized",
+            "delivered",
+            "failed",
+            "cancelled",
+            "queued",
+            "sending",
+            "last_attempt_at"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "not_configured",
+                "authority_inactive",
+                "queued",
+                "sending",
+                "delivered",
+                "failed",
+                "partial"
+              ]
+            },
+            "event": {
+              "type": "string",
+              "enum": [
+                "opened",
+                "resolved"
+              ]
+            },
+            "subscribers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "authorized": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "delivered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cancelled": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "queued": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sending": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "last_attempt_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid reference
+
+HTTP 401: Authentication required
+
+HTTP 403: events:read required
+
+HTTP 404: Incident unavailable
+
+HTTP 503: Evidence unavailable
+
 ## List workspace model policies
 
-`GET /v1/pools`
+`GET /v1/routing`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Returns at most 100 policies ordered by slug. Continue with next_after while has_more is true.
 
@@ -42653,7 +45734,7 @@ HTTP 409: Expected revision conflict
 
 ## Read a workspace model policy
 
-`GET /v1/pools/{slug}`
+`GET /v1/routing/{slug}`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. A pool is invoked as pool/<slug>, subject to the calling key permitting the selected concrete candidate. A saved policy does not establish live qualification.
 
@@ -42715,9 +45796,9 @@ HTTP 409: Expected revision conflict
 
 ## Create or replace a workspace model policy
 
-`PUT /v1/pools/{slug}`
+`PUT /v1/routing/{slug}`
 
-Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. This operation does not invoke a model. Read back the saved revision. Restore a prior configuration using the current expected revision.
+Requires a current workspace API key with delegated pools:write. Platform supply pools, procurement prices and credentials are never exposed. Use revision zero to create, otherwise the current expected revision. Conflicts require read/reconcile; no automatic replay. Candidate aliases must be allowed by the key and visible in the workspace. The optional versioned strategy must be version 1 priority/weight or customer-price, or version 2 Auto. Version 1 customer-price mode requires explicit currency, unit, input-token and output-token assumptions. Version 2 Auto requires 2-8 declared response-compatible paths that reference top-level candidates, and an optional decider with an explicit customer currency, timeout, single-call, token and customer-charge bounds. The decider model must be a visible Chat model authorized for the saving key. Auto paths never add model grants. This operation does not invoke a model or resolve prices. Read back the saved revision. Restore a prior configuration using the current expected revision.
 
 Implementation: `implemented`. Operation: `setWorkspacePool`.
 
@@ -42789,7 +45870,7 @@ HTTP 409: Expected revision conflict
 
 ## Read immutable workspace policy revisions
 
-`GET /v1/pools/{slug}/history`
+`GET /v1/routing/{slug}/history`
 
 Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Returns at most 100 revisions descending. Use next_before when present. Prior configurations remain immutable.
 
@@ -42869,9 +45950,9 @@ HTTP 409: Expected revision conflict
 
 ## Validate a workspace model policy without dispatch
 
-`POST /v1/pools/preview`
+`POST /v1/routing/preview`
 
-Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters and priority/weight bands used by selection. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.
+Requires delegated pools:read. Validates a proposed workspace policy without saving or dispatching inference. Optional context simulates the same rule matching, declared-protocol/capability filters, versioned strategy and priority/weight bands used by selection. Context traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output and reasoning controls that the selected protocol cannot express are rejected explicitly instead of being silently dropped. In customer-price mode, only eligible candidates with a comparable customer selling price are ranked; missing or incomparable prices stay explicitly unknown and are never treated as free. The evaluation uses the strategy's explicit currency, unit, input-token and output-token assumptions and includes the selected whole-request context tier, request fee and minimum charge. Selection is deterministic: lower estimate, then higher priority, then higher weight, then alias order. When no candidate has a comparable price, selection falls back to priority/weight and reports why. In Auto mode, preview evaluates optional task/stage caller context against response-compatible paths without invoking the decider. It reports whether runtime would select from context, require the bounded decider, fall back or reject, plus the decider grant, comparable-price and input-bound checks. Preview calls are always zero and never dispatch inference or incur a decision charge. Weights describe a distribution, not a promise of the next selected model. A zero denominator means no selection. Provider procurement prices, offers and margins are never read. This does not validate a complete protocol input, prove live upstream access, reserve capacity, estimate actual charges or judge quality/value. Legacy bare configuration bodies remain accepted. Unknown context fields, unsupported protocols and out-of-bounds token traits are rejected.
 
 Implementation: `implemented`. Operation: `previewWorkspacePool`.
 
@@ -42939,6 +46020,9 @@ Content type: `application/json`.
         "rule_count": {
           "type": "integer"
         },
+        "strategy": {
+          "type": "object"
+        },
         "simulation": {
           "type": "object",
           "properties": {
@@ -42966,6 +46050,53 @@ Content type: `application/json`.
                 "no_eligible_candidates",
                 "candidates"
               ]
+            },
+            "strategy": {
+              "type": "object"
+            },
+            "selection_basis": {
+              "type": "string",
+              "enum": [
+                "not_evaluated",
+                "priority_weight",
+                "priority_weight_fallback",
+                "customer_price",
+                "auto_context",
+                "auto_decider_required",
+                "auto_rejected"
+              ]
+            },
+            "selected_path": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Auto path selected deterministically from caller context. Null when the runtime would require the decider, fall back or reject."
+            },
+            "selected_candidate": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fallback_reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "price_evaluation": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "decision": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "Bounded Auto decision evidence from preview. Preview reports calls as zero and live_dispatch as false because it never invokes the decider."
             },
             "live_dispatch": {
               "type": "boolean",
@@ -43006,6 +46137,18 @@ Content type: `application/json`.
                         "minimum": 0
                       }
                     }
+                  },
+                  "estimated_customer_charge_nanos": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "price_unknown_reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 }
               }
@@ -43030,9 +46173,9 @@ HTTP 409: Expected revision conflict
 
 ## Read the latest 100 workspace pool selections
 
-`GET /v1/pools/{slug}/selections`
+`GET /v1/routing/{slug}/selections`
 
-Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
+Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Auto selections include bounded decision outcome, path, fallback reason, failure, calls, tokens, latency and estimated customer decision charge when available; missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
 
 Implementation: `implemented`. Operation: `getWorkspacePoolSelections`.
 
@@ -43108,6 +46251,19 @@ Content type: `application/json`.
               "null"
             ],
             "description": "Returned HTTP status, not terminal stream completion or task acceptance."
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decision": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Bounded Auto decision outcome, path, fallback or failure reason, calls, tokens, latency and estimated customer decision charge. Null for non-Auto selections. No prompts, content, Provider identifiers or procurement prices."
           }
         }
       }
@@ -43128,7 +46284,7 @@ HTTP 409: Expected revision conflict
 
 ## Review: List workspace model policies
 
-`GET /api/v1/workspaces/{workspace}/pools`
+`GET /api/v1/workspaces/{workspace}/routing`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -43208,7 +46364,7 @@ HTTP 409: Expected revision conflict
 
 ## Review: Read a workspace model policy
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -43274,9 +46430,89 @@ HTTP 404: Scoped pool not found
 
 HTTP 409: Expected revision conflict
 
+## Review: Create or replace a workspace model policy
+
+`PUT /api/v1/workspaces/{workspace}/routing/{slug}`
+
+Workspace model pool management under a current member session with Write permission (Owner or Admin); an installation administrator can also update explicitly scoped records. Use revision zero to create, otherwise the current expected revision. Candidate aliases must be visible in the workspace.
+
+Implementation: `implemented`. Operation: `setWorkspaceReviewPool`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`slug` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+  "maxLength": 80
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/WorkspaceModelPool"
+}
+```
+
+### Responses
+
+HTTP 200: Workspace-scoped result; no-store.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/WorkspaceModelPool"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid configuration or cursor
+
+HTTP 401: Missing, expired or revoked credential
+
+HTTP 403: Required workspace write permission is absent
+
+HTTP 404: Scoped workspace not found
+
+HTTP 409: Expected revision conflict
+
 ## Review: Read immutable workspace policy revisions
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}/history`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}/history`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -43362,7 +46598,7 @@ HTTP 409: Expected revision conflict
 
 ## Review: Read the latest 100 workspace pool selections
 
-`GET /api/v1/workspaces/{workspace}/pools/{slug}/selections`
+`GET /api/v1/workspaces/{workspace}/routing/{slug}/selections`
 
 Read-only workspace review under a current member session with Read permission (including Viewer); an installation administrator can also inspect explicitly scoped records. No workspace API key or delegated agent credential is required or accepted as member authority. Authenticate before scope resolution; foreign or missing workspaces return 404. No-store. Customer charges only; no signing credentials or procurement information. Stored judgments remain attributed evidence, not platform guarantees.
 
@@ -50168,6 +53404,17 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`q` (query, optional)
+
+Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
+
+```json
+{
+  "type": "string",
+  "maxLength": 128
+}
+```
+
 `http_status` (query, optional)
 
 Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.
@@ -54289,8 +57536,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "model": {
       "type": "string"
     },
+    "store": {
+      "type": "boolean",
+      "const": false,
+      "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+    },
     "messages": {
       "type": "array",
+      "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
       "items": {
         "type": "object"
       }
@@ -54708,6 +57961,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "settings"
   ],
   "properties": {
+    "keyId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Selected API key in this workspace. Retained after revocation for explicit recovery; never grants invocation authority. Omitted on legacy drafts."
+    },
     "sessionId": {
       "oneOf": [
         {
@@ -54865,6 +58126,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "type": "object",
   "required": [
     "id",
+    "slug",
     "name"
   ],
   "properties": {
@@ -54872,8 +58134,65 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "string",
       "format": "uuid"
     },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "slug_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "name": {
       "type": "string"
+    }
+  }
+}
+```
+
+### CreatedMemberInvitation
+
+```json
+{
+  "type": "object",
+  "required": [
+    "invitation",
+    "token",
+    "accept_path",
+    "delivery"
+  ],
+  "properties": {
+    "invitation": {
+      "$ref": "#/components/schemas/MemberInvitation"
+    },
+    "token": {
+      "type": "string",
+      "description": "Returned once; only the digest is stored."
+    },
+    "accept_path": {
+      "type": "string",
+      "description": "Relative dashboard path for the one-time link."
+    },
+    "delivery": {
+      "type": "object",
+      "required": [
+        "state",
+        "email_sent"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "not_configured"
+          ]
+        },
+        "email_sent": {
+          "type": "boolean",
+          "const": false
+        }
+      }
     }
   }
 }
@@ -55578,12 +58897,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "event_types": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 2,
+      "maxItems": 4,
       "items": {
         "type": "string",
         "enum": [
           "pool.changed",
-          "evaluation.recorded"
+          "evaluation.recorded",
+          "incident.opened",
+          "incident.resolved"
         ]
       },
       "uniqueItems": true
@@ -55929,6 +59250,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
               "enum": [
                 "upstream_http_error",
                 "upstream_region_unavailable",
+                "upstream_account_restricted",
                 "upstream_timeout",
                 "upstream_connection_error",
                 "upstream_transport_error",
@@ -58072,8 +61394,20 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "action",
         "model",
         "group_id",
-        "url",
         "kind"
+      ],
+      "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+      "oneOf": [
+        {
+          "required": [
+            "url"
+          ]
+        },
+        {
+          "required": [
+            "workspace_asset_id"
+          ]
+        }
       ],
       "properties": {
         "action": {
@@ -58091,6 +61425,11 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "string",
           "format": "uri",
           "writeOnly": true
+        },
+        "workspace_asset_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Active workspace material; resolved to a short-lived capability only at dispatch."
         },
         "name": {
           "type": "string"
@@ -58744,6 +62083,234 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### MemberInvitation
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "organization_id",
+    "organization_name",
+    "organization_slug",
+    "project_id",
+    "project_name",
+    "project_slug",
+    "role",
+    "recipient_email",
+    "recipient_name",
+    "status",
+    "delivery",
+    "created_at",
+    "expires_at",
+    "accepted_at",
+    "revoked_at",
+    "invited_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "organization_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "organization_name": {
+      "type": "string"
+    },
+    "organization_slug": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "project_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_slug": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "viewer"
+      ]
+    },
+    "recipient_email": {
+      "type": "string"
+    },
+    "recipient_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "expired",
+        "canceled",
+        "accepted"
+      ]
+    },
+    "delivery": {
+      "type": "string",
+      "enum": [
+        "not_configured"
+      ],
+      "description": "No email provider is configured; the one-time link is the supported delivery."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "accepted_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "revoked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "invited_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Inviting member name; null for installation administration."
+    }
+  }
+}
+```
+
+### MemberInvitationCreate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "email",
+    "role"
+  ],
+  "properties": {
+    "email": {
+      "type": "string",
+      "maxLength": 254,
+      "description": "Intended recipient email. Acceptance requires the signed-in account email to match."
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200,
+      "description": "Optional member display name; defaults to the recipient account name."
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "viewer"
+      ]
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Workspace scope; null grants organization-wide access and requires organization-wide authority."
+    },
+    "expires_in_seconds": {
+      "type": "integer",
+      "minimum": 3600,
+      "maximum": 2592000,
+      "default": 604800
+    }
+  }
+}
+```
+
+### MemberInvitationPreview
+
+```json
+{
+  "allOf": [
+    {
+      "$ref": "#/components/schemas/MemberInvitation"
+    },
+    {
+      "type": "object",
+      "required": [
+        "caller_email",
+        "email_matches",
+        "already_accepted_by_caller"
+      ],
+      "properties": {
+        "caller_email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "email_matches": {
+          "type": "boolean"
+        },
+        "already_accepted_by_caller": {
+          "type": "boolean"
+        }
+      }
+    }
+  ]
+}
+```
+
+### MemberInvitationToken
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 512,
+      "description": "One-time invitation secret."
+    }
+  }
+}
+```
+
 ### MemberRoleChangeView
 
 ```json
@@ -59158,7 +62725,9 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "credit_policy",
         "grant_preparation",
         "media_liability",
-        "procurement_configuration"
+        "procurement_configuration",
+        "registration_policy",
+        "registration_review"
       ]
     },
     "category": {
@@ -59734,6 +63303,236 @@ Local `#/components/schemas/…` references resolve to these definitions.
       }
     }
   ]
+}
+```
+
+### RegistrationCounts
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pending",
+    "approved",
+    "rejected"
+  ],
+  "properties": {
+    "pending": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "approved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rejected": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### RegistrationPolicySnapshot
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "revision",
+    "updated_at",
+    "password_login_configured"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ],
+      "description": "disabled (invite/admin setup only) or approval_required (Limited Preview)."
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "password_login_configured": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### RegistrationQueuePage
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_cursor",
+    "counts",
+    "policy"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/RegistrationRequestRecord"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "counts": {
+      "$ref": "#/components/schemas/RegistrationCounts"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "revision",
+        "updated_at"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "approval_required"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+### RegistrationRequestRecord
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "email",
+    "applicant_name",
+    "organization_name",
+    "workspace_name",
+    "note",
+    "status",
+    "revision",
+    "created_at",
+    "reviewed_at",
+    "reviewed_by_kind",
+    "reviewed_by_label",
+    "decision_note",
+    "approved_organization_slug",
+    "approved_workspace_slug"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Internal API routing reference. Never display internal UUIDs in product UI."
+    },
+    "email": {
+      "type": "string"
+    },
+    "applicant_name": {
+      "type": "string"
+    },
+    "organization_name": {
+      "type": "string"
+    },
+    "workspace_name": {
+      "type": "string"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "reviewed_by_kind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "installation",
+        "operator",
+        null
+      ]
+    },
+    "reviewed_by_label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approved_organization_slug": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approved_workspace_slug": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
 }
 ```
 
@@ -60338,7 +64137,6 @@ Local `#/components/schemas/…` references resolve to these definitions.
     },
     "reason": {
       "type": "string",
-      "minLength": 1,
       "maxLength": 500
     }
   },
@@ -60347,8 +64145,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "currency",
     "schedule",
     "expected_version",
-    "idempotency_key",
-    "reason"
+    "idempotency_key"
   ]
 }
 ```
@@ -60473,7 +64270,17 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "owner_funded": {
       "type": "boolean",
       "readOnly": true,
-      "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+      "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+    },
+    "access_scope": {
+      "type": "string",
+      "enum": [
+        "commercial",
+        "personal",
+        "internal"
+      ],
+      "readOnly": true,
+      "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
     },
     "supplier": {
       "type": [
@@ -60561,7 +64368,12 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "supports_generate_content": {
       "type": "boolean",
       "default": false,
-      "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+      "description": "Native GenerateContent opt-in for static or managed gemini routes. Pair with supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, or supports_generate_content_streaming as needed."
+    },
+    "supports_generate_content_streaming": {
+      "type": "boolean",
+      "default": false,
+      "description": "Explicit native :streamGenerateContent SSE/JSON stream opt-in; requires supports_generate_content on a gemini route."
     },
     "supports_messages_streaming_tools": {
       "type": "boolean",
@@ -60640,6 +64452,19 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "format": "uuid",
       "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
     },
+    "personal_organization_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+    },
+    "access_scope": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "internal"
+      ],
+      "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
+    },
     "create_supplier": {
       "type": "boolean",
       "default": false,
@@ -60689,7 +64514,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "owner_funded": {
       "type": "boolean",
       "readOnly": true,
-      "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+      "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
     },
     "capabilities": {
       "$ref": "#/components/schemas/VendorCapabilities"
@@ -61966,7 +65791,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "estimator",
     "estimator_revision"
   ],
-  "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation additionally requires a positive frames_per_second control; seconds estimation may omit it. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
+  "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation requires a positive frame-rate control or an observed output frame rate. With allow_unmapped_output enabled, owner-funded generation accepts other supported combinations without an estimate. Customer-funded generation still requires a mapped pair. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
   "properties": {
     "estimator": {
       "type": "string",
@@ -61974,6 +65799,17 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "SeedancePixelsV1",
         "OutputSecondsV1"
       ]
+    },
+    "observed_frames_per_second": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295,
+      "description": "Observed output FPS for pixel estimates when no request FPS control exists. Never sent upstream."
+    },
+    "allow_unmapped_output": {
+      "type": "boolean",
+      "default": false,
+      "description": "Allow owner-funded generation for otherwise supported combinations without an effective output estimate."
     },
     "estimator_revision": {
       "type": "string",
@@ -62913,6 +66749,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "enum": [
         "pool.changed",
         "evaluation.recorded",
+        "incident.opened",
+        "incident.resolved",
         "subscription.test"
       ]
     },
@@ -62932,6 +66770,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "enum": [
             "pool",
             "evaluation",
+            "incident",
             "subscription"
           ]
         },
@@ -62961,6 +66800,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "revision",
     "name",
     "allowed_models",
+    "invocation_allowed",
+    "invocation_protocols",
     "expires_at_ms",
     "last_used_at_ms",
     "revoked",
@@ -62985,6 +66826,26 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "items": {
         "type": "string"
       }
+    },
+    "invocation_allowed": {
+      "type": "boolean",
+      "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+    },
+    "invocation_protocols": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "chat",
+          "responses",
+          "messages",
+          "content",
+          "decisions",
+          "embeddings",
+          "video"
+        ]
+      },
+      "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
     },
     "expires_at_ms": {
       "type": [
@@ -63525,6 +67386,212 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "candidates",
         "reject"
       ]
+    },
+    "strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Versioned selection strategy. Omitted legacy configurations use version 1 priority/weight. Version 1 supports priority/weight and customer price. Version 2 requires Auto with 2-8 declared response-compatible paths and an optional bounded decider. Auto evaluates caller routing context first and invokes the decider only when no context path matches. The decider may return only a declared, request-compatible path; unknown or incompatible decisions are failures, never silent substitutions. Missing or incomparable customer prices stay unknown and are never treated as free. Provider procurement rates never participate.",
+      "required": [
+        "version",
+        "mode"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "priority_weight",
+            "customer_price",
+            "auto"
+          ]
+        },
+        "customer_price": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Required exactly when version is 1 and mode is customer_price. Estimates an ordinary request in one explicit currency and unit. Estimates include the selected whole-request context tier, the request fee and the minimum charge; cached and reasoning discounts are never assumed. Ties use higher priority, then higher weight, then alias order.",
+          "required": [
+            "currency",
+            "unit",
+            "input_tokens",
+            "output_tokens"
+          ],
+          "properties": {
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "nanounits_per_million_tokens"
+              ]
+            },
+            "input_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000000
+            },
+            "output_tokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000000
+            }
+          }
+        },
+        "auto": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Required exactly when version is 2 and mode is auto. Paths reference top-level candidate aliases so Auto cannot expand the saved model inventory or the caller's grants. Caller context (task/stage) is evaluated before any decider call. The optional decider runs once, with the caller's key, grants and spending authority, under the declared timeout, token and customer-charge bounds. If the decider abstains, fails, times out, is cancelled or returns an unknown or response-incompatible path, the configured action either falls back to deterministic priority/weight or rejects the request before dispatch.",
+          "required": [
+            "paths"
+          ],
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "response_type",
+                  "candidates"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                    "maxLength": 64
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 280
+                  },
+                  "response_type": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "structured",
+                      "embedding"
+                    ]
+                  },
+                  "candidates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "task": {
+                    "type": "array",
+                    "maxItems": 16,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                      "maxLength": 64
+                    }
+                  },
+                  "stage": {
+                    "type": "array",
+                    "maxItems": 16,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+                      "maxLength": 64
+                    }
+                  }
+                }
+              }
+            },
+            "decider": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Optional single-round semantic decider. The model must be a visible Chat model granted to the invoking key and have a comparable customer selling price in the declared currency and unit; otherwise no paid call is made and the configured failure action applies. max_calls is fixed at one. max_input_tokens bounds the constructed decision prompt by a character estimate, not exact tokenization. max_output_tokens bounds the decision completion. max_spend_nanos is a customer-charge ceiling verified from the current customer price before the call and from reported usage afterwards. A missing, foreign-currency or non-nanounit customer price leaves the bound unverifiable and prevents the call.",
+              "required": [
+                "model",
+                "currency",
+                "timeout_ms",
+                "max_calls",
+                "max_input_tokens",
+                "max_output_tokens",
+                "max_spend_nanos",
+                "min_confidence"
+              ],
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "timeout_ms": {
+                  "type": "integer",
+                  "minimum": 50,
+                  "maximum": 5000
+                },
+                "max_calls": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1
+                },
+                "max_input_tokens": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "max_output_tokens": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                "max_spend_nanos": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000000
+                },
+                "min_confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "on_abstain": {
+                  "type": "string",
+                  "enum": [
+                    "fallback",
+                    "reject"
+                  ]
+                },
+                "on_failure": {
+                  "type": "string",
+                  "enum": [
+                    "fallback",
+                    "reject"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -63587,6 +67654,18 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "integer",
           "minimum": 1,
           "maximum": 10000000
+        },
+        "task": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+          "maxLength": 64,
+          "description": "Optional caller task context for Auto preview. It uses the same bounded normalization as x-niu-routing-context. Preview never invokes the decider."
+        },
+        "stage": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+          "maxLength": 64,
+          "description": "Optional caller workflow-stage context for Auto preview."
         }
       }
     }

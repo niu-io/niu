@@ -4,41 +4,31 @@ import ProviderModels from './ProviderModels';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useProviderParams, providerPathSegment } from '@/shell/provider-route';
-import { IconSearch } from '@tabler/icons-react';
+import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconDots as Dots, IconPlus as Plus, IconReceipt, IconSearch, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconPlus as Plus } from "@tabler/icons-react";
-import { IconDots as Dots } from "@tabler/icons-react";
-import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
-import { IconUsers } from "@tabler/icons-react";
-import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { useDashboardContext } from "@/shell/dashboard-context";
-import ProviderPropertiesFields from "./ProviderPropertiesFields";
 import ProviderEditor, { type ProviderConnectionCreate } from "@/features/providers/components/ProviderEditor";
 import PageHeader from "@/components/PageHeader";
 import { ListRowsSkeleton, TableSkeleton, WorkspaceShellSkeleton } from "@/components/PageSkeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError } from "@/features/providers/api";
+import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError, type ProviderConnection, type ProviderModel } from "@/features/providers/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
-import MediaOfferPublisher from "./MediaOfferPublisher";
+import MediaRatePublisher from "./MediaRatePublisher";
 import type { ProviderOffer } from "@niu-io/sdk/admin";
 import type { Operator } from "@/features/operators/api";
 
 import { type ProviderSetup } from '@/features/providers/provider-setup';
 
-type Business = ProviderSetup & { id: string; slug?: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
+type Business = ProviderSetup & { id: string; slug?: string; name: string; members: number };
 type ProviderMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
 type AdminData = {
   media_consumption?: MediaConsumptionRecord[];
@@ -48,31 +38,45 @@ type AdminData = {
 
   offers: ProviderOffer[];
   offers_has_more?: boolean;
-  earnings: {
-    id: string;
-    model_alias: string;
-    amount_nanos: string;
-    currency: string;
-    status: string;
-    created_at: string;
-  }[];
+};
+type SettlementPreview = {
+  currency: string;
+  from_ms: number | null;
+  cutoff_ms: number;
+  entry_count: number;
+  amount_nanos: string;
+  remaining_unpaid_nanos: string;
+  remaining_entry_count: number;
+};
+type SettlementResult = {
+  id?: string;
+  amount_nanos?: string;
+  entry_count?: number;
+  remaining_unpaid_nanos?: string;
 };
 
-function defaultReviewExpiry() {
-  const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
+function defaultSettlementCutoff() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
-function reviewExpiryMilliseconds(value: string) {
-  const expiry = Date.parse(value);
-  if (!Number.isFinite(expiry) || expiry <= Date.now()) {
-    throw new Error("Choose a valid review expiry in the future.");
-  }
-  return expiry;
+function settlementCutoffMs(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(Number(match[1]), month - 1, day, 23, 59, 59, 999);
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.getFullYear() !== Number(match[1]) ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  )
+    return null;
+  return date.getTime();
 }
-
-const sha256Pattern = "[0-9a-f]{64}";
 
 export default function ProviderAdministration() {
   const { t: uiT } = useUILocale();
@@ -95,7 +99,8 @@ export default function ProviderAdministration() {
 }
 function Administration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const { session } = useDashboardContext();
+  const { session, organization } = useDashboardContext();
+  const internal = session?.operating_mode === 'internal';
   const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
   const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/providers")?.data ?? null : null;
@@ -119,11 +124,11 @@ function Administration({ token }: { token: string }) {
   const [membersLoading, setMembersLoading] = useState(false);
   const [offerQuery, setOfferQuery] = useState("");
   const offerSearch = useRef<HTMLInputElement>(null);
-  const pricingTab = ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
+  const pricingTab = !internal && ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
   const setPricingTab = (value: string) => setSearch(current => { if (value === 'models') current.delete('view'); else current.set('view', value); return current; });
   useEffect(() => { setOfferQuery(""); }, [selected, section]);
-  const [mediaPublishing, setMediaPublishing] = useState(false);
-  const [mediaOfferModel, setMediaOfferModel] = useState("");
+  const [mediaRateModel, setMediaRateModel] = useState<string | null>(null);
+  const [mediaRateVersion, setMediaRateVersion] = useState(0);
   const textOffers = (data?.offers ?? []).filter(offer => offer.rate_kind !== "media");
   const mediaOffers = (data?.offers ?? []).filter(offer => offer.rate_kind === "media");
   const visibleOffers = textOffers.filter(offer => section !== "models" || offer.model_alias.toLowerCase().includes(offerQuery.trim().toLowerCase()));
@@ -147,7 +152,7 @@ function Administration({ token }: { token: string }) {
       setBusy(false);
       setError("");
       setNotice("");
-      setMediaPublishing(false);
+      setMediaRateModel(null);
     }
     previousProvider.current = selected;
     const cachedAdmin = selected && token
@@ -162,7 +167,7 @@ function Administration({ token }: { token: string }) {
   }, [selected, token]);
   const dialogOpener = useRef<HTMLElement | null>(null);
   const offerActionButtons = useRef(new Map<string, HTMLButtonElement>());
-  useEffect(() => { if (search.get('create') === 'supplier' || search.get('create') === 'provider') setDialog('create'); else if (search.get('properties') === 'supplier' || search.get('properties') === 'provider') setDialog('properties'); }, [search]);
+  useEffect(() => { if (search.get('create') === 'supplier' || search.get('create') === 'provider') setDialog('create'); }, [search]);
   const [operator, setOperator] = useState("");
   const [accounts, setAccounts] = useState<Operator[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
@@ -211,68 +216,85 @@ function Administration({ token }: { token: string }) {
   const [cachedInputRate, setCachedInputRate] = useState("");
   const [outputRate, setOutputRate] = useState("");
   const [reference, setReference] = useState("");
-  const [attempts, setAttempts] = useState<string[]>([]);
-  const [paymentEarnings, setPaymentEarnings] = useState<AdminData["earnings"]>([]);
-  const [earningCursor, setEarningCursor] = useState<string | null>(null);
-  const [earningLoading, setEarningLoading] = useState(false);
-  const [earningError, setEarningError] = useState("");
-  const [earningReload, setEarningReload] = useState(0);
-  const earningRequest = useRef<AbortController | null>(null);
-  const loadPaymentEarnings = async (before: string | null) => {
-    earningRequest.current?.abort();
-    const controller = new AbortController();
-    earningRequest.current = controller;
-    setEarningLoading(true);
-    setEarningError("");
-    try {
-      const page = await request<{ data: AdminData["earnings"]; next_cursor: string | null }>(token,
-        `/api/v1/providers/${selected}/earnings?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
-        "GET", undefined, controller.signal);
-      if (controller.signal.aborted) return;
-      if (!Array.isArray(page.data) || !(page.next_cursor === null || (typeof page.next_cursor === "string" && page.next_cursor.length > 0)) ||
-        (before !== null && page.next_cursor === before) || page.data.some(item =>
-          !item || typeof item.id !== "string" || !item.id || typeof item.model_alias !== "string" || !item.model_alias.trim() ||
-          typeof item.currency !== "string" || !/^[A-Z]{3}$/.test(item.currency) || typeof item.amount_nanos !== "string" || !/^[0-9]{1,19}$/.test(item.amount_nanos) || BigInt(item.amount_nanos) > 9_223_372_036_854_775_807n ||
-          !["accrued", "paid"].includes(item.status) || typeof item.created_at !== "string" || !Number.isFinite(Date.parse(item.created_at))) || new Set(page.data.map(item => item.id)).size !== page.data.length)
-        throw new Error("Earning history could not be read. Please retry.");
-      setPaymentEarnings(current => {
-        if (!before) return page.data;
-        const combined = new Map(current.map(item => [item.id, item]));
-        for (const item of page.data) combined.set(item.id, item);
-        return [...combined.values()];
-      });
-      const paid = new Set(page.data.filter(item => item.status === "paid").map(item => item.id));
-      setAttempts(current => current.filter(id => !paid.has(id)));
-      setEarningCursor(page.next_cursor);
-    } catch (reason) {
-      if (!controller.signal.aborted) setEarningError(reason instanceof Error ? reason.message : "Earning history could not be loaded.");
-    } finally {
-      if (!controller.signal.aborted) setEarningLoading(false);
-    }
-  };
+  const [settlementCurrency, setSettlementCurrency] = useState("");
+  const [settlementCutoff, setSettlementCutoff] = useState(defaultSettlementCutoff);
+  const [settlementPreview, setSettlementPreview] = useState<SettlementPreview | null>(null);
+  const [settlementPreviewLoading, setSettlementPreviewLoading] = useState(false);
+  const [settlementPreviewError, setSettlementPreviewError] = useState("");
+  const [settlementPreviewReload, setSettlementPreviewReload] = useState(0);
+  const settlementPreviewRequest = useRef<AbortController | null>(null);
   useEffect(() => {
-    setPaymentEarnings([]);
-    setEarningCursor(null);
-    setEarningError("");
-    if (dialog === "settlement") void loadPaymentEarnings(null);
-    return () => earningRequest.current?.abort();
-  }, [dialog, selected, token, earningReload]);
+    settlementPreviewRequest.current?.abort();
+    setSettlementPreview(null);
+    setSettlementPreviewError("");
+    if (dialog !== "settlement" || !selected || !settlementCurrency || !settlementCutoff) {
+      setSettlementPreviewLoading(false);
+      return;
+    }
+    const cutoffMs = settlementCutoffMs(settlementCutoff);
+    if (cutoffMs === null) {
+      setSettlementPreviewLoading(false);
+      setSettlementPreviewError("Choose a valid cutoff date.");
+      return;
+    }
+    const controller = new AbortController();
+    settlementPreviewRequest.current = controller;
+    setSettlementPreviewLoading(true);
+    void request<{ data: SettlementPreview }>(
+      token,
+      `/api/v1/providers/${selected}/settlements/preview?currency=${encodeURIComponent(settlementCurrency)}&cutoff_ms=${cutoffMs}`,
+      "GET",
+      undefined,
+      controller.signal,
+    )
+      .then(result => {
+        if (controller.signal.aborted) return;
+        const preview = result?.data;
+        if (
+          !preview ||
+          preview.currency !== settlementCurrency ||
+          preview.cutoff_ms !== cutoffMs ||
+          preview.from_ms !== null ||
+          !Number.isSafeInteger(preview.entry_count) ||
+          preview.entry_count < 0 ||
+          !Number.isSafeInteger(preview.remaining_entry_count) ||
+          preview.remaining_entry_count < 0 ||
+          typeof preview.amount_nanos !== "string" ||
+          !/^[0-9]{1,19}$/.test(preview.amount_nanos) ||
+          BigInt(preview.amount_nanos) > 9_223_372_036_854_775_807n ||
+          typeof preview.remaining_unpaid_nanos !== "string" ||
+          !/^[0-9]{1,40}$/.test(preview.remaining_unpaid_nanos)
+        )
+          throw new Error("Settlement preview could not be read. Please retry.");
+        setSettlementPreview(preview);
+      })
+      .catch(reason => {
+        if (!controller.signal.aborted)
+          setSettlementPreviewError(reason instanceof Error ? reason.message : "Settlement preview could not be loaded.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSettlementPreviewLoading(false);
+      });
+    return () => controller.abort();
+  }, [dialog, selected, token, settlementCurrency, settlementCutoff, settlementPreviewReload]);
 
   const [paymentKey, setPaymentKey] = useState("");
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [notice, setNotice] = useState("");
   const [offerId, setOfferId] = useState("");
-  const [validUntil, setValidUntil] = useState(defaultReviewExpiry);
-  const [supplyRightsHash, setSupplyRightsHash] = useState("");
-  const [supplyCapabilityHash, setSupplyCapabilityHash] = useState("");
-  const [supplierDataHandlingHash, setSupplierDataHandlingHash] = useState("");
-  const [modelIdentityHash, setModelIdentityHash] = useState("");
-  const [protocolMatrixHash, setProtocolMatrixHash] = useState("");
-  const [protocolMatrixVersion, setProtocolMatrixVersion] = useState("");
-  const [offerDataHandlingHash, setOfferDataHandlingHash] = useState("");
-  const [availabilityHash, setAvailabilityHash] = useState("");
-  const [agreedRatesHash, setAgreedRatesHash] = useState("");
-  const [revocationReasonHash, setRevocationReasonHash] = useState("");
+  const [offerSnapshot, setOfferSnapshot] = useState<ProviderOffer | null>(null);
+  const [configuredAliases, setConfiguredAliases] = useState<string[]>([]);
+  useEffect(() => {
+    if (dialog !== "offer" || offerId || !selected || !token) { setConfiguredAliases([]); return; }
+    const controller = new AbortController();
+    void cachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/vendors?supplier=${encodeURIComponent(selected)}`, { signal: controller.signal })
+      .then(async res => {
+        const scoped = (res?.data ?? []).filter(c => (c.provider ?? c.supplier)?.id === selected);
+        const pages = await Promise.all(scoped.map(c => cachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(c.id)}/models`, { signal: controller.signal }).catch(() => ({ data: [] as ProviderModel[] }))));
+        if (!controller.signal.aborted) setConfiguredAliases([...new Set(pages.flatMap(p => (p?.data ?? []).filter(m => !m.capabilities?.video_schema).map(m => m.alias)))].sort());
+      }).catch(() => { if (!controller.signal.aborted) setConfiguredAliases([]); });
+    return () => controller.abort();
+  }, [dialog, offerId, selected, token]);
   useEffect(() => {
     const controller = new AbortController();
     const force = lastProvidersRevision.current !== revision;
@@ -361,10 +383,10 @@ function Administration({ token }: { token: string }) {
       }
       const offer = result.data.offers.find(item => targetId ? item.id === targetId : item.model_alias === (targetAlias || draftAlias));
       if ((targetId || targetAlias) && (!offer || offer.rate_kind === "media")) throw new Error("The current text rates could not be found. Reload before saving.");
-      if (offer?.currency && currency && offer.currency !== currency) throw new Error(`These saved rates use ${offer.currency}. Publish new ${currency} terms without copying amounts across currencies.`);
+      if (offer?.currency && currency && offer.currency !== currency) throw new Error(uiF("These saved rates use {0}. Publish new {1} terms without copying amounts across currencies.", [offer.currency, currency]));
       const decimal = (value: string) => {
         const amount = BigInt(value), fraction = (amount % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
-        return (amount / 1_000_000_000n).toString() + (fraction ? "." + fraction : "");
+        return `${amount / 1_000_000_000n}${fraction ? `.${fraction}` : ""}`;
       };
       setData(result.data);
       if (replaceDraft) {
@@ -395,50 +417,35 @@ function Administration({ token }: { token: string }) {
       void loadOfferDetails(selectedOfferId, "", true, draftAlias);
     }
 
-    setValidUntil(defaultReviewExpiry());
-    setSupplyRightsHash("");
-    setSupplyCapabilityHash("");
-    setSupplierDataHandlingHash("");
-    setModelIdentityHash("");
-    setProtocolMatrixHash("");
-    setProtocolMatrixVersion("");
-    setOfferDataHandlingHash("");
-    setAvailabilityHash("");
-    setAgreedRatesHash("");
-    setRevocationReasonHash("");
+    setOfferSnapshot(data?.offers.find(item => item.id === selectedOfferId) ?? null);
     setPaymentSubmitted(false);
     setPaymentKey(crypto.randomUUID());
     setReference("");
-    setAttempts([]);
+    setSettlementPreview(null);
+    setSettlementPreviewError("");
+    setSettlementCutoff(defaultSettlementCutoff());
+    const payable = (data?.balances ?? []).filter(
+      balance =>
+        /^[A-Z]{3}$/.test(balance.currency) &&
+        /^[0-9]+$/.test(balance.unpaid_nanos) &&
+        BigInt(balance.unpaid_nanos) > 0n,
+    );
+    const preferred = payable.find(balance => balance.currency === currency) ?? payable[0];
+    setSettlementCurrency(preferred?.currency ?? "");
   }
 
   const selectedBusiness = businesses.find(item => item.id === selected);
-  const supplierQualified = selectedBusiness?.qualification_status === "qualified";
-  const sectionTitle = {
-    overview: "Overview",
-    usage: "Usage",
-    members: "Members",
-    models: "Models",
-    settlements: "Settlements",
-  }[section] ?? uiT("Providers");
+  const sectionTitle = uiT({ overview: "Overview", usage: "Usage", members: "Members", models: "Models", settlements: "Settlements" }[section] ?? "Providers");
   const sectionAction =
     section === "members" ? (
       <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage portal access")} title={uiT("Manage portal access")} disabled={!data} onClick={() => open("membership")}>
         <Plus size={16} />
         <span>{uiT("Manage portal access")}</span>
       </Button>
-    ) : section === "models" && pricingTab === "text" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}>
-        <Plus size={16} />
-        <span>{uiT("Set agreed rates")}</span>
-      </Button>
-    ) : section === "models" && pricingTab === "media" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set up media offer")} title={uiT("Set up media offer")} disabled={!data} onClick={() => { setMediaOfferModel(""); setMediaPublishing(true); }}><Plus size={16} /><span>{uiT("Set up media offer")}</span></Button>
-    ) : section === "settlements" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}>
-        <Plus size={16} />
-        <span>{uiT("Record payment")}</span>
-      </Button>
+    ) : !internal && section === "models" && pricingTab === "text" && textOffers.length > 0 ? (
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button>
+    ) : !internal && section === "settlements" ? (
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}><Plus size={16} /><span>{uiT("Record payment")}</span></Button>
     ) : null;
   function nanos(value: string) {
     if (!/^\d+(\.\d{1,9})?$/.test(value.trim()))
@@ -457,10 +464,8 @@ function Administration({ token }: { token: string }) {
     const scope = operationScope.current;
     setBusy(true);
     setError("");
+    let settlementNotice = "";
     try {
-      const validUntilMs = dialog.includes("qualification")
-        ? reviewExpiryMilliseconds(validUntil)
-        : undefined;
       if (dialog === "membership" && !accounts.some(account => account.id === operator))
         throw new Error("Choose an account to manage Provider access.");
       if (dialog === "membership")
@@ -486,65 +491,64 @@ function Administration({ token }: { token: string }) {
           expected_revision: currentOffer?.revision ?? null,
         });
       }
-      if (dialog === "supplier-qualification")
-        await request(token, `/api/v1/providers/${selected}/qualification`, "PUT", {
-          supply_rights_sha256: supplyRightsHash,
-          supply_capability_sha256: supplyCapabilityHash,
-          data_handling_sha256: supplierDataHandlingHash,
-          valid_until_ms: validUntilMs,
-        });
-      if (dialog === "offer-qualification") {
-        const offer = data?.offers.find((item) => item.id === offerId);
-        if (!offer) throw new Error("This offer is no longer available. Refresh and try again.");
-        await request(token, `/api/v1/providers/${selected}/offers/${offerId}/qualification`, "PUT", {
-          rate_revision: offer.revision,
-          model_identity_sha256: modelIdentityHash,
-          protocol_matrix_sha256: protocolMatrixHash,
-          protocol_matrix_version: protocolMatrixVersion,
-          data_handling_sha256: offerDataHandlingHash,
-          availability_sha256: availabilityHash,
-          agreed_rates_sha256: agreedRatesHash,
-          valid_until_ms: validUntilMs,
-        });
+      if (dialog === "offer-enable" || dialog === "offer-pause") {
+        if (!offerSnapshot || offerSnapshot.id !== offerId) throw new Error("This offer is no longer available. Refresh and try again.");
+        if (dialog === "offer-enable") await request(token, `/api/v1/providers/${selected}/offers/${offerId}/authorization`, "PUT", {rate_revision: offerSnapshot.revision});
+        else await request(token, `/api/v1/providers/${selected}/offers/${offerId}`, "PATCH", {active:false});
       }
-      if (dialog === "supplier-revocation")
-        await request(token, `/api/v1/providers/${selected}/qualification/revoke`, "POST", {
-          reason_sha256: revocationReasonHash,
-        });
-      if (dialog === "offer-revocation")
-        await request(token, `/api/v1/providers/${selected}/offers/${offerId}/qualification/revoke`, "POST", {
-          reason_sha256: revocationReasonHash,
-        });
       if (dialog === "settlement") {
-        const selectedEarnings = paymentEarnings.filter(item => attempts.includes(item.id));
-        if (!attempts.length || attempts.length > 1000 || new Set(attempts).size !== attempts.length ||
-          selectedEarnings.length !== attempts.length || selectedEarnings.some(item => item.status !== "accrued") ||
-          new Set(selectedEarnings.map(item => item.currency)).size !== 1)
-          throw new Error("Select up to 1,000 unpaid earnings in one currency.");
+        const cutoffMs = settlementCutoffMs(settlementCutoff);
+        if (
+          !settlementPreview ||
+          !settlementCurrency ||
+          cutoffMs === null ||
+          settlementPreview.currency !== settlementCurrency ||
+          settlementPreview.cutoff_ms !== cutoffMs ||
+          settlementPreview.entry_count === 0
+        )
+          throw new Error("Choose a currency and cutoff with unpaid earnings.");
         if (!reference.trim() || /[\u0000-\u001f\u007f]/.test(reference) || new TextEncoder().encode(reference).length > 200)
           throw new Error("Enter a payment reference of at most 200 bytes without control characters.");
-        earningRequest.current?.abort();
-        setEarningLoading(false);
+        settlementPreviewRequest.current?.abort();
+        setSettlementPreviewLoading(false);
         setPaymentSubmitted(true);
-        await request(
+        const result = await request<{ data: SettlementResult }>(
           token,
           `/api/v1/providers/${selected}/settlements`,
           "POST",
           {
             idempotency_key: paymentKey,
             payment_reference: reference,
-            attempt_ids: attempts,
+            currency: settlementCurrency,
+            cutoff_ms: cutoffMs,
           },
         );
+        const recorded = result?.data;
+        if (
+          recorded &&
+          typeof recorded.amount_nanos === "string" &&
+          /^[0-9]+$/.test(recorded.amount_nanos) &&
+          typeof recorded.entry_count === "number" &&
+          Number.isSafeInteger(recorded.entry_count) &&
+          recorded.entry_count > 0 &&
+          typeof recorded.remaining_unpaid_nanos === "string" &&
+          /^[0-9]+$/.test(recorded.remaining_unpaid_nanos)
+        ) {
+          settlementNotice = uiF(
+            "Recorded {0} across {1} unpaid earnings. {2} remains unpaid in {3}. No funds were transferred.",
+            [
+              money(recorded.amount_nanos, settlementCurrency),
+              recorded.entry_count.toLocaleString(readUILocale()),
+              money(recorded.remaining_unpaid_nanos, settlementCurrency),
+              settlementCurrency,
+            ],
+          );
+        }
       }
       if (scope !== operationScope.current) return;
-      setNotice(dialog === "settlement"
-        ? "External payment recorded. No funds were transferred."
-        : dialog === "supplier-qualification" || dialog === "offer-qualification"
-          ? "Qualification review recorded. No discount or model-equivalence claim is implied."
-          : dialog === "supplier-revocation" || dialog === "offer-revocation"
-            ? "Qualification review revoked; affected offers are paused."
-            : "Provider configuration saved.");
+      setNotice(dialog === "settlement" ? settlementNotice || uiT("External payment recorded. No funds were transferred.")
+        : dialog === "offer-enable" ? uiT("Offer enabled. Provider access and customer selling prices remain separate.")
+        : dialog === "offer-pause" ? uiT("Offer paused.") : uiT("Provider configuration saved."));
       setDialog("");
       setRevision((value) => value + 1);
     } catch (reason) {
@@ -570,7 +574,7 @@ function Administration({ token }: { token: string }) {
       // a second creation of the already persisted business/configuration.
       setDialog("");
       setSearch(current => { current.delete("create"); return current; }, { replace: true });
-      setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
+      setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : internal ? "Provider created. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
       const ownership = await request<{ data: { id: string } }>(token, `/api/v1/vendors/${encodeURIComponent(created.data.id)}/provider`, "GET");
       setSelected(ownership.data.id);
     } catch (reason) {
@@ -586,15 +590,31 @@ function Administration({ token }: { token: string }) {
     }
   }
   const sectionDescription = {
-    overview: 'Connect API access and model routes, then manage commercial rates and payments.',
-    models: 'Model connections, availability and commercial offers.',
-    consumption: 'Provider usage and accrued purchase charges over the last 90 days.',
+    overview: internal ? 'Connect an API key and discover models for internal use.' : 'Connect API access and model routes, then manage commercial rates and payments.',
+    models: internal ? 'Manage model connections and availability.' : 'Model connections, availability and commercial offers.',
+    usage: internal ? 'Provider usage over the last 90 days.' : 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
     members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
   }[section];
+  const payableBalances = (data?.balances ?? []).filter(
+    balance =>
+      /^[A-Z]{3}$/.test(balance.currency) &&
+      /^[0-9]+$/.test(balance.unpaid_nanos) &&
+      BigInt(balance.unpaid_nanos) > 0n,
+  );
+  const settlementBalance = payableBalances.find(balance => balance.currency === settlementCurrency);
+  const settlementCutoffValue = settlementCutoffMs(settlementCutoff);
+  const settlementReady =
+    dialog === "settlement" &&
+    !settlementPreviewLoading &&
+    !settlementPreviewError &&
+    settlementPreview !== null &&
+    settlementPreview.currency === settlementCurrency &&
+    settlementPreview.cutoff_ms === settlementCutoffValue &&
+    settlementPreview.entry_count > 0;
   return (
     <>
-      <div className="supplier-section-heading"><p>{sectionDescription}</p></div>
+      {sectionDescription && <div className="supplier-section-heading"><p>{uiT(sectionDescription)}</p></div>}
       <PageHeader
         title={sectionTitle}
         action={businesses.length > 0 && <div className="provider-header-actions">
@@ -604,33 +624,32 @@ function Administration({ token }: { token: string }) {
 
       {notice && (
         <p role="status" className="provider-message">
-          {notice}
+          {uiT(notice)}
         </p>
       )}
       {error && !dialog && (
         <p role="alert" className="provider-message">
-          {error} <Button variant="ghost" size="sm" onClick={() => { setError(""); setRevision(value => value + 1); }}>{uiT("Retry")}</Button>
+          {uiT(error)} <Button variant="ghost" size="sm" onClick={() => { setError(""); setRevision(value => value + 1); }}>{uiT("Retry")}</Button>
         </p>
       )}
       {loading || (selected && !data && !error) ? <WorkspaceShellSkeleton label={uiT("Loading providers…")} /> : error && !data ? null : businesses.length === 0 ? (
         <section className="panel provider-access-message">
           <Building2 size={28} aria-hidden="true" />
           <h2>{uiT("No providers yet")}</h2>
-          <p>
-            {uiT("Add a provider to manage its models, pricing, and payments.")}</p>
+          <p>{internal ? uiT("Add a provider to manage its API keys and models.") : uiT("Add a provider to manage its models, pricing, and payments.")}</p>
           <Button onClick={() => open("create")}><Plus size={16} />{uiT("Add provider")}</Button>
         </section>
       ) : (
         <section className="provider-admin-panel supplier-admin-surface" data-section={section}>
           {section === "overview" && selectedBusiness && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("API connection")}</h2></div>
-            <p className="px-6 pb-4 text-sm text-muted-foreground">{uiT("Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.")}</p>
+            <p className="px-6 pb-4 text-sm text-muted-foreground">{internal ? uiT("Niu attempts to discover models when you connect. A saved API key does not verify access to the Provider.") : uiT("Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.")}</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>{uiT("Setup step")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>
-              <TableRow><TableCell>{uiT("1. Connect upstream API key")}</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_api_keys, selectedBusiness.api_keys ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? uiT("Connect API key") : uiT("Manage API keys")}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>{uiT("2. Add model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{uiT("Configure models")}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>{uiT("3. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>{uiT("1. Connect upstream API key")}</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_api_keys, selectedBusiness.api_keys ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? uiT("Connect API key") : uiT("Manage keys")}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>{internal ? uiT("2. Review discovered models") : uiT("2. Add model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{internal ? uiT("View models") : uiT("Configure models")}</Link></Button></TableCell></TableRow>
+              {!internal && <TableRow><TableCell>{uiT("3. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>}
             </TableBody></ShadcnTable>
-            <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>
+            {!internal && <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>}
           </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
@@ -643,8 +662,8 @@ function Administration({ token }: { token: string }) {
               <TableCell>{member.name || uiT("Unnamed account")}</TableCell><TableCell>{member.role === "manager" ? uiT("Manager") : uiT("Viewer")}</TableCell><TableCell>{member.revoked ? uiT("Account revoked") : member.active ? uiT("Active") : uiT("Revoked")}</TableCell>
               <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={uiF("Edit access for {0}", [member.name || uiT("unnamed account")])} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>{uiT("Edit access")}</Button></TableCell>
             </TableRow>)}</TableBody>
-          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
-          {section === "overview" && <div className="provider-admin-block">
+          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
+          {!internal && section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Model offers")}</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>{uiT("Models")}</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
               <div><span>{data?.offers_has_more ? uiT("Loaded text offers") : uiT("Text offers")}</span><strong>{textOffers.length}</strong></div>
@@ -653,64 +672,47 @@ function Administration({ token }: { token: string }) {
             </div></div>
           </div>}
           {(section === "overview" || section === "models") && <>
-          {(section !== "models" || pricingTab !== "models") && <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
-            <div className="provider-admin-section-heading">
-              <h2>{uiT("Provider qualification")}</h2>
-              <Badge variant={supplierQualified ? "default" : "secondary"}>
-                {supplierQualified ? uiT("Qualified") : uiT("Qualification required")}
-              </Badge>
-            </div>
-            <div className="provider-qualification-content">
-              <p>{section === "models" ? uiT("Provider qualification and an offer review are required before activation.") : uiT("Review supply rights, capabilities, and data handling before enabling offers. Model offers and their agreed rates are reviewed separately.")}</p>
-              <div className="provider-qualification-actions">
-                <Button variant="outline" onClick={() => open("supplier-qualification")}>{uiT("Review Provider")}</Button>
-                {supplierQualified && <Button variant="outline" onClick={() => open("supplier-revocation")}>{uiT("Revoke review")}</Button>}
-              </div>
-            </div>
-          </div>}
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList>}
-            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={!!session?.permissions?.manage_operators} offers={data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} qualified={supplierQualified} onQualification={() => open("supplier-qualification")} onReviewOffer={id => open("offer-qualification", id)} onOffer={(modelAlias, media) => { if (media) { setMediaOfferModel(modelAlias); setMediaPublishing(true); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
+            {!internal && <div className="mb-4 max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList></div>}
+            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin} offers={internal ? [] : data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} commercialEnabled={!internal} onEnableOffer={id => open("offer-enable", id)} onOffer={(modelAlias, media) => { if (media) { setPricingTab("media"); setMediaRateModel(modelAlias); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
             <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
+            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 pb-4"><div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={offerSearch} type="search" className="pl-9" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
-              visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
+              visibleOffers.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
               <div className="table-wrap">
                 <ShadcnTable className="provider-ledger supplier-text-offers">
                   <TableHeader>
                     <TableRow>
                       <TableHead>{uiT("Model alias")}</TableHead>
-                      <TableHead>{uiT("Input / 1M tokens")}</TableHead>
-                      <TableHead>{uiT("Cache read / 1M tokens")}</TableHead>
-                      <TableHead>{uiT("Output / 1M tokens")}</TableHead>
-                      <TableHead>{uiT("Qualification")}</TableHead>
+                      <TableHead className="text-right">{uiT("Input / 1M tokens")}</TableHead>
+                      <TableHead className="text-right">{uiT("Cache read / 1M tokens")}</TableHead>
+                      <TableHead className="text-right">{uiT("Output / 1M tokens")}</TableHead>
+
                       <TableHead>{uiT("Offer status")}</TableHead>
-                      {section === "models" && <TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
+                      {section === "models" && <TableHead className="supplier-offer-actions text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {visibleOffers.map((offer) => (
                       <TableRow key={offer.id}>
                         <TableCell>{offer.model_alias}<dl className="mt-3 grid gap-2 text-sm sm:hidden">
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd>{money(offer.prompt_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd>{money(offer.completion_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Qualification")}</dt><dd>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.prompt_rate, offer.currency)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd className="tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.completion_rate, offer.currency)}</dd></div>
+
                           <div><dt className="text-xs text-muted-foreground">{uiT("Offer status")}</dt><dd>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</dd></div>
                         </dl></TableCell>
-                        <TableCell>{money(offer.prompt_rate, offer.currency)}</TableCell>
-                        <TableCell>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
-                        <TableCell>{money(offer.completion_rate, offer.currency)}</TableCell>
-                        <TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</Badge></TableCell>
+                        <TableCell className="text-right tabular-nums">{money(offer.prompt_rate, offer.currency)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
+                        <TableCell className="text-right tabular-nums">{money(offer.completion_rate, offer.currency)}</TableCell>
+
                         <TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell>
                         {section === "models" && <TableCell className="supplier-offer-actions"><DropdownMenu>
                           <DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                           <DropdownMenuItem onSelect={() => open("offer", offer.id)}>{uiT("Edit rates")}</DropdownMenuItem>
-                          {!offer.qualified
-                            ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>{uiT("Review offer")}</DropdownMenuItem>
-                            : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>{uiT("Revoke review")}</DropdownMenuItem>}
+                          {offer.active ? <DropdownMenuItem onSelect={() => open("offer-pause", offer.id)}>{uiT("Pause offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-enable", offer.id)}>{uiT("Enable offer")}</DropdownMenuItem>}
                           </DropdownMenuContent>
                         </DropdownMenu></TableCell>}
                       </TableRow>
@@ -719,47 +721,47 @@ function Administration({ token }: { token: string }) {
                 </ShadcnTable>
               </div>
             ) : (
-              <div className="provider-empty-state">
+              <div className="provider-empty-state space-y-3">
                 <strong>{uiT("No agreed model rates")}</strong>
+                {!internal && <div><Button variant="outline" size="sm" disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button></div>}
               </div>
             )}
             </TabsContent>
             {section === "models" && <TabsContent value="media">
-              {mediaOffers.length > 0 && <div className="table-wrap mb-6"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Qualification")}</TableHead><TableHead>{uiT("Offer status")}</TableHead><TableHead className="supplier-offer-actions"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>{mediaOffers.map(offer => <TableRow key={offer.id}><TableCell>{offer.model_alias}</TableCell><TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? uiT("Qualified") : uiT("Review required")}</Badge></TableCell><TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell><TableCell className="supplier-offer-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setMediaOfferModel(offer.model_alias); setMediaPublishing(true); }}>{uiT("Update configuration")}</DropdownMenuItem>{!offer.qualified ? <DropdownMenuItem disabled={!supplierQualified} onSelect={() => open("offer-qualification", offer.id)}>{uiT("Review offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-revocation", offer.id)}>{uiT("Revoke review")}</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
-              <div className="px-6"><MediaRateHistory key={selected} token={token} supplier={selected} /></div>
+              <div><MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} /></div>
             </TabsContent>}
             </Tabs>
-            {data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
+            {!internal && data?.offers_has_more && <div className="py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}
-          {(section === "overview" || section === "settlements") && <div className="provider-admin-block">
+          {!internal && (section === "overview" || section === "settlements") && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Provider payables")}</h2></div>
             <div className="provider-balance-list">
               {data?.balances?.length ? data.balances.map(balance => <div className="provider-balance-row" key={balance.currency}>
                 <div><span>{uiT("Accrued ·")}{" "}{balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
                 <div><span>{uiT("Unpaid")}</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
                 <div><span>{uiT("Paid")}</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
-              </div>) : <p className="provider-inline-empty">{uiT("No provider charges recorded yet.")}</p>}
+              </div>) : <Empty className="provider-inline-empty min-h-32 rounded-xl bg-muted/55 py-6"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No provider charges recorded yet.")}</EmptyDescription></EmptyHeader></Empty>}
             </div>
           </div>}
           {section === "usage" && <>
-            <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>
-            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Requests")}</TableHead><TableHead>{uiT("Input / output tokens")}</TableHead><TableHead>{uiT("Accrued charges")}</TableHead><TableHead>{uiT("Unpaid")}</TableHead></TableRow></TableHeader><TableBody>
-              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
-            <MediaConsumption records={data?.media_consumption} administrator />
+            {(Boolean(data?.consumption?.length) || (Array.isArray(data?.media_consumption) && data.media_consumption.length === 0)) && <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>}
+            {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead>{!internal && <><TableHead className="text-right">{uiT("Accrued charges")}</TableHead><TableHead className="text-right">{uiT("Unpaid")}</TableHead></>}</TableRow></TableHeader><TableBody>
+              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell className="text-right tabular-nums">{Number(row.requests).toLocaleString(readUILocale())}</TableCell><TableCell className="text-right tabular-nums">{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString(readUILocale())} ({BigInt(row.prompt_tokens).toLocaleString(readUILocale())} / {BigInt(row.completion_tokens).toLocaleString(readUILocale())})</TableCell>{!internal && <><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell><TableCell className="text-right tabular-nums">{money(row.unpaid_nanos,row.currency)}</TableCell></>}</TableRow>)}
+            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
+            <MediaConsumption records={data?.media_consumption} administrator internal={internal} />
           </>}
           {section === "settlements" && <>
             <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
-            {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead>{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
-              {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
+            {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
+              {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
+            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
           </>}
         </section>
       )}
-      {mediaPublishing && <MediaOfferPublisher key={selected} token={token} supplier={selected} supplierSlug={businesses.find(item => item.id === selected)?.slug} initialModel={mediaOfferModel} onClose={() => setMediaPublishing(false)} onSaved={() => { setMediaPublishing(false); setRevision(value => value + 1); setNotice("Media offer saved. Review is required before activation."); }} />}
+      {mediaRateModel !== null && <MediaRatePublisher key={`${selected}:${mediaRateModel}`} token={token} supplier={selected} initialModel={mediaRateModel} onClose={() => setMediaRateModel(null)} onSaved={() => { setMediaRateModel(null); setRevision(value => value + 1); setMediaRateVersion(value => value + 1); setNotice(uiT("Media rate saved.")); }} />}
       <Dialog open={Boolean(dialog)} onOpenChange={(value) => {
-          if (!value && !busy) { offerRequest.current?.abort(); offerReadSequence.current += 1; setDialog(""); setSearch(current => { current.delete("create"); current.delete("properties"); return current; }, { replace: true }); }
+          if (!value && !busy) { offerRequest.current?.abort(); offerReadSequence.current += 1; setDialog(""); setSearch(current => { current.delete("create"); return current; }, { replace: true }); }
         }}>
       <DialogContent className="niu-modal vendor-dialog" showCloseButton={false} onCloseAutoFocus={event => {
         const opener = dialogOpener.current;
@@ -768,31 +770,28 @@ function Administration({ token }: { token: string }) {
         opener.focus();
       }}>
         <DialogHeader className="niu-modal-heading flex-row items-start justify-between text-left">
-          <div><DialogTitle>{
+          <div><DialogTitle>{uiT(
           {
             create: "New provider",
-            properties: "Provider properties",
             membership: "Manage provider portal access",
             offer: offerId ? "Edit agreed rates" : "Set agreed rates",
             settlement: "Record a confirmed external payment",
-            "supplier-qualification": "Review Provider qualification",
-            "offer-qualification": "Review offer qualification",
-            "supplier-revocation": "Revoke Provider qualification",
-            "offer-revocation": "Revoke offer qualification",
-          }[dialog] ?? ""
-        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : dialog.includes("qualification") || dialog.includes("revocation") ? uiT("Installation-only evidence review") : uiT("Provider management")}</DialogDescription></div>
+            "offer-enable": "Enable offer",
+            "offer-pause": "Pause offer",
+          }[dialog] ?? "")
+        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : uiT("Provider management")}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
         {error && (
           <p role="alert" className="error-text">
-            {error}
+            {uiT(error)}
           </p>
         )}
         {dialog === "offer" && <>
           {offerLoad?.loading && <ListRowsSkeleton rows={2} label={uiT("Loading current agreed rates…")} />}
           {(offerLoad?.conflict || !offerLoad?.ready) && !offerLoad?.loading && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void loadOfferDetails(offerId, offerLoad?.conflict ? alias : "", Boolean(offerId) || Boolean(offerLoad?.conflict))}>{uiT("Reload saved rates")}</Button><p className="text-sm text-muted-foreground">{offerId || offerLoad?.conflict ? uiT("Reloading replaces your unsaved changes.") : uiT("Reloading preserves your unsaved values.")}</p></div>}
         </>}
-        {dialog === "create" ? <ProviderEditor token={token} connection={null} disabled={busy} onCreate={createProvider} onSave={async () => {}} /> : dialog === "properties" ? <ProviderPropertiesFields providerId={selected} providerName={selectedBusiness?.name ?? ""} token={token} /> : (<form
+        {dialog === "create" ? <ProviderEditor token={token} connection={null} operatingMode={session?.operating_mode} organizationId={organization?.id} disabled={busy} onCreate={createProvider} onSave={async () => {}} /> : (<form
           onSubmit={(event) => void submit(event)}
           className="provider-admin-form"
         >
@@ -833,16 +832,11 @@ function Administration({ token }: { token: string }) {
           {dialog === "offer" && (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-offer-alias">{uiT("Existing upstream model alias")}</Label>
-                <Input
-                  id="supplier-offer-alias"
-                  disabled={busy || offerLoad?.loading}
-                  required
-                  maxLength={200}
-                  value={alias}
-                  readOnly={Boolean(offerId)}
-                  onChange={(event) => setAlias(event.target.value)}
-                />
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="supplier-offer-alias">{uiT("Existing upstream model alias")}</Label>
+                  {!offerId && configuredAliases.length > 0 && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="sm" disabled={busy || offerLoad?.loading}><span>{uiT("Choose configured model")}</span><ChevronDown size={14} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-64 overflow-y-auto"><DropdownMenuRadioGroup value={alias} onValueChange={setAlias}>{configuredAliases.map(item => <DropdownMenuRadioItem key={item} value={item}>{item}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+                </div>
+                <Input id="supplier-offer-alias" disabled={busy || offerLoad?.loading} required maxLength={200} value={alias} readOnly={Boolean(offerId)} onChange={(event) => setAlias(event.target.value)} />
               </div>
               <p className="text-sm text-muted-foreground">{uiT("Prices in")}{" "}{currency || uiT("the platform currency (configure in Admin)")}.</p>
               <div className="grid gap-2">
@@ -886,142 +880,122 @@ function Administration({ token }: { token: string }) {
           {dialog === "settlement" && (
             <>
               <p>
-                {uiT("This records an external payment that has already completed. It does not initiate a transfer. All entries must be unpaid and use the same currency.")}</p>
-              <label>
-                {uiT("External payment reference")}<Input
-                  required
-                  maxLength={200}
-                  disabled={busy || paymentSubmitted}
-                  value={reference}
-                  onChange={(event) => setReference(event.target.value)}
-                />
-              </label>
-              <fieldset className="provider-payment-selection">
-                <legend>{uiT("Select unpaid earnings")}</legend>
-                <div className="provider-payment-entries">
-                  {paymentEarnings
-                    .filter((item) => item.status === "accrued")
-                    .map((item) => (
-                      <label key={item.id}>
-                        <Checkbox
+                {uiT("This records an external payment that has already completed. It does not initiate a transfer. Niu includes every unpaid earning in the selected currency through the cutoff.")}</p>
+              {payableBalances.length === 0 ? (
+                <Empty className="provider-inline-empty min-h-28 rounded-xl bg-muted/55 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
+              ) : (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="settlement-currency">{uiT("Currency")}</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          id="settlement-currency"
+                          variant="outline"
+                          className="w-full justify-between font-normal"
                           disabled={busy || paymentSubmitted}
-                          checked={attempts.includes(item.id)}
-                          onCheckedChange={(checked) =>
-                            setAttempts((current) =>
-                              checked === true
-                                ? [...current, item.id]
-                                : current.filter((id) => id !== item.id),
-                            )
-                          }
-                        />
-                        <span>
-                          {item.model_alias}
-                          <small>{new Date(item.created_at).toLocaleString(readUILocale())}</small>
-                        </span>
-                        <strong>
-                          {money(item.amount_nanos, item.currency)}
-                        </strong>
-                      </label>
-                    ))}
-                  {!paymentEarnings.some(
-                    (item) => item.status === "accrued",
-                  ) && !earningLoading && !earningError && <p>{uiT("No unpaid earnings in the loaded history.")}</p>}
-                </div>
-                {earningLoading && <ListRowsSkeleton rows={3} label={uiT("Loading earnings…")} />}
-                {earningError && <p role="alert">{earningError}</p>}
-                {earningError ? <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => earningCursor ? void loadPaymentEarnings(earningCursor) : setEarningReload(value => value + 1)}>{uiT("Retry earnings")}</Button> : earningCursor && <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => void loadPaymentEarnings(earningCursor)}>{uiT("Older earnings")}</Button>}
-              </fieldset>
-              <p className="provider-payment-total">
-                {attempts.length}{" "}{uiT("requests selected")}{[
-                  ...new Set(
-                    paymentEarnings
-                      .filter((item) => attempts.includes(item.id))
-                      .map((item) => item.currency),
-                  ),
-                ].map((code) => (
-                  <strong key={code}>
-                    {money(
-                      (
-                        paymentEarnings
-                          .filter(
-                            (item) =>
-                              attempts.includes(item.id) &&
-                              item.currency === code,
-                          )
-                          .reduce(
-                            (sum, item) => sum + BigInt(item.amount_nanos),
-                            0n,
-                          ) ?? 0n
-                      ).toString(),
-                      code,
+                        >
+                          <span>{settlementCurrency || uiT("Choose currency")}</span>
+                          <span className="flex items-center gap-2 text-muted-foreground">
+                            {settlementBalance && money(settlementBalance.unpaid_nanos, settlementCurrency)}
+                            <ChevronDown size={16} />
+                          </span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                        <DropdownMenuRadioGroup value={settlementCurrency} onValueChange={setSettlementCurrency}>
+                          {payableBalances.map(balance => (
+                            <DropdownMenuRadioItem key={balance.currency} value={balance.currency}>
+                              {balance.currency} · {money(balance.unpaid_nanos, balance.currency)}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="settlement-cutoff">{uiT("Earnings through")}</Label>
+                    <Input
+                      id="settlement-cutoff"
+                      type="date"
+                      required
+                      disabled={busy || paymentSubmitted}
+                      value={settlementCutoff}
+                      onChange={event => setSettlementCutoff(event.target.value)}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {uiT("Includes unpaid earnings created on or before this date, through the end of the day in your local time. Later earnings remain unpaid.")}
+                    </p>
+                  </div>
+                  <div className="provider-payment-selection" aria-live="polite" aria-busy={settlementPreviewLoading}>
+                    {settlementPreviewLoading && <ListRowsSkeleton rows={1} label={uiT("Calculating unpaid earnings…")} />}
+                    {settlementPreviewError && (
+                      <div className="space-y-2">
+                        <p role="alert">{uiT(settlementPreviewError)}</p>
+                        <Button type="button" variant="outline" disabled={busy || paymentSubmitted} onClick={() => setSettlementPreviewReload(value => value + 1)}>
+                          {uiT("Retry preview")}
+                        </Button>
+                      </div>
                     )}
-                  </strong>
-                ))}
-              </p>
-              <p>
-                {uiT("The recorded amount is the exact sum of the selected earnings. After submission, the reference and selection are locked so retries record the same payment.")}</p>
+                    {settlementPreview && !settlementPreviewLoading && !settlementPreviewError && (
+                      <>
+                        <p className="provider-payment-total">
+                          <span>{uiF("Unpaid earnings included: {0}", [settlementPreview.entry_count.toLocaleString(readUILocale())])}</span>
+                          <strong>{money(settlementPreview.amount_nanos, settlementPreview.currency)}</strong>
+                        </p>
+                        {settlementPreview.entry_count === 0 ? (
+                          <p>{uiT("No unpaid earnings match this cutoff.")}</p>
+                        ) : settlementPreview.remaining_entry_count === 0 ? (
+                          <p>{uiF("No unpaid earnings remain in {0}.", [settlementPreview.currency])}</p>
+                        ) : (
+                          <p>{uiF("{0} remains unpaid in {1} across {2} earnings.", [
+                            money(settlementPreview.remaining_unpaid_nanos, settlementPreview.currency),
+                            settlementPreview.currency,
+                            settlementPreview.remaining_entry_count.toLocaleString(readUILocale()),
+                          ])}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="settlement-reference">{uiT("External payment reference")}</Label>
+                    <Input
+                      id="settlement-reference"
+                      required
+                      maxLength={200}
+                      disabled={busy || paymentSubmitted}
+                      value={reference}
+                      onChange={(event) => setReference(event.target.value)}
+                    />
+                  </div>
+                  <p>
+                    {uiT("The recorded amount is the exact sum of the unpaid earnings included. After submission, the reference, currency and cutoff are locked so retries record the same payment.")}</p>
+                </>
+              )}
             </>
           )}
-          {dialog === "supplier-qualification" && <>
-            <p>{uiT("Enter fingerprints for the evidence reviewed in the confidential procurement system. Lowercase SHA-256 values are required; do not paste or upload the source documents here.")}</p>
-            <Label htmlFor="supplier-rights-hash">{uiT("Supply-rights evidence SHA-256")}</Label>
-            <Input id="supplier-rights-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplyRightsHash} onChange={event => setSupplyRightsHash(event.target.value)} />
-            <Label htmlFor="supplier-capability-hash">{uiT("Supply-capability evidence SHA-256")}</Label>
-            <Input id="supplier-capability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplyCapabilityHash} onChange={event => setSupplyCapabilityHash(event.target.value)} />
-            <Label htmlFor="supplier-data-handling-hash">{uiT("Data-handling evidence SHA-256")}</Label>
-            <Input id="supplier-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={supplierDataHandlingHash} onChange={event => setSupplierDataHandlingHash(event.target.value)} />
-            <Label htmlFor="supplier-qualification-expiry">{uiT("Review valid until")}</Label>
-            <Input id="supplier-qualification-expiry" type="datetime-local" required value={validUntil} onChange={event => setValidUntil(event.target.value)} />
-            <p>{uiT("Qualification status records an administrator’s review. It does not independently verify resale rights or establish a discounted customer price.")}</p>
-          </>}
-          {dialog === "offer-qualification" && <>
-            <p>{uiT("Review the model and the currently agreed-rate revision. A rate change clears this review and pauses the offer until it is reviewed again.")}</p>
-            <Label htmlFor="offer-model-identity-hash">{uiT("Model-identity evidence SHA-256")}</Label>
-            <Input id="offer-model-identity-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={modelIdentityHash} onChange={event => setModelIdentityHash(event.target.value)} />
-            <Label htmlFor="offer-protocol-matrix-hash">{uiT("Protocol test-matrix SHA-256")}</Label>
-            <Input id="offer-protocol-matrix-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={protocolMatrixHash} onChange={event => setProtocolMatrixHash(event.target.value)} />
-            <Label htmlFor="offer-protocol-matrix-version">{uiT("Protocol matrix version")}</Label>
-            <Input id="offer-protocol-matrix-version" required maxLength={100} value={protocolMatrixVersion} onChange={event => setProtocolMatrixVersion(event.target.value)} />
-            <Label htmlFor="offer-data-handling-hash">{uiT("Offer data-handling evidence SHA-256")}</Label>
-            <Input id="offer-data-handling-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={offerDataHandlingHash} onChange={event => setOfferDataHandlingHash(event.target.value)} />
-            <Label htmlFor="offer-availability-hash">{uiT("Availability evidence SHA-256")}</Label>
-            <Input id="offer-availability-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={availabilityHash} onChange={event => setAvailabilityHash(event.target.value)} />
-            <Label htmlFor="offer-agreed-rates-hash">{uiT("Agreed-rate evidence SHA-256")}</Label>
-            <Input id="offer-agreed-rates-hash" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={agreedRatesHash} onChange={event => setAgreedRatesHash(event.target.value)} />
-            <Label htmlFor="offer-qualification-expiry">{uiT("Review valid until")}</Label>
-            <Input id="offer-qualification-expiry" type="datetime-local" required value={validUntil} onChange={event => setValidUntil(event.target.value)} />
-            <p>{uiT("The current rate revision is attached automatically. Its internal reference is not displayed. A qualified status is not a claim of model equivalence or discount.")}</p>
-          </>}
-          {(dialog === "supplier-revocation" || dialog === "offer-revocation") && <>
-            <p>{dialog === "supplier-revocation" ? uiT("Revoking this Provider review pauses all of its offers.") : uiT("Revoking this offer review pauses this offer.")}{" "}{uiT("Store the detailed reason in the confidential procurement system; Niu records only its SHA-256 fingerprint.")}</p>
-            <Label htmlFor="qualification-revocation-reason">{uiT("Revocation reason SHA-256")}</Label>
-            <Input id="qualification-revocation-reason" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder={uiT("64 lowercase hexadecimal characters")} value={revocationReasonHash} onChange={event => setRevocationReasonHash(event.target.value)} />
+          {(dialog === "offer-enable" || dialog === "offer-pause") && offerSnapshot && <>
+            <p>{offerSnapshot.model_alias}</p>
+            <p>{dialog === "offer-enable" ? uiT("Enable this offer at its current agreed rates. A working Provider connection, customer selling price and workspace authorization are still required; upstream access is not verified.") : uiT("Pause this offer to stop new requests using it. Existing requests and billing records remain available.")}</p>
+            {offerSnapshot.rate_kind !== "media" && <p>{uiT("Input / 1M tokens")}: {money(offerSnapshot.prompt_rate, offerSnapshot.currency)} · {uiT("Output / 1M tokens")}: {money(offerSnapshot.completion_rate, offerSnapshot.currency)}</p>}
+            {dialog === "offer-enable" && (offerSnapshot.rate_kind === "media" || offerSnapshot.cached_prompt_rate != null || offerSnapshot.cache_write_prompt_rate != null || offerSnapshot.reasoning_completion_rate != null || !!offerSnapshot.context_tiers?.length) && <p>{uiT("Additional rates or tiers may apply. Review all saved rates before enabling.")}</p>}
           </>}
           <Button
             type="submit"
-            variant={dialog.includes("revocation") ? "destructive" : "default"}
+            variant={dialog === "offer-pause" ? "destructive" : "default"}
             disabled={
               busy ||
               (dialog === "offer" && (!offerLoad?.ready || offerLoad.loading || offerLoad.conflict || offerLoad.token !== token || offerLoad.supplier !== selected || offerLoad.scope !== operationScope.current)) ||
               (dialog === "membership" && (accountsLoading || !operator)) ||
-              (dialog === "settlement" &&
-                (attempts.length === 0 ||
-                  new Set(
-                    paymentEarnings
-                      .filter((item) => attempts.includes(item.id))
-                      .map((item) => item.currency),
-                  ).size !== 1))
+              (dialog === "settlement" && !settlementReady)
             }
           >
             {busy
               ? uiT("Saving…")
               : dialog === "settlement"
                 ? uiT("Record confirmed payment")
-                : dialog === "supplier-qualification" || dialog === "offer-qualification"
-                  ? uiT("Record review")
-                  : dialog.includes("revocation")
-                    ? uiT("Revoke and pause offers")
-                    : uiT("Save")}
+                : dialog === "offer-enable" ? uiT("Enable offer")
+                  : dialog === "offer-pause" ? uiT("Pause offer") : uiT("Save")}
           </Button>
         </form>)}
       </DialogContent>

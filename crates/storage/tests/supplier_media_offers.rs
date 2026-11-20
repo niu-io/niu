@@ -1,6 +1,5 @@
 use niu_storage::{
-    MIGRATOR, ProviderOfferInput, ProviderOfferQualificationInput, ProviderQualificationInput,
-    Store, StoreError, SupplierMediaOfferInput,
+    MIGRATOR, OperatorAuditActor, ProviderOfferInput, Store, StoreError, SupplierMediaOfferInput,
 };
 use serde_json::json;
 use sqlx::{PgPool, Row};
@@ -55,6 +54,12 @@ async fn media_offer_has_no_text_prices_and_replays_without_replacing_newer_revi
         input.vendor_revision.to_string()
     );
     assert!(choices["data"][0]["offer_revision"].is_null());
+    assert!(choices["data"][0]["offer_id"].is_null());
+    assert_eq!(choices["data"][0]["offer_active"], false);
+    assert_eq!(choices["data"][0]["offer_qualified"], false);
+    assert_eq!(choices["data"][0]["offer_current"], false);
+    assert_eq!(choices["data"][0]["route_ready"], true);
+    assert_eq!(choices["data"][0]["meter"], json!(null));
     let choice = choices["data"][0].as_object().unwrap();
     for forbidden in [
         "credential_ciphertext",
@@ -65,6 +70,11 @@ async fn media_offer_has_no_text_prices_and_replays_without_replacing_newer_revi
     ] {
         assert!(!choice.contains_key(forbidden));
     }
+    let (offer_id, saved_revision) = store
+        .publish_supplier_media_offer_with_offer(supplier, &input)
+        .await
+        .unwrap();
+    assert_eq!(saved_revision, input.revision);
     assert_eq!(
         store
             .publish_supplier_media_offer(supplier, &input)
@@ -72,13 +82,14 @@ async fn media_offer_has_no_text_prices_and_replays_without_replacing_newer_revi
             .unwrap(),
         input.revision
     );
-    assert_eq!(
-        store
-            .publish_supplier_media_offer(supplier, &input)
-            .await
-            .unwrap(),
-        input.revision
-    );
+    let bound = store
+        .supplier_media_offer_models(supplier, None, 1)
+        .await
+        .unwrap();
+    assert_eq!(bound["data"][0]["offer_id"], offer_id.to_string());
+    assert_eq!(bound["data"][0]["offer_current"], true);
+    assert_eq!(bound["data"][0]["offer_active"], false);
+    assert_eq!(bound["data"][0]["offer_qualified"], false);
     let row=sqlx::query("SELECT rate_kind,currency,prompt_rate,completion_rate FROM provider_offer_revisions WHERE id=$1").bind(input.revision).fetch_one(&pool).await.unwrap();
     assert_eq!(row.get::<String, _>("rate_kind"), "media");
     assert!(row.get::<Option<String>, _>("currency").is_none());
@@ -167,35 +178,13 @@ async fn stale_bindings_and_foreign_ownership_cannot_publish_or_renew_qualificat
         .fetch_one(&pool)
         .await
         .unwrap();
-    let expiry = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-        + 86400000;
     store
-        .qualify_provider_business(
+        .enable_authorized_provider_offer(
             supplier,
-            &ProviderQualificationInput {
-                supply_rights_sha256: "a".repeat(64),
-                supply_capability_sha256: "b".repeat(64),
-                data_handling_sha256: "c".repeat(64),
-                valid_until_ms: expiry,
-            },
+            offer,
+            input.revision,
+            OperatorAuditActor::Installation,
         )
-        .await
-        .unwrap();
-    let review = ProviderOfferQualificationInput {
-        rate_revision: input.revision,
-        model_identity_sha256: "d".repeat(64),
-        protocol_matrix_sha256: "e".repeat(64),
-        protocol_matrix_version: "video-v1".into(),
-        data_handling_sha256: "f".repeat(64),
-        availability_sha256: "1".repeat(64),
-        agreed_rates_sha256: "2".repeat(64),
-        valid_until_ms: expiry,
-    };
-    store
-        .qualify_provider_offer(supplier, offer, &review)
         .await
         .unwrap();
     assert!(
@@ -207,11 +196,6 @@ async fn stale_bindings_and_foreign_ownership_cannot_publish_or_renew_qualificat
             .await
             .unwrap()
     );
-    sqlx::query("UPDATE provider_offers SET active=TRUE WHERE id=$1")
-        .bind(offer)
-        .execute(&pool)
-        .await
-        .unwrap();
     let scope = store.default_workspace().await.unwrap();
     let operation = store
         .create_operation(scope, "video-fixture")
@@ -260,12 +244,18 @@ async fn stale_bindings_and_foreign_ownership_cannot_publish_or_renew_qualificat
     );
     assert!(
         store
-            .qualify_provider_offer(supplier, offer, &review)
+            .enable_authorized_provider_offer(
+                supplier,
+                offer,
+                input.revision,
+                OperatorAuditActor::Installation,
+            )
             .await
             .is_err()
     );
+    let previous_revision = input.revision;
     input.revision = Uuid::new_v4();
-    input.expected_revision = Some(review.rate_revision);
+    input.expected_revision = Some(previous_revision);
     assert!(matches!(
         store.publish_supplier_media_offer(supplier, &input).await,
         Err(StoreError::Conflict)

@@ -3,15 +3,18 @@
   (() => {
     document.documentElement.toggleAttribute('data-docs-home', /^\/docs\/?$/.test(location.pathname));
     document.documentElement.toggleAttribute('data-api-reference', /\/api(?:\/|$)/.test(location.pathname));
-    let embeddedHelp = false;
-    try { embeddedHelp = window.parent !== window && window.parent.location.origin === location.origin && new URLSearchParams(location.search).get('embed') === 'help'; } catch {}
-    document.documentElement.toggleAttribute('data-docs-embedded', embeddedHelp);
     let theme = 'system';
     let loc = '';
     try {
       const saved = localStorage.getItem('niu-dashboard-theme');
       if (saved === 'light' || saved === 'dark') theme = saved;
-      loc = localStorage.getItem('niu-dashboard-locale') || '';
+      const queryLang = new URLSearchParams(location.search).get('lang');
+      if (queryLang) {
+        loc = /^zh\b/i.test(queryLang) ? 'zh-CN' : 'en';
+        localStorage.setItem('niu-dashboard-locale', loc);
+      } else {
+        loc = localStorage.getItem('niu-dashboard-locale') || '';
+      }
     } catch {}
     const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';

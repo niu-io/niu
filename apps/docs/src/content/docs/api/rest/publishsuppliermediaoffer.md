@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/providers/{provider}/media-offers`
 
-Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer qualification. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor reviewed digests establish live protocol qualification.
+Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer authorization. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor an administrator authorization establishes live protocol availability.
 
 Operation: `publishSupplierMediaOffer`.
 
@@ -147,12 +147,18 @@ Content type: `application/json`.
     "data": {
       "type": "object",
       "required": [
-        "revision"
+        "revision",
+        "offer_id"
       ],
       "properties": {
         "revision": {
           "type": "string",
           "format": "uuid"
+        },
+        "offer_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Stable Provider offer identity for the returned revision. Enabling the returned revision uses this identity; it is not a display label."
         }
       }
     }
@@ -190,4 +196,4 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer qualification. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor reviewed digests establish live protocol qualification.
+Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer authorization. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor an administrator authorization establishes live protocol availability.

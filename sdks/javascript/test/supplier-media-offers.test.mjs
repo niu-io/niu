@@ -17,10 +17,10 @@ test('draft offer choices use scoped bounded reads and preserve exact revisions'
 });
 test('offer publication sends only pinned bindings and explicitly replays one receipt after uncertainty',async()=>{
  const calls=[];const abort=new AbortController();
- const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{calls.push({url,init});if(calls.length===1)throw new Error('uncertain');return Response.json({data:{revision:id}});}});
+ const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{calls.push({url,init});if(calls.length===1)throw new Error('uncertain');return Response.json({data:{revision:id,offer_id:id}});}});
  await assert.rejects(client.publishSupplierMediaOffer(id,{...input,customer_price:'must-not-send',prompt_rate:'must-not-send'},{signal:abort.signal}),/uncertain/);
  assert.equal(calls.length,1);
- assert.deepEqual(await client.publishSupplierMediaOffer(id,input),{data:{revision:id}});
+ assert.deepEqual(await client.publishSupplierMediaOffer(id,input),{data:{revision:id,offer_id:id}});
  assert.equal(calls.length,2);assert.equal(calls[0].init.body,calls[1].init.body);
  assert.deepEqual(JSON.parse(calls[0].init.body),input);
  assert.ok(calls[0].url.endsWith(`/providers/${id}/media-offers`));assert.equal(calls[0].init.method,'POST');assert.equal(calls[0].init.signal,abort.signal);
@@ -33,7 +33,7 @@ test('invalid or lossy offer bindings never produce a request',()=>{
  assert.equal(calls,0);
 });
 test('offer writes preserve exact decimal revisions above the browser integer range',async()=>{
- const calls=[];const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{calls.push({url,init});return Response.json({data:{revision:id}});}});
+ const calls=[];const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{calls.push({url,init});return Response.json({data:{revision:id,offer_id:id}});}});
  const exact={...input,vendor_revision:'9007199254740993',model_revision:'9223372036854775807'};
  await client.publishSupplierMediaOffer(id,exact);
  assert.deepEqual(JSON.parse(calls[0].init.body),exact);

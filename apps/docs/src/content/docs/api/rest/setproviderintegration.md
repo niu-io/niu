@@ -70,6 +70,10 @@ Location: **path**. **Required.**
         "openrouter",
         "newapi",
         "litellm",
+        "fastrouter",
+        "babelark",
+        "qiniu",
+        "deepseek",
         "custom"
       ]
     },
@@ -116,6 +120,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom",
             null
           ]
@@ -126,6 +134,10 @@ Content type: `application/json`.
             "openrouter",
             "newapi",
             "litellm",
+            "fastrouter",
+            "babelark",
+            "qiniu",
+            "deepseek",
             "custom"
           ]
         },

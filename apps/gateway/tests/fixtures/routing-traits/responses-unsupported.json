@@ -1,0 +1,28 @@
+{
+  "model": "pool/assistant",
+  "input": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "See" },
+        { "type": "input_image", "image_url": "https://example.invalid/image.png" }
+      ]
+    }
+  ],
+  "stream": true,
+  "tools": [
+    {
+      "type": "function",
+      "name": "lookup",
+      "parameters": { "type": "object" }
+    }
+  ],
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "name": "answer",
+      "schema": { "type": "object" }
+    }
+  },
+  "reasoning": { "effort": "low" }
+}

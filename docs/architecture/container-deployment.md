@@ -10,7 +10,7 @@ Users should not need to assemble separate gateway, UI, proxy, and worker servic
 
 ## Startup and shutdown
 
-Startup validates configuration, connects to PostgreSQL, applies compatible schema migrations, loads the configuration snapshot and starts background work before becoming ready. Invalid configuration or a missing secret required by saved data must stop startup with a clear error. Configure installation administration explicitly; the optional built-in demo account is customer-scoped and must not receive platform administration automatically.
+Startup validates configuration, connects to PostgreSQL, applies compatible schema migrations, loads the configuration snapshot and starts background work before becoming ready. Invalid configuration or a missing secret required by saved data must stop startup with a clear error. Configure installation administration explicitly. Enabling the optional built-in demo account with `NIU_DEMO_ACCOUNT_ENABLED=1` requires an explicit `NIU_DEMO_ACCOUNT_PASSWORD` (startup fails without one, and the account remains restricted to a loopback bind or an `https://` authentication origin), and it stays customer-scoped unless `NIU_DEMO_PLATFORM_ADMIN=1` grants that one identity. Production leaves this unset. A fresh production installation does not publish a default account password.
 
 Back up PostgreSQL before upgrading the application image, and record the image digest alongside the backup. The current embedded SQL migrations run transactionally on PostgreSQL. If a migration fails, startup must remain unavailable; the failed migration and its DDL transaction are not recorded as successful. Keep the database intact, use the migration error to repair the blocking schema or restore the pre-upgrade backup, then retry with the same pinned image. Do not point an older application image at a database that has already completed a newer migration unless that downgrade is explicitly supported.
 
@@ -39,3 +39,22 @@ Liveness describes process health. Readiness checks required dependencies and th
 ## Packaging requirements
 
 Images will use pinned build inputs, run as a non-root user, publish software bill of materials and image digests, and exclude research, development credentials, private source, and local build files. Release compatibility will include core version, schema version, and migration state.
+
+The release workflow builds Linux AMD64 and ARM64 images from the tagged checkout.
+Before publishing release assets it independently reads the registry without
+credentials, checks each runtime configuration's source labels and content hashes,
+and writes `IMAGE_DIGEST` alongside `SOURCE_COMMIT` and `SHA256SUMS`. The installer
+uses that digest for installation and upgrades; an unavailable pinned image is a
+failure, not permission to substitute another build. This publication gate does
+not replace staging acceptance or a fresh installation of the resulting artifact.
+
+Starting with v0.3.1, a missing `IMAGE_DIGEST` stops installation and upgrade.
+Releases through v0.3.0 without `IMAGE_DIGEST` retain the legacy image-tag and remote
+tagged-source fallback with an explicit warning. The installer never tags an
+arbitrary local checkout as a requested release. Legacy fallback does not repair
+an existing tag/asset provenance mismatch; publish a new accepted patch instead.
+
+GitHub creates new container packages as private by default. Maintainers must
+make the package publicly readable before the anonymous publication gate can
+succeed; repository visibility alone is insufficient. See the
+[GitHub container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).

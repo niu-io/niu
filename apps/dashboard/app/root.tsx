@@ -1,27 +1,85 @@
-import { RouterProvider } from 'react-router';
-import { PlatformCurrencyProvider } from './shell/platform-currency';
+import { lazy, Suspense, type ReactNode } from 'react';
+import { Links, Meta, Outlet, RouterProvider, Scripts, ScrollRestoration } from 'react-router';
 import { BrandingProvider } from './shell/branding';
-import { applyTheme, readTheme } from './shell/theme';
 import { applyLocale, readLocale } from './shell/locale';
-import { createDashboardRouter } from './routes';
+import { PlatformCurrencyProvider } from './shell/platform-currency';
+import AppError from './shell/route-error';
+import { DataRouterPresenceContext } from './shell/router-context';
+import RouterPending from './shell/RouterPending';
+import { applyTheme, readTheme } from './shell/theme';
 import './styles.css';
 
-let browserRouter: ReturnType<typeof createDashboardRouter> | undefined;
+const StandaloneRouter = lazy(async () => {
+  const { createDashboardRouter } = await import('./router-tree');
+  return {
+    default: function StandaloneRouter() {
+      applyTheme(readTheme());
+      applyLocale(readLocale());
+      return <RouterProvider router={createDashboardRouter()} useTransitions />;
+    },
+  };
+});
 
-function getBrowserRouter() {
-  if (!browserRouter) {
-    applyTheme(readTheme());
-    applyLocale(readLocale());
-    browserRouter = createDashboardRouter();
-  }
-  return browserRouter;
+function isFrameworkModeRuntime(): boolean {
+  if (typeof window === 'undefined') return true;
+  return '__reactRouterContext' in window;
 }
 
+export function Layout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#f6f7f9" />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href={`${import.meta.env.BASE_URL}assets/favicon-32.png`}
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href={`${import.meta.env.BASE_URL}assets/apple-touch-icon.png`}
+        />
+        <title>Niu</title>
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        {children}
+        <ScrollRestoration getKey={location => location.pathname} />
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
+export function HydrateFallback() {
+  return <RouterPending />;
+}
+
+export const ErrorBoundary = AppError;
+
 export default function DashboardRoot() {
+  if (isFrameworkModeRuntime()) {
+    return (
+      <DataRouterPresenceContext.Provider value={true}>
+        <PlatformCurrencyProvider>
+          <BrandingProvider>
+            <Outlet />
+          </BrandingProvider>
+        </PlatformCurrencyProvider>
+      </DataRouterPresenceContext.Provider>
+    );
+  }
   return (
     <PlatformCurrencyProvider>
       <BrandingProvider>
-        <RouterProvider router={getBrowserRouter()} useTransitions />
+        <Suspense fallback={<RouterPending />}>
+          <StandaloneRouter />
+        </Suspense>
       </BrandingProvider>
     </PlatformCurrencyProvider>
   );

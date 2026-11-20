@@ -322,14 +322,20 @@ mod admin;
 mod agent_authorizations;
 mod api_migrations;
 mod codex_connections;
+mod connection_incidents;
+mod decisions;
 mod executions;
 mod functional_suite;
+mod hot_path_benchmark;
 mod inference;
+mod invitations;
+mod media_sources;
 mod operator_audit;
 mod operators;
 mod passwords;
 mod performance_suite;
 mod profile;
+mod protocols;
 mod request_exports;
 mod stability_suite;
 mod video;
@@ -424,7 +430,7 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
         ),
         ("GET", "/api/v1/session"),
         ("GET", "/api/v1/workspaces"),
-        ("GET", "/api/v1/pools/index"),
+        ("GET", "/api/v1/routing/index"),
         ("GET", "/v1/media/groups"),
         ("GET", "/v1/media/operations"),
         ("POST", "/v1/media/verifications"),

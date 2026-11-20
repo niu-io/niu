@@ -82,9 +82,16 @@ export function formatLocalizedMessage(pattern: string, values: readonly unknown
 }
 
 export function useLocale(messages: Readonly<Record<string, string>> = {}) {
-  // Keep the first client render equal to the public pages' English SSR output.
-  // The effect restores the saved/browser locale immediately after hydration.
-  const [locale, setLocaleState] = useState<Locale>('en');
+  // Read saved localStorage locale synchronously when present so SPA routes do not flash English.
+  // When no saved preference exists, start with 'en' to match public SSR output and sync in useEffect.
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    try {
+      const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+      return normalizeLocale(saved) ?? 'en';
+    } catch {
+      return 'en';
+    }
+  });
   useEffect(() => {
     const sync = () => {
       const current = readLocale();

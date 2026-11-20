@@ -11,13 +11,13 @@ Niu provides model information, request evidence and authorized management capab
 
 Start with [Build with Niu](https://niu.io/docs/guides/personal-assistant/). See the [product principles](docs/product/agent-oriented-principles.md) for the agreed direction and current integration limits; native coding-agent plugins and agent-managed event subscriptions are not claimed as shipped.
 
-For the **0.3.0 source preview**, give your coding agent this instruction:
+For the **0.3.1 source candidate**, give your coding agent this instruction:
 
 ```text
 Install and configure Niu by following https://niu.io/docs/install.md.
 ```
 
-The installation contract checks package and deployment availability first. The preview is not published; use a matching source checkout and development deployment only when explicitly selected. [Native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
+The installation contract checks package and deployment availability first. This candidate is not published; use a matching source checkout and development deployment only when explicitly selected. [Native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
 
 This repository is the complete self-hosted monorepo: single-process Rust gateway, workspace and Provider management dashboard, opt-in public model catalog, developer documentation, OpenAPI 3.1 contracts, client SDKs, built-in open-source plugins, and container packaging.
 
@@ -50,22 +50,24 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a published, pinned release with [`scripts/install.sh`](scripts/install.sh). The example below uses `v0.2.30`; it does not install the unpublished 0.3.0 source preview. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+The command below targets the unpublished `v0.3.1` candidate. Run it only after that exact release and its checksum-verified image are available; before publication, use an explicitly selected matching source build. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.1`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.3.0 --dir /opt/niu
+./scripts/install.sh install --version v0.3.1 --dir /opt/niu
 ```
+
+For the 0.3 source line, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
 
 Once running on port `2555`:
 
 - **Default Entry (`/`)**: Redirects to `/workspaces/default/` (or `/installation` before first-time setup and `/login` when unauthenticated, with direct links to `/models/` and `/docs/`).
-- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKENS` secret to configure the platform currency (`USD` or `CNY`), upstream Providers (such as OpenRouter, OpenAI, Anthropic, or Bedrock), published model routes, and either a payment gateway or a company funding arrangement (`/admin/balances`).
+- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKENS` secret to connect upstream Providers and import models. Resale deployments additionally configure customer pricing, platform currency and payment/funding arrangements.
 - **Public Model Catalog (`/models/`)**: Browse routes enabled for `public_catalog`.
-- **Developer Documentation (`/docs/` & `/help/`)**: Read setup, routing, and API guides.
+- **Developer Documentation (`/docs/`)**: Read setup, routing, and API guides.
 
-### 2. Enable Self-Hosted Funding & Call the Inference API
+### 2. Optional Resale Funding & Inference
 
-Customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
+In `NIU_OPERATING_MODE=resale`, customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the company that owns the evaluation workspace using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
 
 ```sh
 # 0. Choose one installation token from the generated NIU_ADMIN_TOKENS value
@@ -77,11 +79,15 @@ curl -X PUT http://localhost:2555/api/v1/platform/currency \
   -H "Content-Type: application/json" \
   -d '{"currency": "USD"}'
 
-# 2. Grant initial credits (e.g. $10.00 = 10000000000 nanounits) to the default company.
-#    Currency is a path segment; amount_nanos is an exact positive integer.
-ORG_ID=$(curl -fsSL http://localhost:2555/api/v1/organizations \
-  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
-curl -X POST "http://localhost:2555/api/v1/organizations/$ORG_ID/billing/accounts/USD/grants" \
+# 2. On a new installation, create the evaluation company once and keep its ID.
+# For an existing workspace, set ORG_ID to its organization_id and skip creation.
+ORG_ID=$(curl -fsS -X POST http://localhost:2555/api/v1/organizations \
+  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Evaluation company","currency":"USD"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# Grant $10 of evaluation credit to this company. Reuse the key when retrying this grant.
+curl -fsS -X POST "http://localhost:2555/api/v1/organizations/${ORG_ID:?Choose the evaluation company}/billing/accounts/USD/grants" \
   -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"amount_nanos": "10000000000", "reason": "Self-hosted evaluation", "idempotency_key": "00000000-0000-4000-8000-000000000001"}'
@@ -104,7 +110,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.3.0 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.3.1 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
@@ -114,7 +120,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ### 4. Deploy to Render
 
-The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Provide your upstream Provider API key during setup; Render generates `NIU_ADMIN_TOKENS` and `NIU_VENDOR_ENCRYPTION_KEY`.
+The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Connect upstream Providers after administrator sign-in; Render generates `NIU_ADMIN_TOKENS` and `NIU_VENDOR_ENCRYPTION_KEY`.
 
 ---
 

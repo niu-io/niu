@@ -1,7 +1,7 @@
-import { useContext } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
-  UNSAFE_DataRouterDataContext,
   useLoaderData,
+  useRouteLoaderData,
   type LoaderFunctionArgs,
   type Params,
   type ShouldRevalidateFunction,
@@ -16,7 +16,11 @@ import {
   prefetchQuery,
 } from './query-cache';
 import type { Workspace } from '@/shell/dashboard-context';
-import { readRouterSessionSnapshot, type RouterSessionSnapshot } from '@/shell/router-context';
+import {
+  DataRouterPresenceContext,
+  readRouterSessionSnapshot,
+  type RouterSessionSnapshot,
+} from '@/shell/router-context';
 import { resolveWorkspacePathSegment } from '@/shell/workspace-route';
 
 export type RouteLoaderSnapshot<T = unknown> =
@@ -59,10 +63,26 @@ type ActiveRouteLoad = {
   controller: AbortController;
 };
 
-let activeRouteLoad: ActiveRouteLoad | null = null;
+/**
+ * Keyed by endpoint so concurrent matched parent/child route loaders on the same navigation
+ * never abort each other (niu-wnr.11), while navigating to a new pathname or authority aborts
+ * superseded loads cleanly.
+ */
+const activeRouteLoads = new Map<string, ActiveRouteLoad>();
 
 function normalizePath(pathname: string): string {
   return pathname.replace(/\/+$/, '') || '/';
+}
+
+function pruneSupersededLoads(cleanPath: string, authorityKey: string): void {
+  for (const [key, entry] of activeRouteLoads.entries()) {
+    if (entry.authorityKey !== authorityKey || entry.pathname !== cleanPath) {
+      entry.controller.abort();
+      activeRouteLoads.delete(key);
+    } else if (entry.controller.signal.aborted) {
+      activeRouteLoads.delete(key);
+    }
+  }
 }
 
 function acquireRouteLoadSignal(
@@ -72,45 +92,56 @@ function acquireRouteLoadSignal(
   requestSignal: AbortSignal,
 ): AbortSignal {
   const cleanPath = normalizePath(pathname);
+  pruneSupersededLoads(cleanPath, authorityKey);
+
+  const existing = activeRouteLoads.get(endpoint);
+  let current: ActiveRouteLoad;
   if (
-    activeRouteLoad &&
-    activeRouteLoad.authorityKey === authorityKey &&
-    activeRouteLoad.endpoint === endpoint &&
-    !activeRouteLoad.controller.signal.aborted
+    existing &&
+    existing.authorityKey === authorityKey &&
+    existing.endpoint === endpoint &&
+    !existing.controller.signal.aborted
   ) {
-    activeRouteLoad.pathname = cleanPath;
+    existing.pathname = cleanPath;
+    current = existing;
   } else {
-    activeRouteLoad?.controller.abort();
-    activeRouteLoad = {
+    existing?.controller.abort();
+    current = {
       authorityKey,
       endpoint,
       pathname: cleanPath,
       controller: new AbortController(),
     };
+    activeRouteLoads.set(endpoint, current);
   }
-  const current = activeRouteLoad;
+
   if (requestSignal.aborted) {
     current.controller.abort();
+    activeRouteLoads.delete(endpoint);
   } else {
-    requestSignal.addEventListener('abort', () => current.controller.abort(), { once: true });
+    requestSignal.addEventListener(
+      'abort',
+      () => {
+        current.controller.abort();
+        if (activeRouteLoads.get(endpoint) === current) {
+          activeRouteLoads.delete(endpoint);
+        }
+      },
+      { once: true },
+    );
   }
   return current.controller.signal;
 }
 
 export function reconcileActiveRouteLoad(pathname: string, authorityKey: string): void {
-  if (!activeRouteLoad) return;
-  if (
-    activeRouteLoad.authorityKey !== authorityKey ||
-    activeRouteLoad.pathname !== normalizePath(pathname)
-  ) {
-    activeRouteLoad.controller.abort();
-    activeRouteLoad = null;
-  }
+  pruneSupersededLoads(normalizePath(pathname), authorityKey);
 }
 
 export function resetActiveRouteLoads(): void {
-  activeRouteLoad?.controller.abort();
-  activeRouteLoad = null;
+  for (const entry of activeRouteLoads.values()) {
+    entry.controller.abort();
+  }
+  activeRouteLoads.clear();
 }
 
 export function resolveRouteWorkspace(
@@ -131,14 +162,6 @@ export function resolveRouteWorkspace(
 /**
  * Execute a critical route read governed by React Router v8 Data Mode's `dashboardRouterContext`
  * and route-navigation cancellation, backed by the authority-isolated, generation-clocked SWR query cache.
- *
- * - Authenticated warm-cache hits return `{ status: 'ready' }` synchronously on Frame 0
- *   (and trigger silent background SWR when aged).
- * - Post-mutation revalidations of explicitly invalidated entries (`isQueryInvalidated`) await
- *   `fetchQuery` so `useLoaderData()` receives fresh post-mutation data.
- * - Cold-cache navigations start a deduplicated `fetchQuery` bound to the active route-navigation
- *   `AbortSignal` and return `{ status: 'pending', promise }` immediately so 1:1 route skeletons
- *   render without trapping transitions, while slow superseded navigations abort cleanly.
  */
 export function loadCriticalRouteEndpoint<T = unknown>(
   args: LoaderFunctionArgs,
@@ -147,7 +170,7 @@ export function loadCriticalRouteEndpoint<T = unknown>(
     workspace: Workspace | null;
     url: URL;
     params: Params;
-  }) => RouteLoadPlan<T>,
+  }) => RouteLoadPlan<T> | string | null,
 ): RouteLoaderSnapshot<T> | Promise<RouteLoaderSnapshot<T>> {
   const snapshot = readRouterSessionSnapshot(args.context);
   if (!snapshot.token || !snapshot.authorityKey) {
@@ -163,7 +186,9 @@ export function loadCriticalRouteEndpoint<T = unknown>(
 
   const url = new URL(args.request.url);
   const workspace = resolveRouteWorkspace(args.request, args.params, snapshot);
-  const plan = buildPlan({ snapshot, workspace, url, params: args.params });
+  const rawPlan = buildPlan({ snapshot, workspace, url, params: args.params });
+  const plan: RouteLoadPlan<T> =
+    typeof rawPlan === 'string' || rawPlan === null ? { endpoint: rawPlan } : rawPlan;
 
   if (plan.authorized === false) {
     return {
@@ -299,9 +324,58 @@ export const routeShouldRevalidate: ShouldRevalidateFunction = ({
 /**
  * Read the route's Data Mode loader snapshot when mounted inside `<RouterProvider>`,
  * returning `undefined` safely when a route component is rendered standalone inside declarative `<MemoryRouter>` unit tests.
+ * Also subscribes to `pending` loader promises so resolved loader data triggers a state update (`niu-wnr.4`).
  */
-export function useOptionalRouteLoaderData<T = unknown>(): RouteLoaderSnapshot<T> | undefined {
-  const dataRouterContext = useContext(UNSAFE_DataRouterDataContext);
-  if (!dataRouterContext) return undefined;
-  return useLoaderData() as RouteLoaderSnapshot<T> | undefined;
+export function useOptionalRouteLoaderData<T = unknown>(routeId?: string): RouteLoaderSnapshot<T> | undefined {
+  const inAppDataRouter = useContext(DataRouterPresenceContext);
+  let rawSnapshot: RouteLoaderSnapshot<T> | undefined;
+  try {
+    rawSnapshot = (routeId ? useRouteLoaderData(routeId) : useLoaderData()) as
+      | RouteLoaderSnapshot<T>
+      | undefined;
+  } catch {
+    if (inAppDataRouter) {
+      rawSnapshot = undefined;
+    }
+  }
+
+  const [resolvedSnapshot, setResolvedSnapshot] = useState<RouteLoaderSnapshot<T> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!rawSnapshot || rawSnapshot.status !== 'pending') {
+      setResolvedSnapshot(undefined);
+      return;
+    }
+    let cancelled = false;
+    const pendingSnapshot = rawSnapshot;
+    void pendingSnapshot.promise
+      .then(data => {
+        if (cancelled) return;
+        setResolvedSnapshot({
+          status: 'ready',
+          authorityKey: pendingSnapshot.authorityKey,
+          workspaceId: pendingSnapshot.workspaceId,
+          endpoint: pendingSnapshot.endpoint,
+          data,
+          source: 'network',
+        });
+      })
+      .catch(() => {
+        /* Error state is surfaced by the route query or error boundary. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rawSnapshot]);
+
+  if (
+    rawSnapshot?.status === 'pending' &&
+    resolvedSnapshot?.status === 'ready' &&
+    resolvedSnapshot.endpoint === rawSnapshot.endpoint &&
+    resolvedSnapshot.authorityKey === rawSnapshot.authorityKey
+  ) {
+    return resolvedSnapshot;
+  }
+
+  return rawSnapshot;
 }

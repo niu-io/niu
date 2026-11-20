@@ -7,11 +7,11 @@
     },
     {
       "destination": "branding/assets/niu-logo-dark.png",
-      "sha256": "a263f0ecc146e9231c5dcfa1f224db5faf37d265104288a3c8242f485c8e7f96"
+      "sha256": "6ae960105320d2376ccf902767a25cadbbaa8815f8a842cc82fd984b2714a865"
     },
     {
       "destination": "branding/assets/niu-logo.jpg",
-      "sha256": "7d6d09de4f55f886b043316ceec4d35ab5095dbfb82ce65592b8cf1ee92beae8"
+      "sha256": "408b74c77ef0c796645b2c8606face4c75ed3e1e2379fbbb16ae77ea4ff12685"
     },
     {
       "destination": "branding/assets/niu-mark.png",
@@ -31,23 +31,23 @@
     },
     {
       "destination": "branding/assets/niu-lockup-en-on-light.svg",
-      "sha256": "744529fbded765eade18006283e74bcf583ee9b13be243ac728a47cbc175c276"
+      "sha256": "306963d0ac9f0a394e4ffd8d4c18a4a67a21e5ce1ce210250e470bcdb903f82c"
     },
     {
       "destination": "branding/assets/niu-lockup-en-on-dark.svg",
-      "sha256": "4f8d0c2c7ed4dbf7a0130cfeca5898cd59e9a05aaf586d7c7254071de4a38e56"
+      "sha256": "edb1aa406cab785b1c16fc24aab3e312cb368ff71adfb595453862cd22fc187d"
     },
     {
       "destination": "branding/assets/niu-lockup-on-light.svg",
-      "sha256": "9485a5ad9b68ce169a7b502cd66a6ed1b9eee92bf662d551e0f9de259bcdf581"
+      "sha256": "cd7f23317c71fe2af344cf26b33ea4d1e23f21727f74e76dc1a83d23a2761c48"
     },
     {
       "destination": "branding/assets/niu-lockup-on-dark.svg",
-      "sha256": "5805cff15fc9289446c2604570eca2e2e954743d6cd4da1ea2ea49d4f0de1fa9"
+      "sha256": "897a270c503de6865e998e87c2a23c16bf3b84c902bb78c4edf3ae32461f75ed"
     },
     {
       "destination": "branding/assets/niu-social-en-dark.png",
-      "sha256": "fce5159b0fb5785c1cf0ace170f830790a664e8cf03e54eb1741c656575205a3"
+      "sha256": "0217c2c8452ebe6f7af3281fb2f0602c49cd79eba5a6d49513b337634e2965af"
     },
     {
       "destination": "branding/reference/niu-mark-original.png",

@@ -53,18 +53,21 @@ const MAX_PROVIDER_JSON_BYTES: usize = crate::customer_response::MAX_STRUCTURED_
 
 /// Read only a bounded error envelope and classify a known regional refusal.
 /// Never expose the upstream message, metadata, URLs or credentials.
-pub(super) async fn provider_rejection(mut response: reqwest::Response) -> ApiError {
+pub(super) async fn provider_rejection(response: reqwest::Response) -> ApiError {
+    provider_rejection_for_base(response, None).await
+}
+
+pub(super) async fn provider_rejection_for_base(
+    response: reqwest::Response,
+    base: Option<&str>,
+) -> ApiError {
     let status = response.status();
-    let mut body = Vec::new();
-    let read = async {
-        while let Some(chunk) = response.chunk().await.ok().flatten() {
-            if body.len().saturating_add(chunk.len()) > 16 * 1024 {
-                break;
-            }
-            body.extend_from_slice(&chunk);
-        }
-    };
-    let _ = tokio::time::timeout(std::time::Duration::from_secs(2), read).await;
+    let body = crate::provider_rejections::bounded_body(response).await;
+    if crate::provider_rejections::qiniu_chat_banned(base, status, &body) {
+        return ApiError::upstream_account_restricted(
+            crate::provider_rejections::QINIU_CHAT_BANNED,
+        );
+    }
     let regional = status == axum::http::StatusCode::FORBIDDEN
         && serde_json::from_slice::<Value>(&body)
             .ok()
@@ -324,8 +327,22 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                         | crate::guardrails::input::Protocol::Responses
                 ) || body.get("n").is_some_and(|n| n.as_u64() != Some(1))))
             || body.get("tools").is_some()
+            || body.get("tool_choice").is_some()
+            || body.get("toolConfig").is_some()
             || body.get("functions").is_some()
-            || body.get("response_format").is_some())
+            || body.get("response_format").is_some()
+            || body
+                .pointer("/text/format/type")
+                .and_then(Value::as_str)
+                .is_some_and(|kind| kind != "text")
+            || body.get("thinking").is_some_and(|thinking| {
+                thinking.get("type").and_then(Value::as_str) != Some("disabled")
+            })
+            || body
+                .pointer("/generationConfig/responseMimeType")
+                .and_then(Value::as_str)
+                .is_some_and(|mime| mime != "text/plain")
+            || body.pointer("/generationConfig/thinkingConfig").is_some())
     {
         state
             .store
@@ -479,10 +496,55 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
     use crate::guardrails::input::Protocol;
     let output = match protocol {
         Protocol::VideoText => return None,
-        Protocol::Messages => body.get("max_tokens")?.as_i64()?,
-        Protocol::GenerateContent => body
-            .pointer("/generationConfig/maxOutputTokens")?
-            .as_i64()?,
+        Protocol::Messages => {
+            let messages = body.get("messages")?.as_array()?;
+            if messages.iter().any(|message| {
+                message
+                    .get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|parts| {
+                        parts.iter().any(|part| {
+                            let kind = part.get("type").and_then(Value::as_str);
+                            matches!(kind, Some("image" | "document"))
+                                || (kind == Some("tool_result")
+                                    && part.get("content").and_then(Value::as_array).is_some_and(
+                                        |nested| {
+                                            nested.iter().any(|item| {
+                                                matches!(
+                                                    item.get("type").and_then(Value::as_str),
+                                                    Some("image" | "document")
+                                                )
+                                            })
+                                        },
+                                    ))
+                        })
+                    })
+            }) {
+                return None;
+            }
+            body.get("max_tokens")?.as_i64()?
+        }
+        Protocol::GenerateContent => {
+            let has_inline_data = body
+                .get("contents")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .chain(body.get("systemInstruction"))
+                .any(|content| {
+                    content
+                        .get("parts")
+                        .and_then(Value::as_array)
+                        .is_some_and(|parts| {
+                            parts.iter().any(|part| part.get("inlineData").is_some())
+                        })
+                });
+            if has_inline_data {
+                return None;
+            }
+            body.pointer("/generationConfig/maxOutputTokens")?
+                .as_i64()?
+        }
         Protocol::Chat => {
             if body.get("n").is_some_and(|n| n.as_u64() != Some(1))
                 || ["functions", "function_call", "modalities", "audio"]
@@ -502,7 +564,26 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
                 .as_i64()?
         }
         Protocol::Responses => {
-            body.get("input")?.as_str()?;
+            let input = body.get("input")?;
+            if input.is_string() {
+                if input.as_str().is_none_or(str::is_empty) {
+                    return None;
+                }
+            } else {
+                let items = input.as_array().filter(|items| !items.is_empty())?;
+                let has_vision = items.iter().any(|item| {
+                    item.get("content")
+                        .and_then(Value::as_array)
+                        .is_some_and(|parts| {
+                            parts.iter().any(|part| {
+                                part.get("type").and_then(Value::as_str) == Some("input_image")
+                            })
+                        })
+                });
+                if has_vision {
+                    return None;
+                }
+            }
             body.get("max_output_tokens")?.as_i64()?
         }
         Protocol::Embeddings => {
@@ -560,7 +641,28 @@ pub(super) async fn begin_retry_attempt(
         ));
     }
     let evaluation = request_evaluation_binding(headers, protocol, request_body)?;
-    let token_bound = request_token_bound(request_body, &protocol);
+    let (token_bound, token_bound_estimator) = if protocol
+        == crate::guardrails::input::Protocol::Chat
+        && super::priced_chat::has_image_input(request_body)
+        && model.pricing.is_some()
+    {
+        // Image URLs and compressed bytes do not bound image tokens. Reserve the
+        // same operator-attested input ceiling used for monetary admission.
+        let bound = model.pricing.as_ref().and_then(|price| {
+            price
+                .max_input_tokens
+                .checked_add(completion_bound.unwrap_or(price.max_output_tokens))
+        });
+        (
+            bound,
+            niu_storage::TokenBoundEstimator::RouteInputLimitPlusOutput,
+        )
+    } else {
+        (
+            request_token_bound(request_body, &protocol),
+            niu_storage::TokenBoundEstimator::SerializedUtf8PlusOutput,
+        )
+    };
     let scope = principal.scope();
     let retained_input = [&snapshot.workspace_policy, &snapshot.key_policy]
         .into_iter()
@@ -650,6 +752,7 @@ pub(super) async fn begin_retry_attempt(
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
+                    token_bound_estimator,
                     inspected_guardrails: Some(snapshot),
                     operation_id: retry.map_or_else(Uuid::new_v4, |(operation, _)| operation),
                     attempt_id: Uuid::new_v4(),
@@ -704,6 +807,7 @@ pub(super) async fn begin_retry_attempt(
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
+                    token_bound_estimator,
                     inspected_guardrails: Some(snapshot),
                     operation_id: retry.map_or_else(Uuid::new_v4, |(operation, _)| operation),
                     attempt_id: Uuid::new_v4(),
@@ -756,6 +860,7 @@ pub(super) async fn begin_retry_attempt(
                     route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
+                    token_bound_estimator,
                     inspected_guardrails: snapshot,
                     scope,
                     model: public_model,
@@ -981,6 +1086,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
         supports_embedding_dimensions: bool,
         supports_embeddings: bool,
         supports_generate_content: bool,
+        supports_generate_content_streaming: bool,
         supports_messages: bool,
         supports_messages_streaming: bool,
         supports_messages_streaming_tools: bool,
@@ -992,7 +1098,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
     }
 
     let mut hasher = Sha256::new();
-    serde_json::to_writer(
+    let _ = serde_json::to_writer(
         &mut hasher,
         &RouteRevisionPayload {
             credential_reference: &model.api_key_env,
@@ -1012,6 +1118,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
             supports_embedding_dimensions: model.supports_embedding_dimensions,
             supports_embeddings: model.supports_embeddings,
             supports_generate_content: model.supports_generate_content,
+            supports_generate_content_streaming: model.supports_generate_content_streaming,
             supports_messages: model.supports_messages,
             supports_messages_streaming: model.supports_messages_streaming,
             supports_messages_streaming_tools: model.supports_messages_streaming_tools,
@@ -1021,14 +1128,58 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
             supports_structured_output: model.supports_structured_output,
             supports_tool_calls: model.supports_tool_calls,
         },
-    )
-    .expect("route serialization");
+    );
     format!("{:x}", hasher.finalize())
 }
 
 #[cfg(test)]
 mod tests {
     use super::append_provider_json_chunk;
+
+    #[tokio::test]
+    async fn qiniu_rejection_is_actionable_without_exposing_upstream_body() {
+        use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
+        let app = Router::new().route("/", get(|| async {
+            (StatusCode::FORBIDDEN, r#"{"error":{"code":"account_chat_banned","message":"private-provider-secret"}}"#)
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        for (base, expected_specific) in [
+            (Some("https://api.qnaigc.com/v1"), true),
+            (Some("https://other.example/v1"), false),
+        ] {
+            let upstream = client
+                .get(format!("http://{address}/"))
+                .send()
+                .await
+                .unwrap();
+            let response = super::provider_rejection_for_base(upstream, base)
+                .await
+                .into_response();
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert_eq!(
+                response
+                    .extensions()
+                    .get::<niu_storage::RequestFailure>()
+                    .unwrap()
+                    .kind,
+                if expected_specific {
+                    niu_storage::RequestFailureKind::UpstreamAccountRestricted
+                } else {
+                    niu_storage::RequestFailureKind::UpstreamHttpError
+                }
+            );
+            let body = axum::body::to_bytes(response.into_body(), 4096)
+                .await
+                .unwrap();
+            let body = String::from_utf8(body.to_vec()).unwrap();
+            assert_eq!(body.contains("account_chat_banned"), expected_specific);
+            assert!(!body.contains("private-provider-secret"));
+        }
+        server.abort();
+    }
 
     #[test]
     fn provider_json_limit_is_enforced_across_chunks() {
@@ -1396,14 +1547,12 @@ pub(super) async fn finalize_response(
             .extensions_mut()
             .insert(crate::request_payloads::InspectedRequestPayload(input));
     }
-    response.headers_mut().insert(
-        "x-niu-operation-id",
-        HeaderValue::from_str(&dispatch.operation.to_string()).unwrap(),
-    );
-    response.headers_mut().insert(
-        "x-niu-attempt-id",
-        HeaderValue::from_str(&dispatch.attempt.to_string()).unwrap(),
-    );
+    if let Ok(value) = HeaderValue::from_str(&dispatch.operation.to_string()) {
+        response.headers_mut().insert("x-niu-operation-id", value);
+    }
+    if let Ok(value) = HeaderValue::from_str(&dispatch.attempt.to_string()) {
+        response.headers_mut().insert("x-niu-attempt-id", value);
+    }
     response
 }
 

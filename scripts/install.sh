@@ -3,7 +3,7 @@
 # Supports: install, upgrade, rollback, status
 set -euo pipefail
 
-DEFAULT_VERSION="v0.3.0"
+DEFAULT_VERSION="v0.3.1"
 DEFAULT_DIR="${NIU_INSTALL_DIR:-/opt/niu}"
 DEFAULT_PORT="${NIU_HOST_PORT:-2555}"
 IMAGE_REPO="ghcr.io/niu-io/niu"
@@ -126,6 +126,8 @@ ensure_files() {
   if [[ ! -f "${dir}/config/niu.example.toml" ]]; then
     curl --fail --silent --show-error --location \
       "${GITHUB_REPO_RAW}/${tag}/config/niu.example.toml" -o "${dir}/config/niu.example.toml"
+    # The non-root gateway reads this public template through a bind mount.
+    chmod 644 "${dir}/config/niu.example.toml"
   fi
 }
 
@@ -140,13 +142,47 @@ prepare_image() {
   if docker pull "$target_image" >/dev/null 2>&1; then
     return 0
   fi
-  if [[ -f "${dir}/Dockerfile" ]]; then
-    echo "Building ${target_image} from local source in ${dir} ..."
-    docker build -t "$target_image" "$dir"
-    return 0
+  if [[ "$target_image" == *@sha256:* ]]; then
+    echo "error: the published image ${target_image} is unavailable; refusing to substitute a source build." >&2
+    return 1
   fi
+  # Legacy releases lack IMAGE_DIGEST. Never label arbitrary local source as the
+  # requested release, even when the install directory is a Git checkout.
   echo "Building ${target_image} from release archive ${tag} ..."
   docker build -t "$target_image" "https://github.com/niu-io/niu.git#${tag}"
+}
+
+release_image() {
+  local tag="$1"
+  local manifest status image
+  manifest="$(mktemp)"
+  if ! status="$(curl --silent --show-error --location --output "$manifest" --write-out '%{http_code}' \
+    "https://github.com/niu-io/niu/releases/download/${tag}/IMAGE_DIGEST")"; then
+    rm -f "$manifest"
+    return 1
+  fi
+  if [[ "$status" == 200 ]]; then
+    image="$(cat "$manifest")"
+    rm -f "$manifest"
+    if [[ ! "$image" =~ ^ghcr\.io/niu-io/niu@sha256:[0-9a-f]{64}$ ]]; then
+      echo "error: invalid release image manifest." >&2
+      return 1
+    fi
+    printf '%s' "$image"
+  elif [[ "$status" == 404 ]]; then
+    rm -f "$manifest"
+    # v0.3.1 introduced digest-pinned releases.
+    if [[ ! "$tag" =~ ^v0\.([012]\.[0-9]+|3\.0)(-[0-9A-Za-z.-]+)?$ ]]; then
+      echo "error: release ${tag} requires a published IMAGE_DIGEST." >&2
+      return 1
+    fi
+    echo "Release ${tag} has no pinned image manifest; using the legacy tag/source-build path." >&2
+    printf '%s:%s' "$IMAGE_REPO" "$tag"
+  else
+    rm -f "$manifest"
+    echo "error: cannot read the release image manifest (HTTP ${status})." >&2
+    return 1
+  fi
 }
 
 cmd_install() {
@@ -160,6 +196,9 @@ cmd_install() {
     echo "error: 'docker compose' plugin is required." >&2
     exit 1
   }
+
+  local target_image
+  target_image="$(release_image "$tag")"
 
   ensure_files "$dir" "$tag"
   local env_file="${dir}/.env"
@@ -179,7 +218,6 @@ cmd_install() {
     set_env_var "$env_file" OPENROUTER_API_KEY "${OPENROUTER_API_KEY:-sk-or-v1-replace-me}"
   fi
 
-  local target_image="${IMAGE_REPO}:${tag}"
   set_env_var "$env_file" NIU_HOST_PORT "$port"
   set_env_var "$env_file" NIU_VERSION "$tag"
   set_env_var "$env_file" NIU_IMAGE "$target_image"
@@ -238,14 +276,14 @@ restore_database() {
     echo "error: PostgreSQL did not become ready for restore." >&2
     return 1
   fi
-  if ! (cd "$dir" && docker compose --env-file "$env_file" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U niu -d niu \
-      -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' >/dev/null); then
-    echo "error: could not reset the public schema before restore." >&2
-    return 1
-  fi
-  if ! (cd "$dir" && gzip -dc "$backup" | docker compose --env-file "$env_file" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U niu -d niu >/dev/null); then
+  # Send COMMIT only after gzip has verified the complete stream. Closing the
+  # connection on a decompression or SQL error rolls back the schema reset too.
+  if ! (cd "$dir" && {
+    printf '%s\n' 'BEGIN; DROP SCHEMA public CASCADE; CREATE SCHEMA public;' &&
+      gzip -dc "$backup" &&
+      printf '%s\n' 'COMMIT;'
+  } | docker compose --env-file "$env_file" exec -T postgres \
+      psql -X -v ON_ERROR_STOP=1 -U niu -d niu >/dev/null); then
     echo "error: PostgreSQL restore failed." >&2
     return 1
   fi
@@ -264,6 +302,9 @@ cmd_upgrade() {
     exit 1
   fi
 
+  dir="$(cd "$dir" && pwd)"
+  env_file="${dir}/.env"
+
   local current_image
   current_image="$(get_env_var "$env_file" NIU_IMAGE)"
   local current_version
@@ -271,24 +312,26 @@ cmd_upgrade() {
   local port
   port="$(get_env_var "$env_file" NIU_HOST_PORT)"
   port="${port:-$DEFAULT_PORT}"
-  local target_image="${IMAGE_REPO}:${target_tag}"
+  local target_image
+  target_image="$(release_image "$target_tag")"
 
   echo "Upgrading Niu in ${dir}: ${current_version:-unknown} -> ${target_tag}"
   mkdir -p "${dir}/backups"
   local timestamp
   timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  local backup_file="${dir}/backups/niu-pre-upgrade-${timestamp}.sql.gz"
+  local backup_file="${dir}/backups/niu-pre-upgrade-${timestamp}-$$.sql.gz"
 
   echo "1/4 Backing up PostgreSQL database to ${backup_file} ..."
   (
     cd "$dir"
+    umask 077
+    set -o noclobber
     docker compose --env-file "$env_file" exec -T postgres pg_dump -U niu -d niu | gzip >"$backup_file"
   )
   if [[ ! -s "$backup_file" ]]; then
     echo "error: PostgreSQL backup is empty; refusing to upgrade." >&2
     exit 1
   fi
-  set_env_var "$env_file" NIU_PREVIOUS_BACKUP "$backup_file"
 
   echo "2/4 Preparing target image ${target_image} ..."
   prepare_image "$dir" "$target_tag" "$target_image"
@@ -296,27 +339,39 @@ cmd_upgrade() {
   echo "3/4 Running pre-upgrade encryption verification ..."
   (
     cd "$dir"
-    NIU_IMAGE="$target_image" docker compose --env-file "$env_file" run --rm --no-deps niu --check-encryption
+    local inspection_db="niu_upgrade_check_${timestamp}_$$"
+    local password
+    password="$(get_env_var "$env_file" POSTGRES_PASSWORD)"
+    docker compose --env-file "$env_file" exec -T postgres createdb -U niu "$inspection_db"
+    trap 'docker compose --env-file "$env_file" exec -T postgres dropdb -U niu "$inspection_db"' EXIT
+    gzip -dc "$backup_file" | docker compose --env-file "$env_file" exec -T postgres \
+      psql -X -v ON_ERROR_STOP=1 -U niu -d "$inspection_db" >/dev/null
+    export NIU_IMAGE="$target_image"
+    export NIU_DATABASE_URL="postgres://niu:${password}@postgres:5432/${inspection_db}"
+    docker compose --env-file "$env_file" run --rm --no-deps -e NIU_DATABASE_URL niu --migrate-only
+    docker compose --env-file "$env_file" run --rm --no-deps -e NIU_DATABASE_URL niu --check-encryption
   )
 
-  if [[ -n "$current_image" ]]; then
-    set_env_var "$env_file" NIU_PREVIOUS_IMAGE "$current_image"
-  fi
-  set_env_var "$env_file" NIU_VERSION "$target_tag"
-  set_env_var "$env_file" NIU_IMAGE "$target_image"
+  (
+    local next_env
+    next_env="$(mktemp "${env_file}.upgrade.XXXXXXXX")"
+    trap 'rm -f "$next_env"' EXIT
+    cp "$env_file" "$next_env"
+    set_env_var "$next_env" NIU_PREVIOUS_IMAGE "$current_image"
+    set_env_var "$next_env" NIU_PREVIOUS_VERSION "$current_version"
+    set_env_var "$next_env" NIU_PREVIOUS_BACKUP "$backup_file"
+    set_env_var "$next_env" NIU_VERSION "$target_tag"
+    set_env_var "$next_env" NIU_IMAGE "$target_image"
+    mv "$next_env" "$env_file"
+  )
 
   echo "4/4 Applying container update and verifying readiness ..."
-  (
-    cd "$dir"
-    docker compose --env-file "$env_file" up -d niu
-  )
-
-  if wait_for_ready "$port" 60; then
+  if (cd "$dir" && docker compose --env-file "$env_file" up -d niu) && wait_for_ready "$port" 60; then
     echo "Upgrade to Niu ${target_tag} completed successfully."
     return 0
   fi
 
-  echo "error: Niu ${target_tag} failed readiness checks. Rolling back to ${current_image:-previous image} ..." >&2
+  echo "error: Niu ${target_tag} could not start or become ready. Rolling back to ${current_image:-previous image} ..." >&2
   if [[ -n "$current_image" ]]; then
     set_env_var "$env_file" NIU_IMAGE "$current_image"
     [[ -n "$current_version" ]] && set_env_var "$env_file" NIU_VERSION "$current_version"
@@ -356,7 +411,12 @@ cmd_rollback() {
 
   echo "Rolling back Niu to ${prev_image} ..."
   set_env_var "$env_file" NIU_IMAGE "$prev_image"
-  set_env_var "$env_file" NIU_VERSION "${prev_image##*:}"
+  local prev_version
+  prev_version="$(get_env_var "$env_file" NIU_PREVIOUS_VERSION)"
+  if [[ -z "$prev_version" && "$prev_image" != *@* ]]; then
+    prev_version="${prev_image##*:}"
+  fi
+  set_env_var "$env_file" NIU_VERSION "$prev_version"
   (
     cd "$dir"
     docker compose --env-file "$env_file" up -d niu

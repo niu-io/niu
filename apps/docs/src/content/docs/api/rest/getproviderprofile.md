@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/providers/{provider}`
 
-Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.
+Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or review evidence. Internal identity is for routing, not display.
 
 Operation: `getProviderProfile`.
 
@@ -141,6 +141,6 @@ Storage unavailable
 
 ## Behavior and supported scope
 
-Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.
+Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or review evidence. Internal identity is for routing, not display.
 
 **Supported scope:** implemented

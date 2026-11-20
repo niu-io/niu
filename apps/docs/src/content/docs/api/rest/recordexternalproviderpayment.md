@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/providers/{provider}/settlements`
 
-Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.
+Platform administration required; Provider membership does not grant this write. Does not transfer funds or overpay. Send either attempt_ids (legacy request-level selection) or currency plus cutoff_ms (period settlement); from_ms is an optional inclusive lower bound. Period settlement selects every unpaid earning of that Provider and currency created on or before cutoff_ms, computes the exact total and ignores request-level identifiers supplied in that mode. The period response reports the recorded amount, entry count, and unpaid amount remaining in that currency; neither mode returns customer, request, credential or customer-price detail. Reuse the supplied idempotency key with the identical mode, reference and period bounds for retries; entry order is irrelevant. Changed replay, duplicate payment reference, unavailable selection, or a period with no positive unpaid earnings returns 409. No customer balance credit or Provider authorization is created.
 
 Operation: `recordExternalProviderPayment`.
 
@@ -68,36 +68,81 @@ Location: **path**. **Required.**
 
 ```json
 {
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "idempotency_key",
-    "payment_reference",
-    "attempt_ids"
-  ],
-  "properties": {
-    "idempotency_key": {
-      "type": "string",
-      "format": "uuid"
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "payment_reference",
+        "attempt_ids"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "payment_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+        },
+        "attempt_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Legacy internal selection IDs from platform earning history. New callers should use the period mode."
+        }
+      }
     },
-    "payment_reference": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
-    },
-    "attempt_ids": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 1000,
-      "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "description": "Internal selection IDs from the platform earning history; never display IDs or require users to paste them."
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "payment_reference",
+        "currency",
+        "cutoff_ms"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "payment_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "One currency without conversion."
+        },
+        "from_ms": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "maximum": 253402300799999,
+          "description": "Optional inclusive earning creation lower bound. Omit to include all unpaid earnings through the cutoff."
+        },
+        "cutoff_ms": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "maximum": 253402300799999,
+          "description": "Inclusive upper bound on earning creation time, Unix milliseconds."
+        }
+      }
     }
-  }
+  ]
 }
 ```
 
@@ -105,7 +150,7 @@ Location: **path**. **Required.**
 
 ### HTTP 200
 
-Recorded or replayed settlement identity.
+Recorded or replayed settlement. Period settlement additionally reports amount, entry count and remaining unpaid balance.
 
 Content type: `application/json`.
 
@@ -125,6 +170,26 @@ Content type: `application/json`.
         "id": {
           "type": "string",
           "format": "uuid"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "amount_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "entry_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "remaining_unpaid_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "remaining_entry_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
@@ -134,7 +199,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid reference, entry set, or currency mix.
+Invalid reference, mixed mode fields, bad currency or cutoff, or amount overflow.
 
 ### HTTP 401
 
@@ -146,7 +211,7 @@ Platform administration required.
 
 ### HTTP 409
 
-Provider or earnings unavailable, changed replay, or duplicate payment reference.
+Provider or earnings unavailable, changed replay, duplicate payment reference, or no unpaid earnings in the period.
 
 ### HTTP 503
 
@@ -154,6 +219,6 @@ Storage unavailable.
 
 ## Behavior and supported scope
 
-Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.
+Platform administration required; Provider membership does not grant this write. Does not transfer funds or overpay. Send either attempt_ids (legacy request-level selection) or currency plus cutoff_ms (period settlement); from_ms is an optional inclusive lower bound. Period settlement selects every unpaid earning of that Provider and currency created on or before cutoff_ms, computes the exact total and ignores request-level identifiers supplied in that mode. The period response reports the recorded amount, entry count, and unpaid amount remaining in that currency; neither mode returns customer, request, credential or customer-price detail. Reuse the supplied idempotency key with the identical mode, reference and period bounds for retries; entry order is irrelevant. Changed replay, duplicate payment reference, unavailable selection, or a period with no positive unpaid earnings returns 409. No customer balance credit or Provider authorization is created.
 
 **Supported scope:** implemented

@@ -327,7 +327,7 @@ async fn tagged_inference_binds_effective_input_before_dispatch_and_rejects_mism
             status,
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
         ));
-        for kind in ["pools", "events", "evaluations"] {
+        for kind in ["routing", "events", "evaluations"] {
             let (status, rows) = api(
                 &app,
                 "GET",

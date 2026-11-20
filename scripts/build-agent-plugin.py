@@ -23,6 +23,7 @@ write('mcp.json',{'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.
 write('.mcp.json',{'mcpServers':{'niu':{'command':'node','args':['${CLAUDE_PLUGIN_ROOT}/runtime/mcp/bin/niu-mcp.mjs'],'env':mcp_env}}})
 shutil.copytree(root/'integrations/coding-agents/skills',out/'skills')
 reference=out/'skills/niu/references';reference.mkdir();shutil.copyfile(root/'apps/docs/public/agents.md',reference/'capabilities.md')
+shutil.copyfile(root/'apps/docs/public/inference.md',reference/'inference.md')
 shutil.copyfile(root/'apps/docs/public/pools.md',reference/'pools.md')
 shutil.copyfile(root/'apps/docs/public/events.md',reference/'events.md')
 shutil.copyfile(root/'apps/docs/public/evaluations.md',reference/'evaluations.md')

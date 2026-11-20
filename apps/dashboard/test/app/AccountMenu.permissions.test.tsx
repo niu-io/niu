@@ -18,7 +18,7 @@ async function open(session: AdminSession | null, roleSwitch?: DashboardContext[
     signOut: vi.fn(), selectOrganization: vi.fn(), workspaceLoading: false, workspaceError: null,
   } as unknown as DashboardContext;
   render(<MemoryRouter><AccountMenu context={context} workspacePath="/workspaces/demo" mobile /></MemoryRouter>);
-  await userEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 }
 
 it('offers explicit Admin mode without exposing administrator navigation in User mode', async () => {
@@ -63,12 +63,13 @@ it('adds administration without removing customer navigation', async () => {
   for (const name of ['Workspace', 'Generations', 'Activity', 'Models', 'Settings']) {
     expect(screen.getByRole('menuitem', { name, exact: true })).toBeTruthy();
   }
+  expect(screen.getByRole('menuitem', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/settings/appearance');
 });
 
 it('shows Admin for a user account with the platform administrator role', async () => {
   await open({ ...customer, permissions: { ...customer.permissions, platform_admin: true } });
   expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
-  expect(screen.getByRole('menuitem', { name: 'Settings', exact: true })).toBeTruthy();
+  expect(screen.getByRole('menuitem', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/settings/account');
 });
 
 it('shows Admin for a granted platform administrator even when customer role lacks manage_operators', async () => {

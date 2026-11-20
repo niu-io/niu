@@ -1,5 +1,5 @@
-import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { currencySymbol, formatFinancialMoney, formatRateMoney } from '@/lib/money';
+import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
+import { currencySymbol, formatCompactRateMoney, formatFinancialMoney, formatRateMoney, formatStatementMoney } from '@/lib/money';
 import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -7,241 +7,35 @@ import { useLocale } from '@/shell/ui-locale';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import {
-  IconArrowDownRight,
-  IconArrowUpRight,
-  IconCalendarStats,
-  IconChevronDown,
-  IconFileTypePdf,
-  IconMinus,
-  IconRefresh,
-} from '@tabler/icons-react';
+import { IconCoin, IconArrowDownRight, IconArrowUpRight, IconCalendarStats, IconChevronDown, IconFileTypePdf, IconMinus, IconRefresh } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useBranding } from '@/shell/branding';
-import { request } from '@/features/providers/api';
+import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge'; import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import type { CommercialPosition, CommercialPositionRow, CustomerFinancialSummary } from '@niu-io/sdk/admin';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import type {
-  CommercialPosition,
-  CommercialPositionRow,
-  CustomerFinancialSummary,
-} from '@niu-io/sdk/admin';
+  buildRecentMonths,
+  parseMonthKey,
+  resolveInterval,
+  type MonthOption,
+  type PeriodMode,
+  type ResolvedInterval,
+} from './period';
 
-type PeriodMode = 'mtd' | 'month' | 'range' | 'rolling';
-
-type MonthOption = {
-  key: string; // YYYY-MM
-  year: number;
-  monthIndex: number; // 0-11
-  label: string;
-  shortLabel: string;
-  isCurrent: boolean;
+export {
+  buildRecentMonths,
+  parseMonthKey,
+  resolveInterval,
+  type MonthOption,
+  type PeriodMode,
+  type ResolvedInterval,
 };
-
-type ResolvedInterval = {
-  mode: PeriodMode;
-  label: string;
-  comparisonLabel: string;
-  days?: 7 | 30 | 90;
-  from: string;
-  until: string;
-  priorFrom: string;
-  priorUntil: string;
-};
-
-
-
-
-function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
-  const curYear = now.getUTCFullYear();
-  const curMonth = now.getUTCMonth();
-  const options: MonthOption[] = [];
-  for (let offset = 0; offset < count; offset++) {
-    const d = new Date(Date.UTC(curYear, curMonth - offset, 1));
-    const y = d.getUTCFullYear();
-    const m = d.getUTCMonth();
-    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-    const full = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'UTC',
-      month: 'long',
-      year: 'numeric',
-    }).format(d);
-    const short = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'UTC',
-      month: 'short',
-      year: 'numeric',
-    }).format(d);
-    options.push({
-      key,
-      year: y,
-      monthIndex: m,
-      label: offset === 0 ? `${full} (MTD)` : full,
-      shortLabel: short,
-      isCurrent: offset === 0,
-    });
-  }
-  return options;
-}
-
-function parseMonthKey(key: string): { year: number; monthIndex: number } | null {
-  const m = /^(\d{4})-(\d{2})$/.exec(key);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  if (month < 1 || month > 12) return null;
-  return { year, monthIndex: month - 1 };
-}
-
-function resolveInterval(
-  search: URLSearchParams,
-  months: MonthOption[],
-  now = new Date(),
-): ResolvedInterval {
-  const explicitMode = search.get('mode') as PeriodMode | null;
-  const explicitDays = search.get('days');
-  const mode: PeriodMode =
-    explicitMode && ['mtd', 'month', 'range', 'rolling'].includes(explicitMode)
-      ? explicitMode
-      : explicitDays && ['7', '30', '90'].includes(explicitDays)
-        ? 'rolling'
-        : 'mtd';
-
-  const curYear = now.getUTCFullYear();
-  const curMonth = now.getUTCMonth();
-
-  if (mode === 'rolling') {
-    const d = (['7', '30', '90'].includes(explicitDays ?? '') ? Number(explicitDays) : 30) as 7 | 30 | 90;
-    const untilMs = now.getTime();
-    const fromMs = untilMs - d * 86_400_000;
-    const priorUntilMs = fromMs;
-    const priorFromMs = priorUntilMs - d * 86_400_000;
-    return {
-      mode: 'rolling',
-      label: `Last ${d} days`,
-      comparisonLabel: `Prior ${d} days`,
-      days: d,
-      from: new Date(fromMs).toISOString(),
-      until: new Date(untilMs).toISOString(),
-      priorFrom: new Date(priorFromMs).toISOString(),
-      priorUntil: new Date(priorUntilMs).toISOString(),
-    };
-  }
-
-  if (mode === 'month') {
-    const defaultMonth = months[1]?.key ?? months[0]?.key ?? `${curYear}-${String(curMonth + 1).padStart(2, '0')}`;
-    const rawKey = search.get('month') ?? defaultMonth;
-    const parsed = parseMonthKey(rawKey) ?? { year: curYear, monthIndex: curMonth };
-    const start = new Date(Date.UTC(parsed.year, parsed.monthIndex, 1));
-    const isCurrentMonth = parsed.year === curYear && parsed.monthIndex === curMonth;
-    const end = isCurrentMonth ? now : new Date(Date.UTC(parsed.year, parsed.monthIndex + 1, 1));
-    const prevStart = new Date(Date.UTC(parsed.year, parsed.monthIndex - 1, 1));
-    const prevEnd = isCurrentMonth
-      ? new Date(Math.min(
-          Date.UTC(parsed.year, parsed.monthIndex, 1),
-          prevStart.getTime() + (now.getTime() - start.getTime()),
-        ))
-      : start;
-    const monthLabel = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'UTC',
-      month: 'long',
-      year: 'numeric',
-    }).format(start);
-    const prevLabel = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'UTC',
-      month: 'short',
-      year: 'numeric',
-    }).format(prevStart);
-    return {
-      mode: 'month',
-      label: isCurrentMonth ? `${monthLabel} (Month to date)` : monthLabel,
-      comparisonLabel: isCurrentMonth ? `${prevLabel} (same MTD span)` : prevLabel,
-      from: start.toISOString(),
-      until: end.toISOString(),
-      priorFrom: prevStart.toISOString(),
-      priorUntil: prevEnd.toISOString(),
-    };
-  }
-
-  if (mode === 'range') {
-    const fallbackStart = months[Math.min(2, months.length - 1)]?.key ?? months[0].key;
-    const fallbackEnd = months[0].key;
-    const rawStart = search.get('start_month') ?? fallbackStart;
-    const rawEnd = search.get('end_month') ?? fallbackEnd;
-    const pStart = parseMonthKey(rawStart) ?? { year: curYear, monthIndex: curMonth - 2 };
-    const pEnd = parseMonthKey(rawEnd) ?? { year: curYear, monthIndex: curMonth };
-    const startIdx = pStart.year * 12 + pStart.monthIndex;
-    const endIdx = pEnd.year * 12 + pEnd.monthIndex;
-    const maxIdx = Math.max(startIdx, endIdx);
-    const minIdx = Math.max(Math.min(startIdx, endIdx), maxIdx - 11);
-    const spanMonths = Math.min(12, Math.max(1, maxIdx - minIdx + 1));
-    const startDate = new Date(Date.UTC(Math.floor(minIdx / 12), minIdx % 12, 1));
-    const isEndCurrent = Math.floor(maxIdx / 12) === curYear && (maxIdx % 12) === curMonth;
-    const endDate = isEndCurrent
-      ? now
-      : new Date(Date.UTC(Math.floor(maxIdx / 12), (maxIdx % 12) + 1, 1));
-    const priorStartIdx = minIdx - spanMonths;
-    const priorStartDate = new Date(Date.UTC(Math.floor(priorStartIdx / 12), ((priorStartIdx % 12) + 12) % 12, 1));
-    const priorEndDate = isEndCurrent
-      ? new Date(Math.min(
-          startDate.getTime(),
-          priorStartDate.getTime() + Math.max(60_000, now.getTime() - startDate.getTime()),
-        ))
-      : startDate;
-    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' });
-    return {
-      mode: 'range',
-      label: `${fmt.format(startDate)} – ${fmt.format(new Date(Date.UTC(Math.floor(maxIdx / 12), maxIdx % 12, 1)))} (${spanMonths} mo)`,
-      comparisonLabel: `Prior ${spanMonths} mo (${fmt.format(priorStartDate)} – ${fmt.format(new Date(startDate.getTime() - 86_400_000))})`,
-      from: startDate.toISOString(),
-      until: endDate.toISOString(),
-      priorFrom: priorStartDate.toISOString(),
-      priorUntil: priorEndDate.toISOString(),
-    };
-  }
-
-  // Default: 'mtd' (Current Month from Day 1 to Today)
-  const start = new Date(Date.UTC(curYear, curMonth, 1));
-  const elapsedMs = Math.max(60_000, now.getTime() - start.getTime());
-  const prevStart = new Date(Date.UTC(curYear, curMonth - 1, 1));
-  const prevMonthEnd = start;
-  const prevUntil = new Date(Math.min(prevMonthEnd.getTime(), prevStart.getTime() + elapsedMs));
-  const curLabel = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'UTC',
-    month: 'long',
-    year: 'numeric',
-  }).format(start);
-  const prevLabel = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'UTC',
-    month: 'short',
-    year: 'numeric',
-  }).format(prevStart);
-  return {
-    mode: 'mtd',
-    label: `${curLabel} · Month to date`,
-    comparisonLabel: `${prevLabel} MTD`,
-    from: start.toISOString(),
-    until: now.toISOString(),
-    priorFrom: prevStart.toISOString(),
-    priorUntil: prevUntil.toISOString(),
-  };
-}
 
 async function fetchPeriodBundle(
   token: string,
@@ -374,7 +168,6 @@ function formatDeltaBadge(
   }
   const diff = current - prior;
   const absDiff = diff < 0n ? -diff : diff;
-  const roundedDiff4 = (absDiff + 50_000n) / 100_000n;
   if (diff === 0n) {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -383,13 +176,13 @@ function formatDeltaBadge(
     );
   }
   const isPositive = diff > 0n;
-  if (roundedDiff4 === 0n) {
+  if (absDiff < 100_000n) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <span tabIndex={0} className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
             {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-            {isPositive ? '+' : '-'}&lt;{currencySymbol(currency)}0.0001
+            {isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}
           </span>
         </TooltipTrigger>
         <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
@@ -402,11 +195,12 @@ function formatDeltaBadge(
       : isPositive
         ? uiT('New')
         : '—';
-  const absMoney = formatFinancialMoney(absDiff, currency);
+  const absMoney = formatStatementMoney(absDiff, currency);
   const signedMoney = `${isPositive ? '+' : '-'}${absMoney}`;
   const good = invertSentiment ? !isPositive : isPositive;
-  return (
+  const badge = (
     <span
+      tabIndex={absDiff % 100_000n !== 0n ? 0 : undefined}
       className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs font-medium tabular-nums ${
         good ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
       }`}
@@ -415,6 +209,33 @@ function formatDeltaBadge(
       <span>{signedMoney}</span>
       <span className="text-muted-foreground font-normal">({pct})</span>
     </span>
+  );
+  if (absDiff % 100_000n !== 0n) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
+      </Tooltip>
+    );
+  }
+  return badge;
+}
+
+function StatementMoney({ amount, currency }: { amount: bigint; currency: string }) {
+  const { t: uiT } = useUILocale();
+  const abs = amount < 0n ? -amount : amount;
+  const display = formatStatementMoney(amount, currency);
+  if (abs === 0n || abs % 100_000n === 0n) return <>{display}</>;
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        className="inline border-0 bg-transparent p-0 font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
+      >
+        {display}
+      </TooltipTrigger>
+      <TooltipContent>{uiT("Exact amount:")}{" "}{formatFinancialMoney(amount, currency)}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -429,14 +250,14 @@ export default function CommercialPositionPage() {
 }
 
 function CommercialStatement({ token }: { token: string }) {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT, format: uiF, locale } = useUILocale();
   const { t } = useLocale();
   const { providerDirectory } = useDashboardContext();
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const [refresh, setRefresh] = useState(0);
   const asOf = useMemo(() => new Date(), [search, refresh]);
-  const months = useMemo(() => buildRecentMonths(12, asOf), [asOf]);
+  const months = useMemo(() => buildRecentMonths(12, asOf, locale, uiF), [asOf, locale]);
   const normalizedSearch = useMemo(() => {
     const next = new URLSearchParams(search);
     if (next.get('mode') === 'range') {
@@ -453,7 +274,7 @@ function CommercialStatement({ token }: { token: string }) {
     if (search.toString() !== normalizedSearch.toString()) setSearch(normalizedSearch, { replace: true });
   }, [search, normalizedSearch, setSearch]);
   const {currency,ready:currencyReady,failed:currencyFailed,reload:reloadCurrency} = usePlatformCurrency();
-  const interval = useMemo(() => resolveInterval(normalizedSearch, months, asOf), [normalizedSearch, months, asOf]);
+  const interval = useMemo(() => resolveInterval(normalizedSearch, months, asOf, locale, uiF), [normalizedSearch, months, asOf, locale]);
 
   const scope = token || 'public';
   const currentBundleKey = currency
@@ -475,11 +296,14 @@ function CommercialStatement({ token }: { token: string }) {
   const [priorSummary, setPriorSummary] = useState<CustomerFinancialSummary | null>(() => initialPrior?.summary ?? null);
   const [modelFilter, setModelFilter] = useState<'active' | 'all'>('active');
   const [error, setError] = useState('');
+  const [priorError, setPriorError] = useState(false);
+  const [priorAttempt, setPriorAttempt] = useState(0);
   const [loading, setLoading] = useState(() => Boolean(currency) && !initialCurr);
 
   useEffect(() => {
     const controller = new AbortController();
     setError('');
+    setPriorError(false);
     if (!currency) {
       setPosition(null);
       setSummary(null);
@@ -521,7 +345,14 @@ function CommercialStatement({ token }: { token: string }) {
       priorBundleKey,
       signal => fetchPeriodBundle(token, currency, { from: interval.priorFrom, until: interval.priorUntil }, signal),
       { signal: controller.signal, force, awaitRevalidate: true, freshMs: 30_000 },
-    ).catch(() => null);
+    ).catch(reason => {
+      if (controller.signal.aborted) return null;
+      // A missing prior snapshot is a valid empty comparison. Other failures
+      // keep the last loaded comparison and are surfaced below.
+      if (reason instanceof VendorRequestError && reason.status === 404) return null;
+      setPriorError(true);
+      return null;
+    });
 
     void Promise.all([currentPromise, priorPromise])
       .then(([curr, prior]) => {
@@ -543,7 +374,7 @@ function CommercialStatement({ token }: { token: string }) {
       });
 
     return () => controller.abort();
-  }, [scope, token, currency, currentBundleKey, priorBundleKey, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, asOf, refresh]);
+  }, [scope, token, currency, currentBundleKey, priorBundleKey, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, asOf, refresh, priorAttempt]);
 
   function updateParams(patch: Record<string, string | null>) {
     setSearch(current => {
@@ -615,6 +446,12 @@ function CommercialStatement({ token }: { token: string }) {
     summary?.balance_credit_sources?.prepaid_cash_nanos != null
       ? BigInt(summary.balance_credit_sources.prepaid_cash_nanos)
       : null;
+  const knownPrepaidCash =
+    summary?.balance_credit_sources?.known_prepaid_cash_subtotal_nanos != null
+      ? BigInt(summary.balance_credit_sources.known_prepaid_cash_subtotal_nanos)
+      : null;
+  const simAccounts = BigInt(summary?.balance_credit_sources?.simulated_funding_accounts ?? '0');
+  const uncoveredAccounts = BigInt(summary?.balance_credit_sources?.uncovered_accounts ?? '0');
   const outstandingCredit =
     summary?.balance_credit_sources?.outstanding_credit_nanos != null
       ? BigInt(summary.balance_credit_sources.outstanding_credit_nanos)
@@ -672,16 +509,19 @@ function CommercialStatement({ token }: { token: string }) {
   const selectedEndMonthKey = normalizedSearch.get('end_month') ?? months[0].key;
 
   const modeLabels: Record<PeriodMode, string> = {
-    mtd: 'Month to date (Current month)',
-    month: 'Single calendar month',
-    range: 'Multi-month range',
-    rolling: 'Rolling day window',
+    mtd: uiT('Month to date (Current month)'),
+    month: uiT('Single calendar month'),
+    range: uiT('Multi-month range'),
+    rolling: uiT('Rolling day window'),
   };
 
-    if (!currency) return <section className="space-y-3" aria-label={uiT("Financial reports")}>
-    <p>{currencyReady === false ? uiT("Loading platform currency…") : currencyFailed ? uiT("Could not load the platform currency.") : uiT("Set the platform currency before viewing financial reports.")}</p>
-    {currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>{uiT("Retry")}</Button> : currencyReady !== false && <Button asChild><Link to="/admin/settings">{uiT("Open platform settings")}</Link></Button>}
-  </section>;
+    if (!currency) return <Empty className="min-h-48 py-8" aria-label={uiT("Financial reports")}>
+    <EmptyHeader>
+      <EmptyMedia variant="icon"><IconCoin size={18} aria-hidden="true" /></EmptyMedia>
+      <EmptyDescription>{currencyReady === false ? uiT("Loading platform currency…") : currencyFailed ? uiT("Could not load the platform currency.") : uiT("Set the platform currency before viewing financial reports.")}</EmptyDescription>
+    </EmptyHeader>
+    {(currencyFailed || currencyReady !== false) && <EmptyContent>{currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>{uiT("Retry")}</Button> : <Button asChild><Link to="/admin/settings">{uiT("Open platform settings")}</Link></Button>}</EmptyContent>}
+  </Empty>;
 
   return (
     <section className="commercial-statement min-w-0 space-y-6" aria-label={uiT("Financial statements")}>
@@ -696,7 +536,7 @@ function CommercialStatement({ token }: { token: string }) {
                 <span className="commercial-print-brand-dot">·</span>
                 <span>{uiT("PLATFORM FINANCIAL REPORTING")}</span>
               </div>
-              <h1 className="commercial-print-title">{uiT("Financial Statements")}</h1>
+              <p className="commercial-print-title">{uiT("Financial Statements")}</p>
               <p className="commercial-print-subtitle">
                 {uiT("Statement of Operations (P&L), Cash Receipts & Wallet Position, and Provider Unit Economics")}</p>
             </div>
@@ -706,7 +546,7 @@ function CommercialStatement({ token }: { token: string }) {
             <dl className="commercial-print-meta-grid">
               <div>
                 <dt>{uiT("Reporting Period")}</dt>
-                <dd>{interval.label}</dd>
+                <dd>{interval.periodLabel}</dd>
               </div>
               <div>
                 <dt>{uiT("Comparison Baseline")}</dt>
@@ -777,7 +617,7 @@ function CommercialStatement({ token }: { token: string }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" aria-label={uiT("Select calendar month")} className="gap-2 font-normal">
-                  <span>{months.find(m => m.key === selectedMonthKey)?.label ?? selectedMonthKey}</span>
+                  <span>{months.find(m => m.key === selectedMonthKey)?.periodLabel ?? selectedMonthKey}</span>
                   <IconChevronDown size={15} />
                 </Button>
               </DropdownMenuTrigger>
@@ -788,7 +628,7 @@ function CommercialStatement({ token }: { token: string }) {
                 >
                   {months.map(m => (
                     <DropdownMenuRadioItem key={m.key} value={m.key}>
-                      {m.label}
+                      {m.periodLabel}
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
@@ -812,7 +652,7 @@ function CommercialStatement({ token }: { token: string }) {
                   >
                     {months.map(m => (
                       <DropdownMenuRadioItem key={m.key} value={m.key}>
-                        {m.label}
+                        {m.periodLabel}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
@@ -832,7 +672,7 @@ function CommercialStatement({ token }: { token: string }) {
                   >
                     {months.map(m => (
                       <DropdownMenuRadioItem key={m.key} value={m.key}>
-                        {m.label}
+                        {m.periodLabel}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
@@ -891,7 +731,7 @@ function CommercialStatement({ token }: { token: string }) {
       {/* Period Interval Subtitle */}
       <div className="commercial-print-hide flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
-          <strong className="font-medium text-foreground">{interval.label}</strong>{" "}{uiT("· UTC window:")}{' '}
+          <strong className="font-medium text-foreground">{interval.periodLabel}</strong>{" "}{uiT("· UTC window:")}{' '}
           {formatInstant(position?.from ?? interval.from)}{" "}{uiT("to")}{' '}
           {formatInstant(position?.until ?? interval.until)}{" "}{uiT("· Compared against")}{' '}
           <strong className="font-medium text-foreground">{interval.comparisonLabel}</strong>
@@ -908,9 +748,19 @@ function CommercialStatement({ token }: { token: string }) {
       {error && (
         <Alert variant="destructive">
           <AlertDescription className="flex items-center justify-between gap-3">
-            <span>{error}</span>
+            <span>{uiT(error)}</span>
           <Button variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>
               {uiT("Retry")}</Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {priorError && (
+        <Alert>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{uiT("The comparison period could not be loaded. Current period totals are unchanged.")}</span>
+            <Button variant="outline" size="sm" onClick={() => setPriorAttempt(value => value + 1)}>
+              {uiT("Retry comparison")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -925,16 +775,16 @@ function CommercialStatement({ token }: { token: string }) {
                 <Badge variant="outline">{uiT("Income")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {recognizedRevenue === null ? uiT("Unavailable") : formatFinancialMoney(recognizedRevenue, currency)}
+                {recognizedRevenue === null ? uiT("Unavailable") : <StatementMoney amount={recognizedRevenue} currency={currency} />}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(uiT, recognizedRevenue, priorRecognizedRevenue, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                {uiT("Gross usage")}{" "}{formatFinancialMoney(nominalConsumption, currency)}{" "}{uiT("· Gifts & refunds")}{' '}
-                {consumedGifts + customerRefunds >= 50_000n ? '-' : ''}
-                {formatFinancialMoney(consumedGifts + customerRefunds, currency)}
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
+                {uiT("Gross usage")}{" "}{formatStatementMoney(nominalConsumption, currency)}{" "}{uiT("· Gifts & refunds")}{' '}
+                {consumedGifts + customerRefunds > 0n ? '-' : ''}
+                {formatStatementMoney(consumedGifts + customerRefunds, currency)}
               </p>
             </article>
 
@@ -944,7 +794,7 @@ function CommercialStatement({ token }: { token: string }) {
                 <Badge variant="outline">{uiT("COGS")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {formatFinancialMoney(currentCohort.providerPayable, currency)}
+                <StatementMoney amount={currentCohort.providerPayable} currency={currency} />
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(uiT,
@@ -955,9 +805,9 @@ function CommercialStatement({ token }: { token: string }) {
                 )}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                {uiT("Settled")}{" "}{formatFinancialMoney(currentCohort.settledPayable, currency)}{" "}{uiT("· Unpaid")}{' '}
-                {formatFinancialMoney(currentCohort.unpaidPayable, currency)}
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
+                {uiT("Settled")}{" "}{formatStatementMoney(currentCohort.settledPayable, currency)}{" "}{uiT("· Unpaid")}{' '}
+                {formatStatementMoney(currentCohort.unpaidPayable, currency)}
               </p>
             </article>
 
@@ -968,13 +818,13 @@ function CommercialStatement({ token }: { token: string }) {
                   {formatMarginPercent(netContribution, recognizedRevenue)}{" "}{uiT("margin")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {netContribution === null ? uiT("Unavailable") : formatFinancialMoney(netContribution, currency)}
+                {netContribution === null ? uiT("Unavailable") : <StatementMoney amount={netContribution} currency={currency} />}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(uiT, netContribution, priorNetContribution, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
                 {currentCohort.activeModelCount}{" "}{uiT("active")}{' '}
                 {currentCohort.activeModelCount === 1 ? uiT("model") : uiT("models")}
@@ -989,26 +839,37 @@ function CommercialStatement({ token }: { token: string }) {
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {verifiedCashReceipts === null
                   ? uiT("Unavailable")
-                  : formatFinancialMoney(verifiedCashReceipts, currency)}
+                  : <StatementMoney amount={verifiedCashReceipts} currency={currency} />}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(uiT, verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
-              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+              <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {uiT("Unused prepaid wallet:")}{' '}
-                {prepaidCash === null ? '—' : formatFinancialMoney(prepaidCash, currency)}
+                {prepaidCash !== null
+                  ? formatStatementMoney(prepaidCash, currency)
+                  : uncoveredAccounts > 0n && simAccounts === uncoveredAccounts && knownPrepaidCash !== null
+                    ? `${formatStatementMoney(knownPrepaidCash, currency)} · ${t('simulated excluded', '已排除模拟账户')}`
+                    : uiT("Unavailable")}
               </p>
             </article>
           </div>
 
-          {/* Layer 2: Financial Statements (Income Statement + Cash Flow & Wallet Position) */}
-          <div className="grid grid-cols-1 gap-6">
-            {/* Table 1: Statement of Operations (Income Statement) */}
+          {/* Layer 2: Tabbed Financial Statements (all force-mounted for instant switch & full PDF print) */}
+          <Tabs defaultValue="operations" className="min-w-0 space-y-4">
+            <div className="max-w-full overflow-x-auto overflow-y-hidden commercial-print-hide">
+              <TabsList variant="line" aria-label={uiT("Financial statement sections")}>
+                <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
+                <TabsTrigger value="cash">{uiT("Cash & wallet position")}</TabsTrigger>
+                <TabsTrigger value="unit-economics">{uiT("Unit economics")}</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="operations" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
-              <div className="flex items-baseline justify-between gap-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-semibold">{uiT("Statement of operations (P&L)")}</h2>
+                  <h2 className="text-[15px] font-semibold">{uiT("Statement of operations (P&L)")}</h2>
                   <p className="text-xs text-muted-foreground">
                     {uiT("Accrual operating revenue, promotional allowances, and supply cost")}</p>
                 </div>
@@ -1099,12 +960,13 @@ function CommercialStatement({ token }: { token: string }) {
                 </TableBody>
               </Table>
             </div>
+            </TabsContent>
 
-            {/* Table 2: Cash Flow, Payables & Wallet Balance Sheet */}
+            <TabsContent value="cash" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
-              <div className="flex items-baseline justify-between gap-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-semibold">{uiT("Cash receipts, payables & wallet position")}</h2>
+                  <h2 className="text-[15px] font-semibold">{uiT("Cash receipts, payables & wallet position")}</h2>
                   <p className="text-xs text-muted-foreground">
                     {uiT("Verified cash inflows, Provider settlement status, and customer balances")}</p>
                 </div>
@@ -1112,7 +974,7 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal [&_tr>*:last-child]:hidden sm:[&_tr>*:last-child]:table-cell">
+              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">{uiT("Measure")}</TableHead>
@@ -1192,7 +1054,18 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableCell className="font-medium">
                       {uiT("Unused verified prepaid cash (Wallet liability)")}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
-                      {prepaidCash === null ? uiT("Unavailable") : formatFinancialMoney(prepaidCash, currency)}
+                      {prepaidCash === null ? (
+                        <div>
+                          <div>{uiT("Unavailable")}</div>
+                          {uncoveredAccounts > 0n && simAccounts === uncoveredAccounts && knownPrepaidCash !== null && (
+                            <div className="text-[11px] font-normal text-muted-foreground">
+                              {t("Verified subtotal:", "已核实小计：")}{" "}{formatStatementMoney(knownPrepaidCash, currency)}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <StatementMoney amount={prepaidCash} currency={currency} />
+                      )}
                     </TableCell>
                     <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
                       {uiT("Point-in-time")}</TableCell>
@@ -1205,7 +1078,7 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableCell className="text-right tabular-nums">
                       {outstandingCredit === null
                         ? uiT("Unavailable")
-                        : formatFinancialMoney(outstandingCredit, currency)}
+                        : <StatementMoney amount={outstandingCredit} currency={currency} />}
                     </TableCell>
                     <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
                       {uiT("Point-in-time")}</TableCell>
@@ -1223,17 +1096,17 @@ function CommercialStatement({ token }: { token: string }) {
                 </p>
               )}
             </div>
-          </div>
+            </TabsContent>
 
-          {/* Layer 3: Unit Economics by Provider & Model */}
+            <TabsContent value="unit-economics" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">{uiT("Unit economics by Provider & model")}</h2>
+                <h2 className="text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
                 <p className="text-xs text-muted-foreground">
                   {activeRows.length}{" "}{uiT("active")}{" "}{activeRows.length === 1 ? uiT("model") : uiT("models")}{" "}{uiT("with traffic in this period ·")}{" "}{sortedRows.length}{" "}{uiT("total configured routes")}</p>
               </div>
-              <div className="commercial-print-hide flex items-center gap-1.5">
+              <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
                 <Button
                   size="sm"
                   variant={modelFilter === 'active' ? 'secondary' : 'ghost'}
@@ -1252,10 +1125,10 @@ function CommercialStatement({ token }: { token: string }) {
             </div>
 
             {displayedRows.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</p>
+              <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
+                {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
-              <Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
+              <div className="table-wrap"><Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{uiT("Provider / model")}</TableHead>
@@ -1307,11 +1180,6 @@ function CommercialStatement({ token }: { token: string }) {
                     const rowRefunds =
                       row.customer_refunds_nanos !== null ? BigInt(row.customer_refunds_nanos) : 0n;
                     const unresolved = BigInt(row.unresolved_attempts || '0');
-                    const matched = BigInt(row.matched_attempts || '0');
-                    const revenueUncovered = BigInt(row.revenue_uncovered_attempts || '0');
-                    const cashUncovered = BigInt(row.cash_source_uncovered_attempts || '0');
-                    const costRecorded = BigInt(row.upstream_cost_recorded_attempts || '0');
-                    const costKnown = BigInt(row.cost_known_attempts || '0');
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
@@ -1324,10 +1192,6 @@ function CommercialStatement({ token }: { token: string }) {
                             >
                               {row.supplier_name}
                             </Link>
-                            <span>·</span>
-                            <span>
-                              {matched.toString()}{" "}{uiT("matched")}{unresolved > 0n ? uiF(" · {0} unresolved", [unresolved.toString()]) : ''}
-                            </span>
                           </div>
                         </TableCell>
 
@@ -1341,9 +1205,29 @@ function CommercialStatement({ token }: { token: string }) {
                                 className="space-y-0.5"
                               >
                                 <span className="text-muted-foreground">
-                                  {offer.rate_kind === 'text'
-                                    ? uiF("In {0} · Out {1} / 1M", [offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency), offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency)])
-                                    : offer.media_rates.length === 0
+                                  {offer.rate_kind === 'text' ? (
+                                    (() => {
+                                      const compact = uiF("In {0} · Out {1} / 1M", [
+                                        offer.prompt_rate == null ? '—' : formatCompactRateMoney(offer.prompt_rate, row.currency),
+                                        offer.completion_rate == null ? '—' : formatCompactRateMoney(offer.completion_rate, row.currency),
+                                      ]);
+                                      const exact = uiF("In {0} · Out {1} / 1M", [
+                                        offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency),
+                                        offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency),
+                                      ]);
+                                      return compact === exact ? compact : (
+                                        <Tooltip>
+                                          <TooltipTrigger
+                                            type="button"
+                                            className="inline border-0 bg-transparent p-0 text-left font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
+                                          >
+                                            {compact}
+                                          </TooltipTrigger>
+                                          <TooltipContent>{exact}</TooltipContent>
+                                        </Tooltip>
+                                      );
+                                    })()
+                                  ) : offer.media_rates.length === 0
                                       ? uiT("Media rate")
                                       : offer.media_rates
                                           .map(
@@ -1365,14 +1249,14 @@ function CommercialStatement({ token }: { token: string }) {
                             {rowCharge === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                             ) : (
-                              formatFinancialMoney(rowCharge, row.currency)
+                              <StatementMoney amount={rowCharge} currency={row.currency} />
                             )}
                           </div>
                           {(rowGifts > 0n || rowRefunds > 0n) && (
                             <div className="text-xs text-muted-foreground">
-                              {rowGifts > 0n ? uiF("Gift -{0}", [formatFinancialMoney(rowGifts, row.currency)]) : ''}
+                              {rowGifts > 0n ? uiF("Gift -{0}", [formatStatementMoney(rowGifts, row.currency)]) : ''}
                               {rowRefunds > 0n
-                                ? uiF(" Refund -{0}", [formatFinancialMoney(rowRefunds, row.currency)])
+                                ? uiF(" Refund -{0}", [formatStatementMoney(rowRefunds, row.currency)])
                                 : ''}
                             </div>
                           )}
@@ -1382,16 +1266,12 @@ function CommercialStatement({ token }: { token: string }) {
                           <div>
                             {rowNetRev === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
-                                {unresolved > 0n ? uiT("Pending") : revenueUncovered > 0n ? uiT("Unavailable") : '—'}
+                                {unresolved > 0n ? uiT("Pending") : '—'}
                               </span>
                             ) : (
-                              formatFinancialMoney(rowNetRev, row.currency)
+                              <StatementMoney amount={rowNetRev} currency={row.currency} />
                             )}
                           </div>
-                          {revenueUncovered > 0n && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {revenueUncovered.toString()}{" "}{uiT("revenue uncovered")}</div>
-                          )}
                           {rowNetRev !== null && priorNetRev !== null && (
                             <div className="mt-0.5">
                               {formatDeltaBadge(uiT, rowNetRev, priorNetRev, row.currency)}
@@ -1403,34 +1283,24 @@ function CommercialStatement({ token }: { token: string }) {
                           <div>
                             {rowCashApplied === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
-                                {unresolved > 0n ? uiT("Pending") : cashUncovered > 0n ? uiT("Unavailable") : '—'}
+                                {unresolved > 0n ? uiT("Pending") : '—'}
                               </span>
                             ) : (
-                              formatFinancialMoney(rowCashApplied, row.currency)
+                              <StatementMoney amount={rowCashApplied} currency={row.currency} />
                             )}
                           </div>
-                          {(cashUncovered > 0n || rowCashApplied !== null) && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {cashUncovered.toString()}{" "}{uiT("uncovered cash")}{' '}
-                              {cashUncovered === 1n ? uiT("request") : uiT("requests")}
-                            </div>
-                          )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUnpaidCredit === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
-                                {unresolved > 0n ? uiT("Pending") : cashUncovered > 0n ? uiT("Unavailable") : '—'}
+                                {unresolved > 0n ? uiT("Pending") : '—'}
                               </span>
                             ) : (
-                              formatFinancialMoney(rowUnpaidCredit, row.currency)
+                              <StatementMoney amount={rowUnpaidCredit} currency={row.currency} />
                             )}
                           </div>
-                          {cashUncovered > 0n && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {cashUncovered.toString()}{" "}{uiT("cash uncovered")}</div>
-                          )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
@@ -1438,19 +1308,19 @@ function CommercialStatement({ token }: { token: string }) {
                             <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           ) : (
                             <div>
-                              <div>{formatFinancialMoney(rowPayable, row.currency)}</div>
+                              <div><StatementMoney amount={rowPayable} currency={row.currency} /></div>
                               <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                                 <div>
                                   {uiT("Settled")}{' '}
                                   {row.settled_earning_nanos
-                                    ? formatFinancialMoney(row.settled_earning_nanos, row.currency)
-                                    : formatFinancialMoney(0n, row.currency)}
+                                    ? formatStatementMoney(row.settled_earning_nanos, row.currency)
+                                    : formatStatementMoney(0n, row.currency)}
                                 </div>
                                 <div>
                                   {uiT("Unpaid")}{' '}
                                   {row.unsettled_earning_nanos
-                                    ? formatFinancialMoney(row.unsettled_earning_nanos, row.currency)
-                                    : formatFinancialMoney(0n, row.currency)}
+                                    ? formatStatementMoney(row.unsettled_earning_nanos, row.currency)
+                                    : formatStatementMoney(0n, row.currency)}
                                 </div>
                               </div>
                             </div>
@@ -1462,21 +1332,16 @@ function CommercialStatement({ token }: { token: string }) {
                             {rowUpstreamCost === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                             ) : (
-                              formatFinancialMoney(rowUpstreamCost, row.currency)
+                              <StatementMoney amount={rowUpstreamCost} currency={row.currency} />
                             )}
                           </div>
-                          {(costRecorded > 0n || matched > 0n) && (
-                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                              {costRecorded.toString()}{" "}{uiT("recorded ·")}{" "}{costKnown.toString()}/{matched.toString()}{' '}
-                              {uiT("matched covered")}</div>
-                          )}
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowContrib !== null ? (
                             <div>
                               <div className="font-medium">
-                                {formatFinancialMoney(rowContrib, row.currency)}
+                                <StatementMoney amount={rowContrib} currency={row.currency} />
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {formatMarginPercent(rowContrib, rowNetRev)}
@@ -1492,9 +1357,11 @@ function CommercialStatement({ token }: { token: string }) {
                     );
                   })}
                 </TableBody>
-              </Table>
+              </Table></div>
             )}
           </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Print-only formal document footer */}
           <footer className="commercial-print-only commercial-print-footer hidden">
@@ -1545,9 +1412,9 @@ function StatementRow({
 }) {
   const { t: uiT } = useUILocale();
   const formatVal = (val: bigint | null) => {
-    if (val === null) return 'Unavailable';
-    if (negateDisplay && val > 0n) return `-${formatFinancialMoney(val, currency)}`;
-    return formatFinancialMoney(val, currency);
+    if (val === null) return uiT('Unavailable');
+    if (negateDisplay && val > 0n) return `-${formatStatementMoney(val, currency)}`;
+    return formatStatementMoney(val, currency);
   };
   return (
     <TableRow className={strong ? 'bg-muted/30 font-semibold' : muted ? 'text-muted-foreground text-xs' : undefined}>
@@ -1585,7 +1452,7 @@ function formatUnits(units: string, places: number) {
 }
 
 function formatInstant(value: string) {
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(readLocale(), {
     timeZone: 'UTC',
     dateStyle: 'medium',
     timeStyle: 'short',

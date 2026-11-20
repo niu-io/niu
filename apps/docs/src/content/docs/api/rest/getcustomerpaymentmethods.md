@@ -64,9 +64,7 @@ Location: **query**. Optional. Select one configured integration without falling
 {
   "type": "string",
   "enum": [
-    "epay",
-    "stripe",
-    "zhifux"
+    "stripe"
   ]
 }
 ```
@@ -121,9 +119,7 @@ Content type: `application/json`.
             "null"
           ],
           "enum": [
-            "epay",
             "stripe",
-            "zhifux",
             null
           ],
           "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."

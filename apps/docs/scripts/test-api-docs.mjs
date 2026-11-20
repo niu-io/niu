@@ -59,7 +59,25 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
    assert.match(logout,/--cookie/);
    assert.doesNotMatch(logout,/-H "Authorization:/);
    assert.equal(spec.paths['/v1/chat/completions'].post.tags[0], 'Chat completions');
-   assert.equal(spec.paths['/api/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
+   assert.equal(spec.paths['/api/v1/platform/customer-accounts'], undefined);
+   assert.equal(spec.paths['/api/v1/vendors'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/accounts'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/budget'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/costs'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/billing/units/charges/{attempt}/refunds'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/billing/entries/{entry}/reversal'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/billing/invoices']?.post, undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/billing'], undefined);
+   assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/keys'], undefined);
+   assert(!JSON.stringify(spec.info).includes('/help/'), 'public OpenAPI info must not link to retired /help/ paths');
+   for (const category of Object.keys(spec.components ?? {})) {
+     for (const name of Object.keys(spec.components[category] ?? {})) {
+       assert(!/^(?:handler_operations_json_|[a-z0-9_]+_openapi_yaml_)/.test(name), `Unexpected bundled prefix in ${category}/${name}`);
+       assert(!/^(?:Vendor|Supplier|Platform)/.test(name), `Internal schema leaked into public spec: ${category}/${name}`);
+     }
+   }
+   const platformView = JSON.parse(readFileSync(join(directory, 'contracts/generated/views/platform-provider-openapi.json'), 'utf8'));
+   assert.equal(platformView.paths['/api/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
    const tags = new Set(spec.tags.map(tag => tag.name));
    for (const item of Object.values(spec.paths)) for (const [method, operation] of Object.entries(item)) {
      if (!['get','post','put','patch','delete','head','options'].includes(method)) continue;
@@ -164,13 +182,13 @@ test('workspace aliases preserve payload contracts and require qualified session
  }
 });
 
-test('workspace pool documentation distinguishes delegated read, preview and mutation authority', async () => {
+test('workspace routing documentation distinguishes delegated read, preview and mutation authority', async () => {
   const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
   for (const [path, method, grant] of [
-    ['/v1/pools', 'get', 'pools:read'],
-    ['/v1/pools/preview', 'post', 'pools:read'],
-    ['/v1/pools/{slug}', 'put', 'pools:write'],
-    ['/v1/pools/{slug}/selections', 'get', 'pools:read'],
+    ['/v1/routing', 'get', 'pools:read'],
+    ['/v1/routing/preview', 'post', 'pools:read'],
+    ['/v1/routing/{slug}', 'put', 'pools:write'],
+    ['/v1/routing/{slug}/selections', 'get', 'pools:read'],
   ]) assert.deepEqual(deriveOperationAuthority(path, method, { security: [{ bearerAuth: [] }] }), {
     audience: 'model', principals: ['workspace_api_key'], required_capability: grant, scope: 'workspace',
   });
@@ -194,7 +212,7 @@ test('evaluation docs separate non-dispatching fingerprints from evidence writes
 });
 test('human management review requires member Read rather than delegated inference authority', async () => {
   const { deriveOperationAuthority } = await import('./openapi-navigation.mjs');
-  for (const resource of ['pools','events','evaluations']) {
+  for (const resource of ['routing','events','evaluations']) {
     const authority=deriveOperationAuthority(`/api/v1/workspaces/{workspace}/${resource}`,'get',{security:[{bearerAuth:[]}]});
     assert.deepEqual(authority.principals,['operator_session','installation_admin']);
     assert.equal(authority.required_capability,'read');

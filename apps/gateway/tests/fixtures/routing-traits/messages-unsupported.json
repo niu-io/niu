@@ -1,0 +1,25 @@
+{
+  "model": "pool/assistant",
+  "max_tokens": 64,
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": "AAAA"
+          }
+        },
+        { "type": "text", "text": "See" }
+      ]
+    }
+  ],
+  "thinking": { "type": "enabled", "budget_tokens": 1024 },
+  "output_config": {
+    "format": { "type": "json_schema", "schema": { "type": "object" } },
+    "effort": "high"
+  }
+}

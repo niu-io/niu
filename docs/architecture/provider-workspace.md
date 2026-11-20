@@ -44,14 +44,14 @@ audit history remain intact; they do not enable login, data access or a new role
 
 An upstream API credential is a technical connection, separate from its Provider
 business. A business can own multiple credentials, model mappings, agreed text
-and media offers, qualification reviews, earnings and settlement records.
-Credential presence is not sellable supply: current qualifications, offers,
+and media offers, explicit offer authorizations, earnings and settlement records.
+Credential presence is not sellable supply: current authorizations, offers,
 rates, enabled routes and credential readiness must be checked independently.
 Customer selling tariffs and authorization remain workspace-specific.
 
 The administration directory aggregates configuration and offer counts without
 claiming upstream verification. Personal owner-funded routes remain distinct
-from commercially qualified supply. Procurement positions compare pinned
+from commercially authorized supply. Procurement positions compare pinned
 customer charges, Provider payables, settlement links and known upstream costs;
 missing evidence remains unknown, and charges are not merchant cash receipts.
 See [billing](billing.md) and [Provider integrations](provider-integrations.md).
@@ -63,7 +63,7 @@ Installation administration reads or establishes ownership with `GET` and `PUT
 `expected_revision`; it advances the configuration revision and records audit
 atomically. Repeating the same association is idempotent; changing the business,
 using a stale revision or conflicting with an existing offer is rejected.
-Names never infer ownership, qualification or commercial terms. Filtering
+Names never infer ownership, authorization or commercial terms. Filtering
 `/admin/v1/vendors?supplier=...` returns only explicitly associated configurations.
 
 `POST /admin/v1/vendors` with `create_supplier: true` can atomically create the

@@ -1,13 +1,25 @@
 const {currencyState}=vi.hoisted(()=>({currencyState:{currency:'CNY',error:'',reload:()=>{}}}));
 vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
 import { beforeEach, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import TopupFunding from '../../../app/features/billing/TopupFunding';
+import TopupFunding, { TOPUP_STATUS_POLL_MS } from '../../../app/features/billing/TopupFunding';
 const id = '12345678-1234-4234-8234-123456789abc';
-beforeEach(()=>{currencyState.currency='CNY';});
+beforeEach(()=>{currencyState.currency='CNY'; vi.spyOn(window,'open').mockReturnValue(null);});
 const availability = { currency: 'CNY', payment_gateway: 'epay', available: true, payment_methods: ['wxpaynative', 'alipay'], unavailable_reason: null };
 const order = { id, currency: 'CNY', amount_nanos: '1000000000', payment_method: 'wxpaynative', status: 'pending', checkout_url: 'https://checkout.example/pay?order=' + id, created_at: '2026-10-06T00:00:00Z' };
+function paymentPopup() {
+  const replace = vi.fn();
+  const close = vi.fn();
+  const popup = {
+    closed: false, close, opener: window,
+    location: { replace },
+    document: { title: '', body: { textContent: '' } },
+  };
+  return { popup, replace, close };
+}
+const openedMessage = 'Payment page opened in a new tab. Complete the payment there; this page updates the order automatically.';
+const fallbackMessage = 'Your order is saved, but the payment page did not open automatically. Open the payment page to pay. This page updates the order automatically.';
 it.each(['not-money', '-1', '9223372036854775808'])('recovers malformed saved amounts without rendering a broken page: %s', async amount => {
   let invalid = true;
   vi.stubGlobal('fetch', vi.fn(async input => String(input).includes('/payment-methods')
@@ -20,6 +32,23 @@ it.each(['not-money', '-1', '9223372036854775808'])('recovers malformed saved am
   await userEvent.click(screen.getByRole('button', { name: 'Retry top-ups' }));
   await screen.findByText('¥1.00');
 });
+it('renders unavailable top-up guidance and order status in Chinese', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async input => {
+      const path = String(input);
+      if (path.includes('/payment-methods')) return Response.json({data: {...availability, available: false, unavailable_reason: 'payment_setup_required'}});
+      return Response.json({data: [order], next_cursor: null});
+    }));
+    render(<TopupFunding token="test" organization="company" canCreate onPaid={vi.fn()}/>);
+    expect(await screen.findByText(/在线充值暂不可用/)).toBeTruthy();
+    expect(await screen.findByText('支付订单')).toBeTruthy();
+    expect(await screen.findByText('等待支付')).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
 it('does not replace a saved checkout or refresh funds from another order status', async () => {
   const onPaid = vi.fn();
   vi.stubGlobal('fetch', vi.fn(async input => {
@@ -33,7 +62,7 @@ it('does not replace a saved checkout or refresh funds from another order status
   await user.click(await screen.findByRole('button', { name: 'Continue payment' }));
   await user.click(screen.getByRole('button', { name: 'Check payment status' }));
   await screen.findByText('Could not check payment status. Try again.');
-  expect(screen.getByRole('link', { name: 'Continue to payment' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open payment page' })).toBeTruthy();
   expect(onPaid).not.toHaveBeenCalled();
 });
 function setup({ available = availability, saved = [] as typeof order[], failure = false, canCreate = true, mismatch = {} as Partial<typeof order> } = {}) {
@@ -58,25 +87,75 @@ function setup({ available = availability, saved = [] as typeof order[], failure
   render(<TopupFunding token="test" organization="company" canCreate={canCreate} onPaid={onPaid} />);
   return { posts, onPaid, settle: () => { orders = orders.map(saved => ({ ...saved, status: 'paid', checkout_url: null })); } };
 }
-it('creates one exact intent through the dialog and offers a safe saved checkout', async () => {
-  const { posts } = setup(); const user = userEvent.setup();
+it('creates one exact intent and opens the checkout without a second confirmation click', async () => {
+  const { posts } = setup();
+  const { popup, replace } = paymentPopup();
+  vi.mocked(window.open).mockReturnValue(popup);
+  const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Add credits' }));
   await user.type(screen.getByLabelText('Amount (¥)'), '9007199.26');
   await user.click(screen.getByRole('button', { name: 'Payment method' }));
   await user.click(screen.getByRole('menuitemradio', { name: 'Alipay' }));
   await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
-  expect(await screen.findByRole('link', { name: 'Continue to payment' })).toBeTruthy();
+  expect(await screen.findByText(openedMessage)).toBeTruthy();
+  expect(replace).toHaveBeenCalledTimes(1);
+  expect(replace).toHaveBeenCalledWith(order.checkout_url);
   expect(posts).toHaveLength(1); expect(posts[0].amount_nanos).toBe('9007199260000000'); expect(posts[0].payment_method).toBe('alipay'); expect(posts[0].currency).toBe('CNY'); expect(posts[0].payment_gateway).toBe('epay');
   expect(posts[0].idempotency_key).toMatch(/^[0-9a-f-]{36}$/);
   expect(document.body.textContent).not.toContain(id);
-  expect(screen.getByRole('link', { name: 'Continue to payment' }).getAttribute('rel')).toBe('noopener noreferrer');
+  const fallback = screen.getByRole('link', { name: 'Open payment page' });
+  expect(fallback.getAttribute('href')).toBe(order.checkout_url);
+  expect(fallback.getAttribute('rel')).toBe('noopener noreferrer');
+});
+it('keeps the saved order and a truthful fallback when the payment page is blocked', async () => {
+  const { posts, onPaid } = setup();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Add credits' }));
+  await user.type(screen.getByLabelText('Amount (¥)'), '1');
+  await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
+  expect(await screen.findByText(fallbackMessage)).toBeTruthy();
+  expect(screen.queryByText(openedMessage)).toBeNull();
+  const fallback = screen.getByRole('link', { name: 'Open payment page' });
+  expect(fallback.getAttribute('href')).toBe(order.checkout_url);
+  expect(fallback.getAttribute('rel')).toBe('noopener noreferrer');
+  expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
+  expect(posts).toHaveLength(1);
+  expect(onPaid).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Check payment status' })).toBeTruthy();
+});
+it('keeps the saved order when the browser refuses to open a payment window', async () => {
+  const { posts } = setup();
+  vi.mocked(window.open).mockImplementation(() => { throw new Error('popup blocked'); });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Add credits' }));
+  await user.type(screen.getByLabelText('Amount (¥)'), '1');
+  await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
+  expect(await screen.findByText(fallbackMessage)).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open payment page' }).getAttribute('href')).toBe(order.checkout_url);
+  expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
+  expect(posts).toHaveLength(1);
+});
+it('keeps the saved order when the opened tab cannot navigate to the checkout', async () => {
+  const { posts, onPaid } = setup();
+  const { popup, replace, close } = paymentPopup();
+  vi.mocked(window.open).mockReturnValue(popup);
+  replace.mockImplementation(() => { throw new Error('navigation blocked'); });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Add credits' }));
+  await user.type(screen.getByLabelText('Amount (¥)'), '1');
+  await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
+  expect(await screen.findByText(fallbackMessage)).toBeTruthy();
+  expect(close).toHaveBeenCalled();
+  expect(screen.getByRole('link', { name: 'Open payment page' }).getAttribute('href')).toBe(order.checkout_url);
+  expect(posts).toHaveLength(1);
+  expect(onPaid).not.toHaveBeenCalled();
 });
 it('recovers saved checkout without creating an order and rejects terminal links', async () => {
   const { posts } = setup({ saved: [order, { ...order, id: 'terminal', status: 'closed' }] }); const user = userEvent.setup();
   await screen.findByRole('button', { name: 'Continue payment' });
   expect(screen.getAllByRole('button', { name: 'Continue payment' })).toHaveLength(1);
   await user.click(await screen.findByRole('button', { name: 'Continue payment' }));
-  expect(await screen.findByRole('link', { name: 'Continue to payment' })).toBeTruthy();
+  expect(await screen.findByRole('link', { name: 'Open payment page' })).toBeTruthy();
   expect(posts).toHaveLength(0);
 });
 it('binds a USD top-up to its discovered Stripe integration', async () => {
@@ -124,15 +203,57 @@ it.each([null, 'unknown'])('rejects available methods without a valid gateway: %
   expect(screen.queryByRole('button', { name: 'Add credits' })).toBeNull();
 });
 it('does not automatically repost an uncertain creation and recovers history', async () => {
-  const { posts } = setup({ failure: true }); const user = userEvent.setup();
+  const { posts } = setup({ failure: true });
+  const { popup, close } = paymentPopup();
+  vi.mocked(window.open).mockReturnValue(popup);
+  const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Add credits' }));
   await user.type(screen.getByLabelText('Amount (¥)'), '1');
   await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
   await screen.findByText(/Checkout was not confirmed/);
-  expect(screen.getByLabelText('Amount (¥)').hasAttribute('disabled')).toBe(true);
+  expect(close).toHaveBeenCalled();
+  expect(screen.queryByText(fallbackMessage)).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Open payment page' })).toBeNull();
+  expect(screen.getByLabelText('Amount (¥)').hasAttribute('disabled')).toBe(false);
   await user.click(screen.getByRole('button', { name: 'Check saved top-ups' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Continue payment' })).toBeTruthy());
   expect(posts).toHaveLength(1);
+});
+it('checks a pending checkout in the background and credits only after confirmation', async () => {
+  vi.useFakeTimers();
+  try {
+    const onPaid = vi.fn();
+    let saved = order;
+    const statusReads = vi.fn(async () => Response.json({ data: saved }));
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.includes('/payment-methods')) return Response.json({ data: availability });
+      if (path.endsWith('/topups') && init?.method === 'POST') return Response.json({ data: order });
+      if (path.endsWith('/topups')) return Response.json({ data: [saved], next_cursor: null });
+      if (path.endsWith(`/topups/${id}`)) return statusReads();
+      throw new Error('Unexpected request');
+    }));
+    render(<TopupFunding token="test" organization="company" canCreate onPaid={onPaid} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    fireEvent.click(screen.getByRole('button', { name: 'Add credits' }));
+    const amountInput = screen.getByLabelText('Amount (¥)');
+    fireEvent.change(amountInput, { target: { value: '1' } });
+    fireEvent.submit(amountInput.closest('form')!);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText(fallbackMessage)).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(TOPUP_STATUS_POLL_MS); });
+    expect(statusReads).toHaveBeenCalledTimes(1);
+    expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
+    expect(onPaid).not.toHaveBeenCalled();
+    saved = { ...order, status: 'paid', checkout_url: null };
+    await act(async () => { await vi.advanceTimersByTimeAsync(TOPUP_STATUS_POLL_MS); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Paid')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Open payment page' })).toBeNull();
+    expect(onPaid).toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 it('shows unavailable configuration without invented payment controls', async () => {
   setup({ available: { ...availability, available: false, payment_methods: [], unavailable_reason: 'integration_unavailable' } });
@@ -147,11 +268,11 @@ it('keeps read-only access from creating top-ups', async () => {
 it('checks the selected saved order directly and removes a paid checkout link', async () => {
   const { settle, posts, onPaid } = setup({ saved: [order] }); const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Continue payment' }));
-  await screen.findByRole('link', { name: 'Continue to payment' });
+  await screen.findByRole('link', { name: 'Open payment page' });
   settle();
   await user.click(screen.getByRole('button', { name: 'Check payment status' }));
   await within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).findByText('Paid');
-  expect(screen.queryByRole('link', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Open payment page' })).toBeNull();
   expect(posts).toHaveLength(0); expect(onPaid).toHaveBeenCalled();
 });
 
@@ -162,7 +283,7 @@ it.each(['paid', 'closed', 'reconciliation_required', 'pending'])('opens saved %
   const detail=screen.getByRole('dialog',{name:'Top-up',exact:true});
   expect(within(detail).getByText({paid:'Paid',closed:'Closed',reconciliation_required:'Checking payment',pending:'Awaiting payment'}[status]!)).toBeTruthy();
   expect(within(detail).getByRole('button',{name:'Check payment status'})).toBeTruthy();
-  expect(within(detail).queryByRole('link',{name:'Continue to payment'})).toBeNull();
+  expect(within(detail).queryByRole('link',{name:'Open payment page'})).toBeNull();
   expect(posts).toHaveLength(0);
   expect(document.body.textContent).not.toContain(id);
 });
@@ -209,7 +330,7 @@ it('prevents replacing the checkout while payment status is pending', async () =
  expect((screen.getByRole('button',{name:'Continue payment',hidden:true}) as HTMLButtonElement).disabled).toBe(true);
  await act(async()=>{savedOrder={...order,status:'paid',checkout_url:null};finish(Response.json({data:savedOrder}));});
  await within(screen.getByRole('dialog',{name:'Top-up',exact:true})).findByText('Paid');
- expect(screen.queryByRole('link',{name:'Continue to payment'})).toBeNull();
+ expect(screen.queryByRole('link',{name:'Open payment page'})).toBeNull();
  expect((screen.getByRole('button',{name:'Add credits',hidden:true}) as HTMLButtonElement).disabled).toBe(false);
 });
 
@@ -232,8 +353,8 @@ it.each([{ currency: 'USD' }, { amount_nanos: '2000000000' }, { payment_method: 
   await user.type(screen.getByLabelText('Amount (¥)'), '1');
   await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
   await screen.findByText(/Checkout was not confirmed/);
-  expect(screen.queryByRole('link', { name: 'Continue to payment' })).toBeNull();
-  expect(screen.getByLabelText('Amount (¥)').hasAttribute('disabled')).toBe(true);
+  expect(screen.queryByRole('link', { name: 'Open payment page' })).toBeNull();
+  expect(screen.getByLabelText('Amount (¥)').hasAttribute('disabled')).toBe(false);
   expect(posts).toHaveLength(1);
 });
 
@@ -248,7 +369,7 @@ it('retains saved checkout recovery when payment option discovery fails', async 
   render(<TopupFunding token="test" organization="company" canCreate onPaid={vi.fn()}/>);
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Continue payment' }));
-  expect(screen.getByRole('link', { name: 'Continue to payment' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open payment page' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Add credits', hidden: true })).toBeNull();
   await user.keyboard('{Escape}');
   unavailable = false;
@@ -262,7 +383,7 @@ it('opens a loopback mock checkout only in development and labels test payments'
   const checkout_url = 'http://127.0.0.1:2570/checkout/' + 'a'.repeat(48);
   setup({ saved: [{ ...order, checkout_url }] });
   await userEvent.click(await screen.findByRole('button', { name: 'Continue payment' }));
-  expect(screen.getByRole('link', { name: 'Continue to payment' }).getAttribute('href')).toBe(checkout_url);
+  expect(screen.getByRole('link', { name: 'Open payment page' }).getAttribute('href')).toBe(checkout_url);
   expect(screen.getByText('Mock payments · Real model costs')).toBeTruthy();
 });
 it.each([

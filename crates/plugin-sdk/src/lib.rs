@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 //! Rust SDK for building Niu plugins (in-process hooks and Unix-socket HTTP/outbox services).
 
 use std::{
@@ -84,6 +86,8 @@ impl JwsVerifier {
     }
 
     /// Construct a verifier directly from the 32-byte Ed25519 seed (convenient for tests and dev).
+    // The parameter type guarantees a 32-byte seed; this conversion cannot fail.
+    #[allow(clippy::expect_used)]
     pub fn from_seed(
         expected_audience: impl Into<String>,
         kid: impl Into<String>,

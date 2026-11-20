@@ -31,7 +31,7 @@ impl Store {
         let saved =
             Self::save_media_result_reference_in_tx(&mut tx, scope, attempt, kind, ciphertext)
                 .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
 
@@ -65,12 +65,12 @@ impl Store {
         if Self::media_job_status_on(scope, attempt, &mut *snapshot).await?
             != Some(MediaJobStatus::Succeeded)
         {
-            snapshot.commit().await?;
+            crate::commit_tx(snapshot).await?;
             return Ok(None);
         }
         let ciphertext = sqlx::query_scalar("SELECT ciphertext FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND kind=$4 AND deleted_at IS NULL AND expires_at>clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(kind.as_str()).fetch_optional(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(ciphertext)
     }
     pub async fn delete_media_result_references(
@@ -83,7 +83,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO media_result_references(organization_id,project_id,attempt_id,kind,ciphertext,deleted_at) SELECT r.organization_id,r.project_id,r.attempt_id,k.kind,NULL,clock_timestamp() FROM media_recovery_routes r CROSS JOIN (VALUES ('video'),('last_frame')) k(kind) WHERE r.organization_id=$1 AND r.project_id=$2 AND r.attempt_id=$3 ON CONFLICT(attempt_id,kind) DO UPDATE SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE media_result_references.deleted_at IS NULL")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn purge_expired_media_result_references(&self) -> Result<u64, StoreError> {
@@ -112,11 +112,11 @@ impl Store {
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let Some(status) = Self::media_job_status_on(scope, attempt, &mut *snapshot).await? else {
-            snapshot.commit().await?;
+            crate::commit_tx(snapshot).await?;
             return Ok(None);
         };
         let rows:Vec<(String,String)>=sqlx::query_as("SELECT kind,CASE WHEN deleted_at IS NOT NULL OR expires_at<=clock_timestamp() THEN 'unavailable' ELSE 'available' END FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         let mut data = serde_json::json!({"video":"missing","last_frame":"missing"});
         for (kind, state) in rows {
             data[&kind] = serde_json::Value::String(
@@ -128,5 +128,67 @@ impl Store {
             );
         }
         Ok(Some(data))
+    }
+}
+
+impl Store {
+    /// Persist a bounded, already validated result copy. The gateway encrypts
+    /// the bytes; storage never sees a Provider URL or plaintext media.
+    pub async fn save_media_result_blob(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        kind: MediaResultKind,
+        content_type: &str,
+        byte_length: usize,
+        ciphertext: &[u8],
+    ) -> Result<bool, StoreError> {
+        if content_type.is_empty()
+            || content_type.len() > 128
+            || byte_length == 0
+            || byte_length > 64 * 1024 * 1024
+            || ciphertext.is_empty()
+        {
+            return Err(StoreError::InvalidUsage);
+        }
+        let result = sqlx::query(
+            "INSERT INTO media_result_blobs(organization_id,project_id,attempt_id,kind,content_type,byte_length,ciphertext) \
+             VALUES($1,$2,$3,$4,$5,$6,$7) \
+             ON CONFLICT(attempt_id,kind) DO UPDATE SET content_type=EXCLUDED.content_type,byte_length=EXCLUDED.byte_length,ciphertext=EXCLUDED.ciphertext \
+             WHERE media_result_blobs.organization_id=EXCLUDED.organization_id AND media_result_blobs.project_id=EXCLUDED.project_id",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .bind(kind.as_str())
+        .bind(content_type)
+        .bind(byte_length as i64)
+        .bind(ciphertext)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn media_result_blob(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        kind: MediaResultKind,
+    ) -> Result<Option<(String, usize, Vec<u8>)>, StoreError> {
+        let row: Option<(String, i64, Vec<u8>)> = sqlx::query_as(
+            "SELECT content_type,byte_length,ciphertext FROM media_result_blobs \
+             WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND kind=$4",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .bind(kind.as_str())
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.and_then(|(content_type, length, ciphertext)| {
+            usize::try_from(length)
+                .ok()
+                .map(|length| (content_type, length, ciphertext))
+        }))
     }
 }

@@ -1,5 +1,5 @@
 // Extract actual glyph outlines on macOS; no font binaries are redistributed.
-// Usage: swift outline-fonts.swift <MapleMono-SemiBold.ttf> <jf-openhuninn-2.1.ttf>
+// Usage: swift outline-fonts.swift <Arial-Rounded-Bold.ttf> <jf-openhuninn-2.1.ttf>
 import Foundation
 import CoreText
 import CoreGraphics

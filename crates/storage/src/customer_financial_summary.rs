@@ -58,7 +58,7 @@ impl Store {
         if !known {
             return Err(StoreError::InvalidPrice);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(summary)
     }
 }

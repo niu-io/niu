@@ -3,11 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Link, MemoryRouter, Route, Routes, useParams, useLocation } from 'react-router';
+import { Link, Route, Routes, createMemoryRouter, RouterProvider, useParams, useLocation } from 'react-router';
 import SessionView from '../../../../app/features/playground/components/PlaygroundView';
 
 import GenerationsLayout from '@/features/generations/GenerationsLayout';
-import type { ComponentProps } from 'react';
+import { createContext, useContext, useState, type ComponentProps, type ReactNode } from 'react';
+const MemoryRouterChildrenContext = createContext<ReactNode>(null);
+function MemoryRouterOutlet() { return <>{useContext(MemoryRouterChildrenContext)}</>; }
+function MemoryRouter({ initialEntries, children }: { initialEntries?: string[]; children: ReactNode }) {
+  const [router] = useState(() => createMemoryRouter([{ path: '*', element: <MemoryRouterOutlet /> }], { initialEntries }));
+  return <MemoryRouterChildrenContext.Provider value={children}><RouterProvider router={router} /></MemoryRouterChildrenContext.Provider>;
+}
 function PlaygroundView(props: ComponentProps<typeof SessionView>) { return <GenerationsLayout><SessionView {...props} /></GenerationsLayout>; }
 
 vi.mock('../../../../app/shell/dashboard-context', () => ({ useDashboardContext: () => ({
@@ -43,15 +49,21 @@ function streamResponse(model: string, completion: number, attemptId: string, fi
   return new Response(body, { headers: { 'content-type': 'text/event-stream', 'x-niu-attempt-id': attemptId } });
 }
 
-async function setWorkspaceKey(user: ReturnType<typeof userEvent.setup>, key = 'workspace-key-secret') {
-  await user.click(screen.getByRole('button', { name: /API key:/i }));
-  await user.type(screen.getByLabelText('Key secret'), key);
-  await user.click(screen.getByRole('button', { name: 'Done' }));
+async function setWorkspaceKey(_user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole('button', { name: 'API key: Default' });
+}
+
+async function addComparisonModel(user: ReturnType<typeof userEvent.setup>, model = 'strong') {
+  await screen.findByRole('button', { name: 'Edit comparison models (1 selected)' });
+  await user.click(screen.getByRole('button', { name: 'Choose models', exact: true }));
+  await user.click(await screen.findByRole('button', { name: new RegExp(model) }));
+  await user.click(screen.getByRole('button', { name: 'Close dialog', exact: true }));
+  await screen.findByRole('button', { name: 'Edit comparison models (2 selected)' });
 }
 
 function renderPlayground(models = ['fast', 'strong', 'balanced', 'unused', 'spare']) {
   return render(<SidebarProvider><MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
-    <Routes><Route path="/workspaces/:workspace/playground" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /><Route path="/generations" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /></Routes>
+    <Routes><Route path="/workspaces/:workspace/playground" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /><Route path="/generations/:session?" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /></Routes>
   </MemoryRouter></SidebarProvider>);
 }
 
@@ -87,6 +99,23 @@ function stubFetch(fallback: ReturnType<typeof vi.fn>) {
 beforeEach(() => { localStorage.clear(); serverChats.clear(); serverDrafts.clear(); vi.stubGlobal('crypto', webcrypto); });
 
 describe('Global Chat', () => {
+  it('guides a user with no active keys to creation while preserving the draft return path', async () => {
+    stubFetch(vi.fn(async () => jsonResponse({data:[]})));
+    function Target() { const location=useLocation(); return <output data-testid="key-handoff">{JSON.stringify(location.state)}</output>; }
+    const user=userEvent.setup();
+    render(<SidebarProvider><MemoryRouter initialEntries={['/generations/chat-42?workspace=workspace-a']}><Routes>
+      <Route path="/generations/:session" element={<PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>}/>
+      <Route path="/workspaces/:workspace/keys" element={<Target/>}/>
+    </Routes></MemoryRouter></SidebarProvider>);
+    const prompt=await screen.findByLabelText('Prompt for all selected models');
+    await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
+    await user.type(prompt,'Keep this draft');
+    expect(await screen.findByText('Create an API key to start using models in this workspace.')).toBeTruthy();
+    expect(screen.queryByLabelText('Key secret')).toBeNull();
+    await user.click(screen.getByRole('button',{name:'Create API key'}));
+    expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
+    expect([...serverDrafts.values()].some(draft=>(draft.payload as {prompt:string})?.prompt==='Keep this draft')).toBe(true);
+  });
   it('consumes new-generation intent and restores an unsent server draft after remount', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     function LocationProbe() { const location=useLocation(); return <output data-testid="draft-location">{location.pathname+location.search}</output>; }
@@ -100,15 +129,16 @@ describe('Global Chat', () => {
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('Keep my unsent work'));
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
-  it('opens Video from the task category without offering it as a single example task', async () => {
+  it('opens Video via a distinct mode switch link without offering it as a prompt filter tab', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
       <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
     </MemoryRouter></SidebarProvider>);
-    await screen.findByRole('tab', {name:'Video'});
+    const videoLink = await screen.findByRole('link', {name:'Video',exact:true});
+    expect(videoLink.getAttribute('href')).toContain('new=video');
+    expect(screen.queryByRole('tab', {name:'Video'})).toBeNull();
     expect(screen.queryByRole('button', {name:/Video generation/})).toBeNull();
-    await userEvent.click(screen.getByRole('tab', {name:'Video'}));
-    // The router carries the generation type, not a text example prompt.
+    await userEvent.click(videoLink);
     expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('');
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
@@ -149,15 +179,23 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     const user = userEvent.setup();
     renderPlayground();
-    await screen.findByRole('button', {name:'Edit comparison models (2 selected)'});
+    await addComparisonModel(user);
     await user.click(screen.getByRole('button', {name:'Choose models',exact:true}));
-    await user.click(screen.getByRole('button', {name:'balanced',exact:true}));
-    await user.click(screen.getByRole('button', {name:'unused',exact:true}));
-    expect((screen.getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', {name:'strong',exact:true}));
-    expect((screen.getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(false);
-    await user.click(screen.getByRole('button', {name:'spare',exact:true}));
-    await user.click(screen.getByRole('button', {name:'Close dialog',exact:true}));
+    const dialog = screen.getByRole('dialog', {name:'Choose models'});
+    expect(within(dialog).getByText('2 of 4 selected')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', {name:'balanced',exact:true}));
+    await user.click(within(dialog).getByRole('button', {name:'unused',exact:true}));
+    expect(within(dialog).getByText('4 of 4 selected')).toBeTruthy();
+    expect((within(dialog).getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByRole('button', {name:'Remove strong',exact:true}));
+    expect(within(dialog).getByText('3 of 4 selected')).toBeTruthy();
+    expect((within(dialog).getByRole('button', {name:'spare',exact:true}) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(within(dialog).getByRole('button', {name:'spare',exact:true}));
+    await user.type(within(dialog).getByLabelText('Search models'), 'spa');
+    expect(within(dialog).getByRole('button', {name:'spare',exact:true})).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', {name:'Clear search',exact:true}));
+    await user.click(within(dialog).getByRole('button', {name:'Done',exact:true}));
+    expect(screen.queryByRole('dialog', {name:'Choose models'})).toBeNull();
     expect(screen.getByRole('button', {name:'Edit comparison models (4 selected)'})).toBeTruthy();
   });
   it('returns focus to the archive button after archived chats closes', async () => {
@@ -169,6 +207,26 @@ describe('Global Chat', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Close', exact: true }));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Archived sessions', exact: true })));
     expect(screen.queryByRole('dialog', { name: 'Archived sessions' })).toBeNull();
+  });
+
+  it('waits for draft confirmation on load failure and unlocks after retrying', async () => {
+    const fallback = vi.fn(async () => jsonResponse({data: []}));
+    let failDraftRead = true;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/chats/draft')
+      ? (failDraftRead
+        ? Promise.resolve(new Response(null, {status: 503}))
+        : Promise.resolve(jsonResponse({data: {revision: 0, payload: null}})))
+      : fallback(input, init)));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    const prompt = await screen.findByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    expect(await screen.findByText('Could not load your saved draft.')).toBeTruthy();
+    expect(prompt.disabled).toBe(true);
+    failDraftRead = false;
+    await user.click(screen.getByRole('button', { name: 'Retry loading draft' }));
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Recovered after retry');
+    expect(prompt.value).toBe('Recovered after retry');
   });
 
   it('lets settings close after a draft conflict without discarding local edits',async()=>{
@@ -317,13 +375,14 @@ describe('Global Chat', () => {
     expect(screen.getAllByText('Unresolved')).toHaveLength(2);
     expect(screen.getAllByText('No rate')).toHaveLength(2);
     expect(screen.getAllByText('Not charged')).toHaveLength(2);
-    expect(screen.getAllByText('Own API key')).toHaveLength(2);
+    expect(screen.getAllByText('No Niu charge')).toHaveLength(2);
     expect(screen.queryByText(/EUR /)).toBeNull();
     expect(screen.queryByText('API-equivalent cost')).toBeNull();
   });
   it('persists follow-up turns and sends only each model’s completed branch after reload', async () => {
     const sent: Array<{ model: string; messages: unknown[] }> = [];
     stubFetch(vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/keys')) return jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] });
       if (String(input) === '/v1/chat/completions') {
         const body = JSON.parse(String(init?.body));
         sent.push(body);
@@ -333,6 +392,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     const view = renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await setWorkspaceKey(user);
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('First turn');
@@ -466,6 +526,7 @@ describe('Global Chat', () => {
       return jsonResponse({data:[]});
     }));
     const user=userEvent.setup();const view=renderPlayground(['fast','strong']);
+    await addComparisonModel(user);
     await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button',{name:'API key: Default'});
     await user.click(screen.getByRole('button',{name:/Car wash/i}));
@@ -474,6 +535,230 @@ describe('Global Chat', () => {
     view.unmount();
     await act(async()=>{finish(jsonResponse({saved:true}));});
     expect(calls.some(url=>url.endsWith('/chat/completions'))).toBe(false);
+  });
+
+  it('stops during draft persistence without creating a session or dispatching', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string}>}}> = [];
+    const dispatches: string[] = [];
+    let releaseDraft!: (response: Response) => void;
+    let draftWriteStarted = false;
+    let draftPayload: unknown;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') {
+          draftWriteStarted = true;
+          draftPayload = JSON.parse(String(init.body)).payload;
+          return new Promise<Response>(resolve => { releaseDraft = resolve; });
+        }
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-persisted'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) { dispatches.push(url); return new Promise<Response>(() => {}); }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop before sending');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(draftWriteStarted).toBe(true));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    // Stop is effective while the draft write is still in flight.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send to 1 model' })).toBeTruthy());
+    await act(async () => {
+      releaseDraft(jsonResponse({data:{revision:1,payload:draftPayload}}));
+    });
+    await waitFor(() => expect(chatWrites).toHaveLength(0));
+    expect(dispatches).toHaveLength(0);
+    expect(screen.getByLabelText('Prompt for all selected models')).toHaveProperty('value', 'Stop before sending');
+    expect(chatWrites).toHaveLength(0);
+  });
+
+  it('stops while the session is being persisted without dispatching or creating a second session', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string;content:string}>}}> = [];
+    const dispatches: string[] = [];
+    const savedChats = new Map<string, unknown>();
+    let releaseFirstSave!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') return Promise.resolve(jsonResponse({data:{revision:1,payload:JSON.parse(String(init.body)).payload}}));
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        savedChats.set(url, JSON.parse(String(init.body)));
+        if (chatWrites.length === 1) return new Promise<Response>(resolve => { releaseFirstSave = resolve; });
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-persisted'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[...savedChats.values()]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) { dispatches.push(url); return Promise.resolve(streamResponse('fast', 4, 'attempt-should-not-exist')); }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    const view = renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop during persistence');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(chatWrites).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    await act(async () => { releaseFirstSave(jsonResponse({saved:true,reference:'chat-persisted'})); });
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(dispatches).toHaveLength(0);
+    expect(new Set(chatWrites.map(write => write.url)).size).toBe(1);
+    expect(chatWrites[1].body.id).toBe(chatWrites[0].body.id);
+    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(await screen.findByText('Cancelled')).toBeTruthy();
+    expect(await screen.findByText('Cancelled before any output arrived.')).toBeTruthy();
+    expect(screen.getByLabelText('Prompt for all selected models')).toHaveProperty('value', '');
+    // Reload shows one truthfully cancelled saved session, never a connecting duplicate.
+    view.unmount();
+    renderPlayground(['fast']);
+    await waitFor(() => expect(screen.getAllByText('Cancelled')).toHaveLength(1));
+    expect(screen.queryByText('Connecting')).toBeNull();
+    expect(savedChats.size).toBe(1);
+  });
+
+  it('stops while clearing the composer draft after the session was saved and still terminalizes it', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string}>}}> = [];
+    const dispatches: string[] = [];
+    let releaseClearedDraft!: (response: Response) => void;
+    let clearedDraftStarted = false;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') {
+          const body = JSON.parse(String(init.body));
+          if ((body.payload as {prompt?:string})?.prompt === '') {
+            clearedDraftStarted = true;
+            return new Promise<Response>(resolve => { releaseClearedDraft = resolve; });
+          }
+          return Promise.resolve(jsonResponse({data:{revision:1,payload:body.payload}}));
+        }
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-cleared'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) { dispatches.push(url); return new Promise<Response>(() => {}); }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop while clearing draft');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(clearedDraftStarted).toBe(true));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    // The terminal save must not wait for a stuck draft clear.
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(chatWrites[1].body.id).toBe(chatWrites[0].body.id);
+    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(dispatches).toHaveLength(0);
+    await act(async () => { releaseClearedDraft(jsonResponse({data:{revision:2,payload:{sessionId:chatWrites[0].body.id,prompt:'',models:['fast'],attachments:[],settings:{systemPrompt:'',maxTokens:4096,temperature:0.7,logPayloads:true}}}})); });
+  });
+
+  it('aborts the live dispatch and persists exactly one cancelled session on stop', async () => {
+    const chatWrites: Array<{url:string;body:{id:string;results:Array<{phase:string;content:string}>}}> = [];
+    const dispatches: Array<{url:string;signal?:AbortSignal}> = [];
+    let releaseStream!: (error: unknown) => void;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') return Promise.resolve(jsonResponse({data:{revision:1,payload:JSON.parse(String(init.body)).payload}}));
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-streaming'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) {
+        dispatches.push({url,signal:init?.signal ?? undefined});
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Partial"}}]}\n\n'));
+            releaseStream = error => controller.error(error);
+          },
+        });
+        init?.signal?.addEventListener('abort', () => releaseStream(new DOMException('Aborted','AbortError')), { once: true });
+        return Promise.resolve(new Response(body,{headers:{'content-type':'text/event-stream','x-niu-attempt-id':'attempt-stream'}}));
+      }
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Stop during streaming');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    await waitFor(() => expect(dispatches).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: 'Stop generating' }));
+    await waitFor(() => expect(dispatches[0].signal?.aborted).toBe(true));
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(dispatches).toHaveLength(1);
+    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
+    expect(chatWrites[0].body.results.every(result => result.phase === 'connecting')).toBe(true);
+    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(await screen.findByText('Cancelled')).toBeTruthy();
+  });
+
+  it('rejects a synchronous double submission before startup persistence begins', async () => {
+    const chatWrites: Array<{url:string;body:{id:string}}> = [];
+    let releaseSave!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/chats/draft')) {
+        if (init?.method === 'PUT') return Promise.resolve(jsonResponse({data:{revision:1,payload:JSON.parse(String(init.body)).payload}}));
+        return Promise.resolve(jsonResponse({data:{revision:0,payload:null}}));
+      }
+      if (url.includes('/chats/') && init?.method === 'PUT') {
+        chatWrites.push({url,body:JSON.parse(String(init.body))});
+        if (chatWrites.length === 1) return new Promise<Response>(resolve => { releaseSave = resolve; });
+        return Promise.resolve(jsonResponse({saved:true,reference:'chat-double'}));
+      }
+      if (url.endsWith('/chats')) return Promise.resolve(jsonResponse({data:[]}));
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+      if (url.endsWith('/chat/completions')) return Promise.resolve(streamResponse('fast', 4, 'attempt-double'));
+      return Promise.resolve(jsonResponse({data:[]}));
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    const prompt = screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement;
+    await waitFor(() => expect(prompt.disabled).toBe(false));
+    await user.type(prompt, 'Send exactly once');
+    const form = prompt.closest('form')!;
+    // Two submits in the same task: the second must be rejected synchronously,
+    // before React can flush the running state, startup persistence or dispatch.
+    act(() => {
+      form.dispatchEvent(new Event('submit', {bubbles:true, cancelable:true}));
+      form.dispatchEvent(new Event('submit', {bubbles:true, cancelable:true}));
+    });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    expect(chatWrites).toHaveLength(1);
+    await act(async () => { releaseSave(jsonResponse({saved:true,reference:'chat-double'})); });
+    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    expect(new Set(chatWrites.map(write => write.url)).size).toBe(1);
+    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
   });
 
   it('does not send inference when durable session creation fails', async () => {
@@ -486,6 +771,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
@@ -631,6 +917,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     const view = renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
@@ -690,6 +977,7 @@ describe('Global Chat', () => {
         const entry = entries.find(item => item.attempt_id === attempt);
         return Promise.resolve(entry ? jsonResponse({data:entry}) : new Response('', {status:404}));
       }
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }));
 
@@ -704,15 +992,14 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: /API key: Choose API key/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Chat settings' })).toBeTruthy();
     expect(screen.queryByText('Parameters')).toBeNull();
-    await user.hover(screen.getByRole('button', {name:'Edit comparison models (2 selected)'}));
-    expect(await screen.findByText('fast')).toBeTruthy();
-    expect(screen.getByText('strong')).toBeTruthy();
-    await user.unhover(screen.getByRole('button', {name:'Edit comparison models (2 selected)'}));
+    const modelTrigger = screen.getByRole('button', {name:'Edit comparison models (1 selected)'});
+    expect(within(modelTrigger).getByText('fast')).toBeTruthy();
+    await addComparisonModel(user);
     expect(screen.getByRole('button', { name: /Car wash/i })).toBeTruthy();
-    expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(5);
+    expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('tablist',{name:'Generation type'})).toBeNull();
     await user.click(screen.getByRole('tab',{name:'All tasks'}));
-    expect(screen.getByRole('tab',{name:'Video'})).toBeTruthy();
+    expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Choose models' }));
     await user.click(screen.getByRole('button', { name: 'balanced' }));
@@ -740,7 +1027,7 @@ describe('Global Chat', () => {
     expect(inference).toHaveLength(3);
     expect(inference.every(request => request.headers.get('x-niu-log-payloads') === 'false')).toBe(true);
     expect(pendingInference.map(call => call.model)).toEqual(['fast', 'strong', 'balanced']);
-    expect(inference.map(request => request.headers.get('authorization'))).toEqual(Array(3).fill('Bearer workspace-key-secret'));
+    expect(inference.map(request => request.headers.get('x-niu-key-id'))).toEqual(Array(3).fill('key-a'));
     expect(inference.every(request => JSON.parse(request.body ?? '{}').stream === true)).toBe(true);
     expect(inference.map(request => JSON.parse(request.body ?? '{}')).map(({ model, messages, max_completion_tokens, temperature }: { model: string; messages: unknown; max_completion_tokens: number; temperature: number }) => ({ model, messages, max_completion_tokens, temperature }))).toEqual(Array.from(['fast', 'strong', 'balanced'], model => ({
       model,
@@ -765,7 +1052,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Copy fast response' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Send to 3 models/i })).toBeTruthy();
     expect(screen.getAllByText('Compare this request across providers.').length).toBeGreaterThan(1);
-    expect(requests.some(request => request.headers.get('authorization') === 'Bearer admin-session' && request.url === '/v1/chat/completions')).toBe(false);
+    expect(inference.every(request => request.headers.get('authorization') === 'Bearer admin-session')).toBe(true);
     expect(screen.getAllByRole('link', { name: 'Inspect request' })[0].getAttribute('href')).toContain('/executions?modelAlias=fast#gateway-attempt-attempt-fast');
 
     await user.click(screen.getByText('Compare measured usage'));
@@ -790,9 +1077,14 @@ describe('Global Chat', () => {
 
   it('requires a workspace API key and lets the user stop in-flight requests', async () => {
     const requests: Array<{ url: string; signal?: AbortSignal }> = [];
+    let keyFetchCount = 0;
     stubFetch(vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       requests.push({ url, signal: init?.signal as AbortSignal | undefined });
+      if (url.endsWith('/keys')) {
+        keyFetchCount += 1;
+        return Promise.resolve(jsonResponse({ data: keyFetchCount > 1 ? [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] : [] }));
+      }
       if (url === '/v1/chat/completions') return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
       });
@@ -800,17 +1092,18 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'Stop this comparison.');
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     expect(await screen.findByRole('heading', { name: 'API key' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
-    expect(screen.getByLabelText('Key secret')).toBeTruthy();
+    expect(screen.queryByLabelText('Key secret')).toBeNull();
     expect(screen.queryByText('Choose a workspace API key before sending this prompt.')).toBeNull();
     expect(screen.queryByText('Select a workspace API key to send requests')).toBeNull();
     expect(screen.queryByText(/Create a key on the API keys page/)).toBeNull();
     expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(0);
-      await user.type(screen.getByLabelText('Key secret'), 'workspace-key-secret');
+    await screen.findByRole('button', { name: 'API key', exact: true });
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await waitFor(() => expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(2));
@@ -854,11 +1147,13 @@ describe('Global Chat', () => {
         if (model === 'strong' && ++strongCalls === 1) return Promise.resolve(new Response(JSON.stringify({ error: { message: 'This model is temporarily unavailable.' } }), { status: 503, headers: { 'content-type': 'application/json' } }));
         return Promise.resolve(streamResponse(model, 12, 'attempt-' + model));
       }
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
       if (url.includes('/requests/')) return Promise.resolve(jsonResponse({ data: [], next_cursor: null }));
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }));
     const user = userEvent.setup();
     const { container } = renderPlayground(['fast', 'strong']);
+    await addComparisonModel(user);
     await setWorkspaceKey(user);
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('Test independent routes.');
@@ -882,6 +1177,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       requests.push({ url, signal: init?.signal as AbortSignal | undefined });
+      if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
       if (url === '/v1/chat/completions') return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
       });
@@ -896,6 +1192,7 @@ describe('Global Chat', () => {
       <Link to="/workspaces/workspace-b/playground">Switch workspace</Link>
       <Routes><Route path="/workspaces/:workspace/playground" element={<WorkspacePlayground />} /></Routes>
     </MemoryRouter></SidebarProvider>);
+    await addComparisonModel(user);
     await setWorkspaceKey(user);
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('Only for workspace A.');
@@ -1057,7 +1354,7 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
   renderPlayground([]);
   expect(await screen.findByRole('heading', {name: 'What would you like to create?'})).toBeTruthy();
   expect(screen.getByText('No text models are available. Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
-  expect(screen.getByRole('tab',{name:'Video'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
   expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });
 
@@ -1135,21 +1432,21 @@ it('explains an empty output-limit response without showing a waiting state',asy
   expect(screen.queryByText('Waiting for a response…')).toBeNull();
 });
 
-it('does not carry saved-workspace billing claims over to a manually supplied key', async () => {
-  stubFetch(vi.fn(async (url: string) => url.endsWith('/keys')
-    ? jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]})
-    : jsonResponse({data:[]})));
+it('does not carry saved-workspace billing claims over when no workspace key is selected', async () => {
+  let resolveKeys!: (response: Response) => void;
+  stubFetch(vi.fn((url: string) => url.endsWith('/keys')
+    ? new Promise<Response>(resolve => { resolveKeys = resolve; })
+    : Promise.resolve(jsonResponse({data:[]}))));
   const user = userEvent.setup();
   renderPlayground(['fast', 'strong']);
-  await screen.findByRole('button', {name:'API key: Default'});
-  expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider API keys');
-  await user.click(screen.getByRole('button', {name:'API key: Default'}));
-  await user.click(screen.getByRole('button', {name:'API key', exact:true}));
-  await user.click(screen.getByRole('menuitemradio', {name:'Use another key'}));
-  await user.type(screen.getByLabelText('Key secret'), 'manual-test-key');
-  await user.click(screen.getByRole('button', {name:'Done'}));
+  await addComparisonModel(user);
   expect(screen.getByLabelText('Usage billing').textContent).toContain('according to the workspace of your API key');
   expect(screen.getByLabelText('Usage billing').textContent).not.toContain('both Niu credits');
+  resolveKeys(jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]}));
+  await screen.findByRole('button', {name:'API key: Default'});
+  expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider keys');
+  expect(screen.getByLabelText('Usage billing').closest('.playground-composer-surface')).toBeNull();
+  expect(screen.getByLabelText('Usage billing').closest('form')).toBeNull();
   expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).endsWith('/chat/completions'))).toBe(false);
 });
 
@@ -1159,7 +1456,7 @@ it('does not substitute an available key for an inaccessible bookmarked key', as
     ? jsonResponse({data:[{id:'key-a',slug:'default',name:'Default',allowed_models:['*'],revoked:false,expired:false}]})
     : jsonResponse({data:[]})));
   render(<SidebarProvider><MemoryRouter initialEntries={['/generations?key=unavailable-reference&new=1']}><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
-  await screen.findByText('The requested API key is unavailable or you no longer have access. Choose another key before sending.');
+  await screen.findByText('This API key is invalid. Choose another or create a new one to continue.');
   expect(screen.queryByRole('button',{name:'API key: Default'})).toBeNull();
   expect((screen.getByRole('button',{name:'Send to 1 model'}) as HTMLButtonElement).disabled).toBe(true);
   expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).endsWith('/chat/completions'))).toBe(false);
@@ -1173,10 +1470,10 @@ it.each(['legacy-id', 'chat-1001'])('directly opens a Chat bookmark outside rece
     return jsonResponse({data:[]});
   });
   stubChatFetch(direct);
-  function LocationProbe(){const location=useLocation();return <output data-testid="reference-location">{location.search+location.hash}</output>;}
+  function LocationProbe(){const location=useLocation();return <output data-testid="reference-location">{location.pathname+location.search+location.hash}</output>;}
   render(<SidebarProvider><MemoryRouter initialEntries={[`/generations?workspace=workspace-a&session=${reference}&keep=1#result`]}><LocationProbe/><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
   await screen.findByRole('heading',{name:'Older retained conversation',level:1});
-  await waitFor(()=>expect(screen.getByTestId('reference-location').textContent).toBe('?workspace=workspace-a&session=chat-1001&keep=1#result'));
+  await waitFor(()=>expect(screen.getByTestId('reference-location').textContent).toBe('/generations/chat-1001?keep=1#result'));
   expect(direct.mock.calls.some(([url])=>String(url).endsWith(`/chats/${reference}`))).toBe(true);
 });
 
@@ -1198,5 +1495,28 @@ it('uses the server reference in a newly saved Chat history link without reloadi
   const historyButton=screen.getByRole('button',{name:'Toggle generation history'});
   if(historyButton.getAttribute('aria-expanded')!=='true')await userEvent.click(historyButton);
   const link=await screen.findByRole('link',{name:'New readable conversation'});
-  expect(link.getAttribute('href')).toContain('session=chat-2048');
+  expect(link.getAttribute('href')).toBe('/generations/chat-2048');
+});
+
+it('restores the latest or selected conversation without flickering the sidebar highlight when returning to Generations', async () => {
+  const base='/api/v1/organizations/org-a/projects/workspace-a';
+  serverChats.set(`${base}/chats/latest`,{id:'latest',reference:'chat-1002',prompt:'Latest conversation',createdAt:200,results:[{model:'fast',content:'Latest answer',phase:'complete',elapsedMs:10,error:null}]});
+  serverChats.set(`${base}/chats/older`,{id:'older',reference:'chat-1001',prompt:'Earlier conversation',createdAt:100,results:[{model:'fast',content:'Earlier answer',phase:'complete',elapsedMs:10,error:null}]});
+  serverDrafts.set(`${base}/chats/draft`,{revision:1,payload:{sessionId:null,prompt:'',models:['fast'],attachments:[],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}}});
+  stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
+  const user=userEvent.setup();
+  const first=renderPlayground(['fast']);
+  await screen.findByRole('heading',{name:'Latest conversation',level:1});
+  expect(screen.getByRole('link',{name:'Latest conversation'}).getAttribute('data-active')).toBe('true');
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('false');
+  await user.click(screen.getByRole('link',{name:'Earlier conversation'}));
+  expect(screen.getByRole('heading',{name:'Earlier conversation',level:1})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
+  first.unmount();
+  renderPlayground(['fast']);
+  expect(screen.getByRole('heading',{name:'Earlier conversation',level:1})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
+  expect(screen.getByRole('link',{name:'Latest conversation'}).getAttribute('data-active')).toBe('false');
+  await waitFor(()=>expect(serverDrafts.get(`${base}/chats/draft`)?.payload).toMatchObject({sessionId:'older'}));
+  expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
 });

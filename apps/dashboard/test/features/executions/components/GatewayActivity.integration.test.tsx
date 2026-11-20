@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import GatewayActivity, { taskOutcome } from '../../../../app/features/executions/components/GatewayActivity';
+import { saveLocale } from '../../../../app/shell/locale';
 
 const knownKeys = [{id:'key-1',name:'Build app',allowed_models:['*'],revoked:false,expired:false}];
 
@@ -48,6 +49,18 @@ const summary = {
 function RouteHash() { return <output aria-label="Selected request URL">{useLocation().hash}</output>; }
 function RouteQuery() { return <output aria-label="Route query">{useLocation().search}</output>; }
 
+it.each([
+  ['/workspaces/demo', undefined],
+  ['/activity?workspace=demo', '/workspaces/demo'],
+])('links activity billing to the selected workspace from %s', async (entry, workspaceRoute) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    if (String(input).endsWith('/keys')) return Response.json({ data: [] });
+    return Response.json({ data: [], next_cursor: null, summary });
+  }));
+  render(<MemoryRouter initialEntries={[entry]}><GatewayActivity token="test" models={['fast']} statisticsOnly workspaceRoute={workspaceRoute} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+  expect((await screen.findByRole('link', {name: 'View billing'})).getAttribute('href')).toBe('/workspaces/demo/billing');
+});
+
 it('uses the same local calendar boundaries for query and histogram on a single-day range', async () => {
   const start = new Date(2026, 9, 9).getTime();
   const end = new Date(2026, 9, 10).getTime();
@@ -82,8 +95,8 @@ it('explains durable failure classifications when request payloads are unavailab
   await userEvent.setup().click(await screen.findByRole('button',{name:'fast',exact:true}));
   const dialog=await screen.findByRole('dialog',{name:'Request details'});
   expect(within(dialog).getByText('This model is unavailable in the upstream account’s region.')).toBeTruthy();
-  expect(within(dialog).getByText('Upstream HTTP 403')).toBeTruthy();
-  expect(within(dialog).getByText('Uncertain')).toBeTruthy();
+  expect(within(dialog).getByText('Provider 403')).toBeTruthy();
+  expect(within(dialog).getByText('Unresolved')).toBeTruthy();
   expect(await within(dialog).findByText('Request and response bodies were not retained or have expired.')).toBeTruthy();
 });
 
@@ -103,9 +116,9 @@ it('keeps unknown video execution distinct from saved submission HTTP diagnostic
   render(<MemoryRouter><GatewayActivity token="test" models={['video-model']} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
   await userEvent.setup().click(await screen.findByRole('button', {name: 'video-model', exact: true}));
   const dialog = await screen.findByRole('dialog', {name: 'Request details'});
-  expect(within(dialog).getByText('Upstream HTTP 401')).toBeTruthy();
-  expect(within(dialog).getByText('HTTP 202')).toBeTruthy();
-  expect(within(dialog).getByText('Uncertain')).toBeTruthy();
+  expect(within(dialog).getByText('Provider 401')).toBeTruthy();
+  expect(within(dialog).getByText('202')).toBeTruthy();
+  expect(within(dialog).getByText('Unresolved')).toBeTruthy();
   expect(within(dialog).queryByText('Finish reason')).toBeNull();
   expect(within(dialog).queryByText('Not charged')).toBeNull();
   expect(within(dialog).queryByText('Completed')).toBeNull();
@@ -118,14 +131,45 @@ it('requests a short overview preview while preserving totals and access to the 
     return Response.json({data: Array.from({length:10}, (_, index) => makeRequest(`recent-${index}`, null, `model-${index}`)), next_cursor:'older', summary:{...summary, request_count:61}});
   });
   vi.stubGlobal('fetch', fetcher);
-  render(<MemoryRouter initialEntries={['/workspaces/demo']}><GatewayActivity compact token="test" models={[]} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+  const { container } = render(<MemoryRouter initialEntries={['/workspaces/demo']}><GatewayActivity compact token="test" models={[]} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   await screen.findByRole('button', {name:'model-9'});
   expect(screen.getByText('61')).toBeTruthy();
-  expect(screen.getByText('All time · 10 recent shown')).toBeTruthy();
+  expect(screen.getByText('All time')).toBeTruthy();
+  expect(screen.getByText('Showing latest 10')).toBeTruthy();
   expect(screen.getByRole('region', {name:'Workspace request totals'})).toBeTruthy();
+  expect(container.querySelectorAll('.gateway-activity-summary article')).toHaveLength(4);
+  expect(screen.getByRole('heading', {name:'Requests over time'})).toBeTruthy();
+  expect(screen.queryByRole('heading', {name:'Requests by model'})).toBeNull();
   expect(within(screen.getByRole('region', {name:'Recent requests'})).getAllByRole('row')).toHaveLength(11);
+  expect(screen.getByRole('link', {name:/Workspace usage/}).getAttribute('href')).toBe('/workspaces/demo/usage');
   expect(screen.getByRole('link', {name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions');
   expect(screen.queryByRole('button', {name:'Load older requests'})).toBeNull();
+  for (const heading of ['Customer charge breakdown', 'Top keys', 'Delivery status', 'Model usage']) {
+    expect(screen.queryByRole('heading', {name: heading})).toBeNull();
+  }
+});
+
+it('offers first-use guidance instead of zeroed analytics when a workspace has no requests', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    if (String(input).endsWith('/keys')) return Response.json({data: []});
+    return Response.json({data: [], next_cursor: null, summary: {...summary, request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0', customer_charges: [], usage_by_model: [], usage_by_key: []}});
+  }));
+  const { container } = render(<MemoryRouter initialEntries={['/workspaces/demo']}><GatewayActivity compact emptyState={<div>First request setup</div>} token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+  expect(await screen.findByText('First request setup')).toBeTruthy();
+  expect(screen.getByRole('heading', {name:'Get started'})).toBeTruthy();
+  expect(screen.queryByRole('heading', {name:'No requests yet'})).toBeNull();
+  expect(container.querySelector('.gateway-activity-summary')).toBeNull();
+  expect(screen.queryByRole('heading', {name:'Requests over time'})).toBeNull();
+  expect(screen.queryByRole('heading', {name:'Model usage'})).toBeNull();
+  expect(screen.getByRole('link', {name:/Workspace usage/}).getAttribute('href')).toBe('/workspaces/demo/usage');
+  expect(screen.getByRole('link', {name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions');
+});
+
+it('keeps the compact key preview empty state quiet instead of offering workspace onboarding', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({data: [], next_cursor: null, summary: {...summary, request_count: 0}})));
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/key-1']}><GatewayActivity compact emptyState={<div>Workspace onboarding</div>} token="test" models={[]} preferredKeyId="key-1" initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+  expect(await screen.findByRole('heading', {name:'No requests yet'})).toBeTruthy();
+  expect(screen.queryByText('Workspace onboarding')).toBeNull();
 });
 
 it('names clickable request rows with human-readable details and supports keyboard inspection', async()=>{
@@ -161,13 +205,13 @@ it('does not offer to clear the fixed key scope of an empty key preview', async 
 it('shows exact reported token subsets, zero and unknown independently without losing filters', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys') ? {data: []} : {data: [], next_cursor: null, summary: {...summary, request_count: 151, token_categories: {cached_input_tokens: '18446744073709551614', cached_input_requests: 2, cached_input_unknown_requests: 149, reasoning_output_tokens: '0', reasoning_output_requests: 1, reasoning_output_unknown_requests: 150}}})));
   render(<MemoryRouter initialEntries={['/workspaces/demo/usage?modelAlias=fast&chargeBy=key&latency=p95']}><RouteQuery /><GatewayActivity token="test" models={['fast']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
-  await screen.findByText('2 reported · 149 unknown · 24 prompt · 12 output');
+  await screen.findByText('2 requests reported · 149 unknown · 24 prompt · 12 output');
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', {name: 'Token metric'}));
   await user.click(await screen.findByRole('menuitemradio', {name: 'Cached input'}));
   const card = screen.getByRole('button', {name: 'Token metric'}).closest('article')!;
   expect(within(card).getByText(BigInt('18446744073709551614').toLocaleString())).toBeTruthy();
-  expect(within(card).getByText('2 reported · 149 unknown · included in input')).toBeTruthy();
+  expect(within(card).getByText('2 requests reported · 149 unknown · included in input')).toBeTruthy();
   const query = new URLSearchParams(screen.getByLabelText('Route query').textContent!);
   expect(query.get('tokens')).toBe('cached');
   expect(query.get('modelAlias')).toBe('fast');
@@ -176,7 +220,7 @@ it('shows exact reported token subsets, zero and unknown independently without l
   await user.click(screen.getByRole('button', {name: 'Token metric'}));
   await user.click(await screen.findByRole('menuitemradio', {name: 'Reasoning'}));
   expect(within(card).getByText('0')).toBeTruthy();
-  expect(within(card).getByText('1 reported · 150 unknown · included in output')).toBeTruthy();
+  expect(within(card).getByText('1 request reported · 150 unknown · included in output')).toBeTruthy();
   await user.click(screen.getByRole('button', {name: 'Token metric'}));
   await user.click(await screen.findByRole('menuitemradio', {name: 'Token usage'}));
   expect(within(card).getByText('36')).toBeTruthy();
@@ -186,7 +230,7 @@ it('shows exact reported token subsets, zero and unknown independently without l
 it.each([null, undefined])('keeps unreported category tokens unknown (%s)', async value => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys') ? {data: []} : {data: [], next_cursor: null, summary: {...summary, token_categories: value === undefined ? undefined : {cached_input_tokens: null, cached_input_requests: 0, cached_input_unknown_requests: 2, reasoning_output_tokens: null, reasoning_output_requests: 0, reasoning_output_unknown_requests: 2}}})));
   render(<MemoryRouter initialEntries={['/workspaces/demo/usage?tokens=cached']}><GatewayActivity token="test" models={['fast']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
-  await screen.findByText(value === undefined ? 'Category reporting unavailable' : '0 reported · 2 unknown · included in input');
+  await screen.findByText(value === undefined ? 'Category reporting unavailable' : '0 requests reported · 2 unknown · included in input');
   const card = screen.getByRole('button', {name: 'Token metric'}).closest('article')!;
   expect(within(card).getByText('—')).toBeTruthy();
   expect(within(card).queryByText('0')).toBeNull();
@@ -334,7 +378,7 @@ describe('gateway activity', () => {
   it('links full-range delivery counts to scoped Logs while preserving date, model and key filters', async () => {
     vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input)=>Response.json(String(input).endsWith('/keys') ? {data:knownKeys} : {data:[],next_cursor:null,summary:{...summary,request_count:151,delivery_statuses:[{http_status:200,request_count:20},{http_status:502,request_count:1},{http_status:null,request_count:130}]}})));
     render(<MemoryRouter initialEntries={['/workspaces/demo/usage?from=2026-09-01&to=2026-09-05&modelAlias=fast&keyId=key-1']}><GatewayActivity token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}} statisticsOnly /></MemoryRouter>);
-    const failed=await screen.findByRole('link',{name:'HTTP 502'});
+    const failed=await screen.findByRole('link',{name:'502'});
     const url=new URL(failed.getAttribute('href')!,'http://localhost');
     expect(url.pathname).toBe('/workspaces/demo/executions');
     expect(Object.fromEntries(url.searchParams)).toEqual({from:'2026-09-01',to:'2026-09-05',modelAlias:'fast',keyId:'key-1',httpStatus:'502'});
@@ -353,10 +397,10 @@ describe('gateway activity', () => {
     const user=userEvent.setup();
     await user.click(screen.getByRole('button',{name:'Filter requests'}));
     fireEvent.click(screen.getByRole('menuitem',{name:'HTTP status',exact:true}));
-    await user.click(await screen.findByRole('menuitemradio',{name:'HTTP 502'}));
+    await user.click(await screen.findByRole('menuitemradio',{name:'502'}));
     await waitFor(()=>expect(calls.some(url=>url.includes('http_status=502&sort=input_desc'))).toBe(true));
     expect(screen.getByLabelText('Route query').textContent).toContain('columns=status%2Ccharge');
-    await user.click(await screen.findByRole('button',{name:/HTTP 502.*Remove filter/}));
+    await user.click(await screen.findByRole('button',{name:/502.*Remove filter/}));
     expect(screen.getByLabelText('Route query').textContent).not.toContain('httpStatus=');
     expect(screen.getByLabelText('Route query').textContent).toContain('sort=input_desc');
   });
@@ -541,9 +585,10 @@ describe('gateway activity', () => {
       throw new Error(`Unexpected request: ${path}`);
     }));
     render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
-    expect((await screen.findByText('Failed · HTTP 502')).classList.contains('is-failed')).toBe(true);
+    expect((await screen.findByText('Failed · 502')).classList.contains('is-failed')).toBe(true);
     await userEvent.setup().click(screen.getByRole('button', { name: 'fast' }));
-    expect(await screen.findByText('HTTP 502')).toBeTruthy();
+    const dialog = await screen.findByRole('dialog', { name: 'Request details' });
+    expect(await within(dialog).findByText('502')).toBeTruthy();
     expect(screen.getByText('Provider status')).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
     expect(screen.getAllByText('$0.000000017').length).toBeGreaterThan(0);
@@ -577,7 +622,7 @@ describe('gateway activity', () => {
     expect(screen.queryByText('Task evidence')).toBeNull();
     expect(prompt.hasAttribute('readonly')).toBe(true);
     expect(screen.queryByText('1,437 ms')).toBeNull();
-    if (complete) expect(screen.getAllByText('1,486 ms')).toHaveLength(2);
+    if (complete) expect(within(screen.getByRole('region', {name: 'Request detail content'})).getByText('1,486 ms')).toBeTruthy();
     else {
       expect(screen.queryByText('1,486 ms')).toBeNull();
       expect(screen.getByText(/Response interrupted/)).toBeTruthy();
@@ -621,7 +666,7 @@ describe('gateway activity', () => {
     await user.click(await screen.findByRole('button', { name: 'Filter requests' }));
     await user.click(screen.getByRole('menuitem', { name: 'Status', exact: true }));
     expect(screen.getAllByRole('menu')).toHaveLength(1);
-    expect(screen.getByRole('menuitemradio', { name: 'Provider completed', exact: true })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'Completed', exact: true })).toBeTruthy();
     await user.click(screen.getByRole('menuitem', { name: '← Filters', exact: true }));
     expect(screen.getByRole('menuitem', { name: 'Model', exact: true })).toBeTruthy();
     await user.click(screen.getByRole('menuitem', { name: 'Status', exact: true }));
@@ -642,6 +687,31 @@ describe('gateway activity', () => {
     expect(taskOutcome({ execution_id: 'exec-conflict', source: 'agent', record_id: 'conflict', coverage: 'complete', outcomes: [{ authority: 'deterministic_validator', result: 'accepted' }, { authority: 'human_acceptance', result: 'rejected' }] })).toBe('Conflicting evidence');
   });
 
+  it('searches the full range and uses only the matching cursor on subsequent pages', async () => {
+    const fetcher = vi.fn<typeof fetch>(async input => {
+      const url = new URL(String(input), window.location.origin);
+      const { searchParams } = url;
+      if (url.pathname.endsWith('/keys')) return Response.json({data: []});
+      if (searchParams.get('q') === 'archived') {
+        return searchParams.get('after') === 'match-1'
+          ? Response.json({data: [makeRequest('match-2', null, 'archived/older')], next_cursor: null, summary})
+          : Response.json({data: [makeRequest('match-1', null, 'archived/first')], next_cursor: 'match-1', summary});
+      }
+      return Response.json({data: [makeRequest('latest', null, 'current')], next_cursor: 'latest', summary});
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const user = userEvent.setup();
+    render(<MemoryRouter><GatewayActivity token="search-pagination" models={[]} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
+    await screen.findByRole('button', {name: 'current'});
+    await user.type(screen.getByRole('searchbox', {name: 'Search requests'}), 'archived');
+    await screen.findByRole('row', {name: /^first ·/});
+    expect(screen.queryByRole('button', {name: 'current'})).toBeNull();
+    await user.click(screen.getByRole('button', {name: 'Load older requests'}));
+    await screen.findByRole('row', {name: /^older ·/});
+    expect(fetcher.mock.calls.some(([path]) => String(path).includes('q=archived&limit=100&after=match-1'))).toBe(true);
+    expect(fetcher.mock.calls.some(([path]) => String(path).includes('after=latest'))).toBe(false);
+  });
+
   it('shows gateway requests as a filterable log and pages older evidence without mixing in workspace statistics', async () => {
     const first = makeRequest('attempt-new', 'task-history', 'fast', {
       execution_id: 'execution-1', source: 'sample-agent', record_id: 'record-1', coverage: 'partial',
@@ -654,7 +724,13 @@ describe('gateway activity', () => {
       calls.push({ path, init });
       const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body } as Response);
       if (path.endsWith('/keys')) return ok({ data: [{ id: 'key-1', name: 'Dev key', allowed_models: ['fast'], revoked: false, expired: false }] });
-      if (path === `${base}/requests?limit=100`) return ok({ data: [first], next_cursor: 'attempt-new', summary });
+      if (path === `${base}/requests?limit=100`) return ok({
+        data: [first], next_cursor: 'attempt-new',
+        summary: {...summary, request_histogram: [
+          ...summary.request_histogram,
+          {start_ms: 1767225601000, end_ms: 1767225602000, request_count: 1},
+        ]},
+      });
       if (path === `${base}/requests?limit=100&after=attempt-new`) return ok({ data: [second], next_cursor: null, summary });
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -668,9 +744,11 @@ describe('gateway activity', () => {
     expect(container.querySelector('.gateway-activity-summary')).toBeNull();
     const chart = screen.getByRole('img', {name: 'Requests over time'});
     expect(chart.textContent).toContain('2 requests');
+    const [firstBar, secondBar] = chart.querySelectorAll('rect');
+    expect(Number(secondBar.getAttribute('x'))).toBeGreaterThan(Number(firstBar.getAttribute('x')));
     expect(screen.queryByText(/Latest .* loaded requests/)).toBeNull();
     expect(screen.queryByText('Niu base URL')).toBeNull();
-    expect(screen.getByText('Provider · provider-fast-v2')).toBeTruthy();
+    expect(screen.queryByText('Provider · provider-fast-v2')).toBeNull();
     expect(screen.getByRole('columnheader', { name: 'Customer charge' })).toBeTruthy();
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
 
@@ -712,7 +790,7 @@ describe('gateway activity', () => {
     fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Build key', exact: true }));
     await user.click(await screen.findByRole('button', { name: 'Filter requests' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Status', exact: true }));
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Provider completed', exact: true }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Completed', exact: true }));
     await user.click(screen.getByRole('button', { name: 'All time' }));
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-09-27' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-09-27' } });
@@ -760,23 +838,26 @@ describe('gateway activity', () => {
     expect(screen.queryByRole('link', { name: /Open Chat/i })).toBeNull();
   });
 
-  it('keeps workspace aggregates on Activity and leaves request investigation separate', async () => {
+  it('keeps detailed breakdown tables on Activity and leaves request investigation separate', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === `${base}/requests?limit=100`) return { ok: true, status: 200, json: async () => ({
-        data: [makeRequest('activity-attempt', null, 'fast')], next_cursor: null, summary,
+        data: [makeRequest('activity-attempt', null, 'fast')], next_cursor: null,
+        summary: {...summary, delivery_statuses: [{ http_status: 200, request_count: 2 }]},
       }) } as Response;
       throw new Error(`Unexpected request: ${path}`);
     }));
 
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Model usage' })).toBeTruthy();
+    for (const heading of ['Customer charge breakdown', 'Top keys', 'Delivery status', 'Model usage']) {
+      expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
+    }
     expect(screen.getByText('Matching requests')).toBeTruthy();
-    expect(screen.getByText('Model usage')).toBeTruthy();
     expect(screen.getByText('24')).toBeTruthy();
     expect(screen.getByText('12')).toBeTruthy();
     expect(container.querySelector('.gateway-task-feed')).toBeNull();
+    expect(screen.getByRole('link', {name: 'View billing'}).getAttribute('href')).toBe('/workspaces/default/billing');
     expect(screen.getAllByRole('link', { name: /Investigate requests/i }).map(link => link.getAttribute('href'))).toEqual([
       '/workspaces/default/executions',
       '/workspaces/default/executions',
@@ -794,7 +875,7 @@ describe('gateway activity', () => {
 
     render(<MemoryRouter initialEntries={['/workspaces/default/usage?from=2026-09-01&to=2026-09-05&modelAlias=fast&status=confirmed_completed']}><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top keys' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View requests' }).getAttribute('href')).toBe('/workspaces/default/executions?from=2026-09-01&to=2026-09-05&modelAlias=fast&key=build-app&status=confirmed_completed');
   });
 
@@ -810,7 +891,7 @@ describe('gateway activity', () => {
 
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top keys' })).toBeTruthy();
     expect(screen.getByText('Build app')).toBeTruthy();
     expect(screen.getByText('36 tokens')).toBeTruthy();
     expect(screen.getByText(/2 requests · 2 with reported usage/)).toBeTruthy();
@@ -848,7 +929,7 @@ describe('gateway activity', () => {
 
     render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Top keys' })).toBeTruthy();
     expect(screen.getAllByText('Unknown').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/1 request · 0 with reported usage · 1 unknown/)).toBeTruthy();
   });
@@ -910,10 +991,11 @@ it('shows owner-funded coverage without presenting missing pricing or zero charg
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys') ? {data: []} : {data: [], next_cursor: null, summary: {...summary, owner_funded_request_count: 2, unpriced_request_count: 0, customer_charges: [], charges_by_model: [{...funding, model_alias: 'fast'}], charges_by_key: [{...funding, api_key_id: 'key-1', key_name: 'Personal client'}]}})));
   render(<MemoryRouter><GatewayActivity token="test" models={['fast']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   const totals = await screen.findByRole('region', {name: 'Filtered request totals'});
-  await within(totals).findByText('Own API key');
-  expect(within(totals).getByText('2 with own API keys')).toBeTruthy();
+  await within(totals).findByText('No Niu charge');
+  expect(within(totals).getByText(/2 with own API keys/)).toBeTruthy();
+  expect(within(totals).getByText(/Provider charges may still apply/)).toBeTruthy();
   const breakdown = screen.getByRole('region', {name: 'Customer charge breakdown'});
-  expect(within(breakdown).getByText('Own API key')).toBeTruthy();
+  expect(within(breakdown).getByText('No Niu charge')).toBeTruthy();
   expect(within(breakdown).queryByText('No rate')).toBeNull();
   expect(within(breakdown).queryByText('Not charged')).toBeNull();
   const user = userEvent.setup();
@@ -1045,11 +1127,11 @@ it.each([
   await userEvent.click(await screen.findByRole('button', { name: 'fast', exact: true }));
   const dialog = await screen.findByRole('dialog', { name: 'Request details' });
   expect(within(dialog).getByText(description)).toBeTruthy();
-  expect(within(dialog).getByText('HTTP 200')).toBeTruthy();
-  expect(within(dialog).getByText('Uncertain')).toBeTruthy();
+  expect(within(dialog).getByText('200')).toBeTruthy();
+  expect(within(dialog).getByText('Unresolved')).toBeTruthy();
   expect(within(dialog).queryByText('Not charged')).toBeNull();
   expect(within(dialog).queryByText(/before sending response headers/)).toBeNull();
-  expect(within(dialog).queryByText(/Upstream HTTP/)).toBeNull();
+  expect(within(dialog).queryByText(/Provider \d+/)).toBeNull();
 });
 
 it('opens an exact capacity contributor independently of the current key list without changing its URL',async()=>{
@@ -1102,4 +1184,244 @@ it('keeps aggregate key usage visible when its public link cannot be resolved',a
  expect(screen.getByText('Build app')).toBeTruthy();
  expect(screen.getByText('Key link unavailable')).toBeTruthy();
  expect(screen.queryByRole('link',{name:'View requests',exact:true})).toBeNull();
+});
+
+it('explains Niu charges clearly on Overview for mixed own-key and pending requests', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(
+  String(input).endsWith('/keys')
+   ? { data: [] }
+   : {
+     data: [],
+     next_cursor: null,
+     summary: {
+      ...summary,
+      request_count: 68,
+      unresolved_customer_charge_count: 12,
+      unpriced_request_count: 0,
+      owner_funded_request_count: 49,
+      customer_charges: [{ currency: 'USD', amount_nanos: '0', charged_requests: 7 }],
+     },
+    },
+ )));
+ render(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ const totals = await screen.findByRole('region', { name: 'Workspace request totals' });
+ expect(within(totals).getByText('Niu charges')).toBeTruthy();
+ expect(await within(totals).findByText('Pending settlement')).toBeTruthy();
+ expect(within(totals).queryByText('$0.00')).toBeNull();
+ expect(within(totals).queryByText('Unresolved')).toBeNull();
+ expect(within(totals).getByText('12 requests awaiting settlement')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Inspect' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+ expect(within(totals).getByText('49 with own API keys (not billed by Niu; Provider charges may still apply)')).toBeTruthy();
+
+ const user = userEvent.setup();
+ const helpTrigger = within(totals).getByRole('button', { name: 'About Niu charges' });
+ await user.click(helpTrigger);
+ const helpDialog = await screen.findByText('How Niu charges work');
+ expect(helpDialog).toBeTruthy();
+ expect(screen.getByText('Totals show only settled charges billed through Niu.')).toBeTruthy();
+ expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+ expect(screen.getByRole('link', { name: 'Charge breakdown' }).getAttribute('href')).toBe('/workspaces/default/usage#charge-breakdown-title');
+ expect(screen.getByRole('link', { name: 'Billing and rates' }).getAttribute('href')).toBe('/workspaces/default/billing');
+ await user.keyboard('{Escape}');
+ expect(document.activeElement).toBe(helpTrigger);
+});
+
+it('shows settled Niu charges alongside unpriced and pending action links and hides billing links in internal mode', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(
+  String(input).endsWith('/keys')
+   ? { data: [] }
+   : {
+     data: [],
+     next_cursor: null,
+     summary: {
+      ...summary,
+      request_count: 15,
+      unresolved_customer_charge_count: 3,
+      unpriced_request_count: 2,
+      owner_funded_request_count: 0,
+      customer_charges: [{ currency: 'USD', amount_nanos: '12450000000', charged_requests: 10 }],
+     },
+    },
+ )));
+ const view = render(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ const totals = await screen.findByRole('region', { name: 'Workspace request totals' });
+ await within(totals).findByText('$12.45');
+ expect(within(totals).getByText('3 requests awaiting settlement')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Inspect' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+ expect(within(totals).getByText('2 requests without a customer rate')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Review rates' }).getAttribute('href')).toBe('/workspaces/default/billing?tab=rates');
+
+ view.rerender(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    hideBillingLink
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ expect(within(totals).queryByRole('link', { name: 'Review rates' })).toBeNull();
+ expect(within(totals).getByRole('link', { name: 'View breakdown' }).getAttribute('href')).toBe('/workspaces/default/usage#charge-breakdown-title');
+});
+
+it('localizes Niu charge summary, breakdown states, and request charge hints cleanly in zh-CN', async () => {
+ saveLocale('zh-CN');
+ try {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+   const path = String(input);
+   if (path.endsWith('/keys')) return Response.json({ data: [] });
+   if (path.endsWith('/guardrails') || path.includes('/payloads')) return Response.json({ data: null });
+   return Response.json({
+    data: [
+     {
+      ...makeRequest('pending-1', null, 'fast', null, { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'pending' }),
+      execution: 'may_have_executed',
+     },
+     {
+      ...makeRequest('own-key-1', null, 'slow', null, { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'owner_funded' }),
+     },
+    ],
+    next_cursor: null,
+    summary: {
+     ...summary,
+     request_count: 68,
+     unresolved_customer_charge_count: 12,
+     unpriced_request_count: 0,
+     owner_funded_request_count: 49,
+     customer_charges: [{ currency: 'USD', amount_nanos: '0', charged_requests: 7 }],
+    },
+   });
+  }));
+  render(
+   <MemoryRouter initialEntries={['/workspaces/default']}>
+    <GatewayActivity
+     compact
+     workspaceRoute="/workspaces/default"
+     token="test"
+     models={['fast', 'slow']}
+     initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+    />
+   </MemoryRouter>,
+  );
+  const totals = await screen.findByRole('region', { name: '工作空间请求合计' });
+  expect(within(totals).getByText('Niu 费用')).toBeTruthy();
+  expect(await within(totals).findByText('待结算')).toBeTruthy();
+  expect(within(totals).getByText('12 个请求待结算')).toBeTruthy();
+  expect(within(totals).getByRole('link', { name: '查看请求' }).getAttribute('href')).toBe('/workspaces/default/executions?status=may_have_executed');
+  expect(within(totals).getByText('49 个请求使用自有 API 密钥（不经 Niu 扣费，Provider 仍可能计费）')).toBeTruthy();
+  expect(within(totals).queryByText(/未核定/)).toBeNull();
+
+  const user = userEvent.setup();
+  await user.click(within(totals).getByRole('button', { name: '了解 Niu 费用' }));
+  expect(await screen.findByText('Niu 费用说明')).toBeTruthy();
+  expect(screen.getByRole('link', { name: '查看待结算请求' })).toBeTruthy();
+  await user.keyboard('{Escape}');
+
+  await user.click(await screen.findByRole('button', { name: 'fast', exact: true }));
+  const pendingDialog = await screen.findByRole('dialog', { name: '请求详情' });
+  expect(within(pendingDialog).getByText('待结算')).toBeTruthy();
+  expect(within(pendingDialog).getByText('结果或用量尚未确认，暂未结算也不记为零费用。')).toBeTruthy();
+  await user.keyboard('{Escape}');
+
+  await user.click(await screen.findByRole('button', { name: 'slow', exact: true }));
+  const ownKeyDialog = await screen.findByRole('dialog', { name: '请求详情' });
+  expect(within(ownKeyDialog).getByText('使用自有 API 密钥，不由 Niu 扣费，费用以 Provider 为准。')).toBeTruthy();
+ } finally {
+  saveLocale('en');
+ }
+});
+
+it('shows No rate set headline when unpriced platform requests exist without settled or pending charges', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(
+  String(input).endsWith('/keys')
+   ? { data: [] }
+   : {
+     data: [],
+     next_cursor: null,
+     summary: {
+      ...summary,
+      request_count: 4,
+      unresolved_customer_charge_count: 0,
+      unpriced_request_count: 4,
+      owner_funded_request_count: 0,
+      customer_charges: [],
+     },
+    },
+ )));
+ render(
+  <MemoryRouter initialEntries={['/workspaces/default']}>
+   <GatewayActivity
+    compact
+    workspaceRoute="/workspaces/default"
+    token="test"
+    models={['fast']}
+    initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}
+   />
+  </MemoryRouter>,
+ );
+ const totals = await screen.findByRole('region', { name: 'Workspace request totals' });
+ await within(totals).findByText('No rate set');
+ expect(within(totals).getByText('4 requests without a customer rate')).toBeTruthy();
+ expect(within(totals).getByRole('link', { name: 'Review rates' }).getAttribute('href')).toBe('/workspaces/default/billing?tab=rates');
+});
+
+it('preserves settled $0.00 customer charges when no unresolved, unpriced, or own-key exceptions remain', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys')
+  ? {data: []}
+  : {
+      data: [],
+      next_cursor: null,
+      summary: {
+        ...summary,
+        request_count: 7,
+        owner_funded_request_count: 0,
+        unresolved_customer_charge_count: 0,
+        unpriced_request_count: 0,
+        customer_charges: [{ currency: 'USD', amount_nanos: '0', charged_requests: 7 }],
+        charges_by_model: [
+          { model_alias: 'free-model', request_count: 7, charged_requests: 7, unresolved_requests: 0, unpriced_requests: 0, not_charged_requests: 0, owner_funded_requests: 0, currency: 'USD', amount_nanos: '0' },
+        ],
+        charges_by_key: [],
+      },
+    })));
+ render(<MemoryRouter><GatewayActivity token="test" models={['free-model']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+ const totals = await screen.findByRole('region', {name: 'Filtered request totals'});
+ await within(totals).findByText('$0.00');
+ expect(within(totals).queryByText('No Niu charge')).toBeNull();
+ const chargeModelLink = screen.getByRole('link', { name: 'View charge requests for free-model' });
+ expect(chargeModelLink.className).not.toContain('text-primary');
+});
+
+it('renders request row model buttons with neutral foreground styling and medium weight instead of primary accent', async () => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => String(input).endsWith('/keys')
+  ? Response.json({data: []})
+  : Response.json({data: [makeRequest('row-1', null, 'openai/gpt-4o')], next_cursor: null, summary})));
+ render(<MemoryRouter><GatewayActivity token="test" models={['openai/gpt-4o']} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+ const modelButton = await screen.findByRole('button', { name: /GPT-4o|gpt-4o/i });
+ expect(modelButton.className).toContain('text-foreground');
+ expect(modelButton.className).toContain('font-medium');
+ expect(modelButton.className).not.toContain('text-primary');
 });

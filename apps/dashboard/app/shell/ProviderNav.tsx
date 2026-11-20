@@ -7,6 +7,7 @@ import {
   IconCpu as Boxes,
   IconCreditCard as CreditCard,
   IconHistory,
+  IconAlertTriangle,
   IconKey as KeyRound,
   IconLayoutDashboard as LayoutDashboard,
   IconPalette,
@@ -15,7 +16,6 @@ import {
   IconRoute,
   IconSelector as ChevronsUpDown,
   IconUsers as Users,
-  IconWallet,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,16 +109,19 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
       ]
     : [
         { to: '/admin/providers', label: 'Providers', labelZh: '模型供应商', end: false },
-        { to: '/admin/pools', label: 'Model pools', labelZh: '模型池', end: false },
+        { to: '/admin/routing', label: 'Routing', labelZh: '模型路由', end: false },
         { to: '/admin/customers', label: 'Customers', labelZh: '客户管理', end: false },
         { to: '/admin/reports', label: 'Financial reports', labelZh: '财务报表', end: false },
-        { to: '/admin/balances', label: 'Account balances', labelZh: '账户余额', end: false },
         { to: '/admin/pricing', label: 'Pricing', labelZh: '定价配置', end: false },
         { to: '/admin/payments', label: 'Payment gateways', labelZh: '支付网关', end: false },
         { to: '/admin/branding', label: 'Branding', labelZh: '品牌定制', end: false },
         { to: '/admin/audit', label: 'Audit logs', labelZh: '审计日志', end: false },
+        { to: '/admin/incidents', label: 'Incidents', labelZh: '事故', end: false },
         { to: '/admin/settings', label: 'Settings', labelZh: '实例设置', end: false },
       ];
+  const visibleEntries = context.session?.operating_mode === 'internal'
+    ? entries.filter(item => !['/admin/reports','/admin/pricing','/admin/payments'].includes(item.to) && !item.to.endsWith('/settlements'))
+    : entries;
 
   return (
     <>
@@ -190,7 +193,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
                 {error && (
                   <>
                     <div className="workspace-switcher-error" role="alert">
-                      {error}
+                      {uiT(error)}
                     </div>
                     <DropdownMenuItem
                       onSelect={event => {
@@ -236,21 +239,19 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
       <SidebarContent className="workspace-sidebar-content">
         <nav aria-label={provider ? uiT("Provider navigation") : uiT("Admin navigation")}>
           <SidebarMenu className="workspace-nav-menu">
-            {entries.map(item => {
+            {visibleEntries.map(item => {
               const Icon =
-                item.label === 'Settings'
+                item.label === 'Incidents' ? IconAlertTriangle : item.label === 'Settings'
                   ? Settings2
-                  : item.label === 'API keys'
+                  : item.label === 'Keys'
                     ? KeyRound
                     : item.label === 'Members' || item.label === 'Customers'
                       ? Users
                       : item.label === 'Providers'
                         ? RailSuppliers
-                        : item.label === 'Model pools'
+                        : item.label === 'Routing' || item.label === 'Model pools'
                           ? IconRoute
-                          : item.label === 'Account balances'
-                            ? IconWallet
-                            : item.label === 'Payment gateways'
+                          : item.label === 'Payment gateways'
                               ? CreditCard
                               : item.label === 'Branding'
                                 ? IconPalette

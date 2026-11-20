@@ -1,0 +1,179 @@
+{
+  "date": "2026-11-17",
+  "hosted_core": "23cae63a8a5eb38a008ab5836ef2961c786e9cdf",
+  "local_source": "959c4ee1",
+  "decision": "BLOCKED",
+  "tracking": "niu-nrcn",
+  "blockers": [
+    "niu-zhlk",
+    "niu-gzpa",
+    "niu-16wj",
+    "niu-pfsr"
+  ],
+  "current_key_request_readback": [
+    {
+      "model": "qiniu/conatus-free",
+      "execution": "confirmed_completed",
+      "prompt_tokens": "11",
+      "completion_tokens": "35",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "model": "qiniu/conatus-free",
+      "execution": "confirmed_completed",
+      "prompt_tokens": "11",
+      "completion_tokens": "34",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "model": "qiniu/conatus-free",
+      "execution": "confirmed_completed",
+      "prompt_tokens": "192",
+      "completion_tokens": "6",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "model": "qiniu/conatus-free",
+      "execution": "confirmed_completed",
+      "prompt_tokens": "151",
+      "completion_tokens": "25",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "tool_calls"
+        }
+      ],
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "model": "qiniu/conatus-free",
+      "execution": "confirmed_completed",
+      "prompt_tokens": "64",
+      "completion_tokens": "7",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "model": "qiniu/conatus-free",
+      "execution": "confirmed_completed",
+      "prompt_tokens": "18",
+      "completion_tokens": "65",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    }
+  ],
+  "browser": {
+    "chat_answer": "UI_READY",
+    "attachment_answer": "ATTACHMENT_READY",
+    "server_readback_exact": true,
+    "export_content_verified": true,
+    "rename_archive_restore_delete_executed": true,
+    "deleted_chat_http_status": 404,
+    "inspected_viewport_widths": [
+      1440,
+      1024,
+      768,
+      390
+    ],
+    "horizontal_overflow_observed": false,
+    "fresh_key_handoff": "false invalid-key block; reload recovered"
+  },
+  "agent": {
+    "browser_consent": true,
+    "ttl_seconds": 900,
+    "invocation_allowed": false,
+    "discovery_status": 200,
+    "invocation_denied_status": 403,
+    "revoked_discovery_status": 401
+  },
+  "asset": {
+    "bytes": 96428,
+    "download_sha256": "3963985249c1e7265ee469aaa2ca40e7bdd94a4003c0ac521d75375beb985d1b",
+    "sha256_matched": true,
+    "other_workspace_status": 404,
+    "deleted_readback_status": 404
+  },
+  "container": {
+    "artifact_kind": "locally built source image, not published image",
+    "upgrade_from": "v0.2.26",
+    "previous_migration": 389,
+    "current_migration": 436,
+    "upgrade_identity_and_key_readback": true,
+    "restore_identity_and_key_readback": true,
+    "clean_install_onboarding": true,
+    "dashboard_http_status": 200,
+    "runtime_uid": 10001,
+    "anonymous_published_image_pull_token_status": 403
+  },
+  "native": {
+    "build_feature_present": "mock-payments",
+    "mock_merchant_enabled_for_live_inference": false,
+    "real_upstream_answer": "NATIVE_READY",
+    "prompt_tokens": 11,
+    "completion_tokens": 35,
+    "execution": "confirmed_completed",
+    "usage_confidence": "provider_reported",
+    "isolated_funding_nanos": "1000000000",
+    "charge_nanos": "10000",
+    "configured_minimum_nanos": "10000",
+    "restart_key_auth_status": 200,
+    "foreign_workspace_key_read_status": 404,
+    "foreign_workspace_key_write_status": 404,
+    "viewer_key_read_status": 200,
+    "viewer_key_write_status": 403,
+    "viewer_admin_read_status": 403
+  },
+  "epay": {
+    "current_checkout_signature_independently_matched": true,
+    "pending_orders": 1,
+    "settlements": 0,
+    "balance_entries": 0,
+    "pending_order_signing_key_rotation_status": 409,
+    "real_merchant_settlement_executed": false
+  },
+  "video": {
+    "estimate_statuses": [
+      501,
+      501,
+      501
+    ],
+    "error": "No effective video output estimator is configured",
+    "paid_generation_dispatched": false
+  },
+  "fixture_outcomes_used": false,
+  "simulated_merchant_outcomes_used_for_acceptance": false
+}

@@ -85,12 +85,14 @@ Content type: `application/json`.
           "event_types": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 2,
+            "maxItems": 4,
             "items": {
               "type": "string",
               "enum": [
                 "pool.changed",
-                "evaluation.recorded"
+                "evaluation.recorded",
+                "incident.opened",
+                "incident.resolved"
               ]
             },
             "uniqueItems": true

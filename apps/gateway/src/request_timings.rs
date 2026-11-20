@@ -1,7 +1,6 @@
 //! Monotonic request timings. No content is retained by timing collection.
 use crate::state::AppState;
 use axum::{body::Body, extract::State, http::Request, middleware::Next, response::Response};
-use futures_util::StreamExt;
 use std::{
     sync::{Arc, Mutex},
     time::Instant,
@@ -30,7 +29,10 @@ pub fn current() -> Option<Timing> {
 }
 pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
     if let Some(timing) = current() {
-        let mut m = timing.measurements.lock().unwrap();
+        let mut m = timing
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let elapsed = millis(m.start);
         if let Some(previous) = m.attempt.filter(|previous| *previous != attempt) {
             // The previous rejection was not delivered to the client. Preserve
@@ -60,7 +62,10 @@ pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
 
 impl Timing {
     pub fn output(&self) {
-        let mut m = self.measurements.lock().unwrap();
+        let mut m = self
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if m.first_output.is_none() {
             m.first_output = Some(millis(m.start));
         }
@@ -76,7 +81,11 @@ struct Finish {
 }
 impl Drop for Finish {
     fn drop(&mut self) {
-        let m = self.timing.measurements.lock().unwrap();
+        let m = self
+            .timing
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(attempt) = m.attempt else {
             return;
         };
@@ -142,7 +151,10 @@ pub async fn collect(
     };
     let response = CURRENT.scope(timing.clone(), next.run(request)).await;
     {
-        let mut m = timing.measurements.lock().unwrap();
+        let mut m = timing
+            .measurements
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if m.attempt.is_none() {
             m.attempt = response
                 .headers()
@@ -157,21 +169,30 @@ pub async fn collect(
     }
     finish.status = Some(response.status().as_u16() as i32);
     let (parts, body) = response.into_parts();
-    let stream = futures_util::stream::unfold(
-        (body.into_data_stream(), finish),
-        |(mut stream, mut finish)| async move {
-            match stream.next().await {
-                Some(chunk) => {
-                    finish.failed |= chunk.is_err();
-                    Some((chunk, (stream, finish)))
+    let mut stream = body.into_data_stream();
+    let mut finish = Some(finish);
+    let mut done = false;
+    let stream = futures_util::stream::poll_fn(move |cx| {
+        if done {
+            return std::task::Poll::Ready(None);
+        }
+        match futures_util::Stream::poll_next(std::pin::Pin::new(&mut stream), cx) {
+            std::task::Poll::Ready(Some(chunk)) => {
+                if let Some(state) = finish.as_mut() {
+                    state.failed |= chunk.is_err();
                 }
-                None => {
-                    finish.complete = !finish.failed;
-                    drop(finish);
-                    None
-                }
+                std::task::Poll::Ready(Some(chunk))
             }
-        },
-    );
+            std::task::Poll::Ready(None) => {
+                if let Some(mut state) = finish.take() {
+                    state.complete = !state.failed;
+                    drop(state);
+                }
+                done = true;
+                std::task::Poll::Ready(None)
+            }
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    });
     Response::from_parts(parts, Body::from_stream(stream))
 }

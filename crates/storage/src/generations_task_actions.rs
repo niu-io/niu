@@ -29,7 +29,7 @@ impl Store {
         .bind(owner)
         .fetch_optional(&mut *tx)
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(key)
     }
 }

@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for NiuAuthClient"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/auth.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/auth.ts). [All SDK types](/docs/api/sdk/).
 
 ## Constructor and members
 
@@ -25,10 +25,14 @@ constructor(options?: NiuAuthOptions);
 
 ```typescript
 /** Public capability discovery, independent of sign-in success. */
-getMemberAuthenticationConfiguration(options?: RequestOptions): Promise<{
-    password_login: boolean;
-    browser_token_login?: boolean;
-}>;
+getMemberAuthenticationConfiguration(options?: RequestOptions): Promise<AuthConfiguration>;
+```
+
+### submitRegistration
+
+```typescript
+/** Submit a Limited Preview account registration pending administrator approval. */
+submitRegistration(input: RegistrationSubmissionInput, options?: RequestOptions): Promise<RegistrationSubmissionResult>;
 ```
 
 ### signIn

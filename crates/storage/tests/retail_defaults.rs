@@ -2,8 +2,8 @@
 use niu_metered_cost::{Dimensions, Quantity, Rounding};
 use niu_storage::{
     MIGRATOR, MediaRetailSchedule, OperatorAuditActor, RetailMediaEnrollmentPublication,
-    RetailSchedule, RetailStandardPublication, RetailTextEnrollmentPublication, Store,
-    TextRetailSchedule,
+    RetailPromotionPublication, RetailSchedule, RetailStandardPublication,
+    RetailTextEnrollmentPublication, Store, StoreError, TextRetailSchedule,
 };
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -47,6 +47,56 @@ fn text(rate: &str) -> RetailSchedule {
         request_fee_nanos: "0".into(),
         context_tiers: vec![],
     })
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn standard_price_can_be_published_without_a_note_and_retried(pool: PgPool) {
+    let store = fixture(&pool).await;
+    let key = Uuid::new_v4();
+    let input = RetailStandardPublication {
+        model_alias: "default-price".into(),
+        currency: "USD".into(),
+        schedule: text("1000000000"),
+        expected_version: "0".into(),
+        idempotency_key: key,
+        reason: String::new(),
+    };
+    let mut body = serde_json::to_value(&input).unwrap();
+    body.as_object_mut().unwrap().remove("reason");
+    let omitted: RetailStandardPublication = serde_json::from_value(body).unwrap();
+    assert_eq!(omitted.reason, "");
+    let first = store
+        .publish_retail_standard(omitted, OperatorAuditActor::Installation)
+        .await
+        .unwrap();
+    let retry = store
+        .publish_retail_standard(input, OperatorAuditActor::Installation)
+        .await
+        .unwrap();
+    assert_eq!(first, retry);
+    let (action, note, count): (String, String, i64) = sqlx::query_as("SELECT action,reason,(SELECT count(*) FROM platform_retail_price_changes WHERE idempotency_key=$1) FROM platform_retail_price_changes WHERE idempotency_key=$1")
+        .bind(key).fetch_one(&pool).await.unwrap();
+    assert_eq!(
+        (action.as_str(), note.as_str(), count),
+        ("standard_published", "", 1)
+    );
+    let promotion = RetailPromotionPublication {
+        baseline_revision: Uuid::new_v4(),
+        customer_organization_id: None,
+        schedule: text("1000000000"),
+        effective_from: "1".into(),
+        effective_until: "2".into(),
+        expected_version: "1".into(),
+        idempotency_key: Uuid::new_v4(),
+        reason: String::new(),
+    };
+    assert!(matches!(
+        store
+            .publish_retail_promotion(Uuid::new_v4(), promotion, OperatorAuditActor::Installation)
+            .await,
+        Err(StoreError::InvalidPrice)
+    ));
 }
 
 #[sqlx::test]

@@ -75,7 +75,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Data contains assignment_revision, policy_revision and policy, or null when no assignment exists in this workspace.
+Data contains assignment_revision, policy_revision, mode and policy, or null when no assignment has ever existed in this workspace. mode is fixed or active; an active assignment has a null policy_revision and policy because the workspace's current policy applies directly.
 
 ### HTTP 401
 

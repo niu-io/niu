@@ -37,6 +37,7 @@ impl Fixture {
             ("dashboard/index.html", "workspace shell"),
             ("dashboard/assets/app.js", "workspace script"),
             ("docs/index.html", "public docs"),
+            ("docs/llms.txt", "llms index"),
             ("docs/getting-started/index.html", "getting started"),
             ("docs/404.html", "docs missing"),
         ] {
@@ -91,10 +92,12 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/", "marketing"),
         ("/compare/", "comparison overview"),
         ("/compare/new-api/", "new api comparison"),
-        ("/models/", "public catalog"),
+        ("/models/", "workspace shell"),
+        ("/models", "workspace shell"),
+        ("/models/openai/example", "workspace shell"),
         ("/docs/", "public docs"),
-        ("/help/", "workspace shell"),
-        ("/help/getting-started/", "workspace shell"),
+        ("/llms.txt", "llms index"),
+        ("/docs/llms.txt", "llms index"),
         ("/login", "workspace shell"),
         ("/login/", "workspace shell"),
         ("/installation", "workspace shell"),
@@ -105,10 +108,14 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/admin/reports/", "workspace shell"),
         ("/admin/balances", "workspace shell"),
         ("/admin/balances/", "workspace shell"),
+        ("/admin/routing", "workspace shell"),
+        ("/admin/routing/", "workspace shell"),
         ("/admin/pools", "workspace shell"),
         ("/admin/pools/", "workspace shell"),
         ("/admin/audit", "workspace shell"),
         ("/admin/audit/", "workspace shell"),
+        ("/admin/incidents", "workspace shell"),
+        ("/admin/incidents/", "workspace shell"),
         ("/admin/model-pools", "workspace shell"),
         ("/admin/model-pools/", "workspace shell"),
         ("/admin/financial-reports", "workspace shell"),
@@ -145,8 +152,14 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/settings/billing/", "workspace shell"),
         ("/generations", "workspace shell"),
         ("/generations/", "workspace shell"),
+        ("/generations/chat-1007", "workspace shell"),
+        ("/generations/video-1001", "workspace shell"),
+        ("/generations/runs/run-1001", "workspace shell"),
         ("/generations?mode=video&new=1", "workspace shell"),
         ("/generations/?mode=video&new=1", "workspace shell"),
+        ("/invite/niu_invite_example", "workspace shell"),
+        ("/supplier-accounts", "workspace shell"),
+        ("/supplier-accounts/manage/models", "workspace shell"),
         ("/chat", "workspace shell"),
         ("/chat/", "workspace shell"),
         ("/activity", "workspace shell"),
@@ -177,16 +190,11 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
     ] {
         assert_eq!(body(&app, path, StatusCode::OK).await, expected);
     }
-    assert_eq!(
-        body(&app, "/help/missing", StatusCode::OK).await,
-        "workspace shell"
-    );
     for path in [
         "/admin/v1/missing",
         "/v1/missing",
         "/enterprise/api/v1/missing",
         "/missing",
-        "/models/missing",
         "/site-assets/missing",
     ] {
         body(&app, path, StatusCode::NOT_FOUND).await;
@@ -195,6 +203,33 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         body(&app, "/docs/missing", StatusCode::NOT_FOUND).await,
         "docs missing"
     );
+}
+
+#[tokio::test]
+async fn legacy_help_redirects_to_standalone_docs() {
+    let fixture = Fixture::new();
+    let app = fixture.router(false);
+    for (path, destination) in [
+        ("/help", "/docs/"),
+        ("/help/?search=1", "/docs/?search=1"),
+        (
+            "/help/getting-started/?q=a%20b",
+            "/docs/getting-started/?q=a%20b",
+        ),
+        ("/help/install.md", "/docs/install.md"),
+        ("/help/help/article/", "/docs/help/article/"),
+        ("/help/api/", "/docs/api/explorer/"),
+        ("/help/api/rest", "/docs/api/explorer/"),
+        ("/help/api/rest/listmodels/", "/docs/api/rest/listmodels/"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PERMANENT_REDIRECT, "{path}");
+        assert_eq!(response.headers()["location"], destination);
+    }
 }
 
 #[tokio::test]
@@ -210,12 +245,13 @@ async fn community_build_does_not_require_marketing_artifacts() {
     assert_eq!(response.headers()["location"], "/workspaces/default/");
     assert_eq!(
         body(&app, "/models/", StatusCode::OK).await,
-        "public catalog"
+        "workspace shell"
     );
     assert_eq!(
         body(&app, "/favicon.ico", StatusCode::OK).await,
         "community favicon"
     );
+    assert_eq!(body(&app, "/llms.txt", StatusCode::OK).await, "llms index");
     for (path, target) in [
         ("/compare/", "/docs/compare/"),
         ("/compare/new-api/", "/docs/compare/new-api/"),
@@ -257,12 +293,16 @@ async fn dashboard_entry_documents_require_revalidation() {
         "/admin/reports/",
         "/admin/balances",
         "/admin/balances/",
+        "/admin/routing",
+        "/admin/routing/",
         "/admin/pools",
         "/admin/pools/",
         "/admin/payments",
         "/admin/payments/",
         "/admin/audit",
         "/admin/audit/",
+        "/admin/incidents",
+        "/admin/incidents/",
         "/admin/model-pools",
         "/admin/model-pools/",
         "/admin/financial-reports",
@@ -333,25 +373,22 @@ async fn dashboard_entry_documents_require_revalidation() {
 }
 
 #[tokio::test]
-async fn workspace_catalog_context_uses_dashboard_without_shadowing_public_catalog() {
+async fn model_routes_use_the_dashboard_even_when_a_public_catalog_artifact_exists() {
     let fixture = Fixture::new();
     let app = fixture.router(true);
-    assert_eq!(
-        body(&app, "/models/?workspace=demo", StatusCode::OK).await,
-        "workspace shell"
-    );
-    assert_eq!(
-        body(&app, "/models/openai/model?workspace=demo", StatusCode::OK).await,
-        "workspace shell"
-    );
-    assert_eq!(
-        body(&app, "/models/", StatusCode::OK).await,
-        "public catalog"
-    );
-    assert_eq!(
-        body(&app, "/models/?workspace=", StatusCode::OK).await,
-        "public catalog"
-    );
+    for path in [
+        "/models/?workspace=demo",
+        "/models/openai/model?workspace=demo",
+        "/models/",
+        "/models/?workspace=",
+        "/models/missing",
+    ] {
+        assert_eq!(
+            body(&app, path, StatusCode::OK).await,
+            "workspace shell",
+            "{path}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -386,4 +423,67 @@ async fn static_asset_prefixes_emit_public_cache_control() {
             assert_eq!(response.headers()["content-encoding"], "gzip", "{path}");
         }
     }
+}
+
+#[tokio::test]
+async fn register_and_zh_routes_resolve_cleanly() {
+    let fixture = Fixture::new();
+    for with_site in [true, false] {
+        let app = fixture.router(with_site);
+        for path in ["/register", "/register/"] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{path} with_site={with_site}"
+            );
+        }
+        for (path, expected_location) in [
+            ("/zh", "/"),
+            ("/zh/", "/"),
+            ("/zh/docs", "/docs/?lang=zh-CN"),
+            ("/zh/docs/", "/docs/?lang=zh-CN"),
+            ("/zh/docs/agents/", "/docs/agents/?lang=zh-CN"),
+            (
+                "/zh/docs/agents/?tab=api",
+                "/docs/agents/?tab=api&lang=zh-CN",
+            ),
+            ("/zh/docs/install.md", "/docs/install.md"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::TEMPORARY_REDIRECT,
+                "{path} with_site={with_site}"
+            );
+            assert_eq!(
+                response.headers()["location"],
+                expected_location,
+                "{path} with_site={with_site}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn zh_root_prefers_website_zh_artifact_when_present() {
+    let fixture = Fixture::new();
+    let zh_dir = fixture.0.join("website/zh");
+    std::fs::create_dir_all(&zh_dir).unwrap();
+    std::fs::write(zh_dir.join("index.html"), "chinese marketing").unwrap();
+
+    let app = fixture.router(true);
+    let response = app
+        .oneshot(Request::builder().uri("/zh/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
 }

@@ -7,8 +7,8 @@ info:
     search by operation or path, and expand the request and response schemas for exact fields.
 
     ## Getting started
-    Use the [HTTP quickstart](/help/guides/api-quickstart/) for your first model request,
-    or the [JavaScript SDK guide](/help/guides/sdk-quickstart/) for typed clients.
+    Use the [HTTP quickstart](/docs/guides/api-quickstart/) for your first model request,
+    or the [JavaScript SDK guide](/docs/guides/sdk-quickstart/) for typed clients.
     [Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).
 
     ## Authentication and scope
@@ -33,14 +33,28 @@ info:
 servers:
   - url: /
 paths:
-  /api/v1/workspaces/{workspace}/pools:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools'
-  /api/v1/workspaces/{workspace}/pools/{slug}:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}'
-  /api/v1/workspaces/{workspace}/pools/{slug}/history:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}~1history'
-  /api/v1/workspaces/{workspace}/pools/{slug}/selections:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1pools~1{slug}~1selections'
+  /api/v1/providers/presets:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1presets'
+  /api/v1/providers/{provider}/metadata:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1metadata'
+  /api/v1/providers/{provider}/pricing/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1pricing~1history'
+  /api/v1/providers/{provider}/pricing/{revision}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1pricing~1{revision}'
+  /api/v1/providers/{provider}/estimate:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1estimate'
+  /api/v1/providers/{provider}/pricing:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1pricing'
+  /api/v1/vendors/{id}/import:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1import'
+  /api/v1/workspaces/{workspace}/routing:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing'
+  /api/v1/workspaces/{workspace}/routing/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing~1{slug}'
+  /api/v1/workspaces/{workspace}/routing/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing~1{slug}~1history'
+  /api/v1/workspaces/{workspace}/routing/{slug}/selections:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1routing~1{slug}~1selections'
   /api/v1/workspaces/{workspace}/events:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1events'
   /api/v1/workspaces/{workspace}/events/{slug}:
@@ -113,14 +127,14 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1currency'
   /v1/currency:
     $ref: './generated/handler-operations.json#/paths/~1v1~1currency'
-  /api/v1/pools/{reference}:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}'
-  /api/v1/pools/{reference}/history:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1history'
-  /api/v1/pools/{reference}/preview:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1preview'
-  /api/v1/pools/{reference}/audit:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1audit'
+  /api/v1/routing/{reference}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}'
+  /api/v1/routing/{reference}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}~1history'
+  /api/v1/routing/{reference}/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}~1preview'
+  /api/v1/routing/{reference}/audit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing~1{reference}~1audit'
   /api/v1/workspaces/{workspace}/assets:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1assets'
   /api/v1/workspaces/{workspace}/assets/{asset}:
@@ -329,20 +343,18 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors'
   /api/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detectors'
-  /api/v1/providers/{provider}/offers/{offer}/qualification/revoke:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1qualification~1revoke'
-  /api/v1/providers/{provider}/offers/{offer}/qualification:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1qualification'
-  /api/v1/providers/{provider}/qualification/revoke:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1qualification~1revoke'
-  /api/v1/providers/{provider}/qualification:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1qualification'
   /api/v1/auth/preferences:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1preferences'
   /api/v1/auth/profile:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1profile'
   /api/v1/organizations/{organization}/projects:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects'
+  /api/v1/providers/{provider}/offers/{offer}/authorization:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization'
+  /api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization~1{authorization}'
+  /api/v1/providers/{provider}/settlements/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements~1preview'
   /api/v1/providers/{provider}/configuration-usage:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1configuration-usage'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation:
@@ -357,6 +369,12 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs~1{model}~1history'
   /api/v1/vendors/{vendor}/cooldown:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1cooldown'
+  /api/v1/vendors/{vendor}/incidents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1incidents'
+  /api/v1/incidents/{incident}/connection:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1incidents~1{incident}~1connection'
+  /api/v1/incidents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1incidents'
   /api/v1/vendors/{vendor}/request-rate-limit/history:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1request-rate-limit~1history'
   /api/v1/vendors/{vendor}/request-rate-limit:
@@ -415,6 +433,16 @@ paths:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1logout'
   /api/v1/auth/login:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1login'
+  /api/v1/auth/registrations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1registrations'
+  /api/v1/platform/registration:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registration'
+  /api/v1/platform/registrations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registrations'
+  /api/v1/platform/registrations/{registration}/approve:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registrations~1{registration}~1approve'
+  /api/v1/platform/registrations/{registration}/reject:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1registrations~1{registration}~1reject'
   /api/v1/operators/{operator}/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1operators~1{operator}~1password'
   /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
@@ -435,12 +463,12 @@ paths:
     $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1payments~1integrations'
   /api/v1/platform/payments/stripe/verification:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1payments~1stripe~1verification'
-  /api/v1/pools:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools'
-  /api/v1/pools/index:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools~1index'
-  /api/v1/pools/history:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools~1history'
+  /api/v1/routing:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1routing'
+  /api/v1/routing/index:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1routing~1index'
+  /api/v1/routing/history:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1routing~1history'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:
     $ref: './key-token-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history:
@@ -874,6 +902,8 @@ paths:
   /api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats~1{id}~1archive'
 
+  /api/v1/vendors/{id}/retire:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1retire'
   /api/v1/vendors/{id}/supplier:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1supplier'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
@@ -996,13 +1026,15 @@ paths:
   /catalog/v1/models:
     get:
       operationId: listPublicCatalogModels
-      summary: List model aliases explicitly published by the gateway operator
-      description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
+      summary: List published public catalog models
+      description: Returns enabled shared internal and commercial model aliases with public_catalog enabled, along with customer-safe catalog metadata, standard customer pricing when applicable, declared protocol capabilities, and generation_capabilities. Private personal routes, disabled or unqualified models, upstream identifiers, endpoints, credentials, internal UUIDs, and Provider procurement costs are omitted.
       responses:
         '200':
-          description: Public model aliases and declared capabilities. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
+          description: Public model aliases and declared capabilities, including configured tool_calls and streaming_tool_calls. These flags do not guarantee upstream availability or authorization. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
   /v1/chat/completions:
     $ref: './generated/handler-operations.json#/paths/~1v1~1chat~1completions'
+  /v1/decisions:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1decisions'
   /v1/embeddings:
     $ref: './generated/handler-operations.json#/paths/~1v1~1embeddings'
   /v1beta/models/{model_action}:
@@ -1950,6 +1982,10 @@ paths:
                     required: [kind, operator, permissions, provider_memberships]
                     properties:
                       kind: { type: string, enum: [installation, operator] }
+                      operating_mode:
+                        type: string
+                        enum: [internal, resale]
+                        description: Deployment-wide NIU_OPERATING_MODE policy. Missing configuration defaults to internal; only explicit resale enables commercial operation. Read-only in the dashboard; independent of live/test payments and not an end-user BYOK grant.
                       roles:
                         type: object
                         required: [available, active, switchable]
@@ -2349,6 +2385,32 @@ paths:
   /api/v1/workspaces/by-route/{route_slug}:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1by-route~1{route_slug}/get'
+  /api/v1/organizations/by-route/{route_slug}:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1by-route~1{route_slug}/get'
+  /api/v1/organizations/{organization}:
+    patch:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}/patch'
+  /api/v1/session/organization:
+    put:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1organization/put'
+  /api/v1/session/memberships:
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1memberships/post'
+  /api/v1/session/invitations:
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1session~1invitations/post'
+  /api/v1/organizations/{organization}/invitations:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1invitations/get'
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1invitations/post'
+  /api/v1/invitations/preview:
+    post:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1invitations~1preview/post'
+  /api/v1/invitations/{invitation}:
+    delete:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1invitations~1{invitation}/delete'
   /api/v1/workspaces:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces/get'
@@ -2501,10 +2563,14 @@ paths:
     get:
       operationId: exportWorkspaceRequests
       summary: Export filtered customer-safe request metadata as CSV
-      description: Requires workspace read access. Uses one database statement for the filtered range, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
+      description: Requires workspace read access. Checks the row limit and reads the filtered range in one consistent database snapshot, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
       security:
         - adminBearerAuth: []
       parameters:
+        - name: q
+          in: query
+          description: Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
+          schema: { type: string, maxLength: 128 }
         - name: http_status
           in: query
           description: Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.
@@ -2674,6 +2740,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1{session}~1turns~1{turn}~1intent'
   /v1/events:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events'
+  /v1/incidents/{reference}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1incidents~1{reference}'
   /v1/events/log:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events~1log'
   /v1/events/{slug}:
@@ -2684,16 +2752,16 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1deliveries'
   /v1/events/{slug}/test:
     $ref: './generated/handler-operations.json#/paths/~1v1~1events~1{slug}~1test'
-  /v1/pools:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools'
-  /v1/pools/preview:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1preview'
-  /v1/pools/{slug}:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}'
-  /v1/pools/{slug}/history:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}~1history'
-  /v1/pools/{slug}/selections:
-    $ref: './generated/handler-operations.json#/paths/~1v1~1pools~1{slug}~1selections'
+  /v1/routing:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing'
+  /v1/routing/preview:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1preview'
+  /v1/routing/{slug}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1{slug}'
+  /v1/routing/{slug}/history:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1{slug}~1history'
+  /v1/routing/{slug}/selections:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1routing~1{slug}~1selections'
   /v1/key:
     $ref: './generated/handler-operations.json#/paths/~1v1~1key'
   /v1/generations/{id}:
@@ -2702,6 +2770,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1capabilities'
   /v1/video/jobs/{id}/results/{kind}/refresh:
     $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs~1{id}~1results~1{kind}~1refresh'
+  /api/v1/workspaces/{workspace}/incidents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1incidents'
   /api/v1/workspaces/{workspace}/keys:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys'
   /api/v1/workspaces/{workspace}/keys/{key}:
@@ -2749,7 +2819,7 @@ components:
             - { type: 'null' }
     ModelMetadataCapabilities:
       type: object
-      required: [supports_embeddings, supports_embedding_dimensions, supports_embedding_base64, supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, supports_messages, supports_messages_streaming, supports_messages_tools, supports_messages_streaming_tools, supports_generate_content, supports_responses]
+      required: [supports_embeddings, supports_embedding_dimensions, supports_embedding_base64, supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, supports_messages, supports_messages_streaming, supports_messages_tools, supports_messages_streaming_tools, supports_generate_content, supports_generate_content_streaming, supports_responses]
       properties:
         supports_embeddings: { type: boolean }
         supports_embedding_dimensions: { type: boolean }
@@ -2762,6 +2832,7 @@ components:
         supports_messages_tools: { type: boolean }
         supports_messages_streaming_tools: { type: boolean }
         supports_generate_content: { type: boolean }
+        supports_generate_content_streaming: { type: boolean }
         supports_responses: { type: boolean }
     MemberModelMetadata:
       description: Member projection; no private Provider mapping or procurement information.
@@ -3056,6 +3127,7 @@ components:
           properties:
             meter: { type: string, enum: [video_tokens, seconds] }
             estimator: { type: string, enum: [SeedancePixelsV1, OutputSecondsV1] }
+            allow_unmapped_output: { type: boolean, default: false, description: 'Additional configured choices support owner-funded generation without an output estimate.' }
             specifications: { $ref: './generated/handler-operations.json#/components/schemas/VideoOutputSchema/properties/specifications' }
     VideoSchema:
       $ref: './generated/handler-operations.json#/components/schemas/VideoSchema'

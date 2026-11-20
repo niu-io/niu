@@ -12,14 +12,14 @@ const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, 
 it('searches and opens a model without losing the catalog filter on return', async () => {
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><Link to="/models">Models breadcrumb</Link><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
-  await user.type(screen.getByRole('textbox', { name: 'Filter model routes' }), 'model-24');
-  expect(screen.queryByRole('link', { name: 'openai/model-0', exact: true })).toBeNull();
-  await user.click(screen.getByRole('link', { name: 'openai/model-24', exact: true }));
+  await user.type(screen.getByRole('textbox', { name: 'Search models by name or ID' }), 'model-24');
+  expect(screen.queryByRole('link', { name: 'Model 0', exact: true })).toBeNull();
+  await user.click(screen.getByRole('link', { name: 'Model 24', exact: true }));
   expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
   expect(screen.getByRole('link', { name: 'Create an API key' }).getAttribute('href')).toBe('/workspaces/default/keys/new');
   await user.click(screen.getByRole('link', { name: 'Models breadcrumb' }));
-  expect((screen.getByRole('textbox', { name: 'Filter model routes' }) as HTMLInputElement).value).toBe('model-24');
+  expect((screen.getByRole('textbox', { name: 'Search models by name or ID' }) as HTMLInputElement).value).toBe('model-24');
 });
 it('appends results instead of replacing pages and opens deep-linked details', async () => {
   const user = userEvent.setup();
@@ -48,7 +48,7 @@ it('provides a working catalog recovery action for an unavailable model', async 
   render(<MemoryRouter initialEntries={['/models/openai/unavailable']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
   expect(screen.getByText('Model unavailable')).toBeTruthy();
   await user.click(screen.getByRole('link', { name: 'Browse models' }));
-  expect(screen.getByRole('textbox', { name: 'Filter model routes' })).toBeTruthy();
+  expect(screen.getByRole('textbox', { name: 'Search models by name or ID' })).toBeTruthy();
   expect(screen.getAllByRole('article')).toHaveLength(20);
 });
 
@@ -57,12 +57,12 @@ it('clears both a developer filter and an unmatched search to recover the catalo
   render(<MemoryRouter initialEntries={['/models']}><SidebarProvider><ModelTable models={models} /></SidebarProvider></MemoryRouter>);
   const developer = screen.getByRole('checkbox', { name: 'OpenAI', exact: true });
   await user.click(developer);
-  await user.type(screen.getByRole('textbox', { name: 'Filter model routes' }), 'unavailable-example');
+  await user.type(screen.getByRole('textbox', { name: 'Search models by name or ID' }), 'unavailable-example');
   expect(screen.getByText('No matching models')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(developer.getAttribute('aria-checked')).toBe('false');
-  expect(document.activeElement).toBe(screen.getByRole('textbox', {name:'Filter model routes'}));
-  expect((screen.getByRole('textbox', { name: 'Filter model routes' }) as HTMLInputElement).value).toBe('');
+  expect(document.activeElement).toBe(screen.getByRole('textbox', {name:'Search models by name or ID'}));
+  expect((screen.getByRole('textbox', { name: 'Search models by name or ID' }) as HTMLInputElement).value).toBe('');
   expect(screen.getAllByRole('article')).toHaveLength(20);
 });
 
@@ -77,18 +77,43 @@ it('preserves developer filters when their group is collapsed with the keyboard'
   const user=userEvent.setup();
   render(<MemoryRouter><SidebarProvider><ModelTable models={models}/></SidebarProvider></MemoryRouter>);
   await user.click(screen.getByRole('checkbox',{name:'OpenAI',exact:true}));
-  const trigger=screen.getByRole('button',{name:'Model developer',exact:true});
+  const trigger=screen.getByRole('button',{name:'Developer',exact:true});
   trigger.focus();await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('false');
   expect(screen.queryByRole('checkbox',{name:'OpenAI',exact:true})).toBeNull();
   await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('true');
   expect(screen.getByRole('checkbox',{name:'OpenAI',exact:true}).getAttribute('aria-checked')).toBe('true');
-  await user.type(screen.getByRole('textbox',{name:'Filter model routes'}),'model-24');
+  await user.type(screen.getByRole('textbox',{name:'Search models by name or ID'}),'model-24');
   expect(screen.getByText('1 model')).toBeTruthy();
   expect(screen.queryByText('1 models')).toBeNull();
 });
 
+
+it('does not turn an imported distributor into a model developer', () => {
+  const imported = [
+    { id:'babelark/third-party-model', provider:'babelark', catalog:{name:'Third-party model', output_modalities:['text']} },
+    { id:'babelark/deepseek-chat', provider:'babelark', catalog:{name:'DeepSeek Chat', output_modalities:['text']} },
+  ];
+  const view = render(<MemoryRouter><SidebarProvider><ModelTable models={imported}/></SidebarProvider></MemoryRouter>);
+  const developerFilters = screen.getByRole('region',{name:'Inferred developer filters'});
+  expect(within(developerFilters).queryByRole('checkbox',{name:'BabelArk',exact:true})).toBeNull();
+  expect(within(developerFilters).getByRole('checkbox',{name:'DeepSeek',exact:true})).toBeTruthy();
+  const providerFilters = screen.getByRole('region',{name:'Provider filters'});
+  expect(within(providerFilters).getByRole('checkbox',{name:'BabelArk',exact:true})).toBeTruthy();
+  const thirdParty = screen.getByRole('link',{name:'Third-party model'}).closest('article')!;
+  expect(within(thirdParty).queryByText(/^Developer:/)).toBeNull();
+  expect(within(thirdParty).queryByText(/^via /)).toBeNull();
+  const direct = screen.getByRole('link',{name:'DeepSeek Chat'}).closest('article')!;
+  expect(within(direct).queryByText(/^Developer:/)).toBeNull();
+  expect(within(direct).queryByText(/^via /)).toBeNull();
+  view.unmount();
+  render(<MemoryRouter initialEntries={['/models/babelark/third-party-model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={imported}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  expect(screen.getByRole('complementary',{name:'babelark/third-party-model route details'})).toBeTruthy();
+  expect(screen.queryByText('Developer (inferred)')).toBeNull();
+  expect(screen.getByText('Provider')).toBeTruthy();
+  expect(screen.getByText('BabelArk')).toBeTruthy();
+});
 
 it('does not carry late clipboard feedback into another model page', async () => {
   const user=userEvent.setup();
@@ -109,12 +134,13 @@ it('omits internal route publication labels from the customer catalog', () => {
   expect(screen.queryByText('Public catalog')).toBeNull();
 });
 
-it('sorts the visible names naturally instead of hidden route aliases',async()=>{
-  const entries=[{...models[0],id:'z/first',catalog:{name:'Alpha 2'}},
-    {...models[1],id:'a/second',catalog:{name:'Alpha 10'}},
-    {...models[2],id:'b/third',catalog:{name:'alpha 1'}}];
+it('sorts the visible names naturally and by context length',async()=>{
+  const entries=[{...models[0],id:'z/first',catalog:{name:'Alpha 2',context_length:64000}},
+    {...models[1],id:'a/second',catalog:{name:'Alpha 10',context_length:200000}},
+    {...models[2],id:'b/third',catalog:{name:'alpha 1',context_length:32000}}];
   const user=userEvent.setup();
-  render(<MemoryRouter><SidebarProvider><ModelTable models={entries}/></SidebarProvider></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/models?sort=context']}><SidebarProvider><ModelTable models={entries}/></SidebarProvider></MemoryRouter>);
+  expect(screen.getAllByRole('article').map(row=>within(row).getAllByRole('link')[0].textContent)).toEqual(['Alpha 10','Alpha 2','alpha 1']);
   await user.click(screen.getByRole('button',{name:'Sort models'}));
   await user.click(screen.getByRole('menuitemradio',{name:'Name: A–Z'}));
   expect(screen.getAllByRole('article').map(row=>within(row).getAllByRole('link')[0].textContent)).toEqual(['alpha 1','Alpha 2','Alpha 10']);
@@ -174,8 +200,9 @@ it('keeps developer and provider facets separate without treating access namespa
     {id:'anthropic/claude-haiku',provider:'fastrouter',public_catalog:true},
   ];
   render(<MemoryRouter><SidebarProvider><ModelTable models={routes}/></SidebarProvider></MemoryRouter>);
-  const developers=within(screen.getByRole('region',{name:'Model developer filters'}));
+  const developers=within(screen.getByRole('region',{name:'Inferred developer filters'}));
   const connections=within(screen.getByRole('region',{name:'Provider filters'}));
+  expect(developers.getByText('Inferred from model identifiers; not verified.')).toBeTruthy();
   expect(developers.queryByRole('checkbox',{name:/byok|fastrouter|team/i})).toBeNull();
   expect(connections.queryByRole('checkbox',{name:/byok/i})).toBeNull();
   expect(developers.getByRole('checkbox',{name:'ByteDance'})).toBeTruthy();
@@ -185,7 +212,7 @@ it('keeps developer and provider facets separate without treating access namespa
   expect(screen.getAllByRole('article')).toHaveLength(2);
   await user.click(connections.getByRole('checkbox',{name:'FastRouter'}));
   expect(screen.getAllByRole('article')).toHaveLength(1);
-  expect(screen.getByRole('link',{name:'anthropic/claude-haiku',exact:true})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Claude Haiku',exact:true})).toBeTruthy();
   expect(screen.getByText('Developer: Anthropic')).toBeTruthy();
   expect(screen.getByText('Provider: FastRouter')).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
@@ -216,33 +243,45 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
 
 // Refs #104: absent metadata is not a Chat capability assertion.
 it.each([
-  [undefined, false, false, '/models'],
-  [[], false, false, '/models'],
-  [['text'], true, false, '/models'],
-  [['video'], false, true, '/video/models'],
-  [['text', 'video'], true, true, '/video/models'],
-  [['audio'], false, false, '/models'],
+  [undefined, false, false, null],
+  [[], false, false, null],
+  [['text'], true, false, '/chat/completions'],
+  [['video'], false, true, '/video/jobs'],
+  [['text', 'video'], true, true, '/video/jobs'],
+  [['audio'], false, false, null],
 ])('offers only documented generation handoffs for outputs %s', (outputs, chat, video, endpoint) => {
   const model={id:'example/model', public_catalog:true, catalog:{output_modalities:outputs}};
   render(<MemoryRouter initialEntries={['/models/example/model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]} /></SidebarProvider>} /></Routes></MemoryRouter>);
   expect(!!screen.queryByRole('link',{name:'Open Generations'})).toBe(chat);
   expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
-  expect(document.querySelector('pre')?.textContent).toContain(endpoint);
-  if(!chat && !video) expect(document.querySelector('pre')?.textContent).not.toContain('/chat/completions');
+  if (endpoint) expect(document.querySelector('pre')?.textContent).toContain(endpoint);
+  else expect(document.querySelector('pre')).toBeNull();
+});
+
+it('links an unknown-capability model to Chat while stating that support is unverified', () => {
+  const model = {id:'babelark/example',public_catalog:false,catalog:{output_modalities:[]}};
+  const browse = render(<MemoryRouter><SidebarProvider><ModelTable models={[model]}/></SidebarProvider></MemoryRouter>);
+  expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByText('Capabilities not published')).toBeTruthy();
+  browse.unmount();
+  render(<MemoryRouter initialEntries={['/models/babelark/example']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByText(/capabilities have not been published/)).toBeTruthy();
+  expect(screen.queryByRole('link', {name:'Open Generations'})).toBeNull();
 });
 
 
 it('distinguishes direct Provider billing from missing platform prices without claiming availability', () => {
   const model = {...models[0], billing_source: 'own_api_key' as const};
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByText(/Your Provider bills this usage directly/)).toBeTruthy();
+  expect(screen.getByText(/Its owning account pays the Provider directly/)).toBeTruthy();
   expect(screen.queryByText('Not published')).toBeNull();
-  expect(screen.getByText(/Access still depends on your key/)).toBeTruthy();
+  expect(screen.getByText(/Upstream balance and model permissions still apply/)).toBeTruthy();
 });
 it('keeps platform funding separate from an absent price', () => {
   const model = {...models[0], billing_source: 'niu_credits' as const};
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByText(/Uses Niu credits/)).toBeTruthy();
+  expect(screen.getByText(/Niu charges, when applicable, use workspace credits/)).toBeTruthy();
   expect(screen.getAllByText('Not published')).toHaveLength(2);
   expect(screen.queryByText(/Your Provider bills/)).toBeNull();
 });
@@ -251,7 +290,9 @@ it('offers the current Video workflow when catalog text metadata is stale',()=>{
  render(<MemoryRouter initialEntries={['/models/example/stale']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
  expect(screen.queryByRole('link',{name:'Open Generations'})).toBeNull();
  expect(screen.getByRole('link',{name:'Try in Video'}).getAttribute('href')).toContain('new=video');
- expect(document.querySelector('pre')?.textContent).toContain('/video/models');
+ expect(document.querySelector('pre')?.textContent).toContain('/video/jobs');
+ expect(document.querySelector('pre')?.textContent).toContain('"model":"example/stale"');
+ expect(screen.getByRole('link',{name:'All models'}).getAttribute('href')).toBe('/models');
  expect(screen.queryByText('Text output')).toBeNull();
 });
 
@@ -260,6 +301,54 @@ it('explains Video estimation without presenting token prices for a Video-only m
  render(<MemoryRouter initialEntries={['/models/example/video']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
  expect(screen.queryByText('Input price')).toBeNull();
  expect(screen.queryByText('Output price')).toBeNull();
- expect(screen.getByText(/Video cost depends on the request settings/)).toBeTruthy();
+ expect(screen.getByText(/Video cost depends on request settings/)).toBeTruthy();
  expect(screen.getByRole('link',{name:'Try in Video'})).toBeTruthy();
+});
+
+it('restores developer, provider, and capability filters from URL parameters and preserves them on detail links',()=>{
+ const catalog=[
+  {id:'anthropic/claude-sonnet-4',provider:'openrouter',public_catalog:true,catalog:{name:'Claude Sonnet 4',input_modalities:['text','image'],output_modalities:['text']}},
+  {id:'openai/gpt-4o',provider:'openrouter',public_catalog:true,catalog:{name:'GPT-4o',input_modalities:['text','image'],output_modalities:['text']}},
+ ];
+ render(<MemoryRouter initialEntries={['/models?dev=anthropic&input=image']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={catalog}/></SidebarProvider>}/></Routes></MemoryRouter>);
+ expect(screen.getAllByRole('article')).toHaveLength(1);
+ const detailLink = screen.getByRole('link',{name:'Claude Sonnet 4'});
+ expect(detailLink.getAttribute('href')).toBe('/models/anthropic/claude-sonnet-4?input=image&dev=anthropic');
+});
+
+it('ranks verified Niu catalog models ahead of unverified own-API-key qualification routes and filters by billing source', async () => {
+  const user = userEvent.setup();
+  const mixed = [
+    { id: 'qiniu-personal-qualification/z-test', billing_source: 'own_api_key' as const, public_catalog: false },
+    { id: 'qiniu-personal-qualification/a-test', billing_source: 'own_api_key' as const, public_catalog: false },
+    { id: 'qiniu/kimi-k3', billing_source: 'niu_credits' as const, public_catalog: true, catalog: { name: 'Kimi K3', output_modalities: ['text'] }, customer_pricing: { currency: 'USD', prompt_rate: '0', completion_rate: '0' } },
+  ];
+  render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  const titles = screen.getAllByRole('article').map(card => within(card).getAllByRole('link')[0].textContent);
+  expect(titles).toEqual(['Kimi K3', 'Z Test', 'A Test']);
+
+  const billingFilters = within(screen.getByRole('region', { name: 'Billing source filters' }));
+  await user.click(billingFilters.getByRole('checkbox', { name: 'Niu catalog', exact: true }));
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(screen.getByRole('link', { name: 'Kimi K3' })).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+});
+
+it('renders model card titles and meta action links with default foreground color instead of primary accent', () => {
+  const mixed = [
+    { id: 'openai/gpt-4o', provider: 'openrouter', public_catalog: true, catalog: { name: 'GPT-4o', output_modalities: ['text'] } },
+    { id: 'fastrouter/seedance', provider: 'fastrouter', public_catalog: true, generation_capabilities: { chat: false, video: true }, catalog: { name: 'Seedance Video', output_modalities: ['video'] } },
+  ];
+  render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed} /></SidebarProvider>} /></Routes></MemoryRouter>);
+  const titleLink = screen.getByRole('link', { name: 'GPT-4o' });
+  expect(titleLink.className).toContain('text-foreground');
+  expect(titleLink.className).not.toContain('text-primary');
+  const openGenerationsLink = screen.getByRole('link', { name: 'Open Generations' });
+  expect(openGenerationsLink.className).toContain('text-foreground');
+  expect(openGenerationsLink.className).not.toContain('text-primary');
+  const tryVideoLink = screen.getByRole('link', { name: 'Try in Video' });
+  expect(tryVideoLink.className).toContain('text-foreground');
+  expect(tryVideoLink.className).not.toContain('text-primary');
 });

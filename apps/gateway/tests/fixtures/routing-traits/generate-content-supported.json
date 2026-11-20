@@ -1,0 +1,14 @@
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [{ "text": "Hi!" }]
+    }
+  ],
+  "systemInstruction": {
+    "parts": [{ "text": "Be" }]
+  },
+  "generationConfig": {
+    "maxOutputTokens": 32
+  }
+}

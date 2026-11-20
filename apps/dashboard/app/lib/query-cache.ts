@@ -1,23 +1,8 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 
-type CacheEntry<T = unknown> = {
-  data: T;
-  updatedAt: number;
-  stale: boolean;
-  generation: number;
-  globalGen: number;
-};
-
-type InFlightConsumer = {
-  reject: (reason: unknown) => void;
-  cleanup: () => void;
-};
-
-type FetchOutcome<T = unknown> = {
-  data: T;
-  generation: number;
-  globalGen: number;
-};
+type CacheEntry<T = unknown> = { data: T; updatedAt: number; stale: boolean; generation: number; globalGen: number };
+type InFlightConsumer = { reject: (reason: unknown) => void; cleanup: () => void };
+type FetchOutcome<T = unknown> = { data: T; generation: number; globalGen: number };
 
 type InFlightEntry<T = unknown> = {
   promise: Promise<FetchOutcome<T>>;
@@ -64,6 +49,7 @@ const inFlight = new Map<string, InFlightEntry>();
 const keyGenerations = new Map<string, number>();
 const subscribers = new Map<string, Set<CacheSubscriber>>();
 const mutationSubscribers = new Set<MutationSubscriber>();
+const resetListeners = new Set<(token?: string) => void>();
 
 let globalGeneration = 0;
 let activeFetchRef: typeof fetch | undefined = globalThis.fetch;
@@ -111,6 +97,7 @@ function clearMemoryOnly() {
   }
   inFlight.clear();
   memoryCache.clear();
+  for (const listener of [...resetListeners]) listener();
 }
 
 function ensureCacheCoherence() {
@@ -251,6 +238,16 @@ export function subscribeMutations(listener: MutationSubscriber): () => void {
   return () => {
     mutationSubscribers.delete(listener);
   };
+}
+
+export function getActiveCacheAuthority(): string | null {
+  ensureCacheCoherence();
+  return activeAuthorityHash;
+}
+
+export function subscribeCacheReset(listener: (token?: string) => void): () => void {
+  resetListeners.add(listener);
+  return () => { resetListeners.delete(listener); };
 }
 
 function readPersistedSnapshot<T>(scope: string, key: string, maxAgeMs: number): CacheEntry<T> | undefined {
@@ -637,6 +634,9 @@ export function invalidateForMutation(token: string, path: string, method: strin
   const cleanPath = path.split('?')[0];
   const substrings = new Set<string>();
 
+  if (cleanPath.includes('/chats') || cleanPath.includes('/sessions') || cleanPath.includes('/tasks') || cleanPath.includes('/intents')) {
+    substrings.add('/generation-history');
+  }
   if (cleanPath.includes('/branding')) {
     substrings.add('branding');
   }
@@ -653,6 +653,7 @@ export function invalidateForMutation(token: string, path: string, method: strin
   if (cleanPath.includes('/providers') || cleanPath.includes('/suppliers') || cleanPath.includes('/vendors')) {
     substrings.add('/providers');
     substrings.add('/models');
+    substrings.add('/routing');
     substrings.add('/route-pools');
     substrings.add('/pools');
   }
@@ -683,7 +684,8 @@ export function invalidateForMutation(token: string, path: string, method: strin
     substrings.add('/customer-accounts');
     substrings.add('/payments/readiness');
   }
-  if (cleanPath.includes('/pools') || cleanPath.includes('/route-pools')) {
+  if (cleanPath.includes('/routing') || cleanPath.includes('/pools') || cleanPath.includes('/route-pools')) {
+    substrings.add('/routing');
     substrings.add('/pools');
     substrings.add('/route-pools');
     substrings.add('/models');
@@ -744,6 +746,9 @@ export function clearSessionCache(token?: string): void {
     }
   } catch {
     // Storage access is optional.
+  }
+  if (token) {
+    for (const listener of [...resetListeners]) listener(token);
   }
 }
 

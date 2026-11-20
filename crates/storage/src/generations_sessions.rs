@@ -27,7 +27,7 @@ impl Store {
         if !same {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn generations_session_id_by_reference(
@@ -60,7 +60,7 @@ impl Store {
             .fetch_all(&mut *tx)
             .await?;
         session["turns"] = json!(turns);
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(session))
     }
     pub async fn generations_session_page(
@@ -82,7 +82,7 @@ impl Store {
             }
         }
         let data = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'reference',public_reference,'workspace_id',project_id,'owner',owner,'category','video','title',title,'revision',revision::text,'archived',archived,'created_at',created_at,'updated_at',updated_at) FROM generations_sessions s WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND ($5::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$5)) ORDER BY created_at DESC,id DESC LIMIT $6").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(before).bind(limit+1).fetch_all(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(data)
     }
     pub async fn update_generations_session(
@@ -102,7 +102,7 @@ impl Store {
         if n != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn append_generations_turn(
@@ -130,7 +130,7 @@ impl Store {
             if existing != digest {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(());
         }
         if archived || current != revision {
@@ -151,7 +151,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO generations_turns(organization_id,project_id,owner,session_id,id,sequence,instruction,instruction_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).bind(next_sequence).bind(instruction).bind(digest).execute(&mut *tx).await?;
         sqlx::query("UPDATE generations_sessions SET revision=revision+1,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn attach_generations_task(
@@ -206,7 +206,7 @@ impl Store {
             {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(());
         }
         if archived || current != revision {
@@ -225,7 +225,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         sqlx::query("UPDATE generations_sessions SET revision=revision+1,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     /// Bind canonical restoration identity without initiating inference.
@@ -255,7 +255,7 @@ impl Store {
             if existing != intent {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(());
         }
         if archived || current != revision || !retained {
@@ -282,7 +282,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         sqlx::query("UPDATE generations_sessions SET revision=revision+1,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn delete_generations_instruction(
@@ -302,7 +302,7 @@ impl Store {
         if n != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

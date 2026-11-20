@@ -1,6 +1,6 @@
 import type { VideoSchema } from './video-schema';
 import type { CatalogMetadata } from '@/shell/dashboard-context';
-export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
+export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom' | 'fastrouter' | 'babelark' | 'qiniu' | 'deepseek';
 export type ProviderIntegration = {
   integration_type: ProviderIntegrationType | null;
   effective_type: ProviderIntegrationType;
@@ -8,7 +8,7 @@ export type ProviderIntegration = {
   revision: number;
 };
 export const integrationLabels: Record<ProviderIntegrationType, string> = {
-  openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom',
+  openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom', fastrouter: 'FastRouter', babelark: 'BabelArk', qiniu: 'Qiniu', deepseek: 'DeepSeek',
 };
 export type ProviderAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
 export type VendorAdapter = ProviderAdapter;
@@ -34,6 +34,7 @@ export type ProviderConnection = {
   revision: number;
   has_credential: boolean;
   owner_funded?: boolean;
+  access_scope?: 'commercial' | 'personal' | 'internal';
   provider?: { id: string; name: string } | null;
   supplier?: { id: string; name: string } | null;
 };
@@ -49,6 +50,12 @@ export type ModelCapabilities = {
   supports_embedding_dimensions: boolean;
   supports_embedding_base64: boolean;
   supports_responses: boolean;
+  supports_messages: boolean;
+  supports_messages_streaming: boolean;
+  supports_messages_tools: boolean;
+  supports_messages_streaming_tools: boolean;
+  supports_generate_content: boolean;
+  supports_generate_content_streaming: boolean;
 };
 
 export type ProviderModel = {
@@ -85,6 +92,7 @@ export type ProviderModelCheck = {
   status:
     | 'connected'
     | 'credentials_rejected'
+    | 'account_chat_banned'
     | 'endpoint_unavailable'
     | 'private_endpoint_blocked'
     | 'invalid_endpoint'
@@ -142,5 +150,11 @@ export function emptyCapabilities(): ModelCapabilities {
     supports_embedding_dimensions: false,
     supports_embedding_base64: false,
     supports_responses: false,
+    supports_messages: false,
+    supports_messages_streaming: false,
+    supports_messages_tools: false,
+    supports_messages_streaming_tools: false,
+    supports_generate_content: false,
+    supports_generate_content_streaming: false,
   };
 }

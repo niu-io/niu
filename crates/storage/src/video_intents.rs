@@ -131,7 +131,7 @@ impl Store {
             intent_digest,
         }) = row
         else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         if submitted_digest != intent_digest {
@@ -155,7 +155,7 @@ impl Store {
         };
         let job =
             serde_json::json!({"id":attempt,"object":"video.job","model":model,"status":status});
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some((dispatched, job)))
     }
 

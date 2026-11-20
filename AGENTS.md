@@ -22,7 +22,11 @@ Before creating a review task, search for the existing finding/reference and upd
 
 Markdown holds durable requirements, review evidence, design decisions and dated verification records; link those records to the bead. Do not maintain a second live backlog, owner/status table or TODO checklist in Markdown. Historical review statuses remain dated evidence, with current execution state in Beads. Use GitHub Issues only when explicitly requested or needed for external/public discussion; link them to the bead instead of mirroring the backlog or automatically publishing review findings.
 
-Keep a task open while implementation awaits verification; use a `needs-verification` label when useful. Close it only with evidence matching its acceptance scope, or an explicit duplicate/rejected/superseded disposition. In the handoff record completed work, unverified behavior, blockers and the next action. Commit the Dolt working set and refresh the portable issue snapshot; report unpushed task state honestly. Beads does not authorize git commits, remote publication, delegation or product changes beyond the active task.
+Keep a task open while implementation awaits verification; use a `needs-verification` label when useful. Close it only with evidence matching its acceptance scope, or an explicit duplicate/rejected/superseded disposition. In the handoff record completed work, unverified behavior, blockers and the next action. Commit the Dolt working set, refresh the portable issue snapshot, and commit and push verified changes unless the user asks to keep them local; report any unpushed state honestly. Keep changes scoped to the active task.
+
+## Branch model and production promotion
+
+Branch every product change from the current `release/<minor>` branch (currently `release/0.3`), merge verified work back into `release/<minor>`, and push `release/<minor>` to `origin`. `main` is production and receives only a staging-accepted `release/<minor>`; never commit product changes to `main` directly, and never force-push `main` or a release branch. Create release tags on the release branch after staging acceptance. See [the branch model](docs/development/branching.md) for the flow, staging gate and cleanup rules.
 
 ## API route naming
 
@@ -40,9 +44,13 @@ Never use a native HTML `<select>` / `<option>` control, the shadcn Select compo
 
 Use the shadcn CLI as the source for standard UI primitives. Use its installed `Button`, `Input`, `Textarea`, `Checkbox`, `Label`, `Dialog`, `DropdownMenu`, `Popover`, `Sidebar`, `Tabs`, `Card`, `Badge`, `Alert`, `Table`, and `Tooltip` components directly at their call sites. Do not hand-build or add wrapper components that duplicate those controls, overlays, navigation, tables, or form primitives; do not create a parallel component library. Do not substitute raw native buttons, text fields, checkboxes, textareas, or data tables where the corresponding shadcn component exists. Keep custom components for Niu-specific behavior, page compositions with no shadcn equivalent, and branded assets. When a needed primitive is missing, install it with the shadcn CLI before considering a custom implementation.
 
+## Dialogs and page simplicity
+
+Keep management and detail pages as scannable reading and inspection surfaces (tables or concise single-panel key-value summaries) without multi-card sprawl or walls of explanatory prose. Every page-level create, edit, rename, publish, limit-setting, and destructive confirmation action must open an installed shadcn `Dialog` (`DialogHeader`, bounded scrollable body such as `max-h-[90dvh] overflow-y-auto`, and `DialogFooter` with cancellation and primary submit actions, restoring focus to its trigger via `onCloseAutoFocus`). Never replace a read view in place with an inline edit form, embed permanent mutation forms inside a summary page, or expand inline confirmation strips on pages. Conversely, never open a nested `Dialog` inside an already-open modal (such as the global `Settings` dialog); keep secondary flows inside an active modal inline or in-dialog views.
+
 ## Icons
 
-Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the rail, sidebar and account menu.
+Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the sidebar and account menu.
 
 Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `sparkles`; Chat sessions use Tabler `message-chatbot`; `sparkle-highlight` is another suitable candidate for generative AI actions. Do not limit icon selection to Lucide or add Phosphor or IconPark.
 
@@ -76,7 +84,7 @@ Before delivery, compare the rendered result directly against both the reference
 
 ## Navigation hierarchy
 
-For a feature that needs two navigation levels, use sidebar items for the first-level sections and tabs within the selected section for the second level. Keep the product rail for top-level product areas; do not use rail items as the feature's first-level section list. Use the installed shadcn Sidebar and Tabs primitives directly, preserve clear active states, and verify the hierarchy and access to both levels at narrow widths.
+Use a single left sidebar for primary navigation; do not add a separate outer product rail alongside the sidebar. Keep the brand mark and workspace switcher in the sidebar header, primary destinations in the main sidebar list, and Docs, Admin access (when authorized), and the account menu in the sidebar footer. For a feature that needs two navigation levels, use sidebar items for the first-level sections and tabs within the selected section for the second level. Tuck secondary, low-frequency, or scenario-specific capabilities into their parent feature's tabs or advanced sections rather than promoting them to top-level sidebar items. Use the installed shadcn Sidebar and Tabs primitives directly, preserve clear active states, and verify the hierarchy and access to both levels at narrow widths.
 
 ## Surface styling
 

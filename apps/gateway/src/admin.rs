@@ -4,6 +4,7 @@ pub mod agent_authorizations;
 pub mod asset_requests;
 pub mod browser_tokens;
 pub mod chat_sessions;
+pub(crate) mod connection_incidents;
 pub mod guardrails;
 pub(crate) mod key_concurrency;
 pub mod key_ip;
@@ -16,9 +17,10 @@ pub mod passwords;
 pub mod platform_audit;
 pub mod preferences;
 pub mod profile;
+pub mod registrations;
 pub mod request_exports;
 pub mod request_payloads;
-mod session;
+pub(crate) mod session;
 pub(crate) mod vendor_cooldown;
 pub(crate) mod vendor_request_rate;
 pub mod video_composer_drafts;
@@ -26,8 +28,8 @@ pub mod workspace_aliases;
 pub mod workspace_spending;
 pub use operator_audit::operator_events;
 pub use session::{
-    current_session, member_administration, set_member_administration, update_admin_mode,
-    update_session_role,
+    claim_session_membership, current_session, member_administration, set_member_administration,
+    switch_session_organization, update_admin_mode, update_session_role,
 };
 
 use crate::{error::ApiError, state::AppState};
@@ -49,7 +51,15 @@ pub struct Name {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationInput {
     name: String,
+    slug: Option<String>,
+    #[serde(default, deserialize_with = "non_null_optional_string")]
     currency: Option<String>,
+}
+
+fn non_null_optional_string<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    String::deserialize(deserializer).map(Some)
 }
 
 #[derive(Deserialize)]
@@ -185,7 +195,7 @@ async fn authorize_operator_management(
         organization_id,
         project_id: operator.project_id,
     };
-    if authorization.permits_operator_scope(scope) {
+    if authorization.can_manage_platform() || authorization.permits_operator_scope(scope) {
         Ok(authorization)
     } else {
         Err(ApiError::not_found())
@@ -400,23 +410,217 @@ pub async fn workspace_route(
     {
         return Err(ApiError::not_found());
     }
-    let (organization_id, project_id) = match authorization {
-        crate::state::AdminAuthorization::Installation => (None, None),
-        crate::state::AdminAuthorization::Operator(operator) => (
-            Some(operator.scope.organization_id),
-            operator.scope.project_id,
-        ),
-    };
-    let workspace = state
-        .store
-        .workspace_route(&route_slug, organization_id, project_id)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
+    let workspace = match authorization {
+        crate::state::AdminAuthorization::Installation => state
+            .store
+            .workspace_route(&route_slug, None, None)
+            .await
+            .map_err(ApiError::from_store)?,
+        crate::state::AdminAuthorization::Operator(operator) => state
+            .store
+            .workspace_route_for_member(operator, &route_slug)
+            .await
+            .map_err(ApiError::from_store)?,
+    }
+    .ok_or_else(ApiError::not_found)?;
     Ok((
         [(axum::http::header::CACHE_CONTROL, "no-store")],
         Json(json!(workspace)),
     ))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/by-route/{route_slug}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "resolveOrganizationRoute",
+///     "summary": "Resolve an authorized canonical organization route",
+///     "description": "Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "route_slug",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 81
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Authorized organization identity.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/CompanyMetadata"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid or inference-only credential."
+///       },
+///       "403": {
+///         "description": "Credential lacks read permission."
+///       },
+///       "404": {
+///         "description": "No authorized organization matches the reference."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn organization_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(route_slug): Path<String>,
+) -> Result<([(axum::http::HeaderName, &'static str); 1], Json<Value>), ApiError> {
+    let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
+    let trimmed = route_slug.trim();
+    if trimmed.is_empty()
+        || trimmed.chars().count() > 81
+        || !trimmed
+            .chars()
+            .all(|c| c.is_alphanumeric() && !c.is_uppercase() || c == '-')
+    {
+        return Err(ApiError::not_found());
+    }
+    let organization = match authorization {
+        crate::state::AdminAuthorization::Installation => state
+            .store
+            .organization_route(trimmed, None)
+            .await
+            .map_err(ApiError::from_store)?,
+        crate::state::AdminAuthorization::Operator(operator) => state
+            .store
+            .organization_route_for_member(operator, trimmed)
+            .await
+            .map_err(ApiError::from_store)?,
+    }
+    .ok_or_else(ApiError::not_found)?;
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(json!(organization)),
+    ))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}",
+///   "method": "patch",
+///   "operation": {
+///     "operationId": "renameOrganization",
+///     "summary": "Rename an organization",
+///     "description": "Requires installation write access or an organization-wide owner membership. Trims the saved name and preserves the immutable organization slug and aliases.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": [
+///               "name"
+///             ],
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Updated organization metadata.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/CompanyMetadata"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid name or identifier."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Organization-wide owner or installation write permission required."
+///       },
+///       "404": {
+///         "description": "Organization missing or outside authorized scope."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn rename_organization(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+    Json(input): Json<Name>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
+    validate_name(&input.name)?;
+    let member = match authorization {
+        crate::state::AdminAuthorization::Installation => None,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            if operator.scope.organization_id != organization {
+                return Err(ApiError::not_found());
+            }
+            if operator.scope.project_id.is_some() {
+                return Err(ApiError::forbidden());
+            }
+            Some(operator)
+        }
+    };
+    let updated = state
+        .store
+        .rename_organization(organization, &input.name, member)
+        .await
+        .map_err(|error| match error {
+            niu_storage::StoreError::Unauthorized => ApiError::forbidden(),
+            other => ApiError::from_store(other),
+        })?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!(updated)))
 }
 
 #[derive(Deserialize)]
@@ -897,7 +1101,7 @@ pub async fn delete_workspace(
 ///   "operation": {
 ///     "operationId": "createWorkspace",
 ///     "summary": "Create a workspace with retry-safe identity",
-///     "description": "Requires installation write access or a company-scoped member allowed to create workspaces, platform currency setup, and either payment readiness or a funded/granted/approved-credit arrangement for the selected company. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
+///     "description": "Requires installation write access or a company-scoped member allowed to create workspaces. Workspace creation does not require payment readiness and does not authorize paid execution. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1012,12 +1216,25 @@ pub async fn create_workspace(
     Json(input): Json<WorkspaceInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
-    crate::payments::readiness::require_creation_ready(
-        &state,
-        authorization,
-        input.organization_id,
-    )
-    .await?;
+    let organization_id = match authorization {
+        crate::state::AdminAuthorization::Installation => input.organization_id,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            if authorization.can_manage_platform() {
+                input
+                    .organization_id
+                    .or(Some(operator.scope.organization_id))
+            } else {
+                if !authorization.permits_project_creation(
+                    input
+                        .organization_id
+                        .unwrap_or(operator.scope.organization_id),
+                ) {
+                    return Err(ApiError::not_found());
+                }
+                Some(operator.scope.organization_id)
+            }
+        }
+    };
     validate_name(&input.name)?;
     if let Some(slug) = &input.slug
         && (slug.is_empty()
@@ -1061,19 +1278,6 @@ pub async fn create_workspace(
             key_sha256,
         });
 
-    let organization_id = match authorization {
-        crate::state::AdminAuthorization::Installation => input.organization_id,
-        crate::state::AdminAuthorization::Operator(operator) => {
-            if !authorization.permits_project_creation(
-                input
-                    .organization_id
-                    .unwrap_or(operator.scope.organization_id),
-            ) {
-                return Err(ApiError::not_found());
-            }
-            Some(operator.scope.organization_id)
-        }
-    };
     let scope = state
         .store
         .create_workspace_with_limit(
@@ -1106,8 +1310,8 @@ pub async fn create_workspace(
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createOrganization",
-///     "summary": "Create a company and its initial zero-funded account",
-///     "description": "Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.",
+///     "summary": "Create an organization and its initial zero-funded account",
+///     "description": "Authorized for installation administrators and authenticated member accounts. Atomically creates the organization, a durable URL-safe slug, and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. When called by a member session, also provisions an organization-wide owner membership for the account. The current session keeps its existing organization until an explicit PUT /api/v1/session/organization selects the new organization; switch before making scoped writes. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated and preserved without trimming. Optional Idempotency-Key is durable and actor-scoped: repeating the same input returns the original organization identity and current name with 201; different input returns 409. A deleted organization returns 404 without recreation. Without the header each successful call creates an organization. On uncertain outcomes retry the same key and input.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1131,6 +1335,13 @@ pub async fn create_workspace(
 ///                 "maxLength": 200,
 ///                 "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
 ///               },
+///               "slug": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 48,
+///                 "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///                 "description": "Optional unique slug; generated from name when omitted. The value default is reserved."
+///               },
 ///               "currency": {
 ///                 "type": "string",
 ///                 "pattern": "^[A-Z]{3}$",
@@ -1143,13 +1354,14 @@ pub async fn create_workspace(
 ///     },
 ///     "responses": {
 ///       "201": {
-///         "description": "Company identity and initial account currency.",
+///         "description": "Organization identity, slug, and initial account currency.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
 ///               "type": "object",
 ///               "required": [
 ///                 "id",
+///                 "slug",
 ///                 "name",
 ///                 "currency"
 ///               ],
@@ -1158,12 +1370,22 @@ pub async fn create_workspace(
 ///                   "type": "string",
 ///                   "format": "uuid"
 ///                 },
+///                 "slug": {
+///                   "type": "string",
+///                   "maxLength": 81,
+///                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+///                 },
 ///                 "name": {
 ///                   "type": "string"
 ///                 },
 ///                 "currency": {
 ///                   "type": "string",
 ///                   "pattern": "^[A-Z]{3}$"
+///                 },
+///                 "operator_id": {
+///                   "type": "string",
+///                   "format": "uuid",
+///                   "description": "Provisioned owner membership identifier when created by a member session."
 ///                 }
 ///               }
 ///             }
@@ -1171,13 +1393,13 @@ pub async fn create_workspace(
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
+///         "description": "Invalid name/slug/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
 ///       },
 ///       "401": {
 ///         "description": "Missing, invalid, expired or revoked management credential."
 ///       },
 ///       "403": {
-///         "description": "Installation administrator required; company/workspace members cannot create companies."
+///         "description": "Credential lacks management access."
 ///       },
 ///       "422": {
 ///         "description": "Missing required field, unknown field, or invalid JSON field type."
@@ -1186,10 +1408,10 @@ pub async fn create_workspace(
 ///         "description": "Storage unavailable; creation outcome may be uncertain."
 ///       },
 ///       "404": {
-///         "description": "The company from the original idempotent creation was deleted."
+///         "description": "The organization from the original idempotent creation was deleted."
 ///       },
 ///       "409": {
-///         "description": "Idempotency-Key was already used with a different name or currency."
+///         "description": "The requested slug is already in use, or Idempotency-Key was already used with different input."
 ///       }
 ///     },
 ///     "parameters": [
@@ -1214,12 +1436,7 @@ pub async fn organization(
     headers: HeaderMap,
     Json(input): Json<OrganizationInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    if !authorize(&state, &headers, AdminPermission::Write)
-        .await?
-        .is_installation()
-    {
-        return Err(ApiError::forbidden());
-    }
+    let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
     validate_name(&input.name)?;
     let currency = input
         .currency
@@ -1235,21 +1452,65 @@ pub async fn organization(
         ));
     }
     let creation_key = creation_idempotency_key(&headers)?;
-    let id = state
-        .store
-        .create_prepaid_organization_with_key(&input.name, &currency, creation_key.as_deref())
-        .await
-        .map_err(ApiError::from_store)?;
-    let name = state
-        .store
-        .organization_name(id)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({"id": id, "name": name, "currency": currency})),
-    ))
+    match authorization {
+        crate::state::AdminAuthorization::Installation => {
+            let id = state
+                .store
+                .create_prepaid_organization_with_key(
+                    &input.name,
+                    &currency,
+                    creation_key.as_deref(),
+                )
+                .await
+                .map_err(ApiError::from_store)?;
+            let record = state
+                .store
+                .organization_page(Some(id), None, 1)
+                .await
+                .map_err(ApiError::from_store)?
+                .into_iter()
+                .next()
+                .ok_or_else(ApiError::not_found)?;
+            Ok((
+                StatusCode::CREATED,
+                Json(json!({
+                    "id": id,
+                    "slug": record.slug,
+                    "name": record.name,
+                    "currency": currency,
+                })),
+            ))
+        }
+        crate::state::AdminAuthorization::Operator(principal) => {
+            let created = state
+                .store
+                .create_account_organization_with_slug(
+                    principal,
+                    &input.name,
+                    input.slug.as_deref(),
+                    &currency,
+                    creation_key.as_deref(),
+                )
+                .await
+                .map_err(ApiError::from_store)?;
+            let current_name = state
+                .store
+                .organization_name(created.organization_id)
+                .await
+                .map_err(ApiError::from_store)?
+                .ok_or_else(ApiError::not_found)?;
+            Ok((
+                StatusCode::CREATED,
+                Json(json!({
+                    "id": created.organization_id,
+                    "slug": created.slug,
+                    "name": current_name,
+                    "currency": created.currency,
+                    "operator_id": created.operator_id,
+                })),
+            ))
+        }
+    }
 }
 
 /// Compatibility entry point: share workspace creation authorization and durable
@@ -2033,12 +2294,24 @@ pub async fn accounts(
 ///       "type": "object",
 ///       "required": [
 ///         "id",
+///         "slug",
 ///         "name"
 ///       ],
 ///       "properties": {
 ///         "id": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         },
+///         "slug": {
+///           "type": "string",
+///           "maxLength": 81,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+///         },
+///         "slug_aliases": {
+///           "type": "array",
+///           "items": {
+///             "type": "string"
+///           }
 ///         },
 ///         "name": {
 ///           "type": "string"
@@ -2054,23 +2327,24 @@ pub async fn organizations(
     Query(page): Query<CompanyPageQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
-    let organization = match authorization {
-        crate::state::AdminAuthorization::Installation => None,
-        crate::state::AdminAuthorization::Operator(operator) => {
-            Some(operator.scope.organization_id)
-        }
-    };
     let limit = page.limit.unwrap_or(1000);
     if !(1..=1000).contains(&limit) {
         return Err(ApiError::invalid_request(
             "Company page limit must be between 1 and 1000",
         ));
     }
-    let mut organizations = state
-        .store
-        .organization_page(organization, page.after, i64::from(limit) + 1)
-        .await
-        .map_err(ApiError::from_store)?;
+    let mut organizations = match authorization {
+        crate::state::AdminAuthorization::Installation => state
+            .store
+            .organization_page(None, page.after, i64::from(limit) + 1)
+            .await
+            .map_err(ApiError::from_store)?,
+        crate::state::AdminAuthorization::Operator(operator) => state
+            .store
+            .member_organization_page(operator, page.after, i64::from(limit) + 1)
+            .await
+            .map_err(ApiError::from_store)?,
+    };
     let next_cursor = if organizations.len() > limit as usize {
         organizations.truncate(limit as usize);
         organizations.last().map(|company| company.id)
@@ -2104,13 +2378,21 @@ pub async fn operators(
             })
         }
         crate::state::AdminAuthorization::Operator(operator) => {
-            if page
-                .organization_id
-                .is_some_and(|id| id != operator.scope.organization_id)
+            if !authorization.can_manage_platform()
+                && page
+                    .organization_id
+                    .is_some_and(|id| id != operator.scope.organization_id)
             {
                 return Err(ApiError::not_found());
             }
-            Some(operator.scope)
+            if authorization.can_manage_platform() {
+                page.organization_id.map(|organization_id| OperatorScope {
+                    organization_id,
+                    project_id: None,
+                })
+            } else {
+                Some(operator.scope)
+            }
         }
     };
     let limit = page.limit.unwrap_or(1000);
@@ -2143,7 +2425,7 @@ pub async fn create_operator(
         project_id: input.project_id,
     };
     let authorization = authorize(&state, &headers, AdminPermission::ManageOperators).await?;
-    if !authorization.permits_operator_scope(scope) {
+    if !authorization.permits_operator_scope(scope) && !authorization.can_manage_platform() {
         return Err(ApiError::not_found());
     }
     let key = creation_idempotency_key(&headers)?;
@@ -2364,10 +2646,19 @@ pub async fn projects(
     Ok(Json(json!({"data": projects})))
 }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyListStatus {
+    Active,
+    Inactive,
+}
+
 #[derive(Deserialize, Default)]
 pub struct KeyListQuery {
     pub(crate) after: Option<Uuid>,
     pub(crate) limit: Option<u16>,
+    pub(crate) reveal: Option<bool>,
+    pub(crate) status: Option<KeyListStatus>,
 }
 
 /// ```openapi
@@ -2383,6 +2674,7 @@ pub struct KeyListQuery {
 ///       }
 ///     ],
 ///     "parameters": [
+///       {"name":"status","in":"query","description":"Filter by active or inactive (revoked or expired) before pagination. Supplying status enables pagination.","schema":{"type":"string","enum":["active","inactive"]}},
 ///       {
 ///         "name": "organization",
 ///         "in": "path",
@@ -2491,6 +2783,8 @@ pub struct KeyListQuery {
 ///         "revision",
 ///         "name",
 ///         "allowed_models",
+///         "invocation_allowed",
+///         "invocation_protocols",
 ///         "expires_at_ms",
 ///         "last_used_at_ms",
 ///         "revoked",
@@ -2515,6 +2809,26 @@ pub struct KeyListQuery {
 ///           "items": {
 ///             "type": "string"
 ///           }
+///         },
+///         "invocation_allowed": {
+///           "type": "boolean",
+///           "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+///         },
+///         "invocation_protocols": {
+///           "type": "array",
+///           "items": {
+///             "type": "string",
+///             "enum": [
+///               "chat",
+///               "responses",
+///               "messages",
+///               "content",
+///               "decisions",
+///               "embeddings",
+///               "video"
+///             ]
+///           },
+///           "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
 ///         },
 ///         "expires_at_ms": {
 ///           "type": [
@@ -2658,7 +2972,7 @@ pub async fn keys(
         organization_id,
         project_id,
     };
-    if query.limit.is_some() || query.after.is_some() {
+    if query.limit.is_some() || query.after.is_some() || query.status.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
             return Err(ApiError::invalid_request(
@@ -2667,7 +2981,14 @@ pub async fn keys(
         }
         let (data, next_cursor) = state
             .store
-            .key_directory_page(scope, query.after, limit)
+            .key_directory_page(
+                scope,
+                query.after,
+                limit,
+                query
+                    .status
+                    .map(|status| matches!(status, KeyListStatus::Active)),
+            )
             .await
             .map_err(ApiError::from_store)?;
         return Ok(Json(json!({"data": data, "next_cursor": next_cursor})));
@@ -2898,6 +3219,7 @@ pub async fn costs(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayActivityQuery {
+    q: Option<String>,
     operation_id: Option<Uuid>,
     http_status: Option<String>,
     sort: Option<String>,
@@ -2982,7 +3304,20 @@ pub(super) fn gateway_activity_filter(
             ));
         }
     };
+    let search = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if search
+        .is_some_and(|value| value.chars().count() > 128 || value.chars().any(char::is_control))
+    {
+        return Err(ApiError::invalid_request(
+            "Search must contain at most 128 characters and no control characters",
+        ));
+    }
     Ok(niu_storage::GatewayActivityFilter {
+        search: search.map(str::to_owned),
         operation_id: query.operation_id,
         sort,
         delivery_status,
@@ -3536,6 +3871,7 @@ pub async fn gateway_request(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {"name":"q","in":"query","description":"Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.","schema":{"type":"string","maxLength":128}},
 ///       {
 ///         "name": "http_status",
 ///         "in": "query",
@@ -4561,6 +4897,7 @@ pub async fn gateway_request(
 ///                   "enum": [
 ///                     "upstream_http_error",
 ///                     "upstream_region_unavailable",
+///                     "upstream_account_restricted",
 ///                     "upstream_timeout",
 ///                     "upstream_connection_error",
 ///                     "upstream_transport_error",

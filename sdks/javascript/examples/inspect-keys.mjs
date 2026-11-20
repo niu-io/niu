@@ -20,7 +20,7 @@ try {
     name: key.name,
     status: key.revoked ? 'Revoked' : key.expired ? 'Expired' : 'Active',
     allowedModels: key.allowed_models,
-    expiresAt: new Date(key.expires_at_ms).toISOString(),
+    expiresAt: key.expires_at_ms == null ? null : new Date(key.expires_at_ms).toISOString(),
     activityAvailable: key.last_used_at_ms !== undefined,
     lastDispatchAt: key.last_used_at_ms == null ? null : new Date(key.last_used_at_ms).toISOString(),
   }));

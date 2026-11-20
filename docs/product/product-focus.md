@@ -6,11 +6,11 @@ Status: agreed product direction, updated 2026-10-31. The [agent-oriented princi
 
 **The Model Platform for Agents**
 
-Discover and evaluate models, build model pools, and manage performance and cost—all through your agent.
+Discover and evaluate models, configure routing, and manage performance and cost—all through your agent.
 
 Coding agents already aim to complete user tasks while improving value within the user's constraints. Niu provides the information and authorized management capabilities needed to pursue that objective. The agent owns task completion, model choices and quality/cost tradeoffs. Niu owns trustworthy resource information, configured policy execution, scoped controls and verifiable results; it does not guarantee optimal price/performance or task success.
 
-Model invocation is one part of model resource management. The target workflow includes discovering capabilities and customer prices, comparing task samples, configuring model pools and routing, managing access and budgets, retrieving request evidence and subscribing to relevant events. Each capability must have explicit authority, observable results and recovery behavior. This is a product direction, not a claim that all operations are exposed by the current MCP server.
+Model invocation is one part of model resource management. The target workflow includes discovering capabilities and customer prices, comparing task samples, configuring routing policies, managing access and budgets, retrieving request evidence and subscribing to relevant events. Each capability must have explicit authority, observable results and recovery behavior. This is a product direction, not a claim that all operations are exposed by the current MCP server.
 
 MCP provides shared tools and resources. Native plugins or supported extensions for different coding agents should package connection setup, capability discovery, host-specific integration and review handoffs around the same contracts. They must not embed a universal optimization policy or silently reroute the coding agent's own inference. Native plugin availability and event delivery require their own verification.
 
@@ -52,7 +52,7 @@ The credit limit defaults to zero. An explicitly approved credit limit permits a
 
 | Responsibility | Niu | External applications and agent orchestration products |
 | --- | --- | --- |
-| Model resources | Discoverable model information, compatible inference APIs, authorized configuration, pools, routing and access controls | Choose models and policies for task requirements within granted authority |
+| Model resources | Discoverable model information, compatible inference APIs, authorized configuration, routing and access controls | Choose models and policies for task requirements within granted authority |
 | Consumption | Request/attempt usage, customer charges, timing, failures, available quota observations and their confidence | Decide what work is worth performing |
 | Execution | Model request transport, bounded request retries and explicit limits | Task planning, subagents, tools, environments and schedules |
 | Evaluation | Model comparison facilities, protocol/usage/performance evidence and explicit measurement limits | Judge task results and quality, latency, reliability and cost tradeoffs |
@@ -84,7 +84,7 @@ The [workflow delivery plan](workflow-delivery-plan.md) specifies the current im
 
 Group installation-wide configuration under an administrator-only Admin rail area. Use sidebar sections for Suppliers, Authentication (OAuth providers), Payments (merchant/gateway configuration), and Branding & theme; use tabs for subordinate settings. Supplier management belongs here. Administration access is additive: administrators retain customer navigation and workflows alongside Admin; entering Admin does not switch them into an admin-only product shell. Commercial offer comparison and settlement management target platform administrators. Existing Supplier-member APIs and authorized routes remain compatibility surfaces; do not add new product entrances for them. Company Billing and Payments, account settings, personal appearance and About belong in a global Settings dialog, using the Manus sidebar/content pattern and shared dialog radius. Preserve direct Settings URLs and return to the originating product page on close.
 
-White labeling and platform theme defaults are deployment settings, distinct from a user’s light/dark preference. Preserve Niu 牛元 branding and shared tokens as the default. Persist supported branding/theme settings in the backend, validate assets and theme values, and enforce administrator permissions and audit changes server-side. OAuth/payment secrets are server-only. Expose sections and controls only when their configuration lifecycle works; do not create placeholder administration pages.
+White labeling and platform theme defaults are deployment settings, distinct from a user’s light/dark preference. Preserve Niu branding and shared tokens as the default. Persist supported branding/theme settings in the backend, validate assets and theme values, and enforce administrator permissions and audit changes server-side. OAuth/payment secrets are server-only. Expose sections and controls only when their configuration lifecycle works; do not create placeholder administration pages.
 
 Within Branding & theme, use Branding and Theme tabs. Branding controls the deployment display name, logo and favicon. Theme controls validated shared color tokens and the default appearance, with preview and reset to Niu defaults. Apply saved settings consistently to login and dashboard surfaces at desktop and mobile widths; keep a user’s explicit appearance preference. Do not accept arbitrary CSS or executable branding assets.
 

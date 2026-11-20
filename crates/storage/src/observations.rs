@@ -255,7 +255,7 @@ impl Store {
                 .bind(scope.organization_id).bind(scope.project_id).bind(&record.source).bind(&record.record_id).bind(&payload)
                 .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?, false),
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(ImportReceipt { id, created })
     }
 

@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for WorkspaceModelPool"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 /** Customer-owned model policy; never contains Provider supply configuration. */
@@ -23,5 +23,7 @@ export type WorkspaceModelPool = {
         };
     }>;
     default_action?: 'candidates' | 'reject';
+    /** Omitted legacy configurations use version 1 priority/weight. */
+    strategy?: WorkspacePoolStrategy;
 };
 ```

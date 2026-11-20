@@ -40,7 +40,7 @@ litellm-core = { path = "../../vendor/litellm-rust/crates/core" }
 reqwest.workspace = true
 semver = "1"
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
 sha2.workspace = true
 subtle.workspace = true
 thiserror.workspace = true

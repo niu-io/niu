@@ -1,10 +1,20 @@
 import type { VideoComposerDraftPayload } from '@niu-io/sdk/admin';
 import type { VideoCreateRequest, VideoModel } from '@niu-io/sdk';
+import { formatLocalizedMessage, readLocale, translateUI } from '@/shell/ui-locale';
 export type ControlValues = Record<string, string | boolean>;
 export type ImageReference = { url: string; role?: string };
 export const controlLabels: Record<string, string> = {resolution:'Resolution',ratio:'Aspect ratio',duration:'Duration (seconds)',frames_per_second:'Frame rate',seed:'Seed',watermark:'Watermark',camera_fixed:'Fixed camera',return_last_frame:'Last frame'};
+const controlLabel = (name: string) => translateUI(controlLabels[name] ?? name);
 export function initialControls(model: VideoModel): ControlValues {
   return Object.fromEntries(Object.entries(model.controls).filter(([,control]) => control.default !== null).map(([name,control])=>[name,typeof control.default === 'boolean' ? control.default : String(control.default)]));
+}
+export function needsUnquotedConfirmation(model: VideoModel | null | undefined, controls: ControlValues): boolean {
+  if (model?.mode !== 'owner_funded') return false;
+  if (!model.output) return true;
+  if (!model.output.allow_unmapped_output) return false;
+  const resolution = controls.resolution || model.controls.resolution?.default;
+  const ratio = controls.ratio || model.controls.ratio?.default;
+  return !model.output.specifications.some(spec => spec.resolution === resolution && spec.ratio === ratio);
 }
 export function videoRequest(model: VideoModel, prompt: string, controls: ControlValues, images: ImageReference[] = []): VideoCreateRequest {
   if (!prompt.trim()) throw new Error('Enter a prompt.');
@@ -25,25 +35,26 @@ export function videoRequest(model: VideoModel, prompt: string, controls: Contro
   }
   for (const [name,rule] of Object.entries(model.controls)) {
     const value=controls[name];
+    const label=controlLabel(name);
     if (value === undefined || value === '') {
-      if (model.required_controls.includes(name) && rule.default === null) throw new Error(`Choose ${controlLabels[name] ?? name}.`);
+      if (model.required_controls.includes(name) && rule.default === null) throw new Error(formatLocalizedMessage('Choose {0}.', [label], readLocale()));
       continue;
     }
     if (rule.kind === 'integer') {
       const integer=typeof value === 'string' && /^-?\d+$/.test(value) ? Number(value) : NaN;
-      if (!Number.isSafeInteger(integer) || integer < rule.minimum || integer > rule.maximum) throw new Error(`${controlLabels[name] ?? name} must be an integer from ${rule.minimum} to ${rule.maximum}.`);
+      if (!Number.isSafeInteger(integer) || integer < rule.minimum || integer > rule.maximum) throw new Error(formatLocalizedMessage('{0} must be an integer from {1} to {2}.', [label, rule.minimum, rule.maximum], readLocale()));
       request[name]=integer;
     } else if (rule.kind === 'choice') {
-      if (typeof value !== 'string' || !rule.values.includes(value)) throw new Error(`Choose a supported ${controlLabels[name] ?? name}.`);
+      if (typeof value !== 'string' || !rule.values.includes(value)) throw new Error(formatLocalizedMessage('Choose a supported {0}.', [label], readLocale()));
       request[name]=value;
     } else {
-      if (typeof value !== 'boolean') throw new Error(`Choose ${controlLabels[name] ?? name}.`);
+      if (typeof value !== 'boolean') throw new Error(formatLocalizedMessage('Choose {0}.', [label], readLocale()));
       request[name]=value;
     }
   }
   const effective={...Object.fromEntries(Object.entries(model.controls).filter(([,rule])=>rule.default !== null).map(([name,rule])=>[name,rule.default])),...request};
   if (model.exclusive_controls.some(pair=>pair.every(name=>effective[name] !== undefined))) throw new Error('These settings cannot be used together.');
-  if (model.output && !model.output.specifications.some(spec=>spec.resolution === effective.resolution && spec.ratio === effective.ratio)) throw new Error('Choose a supported resolution and aspect ratio together.');
+  if (model.output && !model.output.allow_unmapped_output && !model.output.specifications.some(spec=>spec.resolution === effective.resolution && spec.ratio === effective.ratio)) throw new Error('Choose a supported resolution and aspect ratio together.');
   if (new TextEncoder().encode(JSON.stringify(request)).length > model.maximum_body_bytes) throw new Error('The request exceeds this model’s size limit.');
   return request;
 }

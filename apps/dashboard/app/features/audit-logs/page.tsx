@@ -1,12 +1,16 @@
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { translateUI, readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
+import { IconChevronDown, IconHistory, IconRefresh, IconSearch } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
@@ -19,15 +23,19 @@ function actionName(action: string) {
     session_revoked: 'Session revoked', operator_created: 'Account created', operator_revoked: 'Account revoked',
     role_changed: 'Role changed', password_changed: 'Password changed', branding_updated: 'Branding updated',
     payment_gateway_updated: 'Payment gateway updated', platform_access_granted: 'Platform access granted',
-    platform_access_revoked: 'Platform access revoked', vendor_created: 'API configuration created',
-    vendor_updated: 'API configuration updated', vendor_seeded: 'API configuration imported',
-    vendor_model_created: 'Model binding created', vendor_model_updated: 'Model binding updated',
-    vendor_model_seeded: 'Model binding imported', provider_created: 'Provider created',
+    platform_access_revoked: 'Platform access revoked', vendor_created: 'Provider connection created',
+    vendor_updated: 'Provider connection updated', vendor_seeded: 'Provider connection imported',
+    vendor_model_created: 'Model route created', vendor_model_updated: 'Model route updated',
+    vendor_model_seeded: 'Model route imported', provider_created: 'Provider created', supplier_associated: 'Provider associated', provider_associated: 'Provider associated',
   };
-  return names[action] ?? action.replaceAll('_', ' ').replace(/\bsuppliers?\b/gi, value => value.endsWith('s') ? 'providers' : 'provider').replace(/^./, value => value.toUpperCase());
+  const known = names[action];
+  if (known) return translateUI(known);
+  const cleaned = action.replace(/_/g, ' ').trim();
+  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : translateUI('Other action');
 }
+function roleName(role:string) {const labels:Record<string,string>={owner:'Owner',admin:'Administrator',viewer:'Viewer'};return translateUI(labels[role]??'Unknown');}
 function actorName(event: PlatformAuditEvent) {
-  return event.actor_kind === 'unknown' ? 'Not recorded' : event.actor_label;
+  return event.actor_kind === 'unknown' ? translateUI('Not recorded') : event.actor_kind === 'installation' ? translateUI('Installation administrator (recorded)') : event.actor_label;
 }
 
 export default function AuditLogsPage() {
@@ -45,6 +53,7 @@ function AuditLogs({ token }: { token: string }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(() => !initialPage);
   const [revision, setRevision] = useState(0);
+  const [query, setQuery] = useState('');
   const pending = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -94,23 +103,57 @@ function AuditLogs({ token }: { token: string }) {
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
-  return <section className="space-y-5" aria-label={uiT("Platform audit logs")}>
-    <p className="text-sm text-muted-foreground">{uiT("Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.")}</p>
+  const needle = query.trim().toLowerCase();
+  const visibleRows = rows?.filter(event => !needle || [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle));
+  return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
+    <p className="text-sm text-muted-foreground">{uiT("Recorded account, access, Provider, and configuration changes.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Audit category")}>{categories[category]}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Audit category")}>{translateUI(categories[category])}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={category} onValueChange={value => setCategory(value as typeof category)}>
-          {Object.entries(categories).map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}
+          {Object.entries(categories).map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
-      <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
+      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size={query.trim() ? "sm" : "icon"}
+              aria-label={uiT("Search audit events")}
+              title={uiT("Search audit events")}
+              className={query.trim() ? "text-primary bg-accent" : undefined}
+            >
+              <IconSearch size={16} />
+              {query.trim() && <span className="max-w-32 truncate">{query.trim()}</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
+            <Input
+              autoFocus
+              type="search"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder={uiT("Search events")}
+              aria-label={uiT("Search audit events")}
+            />
+            {query && (
+              <Button variant="ghost" size="sm" onClick={() => setQuery("")}>
+                {uiT("Clear search")}
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
+        <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
+      </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : rows.length === 0 ? <p>{uiT("No audit events in this category.")}</p> : <Table>
+    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle><EmptyDescription>{query.trim() ? uiT("No audit events match this search.") : uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map(event => <TableRow key={event.id}>
-        <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{event.created_at.replace('T', ' ').replace(/\.\d+Z$/, '')}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + event.before_role[0].toUpperCase() + event.before_role.slice(1) + ' → ' + event.after_role[0].toUpperCase() + event.after_role.slice(1) : ''}</span><small className="mt-1 block text-muted-foreground">{categories[event.category]}{event.revision !== null ? ' · Revision ' + event.revision : ''}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+      <TableBody>{(visibleRows ?? []).map(event => <TableRow key={event.id}>
+        <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(new Date(event.created_at))}</time></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{event.action === 'registration_preview_enabled' ? uiT('Limited Preview registration enabled', '已开启有限预览注册') : event.action === 'registration_disabled' ? uiT('Self-registration closed', '已关闭自助注册') : event.action === 'registration_approved' ? uiT('Registration approved', '已批准注册申请') : event.action === 'registration_rejected' ? uiT('Registration rejected', '已拒绝注册申请') : actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
       </TableRow>)}</TableBody>

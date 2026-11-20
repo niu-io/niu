@@ -58,6 +58,7 @@ export type GatewayRequestOptions = {
   logPayloads?: boolean;
   taskId?: string;
   idempotencyKey?: string;
+  anthropicBeta?: string | string[];
   basePrefix?: "v1" | "v1beta" | "catalog";
 };
 
@@ -489,6 +490,12 @@ function buildHeaders(
   }
   if (options.idempotencyKey !== undefined) {
     headers["idempotency-key"] = options.idempotencyKey;
+  }
+  if (options.anthropicBeta !== undefined) {
+    const beta = Array.isArray(options.anthropicBeta)
+      ? options.anthropicBeta.filter((v) => v.trim()).join(",")
+      : options.anthropicBeta.trim();
+    if (beta) headers["anthropic-beta"] = beta;
   }
   return headers;
 }

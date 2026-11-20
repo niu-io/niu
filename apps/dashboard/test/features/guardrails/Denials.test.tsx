@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router';
 import GuardrailDenials from '../../../app/features/guardrails/Denials';
 const dispatchEmpty = { data: [], coverage: 'latest_100_dispatch_policy_exceptions' };
 const row = { reason: 'input_blocked', key_name: 'Development key', workspace_policy_name: 'Workspace restrictions', workspace_revision: 3, key_policy_name: null, key_policy_revision: null, recorded_at: '2026-10-03T01:00:00Z' };
-function view() { return <MemoryRouter initialEntries={['/workspaces/demo/guardrails/denials']}><Routes><Route path="/workspaces/demo/guardrails/denials" element={<GuardrailDenials token="reader-token" endpoint="/scoped/guardrails" />} /></Routes></MemoryRouter>; }
+function view() { return <MemoryRouter initialEntries={['/workspaces/demo/guardrails?tab=blocked']}><Routes><Route path="/workspaces/demo/guardrails" element={<GuardrailDenials token="reader-token" endpoint="/scoped/guardrails" />} /></Routes></MemoryRouter>; }
 describe('pre-dispatch blocked requests', () => {
   it('keeps refresh focus while busy and prevents repeated keyboard requests', async () => {
     let pending=false;
@@ -48,6 +48,7 @@ describe('pre-dispatch blocked requests', () => {
     render(view());
     await screen.findByText('Input matched a blocking rule');
     expect(screen.getByRole('cell', { name: 'Workspace restrictions · Version 3', exact: true })).not.toBeNull();
+    expect(screen.getAllByRole('link', { name: 'Workspace restrictions · Version 3' })[0].getAttribute('href')).toBe('/workspaces/demo/guardrails?tab=history&revision=3&from=blocked');
     expect(screen.getByRole('link', { name: 'Open Logs' }).getAttribute('href')).toBe('/workspaces/demo/executions');
     expect(fetch).toHaveBeenCalledWith('/scoped/guardrails/denials', expect.objectContaining({ headers: { authorization: 'Bearer reader-token' } }));
     expect(screen.queryByText('input_blocked')).toBeNull();

@@ -1,8 +1,14 @@
 import { pinyin } from 'pinyin-pro';
 import type { Workspace } from './dashboard-context';
+import { translateUI } from './ui-locale';
 
 export function workspaceDisplayName(name: string) {
   return name === 'Default project' ? 'Default workspace' : name;
+}
+
+export function organizationDisplayName(name?: string | null) {
+  const trimmed = name?.trim() ?? '';
+  return trimmed === 'Personal workspace' ? translateUI('Personal workspace') : trimmed;
 }
 
 export function workspaceNameSlug(name: string) {
@@ -61,9 +67,9 @@ export function workspacePathSegment(workspace: Workspace, workspaces: Workspace
   return workspace.slug || workspace.route_slug || legacyWorkspacePathSegment(workspace, workspaces);
 }
 
-/** Explicit scope selects dashboard browsing; the unscoped root is the public catalog. */
+/** Workspace-scoped model browsing. Legacy `/models` redirects into the active workspace. */
 export function workspaceModelsHref(workspace: Workspace | null | undefined, workspaces: Workspace[]) {
-  return `/models?workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace, workspaces) : 'default')}`;
+  return `/workspaces/${encodeURIComponent(workspace ? workspacePathSegment(workspace, workspaces) : 'default')}/models`;
 }
 
 export function resolveWorkspacePathSegment(segment: string, workspaces: Workspace[]) {

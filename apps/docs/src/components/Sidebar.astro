@@ -1,14 +1,18 @@
 ---
+import NiuBrand from '../../../dashboard/app/components/NiuBrand';
 import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
 import MobileMenuFooter from './MobileMenuFooter.astro';
-import navigation from '../../../../branding/public-navigation.json';
 import MobileMenuTools from './MobileMenuTools';
-import { documentationAudience, documentationSection, publicNavigationActive, documentationNavigation } from '../navigation';
+import { documentationSection, publicNavigationActive, documentationNavigation } from '../navigation';
 import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
 const section = documentationSection(Astro.url.pathname);
-const audience = documentationAudience(Astro.url.pathname);
-const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => section !== 'Docs' ? entry.label === section : audience === 'agent' ? entry.label === 'For coding agents' : !['For coding agents', 'API', 'SDK'].includes(entry.label));
+const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => section !== 'Docs' ? entry.label === section : !['API', 'SDK', 'Compare'].includes(entry.label));
 ---
-<div class="docs-mobile-public"><nav aria-label="Public navigation">{documentationNavigation.map(({label,href})=><a href={href} aria-current={publicNavigationActive(Astro.url.pathname,label)?'page':undefined}>{label}</a>)}</nav><MobileMenuTools client:load /></div>
+<div class="docs-sidebar-header">
+  <a class="docs-brand docs-sidebar-brand" href="/" aria-label="Niu home">
+    <span class="docs-public-name"><NiuBrand /></span>
+  </a>
+</div>
+<div class="docs-mobile-public"><nav aria-label="Public navigation">{documentationNavigation.map(({label,href})=><a href={href} aria-current={publicNavigationActive(Astro.url.pathname,label)?'page':undefined}>{label}</a>)}<a href="/models/" data-public-models-link hidden><span data-lang="en">Models</span><span data-lang="zh">模型</span></a></nav><MobileMenuTools client:load /></div>
 <SidebarPersister><SidebarSublist sublist={sidebar} /></SidebarPersister>
 <div class="md:sl-hidden"><MobileMenuFooter /></div>

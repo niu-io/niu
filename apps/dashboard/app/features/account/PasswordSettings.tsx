@@ -1,10 +1,12 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
-import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
+import { loadAuthConfig } from '@/lib/auth-config';
+import { invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 
 export default function PasswordSettings({ token, hasPassword = true, onChanged }: {token: string; hasPassword?: boolean; onChanged: () => Promise<void>}) {
@@ -37,19 +39,17 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged 
     lastCapRevision.current = capabilityRevision;
     if (force) setLoaded(false);
     setCapabilityError(false);
-    void fetchQuery<{ password_login: boolean }>(
-      'public',
-      '/api/v1/auth/config',
-      async signal => {
-        const response = await fetch('/api/v1/auth/config', { signal, cache: 'no-store' });
-        if (!response.ok) throw new Error('Capability request failed');
-        const value = await response.json();
-        if (typeof value?.password_login !== 'boolean') throw new Error('Invalid capability response');
-        return value as { password_login: boolean };
-      },
-      { signal: controller.signal, force, awaitRevalidate: true },
-    )
-      .then(value => { if (!controller.signal.aborted) { setEnabled(value?.password_login === true); setLoaded(true); } })
+    void loadAuthConfig({ signal: controller.signal, force })
+      .then(value => {
+        if (typeof value?.password_login !== 'boolean') {
+          invalidateQueries(key => key.startsWith('public::/api/v1/auth/config'));
+          throw new Error('Invalid capability response');
+        }
+        if (!controller.signal.aborted) {
+          setEnabled(value.password_login === true);
+          setLoaded(true);
+        }
+      })
       .catch(() => { invalidateQueries(key => key.startsWith('public::/api/v1/auth/config')); if (!controller.signal.aborted) { setCapabilityError(true); setLoaded(true); } });
     return () => controller.abort();
   }, [capabilityRevision]);
@@ -62,7 +62,7 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged 
     setError('');
     if (password !== confirmation) {setError(t('The new passwords do not match.', '两次输入的新密码不一致。')); return;}
     if ([...password].length < 15 || new TextEncoder().encode(password).length > 1024) {
-      setError(t('Use at least 15 characters and at most 1024 bytes.', '请使用至少 15 个字符且不超过 1024 字节的密码。')); return;
+      setError(t('Use a password of at least 15 characters.', '请使用至少 15 个字符的密码。')); return;
     }
     setSaving(true);
     const controller = new AbortController();
@@ -103,7 +103,7 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged 
       <div className="grid gap-2"><Label htmlFor="account-current-password">{t('Current password', '当前密码')}</Label><Input ref={currentInput} id="account-current-password" autoComplete="current-password" type="password" required disabled={saving} value={current} onChange={event=>setCurrent(event.target.value)}/></div>
       <div className="grid gap-2"><Label htmlFor="account-new-password">{t('New password', '新密码')}</Label><Input id="account-new-password" autoComplete="new-password" type="password" required disabled={saving} value={password} onChange={event=>setPassword(event.target.value)} aria-describedby="account-password-policy"/><p id="account-password-policy" className="text-sm text-muted-foreground">{t('At least 15 characters.', '至少 15 个字符。')}</p></div>
       <div className="grid gap-2"><Label htmlFor="account-confirm-password">{t('Confirm new password', '确认新密码')}</Label><Input id="account-confirm-password" autoComplete="new-password" type="password" required disabled={saving} value={confirmation} onChange={event=>setConfirmation(event.target.value)}/></div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{t(error)}</p>}
       <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}>{saving ? t('Changing…', '修改中…') : t('Update password', '更新密码')}</Button><CollapsibleTrigger asChild><Button type="button" variant="ghost" disabled={saving}>{t('Cancel', '取消')}</Button></CollapsibleTrigger></div>
     </form>
       </CollapsibleContent>

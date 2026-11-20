@@ -102,7 +102,7 @@ impl Store {
         let visible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes WHERE attempt_id=$3) AND NOT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE task_id=$3 AND owner<>$4) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE sk.attempt_id=$3 AND vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner<>$4))")
             .bind(scope.organization_id).bind(scope.project_id).bind(task).bind(actor).fetch_one(&mut *tx).await?;
         if !visible {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         }
         let id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM generations_artifact_captures WHERE organization_id=$1 AND project_id=$2 AND task_id=$3 AND kind=$4 ORDER BY CASE WHEN state IN ('stored','preparing') THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 1")
@@ -111,7 +111,7 @@ impl Store {
             Some(id) => Some(capture_on(&mut tx, scope, id).await?),
             None => None,
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 
@@ -160,7 +160,7 @@ impl Store {
             let active_id: Uuid = row.try_get("id")?;
             if row.try_get::<String, _>("state")? == "stored" {
                 let capture = capture_on(&mut tx, scope, active_id).await?;
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(GenerationArtifactCaptureClaim {
                     capture,
                     lease_token: None,
@@ -184,7 +184,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let capture = capture_on(&mut tx, scope, id).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(GenerationArtifactCaptureClaim {
             capture,
             lease_token: Some(token),
@@ -261,7 +261,7 @@ impl Store {
             created_at: updated.try_get("created_at")?,
             updated_at: updated.try_get("updated_at")?,
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(capture)
     }
     pub async fn fail_generation_artifact_capture(
@@ -299,7 +299,7 @@ impl Store {
             created_at: updated.try_get("created_at")?,
             updated_at: updated.try_get("updated_at")?,
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(capture)
     }
 }

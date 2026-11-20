@@ -96,7 +96,7 @@ impl Store {
             } else {
                 None
             };
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok((id, document));
         }
         let published: Option<(String,i64,String,String)>=sqlx::query_as("SELECT g.currency,g.amount_nanos,g.reason,COALESCE(p.policy,'future_only') FROM customer_balance_grants g LEFT JOIN customer_grant_policies p ON p.grant_id=g.id WHERE g.organization_id=$1 AND g.idempotency_key=$2")
@@ -121,7 +121,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((id, document))
     }
     pub async fn prepared_customer_balance_grants(
@@ -151,7 +151,7 @@ impl Store {
         if !valid {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(page)
     }
 }

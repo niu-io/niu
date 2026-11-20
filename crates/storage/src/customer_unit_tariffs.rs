@@ -287,7 +287,7 @@ impl Store {
             .bind(next)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(
             json!({"revision":next.to_string(),"definition_revision":input.definition_revision.to_string(),"model_alias":input.model_alias,"price":price}),
         )
@@ -444,7 +444,7 @@ impl Store {
             .bind(next)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({
             "revision": next.to_string(),
             "definition_revision": input.definition_revision.to_string(),
@@ -460,10 +460,11 @@ impl Store {
     pub async fn customer_unit_model_prices(
         &self,
     ) -> Result<(String, std::collections::BTreeMap<String, Value>), StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let billing_mode: String = sqlx::query_scalar(
             "SELECT billing_mode FROM customer_unit_configuration WHERE singleton",
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *snapshot)
         .await?;
         let text_rows: Vec<(String, Value)> = sqlx::query_as(
             "SELECT t.model_alias,
@@ -482,7 +483,7 @@ impl Store {
              ) t
              JOIN customer_unit_definitions d ON d.revision = t.definition_revision",
         )
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *snapshot)
         .await?;
         let mut map = std::collections::BTreeMap::new();
         for (alias, price) in text_rows {
@@ -514,8 +515,9 @@ impl Store {
              JOIN customer_unit_definitions d ON d.revision = t.definition_revision
              GROUP BY t.model_alias",
         )
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *snapshot)
         .await?;
+        crate::commit_tx(snapshot).await?;
         for (alias, media_tariffs) in media_rows {
             if let Some(existing) = map.get_mut(&alias).and_then(Value::as_object_mut) {
                 existing.insert("media_tariffs".to_owned(), media_tariffs);

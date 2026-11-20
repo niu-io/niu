@@ -103,7 +103,9 @@ impl Store {
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-workspace-create:'||$1::text||':'||$2::uuid::text||':'||encode($3::bytea,'hex'),0))")
                 .bind(kind).bind(actor).bind(hash).execute(&mut *tx).await?;
         }
-        if let Some(member) = member {
+        if let Some(member) = member
+            && !member.platform_admin
+        {
             Self::authorize_company_writer_in_tx(
                 &mut tx,
                 organization_id.ok_or(StoreError::Unauthorized)?,
@@ -118,7 +120,7 @@ impl Store {
                 if request != request_sha256 {
                     return Err(StoreError::Conflict);
                 }
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(TenantScope {
                     organization_id,
                     project_id,
@@ -182,7 +184,7 @@ impl Store {
             sqlx::query("INSERT INTO workspace_creation_receipts(actor_kind,actor_id,key_sha256,request_sha256,organization_id,project_id) VALUES($1,$2,$3,$4,$5,$6)")
                 .bind(kind).bind(actor).bind(hash).bind(request_sha256).bind(organization_id).bind(project_id).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(TenantScope {
             organization_id,
             project_id,

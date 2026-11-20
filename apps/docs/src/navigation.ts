@@ -8,31 +8,23 @@ export function documentationSection(path: string): 'Docs' | 'API' | 'SDK' | 'Co
 
 /** Classify explicit machine entry points; task guides remain human documentation. */
 export function documentationAudience(path: string): 'human' | 'agent' {
-  const normalized = path.replace(/^\/help(?=\/|$)/, '/docs').replace(/\/+$/, '');
-  return /^\/docs\/(?:agents(?:\/|$)|(?:install|agents|pools|evaluations|events)\.md$)/.test(normalized) ? 'agent' : 'human';
+  const normalized = path.replace(/\/+$/, '');
+  return /^\/docs\/(?:agents(?:\/|$)|llms\.txt$|(?:install|agents|inference|pools|routing|evaluations|events)\.md$)/.test(normalized) ? 'agent' : 'human';
 }
 
-/** One public Docs entry owns its API and SDK references as well. */
+/** Unify documentation under Docs while keeping API, SDK, and Compare navigation scoped. */
 export function publicNavigationActive(path: string, label: string): boolean {
   if (path.startsWith('/docs/')) {
-    const agentSource = documentationAudience(path) === 'agent';
-    if (label === 'For Human') return documentationSection(path) === 'Docs' && !agentSource;
-    if (label === 'For Agents') return agentSource && documentationSection(path) === 'Docs';
-    if (label === 'API' || label === 'SDK') return documentationSection(path) === label;
-    return label === (documentationSection(path) === 'Compare' ? 'Compare' : 'Docs');
+    const section = documentationSection(path);
+    if (label === 'API' || label === 'SDK' || label === 'Compare') return section === label;
+    if (label === 'Docs') return section === 'Docs';
   }
   return false;
 }
 
-/** Audience-first documentation navigation, separate from the marketing navigation. */
+/** Unified documentation navigation; agent contracts are the primary Docs backbone. */
 export const documentationNavigation = [
-  { label: 'For Human', href: '/docs/' },
-  { label: 'For Agents', href: '/docs/agents/' },
+  { label: 'Docs', href: '/docs/' },
   { label: 'API', href: '/docs/api/rest/' },
   { label: 'SDK', href: '/docs/api/sdk/' },
 ];
-
-/** Embedded help keeps documentation and search links inside the dashboard. */
-export function documentationHref(href: string, embedded = false): string {
-  return embedded ? href.replace(/^\/docs\//, '/help/') : href;
-}

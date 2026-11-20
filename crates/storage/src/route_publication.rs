@@ -27,8 +27,8 @@ impl Store {
 
     /// Bound publication contention without leaking settings to other pool users.
     /// The same limits cover bootstrap, domain writes and the final publication.
-    async fn begin_route_publication(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await?;
+    async fn begin_route_publication(&self) -> Result<Transaction<'static, Postgres>, StoreError> {
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT set_config('lock_timeout','1s',true), set_config('statement_timeout','5s',true)")
             .execute(&mut *tx)
             .await?;
@@ -39,7 +39,9 @@ impl Store {
         Ok(tx)
     }
 
-    pub(crate) async fn begin_route_write(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+    pub(crate) async fn begin_route_write(
+        &self,
+    ) -> Result<Transaction<'static, Postgres>, StoreError> {
         let mut tx = self.begin_route_publication().await?;
         let active_identity: Option<String> = sqlx::query_scalar(
             "SELECT g.static_identity FROM routing_registry_active a JOIN routing_registry_generations g ON g.generation=a.generation"
@@ -58,7 +60,7 @@ impl Store {
 
     pub(crate) async fn commit_route_write(
         &self,
-        mut tx: Transaction<'_, Postgres>,
+        mut tx: Transaction<'static, Postgres>,
     ) -> Result<(), StoreError> {
         if let Some(compiler) = &self.route_compiler {
             let (dirty, current): (Option<String>, Option<String>) = sqlx::query_as(
@@ -80,7 +82,7 @@ impl Store {
         sqlx::query("SELECT set_config('niu.registry_dirty','0',true)")
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -159,7 +161,7 @@ impl Store {
         {
             Self::publish_compilation(&mut tx, compiler.as_ref(), compiled).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -172,7 +174,7 @@ impl Store {
         revision: &str,
         generation: Option<i64>,
     ) -> Result<(uuid::Uuid, uuid::Uuid), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let operation = uuid::Uuid::new_v4();
         let attempt = uuid::Uuid::new_v4();
         Self::insert_gateway_attempt(
@@ -180,7 +182,7 @@ impl Store {
         )
         .await?;
         Self::insert_route_generation(&mut *tx, attempt, generation).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((operation, attempt))
     }
 
@@ -237,7 +239,7 @@ impl Store {
         let row: (Vec<String>, Vec<uuid::Uuid>) = sqlx::query_as(
             "SELECT ARRAY(SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)), ARRAY(SELECT vendor_id FROM vendor_cooldowns WHERE cooldown_until>statement_timestamp())"
         ).fetch_one(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok((row.0.into_iter().collect(), row.1.into_iter().collect()))
     }
 

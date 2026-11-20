@@ -1,4 +1,5 @@
-import { readLocale as readUILocale } from '@/shell/ui-locale';
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
+import { readLocale as readUILocale, translateUI } from '@/shell/ui-locale';
 import type {
   KeySpendingAccount,
   KeyRequestRateLimit,
@@ -42,7 +43,11 @@ export type ProjectKey = {
   slug?: string;
   revision?: number;
   name: string;
+  token?: string | null;
+  token_preview?: string | null;
   allowed_models: string[];
+  invocation_allowed?: boolean;
+  invocation_protocols?: string[];
   expires_at_ms: number | null;
   last_used_at_ms?: number | null;
   revoked: boolean;
@@ -63,11 +68,17 @@ export type ProjectKey = {
 export type IssuedProjectKey = { id: string; token: string; allowed_models?: string[]; key?: ProjectKey };
 
 export class KeyRequestError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public errorType?: string, public code?: string) { super(message); }
 }
 
 export function workspaceKeyPath(workspaceId: string) {
   return `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/keys`;
+}
+
+export type KeyStatusFilter = "all" | "active" | "inactive";
+
+export function workspaceKeyPagePath(workspaceId: string, limit = 50, after?: string, status: KeyStatusFilter = "active") {
+  return `${workspaceKeyPath(workspaceId)}?limit=${limit}${status === "all" ? "" : `&status=${status}`}${after ? `&after=${encodeURIComponent(after)}` : ''}`;
 }
 
 export function projectKeyPath(organization: string, project: string) {
@@ -95,8 +106,8 @@ export async function keyRequest<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!response.ok) {
-    const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-    throw new KeyRequestError(payload?.error?.message ?? `Request failed (${response.status}).`, response.status);
+    const payload = await response.json().catch(() => null) as { error?: { message?: string; type?: string; code?: string } } | null;
+    throw new KeyRequestError(payload?.error?.message ?? `Request failed (${response.status}).`, response.status, payload?.error?.type, payload?.error?.code);
   }
   const upper = method.toUpperCase();
   if (upper !== 'GET' && upper !== 'HEAD') {
@@ -137,9 +148,15 @@ export function keyStatus(key: ProjectKey) {
   return key.revoked ? 'Revoked' : key.expired ? 'Expired' : 'Active';
 }
 
+export function formatMaskedKey(secret?: string | null, preview?: string | null) {
+  if (secret && secret.length >= 12) return `${secret.slice(0, 8)}••••••••${secret.slice(-4)}`;
+  if (preview) return preview;
+  return 'niu_••••••••••••';
+}
+
 export function keyLastUsed(key: ProjectKey) {
-  if (key.last_used_at_ms === undefined) return 'Unavailable';
-  if (key.last_used_at_ms === null) return 'No recorded requests';
+  if (key.last_used_at_ms === undefined) return translateUI('Unavailable');
+  if (key.last_used_at_ms === null) return translateUI('No recorded requests');
   return new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.last_used_at_ms));
 }
 

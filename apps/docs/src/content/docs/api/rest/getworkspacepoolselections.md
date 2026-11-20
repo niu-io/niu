@@ -1,13 +1,13 @@
 ---
 title: "Read the latest 100 workspace pool selections"
-description: "GET /v1/pools/{slug}/selections"
+description: "GET /v1/routing/{slug}/selections"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/pools/{slug}/selections`
+`GET /v1/routing/{slug}/selections`
 
-Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
+Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Auto selections include bounded decision outcome, path, fallback reason, failure, calls, tokens, latency and estimated customer decision charge when available; missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
 
 Operation: `getWorkspacePoolSelections`.
 
@@ -33,14 +33,14 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 Authentication alternative: `bearerAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}/selections" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}/selections" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 Authentication alternative: `niuApiKeyAuth`.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/pools/{slug}/selections" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/routing/{slug}/selections" \
   -H "X-Niu-API-Key: $NIU_API_KEY"
 ```
 
@@ -109,6 +109,19 @@ Content type: `application/json`.
               "null"
             ],
             "description": "Returned HTTP status, not terminal stream completion or task acceptance."
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decision": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Bounded Auto decision outcome, path, fallback or failure reason, calls, tokens, latency and estimated customer decision charge. Null for non-Auto selections. No prompts, content, Provider identifiers or procurement prices."
           }
         }
       }
@@ -139,6 +152,6 @@ Expected revision conflict
 
 ## Behavior and supported scope
 
-Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
+Requires a current workspace API key with delegated pools:read. Platform supply pools, procurement prices and credentials are never exposed. Links selected concrete model and policy revision to operation/attempt evidence when available. Auto selections include bounded decision outcome, path, fallback reason, failure, calls, tokens, latency and estimated customer decision charge when available; missing references remain unknown. HTTP status is not generation completion. Inspect generation diagnostics for terminal state, usage and customer charge coverage.
 
 **Supported scope:** implemented

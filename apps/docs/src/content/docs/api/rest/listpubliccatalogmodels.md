@@ -1,5 +1,5 @@
 ---
-title: "List model aliases explicitly published by the gateway operator"
+title: "List published public catalog models"
 description: "GET /catalog/v1/models"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /catalog/v1/models`
 
-Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
+Returns enabled shared internal and commercial model aliases with public_catalog enabled, along with customer-safe catalog metadata, standard customer pricing when applicable, declared protocol capabilities, and generation_capabilities. Private personal routes, disabled or unqualified models, upstream identifiers, endpoints, credentials, internal UUIDs, and Provider procurement costs are omitted.
 
 Operation: `listPublicCatalogModels`.
 
@@ -39,8 +39,8 @@ No request body is declared.
 
 ### HTTP 200
 
-Public model aliases and declared capabilities. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
+Public model aliases and declared capabilities, including configured tool_calls and streaming_tool_calls. These flags do not guarantee upstream availability or authorization. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
 
 ## Behavior and supported scope
 
-Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
+Returns enabled shared internal and commercial model aliases with public_catalog enabled, along with customer-safe catalog metadata, standard customer pricing when applicable, declared protocol capabilities, and generation_capabilities. Private personal routes, disabled or unqualified models, upstream identifiers, endpoints, credentials, internal UUIDs, and Provider procurement costs are omitted.

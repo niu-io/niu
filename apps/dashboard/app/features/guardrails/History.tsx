@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import DetectorPreview from './DetectorPreview';
@@ -60,12 +61,12 @@ type Version = {
 };
 const accessDescription = (access: Access) =>
   access.mode === "allow_list"
-    ? access.values?.join(", ") || "Block all (empty allowlist)"
-    : {
+    ? access.values?.join(", ") || translateUI("Block all (empty allowlist)")
+    : translateUI({
         inherit: "No additional restriction",
         allow_all: "Allow all",
         deny_all: "Block all",
-      }[access.mode];
+      }[access.mode]);
 type Page = { data: Revision[]; next_cursor: number | null };
 
 export default function GuardrailHistory({
@@ -277,7 +278,7 @@ export default function GuardrailHistory({
       {error && (
         <Alert variant="destructive">
           <AlertDescription>
-            {error}{" "}
+            {uiT(error)}{" "}
             <Button
               variant="outline"
               size="sm"
@@ -294,7 +295,7 @@ export default function GuardrailHistory({
           <EmptyTitle>{uiT("No policy versions yet")}</EmptyTitle>
           <EmptyDescription>{uiT("Saved workspace policies will appear here.")}</EmptyDescription>
         </EmptyHeader>
-        {canWrite && <EmptyContent><Button asChild variant="outline"><Link to="../policy" relative="path">{uiT("Configure policy")}</Link></Button></EmptyContent>}
+        {canWrite && <EmptyContent><Button asChild variant="outline"><Link to="?tab=policy">{uiT("Configure policy")}</Link></Button></EmptyContent>}
       </Empty>}
       {loaded && rows.length > 0 && (
         <Table>
@@ -380,10 +381,10 @@ export default function GuardrailHistory({
             </DialogDescription>
           </DialogHeader>
           {fromBlock && <p className="text-sm text-muted-foreground">{uiT("This is a saved policy referenced by the blocked request. A workspace administrator can change future policy; this does not change the recorded event.")}</p>}
-          {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="../denials" relative="path">{uiT("Return to blocked requests")}</Link></Button>}
+          {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="?tab=blocked">{uiT("Return to blocked requests")}</Link></Button>}
           {detailError && (
             <Alert variant="destructive">
-              <AlertDescription>{detailError}</AlertDescription>
+              <AlertDescription>{uiT(detailError)}</AlertDescription>
             </Alert>
           )}
           {!version && !detailError && (
@@ -408,7 +409,7 @@ export default function GuardrailHistory({
                         <strong>
                           {rule.action === "block" ? uiT("Block") : uiT("Redact")}
                         </strong>
-                        : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? uiT("Pattern name unavailable") : <code>{rule.pattern}</code>}
+                        : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
                       </li>
                     ))}
                   </ul>
@@ -428,7 +429,7 @@ export default function GuardrailHistory({
                           <strong>
                             {version.policy.output?.mode === "observe_only" ? uiT("Observe") : rule.action === "block" ? uiT("Block") : uiT("Redact")}
                           </strong>
-                          : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? uiT("Pattern name unavailable") : <code>{rule.pattern}</code>}
+                          : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
                         </li>
                       ))}
                     </ul>

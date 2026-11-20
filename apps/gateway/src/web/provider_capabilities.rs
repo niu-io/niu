@@ -338,7 +338,7 @@ pub(super) async fn discover(
             .capabilities
             .pointer("/provider_assets/channel")
             .and_then(Value::as_str)
-            != Some("fastrouter-actions-v1")
+            != Some(niu_media::providers::fastrouter::MANAGEMENT_CHANNEL_ACTIONS_V1)
         {
             continue;
         }
@@ -359,7 +359,7 @@ pub(super) async fn discover(
         {
             return Err(ApiError::unavailable());
         }
-        if schema.channel != "ark-direct-v1" {
+        if schema.channel != niu_media::providers::volcengine::VIDEO_CHANNEL_ARK_DIRECT_V1 {
             continue;
         }
         // Validate the actual management endpoint configuration locally without
@@ -377,7 +377,11 @@ pub(super) async fn discover(
             })
             .map(str::to_owned);
         let label = display_name.as_deref().unwrap_or(alias);
-        let context_label = format!("{label} · {} · fastrouter-actions-v1", route.adapter());
+        let context_label = format!(
+            "{label} · {} · {}",
+            route.adapter(),
+            niu_media::providers::fastrouter::MANAGEMENT_CHANNEL_ACTIONS_V1
+        );
         let reference_inputs = [
             ("image_url", "image"),
             ("audio_url", "audio"),
@@ -393,12 +397,12 @@ pub(super) async fn discover(
         })
         .collect();
         modules.push(NativeModule {
-            module: "volcengine",
+            module: niu_media::providers::volcengine::MODULE_ID,
             model_alias: alias.clone(),
             display_name,
             adapter: route.adapter().to_owned(),
             video_channel: schema.channel,
-            management_channel: "fastrouter-actions-v1",
+            management_channel: niu_media::providers::fastrouter::MANAGEMENT_CHANNEL_ACTIONS_V1,
             context_label,
             materials: Materials {
                 groups: true,

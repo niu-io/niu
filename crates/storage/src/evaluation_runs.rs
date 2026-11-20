@@ -140,7 +140,7 @@ impl Store {
                     .map_err(|_| StoreError::InvalidObservation)?
             )
         );
-        let mut tx=self.pool.begin_with("BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='5s'; SET LOCAL jit=off").await?;
+        let mut tx=self.begin_tx_with("BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='5s'; SET LOCAL jit=off").await?;
         Self::require_agent_capability_in_tx(&mut tx, principal, "evaluations:write", &[]).await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
             .bind(format!(
@@ -151,7 +151,7 @@ impl Store {
             .await?;
         if let Some(existing)=sqlx::query("SELECT request_sha256,evidence FROM workspace_evaluation_runs WHERE organization_id=$1 AND project_id=$2 AND evaluation_slug=$3 AND slug=$4").bind(scope.organization_id).bind(scope.project_id).bind(evaluation).bind(&input.slug).fetch_optional(&mut *tx).await? {
             if existing.try_get::<String,_>("request_sha256")?!=digest {return Err(StoreError::Conflict);}
-            let evidence=existing.try_get("evidence")?;tx.commit().await?;return Ok(evidence);
+            let evidence=existing.try_get("evidence")?;crate::commit_tx(tx).await?;return Ok(evidence);
         }
         let definition:Option<Value>=sqlx::query_scalar("SELECT configuration FROM workspace_evaluation_history WHERE organization_id=$1 AND project_id=$2 AND slug=$3 AND revision=$4").bind(scope.organization_id).bind(scope.project_id).bind(evaluation).bind(input.evaluation_revision).fetch_optional(&mut *tx).await?;
         let definition: EvaluationDefinition =
@@ -230,7 +230,7 @@ impl Store {
             &input.slug,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(evidence)
     }
 }

@@ -30,12 +30,12 @@ test('pool members encode slashes and punctuation once; collection listing uses 
     await client.getModelRoutePool(alias);
     await client.listModelRoutePoolHistory(alias, 3);
     const encoded = Buffer.from(alias).toString('base64url');
-    assert.equal(calls.at(-2).pathname, `/api/v1/pools/${encoded}`);
-    assert.equal(calls.at(-1).pathname, `/api/v1/pools/${encoded}/history`);
+    assert.equal(calls.at(-2).pathname, `/api/v1/routing/${encoded}`);
+    assert.equal(calls.at(-1).pathname, `/api/v1/routing/${encoded}/history`);
     assert.equal(calls.at(-1).searchParams.get('before_revision'), '3');
   }
   await client.listModelRoutePools({limit: 1, after: 'vendor/model'});
-  assert.equal(calls.at(-1).pathname, '/api/v1/pools');
+  assert.equal(calls.at(-1).pathname, '/api/v1/routing');
   assert.equal(calls.at(-1).searchParams.get('after'), 'vendor/model');
   assert.throws(() => client.getModelRoutePool('has space'), TypeError);
 });

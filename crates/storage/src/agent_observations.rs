@@ -195,7 +195,7 @@ impl Store {
             }
             inserted_keys.len() as u64
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((inserted, inputs.len() as u64 - inserted))
     }
     pub async fn delete_agent_observations(&self, owner: Uuid) -> Result<(), StoreError> {
@@ -208,7 +208,7 @@ impl Store {
             .bind(owner)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn personal_agent_observations(
@@ -234,7 +234,7 @@ impl Store {
             .bind(owner).fetch_optional(&mut *tx).await?;
         let comparison: serde_json::Value = sqlx::query_scalar("WITH measured AS (SELECT count(*) FILTER(WHERE billing_mode='subscription') AS subscription_count,count(*) FILTER(WHERE billing_mode='subscription' AND api_equivalent_usd_nanos IS NOT NULL) AS subscription_priced_count,count(*) FILTER(WHERE billing_mode='subscription' AND api_equivalent_usd_nanos IS NULL) AS subscription_unknown_count,count(*) FILTER(WHERE billing_mode='unknown' OR billing_mode='subscription' AND api_equivalent_usd_nanos IS NULL) AS unknown_count,coalesce(sum(api_equivalent_usd_nanos) FILTER(WHERE billing_mode='subscription'),0) AS subscription_value FROM agent_observations WHERE owner_id=$1 AND occurred_at>=to_timestamp($2::double precision/1000) AND occurred_at<to_timestamp($3::double precision/1000)) SELECT jsonb_build_object('subscription_priced_count',m.subscription_priced_count::text,'subscription_unknown_count',m.subscription_unknown_count::text,'subscription_api_equivalent_usd_nanos',m.subscription_value::text,'value_multiple',CASE WHEN m.subscription_count>0 AND m.unknown_count=0 AND f.period_from_ms=$2 AND f.period_to_ms=$3 AND f.subscription_fee_usd_cents>0 THEN round(m.subscription_value::numeric/(f.subscription_fee_usd_cents::numeric*10000000),6)::text ELSE NULL END,'coverage','observed_only') FROM measured m LEFT JOIN agent_observation_fee_settings f ON f.owner_id=$1")
             .bind(owner).bind(from).bind(to).fetch_one(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(
             serde_json::json!({"summary":summary,"sources":sources,"by_model":by_model,"by_day":by_day,"fees":fees,"comparison":comparison,"range":{"from_ms":from,"to_ms":to},"coverage":"observed_only"}),
         )

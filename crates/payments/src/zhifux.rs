@@ -105,6 +105,8 @@ pub fn cny_decimal(nanos: i64) -> Result<String, Error> {
 }
 
 impl Merchant {
+    // HMAC accepts keys of any length; the embedded serializer only sees owned strings/vectors.
+    #[allow(clippy::expect_used)]
     pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
         use hmac::{Hmac, Mac};
         let mut mac =

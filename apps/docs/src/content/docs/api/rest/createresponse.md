@@ -1,5 +1,5 @@
 ---
-title: "Create a text response"
+title: "Create a native OpenAI Response"
 description: "POST /v1/responses"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /v1/responses`
 
-The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Local buffered_full output rules retain real text streams until a validated terminal response and complete inspection, then emit compatible filtered lifecycle events. Withheld output emits a safe guardrail_output_withheld SSE error without a successful terminal event; known execution is still charged. Complete text and total input stream bounds are 1 MiB and 2 MiB, with four concurrent collectors per process. Observation-only text streaming preserves delivery and asynchronously records clear, matched or indeterminate without transforming output. Required and observation rules can compose across workspace/key policies; optional collection/inspection pressure does not block the request. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply. Canonical OpenRouter pools permit at most one different-credential successor after an immediate authentication refusal with durable nonexecution, released holds and no prior charge. The operation retains its original tariff, funding and shared deadline under a Responses-specific retry policy. No retry follows uncertainty or a stream already returned to the client.
+Requires an OpenAI-compatible route with supports_responses enabled. Supports single-turn string input and stateless multi-turn input arrays containing user/system/developer/assistant messages, function_call and matched function_call_output history items, reasoning items, and unpriced input_image parts (max 8 MiB request body; priced routes reject vision inputs and remain bounded to 1 MiB text/tool requests). Client function tools require supports_tool_calls (plus supports_streaming_tool_calls when streaming); structured output (text.format json_object or json_schema) requires supports_structured_output; reasoning effort/summary checks catalog capability when declared. Niu validates declared schemas offline and never executes tools or stores prior responses on the server: store must be absent or false, and previous_response_id, conversation, background, and hosted server tools are rejected explicitly. Streaming emits Responses SSE events and validates terminal output before settlement; disconnects retain holds and uncertainty.
 
 Operation: `createResponse`.
 
@@ -90,6 +90,17 @@ Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. 
 }
 ```
 
+### x-niu-routing-context
+
+Location: **header**. Optional. Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {"task":"coding","stage":"implementation"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.
+
+```json
+{
+  "type": "string",
+  "maxLength": 512
+}
+```
+
 ## Request body
 
 ### application/json
@@ -112,8 +123,20 @@ Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. 
       "minLength": 1
     },
     "input": {
-      "type": "string",
-      "minLength": 1
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object"
+          }
+        }
+      ]
     },
     "instructions": {
       "type": "string"
@@ -144,6 +167,121 @@ Location: **header**. Optional. Opt-in evaluation-slug@revision/sample binding. 
     "user": {
       "type": "string",
       "maxLength": 512
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "name"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "function"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "strict": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "tool_choice": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "auto",
+            "required"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "name"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "function"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "parallel_tool_calls": {
+      "type": "boolean"
+    },
+    "text": {
+      "type": "object",
+      "properties": {
+        "verbosity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "format": {
+          "type": "object"
+        }
+      }
+    },
+    "reasoning": {
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "concise",
+            "detailed"
+          ]
+        }
+      }
+    },
+    "truncation": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "auto"
+      ]
+    },
+    "store": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
     },
     "stream": {
       "type": "boolean",
@@ -306,6 +444,37 @@ Content type: `application/json`.
                 "type": "array"
               },
               "encrypted_content": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "call_id",
+              "name",
+              "arguments"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "function_call"
+              },
+              "call_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "arguments": {
+                "type": "string"
+              },
+              "status": {
                 "type": "string"
               }
             },
@@ -651,8 +820,8 @@ Response headers:
 
 ## Behavior and supported scope
 
-The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Local buffered_full output rules retain real text streams until a validated terminal response and complete inspection, then emit compatible filtered lifecycle events. Withheld output emits a safe guardrail_output_withheld SSE error without a successful terminal event; known execution is still charged. Complete text and total input stream bounds are 1 MiB and 2 MiB, with four concurrent collectors per process. Observation-only text streaming preserves delivery and asynchronously records clear, matched or indeterminate without transforming output. Required and observation rules can compose across workspace/key policies; optional collection/inspection pressure does not block the request. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply. Canonical OpenRouter pools permit at most one different-credential successor after an immediate authentication refusal with durable nonexecution, released holds and no prior charge. The operation retains its original tariff, funding and shared deadline under a Responses-specific retry policy. No retry follows uncertainty or a stream already returned to the client.
+Requires an OpenAI-compatible route with supports_responses enabled. Supports single-turn string input and stateless multi-turn input arrays containing user/system/developer/assistant messages, function_call and matched function_call_output history items, reasoning items, and unpriced input_image parts (max 8 MiB request body; priced routes reject vision inputs and remain bounded to 1 MiB text/tool requests). Client function tools require supports_tool_calls (plus supports_streaming_tool_calls when streaming); structured output (text.format json_object or json_schema) requires supports_structured_output; reasoning effort/summary checks catalog capability when declared. Niu validates declared schemas offline and never executes tools or stores prior responses on the server: store must be absent or false, and previous_response_id, conversation, background, and hosted server tools are rejected explicitly. Streaming emits Responses SSE events and validates terminal output before settlement; disconnects retain holds and uncertainty.
 
 **Supported scope:** implemented
 
-**Supported scope:** Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.
+**Supported scope:** Stateless OpenAI Responses API supporting multi-turn item arrays, client function tools and tool loops, structured JSON Schema output, reasoning effort/summary, truncation, and unpriced input_image inputs (8 MiB body limit; priced routes remain text/tool-only within 1 MiB). Hosted server tools and server-stored state (previous_response_id, store: true) remain unsupported.

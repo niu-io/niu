@@ -12,6 +12,20 @@ Reuse existing backend APIs initially. Record any missing management operation o
 
 ## Task and ownership model
 
+### Management experience clarification — 2026-11-10
+
+The primary journey is **create an account → connect a coding agent → authorize a bounded scope → delegate development → agent manages and uses model resources, verifies outcomes and reports back**. Most management and review happen through the agent, not through repeated dashboard visits. People set goals and authority and make necessary decisions; opening Niu is optional except where an actual authentication or approval contract requires it.
+
+The current delivery scope is the agent support platform. An embedded management agent is a future option, not part of this implementation. Do not introduce a simulated assistant, unsupported suggested actions or an empty chat interface as a substitute for operational capabilities.
+
+For Routing, agents select candidates, prepare evaluations, configure policies and verify the result within granted authority. The default human experience must not require choosing model IDs, priorities, weights, sample fingerprints or protocol headers. Resource views expose the goal and constraints when recorded, current policy, evidence, verification limits, changes and recovery. Do not invent a rationale or evaluation result when none was saved. Keep direct expert controls available as a secondary path.
+
+Evaluations supply evidence for agent decisions. A manual suite-building ceremony is not the primary onboarding path, and an automatic evaluation toggle cannot replace a defined task, acceptance criteria, authorized sampling and budget. Preserve machine interfaces and evidence even if the human navigation changes.
+
+Model discovery, trials, logs, charges and configuration views remain useful inspection and takeover surfaces. Link them to durable resource context so agents can point to exact evidence without asking people to copy data. Distinguish measured execution facts, agent judgments and unknowns. Preserve backend authority, tenant scope, confidential commercial boundaries and uncertain-write reconciliation.
+
+Acceptance follows the complete delegated task: the agent discovers capabilities and current grants, obtains access through the supported authorization flow, manages credentials and resources within scope, reads back changes, inspects failures and charges, and reports a supported conclusion. A person should not need to relay secrets, model lists, logs or JSON. Label missing operations as gaps; source availability alone does not establish a working hosted journey.
+
 | Task | Actor and scope | Primary home | Current boundary and refactoring direction |
 | --- | --- | --- | --- |
 | Understand Niu and delegate a first task | Person, chosen workspace | Short orientation and onboarding | Combine human entry around two documents; retain manual references as optional expert access |

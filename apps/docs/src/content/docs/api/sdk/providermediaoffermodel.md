@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for ProviderMediaOfferModel"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 /** Draft media model bindings. Availability and purchase-rate qualification are separate. */
@@ -18,5 +18,13 @@ export type ProviderMediaOfferModel = {
     schema_revision: string;
     channel: string;
     offer_revision: string | null;
+    offer_id: string | null;
+    offer_active: boolean;
+    offer_qualified: boolean;
+    offer_current: boolean;
+    route_ready: boolean;
+    resolutions: string[];
+    reference_video: boolean;
+    meter: string | null;
 };
 ```

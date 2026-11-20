@@ -316,7 +316,7 @@ impl Messages {
                 }
             }
             self.event_bytes += 1;
-            if self.event_bytes > 65_536 {
+            if self.event_bytes > 262_144 {
                 return Err("Messages event exceeds inspection limit");
             }
             if byte != b'\r' && byte != b'\n' {
@@ -341,7 +341,7 @@ impl Messages {
                     output.extend_from_slice(
                         format!(
                             "event: {}\ndata: {}\n\n",
-                            safe["type"].as_str().unwrap(),
+                            safe["type"].as_str().unwrap_or("message"),
                             safe
                         )
                         .as_bytes(),

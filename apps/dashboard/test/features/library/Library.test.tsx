@@ -10,6 +10,10 @@ it('discovers retained videos independently of the source conversation',async()=
  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[asset],next_cursor:null})));
  render(<WorkspaceLibrary {...props}/>);
  expect(await screen.findByRole('button',{name:'Saved scene'})).toBeTruthy();
+ expect(screen.getByRole('columnheader',{name:'Type'})).toBeTruthy();
+ expect(screen.getByRole('columnheader',{name:'Size'})).toBeTruthy();
+ expect(screen.getByRole('cell',{name:'Video'})).toBeTruthy();
+ expect(screen.getByRole('cell',{name:'2 KB'})).toBeTruthy();
  expect(screen.queryByText(asset.id)).toBeNull();
  expect(screen.getByText(/independently of the Provider/)).toBeTruthy();
 });

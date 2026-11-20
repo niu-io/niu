@@ -129,7 +129,7 @@ impl Store {
             actor,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -160,7 +160,7 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Uuid, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM supplier_accounts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let owner = Uuid::new_v4();
@@ -178,7 +178,7 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::AccountUnavailable);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(owner)
     }
 
@@ -210,7 +210,7 @@ impl Store {
         revision: &str,
         account: Uuid,
     ) -> Result<Uuid, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let row = sqlx::query("SELECT health,refresh_owner,credential_revision,concurrency_limit FROM supplier_accounts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(account).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if sqlx::query_scalar::<_, bool>(
@@ -241,7 +241,7 @@ impl Store {
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(operation).bind(resource).bind(revision).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO account_assignments (attempt_id,organization_id,project_id,account_id,credential_revision) VALUES ($1,$2,$3,$4,$5)")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(account).bind(row.get::<i64,_>("credential_revision")).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(attempt)
     }
 
@@ -250,7 +250,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let account: Uuid = sqlx::query_scalar("SELECT account_id FROM account_assignments WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("SELECT id FROM supplier_accounts WHERE id=$1 FOR UPDATE")
@@ -269,7 +269,7 @@ impl Store {
             .bind(attempt)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -331,7 +331,7 @@ impl Store {
         .execute(&mut *tx)
         .await?
         .rows_affected();
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(deleted)
     }
 }

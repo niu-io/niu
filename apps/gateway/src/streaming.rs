@@ -1,9 +1,12 @@
 //! Bounded protocol-specific SSE inspection; customer output excludes supplier commercial metadata.
+mod generate_content;
 mod messages;
 pub(crate) mod output_policy;
 use crate::{admission::GatewayWrites, usage::UsageAttempt};
 use axum::body::{Body, Bytes};
 use futures_util::{Stream, StreamExt};
+pub(crate) use generate_content::sanitize_buffered_response;
+pub use generate_content::{GenerateContentOutputValidator, tracked_generate_content_body};
 pub use messages::tracked_messages_body;
 use niu_storage::TenantScope;
 use serde_json::{Value, json};
@@ -20,6 +23,8 @@ use uuid::Uuid;
 #[derive(Default)]
 pub struct ChatEvidence {
     responses: bool,
+    responses_validator: Option<crate::native_responses::ResponsesOutputValidator>,
+    invalid_responses_output: bool,
     structured: Option<crate::structured_stream::StructuredStream>,
     line: Vec<u8>,
     data: Vec<u8>,
@@ -52,13 +57,22 @@ impl ChatEvidence {
         }
         if matches!(
             kind,
-            "response.output_text.delta" | "response.refusal.delta"
+            "response.output_text.delta"
+                | "response.refusal.delta"
+                | "response.function_call_arguments.delta"
+                | "response.reasoning_summary_text.delta"
+                | "response.reasoning_text.delta"
         ) {
             let delta = value
                 .get("delta")
                 .and_then(Value::as_str)
                 .ok_or("invalid Responses output delta")?;
             self.has_output |= !delta.is_empty();
+        }
+        if kind == "response.output_item.added"
+            && value.pointer("/item/type").and_then(Value::as_str) == Some("function_call")
+        {
+            self.has_output = true;
         }
         if !matches!(kind, "response.completed" | "response.incomplete") {
             return Ok(());
@@ -102,6 +116,11 @@ impl ChatEvidence {
                 self.finish_choices
                     .insert(choice.index, Some(choice.reason));
             }
+        }
+        if let Some(validator) = &self.responses_validator
+            && !validator.valid(response)
+        {
+            self.invalid_responses_output = true;
         }
         self.done = true;
         Ok(())
@@ -387,10 +406,11 @@ impl From<&ChatEvidence> for StreamCompletion {
             provider_model: evidence.provider_model().map(str::to_owned),
             token_categories: evidence.token_categories(),
             finish_reasons: evidence.finish_reasons(),
-            invalid_output: evidence
-                .structured
-                .as_ref()
-                .is_some_and(|output| !output.valid()),
+            invalid_output: evidence.invalid_responses_output
+                || evidence
+                    .structured
+                    .as_ref()
+                    .is_some_and(|output| !output.valid()),
         }
     }
 }
@@ -541,15 +561,24 @@ where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
     if let Some(policy) = output_policy {
-        return buffered_protocol_body(upstream, attempt, false, None, policy, observation);
+        return buffered_protocol_body(upstream, attempt, false, None, None, policy, observation);
     }
-    tracked_protocol_body(upstream, attempt, false, None, structured, observation)
+    tracked_protocol_body(
+        upstream,
+        attempt,
+        false,
+        None,
+        structured,
+        None,
+        observation,
+    )
 }
 
 pub fn tracked_responses_body<S>(
     upstream: S,
     attempt: StreamAttempt,
     public_model: String,
+    responses_validator: Option<crate::native_responses::ResponsesOutputValidator>,
     output_policy: Option<output_policy::BufferedOutputPolicy>,
     observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
@@ -562,6 +591,7 @@ where
             attempt,
             true,
             Some(public_model),
+            responses_validator,
             policy,
             observation,
         );
@@ -572,6 +602,7 @@ where
         true,
         Some(public_model),
         None,
+        responses_validator,
         observation,
     )
 }
@@ -584,6 +615,7 @@ fn buffered_protocol_body<S>(
     attempt: StreamAttempt,
     responses: bool,
     public_model: Option<String>,
+    responses_validator: Option<crate::native_responses::ResponsesOutputValidator>,
     policy: output_policy::BufferedOutputPolicy,
     observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
@@ -604,11 +636,13 @@ where
         let mut upstream = Box::pin(upstream);
         let mut evidence = ChatEvidence {
             responses,
+            responses_validator,
             ..Default::default()
         };
         let mut customer =
             crate::customer_response::CustomerSse::with_protocol(responses, public_model);
         let mut collector = output_policy::Collector::new(responses);
+        let mut invalid_responses_output = false;
         let complete = loop {
             let bytes = match upstream.next().await {
                 Some(Ok(bytes)) => bytes,
@@ -680,8 +714,13 @@ where
                 break Err(error);
             }
             if evidence.done {
-                let context = pending.take().expect("active buffered stream context");
-                context.complete(&evidence).await;
+                if let Some(context) = pending.take() {
+                    context.complete(&evidence).await;
+                }
+                if evidence.invalid_responses_output {
+                    invalid_responses_output = true;
+                    break Err(crate::guardrails::input::InspectionError::UnsupportedContent);
+                }
                 break customer
                     .finish_terminal_with_observer(&mut |value| collector.observe(value))
                     .and_then(|_| collector.complete())
@@ -696,6 +735,11 @@ where
         };
         if let Some(mut observation) = observation.take() {
             observation.finish_required(&complete);
+        }
+        if invalid_responses_output {
+            return Ok::<Bytes, io::Error>(Bytes::from_static(
+                b"data: {\"error\":{\"message\":\"Upstream output did not satisfy the requested format or tool constraints\",\"type\":\"upstream_invalid_response\",\"code\":502}}\n\n",
+            ));
         }
         // Keep the permit until inspection and event construction finish.
         let _permit = &policy.slot;
@@ -714,6 +758,7 @@ fn tracked_protocol_body<S>(
     responses: bool,
     public_model: Option<String>,
     structured: Option<crate::structured_stream::StructuredStream>,
+    responses_validator: Option<crate::native_responses::ResponsesOutputValidator>,
     observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
 where
@@ -724,6 +769,7 @@ where
         Box::pin(upstream),
         ChatEvidence {
             responses,
+            responses_validator,
             structured,
             ..Default::default()
         },
@@ -759,13 +805,15 @@ where
                             timing.output();
                         }
                         if evidence.done
-                            && evidence
-                                .structured
-                                .as_ref()
-                                .is_some_and(|output| !output.valid())
+                            && (evidence.invalid_responses_output
+                                || evidence
+                                    .structured
+                                    .as_ref()
+                                    .is_some_and(|output| !output.valid()))
                         {
-                            let context = attempt.take().expect("active stream context");
-                            context.complete(&evidence).await;
+                            if let Some(context) = attempt.take() {
+                                context.complete(&evidence).await;
+                            }
                             customer_output.finish_observation();
                             customer_output.suppress_chat_terminal();
                             let output = customer_output.feed(&bytes).and_then(|mut output| {
@@ -817,8 +865,9 @@ where
                         };
                         if evidence.done {
                             stopped = true;
-                            let context = attempt.take().expect("active stream context");
-                            context.complete(&evidence).await;
+                            if let Some(context) = attempt.take() {
+                                context.complete(&evidence).await;
+                            }
                             customer_output.finish_observation();
                             Ok(bytes)
                         } else {

@@ -76,7 +76,7 @@ impl Store {
             None
         };
         configuration["effective_price"] = json!(selected);
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(configuration)
     }
 
@@ -126,7 +126,7 @@ impl Store {
         .await?;
         if let Some((id, version, saved)) = prior {
             return if saved == intent {
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 Ok(json!({"revision":id,"version":version.to_string(),
                     "model_alias":input.model_alias,"price_id":input.price_id}))
             } else {
@@ -158,7 +158,7 @@ impl Store {
         sqlx::query("UPDATE retail_text_enrollments SET price_id=$4,version=$5 WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias)
             .bind(input.price_id).bind(next).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(
             json!({"revision":id,"version":next.to_string(),"model_alias":input.model_alias,"price_id":input.price_id}),
         )

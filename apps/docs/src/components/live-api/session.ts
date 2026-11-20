@@ -71,17 +71,8 @@ export function useDocsSession(token?: string) {
   };
 }
 export function docsLoginHref() {
-  const params = new URLSearchParams(window.location.search);
-  let pathname = window.location.pathname;
-  if (params.get("embed") === "help" && pathname.startsWith("/docs/")) {
-    params.delete("embed");
-    pathname = "/help/" + pathname.slice("/docs/".length);
-  }
-  const search = params.toString() ? `?${params.toString()}` : "";
-  return (
-    "/login?returnTo=" +
-    encodeURIComponent(pathname + search + window.location.hash)
-  );
+  const { pathname, search, hash } = window.location;
+  return "/login?returnTo=" + encodeURIComponent(pathname + search + hash);
 }
 /** Never substitute a routing identifier for a missing display label. */
 export function displayName(value: string | undefined, fallback: string) {

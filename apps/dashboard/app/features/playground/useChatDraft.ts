@@ -1,37 +1,63 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useRef, useState } from 'react';
+import { peekQuery, primeQuery } from '@/lib/query-cache';
 
 export type ChatDraft = {
+  keyId?: string;
   sessionId: string | null;
   prompt: string;
   models: string[];
   attachments: Array<{name:string;type:string;content:string}>;
   settings: {systemPrompt:string;maxTokens:number;temperature:number;logPayloads:boolean};
 };
-type Snapshot = {payload:ChatDraft|null;revision:number};
+export type ChatDraftSnapshot = {payload:ChatDraft|null;revision:number};
+type Snapshot = ChatDraftSnapshot;
 type DraftState = {ready:boolean;saving:boolean;error:string;conflict:boolean};
 function snapshot(value:unknown):Snapshot {
   const data=(value as {data?:Snapshot})?.data;
   if (!data || !Number.isSafeInteger(data.revision) || data.revision<0) throw new Error('Invalid draft response');
   const p=data.payload;
-  if (p !== null && (!p || typeof p.prompt!=='string' || (p.sessionId!==null && typeof p.sessionId!=='string')
+  if (p !== null && (!p || (p.keyId!=null && typeof p.keyId!=='string') || typeof p.prompt!=='string' || (p.sessionId!==null && typeof p.sessionId!=='string')
     || !Array.isArray(p.models) || p.models.length>4 || !p.models.every(m=>typeof m==='string')
     || !Array.isArray(p.attachments) || p.attachments.length>4 || !p.attachments.every(a=>a && typeof a.name==='string' && ['image','text'].includes(a.type) && typeof a.content==='string')
     || !p.settings || typeof p.settings.systemPrompt!=='string' || !Number.isSafeInteger(p.settings.maxTokens) || p.settings.maxTokens<=0
     || !Number.isFinite(p.settings.temperature) || p.settings.temperature<0 || p.settings.temperature>2 || typeof p.settings.logPayloads!=='boolean')) throw new Error('Invalid draft response');
-  return {revision:data.revision,payload:p===null?null:{sessionId:p.sessionId,prompt:p.prompt,models:p.models,
+  return {revision:data.revision,payload:p===null?null:{...(p.keyId ? {keyId:p.keyId}:{}),sessionId:p.sessionId,prompt:p.prompt,models:p.models,
     attachments:p.attachments.map(a=>({name:a.name,type:a.type,content:a.content})),
     settings:{systemPrompt:p.settings.systemPrompt,maxTokens:p.settings.maxTokens,temperature:p.settings.temperature,logPayloads:p.settings.logPayloads}}};
 }
 
+const prefetchedDrafts = new Map<string, Promise<Snapshot>>();
+
+export function prefetchChatDraft(token: string, endpoint: string, signal?: AbortSignal): Promise<Snapshot> {
+  const key = `${token}:${endpoint}`;
+  const request = fetch(endpoint, { headers: { authorization: `Bearer ${token}` }, cache: 'no-store', signal })
+    .then(async response => {
+      if (!response.ok) throw new Error('Draft read failed');
+      const saved = snapshot(await response.json());
+      if (token && endpoint && !signal?.aborted) primeQuery(token, endpoint, saved);
+      return saved;
+    });
+  prefetchedDrafts.set(key, request);
+  signal?.addEventListener('abort', () => {
+    if (prefetchedDrafts.get(key) === request) prefetchedDrafts.delete(key);
+  }, { once: true });
+  return request;
+}
+
+export function clearPrefetchedChatDraft(token: string, endpoint: string) {
+  prefetchedDrafts.delete(`${token}:${endpoint}`);
+}
+
 /** Backend-owned composer state. No browser storage participates in persistence. */
-export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
-  token:string;endpoint:string;identity:string;enabled:boolean;value:ChatDraft;restore:(draft:ChatDraft)=>void;
+export function useChatDraft({token,endpoint,identity,enabled,value,restore,modelsCustomized}: {
+  token:string;endpoint:string;identity:string;enabled:boolean;value:ChatDraft;restore:(draft:ChatDraft)=>ChatDraft|void;modelsCustomized?:{readonly current:boolean};
 }) {
   const current=useRef(value);current.current=value;
   const onRestore=useRef(restore);onRestore.current=restore;
   const [state,setState]=useState<DraftState>({ready:false,saving:false,error:'',conflict:false});
   const [load,setLoad]=useState(0);
-  const control=useRef<{flush:()=>Promise<boolean>;retry:()=>void}|null>(null);
+  const control=useRef<{flush:()=>Promise<boolean>;retry:()=>void;hasChanges:()=>boolean}|null>(null);
   const serialized=JSON.stringify(value);
   const liveIdentity=useRef(identity);liveIdentity.current=identity;
   useEffect(()=>{
@@ -61,6 +87,7 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
             if (!valid()) return false;
             if (saved.revision!==revision+1 || JSON.stringify(saved.payload)!==body) throw new Error('Unconfirmed draft');
             revision=saved.revision;confirmed=body;
+            if (token && endpoint) primeQuery(token, endpoint, saved);
           } catch {
             failed=true;
             if (valid()) setState({ready:true,saving:false,error:'Could not confirm your saved draft. Load the saved draft before continuing.',conflict:true});
@@ -71,15 +98,38 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
       })().finally(()=>{active=null;if(valid()&&!failed)setState({ready:true,saving:false,error:'',conflict:false});});
       return active;
     };
-    control.current={flush,retry:()=>{failed=false;void flush();}};
+    const initialValue=current.current;
+    control.current={flush,retry:()=>{failed=false;void flush();},hasChanges:()=>{
+      if (ready) return JSON.stringify(current.current)!==confirmed;
+      const initial=JSON.stringify(initialValue);
+      return JSON.stringify(current.current)!==initial && (modelsCustomized?.current !== false || JSON.stringify({...current.current,models:initialValue.models})!==initial);
+    }};
     setState({ready:false,saving:false,error:'',conflict:false});
-    void fetch(endpoint,{headers:{authorization:`Bearer ${token}`},cache:'no-store',signal:controller.signal})
-      .then(async response=>{if(!response.ok)throw new Error('Draft read failed');return snapshot(await response.json());})
+    const prefetchKey=`${token}:${endpoint}`;
+    const prefetched=prefetchedDrafts.get(prefetchKey);
+    if(prefetched)prefetchedDrafts.delete(prefetchKey);
+    const readDraft=prefetched ?? fetch(endpoint,{headers:{authorization:`Bearer ${token}`},cache:'no-store',signal:controller.signal})
+      .then(async response=>{if(!response.ok)throw new Error('Draft read failed');return snapshot(await response.json());});
+    void readDraft
       .then(saved=>{
         if (!valid()) return;
         revision=saved.revision;
-        if(saved.payload) {confirmed=JSON.stringify(saved.payload);onRestore.current(saved.payload);}
-        else confirmed=JSON.stringify(current.current);
+        // Catalog bootstrap may choose a default model without a user edit.
+        const initialSerialized=JSON.stringify(initialValue);
+        const localChanged=JSON.stringify(current.current)!==initialSerialized &&
+          (modelsCustomized?.current !== false || JSON.stringify({...current.current,models:initialValue.models})!==initialSerialized);
+        if(saved.payload) {
+          confirmed=localChanged?'':JSON.stringify(saved.payload);
+          if (!localChanged) {
+            const restored=onRestore.current(saved.payload);
+            if (token && endpoint) primeQuery(token, endpoint, { revision: saved.revision, payload: restored ?? saved.payload });
+          } else if (token && endpoint) {
+            primeQuery(token, endpoint, { revision: saved.revision, payload: current.current });
+          }
+        } else {
+          confirmed=JSON.stringify(current.current);
+          if (token && endpoint) primeQuery(token, endpoint, { revision: saved.revision, payload: current.current });
+        }
         ready=true;setState({ready:true,saving:false,error:'',conflict:false});
       }).catch(()=>{if(valid())setState({ready:false,saving:false,error:'Could not load your saved draft.',conflict:false});});
     return ()=>{controller.abort();control.current=null;};
@@ -89,7 +139,14 @@ export function useChatDraft({token,endpoint,identity,enabled,value,restore}: {
     const timer=setTimeout(()=>void control.current?.flush(),500);
     return ()=>clearTimeout(timer);
   },[serialized,state.ready,state.error]);
-  return {...state,flush:(next?:ChatDraft)=>{if(next)current.current=next;return control.current?.flush()??Promise.resolve(false);},retry:()=>{
+  return {...state,hasUnsavedChanges:()=>control.current?.hasChanges()??false,flush:(next?:ChatDraft)=>{
+    if(next){
+      current.current=next;
+      const cached=token && endpoint ? peekQuery<Snapshot>(token,endpoint) : undefined;
+      if(token && endpoint)primeQuery(token,endpoint,{revision:cached?.revision??0,payload:next});
+    }
+    return control.current?.flush()??Promise.resolve(false);
+  },retry:()=>{
     if(!state.ready || state.conflict)setLoad(value=>value+1);else control.current?.retry();
   }};
 }

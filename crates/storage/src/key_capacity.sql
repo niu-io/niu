@@ -12,12 +12,33 @@ WITH anchor AS MATERIALIZED (
     FROM lineage k JOIN attempts a ON a.api_key_id=k.id
     JOIN operations o ON o.id=a.operation_id AND o.organization_id=$1 AND o.project_id=$2
     LEFT JOIN key_attempt_token_bounds b ON b.attempt_id=a.id
+    LEFT JOIN request_failures rf ON rf.attempt_id=a.id
+    LEFT JOIN request_timings rt ON rt.attempt_id=a.id
     WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL
       AND CASE WHEN $4='concurrency' THEN a.execution='may_have_executed'
+                AND a.completed_at IS NULL
+                AND (rf.attempt_id IS NULL OR rf.kind='response_stream_cancelled')
           ELSE a.execution<>'confirmed_not_executed'
             AND NOT(a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'
                     AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL)
-            AND (a.completed_at IS NULL OR a.completed_at>statement_timestamp()-interval '60 seconds') END
+            AND NOT(rf.attempt_id IS NOT NULL
+                    AND niu_request_failure_releases_tpm_immediately(rf.kind, rf.upstream_http_status, rf.transport_phase))
+            AND (
+                COALESCE(
+                    a.completed_at,
+                    rf.recorded_at,
+                    CASE WHEN rf.attempt_id IS NOT NULL THEN
+                        a.dispatched_at + (COALESCE(rt.total_ms, 0) * interval '1 millisecond')
+                    END
+                ) IS NULL
+                OR COALESCE(
+                    a.completed_at,
+                    rf.recorded_at,
+                    CASE WHEN rf.attempt_id IS NOT NULL THEN
+                        a.dispatched_at + (COALESCE(rt.total_ms, 0) * interval '1 millisecond')
+                    END
+                ) > statement_timestamp()-interval '60 seconds'
+            ) END
 ), page AS (
     SELECT * FROM contributors WHERE $5::uuid IS NULL OR id>$5 ORDER BY id LIMIT ($6::bigint+1)
 ), visible AS (SELECT * FROM page ORDER BY id LIMIT $6)

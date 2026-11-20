@@ -91,6 +91,8 @@ Content type: `application/json`.
             "enum": [
               "pool.changed",
               "evaluation.recorded",
+              "incident.opened",
+              "incident.resolved",
               "subscription.test"
             ]
           },
@@ -110,6 +112,7 @@ Content type: `application/json`.
                 "enum": [
                   "pool",
                   "evaluation",
+                  "incident",
                   "subscription"
                 ]
               },

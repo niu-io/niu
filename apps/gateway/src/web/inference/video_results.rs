@@ -11,12 +11,59 @@ use axum::{
 };
 use niu_storage::{MediaResultKind, Principal};
 use std::{
-    sync::{Arc, LazyLock},
+    collections::HashMap,
+    sync::{Arc, LazyLock, Mutex},
     time::Duration,
 };
 use uuid::Uuid;
 static DOWNLOADS: LazyLock<Arc<tokio::sync::Semaphore>> =
     LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(32)));
+
+// A bounded process-local copy of already validated BabelArk video bytes. The
+// upstream signed delivery URL can return truncated objects after the first
+// fetch; never replace a good copy with a later partial response.
+type ResultCacheKey = (Uuid, Uuid, Uuid, u8);
+type ResultCache = Mutex<HashMap<ResultCacheKey, (&'static str, Vec<u8>)>>;
+static RESULT_CACHE: LazyLock<ResultCache> = LazyLock::new(|| Mutex::new(HashMap::new()));
+fn result_cache_key(
+    scope: niu_storage::TenantScope,
+    id: Uuid,
+    kind: MediaResultKind,
+) -> ResultCacheKey {
+    (
+        scope.organization_id,
+        scope.project_id,
+        id,
+        u8::from(kind == MediaResultKind::Video),
+    )
+}
+fn cached_result(
+    scope: niu_storage::TenantScope,
+    id: Uuid,
+    kind: MediaResultKind,
+) -> Option<(&'static str, Vec<u8>)> {
+    RESULT_CACHE
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(&result_cache_key(scope, id, kind)).cloned())
+}
+fn cache_result(
+    scope: niu_storage::TenantScope,
+    id: Uuid,
+    kind: MediaResultKind,
+    content_type: &'static str,
+    bytes: &[u8],
+) {
+    if let Ok(mut cache) = RESULT_CACHE.lock() {
+        if cache.len() >= 8 {
+            cache.clear();
+        }
+        cache.insert(
+            result_cache_key(scope, id, kind),
+            (content_type, bytes.to_vec()),
+        );
+    }
+}
 fn kind(value: &str) -> Result<MediaResultKind, ApiError> {
     match value {
         "video" => Ok(MediaResultKind::Video),
@@ -187,6 +234,36 @@ async fn retrieve_authorized_media(
         .and_then(Result::ok)
         .ok_or_else(ApiError::media_result_busy)?,
     };
+    if kind == MediaResultKind::Video
+        && let Some((content_type, bytes)) = cached_result(scope, id, kind)
+    {
+        return Ok((
+            niu_media::result::ResultMedia {
+                content_type,
+                bytes,
+            },
+            delivery_permit,
+        ));
+    }
+    if kind == MediaResultKind::Video
+        && let Some((_content_type, byte_length, ciphertext)) = state
+            .store
+            .media_result_blob(scope, id, kind)
+            .await
+            .map_err(ApiError::from_store)?
+        && let Ok(bytes) = cipher.open_media_result_blob(scope, id, kind, &ciphertext)
+        && bytes.len() == byte_length
+        && bytes.windows(4).any(|window| window == b"moov")
+    {
+        cache_result(scope, id, kind, "video/mp4", &bytes);
+        return Ok((
+            niu_media::result::ResultMedia {
+                content_type: "video/mp4",
+                bytes,
+            },
+            delivery_permit,
+        ));
+    }
     let route = state
         .store
         .media_recovery_route(scope, id)
@@ -194,6 +271,16 @@ async fn retrieve_authorized_media(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
     let clock = super::video::TransportClock::start();
+    let babelark_result = route.channel == niu_media::babelark_video::REVISION
+        || route.api_base.to_ascii_lowercase().contains("babelark");
+    tracing::info!(
+        target: "niu.video_result",
+        channel = %route.channel,
+        adapter = %route.adapter,
+        api_base = %route.api_base,
+        babelark_result,
+        "video result route"
+    );
     let media = if route.channel == niu_media::openrouter::REVISION {
         if kind != MediaResultKind::Video || route.adapter != "openrouter" {
             return Err(ApiError::not_found());
@@ -210,6 +297,27 @@ async fn retrieve_authorized_media(
             Duration::from_secs(60),
         )
         .await
+    } else if babelark_result {
+        if kind != MediaResultKind::Video {
+            return Err(ApiError::not_found());
+        }
+        let token = cipher
+            .open(route.vendor_id, &route.credential_ciphertext)
+            .map_err(|_| ApiError::unavailable())?;
+        // BabelArk can rotate or expire its result URL; refresh the upstream
+        // task before downloading instead of trusting a stale saved URL.
+        let observation = niu_media::babelark_video::query_job(
+            &route.api_base,
+            &token,
+            &route.upstream_job_id,
+            &route.upstream_model,
+            Duration::from_secs(60),
+        )
+        .await
+        .map_err(|_| ApiError::unavailable())?;
+        let fresh_url = observation.video_url().ok_or_else(ApiError::unavailable)?;
+        niu_media::babelark_video::fetch_result(fresh_url, maximum_bytes, Duration::from_secs(60))
+            .await
     } else {
         niu_media::result::fetch_result(
             &url,
@@ -219,6 +327,39 @@ async fn retrieve_authorized_media(
         )
         .await
     };
+    tracing::info!(
+        target: "niu.video_result",
+        kind = kind.as_str(),
+        babelark_result,
+        bytes = media.as_ref().map(|media| media.bytes.len()).unwrap_or(0),
+        has_moov = media.as_ref().ok().is_some_and(|media| media.bytes.windows(4).any(|window| window == b"moov")),
+        "video result payload"
+    );
+    if babelark_result
+        && let Ok(media) = &media
+        && !media.bytes.windows(4).any(|window| window == b"moov")
+    {
+        return Err(ApiError::unavailable());
+    }
+    if babelark_result
+        && kind == MediaResultKind::Video
+        && let Ok(media) = &media
+    {
+        cache_result(scope, id, kind, media.content_type, &media.bytes);
+        if let Ok(ciphertext) = cipher.seal_media_result_blob(scope, id, kind, &media.bytes) {
+            let _ = state
+                .store
+                .save_media_result_blob(
+                    scope,
+                    id,
+                    kind,
+                    media.content_type,
+                    media.bytes.len(),
+                    &ciphertext,
+                )
+                .await;
+        }
+    }
     let upstream_http_status = match &media {
         Err(niu_media::result::ResultError::HttpStatus(status)) => Some(i32::from(*status)),
         _ => None,
@@ -274,14 +415,6 @@ async fn retrieve_authorized(
     };
     let length = media.bytes.len();
     let shared_bytes = memory::into_bytes(media.bytes, delivery_permit);
-    let chunks = futures_util::stream::unfold((shared_bytes, 0), |(bytes, offset)| async move {
-        if offset == bytes.len() {
-            return None;
-        }
-        let end = (offset + memory::CHUNK_BYTES).min(bytes.len());
-        let chunk = bytes.slice(offset..end);
-        Some((Ok::<_, std::convert::Infallible>(chunk), (bytes, end)))
-    });
     let mut response = (
         [
             (header::CONTENT_TYPE, media.content_type),
@@ -289,7 +422,7 @@ async fn retrieve_authorized(
             (header::CACHE_CONTROL, "private, no-store"),
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
         ],
-        Body::from_stream(chunks),
+        Body::from(shared_bytes),
     )
         .into_response();
     response

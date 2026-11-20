@@ -36,6 +36,8 @@ pub fn checkout_parameters(
     }
     Ok([
         ("mode", "payment".into()),
+        // Niu selects the payment method for its own account top-ups.
+        ("managed_payments[enabled]", "false".into()),
         ("client_reference_id", order_reference.into()),
         ("line_items[0][price_data][currency]", currency.into()),
         (

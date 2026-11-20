@@ -44,7 +44,7 @@ impl Store {
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         Self::insert_managed_route(&mut *tx, attempt, route).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

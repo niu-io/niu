@@ -111,6 +111,7 @@ pub enum GatewayDeliveryFilter {
 
 #[derive(Debug, Clone, Default)]
 pub struct GatewayActivityFilter {
+    pub search: Option<String>,
     pub operation_id: Option<Uuid>,
     pub from_ms: Option<i64>,
     pub to_ms: Option<i64>,
@@ -167,7 +168,7 @@ pub struct GatewayReservation {
 }
 
 #[derive(Debug, sqlx::FromRow)]
-struct GatewayActivitySummaryCounts {
+struct GatewayActivitySummaryRow {
     request_count: i64,
     usage_count: i64,
     prompt_tokens: String,
@@ -179,6 +180,16 @@ struct GatewayActivitySummaryCounts {
     owner_funded_request_count: i64,
     latency_percentiles: serde_json::Value,
     token_categories: serde_json::Value,
+    customer_charges: sqlx::types::Json<Vec<GatewayActivityCostSummary>>,
+    customer_unit_charges: sqlx::types::Json<Vec<serde_json::Value>>,
+    charges_by_model: sqlx::types::Json<Vec<serde_json::Value>>,
+    charges_by_key: sqlx::types::Json<Vec<serde_json::Value>>,
+    unit_charges_by_model: sqlx::types::Json<Vec<serde_json::Value>>,
+    unit_charges_by_key: sqlx::types::Json<Vec<serde_json::Value>>,
+    usage_by_model: sqlx::types::Json<Vec<GatewayActivityModelSummary>>,
+    usage_by_key: sqlx::types::Json<Vec<GatewayActivityKeySummary>>,
+    request_histogram: sqlx::types::Json<Vec<serde_json::Value>>,
+    delivery_statuses: sqlx::types::Json<Vec<GatewayDeliverySummary>>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -208,14 +219,14 @@ struct GatewaySettlementEntry {
     bound_exceeded: bool,
 }
 
-#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct GatewayActivityCostSummary {
     pub currency: String,
     pub amount_nanos: String,
     pub charged_requests: i64,
 }
 
-#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct GatewayActivityModelSummary {
     pub model_alias: String,
     pub request_count: i64,
@@ -225,7 +236,7 @@ pub struct GatewayActivityModelSummary {
     pub unknown_usage_count: i64,
 }
 
-#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct GatewayActivityKeySummary {
     pub api_key_id: Option<Uuid>,
     pub key_name: Option<String>,
@@ -236,7 +247,7 @@ pub struct GatewayActivityKeySummary {
     pub unknown_usage_count: i64,
 }
 
-#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
 pub struct GatewayDeliverySummary {
     pub http_status: Option<i32>,
     pub request_count: i64,
@@ -277,6 +288,18 @@ fn push_activity_scope_and_filters<'a>(
         .push_bind(scope.organization_id)
         .push(" AND a.project_id = ")
         .push_bind(scope.project_id);
+    if let Some(search) = filter.search.as_deref() {
+        // Literal substring search over customer-visible request metadata.
+        query.push(" AND (strpos(lower(concat_ws(' ', o.model_alias, a.provider_model, a.public_reference)), lower(")
+            .push_bind(search)
+            .push(")) > 0 OR strpos(translate(lower(concat_ws(' ', o.model_alias, a.provider_model)), '-_', '  '), translate(lower(")
+            .push_bind(search)
+            .push("), '-_', '  ')) > 0 OR EXISTS (SELECT 1 FROM api_keys search_key WHERE search_key.organization_id=a.organization_id AND search_key.project_id=a.project_id AND search_key.id=a.api_key_id AND strpos(lower(search_key.name), lower(")
+            .push_bind(search)
+            .push(")) > 0) OR EXISTS (SELECT 1 FROM request_timings search_timing WHERE search_timing.attempt_id=a.id AND search_timing.http_status IS NOT NULL AND strpos(lower('HTTP ' || search_timing.http_status::text), lower(")
+            .push_bind(search)
+            .push(")) > 0))");
+    }
     if let Some(operation_id) = filter.operation_id {
         query.push(" AND a.operation_id = ").push_bind(operation_id);
     }
@@ -326,100 +349,59 @@ fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
 }
 
-type TriggerErrorMapping = (&'static str, fn() -> StoreError);
-
-pub(crate) const TRIGGER_CODE_MAPPINGS: &[TriggerErrorMapping] = &[
-    ("P0005", || StoreError::Unauthorized),
-    ("P0006", || StoreError::Conflict),
-    ("P0007", || StoreError::AccountUnavailable),
-    ("P0008", || StoreError::BudgetExceeded),
-    ("P0009", || StoreError::InvalidPrice),
-    ("P0010", || StoreError::Conflict),
-    ("P0011", || StoreError::Conflict),
-    ("P0020", || StoreError::KeyRequestRateExceeded),
-    ("P0021", || StoreError::KeyConcurrencyExceeded),
-    ("P0022", || StoreError::KeyTokenRateExceeded),
-    ("P0023", || StoreError::KeyTokenBoundRequired),
-    ("P0024", || StoreError::ManagedRouteChanged),
-    ("P0025", || StoreError::VendorRequestRateExceeded),
-    ("P0026", || StoreError::KeyRequestRateDisabled),
-    ("P0027", || StoreError::VendorRequestRateDisabled),
-    ("P0028", || StoreError::GatewayRequestDeadlineExceeded),
-    ("P0039", || StoreError::ProcurementUnavailable),
-];
-
-pub(crate) const TRIGGER_CONSTRAINT_MAPPINGS: &[TriggerErrorMapping] = &[
-    ("customer_workspace_spending_limit_exceeded", || {
-        StoreError::WorkspaceSpendingLimitExceeded
-    }),
-    ("customer_key_spending_limit_exceeded", || {
-        StoreError::KeySpendingLimitExceeded
-    }),
-];
-
 pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
-    if let Some(database_error) = error.as_database_error() {
-        if let Some(constraint) = database_error.constraint() {
-            for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
-                if *expected == constraint {
-                    return constructor();
-                }
-            }
-        }
-        if let Some(code) = database_error.code() {
-            for (expected, constructor) in TRIGGER_CODE_MAPPINGS {
-                if *expected == code.as_ref() {
-                    return constructor();
-                }
-            }
-        }
-    }
-    StoreError::Database(error)
+    crate::trigger_error::map(error)
 }
 
 pub(crate) fn map_reservation_error(error: sqlx::Error) -> StoreError {
-    if let Some(database_error) = error.as_database_error()
-        && let Some(constraint) = database_error.constraint()
-    {
-        for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
-            if *expected == constraint {
-                return constructor();
-            }
-        }
-    }
-    StoreError::Database(error)
+    crate::trigger_error::map(error)
 }
 
 impl Store {
     /// Bound reporting contention without changing later work on the pooled connection.
     /// These short reporting queries have many subplans: cost-based JIT can spend
     /// their entire deadline compiling even when the result contains only a few rows.
-    async fn begin_activity_read(&self) -> Result<sqlx::Transaction<'_, Postgres>, StoreError> {
-        Ok(self
-            .pool
-            .begin_with(
-                "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL lock_timeout = '1s'; SET LOCAL statement_timeout = '5s'; SET LOCAL jit = off",
-            )
-            .await?)
+    async fn begin_activity_read(
+        &self,
+    ) -> Result<sqlx::Transaction<'static, Postgres>, StoreError> {
+        self.begin_tx_with(
+            "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL lock_timeout = '1s'; SET LOCAL statement_timeout = '5s'; SET LOCAL jit = off",
+        )
+        .await
     }
 
-    /// One statement provides a consistent view of the filtered range. Fetch
-    /// one extra row so the caller can reject, rather than silently truncate,
-    /// an export exceeding the declared 10,000-row bound.
+    /// Check the limit before enrichment, within the same read snapshot as
+    /// the export, so an oversized selection fails without materializing rows.
     pub async fn gateway_activity_export(
         &self,
         scope: TenantScope,
         filter: &GatewayActivityFilter,
     ) -> Result<Vec<GatewayActivityExportEntry>, StoreError> {
         let mut snapshot = self.begin_activity_read().await?;
+        let mut count = QueryBuilder::new("SELECT count(*)::bigint FROM (SELECT 1 FROM attempts a");
+        if filter.model_alias.is_some() || filter.search.is_some() {
+            // The composite foreign key guarantees matching tenant scope.
+            // Join on the unique operation ID to avoid a workspace-range
+            // nested loop when statistics underestimate a new workspace.
+            count.push(" JOIN operations o ON o.id=a.operation_id");
+        }
+        push_activity_scope_and_filters(&mut count, scope, filter);
+        count.push(" LIMIT 10001) bounded");
+        let matching: i64 = count.build_query_scalar().fetch_one(&mut *snapshot).await?;
+        if matching > 10_000 {
+            return Err(StoreError::RequestExportTooLarge);
+        }
         let mut query = QueryBuilder::new(
             "SELECT to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              o.model_alias AS model, k.name AS key_name, t.http_status, a.execution, a.usage_confidence, \
              a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
              CASE WHEN c.attempt_id IS NOT NULL OR uc.attempt_id IS NOT NULL THEN 'charged' \
-               WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' \
+               WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' OR niu_attempt_failed_zero_cost(a.id) THEN 'not_charged' \
                WHEN EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' \
-               WHEN EXISTS (SELECT 1 FROM customer_activity_priced_attempts tariff WHERE tariff.attempt_id=a.id) THEN 'pending' \
+               WHEN (EXISTS (SELECT 1 FROM customer_attempt_tariffs t1 WHERE t1.attempt_id=a.id) \
+                  OR EXISTS (SELECT 1 FROM customer_media_attempt_pricing t2 WHERE t2.attempt_id=a.id) \
+                  OR EXISTS (SELECT 1 FROM customer_unit_attempt_tariffs t3 WHERE t3.attempt_id=a.id) \
+                  OR EXISTS (SELECT 1 FROM customer_unit_media_attempt_tariffs t4 WHERE t4.attempt_id=a.id)) THEN 'pending' \
                ELSE 'unpriced' END AS customer_charge_status, \
              c.currency AS customer_charge_currency, c.amount_nanos::text AS customer_charge_nanos, \
              uc.unit_name AS customer_unit_name, uc.net_atoms::text AS customer_unit_charge_atoms, \
@@ -429,7 +411,7 @@ impl Store {
              rtc.reasoning_output_tokens::text AS reasoning_output_tokens, \
              rfr.choices AS finish_reasons, \
              CASE WHEN f.attempt_id IS NULL THEN NULL ELSE jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) END AS failure \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             FROM attempts a JOIN operations o ON o.id=a.operation_id \
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
@@ -440,9 +422,8 @@ impl Store {
         );
         push_activity_scope_and_filters(&mut query, scope, filter);
         push_activity_order(&mut query, filter.sort);
-        query.push(" LIMIT 10001");
         let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(rows)
     }
 
@@ -501,7 +482,7 @@ impl Store {
         let data =
             Self::gateway_activity_selection_on(&mut snapshot, scope, after, limit, filter, None)
                 .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok((data, summary))
     }
 
@@ -523,7 +504,7 @@ impl Store {
             attempt,
         )
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(rows)
     }
 
@@ -564,9 +545,12 @@ impl Store {
                'net_atoms', uc.net_atoms::text \
              ) END AS customer_unit_charge, \
              CASE WHEN customer_charge.attempt_id IS NOT NULL OR uc.attempt_id IS NOT NULL THEN 'charged' \
-               WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' \
+               WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' OR niu_attempt_failed_zero_cost(a.id) THEN 'not_charged' \
                WHEN EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' \
-               WHEN EXISTS (SELECT 1 FROM customer_activity_priced_attempts tariff WHERE tariff.attempt_id=a.id) THEN 'pending' \
+               WHEN (EXISTS (SELECT 1 FROM customer_attempt_tariffs t1 WHERE t1.attempt_id=a.id) \
+                  OR EXISTS (SELECT 1 FROM customer_media_attempt_pricing t2 WHERE t2.attempt_id=a.id) \
+                  OR EXISTS (SELECT 1 FROM customer_unit_attempt_tariffs t3 WHERE t3.attempt_id=a.id) \
+                  OR EXISTS (SELECT 1 FROM customer_unit_media_attempt_tariffs t4 WHERE t4.attempt_id=a.id)) THEN 'pending' \
                ELSE 'unpriced' END AS customer_charge_status \
              FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
@@ -633,7 +617,7 @@ impl Store {
     ) -> Result<GatewayActivitySummary, StoreError> {
         let mut snapshot = self.begin_activity_read().await?;
         let summary = Self::gateway_activity_summary_on(&mut snapshot, scope, filter).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(summary)
     }
 
@@ -642,202 +626,373 @@ impl Store {
         scope: TenantScope,
         filter: &GatewayActivityFilter,
     ) -> Result<GatewayActivitySummary, StoreError> {
-        let mut counts = QueryBuilder::new(
-            "SELECT COUNT(*)::bigint AS request_count, \
-             COUNT(*) FILTER (WHERE a.usage_confidence='provider_reported')::bigint AS usage_count, \
-             COALESCE(SUM(a.prompt_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS prompt_tokens, \
-             COALESCE(SUM(a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
-             COUNT(*) FILTER (WHERE t.complete)::bigint AS timing_count, \
-             ROUND(AVG(t.total_ms::numeric) FILTER (WHERE t.complete))::bigint AS average_duration_ms, \
-             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL AND uc.attempt_id IS NULL)::bigint AS unresolved_customer_charge_count, \
-             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND uc.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS owner_funded_request_count, \
-             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS unpriced_request_count, \
-             jsonb_build_object('boundary','gateway_body_ms','sample_count',COUNT(*) FILTER (WHERE t.complete),'p50_ms',percentile_disc(0.50) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete),'p95_ms',percentile_disc(0.95) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete),'p99_ms',percentile_disc(0.99) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete)) AS latency_percentiles, \
-             jsonb_build_object( \
-              'cache_write_input_tokens',SUM(details.cache_write_input_tokens::numeric)::text, \
-              'cache_write_input_requests',COUNT(details.cache_write_input_tokens), \
-              'cache_write_input_unknown_requests',COUNT(*)-COUNT(details.cache_write_input_tokens), \
-              'cached_input_tokens',SUM(details.cached_input_tokens::numeric)::text, \
-              'cached_input_requests',COUNT(details.cached_input_tokens), \
-              'cached_input_unknown_requests',COUNT(*)-COUNT(details.cached_input_tokens), \
-              'reasoning_output_tokens',SUM(details.reasoning_output_tokens::numeric)::text, \
-              'reasoning_output_requests',COUNT(details.reasoning_output_tokens), \
-              'reasoning_output_unknown_requests',COUNT(*)-COUNT(details.reasoning_output_tokens)) AS token_categories \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-             LEFT JOIN request_timings t ON t.attempt_id=a.id \
-             LEFT JOIN customer_activity_priced_attempts tariff ON tariff.attempt_id=a.id \
-             LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
-             LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id \
-             LEFT JOIN request_token_categories details ON details.attempt_id=a.id",
+        // Only customer ledger amounts enter these summaries. Missing settlement
+        // is represented by null amounts and explicit coverage, never supplier
+        // expense. One materialized scan feeds counts, breakdowns and the histogram
+        // without joining the multi-table tariff UNION view repeatedly.
+        let mut query = QueryBuilder::new(
+            "WITH filtered AS MATERIALIZED ( \
+                SELECT \
+                    a.id AS attempt_id, \
+                    a.organization_id, \
+                    a.project_id, \
+                    a.created_at, \
+                    a.dispatched_at, \
+                    a.execution, \
+                    a.usage_confidence, \
+                    a.prompt_tokens, \
+                    a.completion_tokens, \
+                    a.api_key_id, \
+                    o.model_alias \
+                FROM attempts a \
+                JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id",
         );
-        push_activity_scope_and_filters(&mut counts, scope, filter);
-        let counts: GatewayActivitySummaryCounts =
-            counts.build_query_as().fetch_one(&mut *snapshot).await?;
-
-        let mut costs = QueryBuilder::new(
-            "SELECT c.currency, COALESCE(SUM(c.amount_nanos::numeric), 0)::text AS amount_nanos, \
-             COUNT(*)::bigint AS charged_requests \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-             JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id",
+        push_activity_scope_and_filters(&mut query, scope, filter);
+        query.push(
+            "), \
+            enriched AS MATERIALIZED ( \
+                SELECT \
+                    f.attempt_id, \
+                    f.created_at, \
+                    f.dispatched_at, \
+                    f.execution, \
+                    f.usage_confidence, \
+                    f.prompt_tokens, \
+                    f.completion_tokens, \
+                    f.api_key_id, \
+                    f.model_alias, \
+                    k.name AS key_name, \
+                    t.complete AS timing_complete, \
+                    t.total_ms AS timing_total_ms, \
+                    t.http_status AS timing_http_status, \
+                    c.attempt_id AS charge_attempt_id, \
+                    c.currency AS charge_currency, \
+                    c.amount_nanos AS charge_amount_nanos, \
+                    uc.attempt_id AS unit_attempt_id, \
+                    uc.definition_revision AS unit_definition_revision, \
+                    uc.unit_name, \
+                    uc.display_precision AS unit_display_precision, \
+                    uc.charged_atoms AS unit_charged_atoms, \
+                    uc.restored_atoms AS unit_restored_atoms, \
+                    uc.net_atoms AS unit_net_atoms, \
+                    details.cache_write_input_tokens, \
+                    details.cached_input_tokens, \
+                    details.reasoning_output_tokens, \
+                    CASE \
+                        WHEN f.dispatched_at IS NULL OR f.execution='confirmed_not_executed' THEN false \
+                        ELSE ( \
+                            EXISTS (SELECT 1 FROM customer_attempt_tariffs t1 WHERE t1.attempt_id=f.attempt_id) \
+                            OR EXISTS (SELECT 1 FROM customer_media_attempt_pricing t2 WHERE t2.attempt_id=f.attempt_id) \
+                            OR EXISTS (SELECT 1 FROM customer_unit_attempt_tariffs t3 WHERE t3.attempt_id=f.attempt_id) \
+                            OR EXISTS (SELECT 1 FROM customer_unit_media_attempt_tariffs t4 WHERE t4.attempt_id=f.attempt_id) \
+                        ) \
+                    END AS has_tariff, \
+                    CASE \
+                        WHEN f.dispatched_at IS NULL OR f.execution='confirmed_not_executed' THEN false \
+                        ELSE EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=f.attempt_id) \
+                    END AS is_owner_funded, \
+                    CASE \
+                        WHEN f.dispatched_at IS NULL OR f.execution='confirmed_not_executed' THEN false \
+                        WHEN c.attempt_id IS NOT NULL OR uc.attempt_id IS NOT NULL THEN false \
+                        ELSE niu_attempt_failed_zero_cost(f.attempt_id) \
+                    END AS is_failed_zero_cost \
+                FROM filtered f \
+                LEFT JOIN api_keys k ON k.organization_id=f.organization_id AND k.project_id=f.project_id AND k.id=f.api_key_id \
+                LEFT JOIN request_timings t ON t.attempt_id=f.attempt_id \
+                LEFT JOIN customer_activity_charges c ON c.organization_id=f.organization_id AND c.project_id=f.project_id AND c.attempt_id=f.attempt_id \
+                LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=f.organization_id AND uc.project_id=f.project_id AND uc.attempt_id=f.attempt_id \
+                LEFT JOIN request_token_categories details ON details.attempt_id=f.attempt_id \
+            ), \
+            counts_row AS ( \
+                SELECT \
+                    COUNT(*)::bigint AS request_count, \
+                    COUNT(*) FILTER (WHERE e.usage_confidence='provider_reported')::bigint AS usage_count, \
+                    COALESCE(SUM(e.prompt_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text AS prompt_tokens, \
+                    COALESCE(SUM(e.completion_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
+                    COUNT(*) FILTER (WHERE e.timing_complete)::bigint AS timing_count, \
+                    ROUND(AVG(e.timing_total_ms::numeric) FILTER (WHERE e.timing_complete))::bigint AS average_duration_ms, \
+                    COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost)::bigint AS unresolved_customer_charge_count, \
+                    COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND e.is_owner_funded)::bigint AS owner_funded_request_count, \
+                    COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND NOT e.has_tariff AND NOT e.is_owner_funded)::bigint AS unpriced_request_count, \
+                    jsonb_build_object( \
+                        'boundary','gateway_body_ms', \
+                        'sample_count',COUNT(*) FILTER (WHERE e.timing_complete), \
+                        'p50_ms',percentile_disc(0.50) WITHIN GROUP (ORDER BY e.timing_total_ms) FILTER (WHERE e.timing_complete), \
+                        'p95_ms',percentile_disc(0.95) WITHIN GROUP (ORDER BY e.timing_total_ms) FILTER (WHERE e.timing_complete), \
+                        'p99_ms',percentile_disc(0.99) WITHIN GROUP (ORDER BY e.timing_total_ms) FILTER (WHERE e.timing_complete) \
+                    ) AS latency_percentiles, \
+                    jsonb_build_object( \
+                        'cache_write_input_tokens',SUM(e.cache_write_input_tokens::numeric)::text, \
+                        'cache_write_input_requests',COUNT(e.cache_write_input_tokens), \
+                        'cache_write_input_unknown_requests',COUNT(*)-COUNT(e.cache_write_input_tokens), \
+                        'cached_input_tokens',SUM(e.cached_input_tokens::numeric)::text, \
+                        'cached_input_requests',COUNT(e.cached_input_tokens), \
+                        'cached_input_unknown_requests',COUNT(*)-COUNT(e.cached_input_tokens), \
+                        'reasoning_output_tokens',SUM(e.reasoning_output_tokens::numeric)::text, \
+                        'reasoning_output_requests',COUNT(e.reasoning_output_tokens), \
+                        'reasoning_output_unknown_requests',COUNT(*)-COUNT(e.reasoning_output_tokens) \
+                    ) AS token_categories \
+                FROM enriched e \
+            ), \
+            customer_charges_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY currency), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.charge_currency AS currency, \
+                           jsonb_build_object( \
+                               'currency', e.charge_currency, \
+                               'amount_nanos', COALESCE(SUM(e.charge_amount_nanos::numeric), 0)::text, \
+                               'charged_requests', COUNT(*)::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    WHERE e.charge_attempt_id IS NOT NULL \
+                    GROUP BY e.charge_currency \
+                ) s \
+            ), \
+            customer_unit_charges_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY unit_definition_revision DESC), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.unit_definition_revision, \
+                           jsonb_build_object( \
+                               'definition_revision', e.unit_definition_revision::text, \
+                               'name', e.unit_name, \
+                               'display_precision', e.unit_display_precision, \
+                               'atoms_per_unit', '1000000000', \
+                               'charged_atoms', COALESCE(SUM(e.unit_charged_atoms::numeric), 0)::text, \
+                               'restored_atoms', COALESCE(SUM(e.unit_restored_atoms::numeric), 0)::text, \
+                               'net_atoms', COALESCE(SUM(e.unit_net_atoms::numeric), 0)::text, \
+                               'charged_requests', COUNT(*)::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    WHERE e.unit_attempt_id IS NOT NULL \
+                    GROUP BY e.unit_definition_revision, e.unit_name, e.unit_display_precision \
+                ) s \
+            ), \
+            charges_by_model_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY ord_currency NULLS LAST, ord_amount DESC NULLS LAST, model_alias), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.charge_currency AS ord_currency, \
+                           SUM(e.charge_amount_nanos::numeric) AS ord_amount, \
+                           e.model_alias, \
+                           jsonb_build_object( \
+                               'model_alias', e.model_alias, \
+                               'currency', e.charge_currency, \
+                               'amount_nanos', CASE WHEN COUNT(e.charge_attempt_id)>0 THEN SUM(e.charge_amount_nanos::numeric)::text ELSE NULL END, \
+                               'request_count', COUNT(*), \
+                               'charged_requests', COUNT(e.charge_attempt_id), \
+                               'unit_charged_requests', COUNT(e.unit_attempt_id), \
+                               'unresolved_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost), \
+                               'owner_funded_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND e.is_owner_funded), \
+                               'unpriced_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND NOT e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL), \
+                               'not_charged_requests', COUNT(*) FILTER (WHERE e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND (e.dispatched_at IS NULL OR e.execution='confirmed_not_executed' OR e.is_failed_zero_cost)) \
+                           ) AS item \
+                    FROM enriched e \
+                    GROUP BY e.model_alias, e.charge_currency \
+                ) s \
+            ), \
+            charges_by_key_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY ord_currency NULLS LAST, ord_amount DESC NULLS LAST, api_key_id, key_name), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.charge_currency AS ord_currency, \
+                           SUM(e.charge_amount_nanos::numeric) AS ord_amount, \
+                           e.api_key_id, \
+                           e.key_name, \
+                           jsonb_build_object( \
+                               'api_key_id', e.api_key_id, \
+                               'key_name', e.key_name, \
+                               'currency', e.charge_currency, \
+                               'amount_nanos', CASE WHEN COUNT(e.charge_attempt_id)>0 THEN SUM(e.charge_amount_nanos::numeric)::text ELSE NULL END, \
+                               'request_count', COUNT(*), \
+                               'charged_requests', COUNT(e.charge_attempt_id), \
+                               'unit_charged_requests', COUNT(e.unit_attempt_id), \
+                               'unresolved_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost), \
+                               'owner_funded_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND e.is_owner_funded), \
+                               'unpriced_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND NOT e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL), \
+                               'not_charged_requests', COUNT(*) FILTER (WHERE e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND (e.dispatched_at IS NULL OR e.execution='confirmed_not_executed' OR e.is_failed_zero_cost)) \
+                           ) AS item \
+                    FROM enriched e \
+                    GROUP BY e.api_key_id, e.key_name, e.charge_currency \
+                ) s \
+            ), \
+            unit_charges_by_model_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY unit_definition_revision DESC, ord_net DESC, model_alias), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.unit_definition_revision, \
+                           SUM(e.unit_net_atoms::numeric) AS ord_net, \
+                           e.model_alias, \
+                           jsonb_build_object( \
+                               'model_alias', e.model_alias, \
+                               'definition_revision', e.unit_definition_revision::text, \
+                               'name', e.unit_name, \
+                               'display_precision', e.unit_display_precision, \
+                               'atoms_per_unit', '1000000000', \
+                               'charged_atoms', COALESCE(SUM(e.unit_charged_atoms::numeric), 0)::text, \
+                               'restored_atoms', COALESCE(SUM(e.unit_restored_atoms::numeric), 0)::text, \
+                               'net_atoms', COALESCE(SUM(e.unit_net_atoms::numeric), 0)::text, \
+                               'charged_requests', COUNT(*)::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    WHERE e.unit_attempt_id IS NOT NULL \
+                    GROUP BY e.model_alias, e.unit_definition_revision, e.unit_name, e.unit_display_precision \
+                ) s \
+            ), \
+            unit_charges_by_key_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY unit_definition_revision DESC, ord_net DESC, api_key_id, key_name), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.unit_definition_revision, \
+                           SUM(e.unit_net_atoms::numeric) AS ord_net, \
+                           e.api_key_id, \
+                           e.key_name, \
+                           jsonb_build_object( \
+                               'api_key_id', e.api_key_id, \
+                               'key_name', e.key_name, \
+                               'definition_revision', e.unit_definition_revision::text, \
+                               'name', e.unit_name, \
+                               'display_precision', e.unit_display_precision, \
+                               'atoms_per_unit', '1000000000', \
+                               'charged_atoms', COALESCE(SUM(e.unit_charged_atoms::numeric), 0)::text, \
+                               'restored_atoms', COALESCE(SUM(e.unit_restored_atoms::numeric), 0)::text, \
+                               'net_atoms', COALESCE(SUM(e.unit_net_atoms::numeric), 0)::text, \
+                               'charged_requests', COUNT(*)::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    WHERE e.unit_attempt_id IS NOT NULL \
+                    GROUP BY e.api_key_id, e.key_name, e.unit_definition_revision, e.unit_name, e.unit_display_precision \
+                ) s \
+            ), \
+            usage_by_model_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY ord_tokens DESC, model_alias), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT COALESCE(SUM(e.prompt_tokens::numeric + e.completion_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0) AS ord_tokens, \
+                           e.model_alias, \
+                           jsonb_build_object( \
+                               'model_alias', e.model_alias, \
+                               'request_count', COUNT(*)::bigint, \
+                               'usage_count', COUNT(*) FILTER (WHERE e.usage_confidence='provider_reported')::bigint, \
+                               'prompt_tokens', COALESCE(SUM(e.prompt_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text, \
+                               'completion_tokens', COALESCE(SUM(e.completion_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text, \
+                               'unknown_usage_count', COUNT(*) FILTER (WHERE e.usage_confidence <> 'provider_reported')::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    GROUP BY e.model_alias \
+                ) s \
+            ), \
+            usage_by_key_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY ord_tokens DESC, key_name NULLS LAST, api_key_id NULLS LAST), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT COALESCE(SUM(e.prompt_tokens::numeric + e.completion_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0) AS ord_tokens, \
+                           e.api_key_id, \
+                           e.key_name, \
+                           jsonb_build_object( \
+                               'api_key_id', e.api_key_id, \
+                               'key_name', e.key_name, \
+                               'request_count', COUNT(*)::bigint, \
+                               'usage_count', COUNT(*) FILTER (WHERE e.usage_confidence='provider_reported')::bigint, \
+                               'prompt_tokens', COALESCE(SUM(e.prompt_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text, \
+                               'completion_tokens', COALESCE(SUM(e.completion_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text, \
+                               'unknown_usage_count', COUNT(*) FILTER (WHERE e.usage_confidence <> 'provider_reported')::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    GROUP BY e.api_key_id, e.key_name \
+                    ORDER BY ord_tokens DESC, e.key_name NULLS LAST, e.api_key_id NULLS LAST \
+                    LIMIT 10 \
+                ) s \
+            ), \
+            histogram_ts AS ( \
+                SELECT floor(extract(epoch FROM f.created_at)*1000)::numeric AS ts FROM filtered f \
+            ), \
+            histogram_bounds AS ( \
+                SELECT COALESCE(",
         );
-        push_activity_scope_and_filters(&mut costs, scope, filter);
-        costs.push(" GROUP BY c.currency ORDER BY c.currency");
-        let customer_charges = costs.build_query_as().fetch_all(&mut *snapshot).await?;
-
-        let mut unit_costs = QueryBuilder::new(
-            "SELECT jsonb_build_object( \
-                'definition_revision', uc.definition_revision::text, \
-                'name', uc.unit_name, \
-                'display_precision', uc.display_precision, \
-                'atoms_per_unit', '1000000000', \
-                'charged_atoms', COALESCE(SUM(uc.charged_atoms::numeric), 0)::text, \
-                'restored_atoms', COALESCE(SUM(uc.restored_atoms::numeric), 0)::text, \
-                'net_atoms', COALESCE(SUM(uc.net_atoms::numeric), 0)::text, \
-                'charged_requests', COUNT(*)::bigint \
-             ) \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-             JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id",
-        );
-        push_activity_scope_and_filters(&mut unit_costs, scope, filter);
-        unit_costs.push(
-            " GROUP BY uc.definition_revision, uc.unit_name, uc.display_precision ORDER BY uc.definition_revision DESC",
-        );
-        let customer_unit_charges = unit_costs
-            .build_query_scalar()
-            .fetch_all(&mut *snapshot)
-            .await?;
-
-        // Only customer ledger amounts enter these summaries. Missing settlement is
-        // represented by null amounts and explicit coverage, never supplier expense.
-        let mut charge_breakdowns = Vec::new();
-        let mut unit_charge_breakdowns = Vec::new();
-        for (identity, group) in [
-            ("'model_alias',o.model_alias", "o.model_alias"),
-            (
-                "'api_key_id',a.api_key_id,'key_name',k.name",
-                "a.api_key_id,k.name",
-            ),
-        ] {
-            let mut breakdown = QueryBuilder::new(format!(
-                "SELECT jsonb_build_object({identity},'currency',c.currency, \
-                 'amount_nanos',CASE WHEN COUNT(c.attempt_id)>0 THEN SUM(c.amount_nanos::numeric)::text ELSE NULL END, \
-                 'request_count',COUNT(*),'charged_requests',COUNT(c.attempt_id), \
-                 'unit_charged_requests',COUNT(uc.attempt_id), \
-                 'unresolved_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL AND uc.attempt_id IS NULL), \
-                 'owner_funded_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND uc.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id)), \
-                 'unpriced_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) AND c.attempt_id IS NULL AND uc.attempt_id IS NULL), \
-                 'not_charged_requests',COUNT(*) FILTER (WHERE c.attempt_id IS NULL AND uc.attempt_id IS NULL AND (a.dispatched_at IS NULL OR a.execution='confirmed_not_executed'))) \
-                 FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-                 LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
-                 LEFT JOIN customer_activity_priced_attempts tariff ON tariff.attempt_id=a.id \
-                 LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
-                 LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id"
-            ));
-            push_activity_scope_and_filters(&mut breakdown, scope, filter);
-            // Currency is kept separate, including the unknown (unsettled) group.
-            breakdown.push(format!(" GROUP BY {group},c.currency ORDER BY c.currency NULLS LAST,SUM(c.amount_nanos::numeric) DESC NULLS LAST,{group}"));
-            charge_breakdowns.push(
-                breakdown
-                    .build_query_scalar()
-                    .fetch_all(&mut *snapshot)
-                    .await?,
+        query
+            .push_bind(filter.from_ms)
+            .push("::numeric, MIN(ts)) AS start, COALESCE(")
+            .push_bind(filter.to_ms)
+            .push(
+                "::numeric, MAX(ts)+1) AS finish, COUNT(*) AS total FROM histogram_ts \
+            ), \
+            histogram_sized AS ( \
+                SELECT start, finish, total, GREATEST(1, CEIL((finish-start)/24)) AS width FROM histogram_bounds \
+            ), \
+            histogram_grouped AS ( \
+                SELECT LEAST(23, GREATEST(0, FLOOR((h.ts-s.start)/s.width))) AS bucket, COUNT(*) AS requests \
+                FROM histogram_ts h CROSS JOIN histogram_sized s \
+                GROUP BY bucket \
+            ), \
+            histogram_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY bucket), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT b.bucket, \
+                           jsonb_build_object( \
+                               'start_ms', (s.start+b.bucket*s.width)::bigint, \
+                               'end_ms', LEAST(s.finish, s.start+(b.bucket+1)*s.width)::bigint, \
+                               'request_count', COALESCE(g.requests, 0) \
+                           ) AS item \
+                    FROM histogram_sized s \
+                    CROSS JOIN generate_series(0, 23) b(bucket) \
+                    LEFT JOIN histogram_grouped g ON g.bucket=b.bucket \
+                    WHERE s.start IS NOT NULL AND s.total > 0 AND s.start+b.bucket*s.width < s.finish \
+                ) s \
+            ), \
+            delivery_agg AS ( \
+                SELECT COALESCE(jsonb_agg(item ORDER BY http_status NULLS LAST), '[]'::jsonb) AS items \
+                FROM ( \
+                    SELECT e.timing_http_status AS http_status, \
+                           jsonb_build_object( \
+                               'http_status', e.timing_http_status, \
+                               'request_count', COUNT(*)::bigint \
+                           ) AS item \
+                    FROM enriched e \
+                    GROUP BY e.timing_http_status \
+                ) s \
+            ) \
+            SELECT \
+                counts_row.*, \
+                customer_charges_agg.items AS customer_charges, \
+                customer_unit_charges_agg.items AS customer_unit_charges, \
+                charges_by_model_agg.items AS charges_by_model, \
+                charges_by_key_agg.items AS charges_by_key, \
+                unit_charges_by_model_agg.items AS unit_charges_by_model, \
+                unit_charges_by_key_agg.items AS unit_charges_by_key, \
+                usage_by_model_agg.items AS usage_by_model, \
+                usage_by_key_agg.items AS usage_by_key, \
+                histogram_agg.items AS request_histogram, \
+                delivery_agg.items AS delivery_statuses \
+            FROM counts_row \
+            CROSS JOIN customer_charges_agg \
+            CROSS JOIN customer_unit_charges_agg \
+            CROSS JOIN charges_by_model_agg \
+            CROSS JOIN charges_by_key_agg \
+            CROSS JOIN unit_charges_by_model_agg \
+            CROSS JOIN unit_charges_by_key_agg \
+            CROSS JOIN usage_by_model_agg \
+            CROSS JOIN usage_by_key_agg \
+            CROSS JOIN histogram_agg \
+            CROSS JOIN delivery_agg",
             );
-
-            let mut unit_breakdown = QueryBuilder::new(format!(
-                "SELECT jsonb_build_object({identity}, \
-                 'definition_revision',uc.definition_revision::text, \
-                 'name',uc.unit_name, \
-                 'display_precision',uc.display_precision, \
-                 'atoms_per_unit','1000000000', \
-                 'charged_atoms',COALESCE(SUM(uc.charged_atoms::numeric),0)::text, \
-                 'restored_atoms',COALESCE(SUM(uc.restored_atoms::numeric),0)::text, \
-                 'net_atoms',COALESCE(SUM(uc.net_atoms::numeric),0)::text, \
-                 'charged_requests',COUNT(*)::bigint) \
-                 FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-                 LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
-                 JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id"
-            ));
-            push_activity_scope_and_filters(&mut unit_breakdown, scope, filter);
-            unit_breakdown.push(format!(
-                " GROUP BY {group},uc.definition_revision,uc.unit_name,uc.display_precision ORDER BY uc.definition_revision DESC,SUM(uc.net_atoms::numeric) DESC,{group}"
-            ));
-            unit_charge_breakdowns.push(
-                unit_breakdown
-                    .build_query_scalar()
-                    .fetch_all(&mut *snapshot)
-                    .await?,
-            );
-        }
-        let charges_by_key = charge_breakdowns.pop().unwrap();
-        let charges_by_model = charge_breakdowns.pop().unwrap();
-        let unit_charges_by_key = unit_charge_breakdowns.pop().unwrap();
-        let unit_charges_by_model = unit_charge_breakdowns.pop().unwrap();
-
-        let mut usage = QueryBuilder::new(
-            "SELECT o.model_alias AS model_alias, COUNT(*)::bigint AS request_count, \
-             COUNT(*) FILTER (WHERE a.usage_confidence='provider_reported')::bigint AS usage_count, \
-             COALESCE(SUM(a.prompt_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS prompt_tokens, \
-             COALESCE(SUM(a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
-             COUNT(*) FILTER (WHERE a.usage_confidence <> 'provider_reported')::bigint AS unknown_usage_count \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id",
-        );
-        push_activity_scope_and_filters(&mut usage, scope, filter);
-        usage.push(" GROUP BY o.model_alias ORDER BY COALESCE(SUM(a.prompt_tokens::numeric + a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0) DESC, o.model_alias");
-        let usage_by_model = usage.build_query_as().fetch_all(&mut *snapshot).await?;
-
-        let mut keys = QueryBuilder::new(
-            "SELECT a.api_key_id AS api_key_id, k.name AS key_name, COUNT(*)::bigint AS request_count, \
-             COUNT(*) FILTER (WHERE a.usage_confidence='provider_reported')::bigint AS usage_count, \
-             COALESCE(SUM(a.prompt_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS prompt_tokens, \
-             COALESCE(SUM(a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
-             COUNT(*) FILTER (WHERE a.usage_confidence <> 'provider_reported')::bigint AS unknown_usage_count \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-             LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id",
-        );
-        push_activity_scope_and_filters(&mut keys, scope, filter);
-        keys.push(" GROUP BY a.api_key_id, k.name ORDER BY COALESCE(SUM(a.prompt_tokens::numeric + a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0) DESC, k.name NULLS LAST, a.api_key_id NULLS LAST LIMIT 10");
-        let usage_by_key = keys.build_query_as().fetch_all(&mut *snapshot).await?;
-
-        let mut histogram = QueryBuilder::new(
-            "WITH filtered AS (SELECT floor(extract(epoch FROM a.created_at)*1000)::numeric AS ts FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id",
-        );
-        push_activity_scope_and_filters(&mut histogram, scope, filter);
-        histogram.push("), bounds AS (SELECT COALESCE(").push_bind(filter.from_ms)
-            .push("::numeric, MIN(ts)) AS start, COALESCE(").push_bind(filter.to_ms)
-            .push("::numeric, MAX(ts)+1) AS finish, COUNT(*) AS total FROM filtered), sized AS (SELECT start,finish,total,GREATEST(1,CEIL((finish-start)/24)) AS width FROM bounds), grouped AS (SELECT LEAST(23,GREATEST(0,FLOOR((f.ts-s.start)/s.width))) AS bucket,COUNT(*) AS requests FROM filtered f CROSS JOIN sized s GROUP BY bucket) SELECT jsonb_build_object('start_ms',(s.start+b.bucket*s.width)::bigint,'end_ms',LEAST(s.finish,s.start+(b.bucket+1)*s.width)::bigint,'request_count',COALESCE(g.requests,0)) FROM sized s CROSS JOIN generate_series(0,23) b(bucket) LEFT JOIN grouped g ON g.bucket=b.bucket WHERE s.start IS NOT NULL AND s.total>0 AND s.start+b.bucket*s.width<s.finish ORDER BY b.bucket");
-        let request_histogram = histogram
-            .build_query_scalar()
-            .fetch_all(&mut *snapshot)
-            .await?;
-
-        let mut delivery = QueryBuilder::new(
-            "SELECT t.http_status, COUNT(*)::bigint AS request_count FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id LEFT JOIN request_timings t ON t.attempt_id=a.id",
-        );
-        push_activity_scope_and_filters(&mut delivery, scope, filter);
-        delivery.push(" GROUP BY t.http_status ORDER BY t.http_status NULLS LAST");
-        let delivery_statuses = delivery.build_query_as().fetch_all(&mut *snapshot).await?;
+        let row: GatewayActivitySummaryRow =
+            query.build_query_as().fetch_one(&mut *snapshot).await?;
         Ok(GatewayActivitySummary {
-            request_count: counts.request_count,
-            usage_count: counts.usage_count,
-            prompt_tokens: counts.prompt_tokens,
-            completion_tokens: counts.completion_tokens,
-            timing_count: counts.timing_count,
-            average_duration_ms: counts.average_duration_ms,
-            unresolved_customer_charge_count: counts.unresolved_customer_charge_count,
-            unpriced_request_count: counts.unpriced_request_count,
-            owner_funded_request_count: counts.owner_funded_request_count,
-            customer_charges,
-            customer_unit_charges,
-            charges_by_model,
-            charges_by_key,
-            unit_charges_by_model,
-            unit_charges_by_key,
-            usage_by_model,
-            usage_by_key,
-            request_histogram,
-            latency_percentiles: counts.latency_percentiles,
-            delivery_statuses,
-            token_categories: counts.token_categories,
+            request_count: row.request_count,
+            usage_count: row.usage_count,
+            prompt_tokens: row.prompt_tokens,
+            completion_tokens: row.completion_tokens,
+            timing_count: row.timing_count,
+            average_duration_ms: row.average_duration_ms,
+            unresolved_customer_charge_count: row.unresolved_customer_charge_count,
+            unpriced_request_count: row.unpriced_request_count,
+            owner_funded_request_count: row.owner_funded_request_count,
+            customer_charges: row.customer_charges.0,
+            customer_unit_charges: row.customer_unit_charges.0,
+            charges_by_model: row.charges_by_model.0,
+            charges_by_key: row.charges_by_key.0,
+            unit_charges_by_model: row.unit_charges_by_model.0,
+            unit_charges_by_key: row.unit_charges_by_key.0,
+            usage_by_model: row.usage_by_model.0,
+            usage_by_key: row.usage_by_key.0,
+            request_histogram: row.request_histogram.0,
+            latency_percentiles: row.latency_percentiles,
+            delivery_statuses: row.delivery_statuses.0,
+            token_categories: row.token_categories,
         })
     }
 
@@ -991,7 +1146,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt_ids)
             .fetch_all(&mut *tx).await?;
         if candidates.is_empty() {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(());
         }
 
@@ -1071,7 +1226,7 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1119,7 +1274,7 @@ impl Store {
         }
         input.api_equivalent.charge(0, 0)?;
         input.cash.charge(0, 0)?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
@@ -1131,14 +1286,14 @@ impl Store {
             .bind(input.api_equivalent.prompt).bind(input.api_equivalent.completion).bind(input.cash.prompt).bind(input.cash.completion)
             .fetch_optional(&mut *tx).await?;
         if let Some(id) = existing {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(id);
         }
         let id = Uuid::new_v4();
         sqlx::query("INSERT INTO price_revisions (id, organization_id, project_id, resource_id, offer_revision, currency, api_prompt_rate, api_completion_rate, cash_prompt_rate, cash_completion_rate) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(input.resource_id).bind(input.offer_revision).bind(input.currency)
             .bind(input.api_equivalent.prompt).bind(input.api_equivalent.completion).bind(input.cash.prompt).bind(input.cash.completion).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -1175,7 +1330,7 @@ impl Store {
         if !currency_valid(currency) || limit_nanos < 0 {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id = $1 AND id = $2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
@@ -1188,7 +1343,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         Self::record_procurement_configuration_in_tx(&mut tx, scope, None, actor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1205,14 +1360,14 @@ impl Store {
         if prompt_bound < 0 || completion_bound < 0 {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let attempt = sqlx::query("SELECT execution, resource_id, offer_revision FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if let Some(existing) = sqlx::query("SELECT price_revision_id, prompt_bound, completion_bound, state FROM cost_reservations WHERE attempt_id=$1")
             .bind(attempt_id).fetch_optional(&mut *tx).await? {
             if existing.get::<Uuid,_>("price_revision_id") == price_id && existing.get::<i64,_>("prompt_bound") == prompt_bound
                 && existing.get::<i64,_>("completion_bound") == completion_bound && existing.get::<String,_>("state") == "held" {
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(());
             }
             return Err(StoreError::Conflict);
@@ -1235,7 +1390,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO cost_reservations (attempt_id, organization_id, project_id, price_revision_id, reserved_nanos, prompt_bound, completion_bound) VALUES ($1,$2,$3,$4,$5,$6,$7)")
             .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).bind(price_id).bind(amount).bind(prompt_bound).bind(completion_bound).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1261,12 +1416,12 @@ impl Store {
             Err(
                 err @ (StoreError::KeyRequestRateDisabled | StoreError::KeyRequestRateExceeded),
             ) => {
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 return Err(err);
             }
             Err(err) => return Err(err),
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if dispatched {
             Ok(())
         } else {
@@ -1387,9 +1542,9 @@ impl Store {
     /// Settle from stored provider usage, never caller-supplied money. The same
     /// attempt always returns its original entry. Unknown usage retains its hold.
     pub async fn settle_cost(&self, scope: TenantScope, id: Uuid) -> Result<CostEntry, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let result = Self::settle_cost_in_tx(&mut tx, scope, id).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(result)
     }
 
@@ -1462,9 +1617,9 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::release_nonexecuted_cost_in_tx(&mut tx, scope, id).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 

@@ -76,7 +76,7 @@ impl Store {
         scope: TenantScope,
         intent: Uuid,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let found = sqlx::query_scalar::<_,Uuid>("SELECT id FROM asset_group_create_intents WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(intent).fetch_optional(&mut *tx).await?;
         if found.is_none() {
@@ -84,7 +84,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO asset_group_request_deletions(intent_id) VALUES($1) ON CONFLICT DO NOTHING").bind(intent).execute(&mut *tx).await?;
         let changed=sqlx::query("UPDATE asset_group_create_intents SET request_body=NULL WHERE id=$1 AND request_body IS NOT NULL").bind(intent).execute(&mut *tx).await?.rows_affected();
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(changed == 1)
     }
 
@@ -175,7 +175,7 @@ impl Store {
         credential_revision: i64,
         request: &OrdinaryAssetGroupCreate,
     ) -> Result<AssetGroupCreateIntent, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor_revision =
             sqlx::query_scalar::<_, i64>("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
                 .bind(vendor)
@@ -204,7 +204,7 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
 
@@ -226,7 +226,7 @@ impl Store {
         scope: TenantScope,
         intent: Uuid,
     ) -> Result<Option<ClaimedAssetGroupCreate>, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT vendor_id FROM asset_group_create_intents WHERE organization_id=$1 AND project_id=$2 AND id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(intent).fetch_optional(&mut *tx).await?;
         let Some(vendor) = vendor else {
@@ -261,7 +261,7 @@ impl Store {
             .bind(saved.vendor_id).bind(saved.credential_revision).bind(&saved.upstream_project).fetch_one(&mut *tx).await?;
         sqlx::query("INSERT INTO asset_group_dispatch_authorizations(intent_id,authorization_id) VALUES($1,$2)")
             .bind(intent).bind(authorization_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(ClaimedAssetGroupCreate {
             intent: saved,
             credential,
@@ -307,7 +307,7 @@ impl Store {
         } else {
             "uncertain"
         };
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let changed=sqlx::query("UPDATE asset_group_create_intents SET state=$4,upstream_group_id=$5,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND state='dispatching'")
             .bind(scope.organization_id).bind(scope.project_id).bind(intent).bind(outcome).bind(upstream_group)
             .execute(&mut *tx).await?.rows_affected();
@@ -316,7 +316,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO asset_group_dispatch_outcomes(intent_id,outcome,reason,duration_ms) VALUES($1,$2,$3,$4)")
             .bind(intent).bind(outcome).bind(reason).bind(duration_ms).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(true)
     }
 

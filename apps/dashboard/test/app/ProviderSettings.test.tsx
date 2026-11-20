@@ -1,10 +1,10 @@
 import { it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import ProviderSettings from '@/features/provider-business/ProviderSettings';
 vi.mock('@/shell/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'test' }) }));
-it('loads saved provider identity, saves with revision and refreshes navigation', async () => {
+it('loads saved provider identity, saves with revision via dialog and refreshes navigation', async () => {
   let profile = { name: 'Provider', description: 'Existing description', website_url: 'https://example.com', logo_url: '', revision: 2 };
   const fetch = vi.fn(async (_url: string, init: RequestInit) => {
     if (init.method === 'PATCH') { const body = JSON.parse(init.body as string); expect(body.expected_revision).toBe(2); profile = { ...body, revision: 3 }; }
@@ -14,17 +14,23 @@ it('loads saved provider identity, saves with revision and refreshes navigation'
   const updated = vi.fn(); window.addEventListener('niu:supplier-profile-updated', updated);
   const view = render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
-  const name = await screen.findByLabelText('Name');
-  expect((name as HTMLInputElement).value).toBe('Provider');
-  expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
+  await screen.findByText('Provider');
+  expect(screen.queryByLabelText('Name')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+  const dialog = screen.getByRole('dialog');
+  const name = within(dialog).getByLabelText('Name') as HTMLInputElement;
+  expect(name.value).toBe('Provider');
+  expect((within(dialog).getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
   await user.clear(name); await user.type(name, 'Updated provider');
-  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   await screen.findByText('Provider details saved.');
+  expect(screen.getByText('Updated provider')).toBeTruthy();
   expect(updated).toHaveBeenCalledOnce();
   expect(profile.description).toBe('Existing description');
   view.unmount();
   render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
-  await waitFor(() => expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Updated provider'));
+  await screen.findByText('Updated provider');
   window.removeEventListener('niu:supplier-profile-updated', updated);
 });
 
@@ -35,36 +41,43 @@ it('keeps the draft after a conflicting save and allows reloading the latest pro
     : Response.json({data:{name:++reads === 1 ? 'Original provider' : 'Other administrator’s change', description:'', website_url:'', logo_url:'', revision:reads}})));
   render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
-  const name = await screen.findByLabelText('Name');
+  await screen.findByText('Original provider');
+  await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+  const name = screen.getByLabelText('Name') as HTMLInputElement;
   await user.clear(name); await user.type(name, 'My draft');
   await user.click(screen.getByRole('button', {name:'Save changes'}));
   await screen.findByText('These details changed since you opened this page. Reload the saved details before saving again.');
-  expect((name as HTMLInputElement).value).toBe('My draft');
+  expect(name.value).toBe('My draft');
   await user.click(screen.getByRole('button', {name:'Reload saved details'}));
   await waitFor(() => expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Other administrator’s change'));
 });
 
-it('cancels all profile drafts without submitting an update and restores name focus', async () => {
+it('cancels all profile drafts without submitting an update and returns focus to its trigger', async () => {
   const profile = { name: 'Saved provider', description: 'Saved description', website_url: 'https://example.com', logo_url: '', revision: 1 };
   const fetcher = vi.fn(async () => Response.json({ data: profile }));
   vi.stubGlobal('fetch', fetcher);
   render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
-  const name = await screen.findByLabelText('Name');
+  await screen.findByText('Saved provider');
+  const trigger = screen.getByRole('button', { name: 'Edit profile' });
+  await user.click(trigger);
+  const name = screen.getByLabelText('Name') as HTMLInputElement;
   await user.clear(name); await user.type(name, 'Draft provider');
-  const description = screen.getByLabelText('Description');
+  const description = screen.getByLabelText('Description') as HTMLTextAreaElement;
   await user.clear(description); await user.type(description, 'Draft description');
-  const website = screen.getByLabelText('Website URL');
+  const website = screen.getByLabelText('Website URL') as HTMLInputElement;
   await user.clear(website); await user.type(website, 'https://draft.example');
   await user.type(screen.getByLabelText('Logo URL'), 'https://draft.example/logo.png');
-  await user.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
-  expect((name as HTMLInputElement).value).toBe(profile.name);
-  expect((description as HTMLTextAreaElement).value).toBe(profile.description);
-  expect((website as HTMLInputElement).value).toBe(profile.website_url);
-  expect((screen.getByLabelText('Logo URL') as HTMLInputElement).value).toBe(profile.logo_url);
-  expect(document.activeElement).toBe(name);
-  expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel', exact: true }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
   expect(fetcher).toHaveBeenCalledTimes(1);
+  await user.click(trigger);
+  expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe(profile.name);
+  expect((screen.getByLabelText('Description') as HTMLTextAreaElement).value).toBe(profile.description);
+  expect((screen.getByLabelText('Website URL') as HTMLInputElement).value).toBe(profile.website_url);
+  expect((screen.getByLabelText('Logo URL') as HTMLInputElement).value).toBe(profile.logo_url);
+  expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
 });
 
 it('persists each preset, restores it after reload, and can return to the default or a custom URL', async () => {
@@ -81,28 +94,36 @@ it('persists each preset, restores it after reload, and can return to the defaul
   const mount = () => render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   let view = mount();
   const user = userEvent.setup();
-  await screen.findByLabelText('Name');
+  await screen.findByText('Provider');
   expect(screen.queryByAltText('Provider logo')).toBeNull();
   for (const preset of supplierLogoPresets) {
-    await user.click(screen.getByRole('button', { name: profile.logo_url ? supplierLogoPresets.find(item => item.url === profile.logo_url)!.name : 'Default logo', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: profile.logo_url ? supplierLogoPresets.find(item => item.url === profile.logo_url)!.name : 'Default logo', exact: true }));
     await user.click(screen.getByRole('menuitemradio', { name: preset.name, exact: true }));
-    expect(screen.getByAltText('Provider logo').getAttribute('src')).toBe(preset.src);
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(within(dialog).getByAltText('Provider logo').getAttribute('src')).toBe(preset.src);
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('Provider details saved.');
     expect(profile.logo_url).toBe(preset.url);
+    expect(screen.getByAltText('Provider logo').getAttribute('src')).toBe(preset.src);
   }
   view.unmount(); view = mount();
-  await screen.findByLabelText('Name');
+  await screen.findByText('Provider');
+  await user.click(screen.getByRole('button', { name: 'Edit profile' }));
   expect(screen.getByRole('button', { name: 'Google Cloud', exact: true })).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Google Cloud', exact: true }));
   await user.click(screen.getByRole('menuitemradio', { name: 'Default logo' }));
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   await screen.findByText('Provider details saved.');
   expect(profile.logo_url).toBe('');
   expect(screen.queryByAltText('Provider logo')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Edit profile' }));
   await user.type(screen.getByLabelText('Logo URL'), 'https://example.com/custom.png');
   expect(screen.getByRole('button', { name: 'Custom logo' })).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   await screen.findByText('Provider details saved.');
   expect(profile.logo_url).toBe('https://example.com/custom.png');
   view.unmount();

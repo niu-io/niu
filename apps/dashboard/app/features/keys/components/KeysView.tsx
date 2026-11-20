@@ -1,20 +1,21 @@
-import { readLocale as readUILocale } from '@/shell/ui-locale';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { keyReference } from '../key-labels';
+import { formatLocalizedMessage, translateUI, readLocale as readUILocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { confirmedKeyValidationFailure, forgetPendingKeyMutation, readPendingKeyMutation, reconcileKeyMutation, recoveryCacheKey, savePendingKeyMutation, submitKeyMutation, type PendingKeyMutation } from '../mutation-recovery';
+import { confirmedKeyValidationFailure, forgetKeyMutationHint, keyMutationHintKey, readKeyMutationHint, reconcileKeyMutation, rememberKeyMutationHint, submitKeyMutation, type PendingKeyMutation } from '../mutation-recovery';
 import { currencySymbol } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { IconPencil as Pencil } from '@tabler/icons-react';
-import { IconSearch as Search } from '@tabler/icons-react';
+import { IconFilter as ListFilter } from '@tabler/icons-react';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
 import { IconDotsVertical as EllipsisVertical } from "@tabler/icons-react";
+import { IconEye as Eye, IconEyeOff as EyeOff } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
+import { IconAlertTriangle as AlertTriangle } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
 import { IconRefresh as RotateCw } from "@tabler/icons-react";
@@ -32,9 +33,17 @@ import { TableSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/shell/dashboard-context';
 import { amountToNanos, formatUnitAtoms, money } from '@/lib/money';
-import { cachedKeyGet, KeyRequestError, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
+import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPagePath, workspaceKeyPath, workspacePath, type KeyStatusFilter, type ProjectKey, type IssuedProjectKey } from '../api';
 
-type KeyDialog = { kind: 'recover' } | { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
+type KeyDialog = { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
+// A request whose outcome is unknown stays visible as a non-blocking notice.
+// It never gates the create or rotate forms, and client-side data is not
+// treated as proof that the server committed or rejected the request.
+type KeyRequestNotice =
+  | { kind: 'uncertain'; pending: PendingKeyMutation; error?: string }
+  | { kind: 'unconfirmed'; pending: PendingKeyMutation; error?: string }
+  | { kind: 'committed'; pending: PendingKeyMutation; key: ProjectKey }
+  | { kind: 'rejected'; error: string };
 const expiryOptions = [{ label: '7 days', seconds: 7 * 86400 }, { label: '30 days', seconds: 30 * 86400 }, { label: '90 days', seconds: 90 * 86400 }, { label: '1 year', seconds: 365 * 86400 }, { label: 'Never', seconds: null }];
 
 function baseUrl() {
@@ -54,50 +63,59 @@ function keyLimitsSummary(key: ProjectKey): string {
       }
     }
   }
+  const locale = readUILocale();
   const rpm = key.request_rate_limit?.requests_per_minute ?? key.requests_per_minute;
   if (rpm !== undefined && rpm !== null) {
-    parts.push(`${rpm.toLocaleString(readUILocale())} req/m`);
+    parts.push(formatLocalizedMessage('{0} req/m', [rpm.toLocaleString(locale)], locale));
   }
   const conc = key.concurrency_limit?.max_concurrent_requests ?? key.max_concurrent_requests;
   if (conc !== undefined && conc !== null) {
-    parts.push(`${conc.toLocaleString(readUILocale())} concurrent`);
+    parts.push(formatLocalizedMessage('{0} concurrent', [conc.toLocaleString(locale)], locale));
   }
   const tpm = key.token_rate_limit?.tokens_per_minute ?? key.tokens_per_minute;
   if (tpm !== undefined && tpm !== null) {
-    parts.push(`${tpm.toLocaleString(readUILocale())} tok/m`);
+    parts.push(formatLocalizedMessage('{0} tok/m', [tpm.toLocaleString(locale)], locale));
   }
   const cidrs = key.ip_policy ? key.ip_policy.allowed_cidrs : key.allowed_cidrs;
   if (cidrs !== undefined && cidrs !== null) {
-    parts.push(cidrs.length ? `${cidrs.length} IP${cidrs.length === 1 ? '' : 's'}` : 'IPs blocked');
+    parts.push(cidrs.length ? (cidrs.length === 1 ? translateUI('1 IP') : formatLocalizedMessage('{0} IPs', [cidrs.length], locale)) : translateUI('IPs blocked'));
   }
-  return parts.length ? parts.join(' · ') : 'Unlimited';
+  return parts.length ? parts.join(' · ') : translateUI('Unlimited');
 }
 
-export default function KeysView({ token, models, canWrite, initialScope, loaderKeys }: {
+export default function KeysView({ token, models, canWrite, initialScope, loaderKeys, loaderNextCursor }: {
   token: string;
   models: Model[];
   canWrite: boolean;
   initialScope: { organizationId: string; projectId: string } | null;
   loaderKeys?: ProjectKey[];
+  loaderNextCursor?: string | null;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { workspace, workspaceLoading, rememberChatKey, forgetChatKey, session } = useDashboardContext();
-  const canManagePlatform = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const location = useLocation();
   const navigate = useNavigate();
+  const generationReturn = useRef<string | null>(null);
   const initialCollectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
-  const initialCachedKeys = initialCollectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, initialCollectionPath) : undefined;
+  const [keyStatusFilter, setKeyStatusFilter] = useState<KeyStatusFilter>('active');
+  const initialPagePath = initialScope ? workspaceKeyPagePath(initialScope.projectId, 50, undefined, keyStatusFilter) : '';
+  const initialCachedKeys = initialPagePath
+    ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath)
+    : undefined;
+  const scopeIdentity = `${token}:${initialPagePath}`;
   const [keys, setKeys] = useState<ProjectKey[]>(() => loaderKeys ?? initialCachedKeys?.data ?? []);
-  const [keyQuery, setKeyQuery] = useState('');
-  const visibleKeys = keys.filter(key => key.name.toLocaleLowerCase().includes(keyQuery.trim().toLocaleLowerCase())).sort((a, b) => Number(Boolean(a.revoked || a.expired)) - Number(Boolean(b.revoked || b.expired)));
-  useEffect(() => { setKeyQuery(''); }, [initialScope?.organizationId, initialScope?.projectId]);
+  const [nextCursor, setNextCursor] = useState<string | null>(() => loaderNextCursor ?? initialCachedKeys?.next_cursor ?? null);
+  const [loadedScope, setLoadedScope] = useState<string>(() => initialCollectionPath && (loaderKeys || initialCachedKeys) ? scopeIdentity : '');
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(() => Boolean(initialCollectionPath && !loaderKeys && !initialCachedKeys));
   useEffect(() => {
-    if (loaderKeys) {
+    if (loaderKeys && keyStatusFilter === "active") {
       setKeys(loaderKeys);
+      setNextCursor(loaderNextCursor ?? null);
+      setLoadedScope(scopeIdentity);
       setLoading(false);
     }
-  }, [loaderKeys]);
+  }, [loaderKeys, loaderNextCursor, scopeIdentity, keyStatusFilter]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<KeyDialog>(null);
@@ -115,17 +133,25 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const [issued, setIssued] = useState<IssuedProjectKey | null>(null);
   const [secretModel, setSecretModel] = useState('');
   const [copied, setCopied] = useState('');
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [visibleSecretIds, setVisibleSecretIds] = useState<Record<string, boolean>>({});
   const [dialogError, setDialogError] = useState('');
   const root = workspacePath(location.pathname);
-  const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
+  const collectionPath = initialCollectionPath;
+  const isInitialPending = Boolean(collectionPath) && (workspaceLoading || (loadedScope !== scopeIdentity && !error));
+  const isPending = loading || isInitialPending;
+  const visibleKeys = loadedScope === scopeIdentity ? keys : [];
+  const keyNameCounts = new Map<string, number>();
+  for (const key of visibleKeys) keyNameCounts.set(key.name, (keyNameCounts.get(key.name) ?? 0) + 1);
   const canIssue = canWrite && Boolean(workspace);
-  const cacheKey = recoveryCacheKey(session?.operator?.id ?? 'installation', `${initialScope?.organizationId ?? ''}:${initialScope?.projectId ?? ''}`);
-  const [recovery, setRecovery] = useState<PendingKeyMutation | null>(null);
-  const [recoveredKey, setRecoveredKey] = useState<ProjectKey | null>(null);
-  const [recoveryDenied, setRecoveryDenied] = useState(false);
-  const [cacheError, setCacheError] = useState('');
+  const hintKey = keyMutationHintKey(session?.operator?.id ?? 'installation', `${initialScope?.organizationId ?? ''}:${initialScope?.projectId ?? ''}`);
+  const [pendingRequest, setPendingRequest] = useState<PendingKeyMutation | null>(null);
+  const [storedHint, setStoredHint] = useState<PendingKeyMutation | null>(null);
+  const [requestNotice, setRequestNotice] = useState<KeyRequestNotice | null>(null);
+  const [checking, setChecking] = useState(false);
+  const activePending = pendingRequest ?? storedHint;
 
-  const showActions = canWrite && keys.some(key => !key.revoked && !key.expired);
+  const showActions = canWrite && visibleKeys.some(key => !key.revoked && !key.expired);
   const modelIds = models.map(model => typeof model === 'string' ? model : model.id);
   const exampleModel = secretModel || modelIds[0] || '';
   const exampleMetadata = models.find(model => (typeof model === 'string' ? model : model.id) === exampleModel);
@@ -134,144 +160,177 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
 
   const dialogReturnFocus = useRef<HTMLButtonElement | null>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const refreshButtonRef = useRef<HTMLButtonElement>(null);
   const loadController = useRef<AbortController | null>(null);
+  const pageController = useRef<AbortController | null>(null);
   const mutationController = useRef<AbortController | null>(null);
   useEffect(() => () => mutationController.current?.abort(), [collectionPath, token, canWrite]);
 
-  async function reload(force = true) {
+  const reload = useCallback(async (force = true) => {
     loadController.current?.abort();
-    if (!collectionPath) return;
+    pageController.current?.abort();
+    setLoadingMore(false);
+    if (!initialPagePath) return;
     const controller = new AbortController();
     loadController.current = controller;
-    const cached = !force ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) : undefined;
+    const cached = !force
+      ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath)
+      : undefined;
     if (cached) {
       setKeys(cached.data);
+      setNextCursor(cached.next_cursor ?? null);
+      setLoadedScope(scopeIdentity);
       setLoading(false);
     } else {
       setLoading(true);
     }
     setError('');
     try {
-      const value = await cachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath, {
+      const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath, {
         signal: controller.signal,
         force,
       });
-      if (!controller.signal.aborted) setKeys(value.data);
+      if (!controller.signal.aborted) {
+        setKeys(value.data);
+        setNextCursor(value.next_cursor ?? null);
+        setLoadedScope(scopeIdentity);
+      }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load API keys.');
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }
+  }, [initialPagePath, token, scopeIdentity]);
 
-  useEffect(() => {
-    const cached = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) : undefined;
-    if (cached) {
-      setKeys(cached.data);
-    } else {
-      setKeys([]);
+  async function loadMore() {
+    if (!collectionPath || !initialScope || !nextCursor || loadingMore || isPending || loadedScope !== scopeIdentity) return;
+    const controller = new AbortController();
+    pageController.current = controller;
+    setLoadingMore(true);
+    setError('');
+    try {
+      const pagePath = workspaceKeyPagePath(initialScope.projectId, 50, nextCursor, keyStatusFilter);
+      const value = await cachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, pagePath, { force: true, signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setKeys(current => [...current, ...value.data.filter(key => !current.some(existing => existing.id === key.id))]);
+      setNextCursor(value.next_cursor ?? null);
+    } catch (cause) {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load more API keys.');
+    } finally {
+      if (!controller.signal.aborted) setLoadingMore(false);
     }
-    void reload(false);
-    return () => loadController.current?.abort();
-  }, [collectionPath, token]);
-
-  useEffect(() => {
-    setDialog(null); setIssued(null); setBusy(false); setRecoveredKey(null); setRecoveryDenied(false); setCacheError('');
-    try { setRecovery(initialScope ? readPendingKeyMutation(localStorage, cacheKey) : null); }
-    catch (cause) { setRecovery(null); setCacheError(cause instanceof Error ? cause.message : 'Key recovery is unavailable.'); }
-  }, [cacheKey, token, canWrite]);
-
-  function clearRecovery(pending: PendingKeyMutation) {
-    forgetPendingKeyMutation(localStorage, cacheKey, pending.requestId);
-    setRecovery(null); setRecoveredKey(null); setRecoveryDenied(false);
   }
 
-  async function checkRecovery(pending = recovery) {
-    if (!pending || !canIssue || busy || recoveryDenied) return;
+  useEffect(() => {
+    void reload(false);
+    return () => { loadController.current?.abort(); pageController.current?.abort(); };
+  }, [reload]);
+
+  useEffect(() => {
+    setDialog(null); setIssued(null); setBusy(false); setPendingRequest(null); setRequestNotice(null); setChecking(false);
+    // The stored hint is disposable. Reading it can never fail the page or
+    // block a mutation, and an unreadable value is simply ignored.
+    setStoredHint(initialScope ? readKeyMutationHint(hintKey) : null);
+  }, [hintKey, token, canWrite]);
+
+  function forgetHint(pending: PendingKeyMutation) {
+    forgetKeyMutationHint(hintKey, pending.requestId);
+  }
+
+  function clearActiveRequest(pending: PendingKeyMutation) {
+    forgetHint(pending);
+    setPendingRequest(current => current?.requestId === pending.requestId ? null : current);
+    setStoredHint(current => current?.requestId === pending.requestId ? null : current);
+    setRequestNotice(current => current && 'pending' in current && current.pending.requestId === pending.requestId ? null : current);
+  }
+
+  async function checkRequest(pending: PendingKeyMutation) {
+    if (!canIssue || checking || busy) return;
+    mutationController.current?.abort();
     const controller = new AbortController(); mutationController.current = controller;
-    setBusy(true); setDialogError('');
+    setChecking(true);
     try {
       const result = await reconcileKeyMutation(token, collectionPath, pending, controller.signal);
       if (controller.signal.aborted) return;
       if (result.kind === 'recovered') {
-        setRecoveredKey(result.key);
+        clearActiveRequest(pending);
         if (pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
+        setRequestNotice({kind:'committed', pending, key:result.key});
         await reload();
-      } else setDialogError('No completed result was found yet. The request may still be processing. You can retry the same request safely.');
+      } else {
+        setRequestNotice({kind:'unconfirmed', pending});
+      }
     } catch (cause) {
       if (!controller.signal.aborted) {
-        setRecoveryDenied(cause instanceof KeyRequestError && [401,403].includes(cause.status));
-        setDialogError(cause instanceof Error ? cause.message : 'Could not check the saved result.');
+        const message = cause instanceof Error ? cause.message : 'Could not check the previous key request.';
+        setRequestNotice(current => (current?.kind === 'uncertain' || current?.kind === 'unconfirmed')
+          ? {...current, error: message} : {kind:'uncertain', pending, error: message});
       }
-    } finally { if (!controller.signal.aborted) setBusy(false); }
+    } finally { if (mutationController.current === controller) setChecking(false); }
   }
 
   async function sendKeyRequest(pending: PendingKeyMutation) {
-    if (!canIssue || busy || recoveryDenied || cacheError) return;
-    try {
-      const saved = readPendingKeyMutation(localStorage, cacheKey);
-      if (saved && saved.requestId !== pending.requestId) {
-        setRecovery(saved); setRecoveredKey(null); setDialog({kind:'recover'}); return;
-      }
-      savePendingKeyMutation(localStorage, cacheKey, pending);
-    }
-    catch (cause) { setDialogError(cause instanceof Error ? cause.message : 'The request has not been sent.'); return; }
-    setRecovery(pending);
+    if (!canIssue || busy) return;
+    mutationController.current?.abort();
     const controller = new AbortController(); mutationController.current = controller;
+    setChecking(false);
+    setPendingRequest(pending);
+    setStoredHint(null);
+    setRequestNotice(null);
+    // Best-effort navigation hint only. A failed write is ignored so browser
+    // storage can never prevent the POST below.
+    rememberKeyMutationHint(hintKey, pending);
     setBusy(true); setDialogError('');
     try {
       const result = await submitKeyMutation(token, collectionPath, pending, controller.signal);
       if (controller.signal.aborted) return;
       if (result.kind === 'issued') {
-        clearRecovery(pending); setIssued(result.issued);
+        clearActiveRequest(pending); setCopyError(''); setIssued(result.issued);
+        setRevealedSecrets(current => ({ ...current, [result.issued.id]: result.issued.token }));
         const effectiveModels = result.issued.allowed_models ?? result.issued.key?.allowed_models
           ?? (pending.action === 'create' ? (pending.body?.allowed_models as string[] | undefined) ?? ['*'] : keys.find(key => key.id === pending.keyId)?.allowed_models ?? ['*']);
         setSecretModel(effectiveModels.includes('*') ? modelIds[0] ?? '' : effectiveModels[0] ?? '');
-        if (initialScope) rememberChatKey({...result.issued,name:pending.label,allowedModels:effectiveModels,...initialScope});
+        if (initialScope && result.issued.key?.invocation_allowed === true) rememberChatKey({...result.issued,name:pending.label,allowedModels:effectiveModels,...initialScope});
         if (pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
         setDialog({kind:'secret'});
+      } else if (result.kind === 'recovered') {
+        // The server committed but the secret is not retrievable. Offer a
+        // non-blocking way to rotate the resulting key; never force revocation.
+        clearActiveRequest(pending);
+        if (pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
+        setRequestNotice({kind:'committed', pending, key:result.key});
+        setDialog(null);
       } else {
-        setRecoveredKey(result.kind === 'recovered' ? result.key : null);
-        if (result.kind === 'recovered' && pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
-        setDialog({kind:'recover'});
+        // No committed result was observed. The request may still be running,
+        // so keep the same identity for a safe retry.
+        setPendingRequest(pending);
+        setRequestNotice({kind:'unconfirmed', pending});
+        setDialog(null);
       }
       await reload();
     } catch (cause) {
       if (controller.signal.aborted) return;
       if (confirmedKeyValidationFailure(cause)) {
-        clearRecovery(pending);
+        clearActiveRequest(pending);
         // The unchanged form remains correctable after a confirmed rejection.
-        if (dialog?.kind === 'recover') { setDialog(null); setCopyError(cause instanceof Error ? cause.message : 'The key request was rejected. Review the input before creating a new request.'); }
-      } else {
-        setRecoveryDenied(cause instanceof KeyRequestError && [401,403].includes(cause.status));
-        setDialog({kind:'recover'});
+        const message = cause instanceof Error ? cause.message : 'The key request was rejected. Review the input before creating a new request.';
+        if (dialog) setDialogError(message);
+        else setRequestNotice({kind:'rejected', error:message});
+        return;
       }
-      setDialogError(cause instanceof Error ? cause.message : 'The result could not be confirmed.');
-    } finally { if (!controller.signal.aborted) setBusy(false); }
+      setPendingRequest(pending);
+      setRequestNotice({kind:'uncertain', pending, error: cause instanceof Error ? cause.message : 'The result could not be confirmed.'});
+      setDialog(null);
+    } finally { if (mutationController.current === controller) setBusy(false); }
   }
 
-  async function finishRecovery() {
-    if (!recovery || !recoveredKey || !canIssue || busy || recoveryDenied) return;
-    const pending = recovery, key = recoveredKey;
-    const controller = new AbortController(); mutationController.current = controller;
-    setBusy(true); setDialogError('');
-    try {
-      if (!key.revoked && !key.expired) await keyRequest<void>(token, `${collectionPath}/${encodeURIComponent(key.id)}`, 'DELETE', undefined, controller.signal);
-      if (controller.signal.aborted) return;
-      forgetChatKey(key.id); clearRecovery(pending); setDialog(null); await reload();
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        setRecoveryDenied(cause instanceof KeyRequestError && [401,403].includes(cause.status));
-        setDialogError(cause instanceof Error ? cause.message : 'Revocation could not be confirmed. Check the saved result before continuing.');
-      }
-    } finally { if (!controller.signal.aborted) setBusy(false); }
+  function dismissRequestNotice() {
+    if (activePending) forgetHint(activePending);
+    setPendingRequest(null); setStoredHint(null); setRequestNotice(null);
   }
 
   function openCreate() {
-    if (recovery || cacheError) { setDialog({kind:'recover'}); return; }
-
     setName('');
     setTtl(expiryOptions[1].seconds);
     setAllowedModels(['*']);
@@ -290,6 +349,8 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
 
   useEffect(() => {
     if (location.state?.createKey !== true || workspaceLoading) return;
+    const returnTo = location.state?.returnTo;
+    if (typeof returnTo === 'string' && /^\/generations(?:\/[^/?#]+)?(?:[?#]|$)/.test(returnTo) && !returnTo.startsWith('//')) generationReturn.current = returnTo;
     if (canIssue) openCreate();
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [location.state, location.pathname, location.search, workspaceLoading, canIssue, navigate]);
@@ -303,6 +364,44 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
     } catch {
       const message = 'Clipboard access is unavailable. Select and copy the value instead.';
       if (dialog) setDialogError(message); else setCopyError(message);
+    }
+  }
+
+  async function fetchKeySecret(key: ProjectKey): Promise<string | null> {
+    const existing = revealedSecrets[key.id] || key.token;
+    if (existing) return existing;
+    if (!collectionPath) return null;
+    try {
+      setCopyError('');
+      const res = await keyRequest<ProjectKey & { data?: ProjectKey[] }>(token, `${collectionPath}/${encodeURIComponent(key.id)}?reveal=true`, 'GET');
+      const secret = res?.token ?? res?.data?.find(item => item.id === key.id)?.token ?? null;
+      if (!secret) {
+        setCopyError('This key was created before secret reveal was enabled. Rotate the key once to enable reveal and copy.');
+        return null;
+      }
+      setRevealedSecrets(current => ({ ...current, [key.id]: secret }));
+      return secret;
+    } catch (cause) {
+      setCopyError(cause instanceof Error ? cause.message : 'Could not reveal this API key.');
+      return null;
+    }
+  }
+
+  async function toggleRevealKey(key: ProjectKey) {
+    if (visibleSecretIds[key.id]) {
+      setVisibleSecretIds(current => ({ ...current, [key.id]: false }));
+      return;
+    }
+    const secret = await fetchKeySecret(key);
+    if (secret) {
+      setVisibleSecretIds(current => ({ ...current, [key.id]: true }));
+    }
+  }
+
+  async function copyKeySecret(key: ProjectKey) {
+    const secret = await fetchKeySecret(key);
+    if (secret) {
+      await copy(`row:${key.id}`, secret);
     }
   }
 
@@ -345,7 +444,6 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   }
 
   async function rotate(key: ProjectKey) {
-    if (recovery || cacheError) { setDialog({kind:'recover'}); return; }
     await sendKeyRequest({version:1,requestId:crypto.randomUUID(),action:'rotate',label:key.name,keyId:key.id});
   }
 
@@ -366,65 +464,113 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   }
 
   const dialogOpen = dialog !== null;
-  const dialogTitle = dialog?.kind === 'recover' ? uiT("Review key request") : dialog?.kind === 'secret' ? uiT("Save your API key")
+  const dialogTitle = dialog?.kind === 'secret' ? uiT("Save your API key")
     : dialog?.kind === 'rotate' ? uiT("Rotate API key")
       : dialog?.kind === 'revoke' ? uiT("Revoke API key")
         : uiT("Create an API key");
-  const dialogDescription = dialog?.kind === 'recover' ? uiT("Confirm what happened before creating or rotating another key.") : dialog?.kind === 'secret'
-    ? uiT("This secret is shown once. Copy it now, then use it from your application.")
+  const dialogDescription = dialog?.kind === 'secret'
+    ? uiT("Copy your API key now, or reveal and copy it anytime from the keys list.")
     : dialog?.kind === 'rotate' ? uiF("Rotating {0} immediately revokes its current secret.", [dialog.key.name])
       : dialog?.kind === 'revoke' ? uiF("Requests using {0} will stop working immediately.", [dialog.key.name])
         : '';
 
+  function requestNoticeMessage(notice: KeyRequestNotice): string {
+    if (notice.kind === 'rejected') return uiT("The key request was rejected. Review the input before creating a new request.");
+    if (notice.kind === 'committed') return !notice.key.revoked && !notice.key.expired
+      ? uiT("The request completed, but its secret cannot be shown again. Rotate the resulting key to get a new secret.")
+      : uiT("The request completed, but the resulting key is no longer active. Create a new key when you are ready.");
+    if (notice.kind === 'unconfirmed') return uiT("No completed result was found yet. The request may still be processing.");
+    return uiT("The previous key request may not have completed. Check its status or retry the same request. You can still create or rotate keys.");
+  }
+  // A stored hint is only a non-blocking reminder. It is never cached state and
+  // never prevents either mutation form from opening or submitting.
+  const activeNotice: KeyRequestNotice | null = requestNotice ?? (activePending ? {kind:'uncertain', pending:activePending} : null);
+
+  const usageExample = issued ? `curl "${baseUrl()}/models" ${String.fromCharCode(92)}
+  -H "Authorization: Bearer ${issued.token}"` : '';
+  const invocationAllowed = issued?.key?.invocation_allowed !== false;
+
   return <div className="keys-page">
-    <PageHeader title={uiT("API keys")} action={canIssue
-      ? <Button className="header-icon-action" aria-label={uiT("New API key")} title={uiT("New API key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New API key")}</span></Button>
+    <PageHeader title={uiT("Keys")} action={canIssue
+      ? <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>
       : undefined} />
-    {(recovery || cacheError) && <Alert><AlertTitle>{uiT("Key request needs review")}</AlertTitle><AlertDescription><p>{cacheError || (canIssue ? uiT("A previous key request has an unresolved outcome.") : uiT("Write access is required to recover this key request. Contact your workspace owner."))}</p>{canIssue && <Button variant="outline" onClick={event => {dialogReturnFocus.current=event.currentTarget;setDialogError('');setDialog({kind:'recover'});}}>{uiT("Review request")}</Button>}</AlertDescription></Alert>}
+    {activeNotice && (() => {
+      const noticeError = 'error' in activeNotice ? activeNotice.error : '';
+      const pendingAction = 'pending' in activeNotice ? activeNotice.pending.action : null;
+      const noticeTitle = noticeError
+        ? pendingAction === 'rotate' ? uiT("Could not rotate API key") : uiT("Could not create API key")
+        : activeNotice.kind === 'unconfirmed' ? uiT("API key request still processing")
+          : activeNotice.kind === 'uncertain' ? uiT("API key request status unknown")
+            : activeNotice.kind === 'committed' ? uiT("API key request completed")
+              : uiT("API key request rejected");
+      return <Alert variant={noticeError ? 'destructive' : 'default'} role="alert">
+        {noticeError && <AlertTriangle aria-hidden="true" />}
+        <AlertTitle>{noticeTitle}</AlertTitle>
+        <AlertDescription>
+          {noticeError
+            ? <><p className="font-medium">{uiT(noticeError)}</p><p>{uiT("The API key request failed. It may still have been saved; check its status before retrying.")}</p></>
+            : <p>{requestNoticeMessage(activeNotice)}</p>}
+          {!canIssue && activeNotice.kind !== 'committed' && activeNotice.kind !== 'rejected' && <p>{uiT("Write access is required to check this request.")}</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {activeNotice.kind === 'committed' ? <>
+              {canIssue && !activeNotice.key.revoked && !activeNotice.key.expired && <Button variant="outline" size="sm" disabled={busy} onClick={() => { dialogReturnFocus.current = null; setDialogError(''); setDialog({kind:'rotate', key:activeNotice.key}); }}>{uiT("Rotate to get a new secret")}</Button>}
+              <Button variant="ghost" size="sm" disabled={busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
+            </> : activeNotice.kind === 'rejected' ? <>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
+            </> : <>
+              {canIssue && <Button variant="outline" size="sm" disabled={checking || busy} onClick={() => void checkRequest(activeNotice.pending)}>{checking ? uiT("Checking…") : uiT("Check status")}</Button>}
+              {canIssue && <Button variant="ghost" size="sm" disabled={checking || busy} onClick={() => void sendKeyRequest(activeNotice.pending)}>{uiT("Retry request")}</Button>}
+              <Button variant="ghost" size="sm" disabled={checking || busy} onClick={dismissRequestNotice}>{uiT("Dismiss")}</Button>
+            </>}
+          </div>
+        </AlertDescription>
+      </Alert>;
+    })()}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">{uiT("Choose a workspace from the sidebar to manage its keys.")}</p>}
-    {workspace && <div className="keys-scope-line"><Popover><PopoverTrigger asChild><Button ref={searchTriggerRef} type="button" variant="ghost" size="icon" aria-label={uiT("Search API keys")} title={uiT("Search API keys")} className={keyQuery ? "text-primary bg-accent" : undefined}><Search size={17}/></Button></PopoverTrigger><PopoverContent align="start" collisionPadding={16} className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus ref={searchInputRef} aria-label={uiT("Search API keys")} placeholder={uiT("Search keys…")} value={keyQuery} onChange={event => setKeyQuery(event.target.value)} />{keyQuery && <Button variant="ghost" size="sm" onClick={()=>setKeyQuery('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover><span role="status">{loading ? (keys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !keys.length ? uiT("Keys unavailable") : keyQuery.trim() ? uiF("{0} of {1} {2}", [visibleKeys.length, keys.length, keys.length === 1 ? uiT("key") : uiT("keys")]) : `${keys.length} ${keys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button type="button" variant="ghost" size="icon" aria-label={uiT("Refresh API keys")} title={uiT("Refresh")} disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
+    {workspace && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (visibleKeys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !visibleKeys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button ref={refreshButtonRef} type="button" variant="ghost" size="icon" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
     {!canWrite && workspace && <p className="key-read-only">{uiT("You have read-only access.")}</p>}
-    {error && <p className="key-error" role="alert">{error}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>{uiT("Try again")}</Button></p>}
-    {workspace && <section className="key-list" aria-label={uiT("API keys")} aria-busy={loading}>
-      {loading && !keys.length && <TableSkeleton columns={6} rows={4} label="" />}
-      {!loading && !error && !keys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No API keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader></Empty>}
-      {!loading && keys.length > 0 && visibleKeys.length === 0 && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching keys")}</EmptyTitle><EmptyDescription>{uiT("Try another name or clear your search.")}</EmptyDescription></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => {setKeyQuery('');searchTriggerRef.current?.focus();}}>{uiT("Clear search")}</Button></EmptyContent></Empty>}
-      {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>{uiT("Key")}</TableHead><TableHead className="key-table-metadata">{uiT("Model access")}</TableHead><TableHead className="key-table-metadata">{uiT("Limits")}</TableHead><TableHead className="key-table-metadata">{uiT("Expires")}</TableHead><TableHead className="key-table-metadata">{uiT("Last used")}</TableHead><TableHead>{uiT("Status")}</TableHead>{showActions && <TableHead>{uiT("Actions")}</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
-        <TableCell><Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={uiF("View key {0}", [key.name])}><KeyRound size={15} />{key.name}</Link></TableCell>
+    {error && <p className="key-error" role="alert">{uiT(error)}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>{uiT("Try again")}</Button></p>}
+    {(workspace || workspaceLoading) && <section className="key-list" aria-label={uiT("Keys")} aria-busy={isPending}>
+      {(isPending || workspaceLoading) && !visibleKeys.length && <div className="table-wrap"><TableSkeleton tableClassName="key-table" rows={4} label="" headers={[uiT("Key"), uiT("Model access"), uiT("Limits"), uiT("Expires"), uiT("Last used"), uiT("Status"), ...(canWrite ? [uiT("Actions")] : [])]} columnClassNames={[undefined, 'key-table-metadata', 'key-table-metadata', 'key-table-metadata', 'key-table-usage', undefined, ...(canWrite ? ['text-right'] : [])]} cellWidths={['w-32', 'w-28', 'w-20', 'w-20', 'w-24', 'w-14', ...(canWrite ? ['w-6'] : [])]} /></div>}
+      {!isPending && !workspaceLoading && !error && keyStatusFilter === "all" && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader></Empty>}
+      {!isPending && !workspaceLoading && !error && keyStatusFilter !== 'all' && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{keyStatusFilter === 'active' ? uiT("No active keys") : uiT("No revoked or expired keys")}</EmptyTitle></EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => {setKeyStatusFilter('all'); filterTriggerRef.current?.focus();}}>{uiT("Show all keys")}</Button></EmptyContent></Empty>}
+      {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>{uiT("Key")}</TableHead><TableHead className="key-table-metadata">{uiT("Model access")}</TableHead><TableHead className="key-table-metadata">{uiT("Limits")}</TableHead><TableHead className="key-table-metadata">{uiT("Expires")}</TableHead><TableHead className="key-table-usage">{uiT("Last used")}</TableHead><TableHead>{uiT("Status")}</TableHead>{showActions && <TableHead className="text-right">{uiT("Actions")}</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
+        <TableCell>
+          <Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={(keyNameCounts.get(key.name) ?? 0) > 1 ? `${uiF("View key {0}", [key.name])}. ${uiT("Expires")}: ${key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), {dateStyle: 'medium', timeStyle: 'medium'}).format(new Date(key.expires_at_ms))}. ${uiT("Last used")}: ${keyLastUsed(key)}${keyReference(key.slug) ? `. ${uiT("Reference", "引用")}: ${keyReference(key.slug)}` : ''}` : uiF("View key {0}", [key.name])}><KeyRound size={15} /><span>{key.name}</span></Link>
+          {(keyNameCounts.get(key.name) ?? 0) > 1 && <p className="mt-1 whitespace-normal break-words text-xs text-muted-foreground">{uiT("Expires")}: {key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), {dateStyle: 'medium', timeStyle: 'medium'}).format(new Date(key.expires_at_ms))} · {uiT("Last used")}: {keyLastUsed(key)}{keyReference(key.slug) && <> · {uiT("Reference", "引用")}: {keyReference(key.slug)}</>}</p>}
+          {canWrite && !key.revoked && !key.expired && <div className="mt-1 flex min-w-0 items-center gap-1 [&>button]:shrink-0">
+            <code className="min-w-0 whitespace-normal rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground [overflow-wrap:anywhere] select-all">{visibleSecretIds[key.id] && (revealedSecrets[key.id] || key.token) ? (revealedSecrets[key.id] || key.token) : formatMaskedKey(revealedSecrets[key.id] || key.token, key.token_preview)}</code>
+            <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={visibleSecretIds[key.id] ? uiF("Hide API key for {0}", [key.name]) : uiF("Reveal API key for {0}", [key.name])} title={visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")} onClick={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff size={14} /> : <Eye size={14} />}</Button>
+            <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={uiF("Copy API key for {0}", [key.name])} title={copied === `row:${key.id}` ? uiT("Copied") : uiT("Copy key")} onClick={() => void copyKeySecret(key)}>{copied === `row:${key.id}` ? <Check size={14} /> : <Clipboard size={14} />}</Button>
+          </div>}
+        </TableCell>
         <TableCell className="key-table-metadata"><span className="key-model-summary" title={key.allowed_models.includes('*') ? uiT("Every configured model route") : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.join(', ')}</span></TableCell>
         <TableCell className="key-table-metadata"><span className="key-model-summary">{keyLimitsSummary(key)}</span></TableCell>
         <TableCell className="key-table-metadata">{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
-        <TableCell className="key-table-metadata">{keyLastUsed(key)}</TableCell>
+        <TableCell className="key-table-usage">{keyLastUsed(key)}</TableCell>
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></TableCell>
-        {showActions && <TableCell>{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
+        {showActions && <TableCell className="text-right">{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem onSelect={() => void copyKeySecret(key)}><Clipboard />{uiT("Copy key")}</DropdownMenuItem><DropdownMenuItem onSelect={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff /> : <Eye />}{visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")}</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} state={{ editKey: true }}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
       </TableRow>)}</TableBody></Table></div>}
+      {nextCursor && !isPending && visibleKeys.length > 0 && <div className="mt-4 flex justify-center"><Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? uiT("Loading…") : uiT("Load more keys")}</Button></div>}
     </section>}
 
 
-    {copyError && <p role="alert" className="error-text">{copyError}</p>}
-    <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { setDialog(null); setDialogError(''); } }}>
-      <DialogContent className="niu-modal key-dialog max-h-[90dvh] overflow-y-auto" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : searchTriggerRef.current;if (target) {event.preventDefault();target.focus();}}}>
+    {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
+    <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { const returnTo = dialog?.kind === 'create' ? generationReturn.current : null; setDialog(null); setDialogError(''); if (returnTo) navigate(returnTo); } }}>
+      <DialogContent className="niu-modal key-dialog max-h-[90dvh] overflow-y-auto" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : (filterTriggerRef.current ?? refreshButtonRef.current);if (target) {event.preventDefault();target.focus();}}}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div><DialogTitle>{dialogTitle}</DialogTitle>{dialogDescription && <DialogDescription>{dialogDescription}</DialogDescription>}</div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")} disabled={busy}><X size={18} /></DialogClose>
         </DialogHeader>
-      {dialog?.kind === 'recover' && <div className="niu-modal-form">
-        {cacheError ? <><p role="alert" className="error-text">{cacheError}</p><p>{uiT("Review the key list and revoke any key whose secret you did not save before clearing this reminder. Clearing it does not revoke a key.")}</p><Button variant="outline" onClick={() => { try { localStorage.removeItem(cacheKey); setCacheError(''); setDialog(null); } catch { setCacheError('Browser storage is unavailable. Restore access to browser storage before clearing this reminder.'); } }}>{uiT("I reviewed my keys")}</Button></> : <>
-          <p className="break-words">{recovery?.label}</p>
-          {recoveredKey ? <><p>{recovery?.action === 'rotate' ? uiT("Rotation completed. The old secret no longer works.") : uiT("The key was created.")}{" "}{uiT("Its secret cannot be retrieved.")}</p><p>{recoveredKey.revoked || recoveredKey.expired ? uiT("This key is no longer active. You can finish recovery and create a new key.") : uiT("Revoke this key before creating a new one. Revocation prevents new requests using this key.")}</p></> : <p>{recovery?.action === 'rotate' ? uiT("Rotation may have completed, so the old secret may no longer work.") : uiT("Creation may have completed even though its response was not received.")}{" "}{uiT("Check the saved result or retry the same request. A retry will not create a second key.")}</p>}
-          {(!canIssue || recoveryDenied) && <p role="alert">{uiT("Access is unavailable. Sign in again with workspace write access or ask the workspace owner to review this request.")}</p>}
-          {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-          <footer className="niu-modal-actions flex-wrap"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Close")}</Button>{!recoveredKey && recovery && <Button variant="outline" disabled={busy || !canIssue || recoveryDenied} onClick={() => void sendKeyRequest(recovery)}>{uiT("Retry same request")}</Button>}<Button variant={recoveredKey ? 'outline' : 'default'} disabled={busy || !canIssue || recoveryDenied} onClick={() => void checkRecovery()}>{busy ? uiT("Working…") : uiT("Check saved result")}</Button>{recoveredKey && <Button variant={recoveredKey.revoked || recoveredKey.expired ? 'default' : 'destructive'} disabled={busy || !canIssue || recoveryDenied} onClick={() => void finishRecovery()}>{recoveredKey.revoked || recoveredKey.expired ? uiT("Finish recovery") : uiT("Revoke key")}</Button>}</footer>
-        </>}
-      </div>}
       {dialog?.kind === 'create' && <form className="niu-modal-form" onSubmit={event => void issue(event)}>
+        {activePending?.action === 'create' && <Alert><AlertDescription><p>{uiT("A previous key request may still complete. Creating another key could create a duplicate.")}</p><Button type="button" variant="outline" size="sm" onClick={() => { setDialog(null); void checkRequest(activePending); }}>{uiT("Check previous request")}</Button></AlertDescription></Alert>}
         <Label htmlFor="api-key-name">{uiT("Name")}<Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder={uiT("e.g. production app")} value={name} onChange={event => setName(event.target.value)} required /></Label>
         <div className="key-expiration-field">
           <Label htmlFor="api-key-models">{uiT("Model access")}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button id="api-key-models" disabled={busy} type="button" variant="outline" className="h-10 w-full justify-between font-normal">
-                {allowedModels.includes('*') ? uiT("All configured models") : uiF("{0} model{1} selected", [allowedModels.length, allowedModels.length === 1 ? '' : 's'])}
+                {allowedModels.includes('*') ? uiT("All configured models") : allowedModels.length === 1 ? uiT("1 model selected") : uiF("{0} models selected", [allowedModels.length])}
                 <ChevronDown aria-hidden="true" size={16} />
               </Button>
             </DropdownMenuTrigger>
@@ -449,13 +595,13 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button id="api-key-expiry" disabled={busy} type="button" variant="outline" className="h-10 w-full justify-between font-normal">
-                {expiryOptions.find(option => option.seconds === ttl)?.label}
+                {uiT(expiryOptions.find(option => option.seconds === ttl)?.label ?? 'Never')}
                 <ChevronDown aria-hidden="true" size={16} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start" sideOffset={5} collisionPadding={10}>
               <DropdownMenuRadioGroup value={ttl === null ? 'never' : String(ttl)} onValueChange={value => setTtl(value === 'never' ? null : Number(value))}>
-                {expiryOptions.map(option => <DropdownMenuRadioItem key={option.seconds === null ? 'never' : option.seconds} value={option.seconds === null ? 'never' : String(option.seconds)}>{option.label}</DropdownMenuRadioItem>)}
+                {expiryOptions.map(option => <DropdownMenuRadioItem key={option.seconds === null ? 'never' : option.seconds} value={option.seconds === null ? 'never' : String(option.seconds)}>{uiT(option.label)}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -469,8 +615,9 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             <div className="grid gap-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="api-key-spending-limit">{uiT("Spending limit")}{spendingCurrency ? ` (${currencySymbol(spendingCurrency)})` : ''}</Label>
-                <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder={uiT("Unlimited")} value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
+                <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help api-key-spending-scope" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder={uiT("Unlimited")} value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
                 <p id="api-key-spending-help" className="text-xs text-muted-foreground">{uiT("Lifetime spending allowance for this key. It does not reset monthly. Leave blank for unlimited spending.")}</p>
+                <p id="api-key-spending-scope" className="text-xs text-muted-foreground">{uiT("This limit covers Niu customer charges and reserved requests. It does not cover charges paid directly to a Provider using your own API key. Manage those costs with the Provider.")}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -494,19 +641,22 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             </div>
           </div>}
         </div>
-        {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button type="button" variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
+        {dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}
+        <footer className="niu-modal-actions"><Button type="button" variant="ghost" disabled={busy} onClick={() => {if (generationReturn.current) navigate(generationReturn.current); else setDialog(null);}}>{generationReturn.current ? uiT("Return to chat") : uiT("Cancel")}</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? uiT("Creating…") : uiT("Create key")}</Button></footer>
       </form>}
       {dialog?.kind === 'secret' && issued && <div className="niu-modal-form key-issued-view">
-        <div className="key-once-notice"><Check size={17} /><span>{uiT("Copy this secret before closing. Niu cannot reveal it again.")}</span></div>
+        <div className="key-once-notice"><Check size={17} /><span>{uiT("API key ready. You can also reveal and copy it anytime from the keys list.")}</span></div>
         <div className="key-copy-row"><Label htmlFor="issued-api-key">{uiT("API key")}</Label><div><Input id="issued-api-key" value={issued.token} readOnly type="text" /><Button type="button" variant="outline" onClick={() => void copy('key', issued.token)}><Clipboard size={15} />{copied === 'key' ? uiT("Copied") : uiT("Copy key")}</Button></div></div>
         <div className="key-copy-row"><Label htmlFor="issued-base-url">{uiT("Base URL")}</Label><div><Input id="issued-base-url" value={baseUrl()} readOnly /><Button type="button" variant="outline" onClick={() => void copy('url', baseUrl())}><Clipboard size={15} />{copied === 'url' ? uiT("Copied") : uiT("Copy URL")}</Button></div></div>
-        <div className="key-example key-example-prerequisite" role="status"><div><strong>{uiT("Request example unavailable")}</strong></div><p>{videoExample ? uiT("Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.") : exampleModel ? uiT("A runnable request example cannot be confirmed from this model’s catalog metadata. Open Generations to choose a supported workflow.") : canManagePlatform ? uiT("Connect a Provider and add a supported model route to use this key.") : uiT("Ask a platform administrator to add a model route to the catalog.")}</p>{!exampleModel&&canManagePlatform && <Button asChild variant="outline"><Link to="/admin/providers">{uiT("Connect provider")}</Link></Button>}</div>
-        {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button asChild><Link to={`/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.key?.slug || issued.id})}`} onClick={() => setDialog(null)}>{videoExample?uiT("Use in Video"):uiT("Open Generations")}</Link></Button><Button variant="outline" onClick={() => setDialog(null)}>{uiT("Done")}</Button></footer>
+        {invocationAllowed ? videoExample ? <div className="key-example key-example-prerequisite" role="status"><div><strong>{uiT("Request example unavailable")}</strong></div><p>{uiT("Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.")}</p></div> : <div className="key-example"><div className="model-route-example-heading"><strong>{uiT("Check access with your API key")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copy('example', usageExample)}><Clipboard size={14} />{copied === 'example' ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div><pre className="model-route-example"><code>{usageExample}</code></pre></div> : <p role="status">{!invocationAllowed ? uiT("This key is for management only and cannot invoke models.") : uiT("Model invocation permission is unavailable for this key.")}</p>}
+        {dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}
+        <footer className="niu-modal-actions">{invocationAllowed && <Button asChild><Link to={(() => {if (!generationReturn.current) return `/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.key?.slug || issued.id})}`; const target = new URL(generationReturn.current, window.location.origin); target.searchParams.set('key', issued.key?.slug || issued.id); return target.pathname + target.search + target.hash;})()} onClick={() => setDialog(null)}>{generationReturn.current ? uiT("Return to chat") : videoExample?uiT("Use in Video"):uiT("Open Generations")}</Link></Button>}<Button variant={invocationAllowed ? "outline" : "default"} onClick={() => setDialog(null)}>{uiT("Done")}</Button></footer>
       </div>}
-      {dialog?.kind === 'rotate' && <div className="niu-modal-form"><p className="key-confirm-copy">{uiT("The replacement secret is shown once.")}</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? uiT("Rotating…") : uiT("Rotate key")}</Button></footer></div>}
-      {dialog?.kind === 'revoke' && <div className="niu-modal-form"><p className="key-confirm-copy">{uiT("This cannot be undone.")}</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Keep key")}</Button><Button variant="destructive" disabled={busy} onClick={() => void revoke(dialog.key)}>{busy ? uiT("Revoking…") : uiT("Revoke key")}</Button></footer></div>}
+      {dialog?.kind === 'rotate' && <div className="niu-modal-form">
+        {activePending?.action === 'rotate' && <Alert><AlertDescription><p>{uiT("A previous key rotation may still complete. Check it before rotating this key again.")}</p><Button type="button" variant="outline" size="sm" onClick={() => { setDialog(null); void checkRequest(activePending); }}>{uiT("Check previous request")}</Button></AlertDescription></Alert>}
+        <p className="key-confirm-copy">{uiT("A new secret will be generated and the current secret will stop working immediately.")}</p>{dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Cancel")}</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? uiT("Rotating…") : uiT("Rotate key")}</Button></footer>
+      </div>}
+      {dialog?.kind === 'revoke' && <div className="niu-modal-form"><p className="key-confirm-copy">{uiT("This cannot be undone.")}</p>{dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>{uiT("Keep key")}</Button><Button variant="destructive" disabled={busy} onClick={() => void revoke(dialog.key)}>{busy ? uiT("Revoking…") : uiT("Revoke key")}</Button></footer></div>}
     </DialogContent>
     </Dialog>
   </div>;

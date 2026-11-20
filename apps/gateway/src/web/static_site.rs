@@ -2,10 +2,9 @@ use std::env;
 
 use axum::{
     Router, middleware,
-    response::{IntoResponse, Redirect, Response},
+    response::{Redirect, Response},
     routing::get,
 };
-use tower::ServiceExt;
 use tower_http::{
     compression::{CompressionLayer, predicate::NotForContentType},
     services::{ServeDir, ServeFile},
@@ -35,6 +34,24 @@ async fn canonical_public_root(uri: axum::http::Uri) -> Redirect {
     Redirect::permanent(&destination)
 }
 
+async fn redirect_legacy_help(uri: axum::http::Uri) -> Redirect {
+    let article = uri
+        .path()
+        .strip_prefix("/help")
+        .unwrap_or_default()
+        .trim_start_matches('/');
+    let article = match article.trim_end_matches('/') {
+        "api" | "api/rest" => "api/explorer/",
+        _ => article,
+    };
+    let mut destination = format!("/docs/{article}");
+    if let Some(query) = uri.query() {
+        destination.push('?');
+        destination.push_str(query);
+    }
+    Redirect::permanent(&destination)
+}
+
 fn from_directories<S: Clone + Send + Sync + 'static>(
     site_dir: Option<&str>,
     catalog_dir: &str,
@@ -46,7 +63,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     let docs = Router::new().fallback_service(
         ServeDir::new(docs_dir).not_found_service(ServeFile::new(format!("{docs_dir}/404.html"))),
     );
-    let models = Router::new().fallback_service(ServeDir::new(format!("{catalog_dir}/models")));
     let workspaces = Router::new().fallback_service(
         ServeDir::new(dashboard_dir).fallback(ServeFile::new(dashboard_index.clone())),
     );
@@ -55,13 +71,15 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         // Directory entries must survive a browser reload just like scoped workspace pages.
         .route_service("/workspaces", ServeFile::new(dashboard_index.clone()))
         .route_service("/workspaces/", ServeFile::new(dashboard_index.clone()))
-        .route("/help", get(|| async { Redirect::temporary("/help/") }))
-        .route_service(
-            "/help/",
-            ServeFile::new(format!("{dashboard_dir}/index.html")),
-        );
+        .route("/help", get(redirect_legacy_help))
+        .route("/help/", get(redirect_legacy_help))
+        .route("/help/{*article}", get(redirect_legacy_help))
+        .route("/zh/docs", get(redirect_zh_docs))
+        .route("/zh/docs/", get(redirect_zh_docs))
+        .route("/zh/docs/{*article}", get(redirect_zh_docs));
     for path in [
         "/login",
+        "/register",
         "/connect",
         "/installation",
         "/admin",
@@ -69,8 +87,10 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/admin/settings",
         "/admin/reports",
         "/admin/balances",
+        "/admin/routing",
         "/admin/pools",
         "/admin/audit",
+        "/admin/incidents",
         "/admin/model-pools",
         "/admin/financial-reports",
         "/admin/account-balances",
@@ -83,7 +103,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/admin/audit-logs",
         "/admin/branding",
         "/admin/payments",
-        "/generations",
         "/chat",
     ] {
         let slash_path = format!("{path}/");
@@ -94,13 +113,18 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     for prefix in [
         "/admin/providers",
         "/admin/suppliers",
+        "/generations",
+        "/invite",
         "/settings",
         "/providers",
         "/suppliers",
+        "/supplier-accounts",
         "/activity",
+        "/models",
     ] {
         let slash_prefix = format!("{prefix}/");
         app = app
+            .route_service(prefix, ServeFile::new(dashboard_index.clone()))
             .route_service(&slash_prefix, ServeFile::new(dashboard_index.clone()))
             .nest(
                 prefix,
@@ -108,11 +132,8 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             );
     }
     let app = app
+        .route_service("/llms.txt", ServeFile::new(format!("{docs_dir}/llms.txt")))
         .route_service("/docs/", ServeFile::new(format!("{docs_dir}/index.html")))
-        .route_service(
-            "/models/",
-            ServeFile::new(format!("{catalog_dir}/models/index.html")),
-        )
         .nest_service(
             "/_catalog",
             ServeDir::new(format!("{catalog_dir}/_catalog")),
@@ -122,42 +143,8 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             ServeDir::new(format!("{catalog_dir}/catalog-assets")),
         )
         .nest_service("/assets", ServeDir::new(format!("{dashboard_dir}/assets")))
-        .nest(
-            "/help",
-            Router::new().fallback_service(ServeFile::new(format!("{dashboard_dir}/index.html"))),
-        )
         .nest("/docs", docs)
-        .nest("/models", models)
         .nest("/workspaces", workspaces);
-
-    // Public catalog remains public; explicit workspace context enters the
-    // authenticated dashboard. All data access still uses the normal API guards.
-    let model_dashboard = ServeFile::new(dashboard_index.clone());
-    let app = app.layer(middleware::from_fn(
-        move |request: axum::extract::Request, next: axum::middleware::Next| {
-            let entry = model_dashboard.clone();
-            async move {
-                let path = request.uri().path();
-                let scoped_models = (path == "/models" || path.starts_with("/models/"))
-                    && request.uri().query().is_some_and(|query| {
-                        url::form_urlencoded::parse(query.as_bytes())
-                            .any(|(key, value)| key == "workspace" && !value.is_empty())
-                    });
-                if scoped_models {
-                    match entry.oneshot(request).await {
-                        Ok(response) => response.into_response(),
-                        Err(never) => match never {},
-                    }
-                } else if path == "/models" {
-                    canonical_public_root(request.uri().clone())
-                        .await
-                        .into_response()
-                } else {
-                    next.run(request).await
-                }
-            }
-        },
-    ));
 
     // Marketing is a separately built artifact. Never use it as a catch-all:
     // it must not capture product routes, API failures, or workspace deep links.
@@ -210,8 +197,28 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             .nest_service(
                 "/site-assets",
                 ServeDir::new(format!("{directory}/site-assets")),
+            )
+            .merge(
+                if std::path::Path::new(&directory)
+                    .join("zh/index.html")
+                    .is_file()
+                {
+                    Router::new()
+                        .route_service("/zh/", ServeFile::new(format!("{directory}/zh/index.html")))
+                        .nest(
+                            "/zh",
+                            Router::new()
+                                .fallback_service(ServeDir::new(format!("{directory}/zh"))),
+                        )
+                } else {
+                    Router::new()
+                        .route("/zh", get(redirect_zh_root))
+                        .route("/zh/", get(redirect_zh_root))
+                },
             ),
         None => app
+            .route("/zh", get(redirect_zh_root))
+            .route("/zh/", get(redirect_zh_root))
             .route(
                 "/compare",
                 get(|| async { Redirect::temporary("/docs/compare/") }),
@@ -259,6 +266,11 @@ fn is_known_workspace_subpath(path: &str) -> bool {
             | "vendors"
             | "provider-capabilities"
             | "video"
+            | "assets"
+            | "routing"
+            | "pools"
+            | "evaluations"
+            | "events"
             | "keys"
             | "organization"
             | "settings"
@@ -283,8 +295,6 @@ async fn static_cache_headers(
     next: axum::middleware::Next,
 ) -> Response {
     let path = request.uri().path().to_owned();
-    // Help embeds our documentation, never authenticated management pages.
-    let same_origin_help = path == "/docs" || path.starts_with("/docs/");
     let is_immutable_asset = path.starts_with("/_astro/")
         || path.starts_with("/assets/")
         || path.starts_with("/_catalog/");
@@ -314,19 +324,11 @@ async fn static_cache_headers(
         );
         headers.insert(
             axum::http::header::X_FRAME_OPTIONS,
-            axum::http::HeaderValue::from_static(if same_origin_help {
-                "SAMEORIGIN"
-            } else {
-                "DENY"
-            }),
+            axum::http::HeaderValue::from_static("DENY"),
         );
         headers.insert(
             axum::http::header::CONTENT_SECURITY_POLICY,
-            axum::http::HeaderValue::from_static(if same_origin_help {
-                "frame-ancestors 'self'"
-            } else {
-                "frame-ancestors 'none'"
-            }),
+            axum::http::HeaderValue::from_static("frame-ancestors 'none'"),
         );
         headers.insert(
             axum::http::header::REFERRER_POLICY,
@@ -340,15 +342,7 @@ async fn static_cache_headers(
         );
         headers.insert(
             axum::http::header::HeaderName::from_static("content-security-policy-report-only"),
-            if same_origin_help {
-                axum::http::HeaderValue::from_str(
-                    &DASHBOARD_CSP_REPORT_ONLY
-                        .replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
-                )
-                .expect("static documentation policy is a valid header")
-            } else {
-                axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY)
-            },
+            axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY),
         );
     } else if is_immutable_asset && response.status().is_success() {
         response
@@ -371,4 +365,38 @@ mod tests;
 
 async fn default_workspace() -> Redirect {
     Redirect::temporary("/workspaces/default/")
+}
+
+async fn redirect_zh_root() -> Redirect {
+    Redirect::temporary("/")
+}
+
+async fn redirect_zh_docs(uri: axum::http::Uri) -> Redirect {
+    let raw_path = uri.path();
+    let stripped = raw_path.strip_prefix("/zh").unwrap_or(raw_path);
+    let normalized = if stripped == "/docs" {
+        "/docs/"
+    } else {
+        stripped
+    };
+    let is_raw_asset = normalized.ends_with(".md")
+        || normalized.ends_with(".json")
+        || normalized.ends_with(".txt")
+        || normalized.ends_with(".xml");
+    let query = uri.query();
+    let destination = if is_raw_asset {
+        match query {
+            Some(q) => format!("{normalized}?{q}"),
+            None => normalized.to_string(),
+        }
+    } else {
+        match query {
+            Some(q) if q.split('&').any(|pair| pair.starts_with("lang=")) => {
+                format!("{normalized}?{q}")
+            }
+            Some(q) if !q.is_empty() => format!("{normalized}?{q}&lang=zh-CN"),
+            _ => format!("{normalized}?lang=zh-CN"),
+        }
+    };
+    Redirect::temporary(&destination)
 }

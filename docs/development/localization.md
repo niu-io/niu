@@ -12,7 +12,11 @@ The dashboard build and CI reject untranslated application text, user-facing
 attributes (including accessible labels), direct string expressions, conditional
 branches, logical fallback expressions, template strings and their nested branches, plus
 lexically resolved local display constants. A TypeScript-aware pass also checks
-finite string unions, including imported choice labels and API enum presentation.
+finite string unions, including imported choice labels and API enum presentation,
+and display fields (`label`, `detail`, `title`, `message`, `help`) declared by
+application `.ts` helpers. Render those fields through `t()` or `uiT()` at the
+call site so a language change updates the visible value instead of leaving the
+previous language in place.
 Single-argument
 `t()` / `uiT()` and parameterized `format()` / `uiF()` calls require a catalog key.
 `pnpm check:i18n:new` remains a compatibility alias for the full check; no baseline

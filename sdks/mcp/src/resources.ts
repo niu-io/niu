@@ -25,14 +25,14 @@ export const resourceDefinitions = [
     uri: "niu://models",
     name: "Workspace Models & Customer Pricing",
     description:
-      "Models accessible to this workspace API key and their customer selling prices when published.",
+      "Models accessible to this workspace API key and their customer selling prices when published. Model ownership identifies Niu routes, not upstream model authorship.",
     mimeType: "application/json",
   },
   {
     uri: "niu://catalog/models",
     name: "Public Model Catalog & Protocol Capabilities",
     description:
-      "Public Niu model catalog with metadata and supported protocol flags (chat_completions, responses, messages, generate_content, embeddings, streaming).",
+      "Public Niu model catalog with metadata and supported protocol flags (chat_completions, responses, messages, generate_content, embeddings, streaming). owned_by identifies the Niu route owner, not the upstream model developer.",
     mimeType: "application/json",
   },
   {

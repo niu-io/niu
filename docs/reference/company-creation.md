@@ -1,12 +1,23 @@
 # Company creation and retry identity
 
-`POST /api/v1/organizations` creates a company and its initial zero-funded
-balance account atomically. Installation administrator authorization is required;
-company/workspace members cannot create companies. New operator workflows should omit
-`currency` and use the platform currency configured in Admin → Settings. The
-compatibility API still accepts an explicit three-letter currency, and falls back
-to USD only when no platform currency exists; this is not a second product currency
-setting. Creation grants no funds or approved credit.
+`POST /api/v1/organizations` creates an organization and its initial zero-funded
+balance account atomically. Both installation administrators and authenticated
+member accounts can create organizations. When called by an authenticated member
+session, creation also provisions an organization-wide `owner` membership for the
+account, switches the caller's active organization scope to the new organization,
+and optionally creates the initial workspace when `initial_workspace_name` is
+supplied. New workflows should omit `currency` and use the platform currency
+configured in Admin → Settings. The compatibility API still accepts an explicit
+three-letter currency, and falls back to USD only when no platform currency
+exists; this is not a second product currency setting. Creation grants no funds
+or approved credit.
+
+Organizations allocate a durable, URL-safe `slug` (1–48 lowercase ASCII letters,
+numbers, or single separating hyphens; `default` is reserved). Pass an optional
+`slug` in `POST /api/v1/organizations` to request a specific slug, or omit it so
+the server derives a unique slug from the name. `PATCH /api/v1/organizations/{organization}`
+renames an organization (authorized for installation administrators and
+organization-wide owners) while preserving the saved `slug` and `slug_aliases`.
 
 Pass one `Idempotency-Key` header containing 1–128 visible ASCII characters to
 recover an uncertain response. The key has an installation-wide namespace,
@@ -46,15 +57,28 @@ A missing, deleted or out-of-scope cursor returns 409; malformed parameters retu
 400. Member company scope is applied before pagination. Creation order is stable
 through renaming, but pages are live observations rather than a frozen snapshot.
 
-## Dashboard provisioning
+## Dashboard provisioning and self-service organizations
 
 An installation administrator can open **Admin → Customers**, choose **New
-customer**, and create the independently funded company. Use **Set up** on its
-row to create a workspace, add the company owner, and configure supported sign-in.
+customer**, and create an independently funded organization. Use **Set up** on its
+row to create a workspace, add the organization owner, and configure supported sign-in.
 The workspace slug is suggested from the name and remains editable before saving.
 Existing customers and saved steps are available when reopening the directory.
-Company owners cannot use this console to create another independently funded
-company; their existing company and workspace management remains separate.
+
+Authenticated users can also create additional independently funded organizations
+directly from the account menu or workspace switcher (**New organization**), and
+manage organization name, credits prerequisites, workspace directory, and members
+from **Organization settings** (`/workspaces/:workspace/organization`). A single
+account login can hold memberships across multiple organizations (`owner`,
+`admin`, or `viewer`, scoped either to the entire organization or to a specific
+workspace):
+
+- Switch active organization scope with `PUT /api/v1/session/organization`
+  (`{ "organization_id": "<id-or-slug>" }`).
+- Link an issued operator invite/access token to the current account identity
+  with `POST /api/v1/session/memberships` (`{ "token": "<operator-token>" }`).
+  Memberships are never inferred automatically from matching display names or
+  email addresses.
 
 The console retains pending creation request identities in a disposable tab cache;
 saved companies, workspaces, users and retry receipts live on the backend. After an

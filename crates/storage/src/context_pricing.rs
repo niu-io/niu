@@ -68,7 +68,7 @@ pub fn normalize_context_tiers(tiers: &mut [ContextPriceTier]) -> Result<(), Sto
         tier.minimum_input_tokens = threshold.to_string();
     }
     // Every threshold was parsed above; compare numerically, not lexicographically.
-    tiers.sort_by_key(|tier| tier.minimum_input_tokens.parse::<i64>().unwrap());
+    tiers.sort_by_key(|tier| tier.minimum_input_tokens.parse::<i64>().unwrap_or(i64::MAX));
     Ok(())
 }
 

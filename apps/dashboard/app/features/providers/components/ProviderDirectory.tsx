@@ -27,8 +27,8 @@ export default function ProviderDirectory({ connections, vendors, selectedId, lo
     group.keys.push(connection);
     groups.set(groupId, group);
   }
-  return <section className="supplier-key-picker" aria-label={uiT("Provider API keys")}>
-    <h2 className="sr-only">{uiT("API keys")}</h2>
+  return <section className="supplier-key-picker" aria-label={uiT("Provider keys")}>
+    <h2 className="sr-only">{uiT("Keys")}</h2>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" className="supplier-key-trigger" aria-label={uiT("Select Provider API key")} disabled={disabled || loading || items.length === 0}>
@@ -48,6 +48,6 @@ export default function ProviderDirectory({ connections, vendors, selectedId, lo
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-    <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh API keys")} disabled={disabled || loading} onClick={onRefresh}><RefreshCw /></Button>
+    <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} disabled={disabled || loading} onClick={onRefresh}><RefreshCw /></Button>
   </section>;
 }

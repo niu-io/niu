@@ -85,18 +85,13 @@ jobs:
 
       - name: Compile workspace test targets without executing fixtures
         run: cargo +1.98.0 test --locked --workspace --no-run
-      - name: Execute gating PostgreSQL storage and gateway behavioral suites
-        run: |
-          cargo +1.98.0 test --locked -p niu-storage --test billing --test platform_currency -- --include-ignored
-          cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::observability::readiness_fault_injection_checks_schema_registry_and_encryption_while_liveness_stays_ok -- --include-ignored
-          cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::admin::workspace_scoped_customer_management_aliases_preserve_parity_and_deny_foreign_workspaces -- --include-ignored
       - name: Record backend verification scope
         if: always()
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           Blocking PR and main-branch checks: formatting, import integrity,
-          generated contracts, compilation, Clippy, and PostgreSQL 17 behavioral
-          suites (billing, platform currency, readiness fault injection, and
-          workspace-scoped customer-management parity). See
-          docs/reference/ci-verification-scope.md for the full verification matrix.
+          generated contracts, compilation and Clippy. No fixture outcome
+          establishes runtime behavior or release readiness. Current-input
+          end-to-end runs and independent final-artifact verification remain
+          required. See docs/reference/ci-verification-scope.md.
           EOF

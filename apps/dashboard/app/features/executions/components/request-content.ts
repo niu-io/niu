@@ -56,7 +56,7 @@ function errorMessage(value: unknown): ContentMessage | null {
 export function responseMessages(response: string, contentType: string): { messages: ContentMessage[]; partial: boolean } {
   if (!contentType.toLowerCase().includes('text/event-stream')) {
     try { const root = object(JSON.parse(response)); return {messages: root ? jsonMessages(root) : [], partial: false}; }
-    catch { return {messages: [], partial: true}; }
+    catch { return {messages: [], partial: true}; } // RequestContent shows the partial-view status.
   }
   const choices = new Map<number, ContentMessage & { calls: Map<number, {name: string; arguments: string}> }>();
   let partial = false;
@@ -71,7 +71,7 @@ export function responseMessages(response: string, contentType: string): { messa
     if (data === '[DONE]') { done = true; break; }
     try {
       const event = object(JSON.parse(data));
-      if (!event) { partial = true; continue; }
+      if (!event) { partial = true; continue; } // Malformed events are reported by the partial-view status.
       if (event.error) {
         partial = true;
         const failure = errorMessage(event.error);

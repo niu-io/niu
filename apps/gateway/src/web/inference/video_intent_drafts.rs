@@ -202,10 +202,11 @@ pub(super) async fn validate(
     }
     let trusted: Vec<(usize, &str, &str)> = provider_positions
         .iter()
-        .map(|&position| {
+        .filter_map(|&position| {
             let item = &validation["content"][position];
-            let wire = item["type"].as_str().unwrap();
-            (position, wire, item[wire]["url"].as_str().unwrap())
+            let wire = item["type"].as_str()?;
+            let url = item[wire]["url"].as_str()?;
+            Some((position, wire, url))
         })
         .collect();
     let bytes = serde_json::to_vec(&validation).map_err(|_| invalid())?;

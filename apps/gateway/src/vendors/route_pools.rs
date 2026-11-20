@@ -56,7 +56,7 @@ pub async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools",
+///   "path": "/api/v1/routing",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setModelRoutePool",
@@ -273,7 +273,7 @@ pub async fn put(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/history",
+///   "path": "/api/v1/routing/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePoolHistory",
@@ -387,7 +387,7 @@ pub struct IndexQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/index",
+///   "path": "/api/v1/routing/index",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePools",
@@ -516,12 +516,12 @@ pub struct CollectionQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools",
+///   "path": "/api/v1/routing",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPools",
 ///     "summary": "List platform-managed model route pools",
-///     "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /pools/{reference}. The /pools/index route retains its existing collection contract.",
+///     "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /routing/{reference}. The /routing/index route retains its existing collection contract.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -793,7 +793,7 @@ fn decode_reference(reference: &str) -> Result<String, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}",
+///   "path": "/api/v1/routing/{reference}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPool",
@@ -877,7 +877,7 @@ pub struct HistoryQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}/history",
+///   "path": "/api/v1/routing/{reference}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPoolHistory",
@@ -1012,7 +1012,7 @@ pub struct PreviewRequest {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}/preview",
+///   "path": "/api/v1/routing/{reference}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewPool",
@@ -1022,7 +1022,7 @@ pub struct PreviewRequest {
 ///       }
 ///     ],
 ///     "summary": "Dry-run routing preview for a model route pool",
-///     "description": "Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.",
+///     "description": "Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.",
 ///     "parameters": [
 ///       {
 ///         "in": "path",
@@ -1050,7 +1050,9 @@ pub struct PreviewRequest {
 ///                 "enum": [
 ///                   "chat",
 ///                   "responses",
-///                   "messages"
+///                   "messages",
+///                   "embeddings",
+///                   "generate_content"
 ///                 ]
 ///               },
 ///               "streaming": {
@@ -1149,6 +1151,9 @@ pub async fn member_preview(
     Json(req): Json<PreviewRequest>,
 ) -> Result<Json<Value>, ApiError> {
     super::api::installation(&state, &headers).await?;
+    // Normalize and validate declared traits before moving preview overrides out
+    // of the request.
+    let (protocol, traits) = preview_request_traits(&req)?;
     let alias = decode_reference(&reference)?;
     let mut pool = state
         .store
@@ -1168,33 +1173,7 @@ pub async fn member_preview(
     niu_storage::validate_pool_candidates_and_rules(&pool.candidates, &pool.rules)
         .map_err(ApiError::from_store)?;
 
-    let protocol_str = req.protocol.as_deref().unwrap_or("chat");
-    let protocol = match protocol_str {
-        "chat" | "generate_content" => crate::guardrails::input::Protocol::Chat,
-        "responses" => crate::guardrails::input::Protocol::Responses,
-        "messages" => crate::guardrails::input::Protocol::Messages,
-        "embeddings" => crate::guardrails::input::Protocol::Embeddings,
-        _ => {
-            return Err(ApiError::invalid_request(
-                "protocol must be chat, responses, messages, embeddings, or generate_content",
-            ));
-        }
-    };
-    let requirements = crate::config::ModelRequirements {
-        project_id: pool.project_id,
-        streaming: protocol_str != "messages" && req.streaming,
-        messages_streaming: protocol_str == "messages" && req.streaming,
-        messages_tools: protocol_str == "messages" && req.tools,
-        messages_streaming_tools: protocol_str == "messages" && req.streaming && req.tools,
-        tools: protocol_str != "messages" && req.tools,
-        streaming_tools: protocol_str != "messages" && req.streaming && req.tools,
-        structured_output: req.structured_output,
-        vision: req.vision,
-        reasoning: req.reasoning,
-        estimated_input_tokens: req.input_tokens,
-        requested_output_tokens: req.output_tokens,
-        ..Default::default()
-    };
+    let requirements = traits.requirements(pool.project_id, protocol);
 
     let (_, inputs) = super::publication::catalog_inputs(&state).await?;
     let mut routes_by_alias = std::collections::BTreeMap::new();
@@ -1258,7 +1237,9 @@ pub async fn member_preview(
             {
                 reason = Some("supplier_unavailable");
             } else if let Ok(model) = super::models::compile_model(&route.vendor, &route.model) {
-                if !requirements.allows(&model) {
+                if !super::models::supports_protocol(&model, &protocol) {
+                    reason = Some("protocol_not_supported");
+                } else if !requirements.allows(&model) {
                     reason = Some("unsupported_capability");
                 } else if req
                     .input_tokens
@@ -1321,6 +1302,7 @@ pub async fn member_preview(
             let normalized_reason = match r {
                 "candidate_disabled" => "disabled_in_pool",
                 "unsupported_capability"
+                | "protocol_not_supported"
                 | "exceeds_context_length"
                 | "exceeds_max_completion_tokens" => "capability_or_token_mismatch",
                 _ => "route_unavailable",
@@ -1379,6 +1361,57 @@ pub async fn member_preview(
     })))
 }
 
+/// Parse the platform preview protocol and normalize its declared traits through
+/// the same support matrix used by native dispatch.
+fn preview_request_traits(
+    req: &PreviewRequest,
+) -> Result<
+    (
+        crate::guardrails::input::Protocol,
+        crate::routing_traits::RequestTraits,
+    ),
+    ApiError,
+> {
+    let protocol = match req.protocol.as_deref().unwrap_or("chat") {
+        "chat" => crate::guardrails::input::Protocol::Chat,
+        "responses" => crate::guardrails::input::Protocol::Responses,
+        "messages" => crate::guardrails::input::Protocol::Messages,
+        "embeddings" => crate::guardrails::input::Protocol::Embeddings,
+        "generate_content" => crate::guardrails::input::Protocol::GenerateContent,
+        _ => {
+            return Err(ApiError::invalid_request(
+                "protocol must be chat, responses, messages, embeddings, or generate_content",
+            ));
+        }
+    };
+    if req
+        .input_tokens
+        .is_some_and(|value| value == 0 || value > 10_000_000)
+        || req
+            .output_tokens
+            .is_some_and(|value| value == 0 || value > 10_000_000)
+    {
+        return Err(ApiError::invalid_request(
+            "Use a supported pool protocol and bounded request traits",
+        ));
+    }
+    let traits = crate::routing_traits::RequestTraits {
+        streaming: req.streaming,
+        vision: req.vision,
+        tools: req.tools,
+        structured_output: req.structured_output,
+        reasoning: req.reasoning,
+        estimated_input_tokens: req.input_tokens,
+        requested_output_tokens: req.output_tokens,
+        ..Default::default()
+    };
+    // Preview must apply the same protocol support matrix as dispatch. A route
+    // preview for an unsupported trait would otherwise advertise an outcome that
+    // the native endpoint rejects.
+    crate::routing_traits::require_supported(protocol, &traits)?;
+    Ok((protocol, traits))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditQuery {
@@ -1387,7 +1420,7 @@ pub struct AuditQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pools/{reference}/audit",
+///   "path": "/api/v1/routing/{reference}/audit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "auditPool",
@@ -1477,4 +1510,168 @@ pub async fn member_audit(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data": report})))
+}
+
+#[cfg(test)]
+mod routing_preview_traits_tests {
+    use super::*;
+
+    fn preview(protocol: &str) -> PreviewRequest {
+        PreviewRequest {
+            protocol: Some(protocol.into()),
+            streaming: false,
+            vision: false,
+            tools: false,
+            structured_output: false,
+            reasoning: false,
+            input_tokens: None,
+            output_tokens: None,
+            candidates: None,
+            rules: None,
+            default_action: None,
+        }
+    }
+
+    #[test]
+    fn preview_protocol_names_map_to_native_protocols() {
+        for (name, expected) in [
+            ("chat", crate::guardrails::input::Protocol::Chat),
+            ("responses", crate::guardrails::input::Protocol::Responses),
+            ("messages", crate::guardrails::input::Protocol::Messages),
+            ("embeddings", crate::guardrails::input::Protocol::Embeddings),
+            (
+                "generate_content",
+                crate::guardrails::input::Protocol::GenerateContent,
+            ),
+        ] {
+            let (protocol, _) = preview_request_traits(&preview(name)).expect("known protocol");
+            assert_eq!(protocol, expected, "{name}");
+        }
+        assert!(preview_request_traits(&preview("video_text")).is_err());
+    }
+
+    #[test]
+    fn preview_rejects_traits_the_protocol_cannot_express() {
+        for (protocol, mutate, message) in [
+            (
+                "messages",
+                (|req: &mut PreviewRequest| req.structured_output = true)
+                    as fn(&mut PreviewRequest),
+                "Messages requests do not support structured output",
+            ),
+            (
+                "embeddings",
+                (|req: &mut PreviewRequest| req.streaming = true) as fn(&mut PreviewRequest),
+                "Embeddings do not support streaming requests",
+            ),
+            (
+                "embeddings",
+                (|req: &mut PreviewRequest| req.tools = true) as fn(&mut PreviewRequest),
+                "Embeddings do not support tool declarations",
+            ),
+        ] {
+            let mut request = preview(protocol);
+            mutate(&mut request);
+            let error = preview_request_traits(&request)
+                .expect_err("unsupported preview trait must be rejected");
+            assert!(
+                error.test_message().contains(message),
+                "{protocol}: {}",
+                error.test_message()
+            );
+        }
+
+        for (protocol, mutate) in [
+            (
+                "responses",
+                (|req: &mut PreviewRequest| {
+                    req.streaming = true;
+                    req.vision = true;
+                    req.tools = true;
+                    req.structured_output = true;
+                    req.reasoning = true;
+                }) as fn(&mut PreviewRequest),
+            ),
+            (
+                "messages",
+                (|req: &mut PreviewRequest| {
+                    req.streaming = true;
+                    req.vision = true;
+                    req.tools = true;
+                    req.reasoning = true;
+                }) as fn(&mut PreviewRequest),
+            ),
+            (
+                "generate_content",
+                (|req: &mut PreviewRequest| {
+                    req.streaming = true;
+                    req.vision = true;
+                    req.tools = true;
+                    req.structured_output = true;
+                    req.reasoning = true;
+                }) as fn(&mut PreviewRequest),
+            ),
+        ] {
+            let mut request = preview(protocol);
+            mutate(&mut request);
+            preview_request_traits(&request).expect("newly supported preview traits must pass");
+        }
+    }
+
+    #[test]
+    fn preview_requirements_match_native_dispatch_extraction() {
+        let cases = [
+            (
+                "responses",
+                crate::routing_traits::RequestTraits {
+                    streaming: true,
+                    estimated_input_tokens: Some(3),
+                    requested_output_tokens: Some(128),
+                    ..Default::default()
+                },
+                include_str!("../../tests/fixtures/routing-traits/responses-supported.json"),
+            ),
+            (
+                "messages",
+                crate::routing_traits::RequestTraits {
+                    streaming: true,
+                    tools: true,
+                    estimated_input_tokens: Some(2),
+                    requested_output_tokens: Some(64),
+                    ..Default::default()
+                },
+                include_str!("../../tests/fixtures/routing-traits/messages-supported.json"),
+            ),
+            (
+                "generate_content",
+                crate::routing_traits::RequestTraits {
+                    estimated_input_tokens: Some(2),
+                    requested_output_tokens: Some(32),
+                    ..Default::default()
+                },
+                include_str!("../../tests/fixtures/routing-traits/generate-content-supported.json"),
+            ),
+        ];
+        for (name, declared, source) in cases {
+            let native_body: serde_json::Value =
+                serde_json::from_str(source).expect("fixture JSON");
+            let mut request = preview(name);
+            request.streaming = declared.streaming;
+            request.tools = declared.tools;
+            request.vision = declared.vision;
+            request.structured_output = declared.structured_output;
+            request.reasoning = declared.reasoning;
+            request.input_tokens = declared.estimated_input_tokens;
+            request.output_tokens = declared.requested_output_tokens;
+            let (protocol, normalized) =
+                preview_request_traits(&request).expect("supported preview context");
+            let native = crate::routing_traits::extract(protocol, &native_body);
+            assert_eq!(normalized, native, "{name} normalized traits");
+            assert_eq!(
+                normalized.requirements(None, protocol),
+                native.requirements(None, protocol),
+                "{name} candidate requirements"
+            );
+        }
+    }
 }

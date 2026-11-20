@@ -301,7 +301,7 @@ fn static_container(bytes: &[u8], format: ImageFormat) -> Result<(), DecodeError
         ImageFormat::WebP
             if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" =>
         {
-            let length = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+            let length = u32::from_le_bytes(bytes[4..8].try_into().unwrap_or_default()) as usize;
             if length.checked_add(8) != Some(bytes.len()) {
                 return Err(DecodeError::InvalidImage);
             }
@@ -317,12 +317,12 @@ fn static_container(bytes: &[u8], format: ImageFormat) -> Result<(), DecodeError
         let (kind, length) = if png {
             (
                 &header[4..8],
-                u32::from_be_bytes(header[..4].try_into().unwrap()) as usize,
+                u32::from_be_bytes(header[..4].try_into().unwrap_or_default()) as usize,
             )
         } else {
             (
                 &header[..4],
-                u32::from_le_bytes(header[4..8].try_into().unwrap()) as usize,
+                u32::from_le_bytes(header[4..8].try_into().unwrap_or_default()) as usize,
             )
         };
         let padding = if png { 4 } else { length % 2 };
@@ -397,7 +397,9 @@ fn single_jpeg(bytes: &[u8]) -> Result<(), DecodeError> {
         let length_bytes = bytes
             .get(offset..offset + 2)
             .ok_or(DecodeError::InvalidImage)?;
-        let length = usize::from(u16::from_be_bytes(length_bytes.try_into().unwrap()));
+        let length = usize::from(u16::from_be_bytes(
+            length_bytes.try_into().unwrap_or_default(),
+        ));
         if length < 2 {
             return Err(DecodeError::InvalidImage);
         }

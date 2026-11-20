@@ -1,4 +1,5 @@
 import type { VideoOutputSchema } from '@niu-io/sdk/admin';
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
 // Versioned request constraints for one exact model/channel; not qualification.
 export type VideoControl =
   | { kind: 'integer'; minimum: number; maximum: number; default: number | null }
@@ -15,7 +16,7 @@ export type VideoSchema = {
   required_controls: VideoControlName[]; exclusive_controls: [VideoControlName, VideoControlName][]; callbacks_qualified: boolean;
 };
 export const videoControls = {
-  duration: { label: 'Duration', kind: 'integer' },
+  duration: { label: 'Video duration', kind: 'integer' },
   resolution: { label: 'Resolution', kind: 'choice' },
   ratio: { label: 'Aspect ratio', kind: 'choice' },
   seed: { label: 'Seed', kind: 'integer' },
@@ -29,11 +30,11 @@ export type VideoControlName = keyof typeof videoControls;
 
 export function schemaInteger(value: string, label: string, minimum = 1, maximum = Number.MAX_SAFE_INTEGER) {
   const n = Number(value);
-  if (!/^-?\d+$/.test(value.trim()) || !Number.isSafeInteger(n) || n < minimum || n > maximum) throw new Error(`${label} must be an integer from ${minimum} to ${maximum}.`);
+  if (!/^-?\d+$/.test(value.trim()) || !Number.isSafeInteger(n) || n < minimum || n > maximum) throw new Error(formatLocalizedMessage('{0} must be an integer from {1} to {2}.', [label, minimum, maximum], readLocale()));
   return n;
 }
 export function schemaNames(value: string, label: string, maximum = 16) {
   const values = value.trim() ? value.split(',').map(item => item.trim()) : [];
-  if (values.length > maximum || values.some(item => !item || new TextEncoder().encode(item).length > 256 || /[\u0000-\u001f\u007f]/.test(item)) || new Set(values).size !== values.length) throw new Error(`${label} needs distinct comma-separated values (up to ${maximum}).`);
+  if (values.length > maximum || values.some(item => !item || new TextEncoder().encode(item).length > 256 || /[\u0000-\u001f\u007f]/.test(item)) || new Set(values).size !== values.length) throw new Error(formatLocalizedMessage('{0} needs distinct comma-separated values (up to {1}).', [label, maximum], readLocale()));
   return values;
 }

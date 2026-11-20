@@ -31,7 +31,7 @@ additional model/input combinations remain unverified.
 
 `GET /v1/video/models` (`client.video.models.list()`) returns configured video controls for the current workspace key. The signed-in dashboard uses `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models`, exposed as `admin.listDashboardVideoModels(scope, keyId)`, with read permission and an active selected key. Key secrets are not required by the dashboard session path.
 
-Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Unmapped resolution/ratio choices, unsupported meters/channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
+Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Owner-funded models with partial estimate coverage retain the configured resolution and ratio choices. Other mapped models restrict choices to their output specifications. Unsupported meters, channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
 
 With configured required image detectors and current processing consent,
 `input_types` can also contain `image_url`. Its limits intersect the model schema
@@ -48,7 +48,7 @@ Discovery makes no upstream request, creates no job and reserves no funds. It is
 
 ## Configure model constraints
 
-In Admin → Suppliers, open a Supplier → API keys & routes → Model routes → Add/Edit mapping → Configure video. General, Inputs, Controls, Output and Rules separate the exact channel, request limits, supported input roles/transports, generation ranges/choices/defaults and incompatible combinations. Limits are entered from the applicable contract, not supplied as universal presets. Apply configuration changes the mapping draft; Save mapping persists it through `POST /admin/v1/vendors/{id}/models` with the current `expected_revision`. Cancel discards the editor draft; removal takes effect only after the mapping is saved.
+For a connection linked to a Provider profile, open the Provider in Admin, open its Models tab, choose **Edit model**, then open the video configuration. For a personal connection without a linked Provider profile, use the authorized vendor model API. Read the mapping from `GET /api/v1/vendors/{id}/models` before updating it so you can preserve its other capabilities and supply its current revision. General, Inputs, Controls, Output and Rules separate the exact channel, request limits, supported input roles/transports, generation ranges/choices/defaults and incompatible combinations. Limits are entered from the applicable contract, not supplied as universal presets. Apply configuration changes the mapping draft; saving the model persists it through `POST /api/v1/vendors/{id}/models` with the current `expected_revision`. Cancel discards the editor draft; removal takes effect only after the mapping is saved.
 
 The saved `capabilities.video_schema` follows the versioned `VideoSchema` management contract. Alias and upstream model bindings are taken from the enclosing mapping; internal schema revisions are not displayed. Changed constraints or bindings get a new revision; applying unchanged constraints retains it. Existing backend validation rejects invalid versions, bounds, defaults, transports and mismatched bindings. Model/capability changes invalidate affected Supplier offer reviews, while existing jobs retain their original pinned terms. Purchase rates, customer selling rates and bounded liability remain separate configuration.
 
@@ -60,11 +60,16 @@ The optional `video_schema.output` management contract maps each qualified
 resolution/aspect-ratio pair to positive pixel width and height. It declares
 `estimator` (`SeedancePixelsV1` or `OutputSecondsV1`) and a reviewed
 `estimator_revision`. Resolution, ratio and duration controls must have explicit defaults or be
-required. Pixel estimation also requires a positive frame-rate control; seconds
-estimation may omit it. Configured duration/frame rate must be positive.
-Duplicate pairs, unadvertised choices, missing default mappings and invalid
-specifications are rejected. Requests with an unmapped combination fail before
-dispatch. Pricing configuration choices omit resolutions without a mapping.
+required. Pixel estimation uses either a positive frame-rate control or a positive
+`observed_frames_per_second` value. The latter describes measured output and
+stays out of the upstream request. Seconds estimation may omit frame rate.
+
+Strict mappings require the default combination and reject unlisted pairs.
+Setting `allow_unmapped_output` to true allows owner-funded generation with
+other configured pairs. Output dimensions and usage estimates for those pairs
+remain unknown. Customer-funded requests under a partial mapping still require
+a listed pair. Duplicate pairs, unadvertised choices and invalid dimensions are
+rejected. Pricing configuration choices omit resolutions without a mapping.
 
 The validation engine resolves effective dimensions, duration and FPS with the
 schema and estimator revisions. Seedance's configured pixel estimator includes
@@ -87,13 +92,15 @@ Customer estimate and historical explanation APIs are available for the qualifie
 text-input subset; their rendered workflows and qualification of additional
 reported meters remain pending.
 
-## Configure a media offer
+## Configure a media purchase rate
 
-In Supplier pricing administration, open Models & pricing → Media rates → Set up media offer. Select a named model/API-key binding with a saved video schema. Saving creates an inactive offer revision and clears its previous review; review supply rights and the exact model/channel contract before activation and purchase-rate publication. Updating a model's offer preselects its named configuration. Text rates remain in the Text rates tab.
+In Supplier pricing administration, open Models & pricing → Media rates. The configured video models table lists every model with a saved video schema, including models with no offer, a paused offer, or an offer bound to older configuration. Choose Set rate and save the purchase terms. The dashboard creates a media offer binding for the current credential, model and schema revisions when one is needed, records the platform administrator's authorization for that exact revision, enables the offer, and publishes the immutable purchase card. If a paused offer is still bound to the current configuration, the save reuses that revision and only re-enables it; a stale binding receives a new revision. No separate pinning dialog is required. Text rates remain in the Text rates tab.
 
-Platform-administrator readers obtain draft choices from `GET /admin/v1/providers/{provider}/media-offer-models` with `limit` (1–100, default 50) and alias cursor `after`. Choices contain exact revision strings and internal binding references, not credentials, endpoints, upstream model names or prices. Unlike qualified purchase-rate choices, draft choices need no active offer; personal credentials and foreign ownership are excluded. One credential may supply several models, and a Supplier may own several credentials with independent model subsets. Pagination advances across invalid schemas: an empty `data` array can still have `has_more: true`. Continue with `next_after` until `has_more` is false, rather than stopping on an empty array.
+This is still an explicit commercial action: the rate dialog states when saving will also enable the offer, the authorization is recorded against the new revision with the acting administrator, and a rate publication by itself never enables an unrelated offer. If the credential or model route is unavailable, publication is refused and the offer is not enabled. A replacement changes only future charges; existing jobs retain their original route and prices.
 
-Platform-administrator writers publish with `POST /admin/v1/providers/{provider}/media-offers` using a client-generated UUID `revision`, `model_alias`, `vendor_id`, exact positive `vendor_revision`/`model_revision`, `schema_revision` and current `expected_revision` (null for a new offer). The body is limited to 4 KiB. These are binding references, not user-facing labels. Publication checks current configuration and explicit Supplier ownership. A media revision has `rate_kind: "media"` with null currency/input/output text prices; separate purchase and customer selling cards provide its media prices. Existing text publication and historical text prices retain their contracts.
+Platform-administrator readers obtain configured choices from `GET /admin/v1/providers/{provider}/media-offer-models` with `limit` (1–100, default 50) and alias cursor `after`. Choices contain exact revision strings and internal binding references, not credentials, endpoints, upstream model names or prices. Each choice also reports whether the current offer is active, qualified and still bound to this configuration, whether the credential and model route are ready, the exact binding revisions, and the configured resolutions/billing unit. These status fields describe configuration, not live upstream access. Personal credentials and foreign ownership are excluded. One credential may supply several models, and a Supplier may own several credentials with independent model subsets. Pagination advances across invalid schemas: an empty `data` array can still have `has_more: true`. Continue with `next_after` until `has_more` is false, rather than stopping on an empty array.
+
+Platform-administrator writers publish with `POST /admin/v1/providers/{provider}/media-offers` using a client-generated UUID `revision`, `model_alias`, `vendor_id`, exact positive `vendor_revision`/`model_revision`, `schema_revision` and current `expected_revision` (null for a new offer). The response returns the saved `revision` and stable `offer_id` so a following explicit authorization can identify the exact revision without another lookup. The body is limited to 4 KiB. These are binding references, not user-facing labels. Publication checks current configuration and explicit Supplier ownership. A media revision has `rate_kind: "media"` with null currency/input/output text prices; separate purchase and customer selling cards provide its media prices. Existing text publication and historical text prices retain their contracts.
 
 The client retains the identical document for an explicit retry after an uncertain response. Exact receipt replay returns that revision without replacing any newer offer or reactivating it. Changed documents, another Supplier's receipt and stale new publications conflict. Model/schema/credential changes invalidate media qualification and require a new bound offer revision; re-reviewing the stale binding cannot restore eligibility. Rebinding is restricted to credentials owned by the same Supplier. Saved jobs retain original route and accounting snapshots.
 

@@ -1,10 +1,14 @@
-import { readLocale as readUILocale } from '@/shell/ui-locale';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
+import { Empty, EmptyHeader, EmptyDescription, EmptyMedia, EmptyTitle, EmptyContent } from '@/components/ui/empty';
+import { cachedKeyGet } from '@/features/keys/api';
+import { peekQuery, primeQuery, invalidateForMutation } from '@/lib/query-cache';
+import { formatLocalizedMessage, translateUI, readLocale as readUILocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { generationOutcome } from '../generation-outcome';
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
+import { buildChatContextPanelData, openGenerationsContextRun } from '@/features/generations/GenerationsContextPanel';
 import VideoArchivedSessions from '@/features/generations/VideoArchivedSessions';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -12,31 +16,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { IconX as X } from "@tabler/icons-react";
-import { IconDots as MoreHorizontal } from "@tabler/icons-react";
-import { IconPencil as Pencil } from "@tabler/icons-react";
-import { IconTrash as Trash } from "@tabler/icons-react";
-import { IconArchive as Archive } from "@tabler/icons-react";
-import { IconDownload as Download } from "@tabler/icons-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { useChatDraft } from '../useChatDraft';
-import { IconPaperclip as Paperclip } from "@tabler/icons-react";
-import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
-import { IconArrowUp as ArrowUp } from "@tabler/icons-react";
-import { IconCheck as Check } from "@tabler/icons-react";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconCoin as CircleDollarSign } from "@tabler/icons-react";
-import { IconCopy as ClipboardCopy } from "@tabler/icons-react";
-import { IconClock as Clock3 } from "@tabler/icons-react";
-import { IconFlask as FlaskConical } from "@tabler/icons-react";
-import { IconHash as Hash } from "@tabler/icons-react";
-import { IconKey as KeyRound } from "@tabler/icons-react";
-import { IconPlus as Plus } from "@tabler/icons-react";
-import { IconAdjustmentsHorizontal as Settings2 } from "@tabler/icons-react";
-import { IconSquare as Square } from "@tabler/icons-react";
-import { IconStopwatch as Timer } from "@tabler/icons-react";
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useNewChatAction } from '../useNewChatAction';
+import { useDraftNavigation } from '../useDraftNavigation';
+import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
+import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
+import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
+import ChatTurnAttachments, { type ChatAttachment } from './ChatTurnAttachments';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,10 +32,11 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { money } from '@/lib/money';
+import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity } from '@/lib/providers';
+import { modelIdentity, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
@@ -82,7 +71,7 @@ type ComparisonResult = {
   customerChargeStatus: string;
   customerChargeCurrency: string | null;
 };
-type SavedTurn = { prompt: string; results: ComparisonResult[]; attachments?: Array<{name: string; type: string; content: string}> };
+type SavedTurn = { prompt: string; results: ComparisonResult[]; attachments?: ChatAttachment[] };
 type SavedComparison = SavedTurn & { title?: string; id: string; reference?: string; createdAt: number; turns?: SavedTurn[]; settings?: { systemPrompt: string; maxTokens: number; temperature: number; logPayloads?: boolean } };
 type ComparisonMetric = 'requests' | 'elapsed' | 'prompt' | 'completion' | 'total' | 'cash';
 const maxComparisonModels = 4;
@@ -102,14 +91,12 @@ const promptCategories = [
   { id: 'reasoning', label: 'Reasoning' },
   { id: 'build', label: 'Build' },
   { id: 'writing', label: 'Writing' },
-  { id: 'video', label: 'Video' },
 ] as const;
 
 const promptExamples = [
-  { id: 'car-wash', category: 'reasoning', title: 'Car wash', summary: 'Should you walk or drive?', text: 'I need to wash my car. The car wash is 50 meters away. Should I walk or drive?' },
+  { id: 'car-wash', category: 'reasoning', title: 'Car wash', summary: 'A car wash 50 meters away.', text: 'I need to wash my car. The car wash is 50 meters away. Should I walk or drive?' },
   { id: 'context-window', category: 'reasoning', title: 'Context budget', summary: 'How many 8K-token turns fit in 128K?', text: 'A model has a 128K-token context window. If each turn in a conversation uses 8,000 tokens, about how many turns fit? Explain the calculation and what could reduce the usable number.' },
   { id: 'snake-game', category: 'build', title: 'Snake game', summary: 'Build an arrow-key controlled game.', text: 'Build a small snake game controlled with the arrow keys. Include food, collision detection, and a restart option.' },
-  { id: 'reaction-test', category: 'build', title: 'Reaction-time test', summary: 'Record the milliseconds for each click.', text: 'Build a reaction-time mini game. Wait a random amount of time before showing a target, record how many milliseconds the user takes to click it, and show the results.' },
   { id: 'file-tree', category: 'build', title: 'Collapsible file tree', summary: 'Use plain HTML and CSS.', text: 'Use plain HTML and CSS to build a collapsible file tree. Make the folder and file hierarchy clear and keep the controls accessible.' },
   { id: 'support-reply', category: 'writing', title: 'Support reply', summary: 'Respond to a frustrated customer with empathy.', text: 'Rewrite this complaint as an empathetic customer-support reply: “Your API has been down for three days, hurting our business. We’ll switch providers if this continues.” Acknowledge the impact, explain the next step, and avoid making promises you cannot verify.' },
   { id: 'job-post', category: 'writing', title: 'Backend engineer job post', summary: 'A Java and MySQL role with clear expectations.', text: 'Write a concise job post for a backend engineer role. The person should be skilled in Java and MySQL, take ownership of their work, and be comfortable with occasional overtime when releases require it.' },
@@ -118,46 +105,46 @@ const promptExamples = [
 function customerCharge(result: ComparisonResult) {
   if (result.customerChargeStatus === 'charged' && result.customerChargeNanos != null && result.customerChargeCurrency) return money(result.customerChargeNanos, result.customerChargeCurrency);
   switch (result.customerChargeStatus) {
-    case 'owner_funded': return 'Own API key';
-    case 'pending': return 'Unresolved';
-    case 'unpriced': return 'No rate';
-    case 'not_charged': return 'Not charged';
-    default: return 'Unknown';
+    case 'owner_funded': return translateUI('No Niu charge');
+    case 'pending': return translateUI('Unresolved');
+    case 'unpriced': return translateUI('No rate');
+    case 'not_charged': return translateUI('Not charged');
+    default: return translateUI('Unknown');
   }
 }
 
 function metricValue(result: ComparisonResult, metric: ComparisonMetric) {
   if (metric === 'requests') return '1';
-  if (metric === 'elapsed') return `${result.elapsedMs.toLocaleString(readUILocale())} ms${result.phase === 'failed' ? ' · failed' : result.phase === 'cancelled' ? ' · cancelled' : result.phase === 'streaming' || result.phase === 'connecting' ? ' · running' : ''}`;
-  if (metric === 'prompt') return result.promptTokens == null ? 'Unknown' : result.promptTokens.toLocaleString(readUILocale());
-  if (metric === 'completion') return result.completionTokens == null ? 'Unknown' : result.completionTokens.toLocaleString(readUILocale());
-  if (metric === 'total') return result.totalTokens == null ? 'Unknown' : result.totalTokens.toLocaleString(readUILocale());
+  if (metric === 'elapsed') return formatLocalizedMessage('{0} ms{1}', [result.elapsedMs.toLocaleString(readUILocale()), result.phase === 'failed' ? ' · '+translateUI('Failed') : result.phase === 'cancelled' ? ' · '+translateUI('Cancelled') : result.phase === 'streaming' || result.phase === 'connecting' ? ' · '+translateUI('Running') : ''], readUILocale());
+  if (metric === 'prompt') return result.promptTokens == null ? translateUI('Unknown') : result.promptTokens.toLocaleString(readUILocale());
+  if (metric === 'completion') return result.completionTokens == null ? translateUI('Unknown') : result.completionTokens.toLocaleString(readUILocale());
+  if (metric === 'total') return result.totalTokens == null ? translateUI('Unknown') : result.totalTokens.toLocaleString(readUILocale());
   return customerCharge(result);
 }
 
 function numericDelta(baseline: number, candidate: number, unit: 'ms' | 'tokens') {
-  if (baseline === candidate) return 'Same';
+  if (baseline === candidate) return translateUI('Same');
   const sign = candidate < baseline ? '−' : '+';
   return `${sign}${Math.abs(candidate - baseline).toLocaleString(readUILocale())} ${unit}`;
 }
 
 function metricDifference(baseline: ComparisonResult, candidate: ComparisonResult, metric: ComparisonMetric) {
-  if (metric === 'requests') return 'Same';
-  if (baseline.phase !== 'complete' || candidate.phase !== 'complete' || baseline.finishReason !== 'stop' || candidate.finishReason !== 'stop') return 'Not comparable';
+  if (metric === 'requests') return translateUI('Same');
+  if (baseline.phase !== 'complete' || candidate.phase !== 'complete' || baseline.finishReason !== 'stop' || candidate.finishReason !== 'stop') return translateUI('Not comparable');
   if (metric === 'elapsed') return numericDelta(baseline.elapsedMs, candidate.elapsedMs, 'ms');
   if (metric === 'prompt' || metric === 'completion' || metric === 'total') {
     const baselineValue = metric === 'prompt' ? baseline.promptTokens : metric === 'completion' ? baseline.completionTokens : baseline.totalTokens;
     const candidateValue = metric === 'prompt' ? candidate.promptTokens : metric === 'completion' ? candidate.completionTokens : candidate.totalTokens;
-    return baselineValue === null || candidateValue === null ? 'Unknown' : numericDelta(baselineValue, candidateValue, 'tokens');
+    return baselineValue === null || candidateValue === null ? translateUI('Unknown') : numericDelta(baselineValue, candidateValue, 'tokens');
   }
 
   const baselineValue = baseline.customerChargeNanos;
   const candidateValue = candidate.customerChargeNanos;
-  if (baseline.customerChargeStatus !== 'charged' || candidate.customerChargeStatus !== 'charged' || baselineValue == null || candidateValue == null || !baseline.customerChargeCurrency || !candidate.customerChargeCurrency) return 'Unknown';
-  if (baseline.customerChargeCurrency !== candidate.customerChargeCurrency) return 'Different currencies';
+  if (baseline.customerChargeStatus !== 'charged' || candidate.customerChargeStatus !== 'charged' || baselineValue == null || candidateValue == null || !baseline.customerChargeCurrency || !candidate.customerChargeCurrency) return translateUI('Unknown');
+  if (baseline.customerChargeCurrency !== candidate.customerChargeCurrency) return translateUI('Different currencies');
   const baselineAmount = BigInt(baselineValue);
   const candidateAmount = BigInt(candidateValue);
-  if (baselineAmount === candidateAmount) return 'Same';
+  if (baselineAmount === candidateAmount) return translateUI('Same');
   const sign = candidateAmount < baselineAmount ? '−' : '+';
   const difference = candidateAmount < baselineAmount ? baselineAmount - candidateAmount : candidateAmount - baselineAmount;
   return `${sign}${money(difference.toString(), baseline.customerChargeCurrency)}`;
@@ -173,7 +160,7 @@ function errorMessage(payload: unknown, fallback: string) {
 
 async function responseData<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null) as { data?: T } | null;
-  if (!response.ok) throw new Error(errorMessage(payload, `Request failed (${response.status}).`));
+  if (!response.ok) throw new Error(errorMessage(payload, formatLocalizedMessage('Request failed ({0}).', [response.status], readUILocale())));
   return (payload && 'data' in payload ? payload.data : payload) as T;
 }
 
@@ -187,6 +174,12 @@ function responseText(value: unknown) {
 
 function tokenCount(value: unknown) {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+/** Resolves when the submission is stopped; keeps startup waits interruptible. */
+function abortSignalPromise(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise(resolve => signal.addEventListener('abort', () => resolve(), { once: true }));
 }
 
 async function runModel(
@@ -334,6 +327,44 @@ async function runModel(
   }
 }
 
+function selectInitialComparison(
+  items: SavedComparison[],
+  draftSnapshot: ChatDraftSnapshot | undefined,
+  requestedSession: string | null,
+  startWithNewChat: boolean,
+): SavedComparison | null {
+  if (startWithNewChat) return null;
+  if (requestedSession) {
+    return items.find(item => item.id === requestedSession || item.reference === requestedSession) ?? null;
+  }
+  if (!draftSnapshot) return null;
+  const saved = draftSnapshot.payload;
+  if (saved) {
+    if (saved.sessionId) {
+      const matched = items.find(item => item.id === saved.sessionId || item.reference === saved.sessionId);
+      if (matched) return matched;
+    }
+    if (saved.prompt.trim() || saved.attachments.length > 0) return null;
+  }
+  return items[0] ?? null;
+}
+
+function comparisonDraft(item: SavedComparison, keyId?: string): ChatDraft {
+  return {
+    ...(keyId ? {keyId}:{}),
+    sessionId: item.id,
+    prompt: '',
+    models: item.results.map(result => result.model),
+    attachments: [],
+    settings: {
+      systemPrompt: item.settings?.systemPrompt ?? '',
+      maxTokens: item.settings?.maxTokens ?? 4096,
+      temperature: item.settings?.temperature ?? 0.7,
+      logPayloads: item.settings?.logPayloads ?? true,
+    },
+  };
+}
+
 export default function PlaygroundView({ token, models, unverifiedModels = [], modelsLoading = false, modelsError = '', onRetryModels, initialScope }: {
   token: string;
   models: string[];
@@ -347,10 +378,10 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const comparisonController = useRef<AbortController | null>(null);
-  const customizedModels = useRef(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
   const historyToggleRef = useRef<HTMLButtonElement>(null);
+  const apiKeyTriggerRef = useRef<HTMLButtonElement>(null);
   const historyDialogOpener = useRef<HTMLButtonElement | null>(null);
   const historyActionButtons = useRef(new Map<string, HTMLButtonElement>());
   function restoreHistoryFocus(event: Event) {
@@ -359,22 +390,38 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     (opener?.isConnected ? opener : historyToggleRef.current)?.focus();
     historyDialogOpener.current = null;
   }
-  useEffect(() => {
-    const composer = composerRef.current;
-    if (!composer) return;
-    const resize = new ResizeObserver(() => {
-      transcriptRef.current?.style.setProperty('padding-bottom', `${composer.getBoundingClientRect().height + 24}px`);
-    });
-    resize.observe(composer);
-    return () => resize.disconnect();
-  }, [initialScope, models.length]);
   const dashboard=useDashboardContext();
   const { chatKeys, workspace, workspaces, session } = dashboard;
   const organization = initialScope?.organizationId ?? '';
   const workspaceId = initialScope?.workspaceId ?? '';
+  const { session: routeParamSession } = useParams<{ session?: string }>();
+  const pathSession = useMemo(() => {
+    if (routeParamSession) return routeParamSession;
+    const match = /^\/generations\/([^/?#]+)\/?$/.exec(location.pathname);
+    return match ? decodeURIComponent(match[1]) : null;
+  }, [routeParamSession, location.pathname]);
+  const requestedSession = pathSession ?? new URLSearchParams(location.search).get('session');
+  const startWithNewChat = new URLSearchParams(location.search).get('new') === '1';
+  const selectionLocationKey = useRef(location.key);
+  selectionLocationKey.current = location.key;
+  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
+  const draftEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats/draft`;
+  const cachedHistory = token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
+  const cachedDraft = token ? peekQuery<ChatDraftSnapshot>(token,draftEndpoint) : undefined;
+  const initialSelection = cachedHistory
+    ? selectInitialComparison(cachedHistory, cachedDraft, requestedSession, startWithNewChat)
+    : null;
+  const initialDraftPayload = !requestedSession && !startWithNewChat && cachedDraft?.payload && cachedDraft.payload.sessionId === (initialSelection?.id ?? null)
+    ? cachedDraft.payload
+    : null;
+  const customizedModels = useRef(Boolean(initialSelection || initialDraftPayload));
   const modelSignature = models.join('\u0000');
   const modelAliases = useMemo(() => [...new Set(models)], [modelSignature]);
-  const [selectedModels, setSelectedModels] = useState<string[]>(() => modelAliases.filter(model => !unverifiedModels.includes(model)).slice(0, 2));
+  const [selectedModels, setSelectedModels] = useState<string[]>(() => {
+    if (initialDraftPayload) return initialDraftPayload.models;
+    if (initialSelection) return initialSelection.results.map(result => result.model);
+    return modelAliases.filter(model => !unverifiedModels.includes(model)).slice(0, 1);
+  });
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
   const modelPickerOpener = useRef<HTMLButtonElement | null>(null);
@@ -393,41 +440,40 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [modelQuery, setModelQuery] = useState('');
   const [modelCategory, setModelCategory] = useState('all');
   const [promptCategory, setPromptCategory] = useState<(typeof promptCategories)[number]['id']>('all');
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [prompt, setPrompt] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState(() => initialDraftPayload?.settings.systemPrompt ?? initialSelection?.settings?.systemPrompt ?? '');
+  const [prompt, setPrompt] = useState(() => initialDraftPayload?.prompt ?? '');
   const attachmentInput = useRef<HTMLInputElement>(null);
   const attachmentGeneration = useRef(0);
   useEffect(() => () => {attachmentGeneration.current += 1;}, [token, organization, workspaceId, session?.operator?.id]);
-  const [attachments, setAttachments] = useState<Array<{name: string; type: string; content: string}>>([]);
+  const [attachments, setAttachments] = useState<Array<{name: string; type: string; content: string}>>(() => initialDraftPayload?.attachments ?? []);
   async function addAttachments(files: FileList | null) {
+    if (!draft.ready) return;
     if (!files || running) return;
     const generation = attachmentGeneration.current;
     if (attachments.length + files.length > 4) { setError('Attach up to four files.'); return; }
     for (const file of Array.from(files)) {
-      if (file.size > 4 * 1024 * 1024) { setError(`${file.name} exceeds 4 MB.`); continue; }
+      if (file.size > 4 * 1024 * 1024) { setError(uiF('{0} exceeds 4 MB.', [file.name])); continue; }
       const image = ['image/png', 'image/jpeg', 'image/webp'].includes(file.type);
       const text = file.type.startsWith('text/') || /\.(txt|md|csv|json|js|ts|py|html|css)$/i.test(file.name);
-      if (!image && !text) { setError(`${file.name}: use PNG, JPEG, WebP, or a text file.`); continue; }
+      if (!image && !text) { setError(uiF('{0}: use PNG, JPEG, WebP, or a text file.', [file.name])); continue; }
       try {
       const content = image ? await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); }) : await file.text();
       if (generation !== attachmentGeneration.current) return;
       setAttachments(current => [...current, {name: file.name, type: image ? 'image' : 'text', content}].slice(0, 4));
-      } catch { if (generation !== attachmentGeneration.current) return; setError(`Could not read ${file.name}. Try attaching it again.`); }
+      } catch { if (generation !== attachmentGeneration.current) return; setError(uiF('Could not read {0}. Try attaching it again.', [file.name])); }
     }
     if (attachmentInput.current) attachmentInput.current.value = '';
   }
-  const [maxTokens, setMaxTokens] = useState(512);
-  const [temperature, setTemperature] = useState(0.7);
-  const [logPayloads, setLogPayloads] = useState(true);
-  const [selectedKeyId, setSelectedKeyId] = useState('');
-  const manualKeySelection = useRef(false);
-  const [manualKey, setManualKey] = useState('');
+  const [maxTokens, setMaxTokens] = useState(() => initialDraftPayload?.settings.maxTokens ?? initialSelection?.settings?.maxTokens ?? 4096);
+  const [temperature, setTemperature] = useState(() => initialDraftPayload?.settings.temperature ?? initialSelection?.settings?.temperature ?? 0.7);
+  const [logPayloads, setLogPayloads] = useState(() => initialDraftPayload?.settings.logPayloads ?? initialSelection?.settings?.logPayloads ?? true);
+  const [selectedKeyId, setSelectedKeyId] = useState(() => cachedDraft?.payload?.keyId ?? '');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [results, setResults] = useState<ComparisonResult[] | null>(null);
-  const [history, setHistory] = useState<SavedComparison[]>([]);
-  const [activeComparisonId, setActiveComparisonId] = useState<string | null>(null);
+  const [results, setResults] = useState<ComparisonResult[] | null>(() => initialSelection?.results ?? null);
+  const [history, setHistory] = useState<SavedComparison[]>(cachedHistory??[]);
+  const [activeComparisonId, setActiveComparisonId] = useState<string | null>(() => initialSelection?.id ?? null);
   const [copiedResponse, setCopiedResponse] = useState('');
   const [renamingChat, setRenamingChat] = useState<SavedComparison | null>(null);
   const [chatTitle, setChatTitle] = useState('');
@@ -448,7 +494,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const exportController = useRef<AbortController | null>(null);
   const sessionTitle = (item: SavedComparison) => item.title || item.prompt.split('\n')[0];
 
-  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
   const historyIdentity = `${token}\u0000${historyEndpoint}`;
   const historyScope = useRef(historyIdentity);
   historyScope.current = historyIdentity;
@@ -503,10 +548,20 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         body: JSON.stringify({ archived }),
       });
       if (!response.ok) throw new Error('Archive update failed');
+      invalidateForMutation(token,historyEndpoint,'PUT');
       if (historyScope.current !== identity) return;
       if (archived) {
         setHistory(items => items.filter(saved => saved.id !== item.id));
-        if (activeComparisonId === item.id) startNewComparison();
+        if (activeComparisonId === item.id) {
+          startNewComparison();
+          if (location.pathname.startsWith('/generations/') || (requestedSession && (requestedSession === item.id || requestedSession === item.reference))) {
+            const params = new URLSearchParams(location.search);
+            params.delete('session');
+            const query = params.toString();
+            const basePath = location.pathname.startsWith('/generations/') ? '/generations' : location.pathname;
+            navigate(`${basePath}${query ? `?${query}` : ''}${location.hash}`, { replace: true });
+          }
+        }
         setNotice('Chat archived.');
       } else {
         setArchivedChats(items => items.filter(saved => saved.id !== item.id));
@@ -522,23 +577,46 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
   useEffect(() => { setDeletingChat(null); setDeleteError(''); }, [historyEndpoint, token]);
   const navigate=useNavigate();
-  const requestedSession=new URLSearchParams(location.search).get('session');
-  const startWithNewChat = new URLSearchParams(location.search).get('new') === '1';
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState('');
   const [historyRevision, setHistoryRevision] = useState(0);
-  const draft=useChatDraft({token,endpoint:`/api/v1/organizations/${organization}/projects/${workspaceId}/chats/draft`,
+  const draft=useChatDraft({token,endpoint:draftEndpoint,modelsCustomized:customizedModels,
     identity:JSON.stringify([token,organization,workspaceId,session?.operator?.id]),
     enabled:Boolean(token&&organization&&workspaceId&&!historyLoading&&!historyError),
-    value:{sessionId:activeComparisonId,prompt,models:selectedModels,attachments,settings:{systemPrompt,maxTokens,temperature,logPayloads}},
+    value:{...(selectedKeyId ? {keyId:selectedKeyId}:{}),sessionId:activeComparisonId,prompt,models:selectedModels,attachments,settings:{systemPrompt,maxTokens,temperature,logPayloads}},
     restore:saved=>{
-      if(requestedSession){const item=history.find(item=>(item.id===requestedSession||item.reference===requestedSession));if(item)openComparison(item);else {startNewComparison();setError('This session is unavailable or you no longer have access.');}return;}
+      const requestedKey=new URLSearchParams(location.search).get('key');
+      const restoredKey=workspaceKeys.find(key=>key.id===requestedKey||key.slug===requestedKey)?.id ?? saved.keyId;
+      setSelectedKeyId(restoredKey ?? '');
+      if(requestedSession){
+        const item=history.find(item=>(item.id===requestedSession||item.reference===requestedSession));
+        if(item){openComparison(item);return comparisonDraft(item,restoredKey);}
+        startNewComparison();setError('This session is unavailable or you no longer have access.');
+        return;
+      }
       if(startWithNewChat) {startNewComparison();return;}
-      if (saved.sessionId) {
-        const conversation=history.find(item=>item.id===saved.sessionId);
-        if(conversation) openComparison(conversation);
-        else startNewComparison();
-      } else startNewComparison();
+      if(!saved){
+        if(history[0]){openComparison(history[0]);return comparisonDraft(history[0],restoredKey);}
+        return;
+      }
+      const matched = saved.sessionId
+        ? history.find(item => item.id === saved.sessionId || item.reference === saved.sessionId)
+        : undefined;
+      if (matched) {
+        openComparison(matched);
+        customizedModels.current=true;
+        setSelectedModels(saved.models);setPrompt(saved.prompt);setAttachments(saved.attachments);
+        setSystemPrompt(saved.settings.systemPrompt);setMaxTokens(saved.settings.maxTokens);
+        setTemperature(saved.settings.temperature);setLogPayloads(saved.settings.logPayloads);
+        return { ...saved, sessionId: matched.id };
+      }
+      const hasUnsentDraft = Boolean(saved.prompt.trim() || saved.attachments.length > 0);
+      if (!hasUnsentDraft && history[0]) {
+        const fallback = history[0];
+        openComparison(fallback);
+        return comparisonDraft(fallback,restoredKey);
+      }
+      startNewComparison();
       customizedModels.current=true;
       setSelectedModels(saved.models);setPrompt(saved.prompt);setAttachments(saved.attachments);
       setSystemPrompt(saved.settings.systemPrompt);setMaxTokens(saved.settings.maxTokens);
@@ -546,14 +624,29 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }});
   useEffect(() => {
     const controller = new AbortController();
-    setHistory([]);
-    setResults(null);
-    setActiveComparisonId(null);
-    setHistoryLoading(true);
+    const restoringLocationKey = location.key;
+    const cached=token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
+    const cachedDraftSnapshot=token ? peekQuery<ChatDraftSnapshot>(token,draftEndpoint) : undefined;
+    setHistory(cached??[]);
+    setHistoryLoading(!cached);
     setHistoryError('');setSettingsSaving(false);setSettingsSaveError('');
+    const cachedSelection=cached ? selectInitialComparison(cached,cachedDraftSnapshot,requestedSession,startWithNewChat) : null;
+    if(cachedSelection){
+      openComparison(cachedSelection);
+      if(!requestedSession&&!startWithNewChat&&cachedDraftSnapshot?.payload&&cachedDraftSnapshot.payload.sessionId===cachedSelection.id){
+        customizedModels.current=true;
+        setSelectedModels(cachedDraftSnapshot.payload.models);setPrompt(cachedDraftSnapshot.payload.prompt);setAttachments(cachedDraftSnapshot.payload.attachments);
+        setSystemPrompt(cachedDraftSnapshot.payload.settings.systemPrompt);setMaxTokens(cachedDraftSnapshot.payload.settings.maxTokens);
+        setTemperature(cachedDraftSnapshot.payload.settings.temperature);setLogPayloads(cachedDraftSnapshot.payload.settings.logPayloads);
+      }
+    } else {
+      setResults(null);
+      setActiveComparisonId(null);
+    }
     if (!token || !organization || !workspaceId) return;
-    fetch(historyEndpoint, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
-      .then(response => responseData<SavedComparison[]>(response))
+    const draftPromise = prefetchChatDraft(token, draftEndpoint, controller.signal).catch(() => undefined);
+    cachedKeyGet<{data:SavedComparison[]}>(token,historyEndpoint,{signal:controller.signal,persist:true,force:true})
+      .then(response => response.data)
       .then(async items => {
         if (controller.signal.aborted) return;
         if (requestedSession && !items.some(item => item.id === requestedSession || item.reference === requestedSession)) {
@@ -568,19 +661,28 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         }
         // One-time migration of history created by the former browser-only implementation.
         // Remove that copy only after PostgreSQL has acknowledged every imported record.
-        const actor = session?.operator?.id ?? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))), byte => byte.toString(16).padStart(2, '0')).join('');
-        const legacyKey = `niu.chat.v1:${JSON.stringify([organization, workspaceId, actor])}`;
-        let legacy: { history?: SavedComparison[] } | null = null;
-        try { legacy = JSON.parse(localStorage.getItem(legacyKey) ?? 'null'); } catch { /* Cache is optional. */ }
-        if (Array.isArray(legacy?.history)) {
-          for (const item of legacy.history) {
-            if (controller.signal.aborted) return;
-            if (items.some(saved => saved.id === item.id)) continue;
-            await saveComparison(item);
-            items.push(item);
+        let hasLegacy = false;
+        try {
+          for (let index = 0; index < localStorage.length; index += 1) {
+            if (localStorage.key(index)?.startsWith('niu.chat.v1:')) { hasLegacy = true; break; }
           }
-          try { localStorage.removeItem(legacyKey); } catch { /* Server copy is authoritative. */ }
+        } catch { /* Cache is optional. */ }
+        if (hasLegacy) {
+          const actor = session?.operator?.id ?? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))), byte => byte.toString(16).padStart(2, '0')).join('');
+          const legacyKey = `niu.chat.v1:${JSON.stringify([organization, workspaceId, actor])}`;
+          let legacy: { history?: SavedComparison[] } | null = null;
+          try { legacy = JSON.parse(localStorage.getItem(legacyKey) ?? 'null'); } catch { /* Cache is optional. */ }
+          if (Array.isArray(legacy?.history)) {
+            for (const item of legacy.history) {
+              if (controller.signal.aborted) return;
+              if (items.some(saved => saved.id === item.id)) continue;
+              await saveComparison(item);
+              items.push(item);
+            }
+            try { localStorage.removeItem(legacyKey); } catch { /* Server copy is authoritative. */ }
+          }
         }
+        await draftPromise;
         if (controller.signal.aborted) return;
         const restoreResults = (results: ComparisonResult[]) => results.map(result =>
           result.phase === 'connecting' || result.phase === 'streaming'
@@ -589,18 +691,41 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           turns: item.turns?.map(turn => ({ ...turn, results: restoreResults(turn.results) })),
         }));
         setHistory(restored);
-        const initial=requestedSession ? restored.find(item=>(item.id===requestedSession||item.reference===requestedSession)) : restored[0];
-        if(initial&&!startWithNewChat) {
+        // History may finish after the user has selected another session or a new chat.
+        if (selectionLocationKey.current !== restoringLocationKey) return;
+        const latestDraftSnapshot=token ? peekQuery<ChatDraftSnapshot>(token,draftEndpoint) : undefined;
+        const initial=selectInitialComparison(restored,latestDraftSnapshot,requestedSession,startWithNewChat);
+        if(initial) {
           openComparison(initial);
-          if (requestedSession && initial.reference && requestedSession !== initial.reference) {
+          if(!requestedSession&&!startWithNewChat&&latestDraftSnapshot?.payload&&latestDraftSnapshot.payload.sessionId===initial.id){
+            customizedModels.current=true;
+            setSelectedModels(latestDraftSnapshot.payload.models);setPrompt(latestDraftSnapshot.payload.prompt);setAttachments(latestDraftSnapshot.payload.attachments);
+            setSystemPrompt(latestDraftSnapshot.payload.settings.systemPrompt);setMaxTokens(latestDraftSnapshot.payload.settings.maxTokens);
+            setTemperature(latestDraftSnapshot.payload.settings.temperature);setLogPayloads(latestDraftSnapshot.payload.settings.logPayloads);
+          }
+          const isGenerationsRoute = location.pathname === '/generations' || location.pathname.startsWith('/generations/');
+          const canonicalSession = initial.reference ?? (requestedSession ? initial.id : null);
+          if (isGenerationsRoute && canonicalSession && (requestedSession || initial.reference)) {
+            const query = new URLSearchParams(location.search);
+            query.delete('session');
+            const wsSeg = workspace ? workspacePathSegment(workspace, workspaces) : workspaceId;
+            if (wsSeg && (query.get('workspace') === wsSeg || query.get('workspace') === workspaceId)) {
+              query.delete('workspace');
+            }
+            const nextSearch = query.toString();
+            const nextUrl = `/generations/${encodeURIComponent(canonicalSession)}${nextSearch ? `?${nextSearch}` : ''}${location.hash}`;
+            if (`${location.pathname}${location.search}${location.hash}` !== nextUrl) {
+              navigate(nextUrl, { replace: true });
+            }
+          } else if (requestedSession && initial.reference && requestedSession !== initial.reference) {
             const query = new URLSearchParams(location.search);
             query.set('session', initial.reference);
             navigate(`${location.pathname}?${query}${location.hash}`, {replace:true});
           }
         }
-        else if(requestedSession&&!startWithNewChat)setError('This session is unavailable or you no longer have access.');
+        else if(requestedSession&&!startWithNewChat){startNewComparison();setError('This session is unavailable or you no longer have access.');}
       })
-      .catch(() => { if (!controller.signal.aborted) setHistoryError('Could not load chat history.'); })
+      .catch(() => { clearPrefetchedChatDraft(token, draftEndpoint); if (!controller.signal.aborted) setHistoryError('Could not load chat history.'); })
       .finally(() => { if (!controller.signal.aborted) setHistoryLoading(false); });
     return () => controller.abort();
   }, [token, historyEndpoint, session?.operator?.id, historyRevision]);
@@ -625,12 +750,16 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     } finally {if (historyScope.current === identity) setSettingsSaving(false);}
   }
 
+  useEffect(()=>{
+    if(token&&organization&&workspaceId&&!historyLoading&&!historyError)primeQuery(token,historyEndpoint,{data:history},{persist:true});
+  },[token,historyEndpoint,history,historyLoading,historyError]);
   async function saveComparison(item: SavedComparison) {
     const response = await fetch(`${historyEndpoint}/${item.id}`, {
       method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify(item),
     });
     if (!response.ok) throw new Error('Could not save this chat. Check your connection and try again.');
+    invalidateForMutation(token,historyEndpoint,'PUT');
     const receipt = await response.json();
     if (typeof receipt.reference === 'string' && /^chat-[1-9][0-9]{0,18}$/.test(receipt.reference)) item.reference = receipt.reference;
   }
@@ -639,27 +768,29 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     ? `/workspaces/${workspacePathSegment(workspace, workspaces)}`
     : '/workspaces/default';
   const sessionKeys = chatKeys.filter(key => key.organizationId === organization && key.projectId === workspaceId);
+  const keysPath = workspaceId ? `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/keys` : '';
   const [workspaceKeys, setWorkspaceKeys] = useState<Array<{id: string; slug?: string; name: string; allowed_models?: string[]; revoked: boolean; expired: boolean}>>([]);
   const [keyLoadError, setKeyLoadError] = useState('');
   const [workspaceKeysReady, setWorkspaceKeysReady] = useState(false);
   useEffect(() => {
-    setWorkspaceKeys([]);
-    setWorkspaceKeysReady(false);
+    setWorkspaceKeys([]); setWorkspaceKeysReady(false);
   }, [token, organization, workspaceId]);
   useEffect(() => {
     if (!token || !organization || !workspaceId) return;
     const controller = new AbortController();
-    setKeyLoadError('');
-    setWorkspaceKeysReady(false);
-    fetch(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/keys`, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
+    setKeyLoadError(''); setWorkspaceKeysReady(false);
+    fetch(keysPath, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error('Could not load API keys. Reopen this menu to retry.'); return response.json(); })
       .then(value => { if (!controller.signal.aborted) { setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean}) => !key.revoked && !key.expired)); setWorkspaceKeysReady(true); } })
       .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); });
     return () => controller.abort();
-  }, [apiSettingsOpen, token, organization, workspaceId]);
-  const keyChoices = [...sessionKeys, ...workspaceKeys.filter(key => !sessionKeys.some(saved => saved.id === key.id))];
+  }, [apiSettingsOpen, token, organization, workspaceId, keysPath]);
+  // Saved metadata owns slugs and availability; issued secrets are loading hints.
+  const keyChoices = [...workspaceKeys, ...sessionKeys.filter(key => !workspaceKeysReady && !workspaceKeys.some(saved => saved.id === key.id))];
+  const noAvailableKeys = workspaceKeysReady && !keyLoadError && !availableKeys.loading && !availableKeys.error && keyChoices.length === 0 && availableKeys.keys.length === 0;
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
+  const videoKey = useWorkspaceVideo(dashboard, managedKey?.id ?? '');
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
   const billingSummary = !managedKey
     ? uiT("Usage is billed according to the workspace of your API key. Choose a saved workspace key to see how usage is billed.")
@@ -669,17 +800,18 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         ? uiT("Uses your own Provider API key. Usage is billed by your Provider, not deducted from Niu credits.")
         : billingSources.every(source => source === 'niu_credits')
           ? uiT("Usage is charged to your Niu credits at the applicable model prices.")
-          : uiT("This comparison uses both Niu credits and your own Provider API keys. Each model is billed through its configured source.");
+          : uiT("This comparison uses both Niu credits and your own Provider keys. Each model is billed through its configured source.");
   const allowedModels = managedKey?.allowed_models ?? selectedKey?.allowedModels;
   const usableModels = useMemo(() => allowedModels && !allowedModels.includes('*')
     ? modelAliases.filter(model => allowedModels.includes(model))
     : modelAliases, [modelAliases, allowedModels]);
-  const apiKey = managedKey ? token : selectedKey?.token ?? manualKey.trim();
+  const apiKey = managedKey ? token : selectedKey?.token ?? '';
   const chatEndpoint = '/v1/chat/completions';
   const keyIds = keyChoices.map(key => key.id).join('\u0000') + '\u0000' + workspaceKeys.map(key => key.slug ?? '').join('\u0000');
   const preferredKey = new URLSearchParams(location.search).get('key');
+  const requestedKeyMissing = Boolean(workspaceKeysReady && !availableKeys.loading && !keyLoadError && !availableKeys.error && preferredKey && !workspaceKeys.some(key => key.id === preferredKey || key.slug === preferredKey));
+  const keyBlocked = requestedKeyMissing || Boolean(draft.ready && workspaceKeysReady && !availableKeys.loading && selectedKeyId && !keyChoices.some(key=>key.id===selectedKeyId));
   const preferredModel = new URLSearchParams(location.search).get('model');
-
   useEffect(() => {
     const resolved = workspaceKeys.find(key => key.slug === preferredKey || key.id === preferredKey);
     const preferred = resolved?.id ?? preferredKey;
@@ -690,27 +822,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         next.set('key', resolved.slug);
         navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
       }
-    } else if (preferredKey) setSelectedKeyId('manual');
-    else if (manualKeySelection.current) setSelectedKeyId('manual');
-    else if (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId)) setSelectedKeyId(keyChoices[0]?.id ?? 'manual');
-  }, [preferredKey, keyIds]);
+    } else if (!preferredKey && draft.ready && !selectedKeyId) setSelectedKeyId(keyChoices[0]?.id ?? '');
+  }, [preferredKey, keyIds, draft.ready, selectedKeyId]);
 
-  // A new-generation URL is an action, not a permanent draft-restoration mode.
-  // Confirm the fresh composer before consuming it so reload restores that draft.
-  useEffect(() => {
-    if (!startWithNewChat || !draft.ready || draft.error) return;
-    let cancelled = false;
-    void draft.flush().then(saved => {
-      if (!saved || cancelled) return;
-      const params = new URLSearchParams(location.search);
-      params.delete('new');
-      const key = workspaceKeys.find(item => item.id === params.get('key') || item.slug === params.get('key'));
-      if (key?.slug) params.set('key', key.slug);
-      const query = params.toString();
-      navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, {replace:true});
-    });
-    return () => {cancelled = true;};
-  }, [startWithNewChat, draft.ready, draft.error, location.search, navigate, workspaceKeys]);
+  const draftNavigation = useDraftNavigation(draft);
+  useNewChatAction(startWithNewChat, draft, workspaceKeys, startNewComparison);
 
 
   useEffect(() => {
@@ -726,7 +842,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   useEffect(() => {
     if (modelsLoading || modelsError) return;
     setSelectedModels(current => {
-      if (!customizedModels.current) return usableModels.filter(model => !unverifiedModels.includes(model)).slice(0, 2);
+      if (!customizedModels.current) return usableModels.filter(model => !unverifiedModels.includes(model)).slice(0, 1);
       const available = current.filter(model => usableModels.includes(model));
       return available;
     });
@@ -755,6 +871,14 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     setRunning(false);
   }
 
+  useEffect(() => {
+    if (!requestedSession || startWithNewChat || historyLoading) return;
+    const current = history.find(item => item.id === activeComparisonId);
+    if (current && (current.id === requestedSession || current.reference === requestedSession)) return;
+    const matched = history.find(item => item.id === requestedSession || item.reference === requestedSession);
+    if (matched) openComparison(matched);
+  }, [requestedSession, startWithNewChat, historyLoading, history, activeComparisonId]);
+
   function openComparison(item: SavedComparison) {
     comparisonGeneration.current += 1;
     attachmentGeneration.current += 1;
@@ -765,7 +889,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     setPrompt('');
     setAttachments([]);
     setSystemPrompt(item.settings?.systemPrompt ?? '');
-    setMaxTokens(item.settings?.maxTokens ?? 512);
+    setMaxTokens(item.settings?.maxTokens ?? 4096);
     setTemperature(item.settings?.temperature ?? 0.7);
     setLogPayloads(item.settings?.logPayloads ?? true);
     customizedModels.current = true;
@@ -784,22 +908,6 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     });
   }
 
-  const modelCategories = useMemo(() => {
-    const coding = usableModels.filter(model => /(?:^|[\/_ .-])(?:code|coder|codex|codestral|devstral|starcoder)(?:$|[\/_ .:-])/i.test(model));
-    const reasoning = usableModels.filter(model => /reason|thinking|deepseek-r1|qwq|(?:^|[\/_ .-])o[134](?:$|[\/_ .:-])/i.test(model));
-    return [
-      ...(coding.length >= 2 ? [{ id: 'coding', label: 'Coding', models: coding }] : []),
-      ...(reasoning.length >= 2 ? [{ id: 'reasoning', label: 'Reasoning', models: reasoning }] : []),
-      { id: 'all', label: 'All models', models: usableModels },
-    ];
-  }, [usableModels]);
-  const activeModelCategory = modelCategories.find(category => category.id === modelCategory) ?? modelCategories[0];
-  const filteredModelAliases = useMemo(() => {
-    const query = modelQuery.trim().toLowerCase();
-    const source = query ? usableModels : activeModelCategory?.models ?? usableModels;
-    return source.filter(model => !query || model.toLowerCase().includes(query)).slice(0, 80);
-  }, [usableModels, modelQuery, activeModelCategory]);
-
   async function loadCharges(attemptIds: string[], signal?: AbortSignal) {
     if (!attemptIds.length) return new Map<string, RequestLedgerEntry>();
     const base = '/api/v1/organizations/' + encodeURIComponent(organization) + '/projects/' + encodeURIComponent(workspaceId);
@@ -816,7 +924,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
   async function compare(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (comparisonController.current || running || settingsSaving || historyLoading || !draft.ready || draft.error
+    if (comparisonController.current || running || settingsSaving || historyLoading
       || modelsLoading || modelsError
       || (selectedKey && !managedKey) || session?.permissions.write === false
       || !selectedModels.every(model => usableModels.includes(model))) return;
@@ -851,10 +959,27 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     const controller = new AbortController();
     comparisonController.current = controller;
     let persistenceStarted = false;
+    let pendingSnapshot: SavedComparison | null = null;
+    let checkpoint: Promise<void> | null = null;
+    let checkpointError: unknown;
+    async function persistVisibleResults() {
+      while (pendingSnapshot && generation === comparisonGeneration.current && !controller.signal.aborted) {
+        const snapshot = pendingSnapshot;
+        pendingSnapshot = null;
+        await saveComparison(snapshot);
+        if (generation !== comparisonGeneration.current || controller.signal.aborted) return;
+        setResults(snapshot.results);
+        setHistory(items => items.map(item => item.id === comparisonId ? snapshot : item));
+      }
+    }
     setRunning(true);
     try {
-      const draftSaved = await draft.flush();
-      if (generation !== comparisonGeneration.current || !draftSaved) return;
+      // Stop must take effect while the composer draft is still saving, and a
+      // stopped submission must not create a saved conversation for a prompt
+      // that was never dispatched.
+      await Promise.race([draft.flush(), abortSignalPromise(controller.signal)]);
+      if (generation !== comparisonGeneration.current) return;
+      if (controller.signal.aborted) return;
       // Keep one identity through startup, cancellation and final persistence.
       // Aborting a save itself would leave its commit outcome unknown.
       persistenceStarted = true;
@@ -866,29 +991,45 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       setAttachments([]);
       setActiveComparisonId(comparisonId);
       setResults(initialResults);
-      setHistory(current => [saved, ...current.filter(item => item.id !== comparisonId)]);
-      const clearedDraft = await draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
-      if (!clearedDraft || generation !== comparisonGeneration.current || controller.signal.aborted) return;
+      const initialSnapshot = { ...saved };
+      setHistory(current => [initialSnapshot, ...current.filter(item => item.id !== comparisonId)]);
+      if ((location.pathname === '/generations' || location.pathname.startsWith('/generations/')) && saved.reference) {
+        const targetPath = `/generations/${encodeURIComponent(saved.reference)}`;
+        if (location.pathname !== targetPath) {
+          const query=new URLSearchParams(location.search);query.delete('new');query.delete('session');
+          navigate(`${targetPath}${query.size ? `?${query}`:''}`, { replace: true });
+        }
+      }
+      await Promise.race([
+        draft.flush({...(selectedKeyId ? {keyId:selectedKeyId}:{}),sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}}),
+        abortSignalPromise(controller.signal),
+      ]);
+      if (generation !== comparisonGeneration.current || controller.signal.aborted) return;
       const updateResult = (next: ComparisonResult) => {
         saved.results = saved.results.map(result => result.model === next.model ? next : result);
         saved.turns = [...previousTurns, { ...currentTurn, results: saved.results }];
         if (generation !== comparisonGeneration.current) return;
-        setResults(current => current?.map(item => item.model === next.model ? { ...item, ...next } : item) ?? current);
-        setHistory(current => current.map(item => item.id === comparisonId
-          ? { ...saved }
-          : item));
+        // Coalesce updates received during a write. Only show response text that
+        // another browser can already recover from the saved conversation.
+        if (checkpointError || (!next.content && next.phase === 'streaming')) return;
+        pendingSnapshot = { ...saved };
+        if (!checkpoint) {
+          checkpoint = persistVisibleResults().catch(cause => {
+            checkpointError = cause;
+          }).finally(() => { checkpoint = null; });
+        }
       };
       const completed = await Promise.all(selectedModels.map(model => {
         const messages: ConversationMessage[] = systemPrompt.trim() ? [{ role: 'system', content: systemPrompt.trim() }] : [];
         messages.push(...branchMessages(previousTurns, model), userMessage(currentTurn));
         return runModel(model, apiKey, messages, maxTokens, temperature, controller.signal, updateResult, chatEndpoint, logPayloads, managedKey?.id);
       }));
+      await checkpoint;
+      if (checkpointError) throw checkpointError;
       saved.results = completed;
       saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
       if (generation !== comparisonGeneration.current) return;
       if (controller.signal.aborted) {
-        setResults(completed);
-        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
         return;
       }
       const attemptIds = completed.flatMap(result => result.attemptId ? [result.attemptId] : []);
@@ -907,14 +1048,10 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         });
         saved.results = priced;
         saved.turns = [...previousTurns, { ...currentTurn, results: priced }];
-        setResults(priced);
-        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
       } catch {
         if (controller.signal.aborted || generation !== comparisonGeneration.current) return;
         saved.results = completed;
         saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
-        setResults(completed);
-        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
         setNotice('Responses are ready. Customer charges are not available yet.');
       }
     } catch (cause) {
@@ -940,7 +1077,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             setHistory(current => [saved, ...current.filter(item => item.id !== comparisonId)]);
             setPrompt('');
             setAttachments([]);
-            await draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
+            await draft.flush({...(selectedKeyId ? {keyId:selectedKeyId}:{}),sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
           }
         }
       }
@@ -965,66 +1102,76 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }
   }
 
-  const canSubmit = Boolean(organization && workspaceId && draft.ready && !draft.error && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
+  const canSubmit = Boolean(organization && workspaceId && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
   const activeComparison = history.find(item => item.id === activeComparisonId);
-  const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (manualKey ? uiT("Workspace key added") : uiT("Choose API key"));
+  const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? uiT("Choose API key");
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);
   const currentWorkspaceSegment = workspace ? workspacePathSegment(workspace, workspaces) : workspaceId;
+  const activeTurns = activeComparison?.turns ?? (results ? [{ prompt: activeComparison?.prompt ?? '', results }] : []);
+  const contextPanelData = buildChatContextPanelData(activeTurns, customerCharge, dashboard.models ?? [], workspaceRoot, { systemPrompt, maxTokens, temperature, logPayloads });
 
   return <div className="playground-view">
     <div className="playground-chat-layout">
-      <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} actions={<div className="playground-toolbar-actions">
-            <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
+      <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions">
+            <Button ref={apiKeyTriggerRef} type="button" variant={managedKey || selectedKey ? "outline" : "default"} className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
-          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(currentWorkspaceSegment)}&session=${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
-              <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
+          </div>} onNewSession={startWithNewChat ? startNewComparison : undefined} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item,selectedKeyId));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
+              <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? uiT("Exporting…") : uiT("Export")}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />{uiT("Delete")}</DropdownMenuItem></DropdownMenuContent>
               </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />
 
       <section className="playground-chat-main" aria-label={uiT("Model comparison chat")}>
-
-
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">
-          {error && !results && <p role="alert" className="playground-chat-error">{error}</p>}
+          {error && !results && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
           {selectedModels.some(model => unverifiedModels.includes(model)) && <Alert role="status"><AlertDescription>{uiT("Chat support is unverified for")}{" "}{selectedModels.filter(model => unverifiedModels.includes(model)).join(', ')}{uiT(". Confirm support with your platform administrator before sending.")}</AlertDescription></Alert>}
-          {modelsError && <div role="alert" className="playground-chat-error">{modelsError}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>{uiT("Retry model catalog")}</Button>}</div>}
+          {modelsError && <div role="alert" className="playground-chat-error">{uiT(modelsError)}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>{uiT("Retry model catalog")}</Button>}</div>}
           {!initialScope
-            ? <div className="playground-chat-empty"><FlaskConical size={26} /><h2>{uiT("Add an API key")}</h2><p>{uiT("Use an API key to authorize generations and track usage.")}</p><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage API keys")}</Link></Button></div>
+            ? <Empty className="playground-chat-empty border-0 bg-transparent"><EmptyHeader><EmptyMedia variant="icon"><FlaskConical size={20} /></EmptyMedia><EmptyTitle><h2>{uiT("Add an API key")}</h2></EmptyTitle><EmptyDescription>{uiT("Use an API key to authorize generations and track usage.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to="/workspaces">{uiT("Manage keys")}</Link></Button></EmptyContent></Empty>
             : !results && !prompt.trim()
                 ? <div className="playground-first-run">
-                  <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2><p>{uiT("Write, build, compare models or generate a video.")}</p>{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
+                  {videoKey && <div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}>
+                    <Button variant="secondary" size="sm" aria-pressed="true"><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Button>
+                    <Button variant="ghost" size="sm" asChild><Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}&key=${encodeURIComponent(managedKey?.slug || videoKey)}`}><Video size={16} />{uiT("Video", "视频")}</Link></Button>
+                  </div>}
+                  <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2>{videoKey && <p>{uiT("Write, build, compare models or generate a video.")}</p>}{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
                   <div className="playground-starter-picker" aria-label={uiT("Example tasks")}>
-                    <Tabs value={promptCategory} onValueChange={value => {if(value==='video'){navigate(`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}`:''}`);return;}setPromptCategory(value as typeof promptCategory);}} className="playground-starter-tabs">
-                      <TabsList aria-label={uiT("Task category")} className="playground-starter-categories">
-                        {promptCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-starter-category">{uiT(category.label)}</TabsTrigger>)}
-                      </TabsList>
-                    </Tabs>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Tabs value={promptCategory} onValueChange={value => setPromptCategory(value as typeof promptCategory)} className="playground-starter-tabs">
+                        <TabsList aria-label={uiT("Task category")} className="playground-starter-categories">
+                          {promptCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-starter-category">{uiT(category.label)}</TabsTrigger>)}
+                        </TabsList>
+                      </Tabs>
+                    </div>
                     <div className="playground-starters" aria-label={uiT("Example prompts")}>
-                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" className="playground-starter" disabled={running || settingsSaving || !draft.ready || Boolean(modelsError) || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); setError(''); setNotice(''); requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus()); }}><strong>{uiT(item.title)}</strong><span>{uiT(item.summary)}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
+                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" variant="ghost" className="playground-starter" disabled={running || settingsSaving || !draft.ready || Boolean(modelsError) || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); setError(''); setNotice(''); requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus()); }}><strong>{uiT(item.title)}</strong><span>{uiT(item.summary)}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
                     </div>
                   </div>
                 </div>
                 : !results
                 ? null
-                : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results }]).map((turn, turnIndex) => <div className="playground-comparison-thread" key={turnIndex}>
-                  <div className="playground-user-prompt"><span>{uiT("You")}</span><p>{turn.prompt}</p></div>
-                  {error && <p role="alert" className="playground-chat-error">{error}</p>}
+                : <>{(activeComparison?.turns ?? [{ prompt: activeComparison?.prompt ?? '', results, attachments: activeComparison?.attachments }]).map((turn, turnIndex) => <div className="playground-comparison-thread" id={`generation-turn-${turnIndex + 1}`} tabIndex={-1} key={turnIndex}>
+                  <div className="playground-user-prompt min-w-0"><span>{uiT("You")}</span>
+                    <ChatTurnAttachments key={activeComparisonId ?? 'new'} attachments={turn.attachments ?? []} />
+                    <p>{turn.prompt}</p>
+                  </div>
+                  {error && <p role="alert" className="playground-chat-error">{uiT(error)}</p>}
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
-                    <div className="playground-results-heading"><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
+                    <div className={turn.results.length === 1 ? "sr-only" : "playground-results-heading"}><h2 id={`playground-results-title-${turnIndex}`}>{uiT("Responses")}</h2><span>{turn.results.length} {turn.results.length === 1 ? uiT("model") : uiT("models")}</span></div>
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
-                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{result.model}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : generationOutcome(result.finishReason).label}</Badge></div>
-                      {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{generationOutcome(result.finishReason).detail}</p>}
-                      {result.phase === 'failed' && <p className="playground-response-error">{result.error}</p>}
+                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model })} size="small" /><h3>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</h3></div><Button type="button" variant="ghost" className="playground-status-trigger h-auto p-0" title={result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")} onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></Button></div>
+                      {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{uiT(generationOutcome(result.finishReason).detail)}</p>}
+                      {result.phase === 'failed' && <p className="playground-response-error">{result.error && uiT(result.error)}</p>}
                       {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
                       <div className="playground-result-footer">
                         <div className="playground-card-metrics">
                           <div><Clock3 size={15} /><span>{uiT("Time")}</span><strong>{result.elapsedMs.toLocaleString(readUILocale())}{" "}{uiT("ms")}</strong></div>
-                          <div><Hash size={15} /><span>Tokens</span><strong>{result.totalTokens == null ? uiT("Unknown") : result.totalTokens.toLocaleString(readUILocale())}</strong></div>
+                          <div><Hash size={15} /><span>{uiT("Tokens")}</span><strong>{result.totalTokens == null ? uiT("Unknown") : result.totalTokens.toLocaleString(readUILocale())}</strong></div>
                           <div><CircleDollarSign size={15} /><span>{uiT("Customer charge")}</span><strong>{customerCharge(result)}</strong></div>
                         </div>
                         <div className="playground-result-actions">
-                          {result.content && <Button type="button" variant="ghost" size="sm" aria-label={'Copy ' + result.model + ' response'} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? uiT("Copied") : uiT("Copy")}</Button>}
+                          <Button type="button" variant="ghost" size="sm" onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}>{result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")}</Button>
+                          {result.content && <Button type="button" variant="ghost" size="sm" aria-label={uiF("Copy {0} response", [result.model])} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? uiT("Copied") : uiT("Copy")}</Button>}
                           {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptReference??result.attemptId)}>{uiT("Inspect request")}</Link>}
                         </div>
                       </div>
@@ -1035,11 +1182,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                         <div className="playground-metric-table-wrap"><ShadcnTable className="playground-metric-table" style={{ minWidth: (516 + (turn.results.length - 2) * 224) + 'px' }}><caption className="playground-table-caption">{uiT("Each value comes from these requests. Missing gateway evidence remains unknown.")}</caption><TableHeader><TableRow>
                           <TableHead scope="col">{uiT("Measure")}</TableHead>
                           {turn.results.map((result, index) => <Fragment key={result.model}>
-                            <TableHead scope="col" className={index === 0 ? 'playground-baseline-column' : undefined}>{index === 0 ? <>{uiT("Baseline")}<br /><span>{result.model}</span></> : result.model}</TableHead>
-                            {index > 0 && <TableHead scope="col" className="playground-delta-heading" aria-label={'Difference for ' + result.model + ' versus baseline'}>{uiT("Δ vs baseline")}</TableHead>}
+                            <TableHead scope="col" className={index === 0 ? 'playground-baseline-column' : undefined}>{index === 0 ? <>{uiT("Baseline")}<br /><span>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</span></> : <>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</>}</TableHead>
+                            {index > 0 && <TableHead scope="col" className="playground-delta-heading" aria-label={uiF("Difference for {0} versus baseline", [result.model])}>{uiT("Δ vs baseline")}</TableHead>}
                           </Fragment>)}
                         </TableRow></TableHeader><TableBody>{comparisonMetrics.map(metric => <TableRow key={metric.key}>
-                          <TableHead scope="row">{metric.label}</TableHead>
+                          <TableHead scope="row">{uiT(metric.label)}</TableHead>
                           {turn.results.map((result, index) => <Fragment key={result.model}>
                             <TableCell className={index === 0 ? 'playground-baseline-column' : undefined}>{metricValue(result, metric.key)}</TableCell>
                             {index > 0 && <TableCell className="playground-delta-cell">{turn.results[0] ? metricDifference(turn.results[0], result, metric.key) : uiT("Not comparable")}</TableCell>}
@@ -1049,63 +1196,79 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                     </details>}
                   </section>
                 </div>)}</>}
-          {notice && <p className="playground-result-notice" role="status">{notice}</p>}
-          {!historyLoading && !historyError && !draft.ready && !draft.error && <p role="status" className="playground-result-notice">{uiT("Loading draft…")}</p>}
-          {draft.error && <div role="alert" className="playground-chat-error">{draft.error}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
+          {notice && <p className="playground-result-notice" role="status">{uiT(notice)}</p>}
+          {!draft.ready && !draft.error && <p role="status">{uiT("Loading saved draft…")}</p>}
+          {draftNavigation.pending && <p role="status">{uiT("Saving draft before leaving…")}</p>}
+          {draft.error && <div role="alert" className="playground-chat-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
         </div>
 
-        {initialScope && modelAliases.length >= minComparisonModels && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}><form ref={composerRef} onSubmit={compare} className="playground-composer" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }}>
-          <PopoverAnchor asChild><div className="playground-composer-surface">
+        <Dialog open={draftNavigation.failed} onOpenChange={open => {if (!open) draftNavigation.stay();}}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={draftNavigation.leave}>{uiT("Leave without saving")}</Button>
+              <Button variant="outline" onClick={draftNavigation.stay}>{uiT("Stay here")}</Button>
+              {!draft.conflict && <Button onClick={()=>{draft.retry();draftNavigation.retry();}}>{uiT("Retry saving")}</Button>}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {(keyBlocked || (initialScope && modelAliases.length >= minComparisonModels)) && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}><form ref={composerRef} onSubmit={compare} className="playground-composer" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }}>
+          <PopoverAnchor asChild><div className={`playground-composer-surface${keyBlocked ? ' is-blocked' : ''}`}>
             <Label htmlFor="playground-user-prompt" className="sr-only">{uiT("Prompt for all selected models")}</Label>
-            <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={running || settingsSaving || !draft.ready} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
+            <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={!draft.ready || running || settingsSaving || keyBlocked} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 if (canSubmit) event.currentTarget.form?.requestSubmit();
               }
             }} placeholder={uiT("Message models…")} />
-            {attachments.length > 0 && <div className="flex flex-wrap gap-2 py-2">{attachments.map((file, index) => <div key={index} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">{file.type === 'image' && <img src={file.content} alt="" className="size-8 rounded object-cover" />}<span>{file.name}</span><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Remove {0}", [file.name])} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))}><X size={14}/></Button></div>)}</div>}
+            {attachments.length > 0 && <div className="flex flex-wrap gap-2 py-2">{attachments.map((file, index) => <div key={index} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">{file.type === 'image' && <img src={file.content} alt="" className="size-8 rounded object-cover" />}<span>{file.name}</span><Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Remove {0}", [file.name])} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))}><X size={14}/></Button></div>)}</div>}
             <div className="playground-composer-actions">
               <Input ref={attachmentInput} type="file" className="hidden" aria-label={uiT("Upload chat attachments")} multiple accept="image/png,image/jpeg,image/webp,text/*,.md,.json,.csv,.py,.ts,.js" onChange={event => void addAttachments(event.target.files)} />
-              <Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiT("Attach files")} onClick={() => attachmentInput.current?.click()}><Paperclip size={18}/></Button>
+              <Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiT("Attach files")} onClick={() => attachmentInput.current?.click()}><Paperclip size={18}/></Button>
               <div className="flex min-w-0 flex-1 items-center gap-1">
                 <HoverCard open={modelDetailsOpen && !modelPickerOpen} onOpenChange={(open) => setModelDetailsOpen(open && !modelPickerOpen)} openDelay={150} closeDelay={250}>
                   <HoverCardTrigger asChild>
-                    <Button type="button" variant="ghost" className="h-9 gap-2 px-2" disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Edit comparison models ({0} selected)", [selectedModels.length])} onClick={openModelPicker}>
-                      <span className="flex items-center -space-x-2" aria-hidden="true">{selectedModels.map(model => <span key={model} className="rounded-full border-2 border-background bg-background"><ProviderLogo provider={modelIdentity({id: model})} size="small" /></span>)}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">{selectedModels.length}</span>
+                    <Button type="button" variant="ghost" className="h-9 min-w-0 shrink justify-start gap-2 px-2" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Edit comparison models ({0} selected)", [selectedModels.length])} onClick={openModelPicker}>
+                      <span className="flex items-center -space-x-2" aria-hidden="true">{selectedModels.map(model => <span key={model} className="rounded-full border-2 border-background bg-background"><ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === model) ?? { id: model })} size="small" /></span>)}</span>
+                      {selectedModels.length === 1
+                        ? <span className="min-w-0 max-w-[14rem] truncate text-xs font-medium">{catalogTitle(dashboard.models?.find(item => item.id === selectedModels[0]) ?? { id: selectedModels[0] })}</span>
+                        : <span className="text-xs tabular-nums text-muted-foreground">{selectedModels.length}</span>}
                     </Button>
                   </HoverCardTrigger>
                   <HoverCardContent side="top" align="start" sideOffset={12} collisionPadding={12} className="w-[min(24rem,calc(100vw-2rem))] space-y-3">
-                    <div className="flex items-center justify-between"><strong className="text-sm">{uiT("Comparison models")}</strong><Button type="button" variant="ghost" size="sm" disabled={running || settingsSaving || !draft.ready} onClick={openModelPicker}>{uiT("Edit")}</Button></div>
+                    <div className="flex items-center justify-between"><strong className="text-sm">{uiT("Comparison models")}</strong><Button type="button" variant="ghost" size="sm" disabled={!draft.ready || running || settingsSaving} onClick={openModelPicker}>{uiT("Edit")}</Button></div>
                     <div className="space-y-2">{selectedModels.map(model => <div key={model} className="flex items-center gap-3">
-                      <ProviderLogo provider={modelIdentity({id: model})} size="small" />
-                      <Link className="min-w-0 flex-1 break-words text-sm hover:underline" to={`${workspaceRoot}/models/${model.split('/').map(encodeURIComponent).join('/')}`}>{model}</Link>
-                      <Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiF("Remove {0}", [model])} onClick={() => toggleModel(model)}><X size={14} /></Button>
+                      <ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === model) ?? { id: model })} size="small" />
+                      <Link className="min-w-0 flex-1 break-words text-sm hover:underline" to={`${workspaceRoot}/models/${model.split('/').map(encodeURIComponent).join('/')}`}>{catalogTitle(dashboard.models?.find(item => item.id === model) ?? { id: model })}</Link>
+                      <Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Remove {0}", [model])} onClick={() => toggleModel(model)}><X size={14} /></Button>
                     </div>)}</div>
-                    <Button type="button" variant="outline" size="sm" disabled={running || settingsSaving || !draft.ready} onClick={openModelPicker}><Plus size={14} />{uiT("Add models")}</Button>
+                    <Button type="button" variant="outline" size="sm" disabled={!draft.ready || running || settingsSaving} onClick={openModelPicker}><Plus size={14} />{uiT("Add models")}</Button>
                   </HoverCardContent>
                 </HoverCard>
-                <Button ref={modelPickerFallback} type="button" variant="ghost" size="icon" aria-label={uiT("Choose models")} title={uiT("Choose models")} onClick={openModelPicker} disabled={running || modelAliases.length === 0}><Plus size={18} /></Button>
+                <Button ref={modelPickerFallback} type="button" variant="ghost" size="icon" aria-label={uiT("Choose models")} title={uiT("Choose models")} onClick={openModelPicker} disabled={!draft.ready || running || modelAliases.length === 0}><Plus size={18} /></Button>
               </div>
 
-                <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label={uiT("Chat settings")} title={uiT("Chat settings")}><Settings2 size={18} /></Button></PopoverTrigger>
+                <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiT("Chat settings")} title={uiT("Chat settings")}><Settings2 size={18} /></Button></PopoverTrigger>
               {running
                 ? <Button type="button" size="icon" className="rounded-full" aria-label={uiT("Stop generating")} onClick={cancelComparison}><Square size={14} /></Button>
-                : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit}><ArrowUp size={19} /></Button>}
+                : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit || keyBlocked}><ArrowUp size={19} /></Button>}
             </div>
-          {workspaceKeysReady && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)) && <p role="status" className="px-3 pb-2 text-xs text-muted-foreground">{uiT("The requested API key is unavailable or you no longer have access. Choose another key before sending.")}</p>}
-          <p aria-label={uiT("Usage billing")} className="px-3 pb-2 text-xs text-muted-foreground">{billingSummary}</p>
+            {keyBlocked && <div className="composer-cover" role="status"><p>{uiT("This API key is invalid. Choose another or create a new one to continue.")}</p><div className="composer-cover-actions"><Button type="button" onClick={() => void (async () => { if (initialScope && !await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></div></div>}
           </div></PopoverAnchor>
         </form>
+          <p aria-label={uiT("Usage billing")} className="sr-only">{billingSummary}</p>
+          {noAvailableKeys && !managedKey && !keyBlocked && <div className="playground-composer-notices"><p role="status">{uiT("Create an API key to start using models in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></p></div>}
+          {!noAvailableKeys && !managedKey && !selectedKey && !keyBlocked && <div className="playground-composer-notices"><p role="status">{uiT("Select an API key to send messages in this workspace.")}</p></div>}
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
-                  {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{settingsSaveError}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
+                  {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
                   <div className="flex items-center justify-between gap-3"><h2 id="chat-settings-title" className="text-sm font-semibold">{uiT("Chat settings")}</h2><Button type="button" variant="ghost" size="icon" aria-label={uiT("Close chat settings")} disabled={settingsSaving} onClick={() => void closeChatSettings()}><X size={16} /></Button></div>
-        <div className="flex items-start gap-3"><Checkbox id="chat-log-payloads" checked={logPayloads} disabled={running || settingsSaving || !draft.ready} onCheckedChange={value => setLogPayloads(value === true)} /><div className="space-y-1"><Label htmlFor="chat-log-payloads">{uiT("Save payloads in Logs")}</Label><p className="text-sm text-muted-foreground">{uiT("Keep request and response content in this workspace for 24 hours. Applies to new requests only.")}</p></div></div>
+        <div className="flex items-start gap-3"><Checkbox id="chat-log-payloads" checked={logPayloads} disabled={!draft.ready || running || settingsSaving} onCheckedChange={value => setLogPayloads(value === true)} /><div className="space-y-1"><Label htmlFor="chat-log-payloads">{uiT("Save payloads in Logs")}</Label><p className="text-sm text-muted-foreground">{uiT("Keep request and response content in this workspace for 24 hours. Applies to new requests only.")}</p></div></div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-2"><Label htmlFor="playground-max-tokens">{uiT("Max output tokens")}</Label><Input id="playground-max-tokens" type="number" min="1" step="1" disabled={running || settingsSaving || !draft.ready} value={Number.isNaN(maxTokens) ? '' : maxTokens} aria-invalid={!Number.isSafeInteger(maxTokens) || maxTokens <= 0} onChange={event => setMaxTokens(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isSafeInteger(maxTokens) || maxTokens <= 0) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a positive whole number.")}</p>}</div>
-        <div className="space-y-2"><Label htmlFor="playground-temperature">{uiT("Temperature")}</Label><Input id="playground-temperature" type="number" min="0" max="2" step="0.1" disabled={running || settingsSaving || !draft.ready} value={Number.isNaN(temperature) ? '' : temperature} aria-invalid={!Number.isFinite(temperature) || temperature < 0 || temperature > 2} onChange={event => setTemperature(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isFinite(temperature) || temperature < 0 || temperature > 2) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a temperature from 0 to 2.")}</p>}</div>
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="playground-system-prompt">{uiT("System instructions")}</Label><Textarea id="playground-system-prompt" rows={4} maxLength={12000} disabled={running || settingsSaving || !draft.ready} value={systemPrompt} onChange={event => setSystemPrompt(event.target.value)} placeholder={uiT("Optional")} /></div>
+        <div className="space-y-2"><Label htmlFor="playground-max-tokens">{uiT("Max output tokens")}</Label><Input id="playground-max-tokens" type="number" min="1" step="1" disabled={!draft.ready || running || settingsSaving} value={Number.isNaN(maxTokens) ? '' : maxTokens} aria-invalid={!Number.isSafeInteger(maxTokens) || maxTokens <= 0} onChange={event => setMaxTokens(event.target.value === '' ? NaN : Number(event.target.value))} />{(!Number.isSafeInteger(maxTokens) || maxTokens <= 0) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a positive whole number.")}</p>}</div>
+        <div className="space-y-2"><Label htmlFor="playground-temperature">{uiT("Temperature")}</Label><Input id="playground-temperature" aria-describedby="playground-temperature-help" type="number" min="0" max="2" step="0.1" disabled={!draft.ready || running || settingsSaving} value={Number.isNaN(temperature) ? '' : temperature} aria-invalid={!Number.isFinite(temperature) || temperature < 0 || temperature > 2} onChange={event => setTemperature(event.target.value === '' ? NaN : Number(event.target.value))} /><p id="playground-temperature-help" className="text-sm text-muted-foreground">{uiT("Lower values generally make responses more predictable; higher values increase variety.")}</p>{(!Number.isFinite(temperature) || temperature < 0 || temperature > 2) && <p role="alert" className="text-sm text-destructive">{uiT("Enter a temperature from 0 to 2.")}</p>}</div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="playground-system-prompt">{uiT("System instructions")}</Label><Textarea id="playground-system-prompt" rows={4} maxLength={12000} disabled={!draft.ready || running || settingsSaving} value={systemPrompt} onChange={event => setSystemPrompt(event.target.value)} placeholder={uiT("Optional")} /></div>
 
       </div>
                 </PopoverContent>
@@ -1113,18 +1276,18 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       </section>
     </div>
 
-    <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+    <Dialog open={archiveOpen} onOpenChange={open => { setArchiveOpen(open); if (!open && new URLSearchParams(location.search).has('archived')) { const params = new URLSearchParams(location.search); params.delete('archived'); const q = params.toString(); navigate(`${location.pathname}${q ? `?${q}` : ''}${location.hash}`, { replace: true }); } }}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Archived sessions")}</DialogTitle><DialogDescription>{uiT("Restore a Chat or Video session to Generations history.")}</DialogDescription></DialogHeader>
         <h3 className="text-sm font-medium">{uiT("Chats")}</h3>
-        {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{archiveError}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}
-        {archiveLoading ? <TableSkeleton columns={2} rows={3} label={uiT("Loading archived chats…")} /> : archivedChats.length === 0 ? (archiveError ? null : <p className="text-sm text-muted-foreground">{uiT("No archived chats")}</p>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>Chat</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={uiF("Restore {0}", [sessionTitle(item)])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
+        {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{uiT(archiveError)}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}
+        {archiveLoading ? <TableSkeleton columns={2} rows={3} label={uiT("Loading archived chats…")} /> : archivedChats.length === 0 ? (archiveError ? null : <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><Archive size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No archived chats")}</EmptyDescription></EmptyHeader></Empty>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>{uiT("Chat")}</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={uiF("Restore {0}", [sessionTitle(item)])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
         <VideoArchivedSessions context={dashboard} open={archiveOpen} disabled={running||archiveBusy}/>
       </DialogContent>
     </Dialog>
 
     <Dialog open={Boolean(deletingChat)} onOpenChange={open => { if (!open && !deleting) setDeletingChat(null); }}>
       <DialogContent className="sm:max-w-sm" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Delete chat?")}</DialogTitle><DialogDescription>{uiT("This removes the saved conversation. Request logs and billing records are kept.")}</DialogDescription></DialogHeader>
-        {deleteError && <p role="alert">{deleteError}</p>}
+        {deleteError && <p role="alert">{uiT(deleteError)}</p>}
         <div className="flex justify-end gap-2"><Button variant="ghost" disabled={deleting} onClick={() => setDeletingChat(null)}>{uiT("Cancel")}</Button><Button variant="destructive" disabled={deleting} onClick={async () => {
           if (!deletingChat || deleting) return;
           const item = deletingChat, endpoint = historyEndpoint, identity = historyIdentity;
@@ -1132,9 +1295,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           try {
             const response = await fetch(`${endpoint}/${item.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
             if (!response.ok) throw new Error('delete failed');
+            invalidateForMutation(token,endpoint,'DELETE');
             if (historyScope.current !== identity) return;
             setHistory(items => items.filter(saved => saved.id !== item.id));
-            if (activeComparisonId === item.id) startNewComparison();
+            if (activeComparisonId === item.id) {
+              startNewComparison();
+              if (location.pathname.startsWith('/generations/') || (requestedSession && (requestedSession === item.id || requestedSession === item.reference))) {
+                const params = new URLSearchParams(location.search);
+                params.delete('session');
+                const query = params.toString();
+                const basePath = location.pathname.startsWith('/generations/') ? '/generations' : location.pathname;
+                navigate(`${basePath}${query ? `?${query}` : ''}${location.hash}`, { replace: true });
+              }
+            }
             setDeletingChat(null);
           } catch { if (historyScope.current === identity) setDeleteError('Could not delete this chat. Try again.'); }
           finally { setDeleting(false); }
@@ -1153,49 +1326,45 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           finally { setRenaming(false); }
         }}>
           <Input aria-label={uiT("Chat title")} value={chatTitle} onChange={event => setChatTitle(event.target.value)} maxLength={120} autoFocus />
-          {renameError && <p role="alert">{renameError}</p>}
+          {renameError && <p role="alert">{uiT(renameError)}</p>}
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={renaming} onClick={() => setRenamingChat(null)}>{uiT("Cancel")}</Button><Button type="submit" disabled={renaming || !chatTitle.trim()}>{renaming ? uiT("Saving…") : uiT("Save")}</Button></div>
         </form>
       </DialogContent>
     </Dialog>
 
-    <Dialog open={modelPickerOpen} onOpenChange={setModelPickerOpen}>
-      <DialogContent className="niu-modal playground-model-dialog" showCloseButton={false} onCloseAutoFocus={event => { event.preventDefault(); (modelPickerOpener.current?.isConnected ? modelPickerOpener.current : modelPickerFallback.current)?.focus(); }}>
-        <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{uiT("Choose models")}</DialogTitle><DialogDescription>{uiT("Select one to four enabled routes. Each receives the same prompt.")}</DialogDescription></div>
-          <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
-        </DialogHeader>
-      <div className="playground-model-picker">
-        <label className="model-search"><span className="sr-only">{uiT("Search models")}</span><Input autoFocus value={modelQuery} onChange={event => setModelQuery(event.target.value)} placeholder={uiT("Search model routes")} /></label>
-        <Tabs value={activeModelCategory?.id} onValueChange={value => { setModelCategory(value); setModelQuery(''); }}>
-          <TabsList className="playground-model-categories" aria-label={uiT("Model categories")}>
-            {modelCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-model-category">{category.label}<span>{category.models.length}</span></TabsTrigger>)}
-          </TabsList>
-        </Tabs>
-        <div className="playground-model-picker-list">{filteredModelAliases.map(model => {
-          const selected = selectedModels.includes(model);
-          return <Button key={model} type="button" className="playground-model-picker-option" aria-pressed={selected} disabled={!selected && selectedModels.length >= maxComparisonModels} onClick={() => toggleModel(model)}>
-            <ProviderLogo provider={modelIdentity({ id: model })} size="small" /><span>{model}{managedKey && <span className="block text-xs text-muted-foreground">{dashboard.models?.find(item => item.id === model)?.billing_source === 'own_api_key' ? uiT("Billed by your Provider") : dashboard.models?.find(item => item.id === model)?.billing_source === 'niu_credits' ? uiT("Niu credits") : uiT("Billing information unavailable")}</span>}{unverifiedModels.includes(model) && <span className="block text-xs text-muted-foreground">{uiT("Chat support unverified")}</span>}</span>{selected && <Check size={16} />}
-          </Button>;
-        })}{filteredModelAliases.length === 0 && <p className="model-no-results">{modelsLoading ? uiT("Loading models…") : modelsError ? uiT("Model catalog unavailable.") : uiT("No model routes found.")}</p>}</div>
-        {((modelQuery.trim() ? usableModels.filter(model => model.toLowerCase().includes(modelQuery.trim().toLowerCase())).length : activeModelCategory?.models.length ?? usableModels.length) > filteredModelAliases.length) && <p className="playground-model-picker-hint">{uiT("Showing")}{" "}{filteredModelAliases.length}{" "}{uiT("routes. Refine your search to find another.")}</p>}
-      </div>
-    </DialogContent>
-    </Dialog>
+    <PlaygroundModelPickerDialog
+      open={modelPickerOpen}
+      onOpenChange={setModelPickerOpen}
+      onCloseRestoreFocus={() => (modelPickerOpener.current?.isConnected ? modelPickerOpener.current : modelPickerFallback.current)?.focus()}
+      usableModels={usableModels}
+      selectedModels={selectedModels}
+      maxModels={maxComparisonModels}
+      unverifiedModels={unverifiedModels}
+      catalogModels={dashboard.models}
+      managedKey={Boolean(managedKey)}
+      modelsLoading={modelsLoading}
+      modelsError={modelsError}
+      query={modelQuery}
+      onQueryChange={setModelQuery}
+      category={modelCategory}
+      onCategoryChange={setModelCategory}
+      onToggleModel={toggleModel}
+    />
 
     <Dialog open={apiSettingsOpen} onOpenChange={setApiSettingsOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onCloseAutoFocus={event => { if (apiKeyTriggerRef.current?.isConnected) { event.preventDefault(); apiKeyTriggerRef.current.focus(); } }}>
         <DialogHeader><DialogTitle>{uiT("API key")}</DialogTitle><DialogDescription>{uiT("Select an API key for this generation. Its workspace supplies billing and limits.")}</DialogDescription></DialogHeader>
         <div className="space-y-4">
-          {availableKeys.error && <p role="alert" className="text-sm text-destructive">{availableKeys.error}</p>}
-          {keyLoadError && <p role="alert" className="text-sm text-destructive">{keyLoadError}</p>}
-          <div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? uiT("Use another key")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId || 'manual'} onValueChange={value => {manualKeySelection.current=value==='manual';const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
-              {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">{uiT("Use another key")}</DropdownMenuRadioItem>
+          {availableKeys.error && <p role="alert" className="text-sm text-destructive">{uiT(availableKeys.error)}</p>}
+          {keyLoadError && <p role="alert" className="text-sm text-destructive">{uiT(keyLoadError)}</p>}
+          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("Create an API key to start using models in this workspace.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}</div>}{!noAvailableKeys && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? uiT("Select API key")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setResults(null); setError(''); }}>
+              {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </div>
-          {!selectedKey && !managedKey && <div className="space-y-2"><Label htmlFor="playground-existing-key">{uiT("Key secret")}</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving || !draft.ready} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder={uiT("Paste your API key")} /><p className="text-sm text-muted-foreground">{uiT("Paste a workspace API key to use it in this chat.")}</p></div>}
           {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">{uiT("This key does not allow any available models.")}</p>}
+          <p className="text-xs text-muted-foreground">{billingSummary}</p>
+          </>}</>}
         </div>
         <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>{uiT("Manage keys")}</Link></Button><Button disabled={!apiKey} onClick={() => setApiSettingsOpen(false)}>{uiT("Done")}</Button></div>
     </DialogContent>

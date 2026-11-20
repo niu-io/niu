@@ -1,0 +1,22 @@
+{
+  "model": "pool/assistant",
+  "max_tokens": 64,
+  "stream": true,
+  "system": "Be",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "Hi!" }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "lookup",
+      "description": "Fixture tool",
+      "input_schema": { "type": "object" }
+    }
+  ],
+  "tool_choice": { "type": "auto" }
+}

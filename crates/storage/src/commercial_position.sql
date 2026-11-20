@@ -110,7 +110,7 @@ WITH raw_bounds AS MATERIALIZED (
     SELECT active.account_id, niu_customer_credit_account_covered(active.account_id) AS covered,
         NOT EXISTS (SELECT 1 FROM customer_funding_receipts receipt
             WHERE receipt.account_id=active.account_id
-                AND receipt.channel='stripe:NiuMockPayments') AS real_funding_only
+                AND niu_simulated_payment(receipt.channel,receipt.payment_reference)) AS real_funding_only
     FROM (SELECT DISTINCT debit_account_id AS account_id FROM raw_traffic WHERE debit_account_id IS NOT NULL) active
 ), traffic AS MATERIALIZED (
     SELECT r.id, r.provider_id, r.model_alias,

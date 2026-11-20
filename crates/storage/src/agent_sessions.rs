@@ -157,7 +157,7 @@ fn merge(
 impl Store {
     pub(crate) async fn append_personal_agent_session_event(
         &self,
-        mut tx: Transaction<'_, Postgres>,
+        mut tx: Transaction<'static, Postgres>,
         owner: Uuid,
         connection: Uuid,
         input: &PersonalAgentTraceInput,
@@ -198,7 +198,7 @@ impl Store {
             if payload != event {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok((id, false));
         }
         let key = input
@@ -284,7 +284,7 @@ impl Store {
             .bind(connection)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((id, true))
     }
 }

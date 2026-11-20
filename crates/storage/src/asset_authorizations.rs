@@ -114,7 +114,7 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // Serialize qualification with account changes and credential revocation.
         let account = sqlx::query_as::<_, (i64, String)>(
             "SELECT revision,api_base FROM vendors WHERE id=$1 FOR UPDATE",
@@ -127,8 +127,7 @@ impl Store {
         };
         // Credential setup already validates direct Ark configuration; reject a
         // changed account or any non-Ark account rather than broadening entitlement.
-        let direct_ark = base == "https://ark.cn-beijing.volcengineapi.com/api/v3"
-            || base == "https://ark.cn-beijing.volcengineapi.com/api/v3/";
+        let direct_ark = niu_media::providers::volcengine::is_direct_ark_v3_api_base(&base);
         if revision != q.vendor_revision || !direct_ark {
             return Err(StoreError::Conflict);
         }
@@ -145,7 +144,7 @@ impl Store {
             .bind(q.protocol_sha256.as_slice()).bind(q.data_handling_sha256.as_slice())
             .bind(q.free_operation_sha256.as_slice()).bind(kind).bind(actor_id)
             .bind(f64::from(q.valid_for_seconds)).bind(operation).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -312,7 +311,7 @@ impl Store {
         authorization: Uuid,
         actor: OperatorAuditActor,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let exists: Option<Uuid> =
             sqlx::query_scalar("SELECT id FROM vendors WHERE id=$1 FOR UPDATE")
                 .bind(vendor)
@@ -324,7 +323,7 @@ impl Store {
         let (kind, actor_id) = actor.kind_and_id();
         let changed=sqlx::query("INSERT INTO asset_operation_authorization_revocations(authorization_id,actor_kind,actor_id) SELECT id,$3,$4 FROM asset_operation_authorizations WHERE id=$1 AND vendor_id=$2 ON CONFLICT DO NOTHING")
             .bind(authorization).bind(vendor).bind(kind).bind(actor_id).execute(&mut *tx).await?.rows_affected()==1;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(changed)
     }
 

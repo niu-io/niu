@@ -12,24 +12,26 @@ it('loads the durable currency without a USD fallback',async()=>{
  resolve(Response.json({data:{currency:'CNY'}}));
  await waitFor(()=>expect(screen.getByTestId('currency').textContent).toBe('CNY'));
 });
-it('configures once in Admin and removes the input after saving',async()=>{
- let saved:string|null=null;const writes:unknown[]=[];
- vi.stubGlobal('fetch',vi.fn(async(_url,init?:RequestInit)=>{
-  if(init?.method==='PUT'){const body=JSON.parse(String(init.body));writes.push(body);saved=body.currency;}
-  return Response.json({data:{currency:saved}});
- }));
- const user=userEvent.setup();
- render(<PlatformCurrencyProvider><PlatformCurrencySetting token="test"/></PlatformCurrencyProvider>);
- await user.click(await screen.findByRole('button',{name:'Currency',exact:true}));
- await user.type(screen.getByRole('textbox',{name:'Search currencies'}),'cny');
- await user.click(screen.getByRole('menuitemradio',{name:/Chinese Yuan/}));
- await user.click(screen.getByRole('button',{name:'Save currency'}));
- expect(writes).toEqual([]);
- await user.click(screen.getByRole('button',{name:'Confirm currency'}));
- await waitFor(()=>expect(screen.queryByRole('button',{name:'Save currency'})).toBeNull());
- expect(writes).toEqual([{currency:'CNY'}]);
- expect(screen.getByText(/Chinese Yuan \(CNY\) · ¥/)).toBeTruthy();
-});
+ it('configures once in Admin via a confirmation dialog and removes the action after saving',async()=>{
+  let saved:string|null=null;const writes:unknown[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(_url,init?:RequestInit)=>{
+   if(init?.method==='PUT'){const body=JSON.parse(String(init.body));writes.push(body);saved=body.currency;}
+   return Response.json({data:{currency:saved}});
+  }));
+  const user=userEvent.setup();
+  render(<PlatformCurrencyProvider><PlatformCurrencySetting token="test"/></PlatformCurrencyProvider>);
+  expect(screen.queryByRole('button',{name:'Currency',exact:true})).toBeNull();
+  await user.click(await screen.findByRole('button',{name:'Set platform currency'}));
+  await user.click(screen.getByRole('button',{name:'Currency',exact:true}));
+  await user.type(screen.getByRole('textbox',{name:'Search currencies'}),'cny');
+  await user.click(screen.getByRole('menuitemradio',{name:/Chinese Yuan/}));
+  expect(writes).toEqual([]);
+  await user.click(screen.getByRole('button',{name:'Confirm currency'}));
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(()=>expect(screen.queryByRole('button',{name:'Set platform currency'})).toBeNull());
+  expect(writes).toEqual([{currency:'CNY'}]);
+  expect(screen.getByText(/Chinese Yuan \(CNY\) · ¥/)).toBeTruthy();
+ });
 it('does not invent a currency when storage is unavailable',async()=>{
  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('',{status:503})));
  render(<PlatformCurrencyProvider><ReadCurrency/></PlatformCurrencyProvider>);

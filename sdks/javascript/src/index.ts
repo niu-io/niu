@@ -1,5 +1,5 @@
 export type { GenerationsVideoIntentReference } from './generations-sessions.js';
-export type { ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } from './admin.js';
+export type { ProviderServiceDescriptor, ProviderPriceEvidence, ProviderPriceVersion, ProviderCostEstimate, ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } from './admin.js';
 export type { CustomerUnitDefinition, CustomerUnitPurchaseRule, CustomerUnitConfiguration, CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput } from './admin.js';
 export type { CustomerUnitQuote, CustomerUnitQuoteInput } from './admin.js';
 export type { CustomerUnitGrant, CustomerUnitGrantInput } from './admin.js';
@@ -16,31 +16,125 @@ import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';
 export type { VideoWaitOptions } from './video-wait.js';
 import { normalizeVideoGeneration, type NiuVideoGenerationInput } from './video-generation.js';
 import { createMediaAssetsClient } from './media-assets.js';
-export type { MediaAssetObservation, MediaAssetGroupObservation, MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetOperationInput, MediaAssetPreparationOptions, MediaAssetPage } from './media-assets.js';
+export type { MediaAssetObservation, MediaAssetGroupObservation, MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetOperationInput, MediaAssetCreateSource, MediaAssetCreateInput, MediaAssetPreparationOptions, MediaAssetPage } from './media-assets.js';
 export type { MediaVerificationSession, MediaVerificationInput, MediaVerificationLink } from './media-verification.js';
 export type { NiuVideoGenerationInput } from './video-generation.js';
-/** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
+/** Native Gemini GenerateContent / StreamGenerateContent. Requires an explicitly declared gemini route. */
+export type GenerateContentPart =
+  | { text: string; thought?: boolean; thoughtSignature?: string }
+  | { functionCall: { name: string; args: Record<string, unknown>; id?: string }; thoughtSignature?: string }
+  | { functionResponse: { name: string; response: Record<string, unknown>; id?: string } }
+  | { inlineData: { mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif' | 'application/pdf'; data: string } };
+export type GenerateContentToolDeclaration = {
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+  parametersJsonSchema?: Record<string, unknown>;
+};
 export type GenerateContentRequest = {
-  contents: Array<{ role?: 'user' | 'model'; parts: Array<{ text: string }> }>;
-  systemInstruction?: { role?: 'user' | 'model' | 'system'; parts: Array<{ text: string }> };
-  generationConfig: { maxOutputTokens: number; candidateCount?: 1; temperature?: number; topP?: number; topK?: number; stopSequences?: string[] };
+  contents: Array<{ role?: 'user' | 'model'; parts: GenerateContentPart[] }>;
+  systemInstruction?: { role?: 'user' | 'system'; parts: Array<{ text: string }> };
+  tools?: Array<{ functionDeclarations: GenerateContentToolDeclaration[] }>;
+  toolConfig?: {
+    functionCallingConfig?: {
+      mode?: 'AUTO' | 'ANY' | 'NONE';
+      allowedFunctionNames?: string[];
+    };
+  };
+  generationConfig?: {
+    maxOutputTokens?: number;
+    candidateCount?: 1;
+    temperature?: number;
+    topP?: number;
+    topK?: number;
+    seed?: number;
+    presencePenalty?: number;
+    frequencyPenalty?: number;
+    stopSequences?: string[];
+    thinkingConfig?: {
+      includeThoughts?: boolean;
+      thinkingBudget?: number;
+      thinkingLevel?: 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
+    };
+    responseMimeType?: 'text/plain' | 'application/json';
+    responseSchema?: Record<string, unknown>;
+    responseJsonSchema?: Record<string, unknown>;
+  };
 };
 export type GenerateContentResponse = {
-  candidates: Array<{ index: 0; content: { role: 'model'; parts: Array<{ text: string }> }; finishReason: 'STOP' | 'MAX_TOKENS' }>;
+  candidates?: Array<{
+    index: 0;
+    content?: { role: 'model'; parts: GenerateContentPart[] };
+    finishReason?: 'STOP' | 'MAX_TOKENS' | 'SAFETY' | 'RECITATION' | 'BLOCKLIST' | 'PROHIBITED_CONTENT' | 'SPII';
+  }>;
   modelVersion: string;
   responseId?: string;
   /** Missing categories remain null; usage is not a settlement receipt. */
-  usageMetadata: { promptTokenCount: number | null; candidatesTokenCount: number | null; totalTokenCount: number | null; cachedContentTokenCount: number | null; thoughtsTokenCount: number | null };
+  usageMetadata?: {
+    promptTokenCount: number | null;
+    toolUsePromptTokenCount?: number | null;
+    candidatesTokenCount: number | null;
+    totalTokenCount: number | null;
+    cachedContentTokenCount: number | null;
+    thoughtsTokenCount: number | null;
+  };
 };
 
-/** Buffered native text and opted-in client tools; no media or beta features. */
+export type MessagesThinkingConfig =
+  | { type: 'disabled' }
+  | { type: 'adaptive' }
+  | { type: 'enabled'; budget_tokens: number };
+export type MessagesCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
+export type MessagesImageBlock = {
+  type: 'image';
+  source:
+    | { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string }
+    | { type: 'url'; url: string };
+  cache_control?: MessagesCacheControl;
+};
+export type MessagesDocumentBlock = {
+  type: 'document';
+  source:
+    | { type: 'base64'; media_type: 'application/pdf'; data: string }
+    | { type: 'text'; media_type: 'text/plain'; data: string }
+    | { type: 'url'; url: string };
+  title?: string;
+  context?: string;
+  citations?: { enabled: boolean };
+  cache_control?: MessagesCacheControl;
+};
+export type MessagesThinkingBlock = { type: 'thinking'; thinking: string; signature?: string };
+export type MessagesRedactedThinkingBlock = { type: 'redacted_thinking'; data: string };
+export type MessagesToolUse = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; cache_control?: MessagesCacheControl };
+export type MessagesToolResult = {
+  type: 'tool_result';
+  tool_use_id: string;
+  content?: string | Array<MessagesTextBlock | MessagesImageBlock>;
+  is_error?: boolean;
+  cache_control?: MessagesCacheControl;
+};
+export type MessagesTextBlock = { type: 'text'; text: string; cache_control?: MessagesCacheControl };
+export type MessagesText = string | Array<MessagesTextBlock>;
+export type MessagesContentBlock =
+  | MessagesTextBlock
+  | MessagesImageBlock
+  | MessagesDocumentBlock
+  | MessagesThinkingBlock
+  | MessagesRedactedThinkingBlock
+  | MessagesToolUse
+  | MessagesToolResult;
+/** Native Anthropic Messages with streaming, client tools, Extended Thinking, cache_control, and unpriced image/document blocks. */
 export type MessagesRequest = {
   model: string;
   max_tokens: number;
-  messages: Array<{ role: 'user' | 'assistant'; content: MessagesText | Array<MessagesTextBlock | MessagesToolUse | MessagesToolResult> }>;
-  tools?: Array<{ name: string; description?: string; input_schema: Record<string, unknown> }>;
+  messages: Array<{ role: 'user' | 'assistant'; content: string | Array<MessagesContentBlock> }>;
+  tools?: Array<{ name: string; description?: string; input_schema: Record<string, unknown>; cache_control?: MessagesCacheControl }>;
   tool_choice?: { type: 'auto' | 'any' | 'none'; disable_parallel_tool_use?: boolean } | { type: 'tool'; name: string; disable_parallel_tool_use?: boolean };
   system?: MessagesText;
+  thinking?: MessagesThinkingConfig;
+  output_config?: { effort?: 'low' | 'medium' | 'high' | 'max' };
+  top_k?: number;
+  metadata?: { user_id?: string };
   stream?: false;
   temperature?: number;
   top_p?: number;
@@ -48,13 +142,9 @@ export type MessagesRequest = {
 };
 /** Tool SSE requires the route's explicit supports_messages_streaming_tools opt-in. */
 export type MessagesStreamRequest = Omit<MessagesRequest, 'stream'>;
-export type MessagesToolUse = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
-export type MessagesToolResult = { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
-export type MessagesTextBlock = { type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } };
-export type MessagesText = string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } }>;
 export type MessagesResponse = {
   id: string; type: 'message'; role: 'assistant'; model: string;
-  content: Array<{ type: 'text'; text: string } | MessagesToolUse>;
+  content: Array<{ type: 'text'; text: string } | MessagesThinkingBlock | MessagesRedactedThinkingBlock | MessagesToolUse>;
   stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
   stop_sequence: string | null;
   /** Null categories do not establish zero usage or settled customer charges. */
@@ -240,15 +330,50 @@ export type EmbeddingResponse = {
   };
 };
 
+export type ResponsesTool = {
+  type: 'function';
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+  strict?: boolean;
+};
+
+export type ResponsesToolChoice =
+  | 'none'
+  | 'auto'
+  | 'required'
+  | { type: 'function'; name: string };
+
+export type ResponsesTextConfig = {
+  verbosity?: 'low' | 'medium' | 'high';
+  format?:
+    | { type: 'text' }
+    | { type: 'json_object' }
+    | { type: 'json_schema'; name: string; schema: Record<string, unknown>; description?: string; strict?: boolean };
+};
+
+export type ResponsesInputItem =
+  | { type?: 'message'; id?: string; status?: 'in_progress' | 'completed' | 'incomplete'; role: 'user' | 'system' | 'developer' | 'assistant'; content: string | Array<Record<string, unknown>> }
+  | { type: 'function_call'; id?: string; call_id: string; name: string; arguments: string; status?: string }
+  | { type: 'function_call_output'; id?: string; call_id: string; output: string; status?: string }
+  | { type: 'reasoning'; id?: string; summary?: unknown[]; content?: unknown[]; encrypted_content?: string; status?: string };
+
 export type ResponsesRequest = {
   model: string;
-  input: string;
+  input: string | ResponsesInputItem[];
   instructions?: string;
   max_output_tokens?: number;
   temperature?: number;
   top_p?: number;
   metadata?: Record<string, string>;
   user?: string;
+  tools?: ResponsesTool[];
+  tool_choice?: ResponsesToolChoice;
+  parallel_tool_calls?: boolean;
+  text?: ResponsesTextConfig;
+  reasoning?: { effort?: 'minimal' | 'low' | 'medium' | 'high'; summary?: 'auto' | 'concise' | 'detailed' };
+  truncation?: 'disabled' | 'auto';
+  store?: false;
   stream?: false;
 };
 
@@ -275,12 +400,21 @@ export type ResponsesReasoning = {
   summary?: unknown[];
 };
 
+export type ResponsesFunctionCall = {
+  id?: string;
+  type: 'function_call';
+  call_id: string;
+  name: string;
+  arguments: string;
+  status?: string;
+};
+
 export type ResponsesResponse = {
   id: string;
   object: 'response';
   status: 'completed' | 'incomplete';
   model: string;
-  output: Array<ResponsesMessage | ResponsesReasoning>;
+  output: Array<ResponsesMessage | ResponsesReasoning | ResponsesFunctionCall>;
   usage?: { input_tokens: number; output_tokens: number; total_tokens?: number };
 };
 
@@ -397,7 +531,7 @@ export type VideoModel = {
   maximum_body_bytes: number; maximum_content_items: number;
   controls: Record<string, VideoControl>; required_controls: string[]; exclusive_controls: string[][];
   /** The meter follows the configured estimator; discovery is not a billing quote. */
-  output: ({ specifications: Array<{ resolution: string; ratio: string; width: number; height: number }> } & (
+  output: ({ allow_unmapped_output?: boolean; specifications: Array<{ resolution: string; ratio: string; width: number; height: number }> } & (
     | { meter: 'video_tokens'; estimator: 'SeedancePixelsV1' }
     | { meter: 'seconds'; estimator: 'OutputSecondsV1' }
   )) | null;
@@ -476,6 +610,62 @@ export type VideoJobHistory = {
 };
 export type VideoJobHistoryQuery = { before?: string; limit?: number };
 
+export type WorkspaceAutoResponseType = 'text' | 'structured' | 'embedding';
+/** One declared Auto execution path. Candidates reference top-level aliases. */
+export type WorkspaceAutoPath = {
+  id: string;
+  name?: string;
+  description?: string;
+  response_type: WorkspaceAutoResponseType;
+  candidates: string[];
+  /** Lowercase caller task keywords that select this path without a model call. */
+  task?: string[];
+  stage?: string[];
+};
+/**
+ * Optional single-round semantic decider. Every dimension is explicit and
+ * bounded. Its customer price must be comparable in `currency`; otherwise no
+ * paid call is made and the failure action applies.
+ */
+export type WorkspaceAutoDecider = {
+  model: string;
+  currency: string;
+  timeout_ms: number;
+  max_calls: 1;
+  max_input_tokens: number;
+  max_output_tokens: number;
+  max_spend_nanos: number;
+  min_confidence: number;
+  on_abstain?: 'fallback' | 'reject';
+  on_failure?: 'fallback' | 'reject';
+};
+/** Versioned selection strategy for a customer-owned model policy. */
+export type WorkspacePoolStrategy = {
+  version: 1 | 2;
+  mode: 'priority_weight' | 'customer_price' | 'auto';
+  /**
+   * Required exactly for `customer_price`. Ranks eligible candidates by the
+   * estimated customer selling price in this currency and unit. Missing or
+   * incomparable prices remain unknown; selection then falls back to priority
+   * and weight. Provider procurement prices are never used.
+   */
+  customer_price?: {
+    currency: string;
+    unit: 'nanounits_per_million_tokens';
+    input_tokens: number;
+    output_tokens: number;
+  };
+  /**
+   * Required exactly for version 2 `auto`. Caller task/stage context is
+   * evaluated first; the optional decider may only select a declared,
+   * response-compatible path. Unknown or incompatible decisions are failures,
+   * never silent substitutions.
+   */
+  auto?: {
+    paths: WorkspaceAutoPath[];
+    decider?: WorkspaceAutoDecider;
+  };
+};
 /** Customer-owned model policy; never contains Provider supply configuration. */
 export type WorkspaceModelPool = {
   slug: string; name: string; description: string; enabled: boolean;
@@ -484,41 +674,190 @@ export type WorkspaceModelPool = {
   candidates: import('./admin.js').ModelRoutePoolCandidate[];
   rules?: Array<Omit<import('./admin.js').ModelRoutePoolRule, 'conditions'> & { conditions: Omit<import('./admin.js').ModelRoutePoolRuleConditions, 'protocol'> & { protocol?: 'chat' | 'responses' | 'messages' | null } }>;
   default_action?: 'candidates' | 'reject';
+  /** Omitted legacy configurations use version 1 priority/weight. */
+  strategy?: WorkspacePoolStrategy;
 };
 export type WorkspacePoolPreviewContext = {
   protocol: 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
   streaming?: boolean; vision?: boolean; tools?: boolean; structured_output?: boolean; reasoning?: boolean;
   embedding_dimensions?: boolean; embedding_base64?: boolean;
   estimated_input_tokens?: number; requested_output_tokens?: number;
+  /** Optional caller task context for Auto preview; preview never calls the decider. */
+  task?: string; stage?: string;
+};
+export type WorkspacePoolDecisionEvidence = {
+  outcome: 'context_match' | 'decider_selected' | 'decider_required'
+    | 'priority_weight_fallback' | 'rejected' | 'cancelled';
+  path: string | null;
+  fallback_reason: string | null;
+  failure: string | null;
+  calls: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number;
+  /** True when the upstream did not report usage and counts are estimates. */
+  tokens_estimated: boolean;
+  estimated_customer_charge_nanos: string | null;
+  /** Present on preview evidence: preview never dispatches inference. */
+  live_dispatch?: false;
+  compatible_paths?: string[];
+  decider?: {
+    configured: true; model: string; currency: string; max_calls: number;
+    max_input_tokens: number; max_output_tokens: number;
+    max_spend_nanos: string; timeout_ms: number; min_confidence: number;
+    prompt_estimated_tokens?: number; maximum_estimated_charge_nanos?: string;
+    would_reject: boolean;
+  };
+};
+export type WorkspacePoolPriceEvaluation = {
+  source: 'customer_selling_price'; billing_mode: string; currency: string;
+  unit: 'nanounits_per_million_tokens'; input_tokens: number; output_tokens: number;
+  basis: 'customer_price' | 'priority_weight_fallback';
+  fallback_reason: string | null; selected_candidate: string | null;
+  candidates: Array<{
+    alias: string;
+    estimated_customer_charge_nanos: string | null;
+    price_unknown_reason: string | null;
+  }>;
 };
 export type WorkspacePoolPreview = {
   configuration_valid: boolean; persisted: false; live_model_verification: 'not_performed'; candidate_count: number; rule_count: number;
+  strategy?: WorkspacePoolStrategy;
   simulation?: {
     protocol: WorkspacePoolPreviewContext['protocol']; matched_rule: string | null;
     outcome: 'pool_disabled' | 'default_reject' | 'no_eligible_candidates' | 'candidates';
+    strategy?: WorkspacePoolStrategy;
+    selection_basis?: 'not_evaluated' | 'priority_weight' | 'priority_weight_fallback' | 'customer_price'
+      | 'auto_context' | 'auto_decider_required' | 'auto_rejected';
+    /** Auto path selected deterministically from caller context. */
+    selected_path?: string | null;
+    selected_candidate?: string | null;
+    fallback_reason?: string | null;
+    price_evaluation?: WorkspacePoolPriceEvaluation | null;
+    decision?: WorkspacePoolDecisionEvidence | null;
     live_dispatch: false;
-    candidates: Array<{ alias: string; priority: number; weight: number; eligible: boolean; exclusion_reason: string | null; selection_weight: { numerator: number; denominator: number } }>;
+    candidates: Array<{
+      alias: string; priority: number; weight: number; eligible: boolean;
+      exclusion_reason: string | null;
+      selection_weight: { numerator: number; denominator: number };
+      estimated_customer_charge_nanos?: string | null;
+      price_unknown_reason?: string | null;
+    }>;
   };
 };
 export type WorkspacePoolSelection = {
   pool_revision: number; selected_model: string; created_at: string;
   operation_id: string | null; attempt_id: string | null;
+  /** Readable request reference for evidence navigation; null when unavailable. */
+  reference: string | null;
   /** Returned HTTP status, not terminal generation or quality acceptance. */
   response_status: number | null;
+  /** Bounded Auto decision evidence; null for non-Auto strategies. */
+  decision?: WorkspacePoolDecisionEvidence | null;
 };
+/** Explicit System 1 decision types. These are separate from Auto path selection. */
+export type DecisionValueType = 'string' | 'boolean' | 'integer' | 'number';
+export type DecisionPropertySchema = {
+  type: DecisionValueType;
+  /** Prompt guidance; at most 200 single-line characters. */
+  description?: string;
+  /** Required for a finite string choice; 1-32 unique values of at most 64 characters. */
+  enum?: string[];
+  /** Integer or number bound only. */
+  minimum?: number;
+  maximum?: number;
+};
+export type DecisionOutputSchema = {
+  type: 'object';
+  /** 1-16 flat properties. Nested objects, arrays and null are unsupported. */
+  properties: Record<string, DecisionPropertySchema>;
+  /** At least one declared property; closed output rejects unknown fields. */
+  required: string[];
+  additionalProperties: false;
+};
+export type DecisionRequest = {
+  /** Concrete workspace Chat model with declared structured-output support. */
+  model: string;
+  /** UTF-8 string or JSON object; at most 16 KiB serialized. */
+  input: string | Record<string, unknown>;
+  output_schema: DecisionOutputSchema;
+  /** 50-5000; default 2000. A timeout is not a decision and may have incurred charges. */
+  timeout_ms?: number;
+  /** 1-1024; default 128. */
+  max_output_tokens?: number;
+};
+export type DecisionEvidence = {
+  outcome: 'decided' | 'abstained';
+  model: string;
+  calls: 1;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  /** True when either count is a character-based estimate, not exact tokenization. */
+  tokens_estimated: boolean;
+  latency_ms: number;
+  timeout_ms: number;
+  max_output_tokens: number;
+};
+export type DecisionResult = {
+  /** Null only for an explicit model abstention, never a missing decision. */
+  decision: Record<string, unknown> | null;
+  evidence: DecisionEvidence;
+};
+function validateDecisionRequest(request: DecisionRequest): void {
+  if (request === null || typeof request !== 'object') throw new TypeError('A decision request is required');
+  const model = request.model;
+  if (typeof model !== 'string' || model.length === 0 || model.length > 200 || model.trim() !== model) throw new TypeError('A concrete decision model alias of at most 200 characters is required');
+  if (model.startsWith('pool/') || model.startsWith('codex/')) throw new TypeError('Decision requests require a concrete qualified model; pools and Auto are not accepted');
+  const input = request.input;
+  if (!(typeof input === 'string' || (input !== null && typeof input === 'object' && !Array.isArray(input)))) throw new TypeError('Decision input must be a string or an object');
+  const schema = request.output_schema;
+  if (schema === null || typeof schema !== 'object' || schema.type !== 'object' || schema.additionalProperties !== false) throw new TypeError('output_schema must be a closed object schema with additionalProperties false');
+  if (schema.properties === null || typeof schema.properties !== 'object' || Array.isArray(schema.properties)) throw new TypeError('output_schema.properties must be an object');
+  const names = Object.keys(schema.properties);
+  if (names.length < 1 || names.length > 16) throw new TypeError('output_schema must declare 1-16 properties');
+  if (!Array.isArray(schema.required) || schema.required.length < 1 || schema.required.length > names.length) throw new TypeError('output_schema.required must name at least one declared property');
+  const required = new Set<string>();
+  for (const name of schema.required) {
+    if (typeof name !== 'string' || required.has(name) || !Object.prototype.hasOwnProperty.call(schema.properties, name)) throw new TypeError('output_schema.required must name declared properties without duplicates');
+    required.add(name);
+  }
+  for (const [name, property] of Object.entries(schema.properties)) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(name) || name === 'abstain') throw new TypeError('Decision property names must be 1-64 ASCII letters, digits, underscores or hyphens; abstain is reserved');
+    if (property === null || typeof property !== 'object') throw new TypeError('Each decision property must be an object');
+    if (!['string', 'boolean', 'integer', 'number'].includes(property.type)) throw new TypeError('Decision properties must be string, boolean, integer or number');
+    if (property.description !== undefined && (typeof property.description !== 'string' || property.description.length === 0 || property.description.length > 200 || /[\u0000-\u001f]/.test(property.description))) throw new TypeError('Decision property descriptions must be single-line text of at most 200 characters');
+    if (property.enum !== undefined) {
+      if (property.type !== 'string' || !Array.isArray(property.enum) || property.enum.length < 1 || property.enum.length > 32) throw new TypeError('Decision enums require 1-32 string values');
+      const values = new Set<string>();
+      for (const value of property.enum) {
+        if (typeof value !== 'string' || value.length === 0 || value.length > 64 || value.trim() !== value || /[\u0000-\u001f]/.test(value) || values.has(value)) throw new TypeError('Decision enum values must be unique, trimmed strings of at most 64 characters');
+        values.add(value);
+      }
+    }
+    for (const bound of [property.minimum, property.maximum]) {
+      if (bound !== undefined && (typeof bound !== 'number' || !Number.isFinite(bound))) throw new TypeError('Decision bounds must be finite numbers');
+    }
+    if ((property.minimum !== undefined || property.maximum !== undefined) && property.type !== 'integer' && property.type !== 'number') throw new TypeError('Decision bounds are only supported for integer and number properties');
+    if (property.type === 'boolean' && (property.enum !== undefined || property.minimum !== undefined || property.maximum !== undefined)) throw new TypeError('Boolean decision properties cannot declare enums or bounds');
+    if (property.type === 'integer' && ((property.minimum !== undefined && !Number.isInteger(property.minimum)) || (property.maximum !== undefined && !Number.isInteger(property.maximum)))) throw new TypeError('Integer decision bounds must be integers');
+    if (property.minimum !== undefined && property.maximum !== undefined && property.minimum > property.maximum) throw new TypeError('Decision minimum cannot exceed maximum');
+  }
+  if (request.timeout_ms !== undefined && (!Number.isInteger(request.timeout_ms) || request.timeout_ms < 50 || request.timeout_ms > 5000)) throw new TypeError('timeout_ms must be an integer between 50 and 5000');
+  if (request.max_output_tokens !== undefined && (!Number.isInteger(request.max_output_tokens) || request.max_output_tokens < 1 || request.max_output_tokens > 1024)) throw new TypeError('max_output_tokens must be an integer between 1 and 1024');
+}
 function workspacePoolSlug(slug: string): string {
   if (typeof slug !== 'string' || slug.length > 80 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || ['index', 'history', 'preview', 'audit', 'new'].includes(slug)) throw new TypeError('A readable workspace pool slug is required');
   return slug;
 }
 
 export type EventSubscription = {
-  slug: string; name: string; endpoint: string; event_types: Array<'pool.changed' | 'evaluation.recorded'>; enabled: boolean;
+  slug: string; name: string; endpoint: string; event_types: Array<'pool.changed' | 'evaluation.recorded' | 'incident.opened' | 'incident.resolved'>; enabled: boolean;
   /** Expected revision on write; zero creates. */
   revision: number;
 };
 export type WorkspaceEvent = {
-  id: string; sequence: string; type: 'pool.changed' | 'evaluation.recorded' | 'subscription.test'; schema_version: 1; occurred_at: string;
-  resource: { kind: 'pool' | 'evaluation' | 'subscription'; slug: string; revision: number; run?: string };
+  id: string; sequence: string; type: 'pool.changed' | 'evaluation.recorded' | 'incident.opened' | 'incident.resolved' | 'subscription.test'; schema_version: 1; occurred_at: string;
+  resource: { kind: 'pool' | 'evaluation' | 'incident' | 'subscription'; slug: string; revision: number; run?: string };
 };
 export type EventDelivery = {
   id: string; subscription_revision: number; sequence: string;
@@ -644,6 +983,11 @@ export class NiuClient {
     if (!/^[0-9]+$/.test(after) || after.length > 19 || BigInt(after) > 9223372036854775807n) throw new TypeError('Use the returned decimal event cursor');
     return this.request(`/events/log?after=${after}`, undefined, options);
   }
+  /** Reconcile one workspace-local incident reference from an event. */
+  getWorkspaceIncidentEvent(reference: string, options?: RequestOptions): Promise<{ data: { reference: string; model: string; owner_funded: boolean; status: 'active' | 'resolved'; recovered_at: string | null; notification: { state: 'not_configured' | 'authority_inactive' | 'queued' | 'sending' | 'delivered' | 'failed' | 'partial'; event: 'opened' | 'resolved'; subscribers: number; authorized: number; delivered: number; failed: number; cancelled: number; queued: number; sending: number; last_attempt_at: string | null } } }> {
+    if (!/^incident-[0-9a-f]{32}$/.test(reference)) throw new TypeError('Use the workspace incident event reference');
+    return this.request(`/incidents/${reference}`, undefined, options);
+  }
   getEventSubscriptionHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: EventSubscription[]; next_before: number | null }> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) throw new TypeError('Use a positive revision cursor');
     return this.request(`/events/${eventSubscriptionSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
@@ -658,30 +1002,46 @@ export class NiuClient {
   }
   /** Requires delegated pools:read. No inference or live qualification occurs. */
   listPools(after?: string, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; has_more: boolean; next_after: string | null }> {
-    return this.request(`/pools${after === undefined ? '' : `?after=${workspacePoolSlug(after)}`}`, undefined, options);
+    return this.request(`/routing${after === undefined ? '' : `?after=${workspacePoolSlug(after)}`}`, undefined, options);
   }
   getPool(slug: string, options?: RequestOptions): Promise<{ data: WorkspaceModelPool }> {
-    return this.request(`/pools/${workspacePoolSlug(slug)}`, undefined, options);
+    return this.request(`/routing/${workspacePoolSlug(slug)}`, undefined, options);
   }
   /** Non-dispatching policy/metadata simulation; never proves live access or full input validity. */
   previewPool(configuration: WorkspaceModelPool, context?: WorkspacePoolPreviewContext, options?: RequestOptions): Promise<{ data: WorkspacePoolPreview }> {
     workspacePoolSlug(configuration.slug);
-    return this.request('/pools/preview', { configuration, ...(context === undefined ? {} : { context }) }, options);
+    return this.request('/routing/preview', { configuration, ...(context === undefined ? {} : { context }) }, options);
   }
 
   /** Requires delegated pools:write. Conflicts must be read and reconciled; never automatically replay. */
   async setPool(configuration: WorkspaceModelPool, options: RequestOptions = {}): Promise<{ data: WorkspaceModelPool }> {
     if (!Number.isSafeInteger(configuration.revision) || configuration.revision < 0) throw new TypeError('A nonnegative expected revision is required');
-    const response = await this.send(`/pools/${workspacePoolSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT');
+    const response = await this.send(`/routing/${workspacePoolSlug(configuration.slug)}`, configuration, options, 'application/json', 'PUT');
     return await readPayload(response) as { data: WorkspaceModelPool };
+  }
+  /** Soft-delete the current pool revision; the slug and immutable history stay reserved. */
+  async deletePool(slug: string, revision: number, options: RequestOptions = {}): Promise<void> {
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('Use the current pool revision');
+    await this.send(`/routing/${workspacePoolSlug(slug)}?revision=${revision}`, undefined, options, 'application/json', 'DELETE');
   }
   getPoolHistory(slug: string, before?: number, options?: RequestOptions): Promise<{ data: WorkspaceModelPool[]; next_before: number | null }> {
     if (before !== undefined && (!Number.isSafeInteger(before) || before <= 0)) throw new TypeError('A positive revision cursor is required');
-    return this.request(`/pools/${workspacePoolSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
+    return this.request(`/routing/${workspacePoolSlug(slug)}/history${before === undefined ? '' : `?before=${before}`}`, undefined, options);
   }
   /** Latest 100 selections; retrieve generation diagnostics for terminal state and charges. */
   getPoolSelections(slug: string, options?: RequestOptions): Promise<{ data: WorkspacePoolSelection[] }> {
-    return this.request(`/pools/${workspacePoolSlug(slug)}/selections`, undefined, options);
+    return this.request(`/routing/${workspacePoolSlug(slug)}/selections`, undefined, options);
+  }
+  /**
+   * Explicit System 1 structured decision. Requires a concrete workspace Chat
+   * model with declared structured-output support and a key grant; pool/Auto
+   * aliases are rejected so routing cannot substitute a generated response.
+   * A null decision is an explicit abstention. Inspect evidence and use the
+   * returned x-niu-attempt-id generation record for authoritative charges.
+   */
+  createDecision(request: DecisionRequest, options?: RequestOptions): Promise<DecisionResult> {
+    validateDecisionRequest(request);
+    return this.request('/decisions', request, options);
   }
   /** Public branding projection; the regular client credential does not expand it. */
   getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
@@ -721,6 +1081,7 @@ export class NiuClient {
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
   readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
+  readonly streamGenerateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions & { alt?: 'sse' }) => AsyncGenerator<GenerateContentResponse>;
   readonly messages: { create: (request: MessagesRequest, options?: RequestOptions) => Promise<MessagesResponse>; stream: (request: MessagesStreamRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse>; stream: (request: ResponsesRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly chat: {
@@ -829,10 +1190,12 @@ export class NiuClient {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
     this.generateContent = (model, request, options) => {
-      if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model.includes('..') || /[?#:\\\x00-\x1f\x7f]/.test(model)) {
-        throw new TypeError('model must be a non-empty model identifier without path traversal or query delimiters');
-      }
+      assertGeminiModel(model);
       return this.request(`/models/${encodeURIComponent(model)}:generateContent`, request, options, true);
+    };
+    this.streamGenerateContent = (model, request, options) => {
+      assertGeminiModel(model);
+      return this.streamGemini(model, request, options);
     };
     this.messages = {
       create: (request, requestOptions) => {
@@ -857,6 +1220,27 @@ export class NiuClient {
         return this.request('/chat/completions', request, requestOptions);
       },
     };
+  }
+
+  private async *streamGemini(
+    model: string,
+    request: GenerateContentRequest,
+    options: RequestOptions & { alt?: 'sse' } = {},
+  ): AsyncGenerator<GenerateContentResponse> {
+    const sse = options.alt === 'sse';
+    const path = `/models/${encodeURIComponent(model)}:streamGenerateContent${sse ? '?alt=sse' : ''}`;
+    const accept = sse ? 'text/event-stream' : 'application/json';
+    const response = await this.send(path, request, options, accept, 'POST', true);
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+    if (!response.body || contentType !== accept) {
+      await response.body?.cancel();
+      throw new NiuStreamError('invalid_stream', `Expected a ${accept} stream response`, response);
+    }
+    if (sse) {
+      yield* parseGeminiSseStream(response, options.signal);
+    } else {
+      yield* parseGeminiJsonArrayStream(response, options.signal);
+    }
   }
 
   private async request<T>(
@@ -917,9 +1301,27 @@ export class NiuClient {
       if (typeof options.evaluation !== 'string' || options.evaluation.length > 200 || !/^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*\/[A-Za-z0-9_.-]+$/.test(options.evaluation)) throw new TypeError('Use evaluation-slug@revision/sample');
       headers.set('x-niu-evaluation', options.evaluation);
     }
+    if (options.routingContext !== undefined) {
+      const context = options.routingContext;
+      const task = context?.task;
+      const stage = context?.stage;
+      if (task === undefined && stage === undefined) throw new TypeError('routingContext requires task or stage');
+      for (const value of [task, stage]) {
+        if (value !== undefined && (typeof value !== 'string' || value.length > 64 || !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(value))) {
+          throw new TypeError('routingContext task and stage must be lowercase tokens up to 64 characters');
+        }
+      }
+      headers.set('x-niu-routing-context', JSON.stringify({ ...(task === undefined ? {} : { task }), ...(stage === undefined ? {} : { stage }) }));
+    }
     if (options.logPayloads !== undefined) {
       if (typeof options.logPayloads !== 'boolean') throw new TypeError('logPayloads must be a boolean');
       headers.set('x-niu-log-payloads', String(options.logPayloads));
+    }
+    if (options.anthropicBeta !== undefined) {
+      const beta = Array.isArray(options.anthropicBeta)
+        ? options.anthropicBeta.filter((v) => v.trim()).join(',')
+        : options.anthropicBeta.trim();
+      if (beta) headers.set('anthropic-beta', beta);
     }
     if (this.keyId !== undefined) {
       headers.set('x-niu-key-id', this.keyId);
@@ -964,14 +1366,23 @@ export type ResponseMetadata = {
   readonly operationId: string | null;
 };
 
+export type WorkspaceRoutingContext = { task?: string; stage?: string };
 export type RequestOptions = {
   /** Opt-in binding: evaluation-slug@revision/sample. Requires evaluations:read. */
   evaluation?: string;
+  /**
+   * Optional bounded task context for an explicitly selected semantic Auto
+   * policy on a `pool/<slug>` request. Values are lowercase tokens up to 64
+   * characters. Sent as `x-niu-routing-context`; not forwarded upstream.
+   */
+  routingContext?: WorkspaceRoutingContext;
   signal?: AbortSignal;
   /** Called once when response headers arrive, including streams and HTTP errors. Does not consume the body. */
   onResponse?: (metadata: ResponseMetadata) => void;
   /** Override payload retention for this request. Metadata collection is unaffected. */
   logPayloads?: boolean;
+  /** Optional safe capability beta flag(s) forwarded via anthropic-beta on /v1/messages. */
+  anthropicBeta?: string | string[];
 };
 
 function errorMessage(body: unknown, status: number, fallback = `Niu API request failed with status ${status}`): string {
@@ -989,8 +1400,174 @@ async function readPayload(response: Response): Promise<unknown> {
   try { return text ? JSON.parse(text) : undefined; } catch { return text; }
 }
 
+function assertGeminiModel(model: string) {
+  if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model.includes('..') || /[?#:\\\x00-\x1f\x7f]/.test(model)) {
+    throw new TypeError('model must be a non-empty model identifier without path traversal or query delimiters');
+  }
+}
+
+async function* parseGeminiSseStream(response: Response, signal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
+  const reader = response.body!.getReader();
+  const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let line = '';
+  let data = '';
+  let skipLF = false;
+  let eventSize = 0;
+  let eventType: string | undefined;
+  let sawChunk = false;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const result = await reader.read();
+      signal?.throwIfAborted();
+      if (result.done) break;
+      let text: string;
+      try { text = decoder.decode(result.value, { stream: true }); }
+      catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, eventType, cause); }
+      for (const char of text) {
+        if (skipLF) { skipLF = false; if (char === '\n') continue; }
+        const point = char.codePointAt(0)!;
+        eventSize += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+        if (eventSize > 262_144) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
+        if (char !== '\r' && char !== '\n') { line += char; continue; }
+        skipLF = char === '\r';
+        if (line === '') {
+          signal?.throwIfAborted();
+          eventSize = 0;
+          if (eventType === 'error' && data === '') throw new NiuStreamError('api', 'Upstream returned an SSE error event', response, undefined, eventType);
+          if (data !== '') {
+            const event = data.slice(0, -1);
+            data = '';
+            let value: unknown;
+            try { value = JSON.parse(event); }
+            catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid JSON stream event', response, event, eventType, cause); }
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new NiuStreamError('invalid_stream', 'Invalid GenerateContent stream event', response, value, eventType);
+            if (eventType === 'error' || 'error' in value) throw new NiuStreamError('api', errorMessage(value, response.status, 'Upstream stream failed'), response, value, eventType);
+            sawChunk = true;
+            yield value as GenerateContentResponse;
+          }
+          eventType = undefined;
+        } else if (!line.startsWith(':')) {
+          const colon = line.indexOf(':');
+          const field = colon < 0 ? line : line.slice(0, colon);
+          let value = colon < 0 ? '' : line.slice(colon + 1);
+          if (value.startsWith(' ')) value = value.slice(1);
+          if (field === 'data') data += value + '\n';
+          if (field === 'event') eventType = value;
+        }
+        line = '';
+      }
+    }
+    try { decoder.decode(); }
+    catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, eventType, cause); }
+    if (line !== '' || data !== '' || !sawChunk) {
+      throw new NiuStreamError('incomplete_stream', 'GenerateContent SSE stream ended incomplete', response);
+    }
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof NiuStreamError) throw error;
+    throw new NiuStreamError('transport', 'Stream transport failed', response, undefined, eventType, error);
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    try { await reader.cancel().catch(() => {}); } finally { reader.releaseLock(); }
+  }
+}
+
+async function* parseGeminiJsonArrayStream(response: Response, signal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
+  const reader = response.body!.getReader();
+  const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+  signal?.addEventListener('abort', abort, { once: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let state: 'before_open' | 'expect_obj_or_close' | 'expect_obj' | 'in_obj' | 'expect_comma_or_close' | 'closed' = 'before_open';
+  let obj = '';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let sawAny = false;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const result = await reader.read();
+      signal?.throwIfAborted();
+      if (result.done) break;
+      let text: string;
+      try { text = decoder.decode(result.value, { stream: true }); }
+      catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, undefined, cause); }
+      for (const char of text) {
+        if (state === 'before_open') {
+          if (/\s/.test(char)) continue;
+          if (char === '[') { state = 'expect_obj_or_close'; continue; }
+          throw new NiuStreamError('invalid_stream', 'Expected JSON array in GenerateContent stream', response);
+        }
+        if (state === 'expect_obj_or_close') {
+          if (/\s/.test(char)) continue;
+          if (char === ']' && !sawAny) throw new NiuStreamError('incomplete_stream', 'Empty GenerateContent JSON stream', response);
+          if (char === '{') { state = 'in_obj'; obj = '{'; depth = 1; inString = false; escape = false; continue; }
+          throw new NiuStreamError('invalid_stream', 'Expected JSON object in GenerateContent stream', response);
+        }
+        if (state === 'expect_obj') {
+          if (/\s/.test(char)) continue;
+          if (char === '{') { state = 'in_obj'; obj = '{'; depth = 1; inString = false; escape = false; continue; }
+          throw new NiuStreamError('invalid_stream', 'Expected JSON object after comma', response);
+        }
+        if (state === 'in_obj') {
+          if (obj.length >= 262_144) throw new NiuStreamError('invalid_stream', 'GenerateContent chunk exceeds buffer limit', response);
+          obj += char;
+          if (inString) {
+            if (escape) escape = false;
+            else if (char === '\\') escape = true;
+            else if (char === '"') inString = false;
+          } else {
+            if (char === '"') inString = true;
+            else if (char === '{') depth += 1;
+            else if (char === '}') {
+              depth -= 1;
+              if (depth === 0) {
+                let parsed: unknown;
+                try { parsed = JSON.parse(obj); }
+                catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid GenerateContent JSON chunk', response, obj, undefined, cause); }
+                obj = '';
+                sawAny = true;
+                state = 'expect_comma_or_close';
+                if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new NiuStreamError('invalid_stream', 'Invalid GenerateContent chunk object', response, parsed);
+                if ('error' in parsed) throw new NiuStreamError('api', errorMessage(parsed, response.status, 'Upstream stream failed'), response, parsed);
+                yield parsed as GenerateContentResponse;
+              }
+            }
+          }
+          continue;
+        }
+        if (state === 'expect_comma_or_close') {
+          if (/\s/.test(char)) continue;
+          if (char === ',') { state = 'expect_obj'; continue; }
+          if (char === ']') { state = 'closed'; continue; }
+          throw new NiuStreamError('invalid_stream', 'Invalid delimiter in GenerateContent JSON stream', response);
+        }
+        if (!/\s/.test(char)) {
+          throw new NiuStreamError('invalid_stream', 'Trailing data after GenerateContent JSON stream', response);
+        }
+      }
+    }
+    try { decoder.decode(); }
+    catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, undefined, cause); }
+    if (state !== 'closed' || !sawAny) {
+      throw new NiuStreamError('incomplete_stream', 'GenerateContent JSON stream ended before closing bracket', response);
+    }
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof NiuStreamError) throw error;
+    throw new NiuStreamError('transport', 'Stream transport failed', response, undefined, undefined, error);
+  } finally {
+    signal?.removeEventListener('abort', abort);
+    try { await reader.cancel().catch(() => {}); } finally { reader.releaseLock(); }
+  }
+}
+
 async function* parseChatStream(response: Response, signal?: AbortSignal, protocol: 'chat' | 'responses' | 'messages' = 'chat'): AsyncGenerator<unknown> {
   const responses = protocol === 'responses';
+  const maxEventSize = responses ? 16 * 1024 * 1024 : protocol === 'messages' ? 262_144 : 65_536;
   const reader = response.body!.getReader();
   const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
@@ -1013,7 +1590,7 @@ async function* parseChatStream(response: Response, signal?: AbortSignal, protoc
         if (skipLF) { skipLF = false; if (char === '\n') continue; }
         const point = char.codePointAt(0)!;
         eventSize += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
-        if (eventSize > (responses ? 16 * 1024 * 1024 : 65_536)) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
+        if (eventSize > maxEventSize) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
         if (char !== '\r' && char !== '\n') { line += char; continue; }
         skipLF = char === '\r';
         if (line === '') {
@@ -1077,10 +1654,18 @@ export type { ContextPriceTier, CustomerInvoiceInput, CustomerInvoiceLine } from
 export type { WorkspaceSpendingAccount, WorkspaceSpendingLimit, WorkspaceSpendingLimitRevision } from './admin.js';
 export type { ProviderMediaOfferInput, ProviderMediaOfferModel, ProviderMediaRateModel, ProviderMediaRateRecord, ProviderMediaRateCard, SupplierMediaOfferInput, SupplierMediaOfferModel, SupplierMediaRateModel, SupplierMediaRateRecord, SupplierMediaRateCard, CustomerMediaRateCard, CustomerMediaRateRecord, CustomerMediaRateModel, VideoOutputSchema, ExactMediaQuantity, MediaBillingDimensions } from './admin.js';
 export type { GuardrailPreparationDenial } from './admin.js';
-export type { ProviderCatalogMetadata, ProviderCatalogModel, ProviderModelCheck, ProviderModelInput, ProviderModel, ProviderModelAvailability, ProviderCredentialCreateInput, ProviderCredentialUpdateInput, ProviderMember, ProviderMemberUpdate, ProviderBusiness, ProviderBusinessCreate, ProviderProfile, ProviderProfileUpdate, ProviderCredential, ProviderCooldown, ProviderRequestRateLimit, ProviderRequestRateLimitRevision, ProviderRateInput, ProviderOffer, ProviderOfferRevision, ProviderOfferHistory, ProviderSettlement, ProviderSettlementPage, ProviderSettlementInput, ProviderEarning, ProviderEarningPage, ProviderSettlementQuery, ProviderQualificationInput, ProviderOfferQualificationInput, ProviderAccountInput, ProviderAccount, SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, SupplierQualificationInput, SupplierOfferQualificationInput, TenantScope, WorkspaceScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
+export type { ProviderCatalogMetadata, ProviderCatalogModel, ProviderModelCheck, ProviderModelInput, ProviderModel, ProviderModelAvailability, ProviderCredentialCreateInput, ProviderCredentialUpdateInput, ProviderMember, ProviderMemberUpdate, ProviderBusiness, ProviderBusinessCreate, ProviderProfile, ProviderProfileUpdate, ProviderCredential, ProviderCooldown, ProviderRequestRateLimit, ProviderRequestRateLimitRevision, ProviderRateInput, ProviderOffer, ProviderOfferRevision, ProviderOfferHistory, ProviderSettlement, ProviderSettlementPage, ProviderSettlementInput, ProviderSettlementPreview, SupplierSettlementPreview, ProviderEarning, ProviderEarningPage, ProviderSettlementQuery, ProviderAccountInput, ProviderAccount, SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, TenantScope, WorkspaceScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, KeyGuardrailMode, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
 
 export { NiuAuthClient } from './auth.js';
-export type { NiuAuthOptions, MemberSignIn, MemberSession } from './auth.js';
+export type {
+  AuthConfiguration,
+  MemberSession,
+  MemberSignIn,
+  NiuAuthOptions,
+  RegistrationMode,
+  RegistrationSubmissionInput,
+  RegistrationSubmissionResult,
+} from './auth.js';
 
 export type { BrandingSettings, BrandingColorToken, BrandingConfiguration } from './admin.js';
 
@@ -1140,3 +1725,4 @@ export type { CommercialPosition, CommercialPositionRow } from './admin.js';
 export type { MediaLiabilityIdentity, MediaLiabilityPublication, MediaLiabilityRevocation, MediaLiabilityPublicationResult, MediaLiabilityQualificationRecord, MediaLiabilityQualificationPage } from './admin.js';
 
 export type { RetailMediaEnrollmentPublication, RetailMediaEnrollment, RetailMediaEnrollmentResult } from './admin.js';
+export type { PlatformRegistrationPolicy, PlatformRegistrationQuery, PlatformRegistrationQueuePage, RegistrationCounts, RegistrationRequestRecord, RegistrationStatus } from './admin.js';

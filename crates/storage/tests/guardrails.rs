@@ -811,3 +811,257 @@ async fn combined_dispatch_denials_are_bounded_ordered_scoped_and_sanitized(pool
             .is_err()
     );
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn follow_active_assignment_tracks_workspace_without_repinning(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let scope = store.default_workspace().await.unwrap();
+    let other = store
+        .create_project(scope.organization_id, "Other follow workspace")
+        .await
+        .unwrap();
+    let initial = json!({"schema_version":1,"name":"Initial","models":{"mode":"allow_all"},"providers":{"mode":"inherit"}});
+    let next = json!({"schema_version":1,"name":"Next","models":{"mode":"deny_all"},"providers":{"mode":"inherit"}});
+    store
+        .activate_workspace_guardrail(scope, 0, &initial)
+        .await
+        .unwrap();
+    let key = store
+        .issue_key(scope, "Follow key", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let other_key = store
+        .issue_key(other, "Other follow key", &["*".into()], 3600)
+        .await
+        .unwrap();
+
+    // Follow mode is a valid explicit declaration even before any policy exists.
+    let empty_scope = store
+        .create_project(scope.organization_id, "No policy workspace")
+        .await
+        .unwrap();
+    let empty_key = store
+        .issue_key(empty_scope, "Empty follow key", &["*".into()], 3600)
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .follow_active_key_guardrail(empty_scope, empty_key.id, 0)
+            .await
+            .unwrap(),
+        1
+    );
+    let empty_assignment = store
+        .key_guardrail_assignment(empty_scope, empty_key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(empty_assignment["mode"], "active");
+    assert!(empty_assignment["policy_revision"].is_null());
+    assert!(empty_assignment["policy"].is_null());
+    let empty_snapshot = store
+        .guardrail_snapshot(empty_scope, empty_key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(empty_snapshot.workspace_revision.is_none());
+    assert_eq!(empty_snapshot.key_assignment_revision, Some(1));
+    assert!(empty_snapshot.key_policy_revision.is_none());
+    assert!(empty_snapshot.key_policy.is_none());
+
+    assert!(
+        store
+            .follow_active_key_guardrail(scope, other_key.id, 0)
+            .await
+            .is_err()
+    );
+    assert!(
+        store
+            .follow_active_key_guardrail(other, key.id, 0)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        store
+            .follow_active_key_guardrail(scope, key.id, 0)
+            .await
+            .unwrap(),
+        1
+    );
+    // A second create with revision zero conflicts instead of rewriting.
+    assert!(
+        store
+            .follow_active_key_guardrail(scope, key.id, 0)
+            .await
+            .is_err()
+    );
+    let assignment = store
+        .key_guardrail_assignment(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(assignment["assignment_revision"], 1);
+    assert_eq!(assignment["mode"], "active");
+    assert!(assignment["policy_revision"].is_null());
+    assert!(assignment["policy"].is_null());
+    assert!(store.key_guardrail(scope, key.id).await.unwrap().is_none());
+    let snapshot = store
+        .guardrail_snapshot(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(snapshot.workspace_revision, Some(1));
+    assert_eq!(snapshot.workspace_policy, Some(initial.clone()));
+    assert_eq!(snapshot.key_assignment_revision, Some(1));
+    assert!(snapshot.key_policy_revision.is_none());
+    assert!(snapshot.key_policy.is_none());
+
+    // Activating a new revision needs no key rewrite: the assignment revision is
+    // unchanged and enforcement still resolves only the workspace layer.
+    assert_eq!(
+        store
+            .activate_workspace_guardrail(scope, 1, &next)
+            .await
+            .unwrap(),
+        2
+    );
+    let tracked = store
+        .guardrail_snapshot(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tracked.workspace_revision, Some(2));
+    assert_eq!(tracked.workspace_policy, Some(next.clone()));
+    assert_eq!(tracked.key_assignment_revision, Some(1));
+    assert!(tracked.key_policy_revision.is_none());
+    assert!(tracked.key_policy.is_none());
+    assert_eq!(
+        store
+            .key_guardrail_assignment(scope, key.id)
+            .await
+            .unwrap()
+            .unwrap()["assignment_revision"],
+        1
+    );
+
+    // Switching to a fixed revision pins exactly that saved policy.
+    assert_eq!(
+        store
+            .assign_key_guardrail(scope, key.id, 1, 1)
+            .await
+            .unwrap(),
+        2
+    );
+    let pinned = store
+        .guardrail_snapshot(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(pinned.key_assignment_revision, Some(2));
+    assert_eq!(pinned.key_policy_revision, Some(1));
+    assert_eq!(pinned.key_policy, Some(initial.clone()));
+    let assignment = store
+        .key_guardrail_assignment(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(assignment["mode"], "fixed");
+    assert_eq!(assignment["policy_revision"], 1);
+
+    // Switching back to follow drops the pinned layer immediately.
+    assert_eq!(
+        store
+            .follow_active_key_guardrail(scope, key.id, 2)
+            .await
+            .unwrap(),
+        3
+    );
+    let tracked = store
+        .guardrail_snapshot(scope, key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tracked.key_assignment_revision, Some(3));
+    assert!(tracked.key_policy_revision.is_none());
+    assert!(store.key_guardrail(scope, key.id).await.unwrap().is_none());
+    assert!(
+        store
+            .follow_active_key_guardrail(scope, key.id, 1)
+            .await
+            .is_err()
+    );
+
+    // Rotation preserves both the mode and the assignment revision.
+    let rotated = store.rotate_key(scope, key.id).await.unwrap();
+    let rotated_assignment = store
+        .key_guardrail_assignment(scope, rotated.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(rotated_assignment["mode"], "active");
+    assert_eq!(rotated_assignment["assignment_revision"], 3);
+    assert!(rotated_assignment["policy_revision"].is_null());
+    let rotated_snapshot = store
+        .guardrail_snapshot(scope, rotated.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(rotated_snapshot.key_assignment_revision, Some(3));
+    assert!(rotated_snapshot.key_policy_revision.is_none());
+
+    // A fixed-mode clear keeps the historical null-revision removal behaviour.
+    assert_eq!(
+        store
+            .clear_key_guardrail_as(scope, rotated.id, 3, "reviewer-clear")
+            .await
+            .unwrap(),
+        4
+    );
+    let cleared = store
+        .key_guardrail_assignment(scope, rotated.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(cleared["mode"], "fixed");
+    assert!(cleared["policy_revision"].is_null());
+
+    let history = store
+        .key_guardrail_history(scope, rotated.id, None)
+        .await
+        .unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0]["assignment_revision"], 4);
+    assert_eq!(history[0]["mode"], "fixed");
+    assert!(history[0]["policy_revision"].is_null());
+    assert_eq!(history[1]["assignment_revision"], 3);
+    assert_eq!(history[1]["mode"], "active");
+    assert!(history[1]["policy_revision"].is_null());
+    let original_history: Vec<(i64, Option<i64>, String, String)> = sqlx::query_as(
+        "SELECT assignment_revision,policy_revision,mode,actor FROM key_guardrail_assignment_events WHERE key_id=$1 ORDER BY assignment_revision",
+    )
+    .bind(key.id)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        original_history,
+        vec![
+            (1, None, "active".into(), "system".into()),
+            (2, Some(1), "fixed".into(), "system".into()),
+            (3, None, "active".into(), "system".into()),
+        ]
+    );
+
+    // The schema refuses an active assignment that still pins a revision.
+    assert!(
+        sqlx::query(
+            "UPDATE key_guardrail_assignments SET mode='active',policy_revision=1 WHERE key_id=$1"
+        )
+        .bind(rotated.id)
+        .execute(&pool)
+        .await
+        .is_err()
+    );
+}

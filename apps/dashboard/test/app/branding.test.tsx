@@ -36,25 +36,42 @@ describe('deployment branding',()=>{
     expect(previewPalette(defaultBranding,'dark')['--background']).toBe('oklch(0.19 0.003 255)');
     expect(previewPalette({...defaultBranding,light:{primary:'url(x)'}},'light')['--primary']).toBe('oklch(0.34 0.035 255)');
   });
-  it('keeps a draft on save failure, reloads current revisions and saves the full configuration',async()=>{
+  it('keeps a draft on save failure, reloads current revisions and saves via dialogs',async()=>{
     let revision='0';let fail=true;const writes:unknown[]=[];
     vi.stubGlobal('fetch',vi.fn(async(_url,init)=>{
-      if(init?.method==='PUT') {const body=JSON.parse(String(init.body));writes.push(body);if(fail)return Response.json({}, {status:409});revision='2';return Response.json({data:{revision,settings:body.settings}});}
+      if(init?.method==='PUT') {const body=JSON.parse(String(init.body));writes.push(body);if(fail)return Response.json({}, {status:409});revision=String(Number(revision)+1);return Response.json({data:{revision,settings:body.settings}});}
       return Response.json(configuration(revision));
     }));
     const router=createMemoryRouter([{element:<Outlet context={{token:'member'}}/>,children:[{path:'/admin/branding',element:<BrandingPage/>}]}],{initialEntries:['/admin/branding']});
     render(<RouterProvider router={router}/>);
-    const user=userEvent.setup();await screen.findByDisplayValue('Niu');
+    const user=userEvent.setup();
+    await screen.findByText('Niu');
+    expect(screen.queryByLabelText('Display name')).toBeNull();
+    await user.click(screen.getByRole('button',{name:'Edit branding'}));
     await user.clear(screen.getByLabelText('Display name'));await user.type(screen.getByLabelText('Display name'),'Example');
     await user.click(screen.getByRole('button',{name:'Save changes'}));
     await screen.findByRole('alert');expect(screen.getByDisplayValue('Example')).toBeTruthy();
     revision='1';await user.click(screen.getByRole('button',{name:'Reload saved settings'}));
     await screen.findByDisplayValue('Niu');fail=false;
     await user.clear(screen.getByLabelText('Display name'));await user.type(screen.getByLabelText('Display name'),'Updated');
+    await user.click(screen.getByRole('button',{name:'Save changes'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('Changes saved.');
     await user.click(screen.getByRole('tab',{name:'Theme',exact:true}));
+    await user.click(screen.getByRole('button',{name:'Edit theme'}));
     await user.click(screen.getByRole('button',{name:'Default appearance',exact:true}));await user.click(screen.getByRole('menuitemradio',{name:'Dark',exact:true}));
-    await user.click(screen.getByRole('button',{name:'Save changes'}));await screen.findByText('Changes saved.');
-    expect(writes).toEqual([{expected_revision:'0',settings:{...defaultBranding,display_name:'Example'}},{expected_revision:'1',settings:{...defaultBranding,display_name:'Updated',default_appearance:'dark'}}]);
+    await user.click(screen.getByRole('button',{name:'Save changes'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('Changes saved.');
+    expect(writes).toEqual([
+      {expected_revision:'0',settings:{...defaultBranding,display_name:'Example'}},
+      {expected_revision:'1',settings:{...defaultBranding,display_name:'Updated'}},
+      {expected_revision:'2',settings:{...defaultBranding,display_name:'Updated',default_appearance:'dark'}},
+    ]);
+    await user.click(screen.getByRole('button',{name:'Reset to Niu defaults'}));
+    await user.click(screen.getByRole('button',{name:'Reset defaults'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+    expect(writes.at(-1)).toEqual({expected_revision:'3',settings:{...defaultBranding}});
   });
   it('does not overwrite a cached member appearance when public branding loads',async()=>{
     localStorage.setItem('niu-dashboard-theme-owner','member');localStorage.setItem('niu-dashboard-theme','light');

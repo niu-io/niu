@@ -33,7 +33,7 @@ impl PasswordLoginCredential {
     }
 }
 
-fn email_address(email: &str) -> Option<String> {
+pub(crate) fn email_address(email: &str) -> Option<String> {
     let email = email.trim().to_ascii_lowercase();
     if email.len() > 254
         || !email.is_ascii()
@@ -82,7 +82,7 @@ impl Store {
         // The shared initializer reuses existing defaults without converting their
         // billing configuration or changing saved credentials.
         let workspace = self.default_prepaid_workspace().await?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(78641239)")
             .execute(&mut *tx)
             .await?;
@@ -99,17 +99,59 @@ impl Store {
             } else {
                 email.as_str()
             };
-            sqlx::query("INSERT INTO admin_operators(id,name,role,organization_id,project_id) VALUES($1,$2,'owner',$3,NULL)").bind(id).bind(name).bind(workspace.organization_id).execute(&mut *tx).await?;
-            sqlx::query("INSERT INTO member_password_credentials(operator_id,email,password_hash,revision) VALUES($1,$2,$3,1)").bind(id).bind(&email).bind(password_hash).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO admin_operators(id,name,role,organization_id,project_id) VALUES($1,$2,'owner',$3,NULL)")
+                .bind(id)
+                .bind(name)
+                .bind(workspace.organization_id)
+                .execute(&mut *tx)
+                .await?;
+            crate::account_organization_creation::ensure_operator_identity_in_tx(
+                &mut tx,
+                id,
+                workspace.organization_id,
+            )
+            .await?;
+            sqlx::query("INSERT INTO member_password_credentials(operator_id,email,password_hash,revision) VALUES($1,$2,$3,1)")
+                .bind(id)
+                .bind(&email)
+                .bind(password_hash)
+                .execute(&mut *tx)
+                .await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
+        Ok(())
+    }
+
+    /// Explicit staging grant for the built-in demo identity. Never inferred from
+    /// the email during ordinary provisioning, and never applied to another account.
+    pub async fn grant_demo_platform_administration(&self) -> Result<(), StoreError> {
+        let mut tx = self.begin_tx().await?;
+        let operator: Option<Uuid> = sqlx::query_scalar(
+            "SELECT o.id FROM admin_operators o \
+             JOIN member_password_credentials c ON c.operator_id=o.id \
+             WHERE c.email='demo@niu.io' AND o.revoked_at IS NULL AND NOT o.platform_admin \
+             FOR UPDATE OF o",
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(operator) = operator {
+            sqlx::query("UPDATE admin_operators SET platform_admin=true WHERE id=$1")
+                .bind(operator)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("INSERT INTO platform_admin_events(operator_id,granted,actor_kind) VALUES($1,true,'installation')")
+                .bind(operator)
+                .execute(&mut *tx)
+                .await?;
+        }
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
     /// Revoke only the active session identified by this bearer credential.
     /// Revocation and its metadata-only audit record commit together.
     pub async fn revoke_current_member_session(&self, token: &str) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let row: Option<(Uuid, Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
             "UPDATE admin_sessions s SET revoked_at=clock_timestamp() FROM admin_operators o \
              WHERE s.token_hash=$1 AND s.revoked_at IS NULL \
@@ -134,9 +176,10 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
+
     /// Shared sign-in limits: five attempts per normalized email and 120 across
     /// the installation in a window that expires 60 seconds after its first
     /// attempt. Count successes and failures alike; admission precedes hashing.
@@ -144,18 +187,18 @@ impl Store {
         let Some(email) = email_address(email) else {
             return Ok(false);
         };
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // At most 120 new identity rows can be admitted per minute. Bounded
         // cleanup keeps inactive counters from becoming permanent identity data.
         sqlx::query("DELETE FROM password_login_admission WHERE (kind,bucket) IN (SELECT kind,bucket FROM password_login_admission WHERE window_start < now()-interval '24 hours' ORDER BY window_start LIMIT 128 FOR UPDATE SKIP LOCKED)")
             .execute(&mut *tx).await?;
         let bucket = Sha256::digest(email.as_bytes());
         if !login_window(&mut tx, "identity", bucket.as_slice(), 5).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(false);
         }
         let allowed = login_window(&mut tx, "global", &[0u8; 32], 120).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(allowed)
     }
 
@@ -165,9 +208,9 @@ impl Store {
     ) -> Result<bool, StoreError> {
         let key = format!("password_change:{operator_id}");
         let bucket = Sha256::digest(key.as_bytes());
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let allowed = login_window(&mut tx, "identity", bucket.as_slice(), 5).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(allowed)
     }
 
@@ -185,13 +228,37 @@ impl Store {
         if !crate::passwords::supported_password_hash(password_hash) {
             return Err(StoreError::InvalidOperator);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let (organization_id, project_id) =
             lock_operator_management_target(&mut tx, operator_id, actor).await?;
         let scope = OperatorScope {
             organization_id,
             project_id,
         };
+        let identity_id = crate::account_organization_creation::ensure_operator_identity_in_tx(
+            &mut tx,
+            operator_id,
+            organization_id,
+        )
+        .await?;
+        if let OperatorAuditActor::Operator(actor_id) = actor
+            && actor_id != operator_id
+        {
+            let cross_org_identity: bool = sqlx::query_scalar(
+                "SELECT $1::uuid <> $2::uuid OR EXISTS (
+                    SELECT 1 FROM account_memberships
+                    WHERE identity_id = $1 AND organization_id <> $3
+                )",
+            )
+            .bind(identity_id)
+            .bind(operator_id)
+            .bind(organization_id)
+            .fetch_one(&mut *tx)
+            .await?;
+            if cross_org_identity {
+                return Err(StoreError::Conflict);
+            }
+        }
         let previous: Option<i64> = sqlx::query_scalar(
             "SELECT revision FROM member_password_credentials WHERE operator_id=$1",
         )
@@ -213,27 +280,46 @@ impl Store {
                     error.into()
                 }
             })?;
-        let revoked: Vec<Uuid> = sqlx::query_scalar(
-            "UPDATE admin_sessions SET revoked_at=clock_timestamp() WHERE operator_id=$1 AND revoked_at IS NULL RETURNING id"
-        ).bind(operator_id).fetch_all(&mut *tx).await?;
-        for session in revoked {
+        let revoked: Vec<(Uuid, Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
+            "UPDATE admin_sessions s \
+             SET revoked_at=clock_timestamp() \
+             FROM admin_operators o \
+             WHERE o.id=s.operator_id \
+               AND o.organization_id IS NOT NULL \
+               AND (s.operator_id=$1 OR s.operator_id IN (
+                   SELECT operator_id FROM account_memberships WHERE identity_id=$2
+               )) \
+               AND s.revoked_at IS NULL \
+             RETURNING s.id, o.id, o.organization_id, o.project_id",
+        )
+        .bind(operator_id)
+        .bind(identity_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        for (session, session_operator_id, session_org_id, session_project_id) in revoked {
             insert_operator_audit_event(
                 &mut tx,
                 actor,
                 "session_revoked",
-                operator_id,
+                session_operator_id,
                 Some(session),
-                scope,
+                OperatorScope {
+                    organization_id: session_org_id,
+                    project_id: session_project_id,
+                },
             )
             .await?;
         }
         insert_operator_audit_event(&mut tx, actor, "password_changed", operator_id, None, scope)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
 
     /// Unknown email and revoked members are indistinguishable to callers.
+    /// If the primary credential operator was revoked in one organization,
+    /// login remains valid as long as the account identity has at least one
+    /// non-revoked organization membership.
     pub async fn member_password_credential(
         &self,
         email: &str,
@@ -242,8 +328,27 @@ impl Store {
             return Ok(None);
         };
         let row: Option<(Uuid, i64, String)> = sqlx::query_as(
-            "SELECT c.operator_id,c.revision,c.password_hash FROM member_password_credentials c JOIN admin_operators o ON o.id=c.operator_id WHERE c.email=$1 AND o.revoked_at IS NULL"
-        ).bind(email).fetch_optional(&self.pool).await?;
+            "SELECT c.operator_id, c.revision, c.password_hash \
+             FROM member_password_credentials c \
+             JOIN admin_operators o ON o.id = c.operator_id \
+             WHERE c.email = $1 \
+               AND (
+                   o.revoked_at IS NULL
+                   OR EXISTS (
+                       SELECT 1
+                       FROM account_memberships m
+                       JOIN admin_operators mo ON mo.id = m.operator_id AND mo.organization_id = m.organization_id
+                       WHERE m.identity_id = COALESCE(
+                           (SELECT im.identity_id FROM account_memberships im WHERE im.operator_id = c.operator_id),
+                           c.operator_id
+                       )
+                         AND mo.revoked_at IS NULL
+                   )
+               )",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(row.map(
             |(operator_id, revision, password_hash)| PasswordLoginCredential {
                 operator_id,
@@ -259,19 +364,28 @@ impl Store {
         &self,
         member_id: Uuid,
     ) -> Result<Option<(String, PasswordLoginCredential)>, StoreError> {
-        let row: Option<(String, i64, String)> = sqlx::query_as(
-            "SELECT c.email,c.revision,c.password_hash FROM member_password_credentials c JOIN admin_operators o ON o.id=c.operator_id WHERE c.operator_id=$1 AND o.revoked_at IS NULL",
-        ).bind(member_id).fetch_optional(&self.pool).await?;
-        Ok(row.map(|(email, revision, password_hash)| {
-            (
-                email,
-                PasswordLoginCredential {
-                    operator_id: member_id,
-                    revision,
-                    password_hash,
-                },
-            )
-        }))
+        let row: Option<(Uuid, String, i64, String)> = sqlx::query_as(
+            "SELECT c.operator_id, c.email, c.revision, c.password_hash \
+             FROM admin_operators active \
+             LEFT JOIN account_memberships m ON m.operator_id = active.id \
+             JOIN member_password_credentials c ON c.operator_id = COALESCE(m.identity_id, active.id) \
+             WHERE active.id = $1 AND active.revoked_at IS NULL",
+        )
+        .bind(member_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(
+            row.map(|(cred_operator_id, email, revision, password_hash)| {
+                (
+                    email,
+                    PasswordLoginCredential {
+                        operator_id: cred_operator_id,
+                        revision,
+                        password_hash,
+                    },
+                )
+            }),
+        )
     }
 
     /// Current-password proof authorizes only its own member. Revision checking
@@ -281,32 +395,149 @@ impl Store {
         verified: VerifiedPasswordLogin,
         password_hash: &str,
     ) -> Result<i64, StoreError> {
-        let email: Option<String> = sqlx::query_scalar(
-            "SELECT email FROM member_password_credentials WHERE operator_id=$1",
+        if !crate::passwords::supported_password_hash(password_hash) {
+            return Err(StoreError::InvalidOperator);
+        }
+        let mut tx = self.begin_tx().await?;
+        let identity_id: Uuid = sqlx::query_scalar(
+            "SELECT COALESCE(
+                (SELECT identity_id FROM account_memberships WHERE operator_id = $1),
+                $1
+             )",
         )
         .bind(verified.operator_id)
-        .fetch_optional(&self.pool)
+        .fetch_one(&mut *tx)
         .await?;
-        self.set_member_password(
-            verified.operator_id,
-            &email.ok_or(StoreError::Unauthorized)?,
-            password_hash,
-            Some(verified.revision),
-            OperatorAuditActor::Operator(verified.operator_id),
+        let active_operator: Option<(Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
+            "SELECT o.id, o.organization_id, o.project_id \
+             FROM admin_operators o \
+             WHERE o.organization_id IS NOT NULL \
+               AND o.revoked_at IS NULL \
+               AND (o.id = $1 OR EXISTS (
+                   SELECT 1 FROM account_memberships m
+                   WHERE m.operator_id = o.id AND m.identity_id = $2
+               )) \
+             ORDER BY (o.id = $1) DESC, o.created_at, o.id \
+             LIMIT 1 \
+             FOR UPDATE",
         )
-        .await
+        .bind(verified.operator_id)
+        .bind(identity_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let (actor_operator_id, organization_id, project_id) =
+            active_operator.ok_or(StoreError::Unauthorized)?;
+        let previous: Option<i64> = sqlx::query_scalar(
+            "SELECT revision FROM member_password_credentials WHERE operator_id = $1 FOR UPDATE",
+        )
+        .bind(verified.operator_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if previous != Some(verified.revision) {
+            return Err(StoreError::Conflict);
+        }
+        let revision = verified
+            .revision
+            .checked_add(1)
+            .ok_or(StoreError::Conflict)?;
+        sqlx::query(
+            "UPDATE member_password_credentials \
+             SET password_hash = $2, revision = $3, changed_at = clock_timestamp() \
+             WHERE operator_id = $1",
+        )
+        .bind(verified.operator_id)
+        .bind(password_hash)
+        .bind(revision)
+        .execute(&mut *tx)
+        .await?;
+        let actor = OperatorAuditActor::Operator(actor_operator_id);
+        let revoked: Vec<(Uuid, Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
+            "UPDATE admin_sessions s \
+             SET revoked_at = clock_timestamp() \
+             FROM admin_operators o \
+             WHERE o.id = s.operator_id \
+               AND o.organization_id IS NOT NULL \
+               AND (s.operator_id = $1 OR s.operator_id IN (
+                   SELECT operator_id FROM account_memberships WHERE identity_id = $2
+               )) \
+               AND s.revoked_at IS NULL \
+             RETURNING s.id, o.id, o.organization_id, o.project_id",
+        )
+        .bind(verified.operator_id)
+        .bind(identity_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        for (session, session_operator_id, session_org_id, session_project_id) in revoked {
+            insert_operator_audit_event(
+                &mut tx,
+                actor,
+                "session_revoked",
+                session_operator_id,
+                Some(session),
+                OperatorScope {
+                    organization_id: session_org_id,
+                    project_id: session_project_id,
+                },
+            )
+            .await?;
+        }
+        insert_operator_audit_event(
+            &mut tx,
+            actor,
+            "password_changed",
+            actor_operator_id,
+            None,
+            OperatorScope {
+                organization_id,
+                project_id,
+            },
+        )
+        .await?;
+        crate::commit_tx(tx).await?;
+        Ok(revision)
     }
 
     /// A verified snapshot cannot outlive a password reset or member revocation.
+    /// If the primary operator was revoked in one organization, sign-in binds to
+    /// the first active organization membership of the same account identity.
     pub async fn issue_password_login_session(
         &self,
         verified: VerifiedPasswordLogin,
     ) -> Result<IssuedOperatorSession, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
-            "SELECT organization_id,project_id FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR UPDATE"
-        ).bind(verified.operator_id).fetch_optional(&mut *tx).await?;
-        let (organization_id, project_id) = scope.ok_or(StoreError::Unauthorized)?;
+        let mut tx = self.begin_tx().await?;
+        let primary_scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
+            "SELECT organization_id, project_id \
+             FROM admin_operators \
+             WHERE id = $1 AND revoked_at IS NULL \
+             FOR UPDATE",
+        )
+        .bind(verified.operator_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let (target_operator_id, organization_id, project_id) = match primary_scope {
+            Some((organization_id, project_id)) => {
+                (verified.operator_id, organization_id, project_id)
+            }
+            None => {
+                let fallback: Option<(Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
+                    "SELECT o.id, o.organization_id, o.project_id \
+                     FROM account_memberships m \
+                     JOIN admin_operators o ON o.id = m.operator_id AND o.organization_id = m.organization_id \
+                     WHERE m.identity_id = COALESCE(
+                         (SELECT im.identity_id FROM account_memberships im WHERE im.operator_id = $1),
+                         $1
+                     ) \
+                       AND o.revoked_at IS NULL \
+                     ORDER BY m.created_at, o.id \
+                     LIMIT 1 \
+                     FOR UPDATE OF o",
+                )
+                .bind(verified.operator_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+                fallback.ok_or(StoreError::Unauthorized)?
+            }
+        };
         let current: Option<i64> = sqlx::query_scalar(
             "SELECT revision FROM member_password_credentials WHERE operator_id=$1",
         )
@@ -316,16 +547,16 @@ impl Store {
         if current != Some(verified.revision) {
             return Err(StoreError::Unauthorized);
         }
-        let issued = issue_session(&mut tx, verified.operator_id, 28800).await?;
+        let issued = issue_session(&mut tx, target_operator_id, 28800).await?;
         sqlx::query("UPDATE admin_sessions SET browser_session=true WHERE id=$1")
             .bind(issued.session.id)
             .execute(&mut *tx)
             .await?;
         insert_operator_audit_event(
             &mut tx,
-            OperatorAuditActor::Operator(verified.operator_id),
+            OperatorAuditActor::Operator(target_operator_id),
             "password_login_succeeded",
-            verified.operator_id,
+            target_operator_id,
             Some(issued.session.id),
             OperatorScope {
                 organization_id,
@@ -333,7 +564,7 @@ impl Store {
             },
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 }

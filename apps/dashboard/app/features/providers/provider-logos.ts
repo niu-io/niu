@@ -1,4 +1,6 @@
 import openrouter from '@/assets/providers/openrouter.svg';
+import deepseek from '@/assets/providers/deepseek-color.svg';
+import qiniu from '@/assets/providers/qiniu-color.svg';
 import newapi from '@/assets/providers/newapi-color.svg';
 import azure from '@/assets/providers/azure-color.svg';
 import aws from '@/assets/providers/aws.svg';
@@ -9,6 +11,8 @@ import googlecloud from '@/assets/providers/googlecloud-color.svg';
 const upstream = 'https://raw.githubusercontent.com/lobehub/lobe-icons/329f378cbd1a88f45b60cd096b9111ce16f3ea39/packages/static-svg/icons';
 export const providerLogoPresets = [
   { name: 'OpenRouter', file: 'openrouter', src: openrouter },
+  { name: 'DeepSeek', file: 'deepseek-color', src: deepseek },
+  { name: 'Qiniu', file: 'qiniu-color', src: qiniu },
   { name: 'New API', file: 'newapi-color', src: newapi },
   { name: 'Azure', file: 'azure-color', src: azure },
   { name: 'AWS', file: 'aws', src: aws },

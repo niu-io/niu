@@ -1,7 +1,7 @@
 const currencyState=vi.hoisted(()=>({currency:'USD',ready:true,error:'',reload:()=>{}}));
 vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
 import { expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import CommercialPositionPage from '../../../app/features/commercial-position/page';
@@ -145,24 +145,27 @@ it('renders a structured financial statement with period comparisons, active mod
   // Executive KPI cards and Statement of Operations load under Financial statements
   expect(await screen.findByRole('region', { name: 'Financial statements' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Cash receipts, payables & wallet position' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
   expect(screen.getByText('25.0% margin')).toBeTruthy();
 
   // Financial figures are formatted to 4 decimal places with $ symbol
   expect(screen.getAllByText('$0.8000').length).toBeGreaterThan(0);
+
+  // Switch to Cash & wallet position tab
+  await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
+  expect(screen.getByRole('heading', { name: 'Cash receipts, payables & wallet position' })).toBeTruthy();
   expect(screen.getAllByText('$100.0000').length).toBeGreaterThan(0);
   expect(screen.getAllByText('$99.2000').length).toBeGreaterThan(0);
 
-  // Active model is shown by default with full-precision offer quote (In $0.003 · Out $2.40 / 1M)
+  // Switch to Unit economics tab: active model is shown by default with full-precision offer quote
+  await user.click(screen.getByRole('tab', { name: 'Unit economics' }));
+  expect(screen.getByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
   const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
   expect(within(unitTable).getByColumnHeader ? true : within(unitTable).getByText('Customer cash applied')).toBeTruthy();
   expect(within(unitTable).getByText('Customer unpaid credit')).toBeTruthy();
   expect(within(unitTable).getByText('Recorded upstream cost')).toBeTruthy();
   expect(within(unitTable).getByText('deepseek/deepseek-v4.1-flash')).toBeTruthy();
   expect(within(unitTable).getByText('In $0.003 · Out $2.40 / 1M')).toBeTruthy();
-  expect(within(unitTable).getByText('0 uncovered cash requests')).toBeTruthy();
-  expect(within(unitTable).getByText('3 recorded · 3/3 matched covered')).toBeTruthy();
+  expect(within(unitTable).queryByText(/0 uncovered cash|uncovered cash|matched covered|revenue uncovered/)).toBeNull();
   expect(within(unitTable).queryByText('anthropic/claude-fable-5')).toBeNull();
 
   await user.click(screen.getByRole('button', { name: 'All configured (2)' }));
@@ -193,4 +196,108 @@ it('guides initial setup without requesting a report in an empty currency',()=>{
  try {render(<MemoryRouter><CommercialPositionPage/></MemoryRouter>);
  expect(screen.getByRole('link',{name:'Open platform settings'}).getAttribute('href')).toBe('/admin/settings');
  expect(fetcher).not.toHaveBeenCalled();} finally {currencyState.currency='USD';}
+});
+
+it('localizes generated report periods and missing amounts in Chinese', async()=>{
+ const {saveLocale}=await import('@/shell/locale');saveLocale('zh-CN');
+ currencyState.currency='USD';currencyState.ready=true;
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>Response.json(String(input).includes('/commercial-position') ? samplePosition : sampleSummary)));
+ try {
+  const view=render(<MemoryRouter initialEntries={['/admin/reports?mode=rolling&days=7']}><CommercialPositionPage/></MemoryRouter>);
+  expect(await screen.findAllByText('最近 7 天')).not.toHaveLength(0);
+  expect(screen.queryByText('Last 7 days')).toBeNull();expect(screen.queryByText('Prior 7 days')).toBeNull();view.unmount();
+ } finally {saveLocale('en');vi.unstubAllGlobals();}
+});
+
+it('keeps current-period totals visible when the comparison period fails and retries only the comparison', async () => {
+  let currentFrom = '';
+  let priorFailures = 0;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    const from = url.searchParams.get('from') ?? '';
+    if (!currentFrom) currentFrom = from;
+    if (from < currentFrom && priorFailures === 0) {
+      priorFailures += 1;
+      return Response.json({error:{message:'Comparison unavailable'}},{status:503});
+    }
+    return Response.json(url.pathname.includes('/commercial-position') ? samplePosition : sampleSummary);
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const user = userEvent.setup();
+
+  render(
+    <MemoryRouter initialEntries={['/admin/reports']}>
+      <CommercialPositionPage />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('The comparison period could not be loaded. Current period totals are unchanged.')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
+  const priorRequests = () => fetchMock.mock.calls.filter(([input]) => {
+    const from = new URL(String(input), 'http://localhost').searchParams.get('from') ?? '';
+    return from < currentFrom;
+  });
+  expect(priorRequests()).toHaveLength(2);
+
+  await user.click(screen.getByRole('button', { name: 'Retry comparison' }));
+  await waitFor(() => expect(screen.queryByText('The comparison period could not be loaded. Current period totals are unchanged.')).toBeNull());
+  expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
+  expect(priorRequests()).toHaveLength(4);
+});
+
+it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfacing simulated wallet exclusions', async () => {
+  const microSummary = {
+    ...sampleSummary,
+    recognized_revenue_nanos: '12345',
+    nominal_consumption_nanos: '12345',
+    known_revenue_subtotal_nanos: '12345',
+    balance_credit_sources: {
+      prepaid_cash_nanos: null,
+      outstanding_credit_nanos: null,
+      known_prepaid_cash_subtotal_nanos: '0',
+      known_outstanding_credit_subtotal_nanos: '0',
+      uncovered_accounts: '1',
+      simulated_funding_accounts: '1',
+      attributed_accounts: '0',
+      legacy_balance_accounts: '0',
+    },
+  };
+  const microPosition = {
+    ...samplePosition,
+    data: [
+      {
+        ...samplePosition.data[0],
+        customer_charge_nanos: '12345',
+        net_revenue_nanos: '12345',
+        cash_applied_nanos: '12345',
+        offers: [
+          {
+            ...samplePosition.data[0].offers[0],
+            prompt_rate: '1',
+            completion_rate: '1',
+          },
+        ],
+      },
+    ],
+  };
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
+    Response.json(String(input).includes('/commercial-position') ? microPosition : microSummary)));
+  const user = userEvent.setup();
+
+  render(
+    <MemoryRouter initialEntries={['/admin/reports']}>
+      <CommercialPositionPage />
+    </MemoryRouter>,
+  );
+
+  expect((await screen.findAllByText('<$0.0001')).length).toBeGreaterThan(0);
+  expect(screen.getByText(/\$0\.0000 · simulated excluded/)).toBeTruthy();
+
+  await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
+  expect(screen.getByText(/Verified subtotal: \$0\.0000/)).toBeTruthy();
+
+  await user.click(screen.getByRole('tab', { name: 'Unit economics' }));
+  const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
+  expect(within(unitTable).getByText('In <$0.000001 · Out <$0.000001 / 1M')).toBeTruthy();
+  expect(within(unitTable).queryByText(/\$0\.000000001/)).toBeNull();
 });

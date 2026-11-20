@@ -355,6 +355,7 @@ Content type: `application/json`.
                       "supports_messages_tools",
                       "supports_messages_streaming_tools",
                       "supports_generate_content",
+                      "supports_generate_content_streaming",
                       "supports_responses"
                     ],
                     "properties": {
@@ -389,6 +390,9 @@ Content type: `application/json`.
                         "type": "boolean"
                       },
                       "supports_generate_content": {
+                        "type": "boolean"
+                      },
+                      "supports_generate_content_streaming": {
                         "type": "boolean"
                       },
                       "supports_responses": {
@@ -670,6 +674,7 @@ Content type: `application/json`.
                   "supports_messages_tools",
                   "supports_messages_streaming_tools",
                   "supports_generate_content",
+                  "supports_generate_content_streaming",
                   "supports_responses"
                 ],
                 "properties": {
@@ -704,6 +709,9 @@ Content type: `application/json`.
                     "type": "boolean"
                   },
                   "supports_generate_content": {
+                    "type": "boolean"
+                  },
+                  "supports_generate_content_streaming": {
                     "type": "boolean"
                   },
                   "supports_responses": {

@@ -1164,7 +1164,9 @@ pub(in crate::web) async fn submit(
     }
     let principal = selected(&state, scope, &intent).await?;
     let identity = identity(&intent);
-    let body = intent.request.as_ref().expect("retained request");
+    let Some(body) = intent.request.as_ref() else {
+        return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
+    };
     let _in_flight = state.track_inference();
     video::create_as(
         state,

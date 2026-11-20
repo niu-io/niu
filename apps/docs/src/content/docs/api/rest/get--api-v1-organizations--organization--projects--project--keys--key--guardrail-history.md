@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history`
 
-Returns at most 100 newest events with assignment/policy revisions, nullable policy name, readable actor name and creation time. Removal events have a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
+Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
 
 Operation: `get--api-v1-organizations--organization--projects--project--keys--key--guardrail-history`.
 
@@ -102,4 +102,4 @@ Workspace read access required.
 
 ## Behavior and supported scope
 
-Returns at most 100 newest events with assignment/policy revisions, nullable policy name, readable actor name and creation time. Removal events have a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
+Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.

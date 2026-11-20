@@ -129,6 +129,6 @@ The selected calculation snapshot and liability bound can then be bound and
 reserved before dispatch using the existing media accounting methods.
 
 This is an internal storage mechanism. Callers must authorize configuration,
-qualify the commercial offer and liability contract, derive billing dimensions
+authorize the commercial offer and qualify the liability contract, derive billing dimensions
 from validated effective request controls, and recheck route identity at dispatch.
 Registration alone does not qualify a Supplier or enable customer-funded video.

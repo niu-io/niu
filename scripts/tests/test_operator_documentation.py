@@ -10,7 +10,7 @@ class OperatorDocumentationTest(unittest.TestCase):
         readme = (ROOT / "README.md").read_text()
         self.assertNotIn("/balance/grants", readme)
         self.assertIn(
-            '/api/v1/organizations/$ORG_ID/billing/accounts/USD/grants',
+            '/api/v1/organizations/${ORG_ID:?Choose the evaluation company}/billing/accounts/USD/grants',
             readme,
         )
         grant_body = readme.split('billing/accounts/USD/grants', 1)[1].split("\n\n", 1)[0]

@@ -1,6 +1,9 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
+mod connection_incidents;
 mod evaluation_runs;
 mod evaluation_summary;
 pub use evaluation_runs::{
@@ -15,7 +18,10 @@ pub use workspace_events::{EventDeliveryClaim, EventSubscription, EventSubscript
 mod workspace_model_pools;
 pub use workspace_model_pools::WorkspaceModelPool;
 mod agent_authorizations;
-pub use agent_authorizations::{AgentAuthorizationRequest, AgentAuthorizationView};
+pub use agent_authorizations::{
+    AgentAuthorizationRequest, AgentAuthorizationView, INVOCATION_PROTOCOLS,
+    valid_agent_capabilities, valid_agent_client_name, valid_invocation_protocols,
+};
 mod customer_unit_grants;
 mod customer_unit_limits;
 mod customer_unit_modes;
@@ -33,6 +39,8 @@ pub use customer_unit_tariffs::{
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,
 };
+pub use niu_metered_cost::CreditConversion;
+pub use payment_verification::PaymentReadinessFacts;
 mod platform_currency;
 mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{
@@ -54,12 +62,13 @@ pub use workspace_provider_assets::{
     WorkspaceProviderAssetFailureCategory, WorkspaceProviderAssetFailurePhase,
     WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation, WorkspaceProviderAssetOperation,
     WorkspaceProviderAssetOutcome, WorkspaceProviderAssetPage, WorkspaceProviderAssetPrepared,
-    WorkspaceProviderAssetRoute,
+    WorkspaceProviderAssetRoute, WorkspaceProviderAssetSource,
 };
 mod workspace_asset_library;
 pub use workspace_asset_library::{
     AssetLibraryAsset, AssetLibraryContent, AssetLibraryCreate, AssetLibraryKind,
-    AssetLibraryLimits, AssetLibraryPage, workspace_asset_content_aad,
+    AssetLibraryLimits, AssetLibraryPage, VerifiedWorkspaceAssetSource, WorkspaceAssetSourceAccess,
+    workspace_asset_content_aad,
 };
 mod ingested_video_dispatch;
 pub use ingested_video_dispatch::{IngestedVideoDispatch, IngestedVideoImage};
@@ -91,6 +100,23 @@ pub use route_pools::{
     ModelRoutePool, RoutePoolBillingMode, RoutePoolCandidate, RoutePoolDefaultAction,
     RoutePoolRule, RoutePoolRuleConditions, is_valid_pool_slug, validate_pool_candidates_and_rules,
 };
+mod routing_auto;
+pub use routing_auto::{
+    AUTO_STRATEGY_VERSION, AutoDecider, AutoDecision, AutoDecisionAction, AutoDecisionAttempt,
+    AutoDecisionDocument, AutoDecisionFailure, AutoDecisionOutcome, AutoDecisionUsage,
+    AutoFallbackReason, AutoPath, AutoResponseType, AutoStrategy, AutoTaskContext,
+    MAX_AUTO_CONTEXT_BYTES, MAX_AUTO_DECIDER_INPUT_TOKENS, MAX_AUTO_DECIDER_OUTPUT_TOKENS,
+    MAX_AUTO_DECIDER_SPEND_NANOS, MAX_AUTO_DECIDER_TIMEOUT_MS, MAX_AUTO_PATH_DESCRIPTION_LEN,
+    MAX_AUTO_PATH_KEYWORDS, MAX_AUTO_PATH_NAME_LEN, MAX_AUTO_PATHS, MIN_AUTO_DECIDER_TIMEOUT_MS,
+    evaluate_auto_decision, match_auto_context,
+};
+mod routing_strategy;
+pub use routing_strategy::{
+    CUSTOMER_PRICE_UNIT, CustomerPriceCandidate, CustomerPriceEvaluation,
+    CustomerPriceFallbackReason, CustomerPriceStrategy, CustomerPriceUnit, CustomerPriceUnknown,
+    CustomerTextSellingPrice, MAX_PRICE_ASSUMPTION_TOKENS, WORKSPACE_ROUTING_STRATEGY_VERSION,
+    WorkspaceRoutingMode, WorkspaceRoutingStrategy, evaluate_customer_price_selection,
+};
 mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
@@ -99,7 +125,9 @@ mod balance_policy_history;
 mod balance_reservations;
 mod financial_recovery;
 mod financial_transactions;
+pub(crate) use financial_transactions::{commit_tx, rollback_tx};
 mod supplier_configuration_usage;
+pub mod trigger_error;
 pub use financial_recovery::FinancialRecoveryFailure;
 mod gateway_retry;
 mod media_submissions;
@@ -143,11 +171,23 @@ mod observations;
 mod operator_audit;
 mod platform_audit;
 pub use platform_audit::{PlatformAuditEvent, PlatformAuditPage};
+mod member_invitations;
 mod operators;
+pub use member_invitations::{
+    AcceptedMemberInvitation, CreatedMemberInvitation, MemberInvitationPreview,
+    MemberInvitationStatus, MemberInvitationView,
+};
 pub use member_profiles::MemberProfile;
 mod password_logins;
 pub mod passwords;
 pub use password_logins::{PasswordLoginCredential, VerifiedPasswordLogin};
+mod registrations;
+pub use registrations::{
+    RegistrationCounts, RegistrationMode, RegistrationPolicySnapshot, RegistrationQueuePage,
+    RegistrationRequestRecord, RegistrationStatus, RegistrationSubmissionInput,
+    RegistrationSubmissionOutcome, ValidatedRegistrationFields,
+    validate_registration_submission_fields,
+};
 mod password_workers;
 pub use password_workers::{PasswordWorkError, PasswordWorkers};
 mod asset_authorizations;
@@ -191,20 +231,23 @@ pub use operators::{
     OperatorSessionView, OperatorView,
 };
 pub use vendors::{
-    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorCatalogInputs,
-    VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate,
-    VendorView,
+    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorAccessScope,
+    VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView,
+    VendorRoute, VendorUpdate, VendorView,
 };
 mod context_pricing;
 pub use context_pricing::{
     ContextPriceTier, ContextTierRates, context_token_reservation, normalize_context_tiers,
     select_context_tier,
 };
+mod account_organization_creation;
 mod company_creation;
+pub use account_organization_creation::CreatedAccountOrganization;
 mod company_directory;
 mod company_write_authorization;
 mod workspace_creation;
 pub use workspace_creation::{WorkspaceCreationKey, WorkspaceCreationLimit};
+mod bank_details;
 mod billing;
 pub use billing::{CustomerCategoryRates, CustomerTariffPublication};
 mod customer_balance_grants;
@@ -303,9 +346,8 @@ pub use keys::{IssuedKey, KeyMutationResult, KeyMutationStatus, KeyView, Princip
 pub use pricing::{PriceInput, TokenRates};
 pub use provider_integrations::ProviderIntegration;
 pub use providers::{
-    ProviderBusinessCreate, ProviderMembership, ProviderOfferInput,
-    ProviderOfferQualificationInput, ProviderOfferSchedule, ProviderQualificationInput,
-    ProviderQualificationRevocationInput, SupplierProfile, SupplierProfileUpdate,
+    ProviderBusinessCreate, ProviderMembership, ProviderOfferInput, ProviderOfferSchedule,
+    ProviderSettlementPreview, ProviderSettlementResult, SupplierProfile, SupplierProfileUpdate,
 };
 
 mod request_payloads;
@@ -336,10 +378,22 @@ pub struct TenantScope {
     pub project_id: Uuid,
 }
 
-#[derive(sqlx::FromRow, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct NamedResource {
     pub id: Uuid,
     pub name: String,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
+}
+
+/// Minimal authorized organization identity for restoring a canonical route.
+#[derive(Clone, Debug, Eq, PartialEq, sqlx::FromRow, serde::Serialize)]
+pub struct OrganizationRoute {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub slug_aliases: Vec<String>,
 }
 
 /// Minimal authorized workspace identity for restoring a canonical route.
@@ -394,6 +448,23 @@ pub struct ManagedRouteSnapshot {
     pub model_revision: i64,
 }
 
+/// Provenance of a conservative admission bound, not measured usage.
+#[derive(Clone, Copy, Debug, Default)]
+pub enum TokenBoundEstimator {
+    #[default]
+    SerializedUtf8PlusOutput,
+    RouteInputLimitPlusOutput,
+}
+
+impl TokenBoundEstimator {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SerializedUtf8PlusOutput => "serialized-utf8-plus-output-v1",
+            Self::RouteInputLimitPlusOutput => "route-input-limit-plus-output-v1",
+        }
+    }
+}
+
 /// A validated, unpriced gateway request to admit for upstream dispatch.
 /// The operation and attempt identifiers are generated by the gateway before
 /// enqueueing so they remain available for response headers after admission.
@@ -403,6 +474,7 @@ pub struct GatewayAdmission {
     pub route_generation: Option<i64>,
     pub managed_route: Option<ManagedRouteSnapshot>,
     pub token_bound: Option<i64>,
+    pub token_bound_estimator: TokenBoundEstimator,
     pub inspected_guardrails: Option<GuardrailSnapshot>,
     pub operation_id: Uuid,
     pub attempt_id: Uuid,
@@ -439,6 +511,8 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("request export exceeds the row limit")]
+    RequestExportTooLarge,
     #[error("agent authorization polling interval exceeded")]
     AgentAuthorizationPollLimited,
     #[error("company balance account is not configured for the spending-limit currency")]
@@ -465,6 +539,8 @@ pub enum StoreError {
     Database(#[from] sqlx::Error),
     #[error("workspace slug is already in use")]
     WorkspaceSlugTaken,
+    #[error("organization slug is already in use")]
+    OrganizationSlugTaken,
     #[error("database migration failed")]
     Migration(#[from] sqlx::migrate::MigrateError),
     #[error("embedded squashed migration baseline is malformed")]
@@ -479,8 +555,12 @@ pub enum StoreError {
     InvalidKey,
     #[error("API key is invalid, expired, revoked, or lacks permission")]
     Unauthorized,
+    #[error("this credential is not authorized to invoke models")]
+    InvocationDenied,
     #[error("invalid price, currency or monetary amount")]
     InvalidPrice,
+    #[error("money row does not use the configured platform currency")]
+    PlatformCurrencyMismatch,
     #[error("invalid Credits definition, exact quantity, conversion or expiry")]
     InvalidCustomerUnit,
     #[error("configured token pricing requires unsupported usage categories")]
@@ -531,8 +611,34 @@ pub enum StoreError {
     AssetLibraryCapacityExceeded,
     #[error("aggregate exceeds the supported numeric range")]
     AggregateOverflow,
+    #[error("invalid Provider settlement period or currency")]
+    InvalidProviderSettlement,
+    #[error("no unpaid Provider earnings match this settlement period")]
+    NoProviderSettlementEarnings,
+    #[error("Provider settlement amount exceeds the supported numeric range")]
+    ProviderSettlementOverflow,
     #[error("invalid operator name, role, or session lifetime")]
     InvalidOperator,
+    #[error("invalid account registration details or password policy")]
+    InvalidRegistration,
+    #[error("account registration is disabled on this installation")]
+    RegistrationDisabled,
+    #[error("an active account already uses this email address")]
+    RegistrationEmailExists,
+    #[error("invalid registration queue filters or page size")]
+    InvalidRegistrationQuery,
+    #[error("invalid invitation recipient, role, scope or expiry")]
+    InvalidInvitation,
+    #[error("invitation is invalid, expired, canceled or already used")]
+    InvitationUnavailable,
+    #[error("invitation belongs to a different account email")]
+    InvitationIdentityMismatch,
+    #[error("recipient already belongs to the organization")]
+    InvitationRecipientAlreadyMember,
+    #[error("invitation creator no longer has authority over the target scope")]
+    InvitationAuthorityLost,
+    #[error("invitation was already accepted")]
+    InvitationAlreadyAccepted,
     #[error("invalid operator audit cursor or page size")]
     InvalidOperatorAuditQuery,
     #[error("invalid platform audit category, cursor, or page size")]
@@ -715,11 +821,11 @@ impl Store {
     }
 
     pub async fn organizations(&self) -> Result<Vec<NamedResource>, StoreError> {
-        Ok(
-            sqlx::query_as("SELECT id,name FROM organizations ORDER BY created_at,id LIMIT 1000")
-                .fetch_all(&self.pool)
-                .await?,
+        Ok(sqlx::query_as(
+            "SELECT id,name,slug FROM organizations ORDER BY created_at,id LIMIT 1000",
         )
+        .fetch_all(&self.pool)
+        .await?)
     }
     pub async fn projects(&self, organization_id: Uuid) -> Result<Vec<NamedResource>, StoreError> {
         Ok(sqlx::query_as("SELECT id,name FROM projects WHERE organization_id=$1 ORDER BY created_at,id LIMIT 1000").bind(organization_id).fetch_all(&self.pool).await?)
@@ -735,6 +841,26 @@ impl Store {
                 .fetch_optional(&self.pool)
                 .await?,
         )
+    }
+
+    /// Resolve an organization by canonical slug, alias, or UUID within an optional scope.
+    pub async fn organization_route(
+        &self,
+        route_slug: &str,
+        organization_id: Option<Uuid>,
+    ) -> Result<Option<OrganizationRoute>, StoreError> {
+        let parsed_id = Uuid::parse_str(route_slug.trim()).ok();
+        Ok(sqlx::query_as(
+            "SELECT o.id,o.name,o.slug,ARRAY(SELECT a.slug FROM organization_slug_aliases a WHERE a.organization_id=o.id) AS slug_aliases \
+             FROM organizations o \
+             WHERE (o.slug=$1 OR EXISTS(SELECT 1 FROM organization_slug_aliases a WHERE a.organization_id=o.id AND a.slug=$1) OR ($2::uuid IS NOT NULL AND o.id=$2)) \
+               AND ($3::uuid IS NULL OR o.id=$3)",
+        )
+        .bind(route_slug.trim())
+        .bind(parsed_id)
+        .bind(organization_id)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     /// Resolve in the database with scope predicates, independent of list limits.
@@ -806,7 +932,7 @@ impl Store {
             .bind(limit)
             .fetch_all(&mut *tx)
             .await?;
-        tx.commit().await?;
+        commit_tx(tx).await?;
         Ok(rows)
     }
 
@@ -826,7 +952,7 @@ impl Store {
         &self,
         prepaid: bool,
     ) -> Result<TenantScope, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("LOCK TABLE default_workspace IN EXCLUSIVE MODE")
             .execute(&mut *tx)
             .await?;
@@ -848,8 +974,10 @@ impl Store {
                     sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,'USD')")
                         .bind(Uuid::new_v4()).bind(organization_id).execute(&mut *tx).await?;
                 }
-                sqlx::query("INSERT INTO projects (id,organization_id,name) VALUES ($1,$2,'Default workspace')")
+                sqlx::query("INSERT INTO projects (id,organization_id,name,route_slug) VALUES ($1,$2,'Default','default')")
                     .bind(project_id).bind(organization_id).execute(&mut *tx).await?;
+                sqlx::query("INSERT INTO workspace_slug_aliases (slug,project_id) VALUES ('default-workspace',$1) ON CONFLICT (slug) DO NOTHING")
+                    .bind(project_id).execute(&mut *tx).await?;
                 sqlx::query(
                     "INSERT INTO default_workspace (organization_id,project_id) VALUES ($1,$2)",
                 )
@@ -860,7 +988,7 @@ impl Store {
                 (organization_id, project_id)
             }
         };
-        tx.commit().await?;
+        commit_tx(tx).await?;
         Ok(TenantScope {
             organization_id,
             project_id,
@@ -869,9 +997,11 @@ impl Store {
 
     pub async fn create_organization(&self, name: &str) -> Result<Uuid, StoreError> {
         let id = Uuid::new_v4();
-        sqlx::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
+        let base_slug = crate::workspace_creation::workspace_slug_from_name(name);
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, niu_available_organization_slug($3))")
             .bind(id)
             .bind(name)
+            .bind(base_slug)
             .execute(&self.pool)
             .await?;
         Ok(id)
@@ -940,7 +1070,7 @@ impl Store {
             .await
         {
             Ok(result) => {
-                tx.commit().await?;
+                commit_tx(tx).await?;
                 Ok(result.rows_affected() == 1)
             }
             Err(sqlx::Error::Database(error)) if error.code().as_deref() == Some("23503") => {
@@ -1039,6 +1169,24 @@ impl Store {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
         }
 
+        // Invocation authority is immutable after issuance. Reject before the
+        // batch function can reserve or dispatch, including direct store callers.
+        let requested_keys: Vec<_> = admissions.iter().map(|entry| entry.key_id).collect();
+        let requested_organizations: Vec<_> = admissions
+            .iter()
+            .map(|entry| entry.scope.organization_id)
+            .collect();
+        let requested_workspaces: Vec<_> = admissions
+            .iter()
+            .map(|entry| entry.scope.project_id)
+            .collect();
+        let invocation_denied: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM api_keys k JOIN unnest($1::uuid[],$2::uuid[],$3::uuid[]) r(key_id,organization_id,project_id) ON k.id=r.key_id AND k.organization_id=r.organization_id AND k.project_id=r.project_id WHERE NOT k.invocation_allowed)",
+        ).bind(&requested_keys).bind(&requested_organizations).bind(&requested_workspaces).fetch_one(&self.pool).await?;
+        if invocation_denied {
+            return Err(StoreError::InvocationDenied);
+        }
+
         let admission_count = admissions.len();
         let original_attempt_ids: Vec<_> = admissions.iter().map(|a| a.attempt_id).collect();
         admissions.sort_unstable_by_key(|a| {
@@ -1073,6 +1221,7 @@ impl Store {
         let mut managed_pool_revisions = Vec::new();
         let mut token_bound_attempts = Vec::new();
         let mut token_bounds = Vec::new();
+        let mut token_estimators = Vec::new();
         let mut guardrail_rows = Vec::new();
         let mut evaluation_rows = Vec::new();
 
@@ -1101,6 +1250,7 @@ impl Store {
             if let Some(bound) = admission.token_bound {
                 token_bound_attempts.push(admission.attempt_id);
                 token_bounds.push(bound);
+                token_estimators.push(admission.token_bound_estimator.as_str());
             }
             if let Some(snapshot) = admission.inspected_guardrails {
                 guardrail_rows.push((
@@ -1175,11 +1325,12 @@ impl Store {
         if !token_bound_attempts.is_empty() {
             sqlx::query(
                 "INSERT INTO key_attempt_token_bounds(attempt_id,token_bound,estimator) \
-                 SELECT attempt_id, token_bound, 'serialized-utf8-plus-output-v1' \
-                 FROM unnest($1::uuid[], $2::bigint[]) AS row(attempt_id, token_bound)",
+                 SELECT attempt_id, token_bound, estimator \
+                 FROM unnest($1::uuid[], $2::bigint[], $3::text[]) AS row(attempt_id, token_bound, estimator)",
             )
             .bind(&token_bound_attempts)
             .bind(&token_bounds)
+            .bind(&token_estimators)
             .execute(&mut *tx)
             .await?;
         }
@@ -1239,7 +1390,7 @@ impl Store {
                         .and_then(|d| d.try_downcast_ref::<sqlx::postgres::PgDatabaseError>())
                         .and_then(|d| d.detail())
                         .and_then(|detail| serde_json::from_str::<serde_json::Value>(detail).ok());
-                    tx.rollback().await?;
+                    rollback_tx(tx).await?;
                     if let Some(metadata) = metadata {
                         for (scope, key) in rejection_scopes {
                             if metadata["organization_id"] == scope.organization_id.to_string()
@@ -1272,7 +1423,7 @@ impl Store {
                     .await?;
             }
         }
-        tx.commit().await?;
+        commit_tx(tx).await?;
 
         if rows.len() != admission_count {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
@@ -1534,7 +1685,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
-        tx.commit().await?;
+        commit_tx(tx).await?;
         Ok(())
     }
 
@@ -1547,3 +1698,5 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&self.pool).await?)
     }
 }
+
+mod provider_prices;

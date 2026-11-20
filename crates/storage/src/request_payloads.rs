@@ -42,7 +42,7 @@ impl Store {
         complete: bool,
         truncated: bool,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // Serialize capture and explicit deletion. The following query uses a fresh
         // READ COMMITTED snapshot after acquiring the attempt lock.
         sqlx::query("SELECT id FROM attempts WHERE id=$1 FOR UPDATE")
@@ -53,7 +53,7 @@ impl Store {
         // Expired records are hidden on read and cleaned by bounded background maintenance.
         sqlx::query("WITH source AS (SELECT created_at FROM attempts WHERE id=$1) INSERT INTO request_payloads(attempt_id,request_body,response_body,response_content_type,response_complete,response_truncated,expires_at) SELECT $1,$2,$3,$4,$5,$6,COALESCE((SELECT created_at FROM source),now())+interval '24 hours' WHERE COALESCE((SELECT created_at FROM source),now())+interval '24 hours'>now() AND NOT EXISTS (SELECT 1 FROM request_payload_deletions WHERE attempt_id=$1) ON CONFLICT(attempt_id) DO NOTHING")
             .bind(attempt).bind(request).bind(response).bind(content_type).bind(complete).bind(truncated).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn request_payload(
@@ -70,7 +70,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         let owned = sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut *tx).await?;
@@ -82,7 +82,7 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

@@ -12,6 +12,29 @@ use uuid::Uuid;
 
 const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
 
+async fn qiniu_public_metadata(
+    state: &AppState,
+    timeout: Duration,
+) -> Option<std::collections::BTreeMap<String, crate::catalog_metadata::CatalogMetadata>> {
+    const URL: &str = "https://www.qiniu.com/ai/models";
+    let client = crate::upstream::configured_client_for_endpoint(state, URL, timeout)
+        .await
+        .ok()?;
+    // This public request must never receive the saved Provider credential.
+    let mut response = client.get(URL).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.ok()? {
+        if bytes.len().saturating_add(chunk.len()) > MAX_MODEL_CATALOG_BYTES {
+            return None;
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    crate::providers::adapters::qiniu_model_square_metadata(std::str::from_utf8(&bytes).ok()?)
+}
+
 /// Diagnostics use only server-owned authentication, never client headers.
 /// Anthropic catalogs are bounded to one maximal page; incomplete catalogs
 /// must not be mistaken for a complete inventory or a missing model.
@@ -40,7 +63,7 @@ fn model_catalog_request(
 
 /// Normalize only the documented catalog envelope and descriptive fields.
 /// Native resource names become model IDs accepted by GenerateContent; no
-/// upstream capability or price automatically enables an inference capability.
+/// upstream price automatically enables a billing capability.
 fn catalog_models(catalog: &Value, adapter: &str) -> Option<Vec<Value>> {
     let field = if adapter == "gemini" {
         "models"
@@ -87,6 +110,15 @@ pub struct CreateVendor {
     #[serde(default)]
     create_supplier: bool,
     supplier_id: Option<Uuid>,
+    /// Funding/ownership account. Access scope is independent.
+    personal_organization_id: Option<Uuid>,
+    /// `personal` restricts access to the funding account. `internal` shares the
+    /// owner-funded credential with every organization on an Internal-use
+    /// installation. Omission preserves the pre-scope API behavior: an explicit
+    /// funding account creates a personal credential; Resale without one creates
+    /// commercial shared supply; Internal use requires an explicit choice.
+    #[serde(default)]
+    access_scope: Option<niu_storage::VendorAccessScope>,
 }
 fn enabled() -> bool {
     true
@@ -282,7 +314,13 @@ pub struct VendorFilter {
 ///         "owner_funded": {
 ///           "type": "boolean",
 ///           "readOnly": true,
-///           "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+///           "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+///         },
+///         "access_scope": {
+///           "type": "string",
+///           "enum": ["commercial", "personal", "internal"],
+///           "readOnly": true,
+///           "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
 ///         },
 ///         "supplier": {
 ///           "type": [
@@ -352,6 +390,15 @@ pub struct VendorFilter {
 ///           "type": "string",
 ///           "format": "uuid",
 ///           "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+///         },
+///         "personal_organization_id": {
+///           "type": "string", "format": "uuid",
+///           "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+///         },
+///         "access_scope": {
+///           "type": "string",
+///           "enum": ["personal", "internal"],
+///           "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
 ///         },
 ///         "create_supplier": {
 ///           "type": "boolean",
@@ -489,7 +536,59 @@ pub async fn create(
     headers: HeaderMap,
     Json(input): Json<CreateVendor>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    installation(&state, &headers).await?;
+    let authorization = state.authorize_platform_headers(&headers).await?;
+    let internal_mode = state.operating_mode == crate::state::OperatingMode::Internal;
+    let access_scope = match input.access_scope {
+        Some(niu_storage::VendorAccessScope::Internal) if !internal_mode => {
+            return Err(ApiError::invalid_request(
+                "Internal access scope is available only in Internal use",
+            ));
+        }
+        Some(niu_storage::VendorAccessScope::Commercial) => {
+            return Err(ApiError::invalid_request(
+                "Commercial supply is selected by omitting a funding account, not by access scope",
+            ));
+        }
+        Some(scope) => scope,
+        // Preserve pre-scope behavior only when the caller named a funding
+        // account. Do not silently bind Internal use to the current account.
+        None if input.personal_organization_id.is_some() => {
+            niu_storage::VendorAccessScope::Personal
+        }
+        None if internal_mode => {
+            return Err(ApiError::invalid_request(
+                "Choose personal or internal access scope for this Provider connection",
+            ));
+        }
+        None => niu_storage::VendorAccessScope::Commercial,
+    };
+    let personal_owner = match access_scope {
+        niu_storage::VendorAccessScope::Commercial => None,
+        niu_storage::VendorAccessScope::Personal | niu_storage::VendorAccessScope::Internal => {
+            Some(match input.personal_organization_id {
+                Some(owner) => owner,
+                None if internal_mode => match authorization {
+                    crate::state::AdminAuthorization::Operator(operator) => {
+                        operator.scope.organization_id
+                    }
+                    crate::state::AdminAuthorization::Installation => {
+                        state
+                            .store
+                            .default_workspace()
+                            .await
+                            .map_err(ApiError::from_store)?
+                            .organization_id
+                    }
+                },
+                None => {
+                    return Err(ApiError::invalid_request(
+                        "Personal access scope requires a funding account",
+                    ));
+                }
+            })
+        }
+    };
+
     if input.create_supplier && input.supplier_id.is_some() {
         return Err(ApiError::invalid_request(
             "Choose a new or existing Provider, not both",
@@ -515,7 +614,7 @@ pub async fn create(
         .map_err(ApiError::invalid_request)?;
     let vendor = state
         .store
-        .create_vendor_for_supplier(
+        .create_vendor_with_access_scope(
             niu_storage::VendorInput {
                 id,
                 name: input.name,
@@ -526,12 +625,50 @@ pub async fn create(
             },
             input.create_supplier,
             input.supplier_id,
+            personal_owner,
+            access_scope,
         )
         .await
         .map_err(ApiError::from_store)?;
     let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
-    vendor["owner_funded"] = json!(false);
+    vendor["owner_funded"] = json!(personal_owner.is_some());
+    vendor["access_scope"] = json!(access_scope.as_str());
     Ok((StatusCode::CREATED, Json(json!({"data":vendor}))))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/vendors/{id}/retire",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "retireVendorConnection",
+///     "summary": "Retire a Provider API-key connection without deleting history",
+///     "description": "Platform administration required. Disables the connection and every model binding, erases the stored credential and appends an immutable retirement audit event. Existing offers, requests, earnings, incidents and audit history are retained; in-flight attempts keep their pinned configuration, while new dispatch is blocked. Idempotent for an already retired connection. Not a hard delete.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+///     "responses": {
+///       "200": {"description": "Retired connection wrapped in data.", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/Vendor"}}}}}},
+///       "404": {"description": "Vendor does not exist."},
+///       "401": {"description": "Invalid or expired administrative credential."},
+///       "403": {"description": "Platform administration permission required."}
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn retire(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let vendor = state
+        .store
+        .retire_vendor(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":vendor})))
 }
 
 /// ```openapi
@@ -614,6 +751,20 @@ pub async fn update(
     Json(input): Json<UpdateVendor>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
+    if input.enabled
+        && state.operating_mode == crate::state::OperatingMode::Internal
+        && state
+            .store
+            .personal_vendor_organization(id)
+            .await
+            .map_err(ApiError::from_store)?
+            .is_none()
+    {
+        return Err(ApiError::invalid_request(
+            "Internal use cannot enable shared commercial credentials",
+        ));
+    }
+
     let current = state
         .store
         .vendor(id)
@@ -662,8 +813,18 @@ pub async fn update(
         .await
         .map_err(ApiError::from_store)?
         .is_some();
+    let access_scope = state
+        .store
+        .vendor_access_scope(id)
+        .await
+        .map_err(ApiError::from_store)?;
     let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
     vendor["owner_funded"] = json!(owner_funded);
+    vendor["access_scope"] = json!(
+        access_scope
+            .unwrap_or(niu_storage::VendorAccessScope::Commercial)
+            .as_str()
+    );
     Ok(Json(json!({"data":vendor})))
 }
 
@@ -674,7 +835,7 @@ pub async fn update(
 ///   "operation": {
 ///     "operationId": "listVendorModels",
 ///     "summary": "List model bindings for one Provider API-key configuration",
-///     "description": "Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
+///     "description": "Management reads include route eligibility in available, an owner_funded flag and the effective access_scope. Owner-funded routes use their funding account and are excluded from shared commercial supply and customer tariffs; personal scope restricts them to that account, while internal scope shares them with every organization on an Internal-use installation. Internal-scope and commercial routes honor their explicit public_catalog publication flag; personal routes remain private. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -763,7 +924,7 @@ pub async fn update(
 ///         "owner_funded": {
 ///           "type": "boolean",
 ///           "readOnly": true,
-///           "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+///           "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
 ///         },
 ///         "capabilities": {
 ///           "$ref": "#/components/schemas/VendorCapabilities"
@@ -828,7 +989,12 @@ pub async fn update(
 ///         "supports_generate_content": {
 ///           "type": "boolean",
 ///           "default": false,
-///           "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+///           "description": "Native GenerateContent opt-in for static or managed gemini routes. Pair with supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, or supports_generate_content_streaming as needed."
+///         },
+///         "supports_generate_content_streaming": {
+///           "type": "boolean",
+///           "default": false,
+///           "description": "Explicit native :streamGenerateContent SSE/JSON stream opt-in; requires supports_generate_content on a gemini route."
 ///         },
 ///         "supports_messages_streaming_tools": {
 ///           "type": "boolean",
@@ -1252,7 +1418,7 @@ pub async fn update(
 ///         "estimator",
 ///         "estimator_revision"
 ///       ],
-///       "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation additionally requires a positive frames_per_second control; seconds estimation may omit it. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
+///       "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation requires a positive frame-rate control or an observed output frame rate. With allow_unmapped_output enabled, owner-funded generation accepts other supported combinations without an estimate. Customer-funded generation still requires a mapped pair. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
 ///       "properties": {
 ///         "estimator": {
 ///           "type": "string",
@@ -1261,6 +1427,8 @@ pub async fn update(
 ///             "OutputSecondsV1"
 ///           ]
 ///         },
+///         "observed_frames_per_second": {"type":"integer","minimum":1,"maximum":4294967295,"description":"Observed output FPS for pixel estimates when no request FPS control exists. Never sent upstream."},
+///         "allow_unmapped_output": {"type":"boolean","default":false,"description":"Allow owner-funded generation for otherwise supported combinations without an effective output estimate."},
 ///         "estimator_revision": {
 ///           "type": "string",
 ///           "minLength": 1,
@@ -1620,27 +1788,28 @@ async fn read_catalog(
     };
     let endpoint = format!("{}/{catalog_path}", vendor.api_base.trim_end_matches('/'));
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds.clamp(1, 5));
-    let client =
-        match crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout).await {
-            Ok(client) => client,
-            Err(crate::upstream::EndpointError::PrivateAddress) => {
-                return Err(ApiError::upstream_message(
-                    "The provider endpoint resolves to a private address and was blocked.",
-                ));
-            }
-            Err(crate::upstream::EndpointError::InvalidUrl) => {
-                return Err(ApiError::upstream_message(
-                    "The provider endpoint URL is invalid.",
-                ));
-            }
-            Err(crate::upstream::EndpointError::ResolutionFailed)
-            | Err(crate::upstream::EndpointError::ClientConfiguration)
-            | Err(crate::upstream::EndpointError::InvalidTimeout) => {
-                return Err(ApiError::upstream_message(
-                    "The provider model catalog could not be reached.",
-                ));
-            }
-        };
+    let client = match crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
+        .await
+    {
+        Ok(client) => client,
+        Err(crate::upstream::EndpointError::PrivateAddress) => {
+            return Err(ApiError::upstream_message(
+                "The provider endpoint resolves to a private or reserved address and was blocked. If this machine uses fake-IP DNS (198.18.0.0/15, common with Clash, Surge or Mihomo), configure real DNS resolution for the provider hostname or disable fake-IP for it.",
+            ));
+        }
+        Err(crate::upstream::EndpointError::InvalidUrl) => {
+            return Err(ApiError::upstream_message(
+                "The provider endpoint URL is invalid.",
+            ));
+        }
+        Err(crate::upstream::EndpointError::ResolutionFailed)
+        | Err(crate::upstream::EndpointError::ClientConfiguration)
+        | Err(crate::upstream::EndpointError::InvalidTimeout) => {
+            return Err(ApiError::upstream_message(
+                "The provider model catalog could not be reached.",
+            ));
+        }
+    };
     if credential_filtered {
         // OpenRouter can return public inventory for an invalid bearer on
         // /models/user. Verify current-key identity without management APIs.
@@ -1700,6 +1869,17 @@ async fn read_catalog(
     })?;
     let status = response.status();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        if status == reqwest::StatusCode::FORBIDDEN
+            && vendor.api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1"
+        {
+            let body = crate::provider_rejections::bounded_body(response).await;
+            if crate::provider_rejections::qiniu_chat_banned(Some(&vendor.api_base), status, &body)
+            {
+                return Err(ApiError::upstream_message(
+                    crate::provider_rejections::QINIU_CHAT_BANNED,
+                ));
+            }
+        }
         return Err(ApiError::upstream_message(
             "The provider rejected the saved API key. Check the key and provider account access.",
         ));
@@ -1750,6 +1930,22 @@ async fn read_catalog(
     let models = catalog_models(&catalog, catalog_adapter).ok_or_else(|| {
         ApiError::upstream_message("The provider returned an invalid model catalog.")
     })?;
+    let pricing = crate::providers::adapters::find(&integration.effective_type).map(|adapter| {
+        if integration.effective_type == "openrouter" {
+            let mut pricing = adapter.pricing(&catalog);
+            pricing.observed_at_ms = crate::providers::adapters::now_ms();
+            pricing
+        } else {
+            adapter.pricing(&serde_json::Value::Null)
+        }
+    });
+    let qiniu_metadata = if integration.effective_type == "qiniu"
+        && vendor.api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1"
+    {
+        qiniu_public_metadata(state, timeout).await
+    } else {
+        None
+    };
     let data = models
         .iter()
         .filter_map(|model| {
@@ -1757,17 +1953,43 @@ async fn read_catalog(
             if id.is_empty() || id.len() > 200 {
                 return None;
             }
+            let mut metadata =
+                crate::providers::adapters::metadata(&integration.effective_type, model);
+            if let Some(extra) = qiniu_metadata.as_ref().and_then(|items| items.get(id)) {
+                if metadata.name.is_none() {
+                    metadata.name = extra.name.clone();
+                }
+                if metadata.description.is_none() {
+                    metadata.description = extra.description.clone();
+                }
+                if metadata.context_length.is_none() {
+                    metadata.context_length = extra.context_length;
+                }
+                if metadata.max_completion_tokens.is_none() {
+                    metadata.max_completion_tokens = extra.max_completion_tokens;
+                }
+                if metadata.input_modalities.is_empty() {
+                    metadata.input_modalities = extra.input_modalities.clone();
+                }
+                if metadata.output_modalities.is_empty() {
+                    metadata.output_modalities = extra.output_modalities.clone();
+                }
+                if metadata.supported_parameters.is_empty() {
+                    metadata.supported_parameters = extra.supported_parameters.clone();
+                }
+            }
             let name = model
                 .get("name")
                 .or_else(|| model.get("display_name"))
                 .and_then(Value::as_str)
                 .filter(|name| !name.is_empty() && name.len() <= 300)
+                .or(metadata.name.as_deref())
                 .unwrap_or(id);
             Some(json!({
                 "id": id,
                 "name": name,
                 "context_length": model.get("context_length").and_then(Value::as_u64),
-                "catalog": crate::catalog_metadata::CatalogMetadata::from_provider(model),
+                "catalog": metadata,
             }))
         })
         .collect::<Vec<_>>();
@@ -1775,6 +1997,7 @@ async fn read_catalog(
         vendor.revision,
         json!({
             "data": data,
+            "pricing": pricing,
             "discovery": {
                 "integration": integration,
                 "inventory_scope": if credential_filtered { "credential_filtered" } else { "instance_reported" },
@@ -1854,6 +2077,7 @@ pub struct CheckModelInput {
 ///                       "enum": [
 ///                         "connected",
 ///                         "credentials_rejected",
+///                         "account_chat_banned",
 ///                         "endpoint_unavailable",
 ///                         "private_endpoint_blocked",
 ///                         "invalid_endpoint",
@@ -1995,6 +2219,23 @@ pub async fn check_model(
     let status = response.status();
     let status_code = status.as_u16();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        if status == reqwest::StatusCode::FORBIDDEN
+            && route.vendor.api_base.trim_end_matches('/') == "https://api.qnaigc.com/v1"
+        {
+            let body = crate::provider_rejections::bounded_body(response).await;
+            if crate::provider_rejections::qiniu_chat_banned(
+                Some(&route.vendor.api_base),
+                status,
+                &body,
+            ) {
+                return Ok(check_response(
+                    "account_chat_banned",
+                    "unknown",
+                    Some(status_code),
+                    started,
+                ));
+            }
+        }
         return Ok(check_response(
             "credentials_rejected",
             "unknown",
@@ -2561,10 +2802,7 @@ pub async fn configure_asset_management(
         .ok_or_else(ApiError::not_found)?;
     let origin = url::Url::parse(&configuration.api_base)
         .map_err(|_| ApiError::invalid_request("A direct Ark account is required"))?;
-    if origin.scheme() != "https"
-        || origin.host_str() != Some("ark.cn-beijing.volcengineapi.com")
-        || origin.port_or_known_default() != Some(443)
-    {
+    if !niu_media::providers::volcengine::is_direct_ark_https_origin(&origin) {
         return Err(ApiError::invalid_request(
             "A direct Ark account is required",
         ));
@@ -2637,4 +2875,394 @@ pub async fn revoke_asset_management(
     Ok(Json(
         json!({"data":{"revision":input.expected_revision,"configured":false,"dispatch_available":false,"erased_revisions":erased}}),
     ))
+}
+
+/// Explicit discovery and atomic import for an already saved Provider connection.
+/// ```openapi
+/// {"path":"/api/v1/vendors/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn import_models(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let vendor = state
+        .store
+        .vendor(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let (revision, result) = read_catalog(&state, id, &headers).await?;
+    let prefix = vendor_alias_prefix(&vendor.name);
+    let data = result["data"]
+        .as_array()
+        .ok_or_else(ApiError::unavailable)?;
+    // Discovery order is upstream-defined. Alias planning is sorted so the same
+    // catalog yields the same aliases regardless of listing order, and a
+    // basename collision is resolved within the batch instead of aborting the
+    // whole import with an alias conflict.
+    let mut catalogs = std::collections::BTreeMap::new();
+    for model in data {
+        let upstream = model["id"].as_str().ok_or_else(ApiError::unavailable)?;
+        catalogs.entry(upstream).or_insert(&model["catalog"]);
+    }
+    let upstreams = catalogs.keys().copied().collect::<Vec<_>>();
+    let aliases = plan_imported_model_aliases(&prefix, &upstreams);
+    let mut entries = Vec::with_capacity(aliases.len());
+    for (upstream, alias) in aliases {
+        let capabilities =
+            imported_model_capabilities(&vendor.adapter, catalogs[upstream.as_str()]);
+        validate_model(
+            &alias,
+            make_model(
+                &vendor.adapter,
+                &vendor.api_base,
+                &upstream,
+                capabilities.clone(),
+                None,
+            )?,
+        )?;
+        entries.push(niu_storage::VendorModelInput {
+            alias,
+            upstream_model: upstream,
+            public_catalog: false,
+            enabled: true,
+            capabilities,
+            pricing: None,
+            expected_revision: None,
+        });
+    }
+    let imported = state
+        .store
+        .import_discovered_vendor_models(id, revision, entries)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"imported":imported,"discovered":data.len()},"discovery":result["discovery"]}),
+    ))
+}
+
+const MAX_MODEL_ALIAS_BYTES: usize = 200;
+const MAX_ALIAS_PREFIX_BYTES: usize = 48;
+
+/// Provider names are display labels, not identifiers. Derive a readable,
+/// ASCII-safe namespace without depending on the caller's punctuation.
+fn vendor_alias_prefix(name: &str) -> String {
+    let mut prefix = String::new();
+    for character in name.chars() {
+        if character.is_ascii_alphanumeric() {
+            prefix.push(character.to_ascii_lowercase());
+        } else if !prefix.is_empty() && !prefix.ends_with('-') {
+            prefix.push('-');
+        }
+    }
+    while prefix.ends_with('-') {
+        prefix.pop();
+    }
+    if prefix.is_empty() {
+        prefix.push_str("provider");
+    }
+    prefix.truncate(MAX_ALIAS_PREFIX_BYTES);
+    while prefix.ends_with('-') {
+        prefix.pop();
+    }
+    prefix
+}
+
+fn normalize_alias_segment(segment: &str) -> String {
+    let mut normalized = String::new();
+    for character in segment.chars() {
+        if character.is_ascii_alphanumeric() || matches!(character, '.' | '_') {
+            normalized.push(character.to_ascii_lowercase());
+        } else if !normalized.is_empty() && !normalized.ends_with('-') {
+            normalized.push('-');
+        }
+    }
+    while normalized.ends_with('-') {
+        normalized.pop();
+    }
+    normalized
+}
+
+/// The upstream path is metadata only; it is never rewritten for dispatch.
+/// Slash-separated maker namespaces become alias components so a repeated maker
+/// prefix can be recognized instead of copied into the public alias.
+fn alias_path(upstream: &str) -> Vec<String> {
+    let mut path = upstream
+        .split('/')
+        .map(normalize_alias_segment)
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+    if path.is_empty() {
+        path.push(format!("model-{}", short_alias_hash(upstream)));
+    }
+    path
+}
+
+fn short_alias_hash(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(value.as_bytes())
+        .iter()
+        .take(4)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn model_alias_with_suffix(base: &str, suffix: usize, upstream: &str) -> String {
+    let numeric = if suffix == 0 {
+        String::new()
+    } else {
+        format!("-{suffix}")
+    };
+    let candidate = format!("{base}{numeric}");
+    if candidate.len() <= MAX_MODEL_ALIAS_BYTES {
+        return candidate;
+    }
+    // Keep collision suffixes and a stable upstream digest when a long ID must
+    // be shortened; truncating alone could make distinct models indistinguishable.
+    let tail = format!("{numeric}-{}", short_alias_hash(upstream));
+    let mut head = base
+        .chars()
+        .take(MAX_MODEL_ALIAS_BYTES.saturating_sub(tail.len()))
+        .collect::<String>();
+    while head.ends_with(['-', '.', '_']) {
+        head.pop();
+    }
+    if head.is_empty() {
+        head.push_str("model");
+    }
+    format!("{head}{tail}")
+}
+
+/// Plan one alias per unique upstream ID. The preferred alias is
+/// `provider/model-basename`; if that basename is shared, a compact full upstream
+/// path is used, then a numeric suffix. Sorting by path complexity and upstream
+/// ID makes the assignment independent of catalog order.
+fn plan_imported_model_aliases(prefix: &str, upstreams: &[&str]) -> Vec<(String, String)> {
+    let prefix = vendor_alias_prefix(prefix);
+    let mut unique = upstreams.to_vec();
+    unique.sort_unstable();
+    unique.dedup();
+    let mut ordered = unique
+        .into_iter()
+        .map(|upstream| (alias_path(upstream).len(), upstream))
+        .collect::<Vec<_>>();
+    ordered.sort_unstable_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(right.1)));
+    let mut used = std::collections::BTreeSet::new();
+    let mut planned = Vec::with_capacity(ordered.len());
+    let candidate_count = ordered.len();
+    for (_, upstream) in ordered {
+        let mut path = alias_path(upstream);
+        if path.first().is_some_and(|segment| segment == &prefix) {
+            path.remove(0);
+        }
+        if path.is_empty() {
+            path.push("model".to_owned());
+        }
+        let preferred = format!("{prefix}/{}", path[path.len() - 1]);
+        let compact = format!("{prefix}/{}", path.join("-"));
+        let mut candidates = vec![preferred];
+        if candidates[0] != compact {
+            candidates.push(compact);
+        }
+        let mut chosen = None;
+        'candidate: for candidate in candidates {
+            for suffix in 0..=candidate_count {
+                let alias = model_alias_with_suffix(&candidate, suffix, upstream);
+                if used.insert(alias.clone()) {
+                    chosen = Some(alias);
+                    break 'candidate;
+                }
+            }
+        }
+        // The bounded suffix search always finds a free candidate; the fallback
+        // only keeps the function panic-free if that invariant ever changes.
+        let alias = match chosen {
+            Some(alias) => alias,
+            None => {
+                let mut fallback = format!("{prefix}/model-{}", short_alias_hash(upstream));
+                while !used.insert(fallback.clone()) {
+                    fallback.push_str("-x");
+                }
+                fallback
+            }
+        };
+        planned.push((upstream.to_owned(), alias));
+    }
+    planned
+}
+
+/// Imported capabilities use explicit upstream declarations plus the
+/// OpenAI-compatible Chat Completions adapter family. Familiar model names are
+/// deliberately not used as evidence: a name does not establish the account,
+/// endpoint or model version's current support. Missing metadata means unknown,
+/// represented by the conservative false default.
+fn imported_model_capabilities(adapter: &str, catalog: &Value) -> Value {
+    let openai_compatible_chat = matches!(adapter, "openai" | "openrouter");
+    let advertised = |parameter: &str| {
+        catalog["supported_parameters"]
+            .as_array()
+            .is_some_and(|parameters| {
+                parameters.iter().any(|value| {
+                    value
+                        .as_str()
+                        .is_some_and(|value| value.eq_ignore_ascii_case(parameter))
+                })
+            })
+    };
+    let tool_calls = openai_compatible_chat && advertised("tools");
+    // Streaming tool deltas are part of the OpenAI-compatible Chat Completions
+    // wire contract. The explicit tools declaration gates this adapter-family
+    // inference; native Messages/Bedrock routes never receive these Chat flags.
+    let streaming_tool_calls = tool_calls;
+    // `structured_outputs` is the explicit JSON Schema declaration.
+    // `response_format` alone can mean json_object support, so it is not enough.
+    let structured_output = openai_compatible_chat && advertised("structured_outputs");
+    // `/responses` is a distinct endpoint and is not established by Chat
+    // metadata. Only an explicit upstream declaration enables it; none of the
+    // current catalog adapters make that declaration.
+    let responses = openai_compatible_chat && advertised("responses");
+    json!({"catalog":catalog,"supports_tool_calls":tool_calls,"supports_streaming_tool_calls":streaming_tool_calls,"supports_structured_output":structured_output,"supports_embeddings":false,"supports_embedding_dimensions":false,"supports_embedding_base64":false,"supports_responses":responses})
+}
+
+#[cfg(test)]
+mod import_model_tests {
+    use super::*;
+
+    #[test]
+    fn imported_capabilities_follow_explicit_openai_chat_evidence() {
+        let advertised = json!({"supported_parameters":["tools", "structured_outputs"]});
+        for adapter in ["openai", "openrouter"] {
+            let supported = imported_model_capabilities(adapter, &advertised);
+            assert_eq!(supported["supports_tool_calls"], true);
+            assert_eq!(supported["supports_streaming_tool_calls"], true);
+            assert_eq!(supported["supports_structured_output"], true);
+            assert_eq!(supported["supports_responses"], false);
+            assert_eq!(supported["catalog"], advertised);
+        }
+    }
+
+    #[test]
+    fn imported_capabilities_do_not_guess_from_adapter_or_model_name() {
+        let named = json!({"name":"gpt-4o", "supported_parameters":[]});
+        for adapter in ["openai", "openrouter"] {
+            let unknown = imported_model_capabilities(adapter, &named);
+            for flag in [
+                "supports_tool_calls",
+                "supports_streaming_tool_calls",
+                "supports_structured_output",
+                "supports_responses",
+            ] {
+                assert_eq!(unknown[flag], false, "{adapter} {flag}");
+            }
+        }
+        // Native adapters cannot carry Chat capability flags through validation.
+        let native = imported_model_capabilities(
+            "anthropic",
+            &json!({"supported_parameters":["tools", "structured_outputs", "responses"]}),
+        );
+        for flag in [
+            "supports_tool_calls",
+            "supports_streaming_tool_calls",
+            "supports_structured_output",
+            "supports_responses",
+        ] {
+            assert_eq!(native[flag], false, "{flag}");
+        }
+        // JSON object mode alone does not establish JSON Schema support.
+        let object_only = imported_model_capabilities(
+            "openai",
+            &json!({"supported_parameters":["response_format"]}),
+        );
+        assert_eq!(object_only["supports_structured_output"], false);
+        // A Responses declaration is separate from Chat tools.
+        let responses =
+            imported_model_capabilities("openai", &json!({"supported_parameters":["responses"]}));
+        assert_eq!(responses["supports_responses"], true);
+        assert_eq!(responses["supports_tool_calls"], false);
+    }
+
+    #[test]
+    fn aliases_do_not_repeat_vendor_or_maker_prefixes() {
+        for upstream in ["deepseek/deepseek-v3", "qiniu/deepseek-v3", "deepseek-v3"] {
+            let planned = plan_imported_model_aliases("qiniu", &[upstream]);
+            assert_eq!(
+                planned,
+                vec![(upstream.to_owned(), "qiniu/deepseek-v3".to_owned())]
+            );
+        }
+        let planned =
+            plan_imported_model_aliases("qiniu", &["meituan/longcat-flash-lite", "LongCat-Flash"]);
+        assert_eq!(planned[0].1, "qiniu/longcat-flash");
+        assert_eq!(planned[1].1, "qiniu/longcat-flash-lite");
+    }
+
+    #[test]
+    fn alias_planning_resolves_collisions_deterministically() {
+        let upstreams = ["openai/gpt-4o", "azure/gpt-4o", "gpt-4o"];
+        let forward = plan_imported_model_aliases("openrouter", &upstreams);
+        let reverse = plan_imported_model_aliases(
+            "openrouter",
+            &upstreams.into_iter().rev().collect::<Vec<_>>(),
+        );
+        assert_eq!(forward, reverse);
+        let aliases = forward
+            .iter()
+            .map(|(_, alias)| alias.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(aliases.len(), upstreams.len());
+        assert!(aliases.contains("openrouter/gpt-4o"));
+        assert!(
+            aliases
+                .iter()
+                .all(|alias| alias.starts_with("openrouter/") && alias.len() <= 200)
+        );
+    }
+
+    #[test]
+    fn alias_normalization_is_safe_bounded_and_unique_for_long_ids() {
+        let long_a = format!("{}/{}", "a".repeat(10), "b".repeat(189));
+        let long_b = format!("{}/{}", "c".repeat(10), "b".repeat(189));
+        let planned = plan_imported_model_aliases(
+            "My Provider!",
+            &["Meta/Llama 3: 8B", long_a.as_str(), long_b.as_str()],
+        );
+        assert!(
+            planned
+                .iter()
+                .any(|(_, alias)| alias == "my-provider/llama-3-8b"),
+            "{planned:?}"
+        );
+        let aliases = planned
+            .iter()
+            .map(|(_, alias)| alias.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(aliases.len(), 3, "{planned:?}");
+        for alias in aliases {
+            assert!(alias.len() <= MAX_MODEL_ALIAS_BYTES, "{alias}");
+            assert!(alias.is_ascii());
+            assert!(alias.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-' | '/')
+            }));
+        }
+        let long_aliases = planned
+            .iter()
+            .filter(|(upstream, _)| upstream == &long_a || upstream == &long_b)
+            .map(|(_, alias)| alias)
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(long_aliases.len(), 2);
+        // Truncation keeps a stable upstream digest instead of collapsing the
+        // two long IDs to the same alias.
+        for alias in long_aliases {
+            assert_eq!(alias.len(), MAX_MODEL_ALIAS_BYTES, "{alias}");
+        }
+        assert_eq!(
+            plan_imported_model_aliases("!!!", &["/"]),
+            vec![(
+                "/".to_owned(),
+                format!("provider/model-{}", short_alias_hash("/"))
+            )]
+        );
+    }
 }

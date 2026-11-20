@@ -79,7 +79,17 @@ impl Store {
     ) -> Result<(), StoreError> {
         if expected_revision < 0
             || kind.is_some_and(|value| {
-                !matches!(value, "openrouter" | "newapi" | "litellm" | "custom")
+                !matches!(
+                    value,
+                    "openrouter"
+                        | "newapi"
+                        | "litellm"
+                        | "custom"
+                        | "fastrouter"
+                        | "babelark"
+                        | "qiniu"
+                        | "deepseek"
+                )
             })
         {
             return Err(StoreError::Conflict);
@@ -112,7 +122,7 @@ impl Store {
         sqlx::query(&format!("INSERT INTO {table}({column},integration_type,revision) VALUES($1,$2,$3)
             ON CONFLICT ({column}) DO UPDATE SET integration_type=EXCLUDED.integration_type,revision=EXCLUDED.revision"))
             .bind(id).bind(kind).bind(next).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 }

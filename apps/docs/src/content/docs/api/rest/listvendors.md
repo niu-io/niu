@@ -113,7 +113,17 @@ Content type: `application/json`.
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
-            "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+            "description": "Configuration-list metadata identifying a credential paid directly by one account. Not accepted in configuration writes."
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "commercial",
+              "personal",
+              "internal"
+            ],
+            "readOnly": true,
+            "description": "Effective credential access scope. commercial is shared commercial supply; personal is restricted to its funding account; internal is an owner-funded credential shared with every organization while Internal use is active and restricted to its funding account in Resale."
           },
           "supplier": {
             "type": [

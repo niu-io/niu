@@ -1,11 +1,13 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { IconChevronDown, IconKey, IconLanguage, IconMail, IconSparkles } from '@tabler/icons-react';
+import { IconChevronDown, IconKey, IconLanguage, IconMail, IconSparkles, IconUserPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { loadAuthConfig } from '@/lib/auth-config';
+import { loadPublicCatalogModels } from '@/features/models/public-catalog';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { safeLoginReturn } from '@/shell/login-return';
 import { useBranding } from '@/shell/branding';
@@ -19,43 +21,66 @@ export default function LoginRoute() {
   const context = useDashboardContext();
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const registrationIntent =
+    location.pathname.replace(/\/+$/, '') === '/register' || searchParams.get('intent') === 'register';
   const requestedReturn = (location.state as { from?: unknown } | null)?.from;
   const returnTo = safeLoginReturn(requestedReturn)
-    ?? safeLoginReturn(new URLSearchParams(location.search).get('returnTo'))
+    ?? safeLoginReturn(searchParams.get('returnTo'))
     ?? '/workspaces/default/';
   const [memberLogin, setMemberLogin] = useState(false);
   const [tokenLogin, setTokenLogin] = useState(false);
   const [demoLogin, setDemoLogin] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
   const demoAttempted = useRef(false);
   const directDemo = new URLSearchParams(location.search).get('demo') === '1';
   const [mode, setMode] = useState<'password'|'token'>('password');
   const [accessToken, setAccessToken] = useState('');
   const request = useRef<AbortController|null>(null);
   const inFlight = useRef(false);
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => searchParams.get('email') ?? '');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [pendingApprovalNotice, setPendingApprovalNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(true);
   const [configurationFailed, setConfigurationFailed] = useState(false);
+  const [signInNotConfigured, setSignInNotConfigured] = useState(false);
   const [configurationAttempt, setConfigurationAttempt] = useState(0);
+  const [hasPublicModels, setHasPublicModels] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch('/api/v1/auth/config', { signal: controller.signal, cache: 'no-store' })
-      .then(async response => {
-        if(!response.ok)throw new Error('Sign-in configuration unavailable');
-        const value=await response.json();
+    void loadPublicCatalogModels({ signal: controller.signal })
+      .then(result => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(result.models.length > 0);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(false);
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadAuthConfig({ signal: controller.signal, force: configurationAttempt > 0 })
+      .then(value => {
         if(controller.signal.aborted)return;
         const passwordEnabled=value.password_login===true;
         const tokenEnabled=value.browser_token_login===true;
         setMemberLogin(passwordEnabled);
         setTokenLogin(tokenEnabled);
         setDemoLogin(value.demo_login === true);
+        setRegistrationOpen(passwordEnabled && value.registration_mode === 'approval_required');
+        setSignInNotConfigured(value.password_login === false && value.browser_token_login === false);
         setConfigurationFailed(!passwordEnabled&&!tokenEnabled);
         if(!passwordEnabled&&tokenEnabled)setMode('token');
       })
-      .catch(() => { if (!controller.signal.aborted) setConfigurationFailed(true); })
+      .catch(() => { if (!controller.signal.aborted) { setSignInNotConfigured(false); setConfigurationFailed(true); } })
       .finally(() => { if (!controller.signal.aborted) setChecking(false); });
     return () => controller.abort();
   }, [configurationAttempt]);
@@ -65,8 +90,7 @@ export default function LoginRoute() {
       // Public pages are served as static artifacts; leave the dashboard router after login.
       const destination = new URL(returnTo, window.location.origin);
       const publicPath = destination.pathname;
-      const publicModels = /^\/models\/?$/.test(publicPath) && !destination.searchParams.get('workspace');
-      if (publicModels || publicPath === '/' || /^\/(?:docs|blog|compare)(?:\/|$)/.test(publicPath)) window.location.replace(returnTo);
+      if (publicPath === '/' || /^\/(?:docs|blog|compare)(?:\/|$)/.test(publicPath)) window.location.replace(returnTo);
       else navigate(returnTo, { replace: true });
     }
   }, [context.token, navigate, returnTo]);
@@ -76,7 +100,7 @@ export default function LoginRoute() {
   const signIn = useCallback(async (kind: 'password'|'token'|'demo') => {
     if(inFlight.current || checking || configurationFailed || !(kind==='demo'?demoLogin:kind==='token'?tokenLogin:memberLogin))return;
     const controller=new AbortController();request.current=controller;inFlight.current=true;
-    setLocalError('');setSubmitting(true);
+    setLocalError('');setPendingApprovalNotice(false);setSubmitting(true);
     try {
       const response=await fetch(kind==='demo'?'/api/v1/auth/browser/demo':kind==='token'?'/api/v1/auth/browser/token':'/api/v1/auth/browser/login',{
         method:'POST',headers:{'content-type':'application/json'},
@@ -85,6 +109,11 @@ export default function LoginRoute() {
       });
       if(controller.signal.aborted)return;
       if(!response.ok){
+        const payload = await response.json().catch(() => null);
+        if (response.status === 403 && payload?.error?.type === 'registration_pending_approval') {
+          setPendingApprovalNotice(true);
+          return;
+        }
         setLocalError(response.status===401
           ? kind==='demo'?t('Demo sign-in is unavailable. Try again later.', '演示登录暂不可用，请稍后再试。'):kind==='token'?t('That access token is invalid, expired or revoked.', '该访问令牌无效、已过期或已吊销。'):t('That email or password did not match.', '邮箱或密码不匹配。')
           : response.status===429?t('Too many sign-in attempts. Try again in a minute.', '登录尝试次数过多，请一分钟后再试。'):t('Sign-in failed. Try again.', '登录失败，请重试。'));
@@ -110,23 +139,36 @@ export default function LoginRoute() {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setPendingApprovalNotice(false);
+    if (mode === 'token') {
+      if (!accessToken.trim()) { setLocalError(t('Enter an access token.', '请输入访问令牌。')); return; }
+    } else {
+      const email = username.trim();
+      if (!email) { setLocalError(t('Enter your email address.', '请输入邮箱地址。')); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setLocalError(t('Enter a valid email address.', '请输入有效的邮箱地址。')); return; }
+      if (!password) { setLocalError(t('Enter your password.', '请输入密码。')); return; }
+    }
     void signIn(mode);
   };
 
   function changeMode(next:'password'|'token'){
     if(inFlight.current)return;
-    setLocalError('');setAccessToken('');setPassword('');setMode(next);
+    setLocalError('');setPendingApprovalNotice(false);setAccessToken('');setPassword('');setMode(next);
   }
+
+  const registerHref = returnTo !== '/workspaces/default/'
+    ? `/register?returnTo=${encodeURIComponent(returnTo)}`
+    : '/register';
 
   const showModeSwitch = (mode === 'password' && tokenLogin) || (mode === 'token' && memberLogin);
 
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
-      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
-        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span></>}
+      <Link className="dashboard-login-brand" to="/" aria-label={uiF("{0} home", [branding.display_name])}>
+        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
-        <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
+        {hasPublicModels && <Button asChild variant="ghost" size="sm"><Link to="/models">{t('Models', '模型')}</Link></Button>}
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -149,13 +191,38 @@ export default function LoginRoute() {
       <section className="dashboard-login-card" aria-label={uiT("Sign in")}>
         <div className="dashboard-login-header">
           <h1>{t('Sign in', '登录')}</h1>
-          <p className="dashboard-login-intro">{t('Sign in to manage workspaces, API keys, model routes, and billing.', '登录以管理工作空间、API 密钥、模型路由与计费。')}</p>
+          <p className="dashboard-login-intro">{t('Sign in to connect your agent and manage your workspaces.', '登录后即可连接 Agent 并管理工作空间。')}</p>
         </div>
-        <form className="dashboard-login-form" onSubmit={submit}>
+        <form className="dashboard-login-form" onSubmit={submit} noValidate>
+          {registrationIntent && !checking && !registrationOpen && (
+            <p className="dashboard-login-status" role="status">
+              {t('Self-registration is not enabled on this deployment. Ask your organization owner for an invitation link or contact your installation administrator for an account, then sign in below.', '此部署未开放自助注册。请向组织所有者索取邀请链接，或联系实例管理员开通账号后再登录。')}
+            </p>
+          )}
+          {pendingApprovalNotice && (
+            <p className="dashboard-login-status" role="status">
+              {t('Your Limited Preview registration is awaiting administrator approval. Sign in again once an administrator approves your account.', '您的有限预览注册申请正在等待管理员审批。管理员批准后即可使用此邮箱和密码登录。')}
+            </p>
+          )}
+          {returnTo.startsWith('/connect') && (
+            <p className="dashboard-login-status" role="status">
+              {t('Sign in to review and authorize your coding agent connection.', '请先登录以审核并授权您的 Coding Agent 连接。')}
+            </p>
+          )}
+          {returnTo.startsWith('/invite/') && (
+            <p className="dashboard-login-status" role="status">
+              {t('Sign in with the email this invitation was issued to. You will review the organization, workspace scope and role before accepting.', '请使用收到邀请的邮箱登录。接受前您将查看组织、工作空间范围与角色。')}
+            </p>
+          )}
+          {(returnTo === '/models' || returnTo.startsWith('/models?') || returnTo.startsWith('/models/') || /^\/workspaces\/[^/]+\/models([/?#]|$)/.test(returnTo)) && (
+            <p className="dashboard-login-status" role="status">
+              {t('Model availability and pricing depend on your workspace. Sign in to browse your workspace model catalog.', '可用模型与价格取决于所属工作空间，请登录后查看对应工作空间的模型目录。')}
+            </p>
+          )}
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
             <p className="dashboard-login-status" role="status">{t('Password changed. Sign in again.', '密码已修改，请重新登录。')}</p>
           )}
-          {mode === 'token' ? (
+          {!signInNotConfigured && (mode === 'token' ? (
             <div className="dashboard-login-field">
               <Label htmlFor="local-access-token">{t('User access token', '用户访问令牌')}</Label>
               <Input
@@ -171,6 +238,7 @@ export default function LoginRoute() {
                 disabled={submitting}
                 required
                 maxLength={256}
+                aria-describedby="login-error"
               />
               <p className="dashboard-login-hint">{t('Use the temporary access token your workspace owner shared with you.', '请使用工作空间所有者分享给您的临时访问令牌。')}</p>
             </div>
@@ -186,9 +254,10 @@ export default function LoginRoute() {
                   autoComplete="username"
                   disabled={submitting}
                   autoFocus
-                  onChange={event => setUsername(event.target.value)}
+                  onChange={event => { setUsername(event.target.value); setPendingApprovalNotice(false); }}
                   value={username}
                   required
+                  aria-describedby="login-error"
                 />
               </div>
               <div className="dashboard-login-field">
@@ -198,20 +267,22 @@ export default function LoginRoute() {
                   placeholder={t('Enter your password', '输入密码')}
                   autoComplete="current-password"
                   disabled={submitting}
-                  onChange={event => setPassword(event.target.value)}
+                  onChange={event => { setPassword(event.target.value); setPendingApprovalNotice(false); }}
                   type="password"
                   value={password}
                   required
+                  aria-describedby="login-error"
                 />
               </div>
             </>
-          )}
+          ))}
           {(localError || context.error) && (
-            <p className="dashboard-login-error" role="alert">{localError || context.error}</p>
+            <p id="login-error" className="dashboard-login-error" role="alert">{t(localError || context.error)}</p>
           )}
           {configurationFailed && (
             <div className="dashboard-login-unavailable">
-              <p className="dashboard-login-error" role="alert">{t('Sign-in is temporarily unavailable.', '登录服务暂不可用。')}</p>
+              <p className="dashboard-login-error" role="alert">{signInNotConfigured ? t('Account sign-in is not configured. Contact your installation administrator.', '此实例尚未配置账户登录，请联系实例管理员。') : t('Sign-in is temporarily unavailable.', '登录服务暂不可用。')}</p>
+              {signInNotConfigured && <p className="dashboard-login-hint">{t('Installation administrators can sign in with their administrator token.', '实例管理员可使用管理员令牌登录。')} <Link className="underline underline-offset-2" to="/installation">{t('Open installation administration', '打开实例管理')}</Link></p>}
               <Button
                 type="button"
                 variant="outline"
@@ -219,6 +290,7 @@ export default function LoginRoute() {
                 onClick={() => {
                   setChecking(true);
                   setConfigurationFailed(false);
+                  setSignInNotConfigured(false);
                   setLocalError('');
                   setConfigurationAttempt(value => value + 1);
                 }}
@@ -227,16 +299,45 @@ export default function LoginRoute() {
               </Button>
             </div>
           )}
-          <Button
+          {!signInNotConfigured && <Button
             type="submit"
             className="dashboard-login-submit"
             disabled={submitting || checking || configurationFailed || !(mode === 'token' ? tokenLogin : memberLogin)}
           >
             {submitting ? t('Signing in…', '正在登录…') : checking ? t('Loading…', '加载中…') : t('Sign in', '登录')}
-          </Button>
+          </Button>}
         </form>
-        {(showModeSwitch || demoLogin) && (
+        {!configurationFailed && !signInNotConfigured && !registrationOpen && (
+          <p className="dashboard-login-hint dashboard-login-access-help">
+            {t('Need an account or forgot your password? Ask your organization owner for an invitation or contact your installation administrator.', '需要账号、邀请或忘记密码？请联系组织所有者获取邀请，或联系实例管理员协助恢复。')}{' '}
+            <Link className="underline underline-offset-2" to="/installation">
+              {t('Administrator token sign-in', '管理员令牌登录')}
+            </Link>
+          </p>
+        )}
+        {!configurationFailed && !signInNotConfigured && registrationOpen && (
+          <p className="dashboard-login-hint dashboard-login-access-help">
+            {t('Installation administrator?', '实例管理员？')}{' '}
+            <Link className="underline underline-offset-2" to="/installation">
+              {t('Administrator token sign-in', '管理员令牌登录')}
+            </Link>
+          </p>
+        )}
+        {(showModeSwitch || demoLogin || registrationOpen) && (
           <div className="dashboard-login-secondary">
+            {registrationOpen && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="dashboard-login-switch"
+              >
+                <Link to={registerHref}>
+                  <IconUserPlus size={15} aria-hidden="true" />
+                  <span>{t('Limited Preview · Request account', '有限预览 · 申请注册账号')}</span>
+                </Link>
+              </Button>
+            )}
             {mode === 'password' && tokenLogin && (
               <Button
                 type="button"
@@ -275,7 +376,7 @@ export default function LoginRoute() {
                   <IconSparkles size={15} aria-hidden="true" />
                   <span>{t('Try the demo', '体验演示环境')}</span>
                 </Button>
-                <p className="dashboard-login-demo-caption">{t('Explore Niu in a shared demo workspace.', '在共享演示工作空间中探索 Niu 牛元。')}</p>
+                <p className="dashboard-login-demo-caption">{t('Explore Niu in a shared demo workspace.', '在共享演示工作空间中探索 Niu。')}</p>
               </div>
             )}
           </div>

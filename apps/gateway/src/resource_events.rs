@@ -31,13 +31,27 @@ pub(crate) fn spawn(
     state: &AppState,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) -> Option<tokio::task::JoinHandle<()>> {
-    let cipher = state.vendor_cipher.clone()?;
+    let cipher = state.vendor_cipher.clone();
     let store = state.store.clone();
     Some(tokio::spawn(async move {
         while !*shutdown.borrow() {
             tokio::select! {
                 _ = shutdown.changed() => break,
-                result = batch(&store, &cipher) => if result.is_err() { tracing::warn!("Resource event delivery storage requires retry"); }
+                result = async {
+                    let publication = async {
+                        for _ in 0..128 {
+                            if !store.publish_one_incident_event().await? { break; }
+                        }
+                        Ok::<_, niu_storage::StoreError>(())
+                    };
+                    let delivery = async {
+                        if let Some(cipher) = &cipher { batch(&store, cipher).await?; }
+                        Ok::<_, niu_storage::StoreError>(())
+                    };
+                    // A broken incident bridge must not stop unrelated event delivery.
+                    let (published, delivered) = tokio::join!(publication, delivery);
+                    published.and(delivered)
+                } => if result.is_err() { tracing::warn!("Resource event publication or delivery storage requires retry"); }
             }
             tokio::select! {
                 _ = shutdown.changed() => break,
@@ -202,6 +216,15 @@ async fn deliver_fixture(
         .build()
         .unwrap();
     send_claim(store, cipher, claim, &client, endpoint).await
+}
+#[cfg(test)]
+pub(crate) async fn send_fixture_claim(
+    store: &Store,
+    cipher: &CredentialCipher,
+    claim: &EventDeliveryClaim,
+    endpoint: &str,
+) -> Result<(), niu_storage::StoreError> {
+    deliver_fixture(store, cipher, claim, endpoint).await
 }
 fn signature(secret: &str, timestamp: u64, body: &[u8]) -> String {
     use std::fmt::Write;

@@ -14,8 +14,8 @@ pub struct AccountPage {
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformCustomerAccounts",
-///     "summary": "Discover named customer accounts for platform financial administration",
-///     "description": "Explicit platform administration only, independent of ordinary company membership. Named companies and their current currency balance summaries; companies without accounts have an empty accounts array. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.",
+///     "summary": "Discover named customer accounts and Credits summaries for platform financial administration",
+///     "description": "Explicit platform administration only, independent of ordinary company membership. Named companies, their current currency balance summaries, and a standard-unit Credits summary when issued lots exist; companies without accounts have an empty accounts array. The Credits summary exposes no atoms, lots or provenance. It is a display summary, not a spendable-capacity guarantee; the organization unit-balance endpoint remains authoritative for exact lot and expiry detail. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -61,7 +61,8 @@ pub struct AccountPage {
 ///                     "required": [
 ///                       "organization_id",
 ///                       "organization_name",
-///                       "accounts"
+///                       "accounts",
+///                       "credits"
 ///                     ],
 ///                     "properties": {
 ///                       "organization_id": {
@@ -121,6 +122,38 @@ pub struct AccountPage {
 ///                             "posted_credit_exhausted": {
 ///                               "type": "boolean"
 ///                             }
+///                           }
+///                         }
+///                       },
+///                       "credits": {
+///                         "type": [
+///                           "object",
+///                           "null"
+///                         ],
+///                         "description": "Largest positive standard-unit Credits balance summary; the current definition breaks equal-amount ties. Null when the company has no issued Credits lots. Exact decimal string in standard units; no atoms, lots or provenance. additional_units counts other unit definitions with a positive balance.",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "name",
+///                           "display_precision",
+///                           "available",
+///                           "additional_units"
+///                         ],
+///                         "properties": {
+///                           "name": {
+///                             "type": "string"
+///                           },
+///                           "display_precision": {
+///                             "type": "integer",
+///                             "minimum": 0,
+///                             "maximum": 9
+///                           },
+///                           "available": {
+///                             "type": "string",
+///                             "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+///                           },
+///                           "additional_units": {
+///                             "type": "integer",
+///                             "minimum": 0
 ///                           }
 ///                         }
 ///                       }

@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useState } from 'react';
 
 /** Deployment-owned mode, refreshed after an administrator changes the gateway. */

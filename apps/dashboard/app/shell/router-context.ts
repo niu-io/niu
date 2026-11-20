@@ -1,5 +1,9 @@
+import { createContext as createReactContext } from 'react';
 import { createContext, RouterContextProvider } from 'react-router';
 import type { AdminSession, Organization, Workspace } from './dashboard-context';
+import type { Destination } from './navigation';
+
+export const DataRouterPresenceContext = createReactContext(false);
 
 export function buildSessionPrincipalKey(
   token: string,
@@ -44,9 +48,10 @@ export type RouterSessionSnapshot = {
 export const dashboardRouterContext = createContext<RouterSessionSnapshot | null>(null);
 
 export type RouteHandle = {
-  destination?: 'Workspace' | 'Global' | 'Models' | 'Administration' | 'Organization';
+  destination?: Destination;
   title?: { en: string; zh: string };
   section?: string;
+  navTo?: string;
 };
 
 const emptySnapshot: RouterSessionSnapshot = {
@@ -60,6 +65,7 @@ const emptySnapshot: RouterSessionSnapshot = {
 };
 
 let currentSnapshot: RouterSessionSnapshot = emptySnapshot;
+const snapshotListeners = new Set<(snapshot: RouterSessionSnapshot) => void>();
 
 export function getActiveSessionSnapshot(): RouterSessionSnapshot {
   return currentSnapshot;
@@ -67,6 +73,19 @@ export function getActiveSessionSnapshot(): RouterSessionSnapshot {
 
 export function setActiveSessionSnapshot(next: RouterSessionSnapshot): void {
   currentSnapshot = next;
+}
+
+export function notifySessionSnapshotReady(): void {
+  for (const listener of snapshotListeners) {
+    listener(currentSnapshot);
+  }
+}
+
+export function subscribeSessionSnapshot(listener: (snapshot: RouterSessionSnapshot) => void): () => void {
+  snapshotListeners.add(listener);
+  return () => {
+    snapshotListeners.delete(listener);
+  };
 }
 
 export function resetActiveSessionSnapshot(): void {

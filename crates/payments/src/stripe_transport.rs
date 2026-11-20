@@ -40,6 +40,8 @@ pub enum RetrievedCheckout {
 impl Client {
     /// Internal evidence binding, never a customer-facing identifier.
     /// HMAC prevents the stored digest from becoming an unkeyed credential hash.
+    // HMAC accepts keys of any length; the embedded serializer only sees owned strings/vectors.
+    #[allow(clippy::expect_used)]
     pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
@@ -254,9 +256,13 @@ impl Client {
         .map_err(|_| Error)?
     }
     pub fn new(api_key: String, live_mode: bool) -> Result<Self, Error> {
-        let prefix = if live_mode { "sk_live_" } else { "sk_test_" };
-        if !api_key.starts_with(prefix)
-            || api_key.len() <= prefix.len()
+        let prefixes = if live_mode {
+            ["sk_live_", "rk_live_"]
+        } else {
+            ["sk_test_", "rk_test_"]
+        };
+        if !prefixes.iter().any(|prefix| api_key.starts_with(prefix))
+            || api_key.len() <= prefixes[0].len()
             || api_key.len() > 512
             || !api_key
                 .bytes()
@@ -264,7 +270,14 @@ impl Client {
         {
             return Err(Error);
         }
+        // Keep explicit payment-method selection stable across merchant account upgrades.
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            "Stripe-Version",
+            reqwest::header::HeaderValue::from_static("2024-06-20"),
+        );
         let http = reqwest::Client::builder()
+            .default_headers(headers)
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .retry(reqwest::retry::never())

@@ -8,7 +8,7 @@ pub(super) use generate_content::generate_content;
 pub(super) use messages::messages;
 mod priced_chat;
 mod responses;
-mod retry;
+pub(crate) mod retry;
 pub(super) mod video;
 pub(super) mod video_images;
 pub(super) mod video_ingested_images;

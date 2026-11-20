@@ -1,46 +1,102 @@
-# Workspace resource events for agents
+# Workspace Resource Events
 
-Availability: 0.3.0 development candidate; publication remains held. Discover the connected tools and deployment contracts before using these operations. Event notifications convey resource evidence, not authority to spend money, run evaluations or change model policy.
+Use workspace resource events to observe configuration updates, evaluation receipts, and workspace model incidents directly via an authenticated pull stream (`events:read`), or optionally subscribe a signed HTTPS receiver (`events:write`).
 
-## Observe without a public receiver
+Event notifications convey workspace resource evidence only. They never grant spending authority, model invocation access, or management write scope, and do not guarantee that a sleeping or offline host wakes.
 
-Use `inspect_key` to discover grants. `events:read` permits `list_workspace_events`, subscription inspection, configuration history and delivery diagnostics. Read the event stream with `after: "0"` initially, then retain `next_after` as a decimal string. Follow `has_more`; do not convert cursors to floating-point numbers. A future cursor returns a conflict. Events are immutable and no pruning window is currently enabled.
+---
 
-Read events directly while working; do not ask a person to relay dashboard notifications. This pull path needs no public webhook or signing credential. It does not wake an inactive coding agent. Use each event's resource slug/revision to retrieve current state and compare it with a retained baseline before proposing an authorized change.
+## Operations & Interface Parity
 
-## Configure a signed push destination
+| Capability | HTTP Endpoint (`{ORIGIN}/v1/...`) | MCP Tool (`@niu-io/mcp`) | JS SDK (`NiuClient`) | Required Scope |
+| --- | --- | --- | --- | --- |
+| Read immutable pull event stream | `GET /v1/events/log?after=0` | `list_workspace_events` | `listWorkspaceEvents(after?)` | `events:read` |
+| Reconcile workspace incident reference | `GET /v1/incidents/{reference}` | `get_workspace_incident` | `getWorkspaceIncidentEvent(ref)` | `events:read` |
+| List event subscriptions (max 32) | `GET /v1/events` | `list_event_subscriptions` | `listEventSubscriptions()` | `events:read` |
+| Read subscription & cursor | `GET /v1/events/{slug}` | `get_event_subscription` | `getEventSubscription(slug)` | `events:read` |
+| Create/update push subscription | `PUT /v1/events/{slug}` (`{ configuration, rotate_secret? }`) | `set_event_subscription` | `setEventSubscription(config, rotateSecret?)` | `events:write` |
+| Read immutable config history | `GET /v1/events/{slug}/history` (`?before=<rev>`) | `get_event_subscription_history` | `getEventSubscriptionHistory(slug, before?)` | `events:read` |
+| Inspect latest 100 deliveries | `GET /v1/events/{slug}/deliveries` | `get_event_deliveries` | `getEventDeliveries(slug)` | `events:read` |
+| Queue targeted test delivery | `POST /v1/events/{slug}/test` (`{ revision }`) | `test_event_subscription` | `testEventSubscription(slug, revision)` | `events:write` |
 
-Only configure a receiver authorized to receive this workspace's resource events. Subscription mutation and test delivery require `events:write`, in addition to the resource's current delegation. The supported resource events are `pool.changed`, committed atomically with a workspace pool revision, and `evaluation.recorded`, committed atomically with a new immutable evaluation run. An identical run replay emits no new event. Evaluation events add `resource.run` to the evaluation slug and definition revision; fetch the receipt under `evaluations:read`. Notifications contain resource identity/revision and time, without prompts, model outputs, API credentials or Provider economics.
+All responses are `Cache-Control: no-store`. Platform audit logs remain administration-only; workspace events never expose prompts, completions, API keys, Provider identities, or procurement costs.
 
-1. Use `list_event_subscriptions` and `get_event_subscription` to inspect saved configuration and revision. At most 32 subscriptions are retained per workspace, including disabled ones. Enabled configuration is not verified delivery.
-2. Prepare `configuration` with a readable `slug`, meaningful `name`, public HTTPS `endpoint`, one or both unique `event_types` (`pool.changed`, `evaluation.recorded`), `enabled` and expected `revision`. Zero creates; updates require the current revision. URLs cannot contain credentials, query or fragment; only port 443 is allowed. Delivery validates and pins public addresses, disables proxies, redirects and implicit HTTP retries.
-3. Call `set_event_subscription`. Creation and explicit `rotate_secret: true` return a signing credential once at the REST/SDK boundary. MCP prepares private local storage before mutation, saves the secret there and returns only `signing_secret_file`. Configure your receiver from that file using an authorized local/backend process. Do not print the file, paste it into conversation, place it in browser code or commit it.
-4. Read back configuration and verify the saved revision. If the mutation response or private save is uncertain, inspect the current revision. A secret cannot be recovered through reads. Repair the local prerequisite and explicitly rotate rather than blindly replaying the original mutation. A destination change requires rotation and configuration of the new receiver with the new secret.
-5. Call `test_event_subscription` with the current revision. It appends a distinct `subscription.test` event targeted only to this subscription and returns `delivery: "queued"`. Repeating the call creates another test; the receipt is not acknowledgement.
-6. Use `get_event_deliveries` to inspect the result. A 2xx response confirms receiver acknowledgement; it does not prove processing, host wake or task acceptance. No model call is needed for this verification.
+---
 
-The subscription binds to its original authorizing key. Expiry, revocation or loss of the approving operator's authority prevents new attempts. `authorization_active` reports that boundary. Renew authority explicitly and update the saved configuration under the current grant when needed; do not repeatedly test an inactive delegation. A request already transmitted cannot be recalled.
+## Supported Event Types
 
-The bundled private signing-file adapter enforces POSIX ownership/modes. Windows requires an ACL-capable host adapter; secret-issuing MCP operations fail before mutation there. This limitation does not authorize returning the secret in conversation.
+| Event type | Emitted when | Payload reference |
+| --- | --- | --- |
+| `pool.changed` | Committed atomically with a workspace routing policy revision (`pool/<slug>`) | `resource.kind: "pool"`, `slug`, `revision` |
+| `evaluation.recorded` | Committed atomically with a new immutable evaluation run receipt (replays emit nothing) | `resource.kind: "evaluation"`, `slug`, `revision`, `run` |
+| `incident.opened` | Asynchronous workspace bridge observes an incident impacting this workspace | `resource.kind: "incident"`, `slug: "incident-<32hex>"`, `revision: 1` |
+| `incident.resolved` | Asynchronous workspace bridge records recovery for a previously observed workspace incident | `resource.kind: "incident"`, `slug: "incident-<32hex>"`, `revision: 2` |
 
-## Verify and deduplicate at the receiver
+`subscription.test` events are queued only for the targeted subscription via `POST /v1/events/{slug}/test`, regardless of its `event_types` filter.
 
-Read the exact request body bytes before parsing or transforming JSON. `x-niu-signature` has the form `t=<epoch seconds>,v1=<lowercase hex digest>`. Compute HMAC-SHA256 with the UTF-8 issued signing secret over `timestamp + "." + body bytes`. Compare safely, require a bounded timestamp skew appropriate to your deployment and reject invalid signatures. Do not log credentials or signature-bearing request headers.
+---
 
-Use the stable event `id` for durable deduplication. The timestamp/signature can change on a retry. `x-niu-event-id` identifies the event; `x-niu-delivery-id` identifies its delivery record. A lease recovery retains event/delivery identity but replaces the internal lease token. Configure the receiver to accept the current secret before treating the subscription as verified.
+## Pull Stream First (`events:read`, No Webhook Required)
 
-## Failures, reconciliation and revocation
+When a coding agent is already running, read workspace events directly instead of asking a human to copy dashboard notices:
 
-Automatic delivery permits at most eight attempts, with bounded exponential delays and a 30-second lease. Transient failures are retried; invalid destinations or signing prerequisites stop delivery. `sending` is persisted attempt state, not proof of a currently active request: inspect lease expiry. Missing HTTP status is unknown. An abandoned final lease becomes an exhausted failure without inventing acknowledgement.
+1. Confirm `events:read` is in `inspect_key.management_capabilities`.
+2. Call `GET /v1/events/log?after=0` (`list_workspace_events` with `after: "0"`).
+3. Persist and advance `next_after` strictly as a **decimal string** (int64 cursors exceed IEEE-754 safe integer precision; never convert to float).
+4. Continue paginating while `has_more` is `true`. Querying a cursor beyond the head returns a conflict (`409`). Events are immutable and no pruning window is enabled.
+5. For `incident.opened` or `incident.resolved`, call `GET /v1/incidents/{reference}` (`get_workspace_incident`, matching `^incident-[0-9a-f]{32}$`) to check `model`, `owner_funded`, current `status` (`"active" | "resolved"`), `recovered_at`, and delivery status. A delayed `incident.opened` can arrive after recovery, so always read current state. Resolved status shows a subsequent successful call under that configuration — not permanent upstream health.
 
-Use delivery `sequence` to retrieve the corresponding event through `list_workspace_events`, then retrieve current resource state. Failed/exhausted delivery allows later events to proceed; the resource history and event log remain available for reconciliation. No arbitrary response body or upstream error text is retained. The delivery endpoint currently returns the latest 100 records, not a complete paginated archive.
+---
 
-Set `enabled: false` using the current expected revision to stop future delivery. Read back the disabled state. History remains immutable. Destination/secret/enable transitions begin after the current event-stream head; they do not replay prior history. Metadata-only updates preserve the processed cursor. Configuration updates cancel old-revision pending work, but cancellation cannot establish whether an already in-flight request reached the old receiver.
+## Signed Push Subscriptions (`events:write`)
 
-Niu platform events, coding-agent host hooks and server-side observer plugins are different mechanisms. These operations do not install a host hook or guarantee background agent execution. Budget/model-price/availability events and evaluation events are not established by the two supported event types above; discover their actual contracts before subscribing.
+Configure push notifications only when the user explicitly authorizes an HTTPS receiver (`events:write`). At most `32` subscriptions (including disabled ones) exist per workspace.
 
-## Verification boundary
+### Configuration schema
 
-The checkpoint includes PostgreSQL state/lease/rotation tests, local signed-wire tests and an HTTP management-to-receiver fixture covering independent signature verification, a 503 retry with stable identity, acknowledgement, reconciliation, scope denial, rotation and disabling. Local transport injection is test-only; production rejects private destinations. No external receiver, paid inference or inactive-host wake has been qualified. Final packaged host and human review workflows remain separate acceptance work.
+```json
+{
+  "configuration": {
+    "slug": "ops-webhook",
+    "name": "Workspace Operations Receiver",
+    "endpoint": "https://events.example.com/niu/webhook",
+    "event_types": ["pool.changed", "evaluation.recorded", "incident.opened", "incident.resolved"],
+    "enabled": true,
+    "revision": 0
+  },
+  "rotate_secret": false
+}
+```
 
-Subscription filters apply to resource events. Targeted `subscription.test` delivery remains available regardless of the selected resource types. Changing filters does not backfill events before the current cursor. A notification is not permission to fetch its referenced evaluation results; that read requires the current `evaluations:read` grant.
+- `slug`: `^[a-z0-9]+(?:-[a-z0-9]+)*$`, max 80 chars (`index|history|preview|audit|new|log|deliveries|test` reserved).
+- `name`: `1..200` chars.
+- `endpoint`: public HTTPS URI, port `443` only, max 2048 chars, with **no** username/password, query string, or fragment. Delivery validates and pins resolved public IPs (rejecting private/loopback ranges) and disables proxies, redirects, and implicit HTTP retries.
+- `event_types`: `1..4` unique items from `["pool.changed", "evaluation.recorded", "incident.opened", "incident.resolved"]`.
+- `revision`: `0` creates; updates require the current saved integer revision.
+- Destination URL changes require `rotate_secret: true` (a new secret is issued for the new receiver).
+
+### One-time signing secret handling (`niu_whsec_...`)
+
+- Creation (`revision: 0`) and explicit `rotate_secret: true` issue a single-view HMAC secret matching `^niu_whsec_[A-Za-z0-9_-]{43}$`.
+- **REST / JS SDK**: returns `signing_secret` once in the response body. Store it in the receiver's private secret manager; reads never expose it again.
+- **MCP (`set_event_subscription`)**: prepares private local file storage **before** sending the mutation, writes the secret cleanly on POSIX hosts, and returns **only `signing_secret_file`**. On hosts lacking secure private file/ACL storage, MCP aborts pre-mutation rather than leaking the secret into model context. Never print, commit, or paste `signing_secret_file` into chat.
+- If a response or local save is uncertain, call `get_event_subscription` to inspect the saved `revision`, repair local storage if needed, and explicitly rotate (`rotate_secret: true`) instead of blindly replaying `revision: 0`.
+
+### Receiver signature verification & deduplication
+
+1. Read the **exact raw request body bytes** before JSON parsing.
+2. Parse header `x-niu-signature` of format `t=<epoch_seconds>,v1=<lowercase_hex_hmac_sha256>`.
+3. Compute HMAC-SHA256 using UTF-8 `signing_secret` over UTF-8 `<epoch_seconds> + "."` concatenated with the raw body bytes.
+4. Use constant-time digest comparison and enforce a tight timestamp skew window (e.g. 5 minutes).
+5. Deduplicate durably on `x-niu-event-id` (and JSON `id`): retries preserve event/delivery IDs while generating a fresh `t=` timestamp and signature. `x-niu-delivery-id` identifies the per-subscription delivery record.
+
+### Delivery lifecycle, delegation & disabling
+
+- Automatic delivery runs up to `8` attempts with bounded exponential backoff and a `30s` sending lease. `sending` with an expired lease is not live wire evidence.
+- Inspect results via `POST /v1/events/{slug}/test` (`{ "revision": <current> }`) followed by `GET /v1/events/{slug}/deliveries` (latest 100 attempts). A `2xx` HTTP status confirms receiver socket receipt only — never receiver processing or task completion. Missing status remains unknown; exhausted leases terminate as failed without blocking subsequent events. Reconcile missed sequences via `list_workspace_events`.
+- Subscriptions bind to their original authorizing key (`authorization_active` in `get_event_subscription`): key expiry, revocation, or loss of operator workspace authority halts further push attempts until updated under a valid current grant.
+- To pause or stop delivery, update with `"enabled": false` and the current `revision`, then verify via `get_event_subscription`. In-flight HTTP requests cannot be recalled; history remains immutable.
+
+Platform resource events are distinct from coding-agent **host hooks** and **server-side Niu plugins** (see `/docs/agents.md`). Creating an event subscription does not install host hooks.
+
+Related contracts: [Install](/docs/install.md) · [Capabilities](/docs/agents.md) · [Model inference](/docs/inference.md) · [Workspace routing](/docs/pools.md) · [Evaluations](/docs/evaluations.md) · [OpenAPI](/docs/openapi/public.json)

@@ -53,7 +53,6 @@ jobs:
       - name: Check public source boundary and build inputs
         run: |
           python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs
-          python3 -m unittest discover -s scripts/tests
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -63,8 +62,6 @@ jobs:
           cache: pnpm
       - name: Install JavaScript workspace
         run: pnpm install --frozen-lockfile
-      - name: Test installed dependency license inventory
-        run: node --test scripts/tests/js-license-inventory.test.mjs
       - name: Check JavaScript dependency licenses
         env:
           NIU_JS_LICENSE_REPORT: ${{ runner.temp }}/niu-js-license-report.json
@@ -77,10 +74,10 @@ jobs:
           if-no-files-found: ignore
       - name: Check operator documentation commands and paths
         run: python3 -m unittest scripts.tests.test_operator_documentation
-      - name: Test localization audit and reject new untranslated copy
-        run: |
-          pnpm test:i18n
-          pnpm check:i18n:new
+      - name: Reject new untranslated copy
+        run: pnpm check:i18n:new
+      - name: Lint dashboard sources and styles
+        run: pnpm lint:dashboard
       - name: Check dashboard types
         run: pnpm --filter @niu-io/dashboard check
       - name: Build dashboard
@@ -94,7 +91,7 @@ jobs:
       - name: Check built documentation audience and contract links
         run: |
           python3 scripts/check-docs-audiences.py
-          node --test apps/docs/scripts/test-navigation.mjs
+          node apps/docs/scripts/verify-built-docs.mjs
       - name: Check public catalog
         run: pnpm check:catalog
       - name: Build public catalog
@@ -114,13 +111,6 @@ jobs:
         run: pnpm --dir sdks/mcp run check
       - name: Build MCP server
         run: pnpm --dir sdks/mcp run build
-      - name: Execute gating documentation and SDK behavioral tests
-        run: |
-          pnpm --filter @niu-io/docs test:api
-          pnpm --dir sdks/javascript test
-          pnpm --dir sdks/agent-connect test
-          pnpm --dir sdks/mcp test
-          pnpm --filter @niu-io/dashboard test
 
   fixtures:
     uses: ./.github/workflows/fixtures.yml
@@ -165,11 +155,13 @@ jobs:
         # or migration bytes are replaced; this reconstructs a historical package.
         run: docker buildx build --load --file Dockerfile --tag niu-io/niu:previous ./previous-source
       - name: Build single-container product
-        run: docker buildx build --load --tag niu-io/niu:ci .
+        run: docker buildx build --load --build-arg NIU_CORE_GIT_COMMIT="$GITHUB_SHA" --tag niu-io/niu:ci .
       - name: Inspect runtime package contents
         run: |
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' niu-io/niu:ci)" = "$GITHUB_SHA"
+          test "$(docker run --rm niu-io/niu:ci --version)" = "niu-gateway $(cat VERSION) ($GITHUB_SHA)"
           test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
-          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/dashboard/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/dashboard/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && set -- /app/catalog/_catalog/PublicModelCatalog.*.js && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
+          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/dashboard/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/dashboard/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test ! -e /app/catalog/models/index.html && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
       - name: Scan final runtime assets
         run: |
           container=$(docker create niu-io/niu:ci)

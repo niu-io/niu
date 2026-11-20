@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/providers/{provider}/media-rate-models`
 
-Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
+Installation read authority only. Named model and API-key choices include current authorized active offer bindings and syntactically validated media-schema constraints, including the billing unit derived from a validated output estimator. This does not establish dispatch availability or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
 
 Operation: `listSupplierMediaRateModels`.
 
@@ -116,7 +116,8 @@ Content type: `application/json`.
           "schema_revision",
           "channel",
           "resolutions",
-          "reference_video"
+          "reference_video",
+          "meter"
         ],
         "properties": {
           "model_alias": {
@@ -152,6 +153,13 @@ Content type: `application/json`.
           },
           "reference_video": {
             "type": "boolean"
+          },
+          "meter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Billing unit derived from the validated output estimator; null when the model has no configured output mapping."
           }
         }
       }
@@ -178,4 +186,4 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
+Installation read authority only. Named model and API-key choices include current authorized active offer bindings and syntactically validated media-schema constraints, including the billing unit derived from a validated output estimator. This does not establish dispatch availability or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.

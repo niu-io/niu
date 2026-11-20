@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for NiuClient"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
 
 ## Constructor and members
 
@@ -117,6 +117,33 @@ listWorkspaceEvents(after?: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getWorkspaceIncidentEvent
+
+```typescript
+/** Reconcile one workspace-local incident reference from an event. */
+getWorkspaceIncidentEvent(reference: string, options?: RequestOptions): Promise<{
+    data: {
+        reference: string;
+        model: string;
+        owner_funded: boolean;
+        status: 'active' | 'resolved';
+        recovered_at: string | null;
+        notification: {
+            state: 'not_configured' | 'authority_inactive' | 'queued' | 'sending' | 'delivered' | 'failed' | 'partial';
+            event: 'opened' | 'resolved';
+            subscribers: number;
+            authorized: number;
+            delivered: number;
+            failed: number;
+            cancelled: number;
+            queued: number;
+            sending: number;
+            last_attempt_at: string | null;
+        };
+    };
+}>;
+```
+
 ### getEventSubscriptionHistory
 
 ```typescript
@@ -187,6 +214,13 @@ setPool(configuration: WorkspaceModelPool, options?: RequestOptions): Promise<{
 }>;
 ```
 
+### deletePool
+
+```typescript
+/** Soft-delete the current pool revision; the slug and immutable history stay reserved. */
+deletePool(slug: string, revision: number, options?: RequestOptions): Promise<void>;
+```
+
 ### getPoolHistory
 
 ```typescript
@@ -203,6 +237,19 @@ getPoolHistory(slug: string, before?: number, options?: RequestOptions): Promise
 getPoolSelections(slug: string, options?: RequestOptions): Promise<{
     data: WorkspacePoolSelection[];
 }>;
+```
+
+### createDecision
+
+```typescript
+/**
+ * Explicit System 1 structured decision. Requires a concrete workspace Chat
+ * model with declared structured-output support and a key grant; pool/Auto
+ * aliases are rejected so routing cannot substitute a generated response.
+ * A null decision is an explicit abstention. Inspect evidence and use the
+ * returned x-niu-attempt-id generation record for authoritative charges.
+ */
+createDecision(request: DecisionRequest, options?: RequestOptions): Promise<DecisionResult>;
 ```
 
 ### getPublicBranding
@@ -340,13 +387,7 @@ media: {
         } & {
             group_id?: string;
         }, options?: RequestOptions) => Promise<import("./media-assets.js").MediaAssetPage<import("./media-assets.js").MediaAsset>>;
-        create: (input: {
-            model: string;
-            group_id: string;
-            url: string;
-            name?: string;
-            kind: "image" | "video" | "audio";
-        }, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        create: (input: import("./media-assets.js").MediaAssetCreateInput, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
         retrieve: (id: string, model: string, options?: RequestOptions) => Promise<{
             data: import("./media-assets.js").MediaAsset;
         }>;
@@ -434,6 +475,14 @@ readonly embeddings: {
 
 ```typescript
 readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
+```
+
+### streamGenerateContent
+
+```typescript
+readonly streamGenerateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions & {
+    alt?: 'sse';
+}) => AsyncGenerator<GenerateContentResponse>;
 ```
 
 ### messages

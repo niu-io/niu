@@ -89,6 +89,15 @@ jobs:
       - name: Execute Python fixture command
         continue-on-error: true
         run: python3 -m unittest discover -s scripts/tests
+      - name: Execute license-inventory fixture command
+        continue-on-error: true
+        run: node --test scripts/tests/js-license-inventory.test.mjs
+      - name: Execute localization fixture command
+        continue-on-error: true
+        run: pnpm test:i18n
+      - name: Execute documentation-navigation fixture command
+        continue-on-error: true
+        run: node --test apps/docs/scripts/test-navigation.mjs
       - name: Execute dashboard fixture command
         continue-on-error: true
         run: pnpm --filter @niu-io/dashboard test

@@ -21,18 +21,36 @@ pub struct RequestChoiceFinish {
 }
 
 impl RequestChoiceFinish {
-    /// Normalize explicit Responses interruption metadata. Index zero denotes
-    /// the response as a whole, not an output-item index. Completed responses
-    /// do not declare a stop reason and therefore remain unknown here.
+    /// Normalize explicit Responses finish or interruption metadata. Index zero
+    /// denotes the response as a whole, not an output-item index. Completed
+    /// text-only responses do not declare an explicit stop reason and remain
+    /// unknown here; completed responses emitting `function_call` items report
+    /// `ToolCalls`.
     pub fn from_responses_response(value: &serde_json::Value) -> Option<Vec<Self>> {
-        if value.get("status")?.as_str()? != "incomplete"
-            || value.get("error").is_some_and(|error| !error.is_null())
-        {
+        if value.get("error").is_some_and(|error| !error.is_null()) {
             return None;
         }
-        let reason = match value.get("incomplete_details")?.get("reason")?.as_str()? {
-            "max_output_tokens" => RequestFinishReason::Length,
-            "content_filter" => RequestFinishReason::ContentFilter,
+        let reason = match value.get("status")?.as_str()? {
+            "incomplete" => match value.get("incomplete_details")?.get("reason")?.as_str()? {
+                "max_output_tokens" => RequestFinishReason::Length,
+                "content_filter" => RequestFinishReason::ContentFilter,
+                _ => return None,
+            },
+            "completed" => {
+                if value
+                    .get("incomplete_details")
+                    .is_some_and(|details| !details.is_null())
+                {
+                    return None;
+                }
+                let has_tool_call = value.get("output")?.as_array()?.iter().any(|item| {
+                    item.get("type").and_then(serde_json::Value::as_str) == Some("function_call")
+                });
+                if !has_tool_call {
+                    return None;
+                }
+                RequestFinishReason::ToolCalls
+            }
             _ => return None,
         };
         Some(vec![Self { index: 0, reason }])
@@ -73,7 +91,7 @@ impl Store {
         {
             return Err(StoreError::InvalidUsage);
         }
-        Ok(serde_json::to_value(choices).expect("finish metadata is serializable"))
+        serde_json::to_value(choices).map_err(|_| StoreError::InvalidUsage)
     }
 
     /// An immutable observation for a completed, scoped attempt. This neither
@@ -149,6 +167,7 @@ mod tests {
         }
         for value in [
             json!({"status":"completed","incomplete_details":{"reason":"max_output_tokens"}}),
+            json!({"status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hello"}]}]}),
             json!({"status":"incomplete","incomplete_details":null}),
             json!({"status":"incomplete","incomplete_details":{"reason":"private"}}),
             json!({"status":"incomplete","incomplete_details":{"reason":"steered"}}),
@@ -157,6 +176,24 @@ mod tests {
         ] {
             assert_eq!(RequestChoiceFinish::from_responses_response(&value), None);
         }
+        let tool_call = json!({
+            "status": "completed",
+            "error": null,
+            "incomplete_details": null,
+            "output": [
+                {"type": "reasoning", "summary": []},
+                {"type": "function_call", "call_id": "call_1", "name": "lookup", "arguments": "{\"q\":\"private\"}"}
+            ]
+        });
+        let parsed = RequestChoiceFinish::from_responses_response(&tool_call).unwrap();
+        assert_eq!(
+            parsed,
+            vec![RequestChoiceFinish {
+                index: 0,
+                reason: RequestFinishReason::ToolCalls,
+            }]
+        );
+        assert!(!serde_json::to_string(&parsed).unwrap().contains("private"));
     }
 
     #[test]

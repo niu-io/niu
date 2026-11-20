@@ -61,7 +61,7 @@ impl Store {
         // Insufficient funding still commits the immutable liability and keeps
         // the hold. All other failures roll back the attempted settlement.
         if result.is_ok() || matches!(result, Err(StoreError::BudgetExceeded)) {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
         }
         result
     }
@@ -369,7 +369,7 @@ impl Store {
             Some(&execution),
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(amount)
     }
 
@@ -382,7 +382,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         let amount =
             Self::reserve_customer_media_balance_in_tx(&mut tx, scope, attempt, bound).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(amount)
     }
 
@@ -512,7 +512,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::record_customer_media_usage_in_tx(&mut tx, scope, attempt, source, usage).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -680,7 +680,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 

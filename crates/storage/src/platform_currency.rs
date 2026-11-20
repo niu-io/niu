@@ -39,7 +39,7 @@ impl Store {
         if !PLATFORM_CURRENCIES.contains(&currency) {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-platform-currency',0))")
             .execute(&mut *tx)
             .await?;
@@ -61,7 +61,7 @@ impl Store {
         // moving funds or changing legacy postpaid organizations into prepaid.
         sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) SELECT gen_random_uuid(),organization_id,$1 FROM (SELECT DISTINCT organization_id FROM customer_balance_accounts) companies ON CONFLICT (organization_id,currency) DO NOTHING")
             .bind(currency).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         let _ = self.platform_currency_cache.set(currency.to_owned());
         Ok(())
     }

@@ -14,7 +14,7 @@ The dashboard signs in with a persisted member account using the normal password
 and browser-session APIs. The default account email is `demo@niu.io`; its generated
 password is stored in the private state directory's `dev-password` file. To seed
 the requested demo credential, set `NIU_DEV_USERNAME=demo@niu.io` and
-`NIU_DEV_PASSWORD=Hello123` in the ignored repository-root `.env` file before the
+`NIU_DEV_PASSWORD=<a non-default password>` in the ignored repository-root `.env` file before the
 first launch. This seed-only password exception does not change the production
 password policy. Startup preserves existing passwords, profile edits, roles,
 and revoked accounts rather than resetting them from `.env`.
@@ -26,12 +26,12 @@ sign-in still requires HTTPS. The former local administrator login and token-inj
 proxy have been removed. Installation tokens remain separate API credentials for
 explicit setup and automated administration.
 
-The dashboard serves live source with Vite HMR on port 2566. API, account sign-in,
-docs and public catalog requests are proxied to the loopback-only Gateway on
-port 2567. Compare uses the docs-owned comparison when no website artifact is configured; when `NIU_SITE_DIR` is set, website Compare pages and their assets are forwarded to the Gateway. Use the single application URL above; port 2555 is not used. Rust
+The dashboard serves live source with Vite HMR on port 2566. API, account sign-in
+and docs requests are proxied to the loopback-only Gateway on
+port 2567. `/models/` stays in the dashboard. Compare uses the docs-owned comparison when no website artifact is configured; when `NIU_SITE_DIR` is set, website Compare pages and their assets are forwarded to the Gateway. Use the single application URL above; port 2555 is not used. Rust
 source, Cargo manifests and SQL migrations are watched; successful builds restart
 the Gateway, while failed builds leave the previous binary running. Documentation
-and catalog source changes are included at startup; restart the launcher after
+source changes are included at startup; restart the launcher after
 editing them.
 
 Use `pnpm dev -- --packaged` to verify the built product directly through the
@@ -55,11 +55,13 @@ app ports fail explicitly; unrelated servers are never stopped. Use `--no-watch`
 to disable Rust watching, or `--packaged` for packaged-product verification.
 
 The launcher reads `.env` from the repository root. It accepts `NIU_ADMIN_TOKENS`,
-`NIU_VENDOR_ENCRYPTION_KEY`, `NIU_DEV_USERNAME`, `NIU_DEV_PASSWORD`, and its managed
-database URLs. Database URLs must match the isolated cluster; external database
+`NIU_VENDOR_ENCRYPTION_KEY`, `NIU_DEV_USERNAME`, `NIU_DEV_PASSWORD`,
+`NIU_OPERATING_MODE`, and its managed database URLs. Database URLs must match the isolated cluster; external database
 overrides are rejected. Other variables are ignored. Values are literal, with no
 shell execution or variable expansion. Restart `pnpm dev` after editing `.env`.
-Keep the file private and Git-ignored.
+`NIU_OPERATING_MODE` accepts `internal` (default) or `resale`; resale must start
+from a fresh dev database because existing internal-scope connections cannot be
+decrypted under a different mode. Keep the file private and Git-ignored.
 
 ## OpenRouter demo rates
 

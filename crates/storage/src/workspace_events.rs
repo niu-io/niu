@@ -24,11 +24,16 @@ impl EventSubscription {
             || self.name.trim() != self.name
             || self.name.len() > 200
             || self.event_types.is_empty()
-            || self.event_types.len() > 2
-            || self
-                .event_types
-                .iter()
-                .any(|event| !["pool.changed", "evaluation.recorded"].contains(&event.as_str()))
+            || self.event_types.len() > 4
+            || self.event_types.iter().any(|event| {
+                ![
+                    "pool.changed",
+                    "evaluation.recorded",
+                    "incident.opened",
+                    "incident.resolved",
+                ]
+                .contains(&event.as_str())
+            })
             || self
                 .event_types
                 .iter()
@@ -68,6 +73,63 @@ pub struct EventSubscriptionRecord {
     pub cursor: i64,
 }
 impl Store {
+    /// Publish one durable per-workspace incident transition to the existing
+    /// event stream. The bridge row and stream update commit in one transaction;
+    /// competing workers skip the same row and crashes cannot duplicate a step.
+    pub async fn publish_one_incident_event(&self) -> Result<bool, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let row = sqlx::query("SELECT b.incident_id,b.organization_id,b.project_id,b.reference,b.opened_sequence,i.resolved_at IS NOT NULL AS resolved FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.opened_sequence IS NULL OR (i.resolved_at IS NOT NULL AND b.resolved_sequence IS NULL) ORDER BY b.created_at,b.incident_id,b.organization_id,b.project_id FOR UPDATE OF b SKIP LOCKED LIMIT 1")
+            .fetch_optional(&mut *tx).await?;
+        let Some(row) = row else {
+            crate::commit_tx(tx).await?;
+            return Ok(false);
+        };
+        let scope = TenantScope {
+            organization_id: row.try_get("organization_id")?,
+            project_id: row.try_get("project_id")?,
+        };
+        let opened: Option<i64> = row.try_get("opened_sequence")?;
+        let (event_type, revision) = if opened.is_none() {
+            ("incident.opened", 1_i64)
+        } else {
+            ("incident.resolved", 2_i64)
+        };
+        Self::event_stream_head_in_tx(&mut tx, scope).await?;
+        let sequence: i64 = sqlx::query_scalar("UPDATE workspace_event_streams SET sequence=sequence+1 WHERE organization_id=$1 AND project_id=$2 RETURNING sequence")
+            .bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+        sqlx::query("INSERT INTO workspace_events(organization_id,project_id,sequence,id,event_type,resource_kind,resource_slug,resource_revision) VALUES($1,$2,$3,$4,$5,'incident',$6,$7)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(sequence).bind(Uuid::new_v4()).bind(event_type).bind(row.try_get::<String,_>("reference")?).bind(revision).execute(&mut *tx).await?;
+        let incident: i64 = row.try_get("incident_id")?;
+        if opened.is_none() {
+            sqlx::query("UPDATE incident_workspace_events SET opened_sequence=$4 WHERE incident_id=$1 AND organization_id=$2 AND project_id=$3")
+                .bind(incident).bind(scope.organization_id).bind(scope.project_id).bind(sequence).execute(&mut *tx).await?;
+        } else {
+            sqlx::query("UPDATE incident_workspace_events SET resolved_sequence=$4 WHERE incident_id=$1 AND organization_id=$2 AND project_id=$3")
+                .bind(incident).bind(scope.organization_id).bind(scope.project_id).bind(sequence).execute(&mut *tx).await?;
+        }
+        crate::commit_tx(tx).await?;
+        Ok(true)
+    }
+
+    /// Scope-bound reconciliation for references returned by incident events.
+    pub async fn workspace_incident_event_detail(
+        &self,
+        scope: TenantScope,
+        reference: &str,
+    ) -> Result<Option<Value>, StoreError> {
+        let Some(mut detail): Option<Value> = sqlx::query_scalar("SELECT jsonb_build_object('reference',b.reference,'model',i.model_alias,'owner_funded',EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND (p.organization_id=b.organization_id OR p.access_scope='internal')),'status',CASE WHEN i.resolved_at IS NULL THEN 'active' ELSE 'resolved' END,'recovered_at',i.resolved_at) FROM incident_workspace_events b JOIN connection_incidents i ON i.id=b.incident_id WHERE b.organization_id=$1 AND b.project_id=$2 AND b.reference=$3")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reference).fetch_optional(&self.pool).await? else {
+            return Ok(None);
+        };
+        if let Some(notification) = self
+            .workspace_incident_notification(scope, reference)
+            .await?
+        {
+            detail["notification"] = notification;
+        }
+        Ok(Some(detail))
+    }
+
     pub(crate) async fn event_stream_head_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: TenantScope,
@@ -138,7 +200,7 @@ impl Store {
         let event_id = Uuid::new_v4();
         sqlx::query("INSERT INTO workspace_events(organization_id,project_id,sequence,id,event_type,resource_kind,resource_slug,resource_revision,target_subscription_id) VALUES($1,$2,$3,$4,'subscription.test','subscription',$5,$6,$7)")
             .bind(scope.organization_id).bind(scope.project_id).bind(sequence).bind(event_id).bind(slug).bind(revision).bind(id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(
             serde_json::json!({"id":event_id,"sequence":sequence.to_string(),"type":"subscription.test","subscription_revision":revision,"delivery":"queued"}),
         )
@@ -237,7 +299,7 @@ impl Store {
             serde_json::to_value(&saved).map_err(|_| StoreError::InvalidObservation)?;
         if existing.is_none() {
             sqlx::query("INSERT INTO workspace_event_subscriptions(id,organization_id,project_id,slug,revision,configuration,secret_ciphertext,issuer_key_id,cursor) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(&configuration).bind(new_secret.unwrap()).bind(principal.key_id()).bind(cursor).execute(&mut *tx).await?;
+                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&saved.slug).bind(saved.revision).bind(&configuration).bind(new_secret.ok_or(sqlx::Error::RowNotFound)?).bind(principal.key_id()).bind(cursor).execute(&mut *tx).await?;
         } else {
             // A revision change cancels the old destination's pending work. The
             // destination/secret/enable change starts at the current head. A
@@ -249,7 +311,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO workspace_event_subscription_history(subscription_id,revision,configuration,actor_key_id) VALUES($1,$2,$3,$4)")
             .bind(id).bind(saved.revision).bind(configuration).bind(principal.key_id()).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(saved)
     }
     /// Offline/startup inventory only; never a customer projection.
@@ -302,7 +364,7 @@ pub struct EventDeliveryClaim {
 }
 // No secret projection: only presence of a current, scoped, explicitly granted
 // delegation determines whether a new delivery can be started.
-const EVENT_AUTHORITY: &str = "EXISTS(SELECT 1 FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=s.issuer_key_id AND c.capability='events:write' AND k.organization_id=s.organization_id AND k.project_id=s.project_id AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id))";
+pub(crate) const EVENT_AUTHORITY: &str = "EXISTS(SELECT 1 FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=s.issuer_key_id AND c.capability='events:write' AND k.organization_id=s.organization_id AND k.project_id=s.project_id AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id))";
 impl Store {
     pub async fn event_subscription_authorized(
         &self,
@@ -313,7 +375,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(slug).fetch_one(&self.pool).await?)
     }
     pub async fn event_delivery_candidates(&self) -> Result<Vec<Uuid>, StoreError> {
-        Ok(sqlx::query_scalar(&format!("SELECT s.id FROM workspace_event_subscriptions s WHERE (s.configuration->>'enabled')::boolean AND {EVENT_AUTHORITY} AND EXISTS(SELECT 1 FROM workspace_events e WHERE e.organization_id=s.organization_id AND e.project_id=s.project_id AND e.sequence>s.cursor AND ((e.target_subscription_id IS NULL AND (s.configuration->'event_types') ? e.event_type) OR e.target_subscription_id=s.id)) ORDER BY s.checked_at,s.id LIMIT 100"))
+        Ok(sqlx::query_scalar(&format!("SELECT s.id FROM workspace_event_subscriptions s WHERE s.configuration->>'enabled' = 'true' AND {EVENT_AUTHORITY} AND EXISTS(SELECT 1 FROM workspace_events e WHERE e.organization_id=s.organization_id AND e.project_id=s.project_id AND e.sequence>s.cursor AND ((e.target_subscription_id IS NULL AND (s.configuration->'event_types') ? e.event_type) OR e.target_subscription_id=s.id)) ORDER BY s.checked_at,s.id LIMIT 100"))
             .fetch_all(&self.pool).await?)
     }
     pub async fn claim_event_delivery(
@@ -321,7 +383,7 @@ impl Store {
         subscription: Uuid,
     ) -> Result<Option<EventDeliveryClaim>, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        let row = sqlx::query(&format!("SELECT s.* FROM workspace_event_subscriptions s WHERE s.id=$1 AND (s.configuration->>'enabled')::boolean AND {EVENT_AUTHORITY} FOR UPDATE OF s SKIP LOCKED"))
+        let row = sqlx::query(&format!("SELECT s.* FROM workspace_event_subscriptions s WHERE s.id=$1 AND s.configuration->>'enabled' = 'true' AND {EVENT_AUTHORITY} FOR UPDATE OF s SKIP LOCKED"))
             .bind(subscription).fetch_optional(&mut *tx).await?;
         let Some(row) = row else {
             return Ok(None);
@@ -341,7 +403,7 @@ impl Store {
         let event = sqlx::query("SELECT sequence,jsonb_build_object('id',id,'sequence',sequence::text,'type',event_type,'schema_version',1,'occurred_at',created_at,'resource',(jsonb_build_object('kind',resource_kind,'slug',resource_slug,'revision',resource_revision) || CASE WHEN resource_run IS NOT NULL THEN jsonb_build_object('run',resource_run) ELSE '{}'::jsonb END)) AS event FROM workspace_events WHERE organization_id=$1 AND project_id=$2 AND sequence>$3 AND ((target_subscription_id IS NULL AND $5::jsonb ? event_type) OR target_subscription_id=$4) ORDER BY sequence LIMIT 1")
             .bind(scope.organization_id).bind(scope.project_id).bind(cursor).bind(subscription).bind(row.try_get::<Value,_>("configuration")?["event_types"].clone()).fetch_optional(&mut *tx).await?;
         let Some(event) = event else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         let sequence: i64 = event.try_get("sequence")?;
@@ -357,7 +419,7 @@ impl Store {
                 // An eighth attempt may still be in flight. Do not replace it
                 // before its lease expires merely because the count is bounded.
                 if state == "sending" && !delivery.try_get::<bool, _>("expired")? {
-                    tx.commit().await?;
+                    crate::commit_tx(tx).await?;
                     return Ok(None);
                 }
                 sqlx::query("UPDATE workspace_event_deliveries SET state='failed',failure_kind='exhausted',lease_id=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE id=$1").bind(id).execute(&mut *tx).await?;
@@ -367,13 +429,13 @@ impl Store {
                 .bind(sequence)
                 .execute(&mut *tx)
                 .await?;
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         }
         if (state == "sending" && !delivery.try_get::<bool, _>("expired")?)
             || !delivery.try_get::<bool, _>("due")?
         {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         }
         let lease = Uuid::new_v4();
@@ -392,7 +454,7 @@ impl Store {
             sequence,
             attempt: attempt + 1,
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(claim))
     }
     /// Recheck just before dispatch. Revocation prevents new attempts, but an
@@ -401,7 +463,7 @@ impl Store {
         &self,
         claim: &EventDeliveryClaim,
     ) -> Result<bool, StoreError> {
-        Ok(sqlx::query_scalar(&format!("SELECT EXISTS(SELECT 1 FROM workspace_event_subscriptions s JOIN workspace_event_deliveries d ON d.subscription_id=s.id WHERE d.id=$1 AND d.lease_id=$2 AND d.state='sending' AND d.lease_until>clock_timestamp() AND s.revision=d.subscription_revision AND (s.configuration->>'enabled')::boolean AND {EVENT_AUTHORITY})"))
+        Ok(sqlx::query_scalar(&format!("SELECT EXISTS(SELECT 1 FROM workspace_event_subscriptions s JOIN workspace_event_deliveries d ON d.subscription_id=s.id WHERE d.id=$1 AND d.lease_id=$2 AND d.state='sending' AND d.lease_until>clock_timestamp() AND s.revision=d.subscription_revision AND s.configuration->>'enabled' = 'true' AND {EVENT_AUTHORITY})"))
             .bind(claim.id).bind(claim.lease).fetch_one(&self.pool).await?)
     }
     pub async fn finish_event_delivery(
@@ -449,7 +511,7 @@ impl Store {
             sqlx::query("UPDATE workspace_event_subscriptions SET cursor=GREATEST(cursor,$2) WHERE id=$1 AND revision=$3")
                 .bind(claim.subscription_id).bind(claim.sequence).bind(claim.subscription_revision).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn event_deliveries(

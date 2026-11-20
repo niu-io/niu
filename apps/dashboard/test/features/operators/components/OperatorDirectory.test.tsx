@@ -8,19 +8,21 @@ describe('OperatorDirectory search', () => {
     const user = userEvent.setup();
     render(<OperatorDirectory operators={[
       { id: 'one', name: 'Demo', role: 'owner', organization_id: 'org', project_id: null, revoked: false },
-      { id: 'two', name: 'Former user', role: 'viewer', organization_id: 'org', project_id: null, revoked: true },
-    ]} organizations={[{ id: 'org', name: 'Personal workspace' }]} projects={[]} selectedId="" loading={false} disabled={false} projectScope={false} onSelect={vi.fn()} onAdd={vi.fn()} />);
-    await user.click(screen.getByRole('button', {name:'Search users'}));
-    const search = screen.getByRole('searchbox', { name: 'Search users' });
+      { id: 'two', name: 'Former user', role: 'viewer', organization_id: 'org', project_id: 'staging', revoked: true },
+    ]} organizations={[{ id: 'org', name: 'Personal workspace' }]} projects={[{ id: 'staging', name: 'Staging' }]} selectedId="" loading={false} disabled={false} projectScope={false} onSelect={vi.fn()} onAdd={vi.fn()} />);
+    expect(screen.getByText('All workspaces')).toBeTruthy();
+    expect(screen.getByText('Staging')).toBeTruthy();
+    await user.click(screen.getByRole('button', {name:'Search members'}));
+    const search = screen.getByRole('searchbox', { name: 'Search members' });
     await user.type(search, 'OWNER active');
     expect(screen.getByRole('button', { name: 'Demo', exact: true })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Former user', exact: true })).toBeNull();
     await user.clear(search);
     await user.type(search, 'missing');
-    expect(screen.getByText('No matching users')).toBeTruthy();
+    expect(screen.getByText('No matching members')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Add first/ })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Clear search' }));
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Search users' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Search members' }));
     expect(screen.getByRole('button', { name: 'Former user', exact: true })).toBeTruthy();
   });
 });

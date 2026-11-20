@@ -63,7 +63,14 @@ impl Store {
         if let Some(route) = &admission.managed_route {
             Self::insert_managed_route(&mut *tx, attempt, route).await?;
         }
-        Self::bind_key_token_bound_with(&mut *tx, scope, attempt, admission.token_bound).await?;
+        Self::bind_key_token_bound_with(
+            &mut *tx,
+            scope,
+            attempt,
+            admission.token_bound,
+            admission.token_bound_estimator,
+        )
+        .await?;
         if let Some(snapshot) = &admission.inspected_guardrails {
             Self::insert_inspected_guardrails(
                 &mut *tx,
@@ -159,12 +166,12 @@ impl Store {
             Err(
                 err @ (StoreError::KeyRequestRateDisabled | StoreError::KeyRequestRateExceeded),
             ) => {
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 return Err(err);
             }
             Err(err) => return Err(err),
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         if dispatched {
             Ok((admission.operation_id, attempt))
         } else {

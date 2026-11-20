@@ -1,6 +1,12 @@
 # Payment aggregator integration
 
-Status: supported adapter inventory and implementation checkpoints. Reviewed 2026-10-09.
+## Hosted 0.3 funding
+
+Stripe is the only gateway for new online top-ups. Customers see the methods available for the configured Stripe merchant. A verified payment credits the organization balance. Returning from checkout alone does not add funds.
+
+An installation administrator can enter a beneficiary, bank, account number and currency in payment settings. Once configured, the customer billing page shows those details and a stable transfer memo for the customer's organization. Customers include the memo when transferring funds so the operator can reconcile the payment. Removing the configuration hides the transfer instructions. Displaying the instructions does not credit a balance.
+
+EPay and native Zhifux are closed to new hosted orders. The dated implementation notes below document earlier adapter work and historical order handling.
 
 ## Payment recovery update — 2026-10-25
 
@@ -28,7 +34,7 @@ new top-up**. EPay retains local status reads because its query transport remain
 unsupported. Mock decline and cancellation scenarios expire their checkout and
 exercise the same signed-notification and merchant-query path.
 
-## Supported integration list and readiness boundary
+## Historical adapter inventory (October 2026)
 
 Niu separates supported payment integrations from the methods enabled on a
 particular installation, following the structure of
@@ -59,9 +65,9 @@ remain explicit; fixture outcomes do not establish readiness. Historical
 checkpoints below describe implementation work, not blanket acceptance.
 
 
-The preferred domestic candidate is 支付FM (zhifux.com), using signed merchant channels. Its [official compatibility documentation](https://docs.zhifux.com/read/zhifufm/api-epay) explicitly describes an EPay-compatible interface. The existing Zhifux code uses its native API; the generic classic EPay protocol foundation is separate and has not been qualified against Zhifux’s compatibility interface. Its [product guide](https://docs.zhifux.com/read/zhifufm/paytype) distinguishes signed merchant channels from monitoring-based personal collection methods. Merchant eligibility, actual enabled methods, settlement and end-to-end acceptance still require qualification.
+The October design considered 支付FM (zhifux.com), using signed merchant channels. Its [official compatibility documentation](https://docs.zhifux.com/read/zhifufm/api-epay) explicitly describes an EPay-compatible interface. The existing Zhifux code uses its native API; the generic classic EPay protocol foundation is separate and has not been qualified against Zhifux’s compatibility interface. Its [product guide](https://docs.zhifux.com/read/zhifufm/paytype) distinguishes signed merchant channels from monitoring-based personal collection methods. Merchant eligibility, actual enabled methods, settlement and end-to-end acceptance still require qualification.
 
-The initial release targets two integrations: an EPay-compatible domestic gateway for Alipay/WeChat Pay and RMB top-ups, and Stripe for international payments where merchant eligibility permits. EPay denotes a gateway interface, not a specific payment operator. Choose and qualify the actual domestic operator before enabling collection. Customer checkout displays payment methods, not protocol names. Both routes fund the same company prepaid ledger only after verified server-side payment evidence. Display only methods enabled and qualified for the configured merchant; do not imply universal availability.
+The October proposal considered EPay and Stripe. The hosted 0.3 funding scope above supersedes that proposal.
 
 Stripe also supports Alipay and WeChat Pay, so customer methods can overlap. Merchant onboarding, settlement currency and availability determine which integration to use. See [Stripe merchant availability](https://stripe.com/global), [Alipay](https://docs.stripe.com/payments/alipay), [WeChat Pay](https://docs.stripe.com/payments/wechat-pay), and [New API’s EPay configuration explanation](https://docs.newapi.ai/zh/docs/guide/feature-guide/admin/system-setting-advanced).
 

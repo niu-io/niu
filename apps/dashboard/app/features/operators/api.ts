@@ -1,4 +1,5 @@
 import { readLocale as readUILocale } from '@/shell/ui-locale';
+import type { AdminSession } from '@/shell/dashboard-context';
 export type NamedResource = { id: string; name: string };
 export type OperatorRole = 'owner' | 'admin' | 'viewer';
 export type Operator = NamedResource & {
@@ -10,6 +11,7 @@ export type Operator = NamedResource & {
 export type OperatorSession = {
   id: string;
   operator_id: string;
+  created_at: string;
   expires_at_unix: number;
   revoked: boolean;
 };
@@ -27,6 +29,87 @@ export type OperatorAuditEvent = {
   created_at: string;
 };
 export type IssuedSession = { session: OperatorSession; token: string };
+export type MemberInvitationStatus = 'pending' | 'expired' | 'canceled' | 'accepted';
+export type MemberInvitation = {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_slug: string;
+  project_id: string | null;
+  project_name: string | null;
+  project_slug: string | null;
+  role: OperatorRole;
+  recipient_email: string;
+  recipient_name: string | null;
+  status: MemberInvitationStatus;
+  delivery: 'not_configured';
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  invited_by: string | null;
+};
+export type CreatedMemberInvitation = {
+  invitation: MemberInvitation;
+  token: string;
+  accept_path: string;
+  delivery: { state: 'not_configured'; email_sent: false };
+};
+export type MemberInvitationPreview = MemberInvitation & {
+  caller_email: string | null;
+  email_matches: boolean;
+  already_accepted_by_caller: boolean;
+};
+export type NewMemberInvitation = {
+  email: string;
+  name?: string | null;
+  role: OperatorRole;
+  projectId: string | null;
+  expiresInSeconds: number;
+};
+
+/** Absolute one-time link for an invitation secret. The secret is shown only once. */
+export function memberInvitationLink(token: string): string {
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+  return new URL(`${base}invite/${encodeURIComponent(token)}`, window.location.origin).toString();
+}
+
+export function formatDateTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+export function createMemberInvitation(token: string, organization: string, input: NewMemberInvitation, signal?: AbortSignal): Promise<CreatedMemberInvitation> {
+  return request<CreatedMemberInvitation>(token, `/api/v1/organizations/${organization}/invitations`, 'POST', {
+    email: input.email.trim().toLowerCase(),
+    ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+    role: input.role,
+    project_id: input.projectId,
+    expires_in_seconds: input.expiresInSeconds,
+  }, signal);
+}
+
+export function listMemberInvitations(token: string, organization: string, signal?: AbortSignal): Promise<{ data: MemberInvitation[] }> {
+  return request<{ data: MemberInvitation[] }>(token, `/api/v1/organizations/${organization}/invitations`, 'GET', undefined, signal);
+}
+
+export function cancelMemberInvitation(token: string, invitationId: string): Promise<void> {
+  return request<void>(token, `/api/v1/invitations/${invitationId}`, 'DELETE');
+}
+
+export function previewMemberInvitation(token: string, invitationToken: string, signal?: AbortSignal): Promise<{ data: MemberInvitationPreview }> {
+  return request<{ data: MemberInvitationPreview }>(token, '/api/v1/invitations/preview', 'POST', { token: invitationToken }, signal);
+}
+
+export type AcceptedMemberInvitation = {
+  data: AdminSession;
+  invitation: MemberInvitation;
+  replayed: boolean;
+};
+
+export function acceptMemberInvitation(token: string, invitationToken: string): Promise<AcceptedMemberInvitation> {
+  return request<AcceptedMemberInvitation>(token, '/api/v1/session/invitations', 'POST', { token: invitationToken });
+}
 
 /** Complete scoped inventory: never interpret a failed later page as no user. */
 export async function listOperators(token: string, organization?: string, signal?: AbortSignal): Promise<{ data: Operator[] }> {

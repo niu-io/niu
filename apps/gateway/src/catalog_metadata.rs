@@ -82,12 +82,24 @@ impl CatalogMetadata {
         Self {
             name: text(&model["name"], 300),
             description: text(&model["description"], 12000),
-            context_length: model["context_length"].as_u64().filter(|n| *n > 0),
+            context_length: model["context_length"]
+                .as_u64()
+                .or_else(|| model["context_window"].as_u64())
+                .filter(|n| *n > 0),
             max_completion_tokens: model["top_provider"]["max_completion_tokens"]
                 .as_u64()
+                .or_else(|| model["max_output_tokens"].as_u64())
                 .filter(|n| *n > 0),
-            input_modalities: modalities(&model["architecture"]["input_modalities"]),
-            output_modalities: modalities(&model["architecture"]["output_modalities"]),
+            input_modalities: modalities(
+                model["architecture"]
+                    .get("input_modalities")
+                    .unwrap_or(&model["input_modalities"]),
+            ),
+            output_modalities: modalities(
+                model["architecture"]
+                    .get("output_modalities")
+                    .unwrap_or(&model["output_modalities"]),
+            ),
             supported_parameters: model["supported_parameters"]
                 .as_array()
                 .into_iter()
@@ -105,6 +117,20 @@ impl CatalogMetadata {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn direct_deepseek_catalog_preserves_native_limits_and_modalities() {
+        let metadata = CatalogMetadata::from_provider(&json!({
+            "id":"deepseek-flash", "context_window":1048576, "max_output_tokens":393216,
+            "input_modalities":["text","image"], "output_modalities":["text"]
+        }));
+        assert_eq!(metadata.context_length, Some(1048576));
+        assert_eq!(metadata.max_completion_tokens, Some(393216));
+        assert_eq!(metadata.input_modalities, vec!["text", "image"]);
+        assert_eq!(metadata.output_modalities, vec!["text"]);
+        assert!(metadata.valid());
+    }
+
     #[test]
     fn customer_metadata_excludes_provider_prices_without_losing_descriptions() {
         let metadata = CatalogMetadata::from_provider(&json!({

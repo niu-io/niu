@@ -255,7 +255,7 @@ async fn forward_with_principal(
         .header(
             header::AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {context}"))
-                .expect("generated JWS is a valid header value"),
+                .unwrap_or_else(|_| HeaderValue::from_static("Bearer invalid")),
         )
         .header("x-request-id", &request_id)
         .body(body);
@@ -400,7 +400,7 @@ fn gateway_error(status: StatusCode, code: &'static str) -> Response<Body> {
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::CACHE_CONTROL, "no-store")
         .body(Body::from(body))
-        .expect("static gateway error response is valid")
+        .unwrap_or_else(|_| Response::new(Body::empty()))
 }
 
 fn connection_nominated_headers(headers: &HeaderMap) -> Vec<String> {

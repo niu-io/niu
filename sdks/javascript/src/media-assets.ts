@@ -47,12 +47,21 @@ export type MediaAssetMutationOptions = RequestOptions & {
   /** Canonical UUID. Replays recover the saved operation and never resubmit it. */
   idempotencyKey?: string;
 };
+/** Exactly one source. A workspace source is resolved to a short-lived public
+ * capability only by the Gateway at dispatch; the capability is never persisted.
+ */
+export type MediaAssetCreateSource =
+  | { url: string; workspace_asset_id?: never }
+  | { workspace_asset_id: string; url?: never };
+export type MediaAssetCreateInput = {
+  model: string; group_id: string; name?: string; kind: 'image' | 'video' | 'audio';
+} & MediaAssetCreateSource;
 /** Full original typed request is required for dispatch; source URLs are not persisted. */
 export type MediaAssetOperationInput =
   | { action: 'create_group'; model: string; name: string; description?: string }
   | { action: 'update_group'; model: string; group_id: string; name?: string; description?: string; expected_revision?: string }
   | { action: 'delete_group'; model: string; group_id: string; expected_revision?: string }
-  | { action: 'create_asset'; model: string; group_id: string; url: string; name?: string; kind: 'image' | 'video' | 'audio' }
+  | ({ action: 'create_asset'; model: string; group_id: string; name?: string; kind: 'image' | 'video' | 'audio' } & MediaAssetCreateSource)
   | { action: 'rename_asset'; model: string; asset_id: string; name: string; expected_revision?: string }
   | { action: 'delete_asset'; model: string; asset_id: string; expected_revision?: string };
 export type MediaAssetPreparationOptions = MediaAssetMutationOptions & { idempotencyKey: string };
@@ -65,6 +74,12 @@ function reference(value: string): string {
     throw new TypeError('A canonical Niu resource reference is required');
   }
   return value;
+}
+function createSource(input: MediaAssetCreateSource): MediaAssetCreateSource {
+  const hasUrl = typeof input.url === 'string' && input.url.length > 0;
+  const hasWorkspaceAsset = typeof input.workspace_asset_id === 'string' && input.workspace_asset_id.length > 0;
+  if (hasUrl === hasWorkspaceAsset) throw new TypeError('Provide exactly one of url or workspace_asset_id');
+  return hasUrl ? { url: input.url } : { workspace_asset_id: reference(input.workspace_asset_id!) };
 }
 function query(input: PageQuery & { group_id?: string; expected_revision?: string }): string {
   if (typeof input.model !== 'string' || !input.model.trim()) throw new TypeError('A model is required');
@@ -97,7 +112,7 @@ export function createMediaAssetsClient(send: MediaAssetSender) {
     },
     assets: {
       list: (input: PageQuery & { group_id?: string }, options?: RequestOptions) => send<MediaAssetPage<MediaAsset>>(`/media/assets${query(input)}`, 'GET', undefined, options),
-      create: (input: { model: string; group_id: string; url: string; name?: string; kind: 'image' | 'video' | 'audio' }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>('/media/assets', 'POST', input, options),
+      create: (input: MediaAssetCreateInput, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>('/media/assets', 'POST', { ...input, ...createSource(input) }, options),
       retrieve: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAsset }>(`/media/assets/${reference(id)}${query({ model })}`, 'GET', undefined, options),
       update: (id: string, input: { model: string; name: string; expected_revision?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>(`/media/assets/${reference(id)}`, 'PATCH', input, options),
       delete: (id: string, input: { model: string; expected_revision?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>(`/media/assets/${reference(id)}${query(input)}`, 'DELETE', undefined, options),

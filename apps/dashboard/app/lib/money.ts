@@ -52,12 +52,58 @@ function formatExactCommaMoney(nanos: bigint | string, currency: string, minDeci
   return `${negative && abs > 0n ? '-' : ''}${prefix}${wholeFormatted}.${frac}`;
 }
 
+function currencyPrefix(currency: string): string {
+  const sym = currencySymbol(currency);
+  return sym && /^[A-Z]{3}$/.test(sym) ? `${sym} ` : sym;
+}
+
+function formatRoundedCommaMoney(
+  nanos: bigint | string,
+  currency: string,
+  decimals: number,
+  minDecimals: number,
+  belowQuantumFloor: boolean,
+): string {
+  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const prefix = currencyPrefix(currency);
+  const step = 10n ** BigInt(9 - decimals);
+  if (belowQuantumFloor && abs > 0n && abs < step) {
+    const floorStr = decimals === 0 ? '1' : `0.${'0'.repeat(decimals - 1)}1`;
+    return `${negative ? '-' : ''}<${prefix}${floorStr}`;
+  }
+  const scaled = (abs + step / 2n) / step;
+  const scale = 10n ** BigInt(decimals);
+  const whole = scaled / scale;
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const rawFrac = (scaled % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  const frac = decimals === 0 ? '' : rawFrac.length < minDecimals ? rawFrac.padEnd(minDecimals, '0') : rawFrac;
+  return `${negative && scaled > 0n ? '-' : ''}${prefix}${wholeFormatted}${frac ? `.${frac}` : ''}`;
+}
+
 /**
  * Formats financial statement figures (revenue, costs, payables, cash receipts, balances)
  * with at least 4 decimal places (.0000) while preserving full sub-4-decimal nanounit precision.
  */
 export function formatFinancialMoney(nanos: bigint | string, currency: string): string {
   return formatExactCommaMoney(nanos, currency, 4);
+}
+
+/**
+ * Compact statement formatter for dense KPI cards and table cells:
+ * formats to 4 decimal places and renders sub-$0.0001 non-zero values as `<$0.0001`.
+ */
+export function formatStatementMoney(nanos: bigint | string, currency: string, decimals = 4): string {
+  return formatRoundedCommaMoney(nanos, currency, decimals, decimals, true);
+}
+
+/**
+ * Compact rate formatter for dense quote cells: preserves exact values up to
+ * 6 decimal places (at least 2 decimals) and renders sub-$0.000001 non-zero rates as `<$0.000001`.
+ */
+export function formatCompactRateMoney(nanos: bigint | string, currency: string, maxDecimals = 6): string {
+  return formatRoundedCommaMoney(nanos, currency, maxDecimals, 2, true);
 }
 
 /**
@@ -113,6 +159,35 @@ export function formatUnitAtoms(
 }
 
 /**
+ * Customer-facing summary formatter. Rounds to the configured display precision
+ * (display only; stored atoms and arithmetic never change). Positive values that
+ * would round to zero keep the existing `< 0.01 <Unit>` safeguard.
+ */
+export function formatDisplayUnitAtoms(
+  atoms: bigint | string | null | undefined,
+  unitName: string,
+  displayPrecision = 2,
+): string {
+  const label = unitName?.trim() || 'Credits';
+  const prec = clampDisplayPrecision(displayPrecision);
+  const val = typeof atoms === 'bigint' ? atoms : BigInt(atoms || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const quantumAtoms = 10n ** BigInt(9 - prec);
+  if (abs > 0n && abs < quantumAtoms) {
+    const quantumStr = prec === 0 ? '1' : `0.${'0'.repeat(prec - 1)}1`;
+    return `${negative ? '-' : ''}< ${quantumStr} ${label}`;
+  }
+  const rounded = quantumAtoms > 1n ? (abs + quantumAtoms / 2n) / quantumAtoms * quantumAtoms : abs;
+  const whole = rounded / NANOS_PER_UNIT;
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const rawFrac = (rounded % NANOS_PER_UNIT).toString().padStart(9, '0').replace(/0+$/, '');
+  const frac = rawFrac.length < prec ? rawFrac.padEnd(prec, '0') : rawFrac;
+  const numberPart = frac ? `${wholeFormatted}.${frac}` : wholeFormatted;
+  return `${negative && abs > 0n ? '-' : ''}${numberPart} ${label}`;
+}
+
+/**
  * Exact decimal + atom formatter for details, statements, tooltips, and audit modals.
  * Never truncates sub-quantum precision.
  */
@@ -161,4 +236,18 @@ export function unitAmountFromAtoms(atoms: string, displayPrecision = 2): string
       ? rawFrac.padEnd(prec, '0')
       : rawFrac;
   return frac ? `${whole}.${frac}` : `${whole}`;
+}
+
+/**
+ * Standard-unit decimal text from an API summary (for example `"69.00"`).
+ * Groups the whole number without converting to Number, so large balances and
+ * sub-quantum values stay exact.
+ */
+export function formatUnitAmountText(amount: string, unitName: string): string {
+  const label = unitName?.trim() || 'Credits';
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(amount.trim());
+  if (!match) return `${amount} ${label}`;
+  const whole = match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const fraction = match[3] ? `.${match[3]}` : '';
+  return `${match[1]}${whole}${fraction} ${label}`;
 }

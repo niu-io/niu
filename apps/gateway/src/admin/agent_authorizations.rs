@@ -20,6 +20,8 @@ pub struct Create {
     client_name: String,
     #[serde(default)]
     capabilities: Vec<String>,
+    /// Self-reported task context shown during review. It is not authority.
+    task: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,10 +32,17 @@ pub struct Exchange {
 #[serde(deny_unknown_fields)]
 pub struct Decision {
     approve: bool,
-    organization_id: Uuid,
-    workspace_id: Uuid,
+    organization_id: Option<Uuid>,
+    workspace_id: Option<Uuid>,
+    #[serde(default)]
     allowed_models: Vec<String>,
-    ttl_seconds: i64,
+    ttl_seconds: Option<i64>,
+    /// Required for approval. An omitted value must never become a paid grant.
+    invocation_allowed: Option<bool>,
+    /// Exact approved model interfaces. Required when invocation is allowed.
+    invocation_protocols: Option<Vec<String>>,
+    /// Optional approved management capabilities. When omitted, requested capabilities are kept.
+    capabilities: Option<Vec<String>>,
 }
 
 fn code(value: &str) -> Result<(), ApiError> {
@@ -121,11 +130,9 @@ fn code(value: &str) -> Result<(), ApiError> {
 ///             "properties": {
 ///               "client_name": {
 ///                 "type": "string",
-///                 "enum": [
-///                   "Claude Code",
-///                   "Codex",
-///                   "DeepSeek Harness"
-///                 ]
+///                 "minLength": 1,
+///                 "maxLength": 80,
+///                 "description": "Self-reported coding-agent client name (trimmed printable characters, 1-80 characters; for example Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or a custom agent)."
 ///               },
 ///               "capabilities": {
 ///                 "type": "array",
@@ -143,6 +150,12 @@ fn code(value: &str) -> Result<(), ApiError> {
 ///                   ]
 ///                 },
 ///                 "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
+///               },
+///               "task": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200,
+///                 "description": "Self-reported task context shown to the approver. It is not authority and is never used for backend permission checks."
 ///               }
 ///             }
 ///           }
@@ -166,11 +179,27 @@ pub async fn create(
     {
         return Err(ApiError::sign_in_limited());
     }
+    let task = input
+        .task
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if task.is_some_and(|value| value.chars().count() > 200 || value.chars().any(char::is_control))
+    {
+        return Err(ApiError::invalid_request(
+            "Describe the requested task in 200 characters or fewer without control characters",
+        ));
+    }
     let request = state
         .store
-        .create_agent_authorization_with_capabilities(&input.client_name, &input.capabilities)
+        .create_agent_authorization_with_task(&input.client_name, &input.capabilities, task)
         .await
-        .map_err(ApiError::from_store)?;
+        .map_err(|error| match error {
+            niu_storage::StoreError::InvalidKey => ApiError::invalid_request(
+                "Provide a printable client_name (1-80 characters), optional task (max 200 characters), and only supported capabilities without duplicates",
+            ),
+            other => ApiError::from_store(other),
+        })?;
     Ok((
         StatusCode::CREATED,
         Json(
@@ -186,7 +215,7 @@ pub async fn create(
 ///   "operation": {
 ///     "operationId": "getAgentAuthorization",
 ///     "summary": "Inspect an authorization request after login",
-///     "description": "Requires a current user session. Returns only client name and state, never device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label is self-reported. No-store.",
+///     "description": "Requires a current user session. Returns bounded request metadata: client name, state, requested management capabilities and self-reported task context. It never returns the device secret or issued credential. Unknown and expired requests return 404; invalid session returns 401. Client label and task are self-reported, not authenticated authority. No-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -211,7 +240,8 @@ pub async fn create(
 ///                   "required": [
 ///                     "client_name",
 ///                     "state",
-///                     "capabilities"
+///                     "capabilities",
+///                     "task"
 ///                   ],
 ///                   "properties": {
 ///                     "client_name": {
@@ -225,6 +255,14 @@ pub async fn create(
 ///                         "denied",
 ///                         "consumed"
 ///                       ]
+///                     },
+///                     "task": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "maxLength": 200,
+///                       "description": "Self-reported task context supplied by the client. Explain the request but never treat it as an authorization grant."
 ///                     },
 ///                     "capabilities": {
 ///                       "type": "array",
@@ -290,7 +328,7 @@ pub async fn view(
 ///   "operation": {
 ///     "operationId": "decideAgentAuthorization",
 ///     "summary": "Approve or decline an agent connection",
-///     "description": "Requires an exact trusted same-origin Origin and a current Operator with write access to the selected workspace. Installation credentials and inference keys cannot approve. Approval validates model aliases and stores explicit scope and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
+///     "description": "Requires an exact trusted same-origin Origin and a current Operator with write permission. Approval requires organization_id, workspace_id, allowed_models, ttl_seconds and an explicit invocation_allowed value, and checks write access to that workspace. Approved invocation also records the exact model interfaces; omitted interface scope never defaults to a paid grant. A decline may omit both scope fields; if supplied, both are checked. Installation credentials and inference keys cannot decide. Approval validates model aliases and stores explicit scope, fixed model names, financial boundary and finite credential lifetime; it does not return a credential. State transition is one-time, with expiry and active approver checks. Existing workspace billing constraints still apply. No-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -344,12 +382,10 @@ pub async fn view(
 ///           "schema": {
 ///             "type": "object",
 ///             "additionalProperties": false,
-///             "required": [
-///               "approve",
-///               "organization_id",
-///               "workspace_id",
-///               "allowed_models",
-///               "ttl_seconds"
+///             "required": ["approve"],
+///             "oneOf": [
+///               {"properties": {"approve": {"enum": [false]}}},
+///               {"properties": {"approve": {"enum": [true]}}, "required": ["organization_id", "workspace_id", "allowed_models", "ttl_seconds", "invocation_allowed", "invocation_protocols"]}
 ///             ],
 ///             "properties": {
 ///               "approve": {
@@ -376,6 +412,46 @@ pub async fn view(
 ///                 "type": "integer",
 ///                 "minimum": 60,
 ///                 "maximum": 86400
+///               },
+///               "invocation_allowed": {
+///                 "type": "boolean",
+///                 "description": "Required on approval. Whether the issued credential may dispatch inference at all. False preserves separately granted discovery and management access. There is no omitted default; an absent value is rejected."
+///               },
+///               "invocation_protocols": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "maxItems": 7,
+///                 "uniqueItems": true,
+///                 "items": {
+///                   "type": "string",
+///                   "enum": [
+///                     "chat",
+///                     "responses",
+///                     "messages",
+///                     "content",
+///                     "embeddings",
+///                     "video",
+///                     "decisions"
+///                   ]
+///                 },
+///                 "description": "Exact model interfaces approved for invocation. Required when invocation_allowed is true; when invocation is disabled, omission is treated as all interfaces for compatibility and has no paid effect."
+///               },
+///               "capabilities": {
+///                 "type": "array",
+///                 "maxItems": 6,
+///                 "uniqueItems": true,
+///                 "items": {
+///                   "type": "string",
+///                   "enum": [
+///                     "pools:read",
+///                     "pools:write",
+///                     "events:read",
+///                     "events:write",
+///                     "evaluations:read",
+///                     "evaluations:write"
+///                   ]
+///                 },
+///                 "description": "Optional narrowed management capabilities approved by the human reviewer. When omitted, requested capabilities are preserved."
 ///               }
 ///             }
 ///           }
@@ -393,14 +469,28 @@ pub async fn decide(
 ) -> Result<StatusCode, ApiError> {
     super::passwords::runtime(&state)?.require_origin(&headers)?;
     code(&user_code)?;
-    let auth = super::authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        input.organization_id,
-        input.workspace_id,
-    )
-    .await?;
+    let auth = match (input.organization_id, input.workspace_id) {
+        (Some(organization), Some(workspace)) => {
+            super::authorize_project(
+                &state,
+                &headers,
+                AdminPermission::Write,
+                organization,
+                workspace,
+            )
+            .await?
+        }
+        (None, None) if !input.approve => {
+            state
+                .authorize_admin_headers(&headers, AdminPermission::Write)
+                .await?
+        }
+        _ => {
+            return Err(ApiError::invalid_request(
+                "Select a workspace to authorize this connection",
+            ));
+        }
+    };
     let AdminAuthorization::Operator(actor) = auth else {
         return Err(ApiError::forbidden());
     };
@@ -412,11 +502,20 @@ pub async fn decide(
             .map_err(ApiError::from_store)?;
         return Ok(StatusCode::NO_CONTENT);
     }
+    let organization = input
+        .organization_id
+        .ok_or_else(|| ApiError::invalid_request("Select a workspace"))?;
+    let workspace = input
+        .workspace_id
+        .ok_or_else(|| ApiError::invalid_request("Select a workspace"))?;
+    let ttl_seconds = input
+        .ttl_seconds
+        .ok_or_else(|| ApiError::invalid_request("Select a credential lifetime"))?;
     let scope = TenantScope {
-        organization_id: input.organization_id,
-        project_id: input.workspace_id,
+        organization_id: organization,
+        project_id: workspace,
     };
-    let mut models = crate::vendors::scoped_models(&state, input.organization_id).await?;
+    let mut models = crate::vendors::scoped_models(&state, organization).await?;
     models.extend(crate::codex::private_models(&state, scope).await?);
     let wildcard = input.allowed_models.len() == 1 && input.allowed_models[0] == "*";
     if !wildcard
@@ -429,14 +528,48 @@ pub async fn decide(
             "Every granted model must exist in this workspace",
         ));
     }
+    let invocation_allowed = input.invocation_allowed.ok_or_else(|| {
+        ApiError::invalid_request(
+            "Choose whether this connection may make paid model calls before approving it",
+        )
+    })?;
+    let invocation_protocols = match input.invocation_protocols {
+        Some(protocols) => protocols,
+        None if invocation_allowed => {
+            return Err(ApiError::invalid_request(
+                "Choose the model interfaces this connection may use before approving paid calls",
+            ));
+        }
+        None => niu_storage::INVOCATION_PROTOCOLS
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect(),
+    };
+    if !niu_storage::valid_invocation_protocols(&invocation_protocols) {
+        return Err(ApiError::invalid_request(
+            "Choose at least one supported model interface without duplicates",
+        ));
+    }
+    if input
+        .capabilities
+        .as_deref()
+        .is_some_and(|caps| !niu_storage::valid_agent_capabilities(caps))
+    {
+        return Err(ApiError::invalid_request(
+            "capabilities must contain only supported management scopes without duplicates",
+        ));
+    }
     state
         .store
-        .approve_agent_authorization(
+        .approve_agent_authorization_with_capabilities_and_scope(
             &user_code,
             scope,
             actor.id,
             &input.allowed_models,
-            input.ttl_seconds,
+            ttl_seconds,
+            invocation_allowed,
+            &invocation_protocols,
+            input.capabilities.as_deref(),
         )
         .await
         .map_err(ApiError::from_store)?;
@@ -450,7 +583,7 @@ pub async fn decide(
 ///   "operation": {
 ///     "operationId": "exchangeAgentAuthorization",
 ///     "summary": "Exchange an approved agent request for scoped access",
-///     "description": "Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key and consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.",
+///     "description": "Agent supplies the private device secret. Pending polls are durably limited to a five-second interval. Approved exchange atomically issues one finite workspace model API key with the exact approved model names, invocation switch and model interfaces, then consumes the request. Repeat, denied, expired or revoked-approver exchanges are refused. A lost successful response cannot retrieve the secret; review/revoke the issued key before a new authorization. No-store. This grants inference and request evidence access, not platform administration.",
 ///     "security": [],
 ///     "x-niu-implementation": "implemented",
 ///     "responses": {

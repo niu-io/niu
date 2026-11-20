@@ -5,7 +5,7 @@ const root = new URL('..', import.meta.url).pathname;
 
 function walk(dir, files = []) {
   for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === 'dist') continue;
+    if (entry === 'node_modules' || entry === 'dist' || entry === '.react-router') continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       walk(full, files);

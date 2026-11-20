@@ -51,11 +51,9 @@ No path, query, or header parameters are declared.
   "properties": {
     "client_name": {
       "type": "string",
-      "enum": [
-        "Claude Code",
-        "Codex",
-        "DeepSeek Harness"
-      ]
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Self-reported coding-agent client name (trimmed printable characters, 1-80 characters; for example Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or a custom agent)."
     },
     "capabilities": {
       "type": "array",
@@ -73,6 +71,12 @@ No path, query, or header parameters are declared.
         ]
       },
       "description": "Additional workspace management rights, requiring explicit browser approval. Empty by default; no platform administration."
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Self-reported task context shown to the approver. It is not authority and is never used for backend permission checks."
     }
   }
 }

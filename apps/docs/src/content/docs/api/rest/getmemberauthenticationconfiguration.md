@@ -61,7 +61,8 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "password_login",
-    "browser_token_login"
+    "browser_token_login",
+    "registration_mode"
   ],
   "properties": {
     "password_login": {
@@ -72,6 +73,14 @@ Content type: `application/json`.
     },
     "demo_login": {
       "type": "boolean"
+    },
+    "registration_mode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "approval_required"
+      ],
+      "description": "Public registration capability: disabled (invite/admin setup only) or approval_required (Limited Preview)."
     }
   }
 }

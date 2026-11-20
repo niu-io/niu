@@ -739,6 +739,7 @@ pub(super) async fn draft_route(
     ApiError,
 > {
     let scope = principal.scope();
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     let published = crate::vendors::publication::snapshot(state).await?;
     let route_generation = published.as_ref().map(|published| published.generation);
     let (route, owner_funded) = if let Some(published) = &published {
@@ -753,9 +754,7 @@ pub(super) async fn draft_route(
         let metadata = &configured.metadata;
         if !metadata.vendor.enabled
             || !metadata.model.enabled
-            || metadata
-                .personal_organization_id
-                .is_some_and(|owner| owner != scope.organization_id)
+            || !metadata.visible_to(Some(scope.organization_id), allow_internal)
         {
             return Err(ApiError::not_found());
         }
@@ -769,6 +768,7 @@ pub(super) async fn draft_route(
             || live.route.vendor.revision != metadata.vendor.revision
             || live.route.model.revision != metadata.model.revision
             || live.route.personal_organization_id != metadata.personal_organization_id
+            || live.route.access_scope() != metadata.access_scope()
         {
             return Err(ApiError::from_store(
                 niu_storage::StoreError::ManagedRouteChanged,
@@ -783,6 +783,7 @@ pub(super) async fn draft_route(
                 vendor: metadata.vendor.clone(),
                 model: metadata.model.clone(),
                 personal_organization_id: metadata.personal_organization_id,
+                access_scope: live.route.access_scope,
                 credential_ciphertext: live.route.credential_ciphertext,
             },
             owner_funded,
@@ -790,7 +791,7 @@ pub(super) async fn draft_route(
     } else {
         let personal = state
             .store
-            .personal_vendor_route(scope.organization_id, model)
+            .accessible_vendor_route(scope.organization_id, model, allow_internal)
             .await
             .map_err(ApiError::from_store)?;
         let owner_funded = personal.is_some();
@@ -881,6 +882,16 @@ pub(super) async fn draft_terms(
     let selling = if owner_funded {
         None
     } else {
+        if schema
+            .output
+            .as_ref()
+            .is_some_and(|output| output.allow_unmapped_output)
+            && request.effective_output().is_none()
+        {
+            return Err(ApiError::unsupported_message(
+                "Customer-funded video requires a mapped output specification for this resolution and aspect ratio",
+            ));
+        }
         let resolution = request
             .effective_controls()
             .get("resolution")
@@ -959,6 +970,7 @@ pub(super) async fn validate_admission(
         draft_route(state, principal, model).await?;
     let scope = principal.scope();
     let openrouter = schema.channel == niu_media::openrouter::REVISION;
+    let babelark = schema.channel == niu_media::babelark_video::REVISION;
     if workspace.has_references() && schema.channel != "ark-direct-v1" {
         return Err(ApiError::unsupported_message(
             "This video channel does not support workspace image references",
@@ -969,12 +981,19 @@ pub(super) async fn validate_admission(
             "This video channel does not support ingested image references",
         ));
     }
-    if (schema.channel != "ark-direct-v1" && !openrouter) || body.get("callback_url").is_some() {
+    if (schema.channel != "ark-direct-v1" && !openrouter && !babelark)
+        || body.get("callback_url").is_some()
+    {
         return Err(ApiError::unsupported_message(
             "This video channel or notification contract is not implemented",
         ));
     }
-    if openrouter && (!owner_funded || route.vendor.adapter != "openrouter") {
+    if (openrouter || babelark) && !owner_funded {
+        return Err(ApiError::unsupported_message(
+            "This video channel requires a personal owner-funded route",
+        ));
+    }
+    if openrouter && route.vendor.adapter != "openrouter" {
         return Err(ApiError::unsupported_message(
             "OpenRouter video requires a personal route; customer billing is not qualified",
         ));
@@ -1023,9 +1042,14 @@ pub(super) async fn validate_admission(
             ApiError::unsupported_message("This OpenRouter video control or input is not supported")
         })?;
     }
+    if babelark {
+        niu_media::babelark_video::submission_body(&request).map_err(|_| {
+            ApiError::unsupported_message("This BabelArk video control or input is not supported")
+        })?;
+    }
     if request.effective_output().is_some_and(|output| {
         output.estimator.meter()
-            != if openrouter {
+            != if openrouter || babelark {
                 "seconds"
             } else {
                 "video_tokens"
@@ -1056,17 +1080,15 @@ pub(super) async fn validate_admission(
                                 *p == position && *kind == "image_url" && *uri == url
                             })
                     })
-                    || matches!(item["type"].as_str(), Some("audio_url" | "video_url"))
-                        && !item[item["type"].as_str().unwrap()]["url"]
-                            .as_str()
-                            .is_some_and(|url| {
+                    || item["type"].as_str().is_some_and(|kind| {
+                        matches!(kind, "audio_url" | "video_url")
+                            && !item[kind]["url"].as_str().is_some_and(|url| {
                                 url.starts_with("https://")
-                                    || provider_references.iter().any(|(p, kind, uri)| {
-                                        *p == position
-                                            && *kind == item["type"].as_str().unwrap()
-                                            && *uri == url
+                                    || provider_references.iter().any(|(p, ref_kind, uri)| {
+                                        *p == position && *ref_kind == kind && *uri == url
                                     })
                             })
+                    })
             })
         })
     {
@@ -1192,7 +1214,9 @@ pub(super) async fn estimate_as(
         ..
     } = validate_admission(&state, &principal, &body, model).await?;
     let output = request.effective_output().ok_or_else(|| {
-        ApiError::unsupported_message("No effective video output estimator is configured")
+        ApiError::unsupported_message(
+            "No output estimate is available for this video configuration",
+        )
     })?;
     let usage = output
         .estimate(niu_metered_cost::Quantity::integer(0))
@@ -1648,7 +1672,9 @@ pub(in crate::web) async fn create(
     Json(body): Json<Value>,
 ) -> Result<axum::response::Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_invocation_headers(&headers, "video")
+        .await?;
     let identity = submission_identity(&headers, &body)?;
     create_as(state, body, principal, identity, None).await
 }
@@ -1709,13 +1735,9 @@ async fn replay_submission(
         })),
     )
         .into_response();
-    response.headers_mut().insert(
-        "x-niu-attempt-id",
-        attempt
-            .to_string()
-            .parse()
-            .expect("UUID is an HTTP header value"),
-    );
+    if let Ok(value) = attempt.to_string().parse() {
+        response.headers_mut().insert("x-niu-attempt-id", value);
+    }
     Ok(response)
 }
 
@@ -1726,6 +1748,14 @@ pub(super) async fn create_as(
     identity: Option<SubmissionIdentity>,
     expected_owner_funded: Option<bool>,
 ) -> Result<axum::response::Response, ApiError> {
+    if !principal.invocation_allowed() {
+        return Err(ApiError::from_store(
+            niu_storage::StoreError::InvocationDenied,
+        ));
+    }
+    if !principal.allows_invocation_protocol("video") {
+        return Err(ApiError::invocation_protocol_not_authorized());
+    }
     let model = body
         .get("model")
         .and_then(Value::as_str)
@@ -1914,14 +1944,21 @@ pub(super) async fn create_as(
     let endpoint = format!(
         "{}/{}",
         route.vendor.api_base.trim_end_matches('/'),
-        if schema.channel == niu_media::openrouter::REVISION {
+        if schema.channel == niu_media::openrouter::REVISION
+            || schema.channel == niu_media::babelark_video::REVISION
+        {
             "videos"
         } else {
             "contents/generations/tasks"
         }
     );
-    let timeout =
-        std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60));
+    let timeout = std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(
+        if schema.channel == niu_media::babelark_video::REVISION {
+            300
+        } else {
+            60
+        },
+    ));
     // Verify endpoint policy before committing dispatch intent. Transport repeats
     // this check; if it later fails, intent remains conservatively unresolved.
     crate::upstream::client_for_endpoint(&endpoint, timeout)
@@ -2217,13 +2254,9 @@ pub(super) async fn create_as(
         })),
     )
         .into_response();
-    response.headers_mut().insert(
-        "x-niu-attempt-id",
-        attempt
-            .to_string()
-            .parse()
-            .expect("UUID is an HTTP header value"),
-    );
+    if let Ok(value) = attempt.to_string().parse() {
+        response.headers_mut().insert("x-niu-attempt-id", value);
+    }
     // Only the inspected customer request belongs in Logs. Upstream transport
     // bodies, credentials and result references have a different trust boundary.
     // Replays return above and cannot replace the original capture or its expiry.
@@ -2313,16 +2346,26 @@ async fn authorize_refresh_for_principal(
         .personal_vendor_organization(route.vendor_id)
         .await
         .map_err(ApiError::from_store)?;
+    let internal_shared = state.operating_mode == crate::state::OperatingMode::Internal
+        && state
+            .store
+            .vendor_access_scope(route.vendor_id)
+            .await
+            .map_err(ApiError::from_store)?
+            == Some(niu_storage::VendorAccessScope::Internal);
+    let owner_funded = owner.is_some();
+    let owned_by_workspace = owner == Some(scope.organization_id) || internal_shared;
     let priced = state
         .store
         .customer_media_is_priced(scope, id)
         .await
         .map_err(ApiError::from_store)?;
     let openrouter = route.channel == niu_media::openrouter::REVISION;
-    if (route.channel != "ark-direct-v1" && !openrouter)
-        || (openrouter
-            && (route.adapter != "openrouter" || priced || owner != Some(scope.organization_id)))
-        || (owner != Some(scope.organization_id) && !(owner.is_none() && priced))
+    let babelark = route.channel == niu_media::babelark_video::REVISION;
+    if (route.channel != "ark-direct-v1" && !openrouter && !babelark)
+        || (openrouter && (route.adapter != "openrouter" || priced || !owned_by_workspace))
+        || (babelark && (priced || !owner_funded || !owned_by_workspace))
+        || (!owned_by_workspace && !(!owner_funded && priced))
     {
         return Err(ApiError::unsupported_message(
             "This video recovery channel is not implemented",
@@ -2415,6 +2458,7 @@ async fn query_and_apply_refresh(
     route: &niu_storage::MediaRecoveryRoute,
     openrouter: bool,
 ) -> CoalescedRefreshResult {
+    let babelark = route.channel == niu_media::babelark_video::REVISION;
     let cipher = state
         .vendor_cipher
         .as_ref()
@@ -2422,24 +2466,51 @@ async fn query_and_apply_refresh(
     let token = cipher
         .open(route.vendor_id, &route.credential_ciphertext)
         .map_err(|_| ApiError::unavailable())?;
-    let mut endpoint = url::Url::parse(&format!(
-        "{}/contents/generations/tasks",
-        route.api_base.trim_end_matches('/')
-    ))
+    let mut endpoint = if babelark {
+        url::Url::parse(&format!(
+            "{}/videos/{}",
+            route.api_base.trim_end_matches('/'),
+            route.upstream_job_id
+        ))
+    } else {
+        url::Url::parse(&format!(
+            "{}/contents/generations/tasks",
+            route.api_base.trim_end_matches('/')
+        ))
+    }
     .map_err(|_| ApiError::unavailable())?;
-    endpoint
-        .path_segments_mut()
-        .map_err(|_| ApiError::unavailable())?
-        .push(&route.upstream_job_id);
+    if !babelark {
+        endpoint
+            .path_segments_mut()
+            .map_err(|_| ApiError::unavailable())?
+            .push(&route.upstream_job_id);
+    }
     let protocol = niu_media::query::DirectQueryProtocol {
-        revision: "ark-direct-v1".into(),
-        meter: "video_tokens".into(),
+        revision: if babelark {
+            niu_media::babelark_video::REVISION.into()
+        } else {
+            "ark-direct-v1".into()
+        },
+        meter: if babelark {
+            "seconds".into()
+        } else {
+            "video_tokens".into()
+        },
         maximum_body_bytes: 64 * 1024,
         maximum_url_bytes: 8192,
     };
     let clock = TransportClock::start();
     let result = if openrouter {
         niu_media::openrouter::query_job(
+            &route.api_base,
+            &token,
+            &route.upstream_job_id,
+            &route.upstream_model,
+            std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60)),
+        )
+        .await
+    } else if babelark {
+        niu_media::babelark_video::query_job(
             &route.api_base,
             &token,
             &route.upstream_job_id,

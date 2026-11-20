@@ -45,7 +45,7 @@ Generate API references and tool schemas from maintained contracts where feasibl
 
 Host-specific pages contain only installation/configuration differences, supported versions, permissions, lifecycle behavior and limitations. Share task semantics across host integrations. Distinguish host hooks from Niu event delivery. State current secure authentication and review procedures; do not document a planned OAuth or approval flow as available.
 
-Retain stable routes, anchors and redirects during restructuring. Public `/docs/` and embedded `/help/` remain different presentations of the same documentation artifact; preserve repository ownership and independent community builds.
+Retain stable routes, anchors and redirects during restructuring. The dashboard links to the standalone `/docs/` artifact, and the Gateway redirects legacy `/help/` bookmarks. Preserve repository ownership and independent community builds.
 
 ## Verification
 

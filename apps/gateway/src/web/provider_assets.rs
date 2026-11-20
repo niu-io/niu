@@ -21,7 +21,7 @@ use niu_media::fastrouter_domain::{
 use niu_storage::{
     Principal, WorkspaceProviderAssetDiagnostic, WorkspaceProviderAssetFailureCategory,
     WorkspaceProviderAssetFailurePhase, WorkspaceProviderAssetMutation,
-    WorkspaceProviderAssetOutcome, WorkspaceProviderAssetRoute,
+    WorkspaceProviderAssetOutcome, WorkspaceProviderAssetRoute, WorkspaceProviderAssetSource,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -66,7 +66,8 @@ pub(super) enum AssetKind {
 pub(super) struct CreateAsset {
     model: String,
     group_id: Uuid,
-    url: String,
+    url: Option<String>,
+    workspace_asset_id: Option<Uuid>,
     name: Option<String>,
     kind: AssetKind,
 }
@@ -90,6 +91,18 @@ fn query<T>(result: Result<Query<T>, QueryRejection>) -> Result<T, ApiError> {
     result
         .map(|Query(value)| value)
         .map_err(|_| ApiError::invalid_request("Invalid Provider asset query"))
+}
+fn create_asset_source(
+    url: Option<String>,
+    workspace_asset_id: Option<Uuid>,
+) -> Result<WorkspaceProviderAssetSource, ApiError> {
+    match (url, workspace_asset_id) {
+        (Some(url), None) => Ok(WorkspaceProviderAssetSource::Url(url)),
+        (None, Some(id)) => Ok(WorkspaceProviderAssetSource::WorkspaceAsset(id)),
+        _ => Err(ApiError::invalid_request(
+            "Provide exactly one of url or workspace_asset_id",
+        )),
+    }
 }
 fn revision(value: Option<String>) -> Result<Option<i64>, ApiError> {
     value
@@ -165,6 +178,7 @@ pub(super) async fn admit_with_context(
         return Err(ApiError::invalid_request("Invalid model"));
     }
     let scope = principal.scope();
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     let published = match &context.published {
         Some(published) => published.clone(),
         None => {
@@ -185,9 +199,7 @@ pub(super) async fn admit_with_context(
         let metadata = &configured.metadata;
         if !metadata.vendor.enabled
             || !metadata.model.enabled
-            || metadata
-                .personal_organization_id
-                .is_some_and(|owner| owner != scope.organization_id)
+            || !metadata.visible_to(Some(scope.organization_id), allow_internal)
         {
             return Err(ApiError::not_found());
         }
@@ -201,6 +213,7 @@ pub(super) async fn admit_with_context(
             || live.route.vendor.revision != metadata.vendor.revision
             || live.route.model.revision != metadata.model.revision
             || live.route.personal_organization_id != metadata.personal_organization_id
+            || live.route.access_scope() != metadata.access_scope()
         {
             return Err(ApiError::from_store(
                 niu_storage::StoreError::ManagedRouteChanged,
@@ -212,7 +225,7 @@ pub(super) async fn admit_with_context(
         live.route
     } else if let Some(route) = state
         .store
-        .personal_vendor_route(scope.organization_id, model)
+        .accessible_vendor_route(scope.organization_id, model, allow_internal)
         .await
         .map_err(ApiError::from_store)?
     {
@@ -477,10 +490,60 @@ async fn mutate_with_route(
         .await
         .map_err(ApiError::from_store)?
     {
-        let outcome = match client
-            .execute(action, prepared.request_body(), limits(state))
-            .await
-        {
+        // A workspace-material source is resolved only after the durable claim
+        // and current route/policy admission. The short-lived capability URL is
+        // never persisted and never reused for another operation.
+        let mut dispatch_body = prepared.request_body().clone();
+        if let Some(asset_id) = prepared.workspace_asset_id() {
+            let access = match state
+                .store
+                .issue_workspace_asset_source_access(&principal, asset_id)
+                .await
+            {
+                Ok(Some(access)) => access,
+                Ok(None) => {
+                    state
+                        .store
+                        .record_workspace_provider_asset_outcome(
+                            principal.scope(),
+                            operation_id,
+                            WorkspaceProviderAssetOutcome::NotDispatched,
+                        )
+                        .await
+                        .map_err(ApiError::from_store)?;
+                    return Err(ApiError::not_found());
+                }
+                Err(error) => {
+                    state
+                        .store
+                        .record_workspace_provider_asset_outcome(
+                            principal.scope(),
+                            operation_id,
+                            WorkspaceProviderAssetOutcome::NotDispatched,
+                        )
+                        .await
+                        .map_err(ApiError::from_store)?;
+                    return Err(ApiError::from_store(error));
+                }
+            };
+            let url = match state.config.server.image_source_url(access.token()) {
+                Ok(url) => url,
+                Err(_) => {
+                    state
+                        .store
+                        .record_workspace_provider_asset_outcome(
+                            principal.scope(),
+                            operation_id,
+                            WorkspaceProviderAssetOutcome::NotDispatched,
+                        )
+                        .await
+                        .map_err(ApiError::from_store)?;
+                    return Err(ApiError::workspace_asset_source_unavailable());
+                }
+            };
+            dispatch_body["URL"] = json!(url);
+        }
+        let outcome = match client.execute(action, &dispatch_body, limits(state)).await {
             Ok(response) => {
                 if matches!(
                     action,
@@ -1420,8 +1483,12 @@ pub(super) async fn delete_group(
 ///             "required": [
 ///               "model",
 ///               "group_id",
-///               "url",
 ///               "kind"
+///             ],
+///             "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+///             "oneOf": [
+///               { "required": ["url"] },
+///               { "required": ["workspace_asset_id"] }
 ///             ],
 ///             "properties": {
 ///               "model": {
@@ -1434,7 +1501,14 @@ pub(super) async fn delete_group(
 ///               "url": {
 ///                 "type": "string",
 ///                 "maxLength": 8192,
-///                 "format": "uri"
+///                 "format": "uri",
+///                 "writeOnly": true,
+///                 "description": "Public HTTPS source. Not retained in operation history."
+///               },
+///               "workspace_asset_id": {
+///                 "type": "string",
+///                 "format": "uuid",
+///                 "description": "Active workspace material; the Gateway mints a short-lived public fetch capability only at dispatch."
 ///               },
 ///               "name": {
 ///                 "type": "string",
@@ -1477,7 +1551,7 @@ pub(super) async fn create_asset(
         &input.model,
         WorkspaceProviderAssetMutation::CreateAsset {
             group_id: input.group_id,
-            url: input.url,
+            source: create_asset_source(input.url, input.workspace_asset_id)?,
             name: input.name,
             kind,
         },
@@ -2911,7 +2985,8 @@ pub(super) enum OperationInput {
     CreateAsset {
         model: String,
         group_id: Uuid,
-        url: String,
+        url: Option<String>,
+        workspace_asset_id: Option<Uuid>,
         name: Option<String>,
         kind: AssetKind,
     },
@@ -2974,13 +3049,14 @@ impl OperationInput {
                 model,
                 group_id,
                 url,
+                workspace_asset_id,
                 name,
                 kind,
             } => (
                 model,
                 M::CreateAsset {
                     group_id,
-                    url,
+                    source: create_asset_source(url, workspace_asset_id)?,
                     name,
                     kind: match kind {
                         AssetKind::Image => FastRouterAssetKind::Image,
@@ -3235,8 +3311,12 @@ fn required_idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
 ///             "action",
 ///             "model",
 ///             "group_id",
-///             "url",
 ///             "kind"
+///           ],
+///           "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+///           "oneOf": [
+///             { "required": ["url"] },
+///             { "required": ["workspace_asset_id"] }
 ///           ],
 ///           "properties": {
 ///             "action": {
@@ -3254,6 +3334,11 @@ fn required_idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
 ///               "type": "string",
 ///               "format": "uri",
 ///               "writeOnly": true
+///             },
+///             "workspace_asset_id": {
+///               "type": "string",
+///               "format": "uuid",
+///               "description": "Active workspace material; resolved to a short-lived capability only at dispatch."
 ///             },
 ///             "name": {
 ///               "type": "string"

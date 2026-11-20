@@ -75,9 +75,7 @@ Content type: `application/json`.
           "id": {
             "type": "string",
             "enum": [
-              "epay",
-              "stripe",
-              "zhifux"
+              "stripe"
             ]
           },
           "name": {

@@ -1,3 +1,6 @@
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
+import { IconHistory } from '@tabler/icons-react';
+import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -8,9 +11,9 @@ import { TableSkeleton } from '@/components/PageSkeletons';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { request } from '@/features/providers/api';
 
-type Change = { assignment_revision: number; policy_revision: number | null; policy_name: string | null; actor_name: string; created_at: string };
+type Change = { assignment_revision: number; policy_revision: number | null; mode?: 'fixed' | 'active'; policy_name: string | null; actor_name: string; created_at: string };
 type Page = { data: Change[]; next_cursor: number | null };
-const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
+const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 
 export default function KeyGuardrailHistory({ token, endpoint }: { token: string; endpoint: string }) {
   const { t: uiT, format: uiF } = useUILocale();
@@ -49,14 +52,14 @@ export default function KeyGuardrailHistory({ token, endpoint }: { token: string
         {rows.length > 0 && <Table className="min-w-[520px] table-fixed">
           <TableHeader><TableRow><TableHead>{uiT("Policy change")}</TableHead><TableHead>{uiT("Changed by")}</TableHead><TableHead>{uiT("Date")}</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map(row => <TableRow key={row.assignment_revision}>
-            <TableCell className="whitespace-normal break-words">{row.policy_revision === null ? uiT("Key policy removed") : uiF("{0} · Version {1}", [row.policy_name || uiT("Saved policy"), row.policy_revision])}</TableCell>
+            <TableCell className="whitespace-normal break-words">{row.mode === 'active' ? uiT("Follows workspace policy") : row.policy_revision === null ? uiT("Key policy removed") : uiF("{0} · Version {1}", [row.policy_name || uiT("Saved policy"), row.policy_revision])}</TableCell>
             <TableCell className="whitespace-normal break-words">{row.actor_name || uiT("Name unavailable")}</TableCell>
             <TableCell className="whitespace-normal break-words">{date(row.created_at)}</TableCell>
           </TableRow>)}</TableBody>
         </Table>}
         {loading && !rows.length && <TableSkeleton columns={3} rows={3} label={uiT("Loading assignment history…")} />}
         {loading && rows.length > 0 && <p role="status" className="text-sm text-muted-foreground">{uiT("Loading assignment history…")}</p>}
-        {error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert> : !loading && !rows.length && <p>{uiT("No recorded assignment changes. Changes before history tracking are unavailable.")}</p>}
+        {error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert> : !loading && !rows.length && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No recorded assignment changes. Changes before history tracking are unavailable.")}</EmptyDescription></EmptyHeader></Empty>}
         {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>{uiT("Load older changes")}</Button>}
         <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>{uiT("Close")}</Button></DialogFooter>
       </DialogContent>

@@ -204,7 +204,7 @@ impl Store {
             .bind(limit + 1)
             .fetch_all(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(data)
     }
     pub async fn generations_chat_session(
@@ -223,7 +223,7 @@ impl Store {
                 .fetch_optional(&mut *tx)
                 .await?;
         let Some((summary, bytes)) = metadata else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         if bytes > 32 * 1024 * 1024 {
@@ -238,7 +238,7 @@ impl Store {
         let Some(payload) = payloads.pop() else {
             return Err(StoreError::Conflict);
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         let projected = if bytes >= 64 * 1024 {
             let owner = owner.to_owned();
             tokio::task::spawn_blocking(move || {

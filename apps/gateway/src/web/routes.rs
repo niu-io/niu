@@ -12,6 +12,8 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use tower_http::compression::{CompressionLayer, predicate::NotForContentType};
+
 use crate::{error::ApiError, state::AppState};
 
 use super::inference::{chat, embeddings, generate_content, messages, responses};
@@ -459,6 +461,16 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(DefaultBodyLimit::max(450000)),
     )
     .dual_route(
+        "/platform/payments/bank",
+        get(crate::payments::bank::read)
+            .put(crate::payments::bank::save)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
+        "/organizations/{organization}/billing/bank",
+        get(crate::payments::bank::customer),
+    )
+    .dual_route(
         "/platform/payments/integrations",
         get(crate::payments::integrations),
     )
@@ -579,6 +591,27 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
             .delete(crate::providers::delete)
             .layer(DefaultBodyLimit::max(16384)),
     )
+    .dual_route("/providers/presets", get(crate::providers::presets))
+    .dual_route(
+        "/providers/{provider}/metadata",
+        get(crate::providers::adapter_metadata),
+    )
+    .dual_route(
+        "/providers/{provider}/pricing",
+        get(crate::providers::adapter_pricing).post(crate::providers::capture_adapter_pricing),
+    )
+    .dual_route(
+        "/providers/{provider}/pricing/history",
+        get(crate::providers::price_history),
+    )
+    .dual_route(
+        "/providers/{provider}/pricing/{revision}",
+        get(crate::providers::price_evidence),
+    )
+    .dual_route(
+        "/providers/{provider}/estimate",
+        post(crate::providers::estimate_pricing).layer(DefaultBodyLimit::max(16384)),
+    )
     .dual_route(
         "/providers",
         get(crate::providers::list).post(crate::providers::create),
@@ -592,14 +625,6 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         axum::routing::put(crate::providers::set_member),
     )
     .dual_route(
-        "/providers/{provider}/qualification",
-        axum::routing::put(crate::providers::qualify_business),
-    )
-    .dual_route(
-        "/providers/{provider}/qualification/revoke",
-        axum::routing::post(crate::providers::revoke_business_qualification),
-    )
-    .dual_route(
         "/providers/{provider}/offers",
         get(crate::providers::offers).post(crate::providers::publish_offer),
     )
@@ -610,6 +635,10 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
     .dual_route(
         "/providers/{provider}/settlements",
         get(crate::providers::settlement_history).post(crate::providers::record_settlement),
+    )
+    .dual_route(
+        "/providers/{provider}/settlements/preview",
+        get(crate::providers::preview_settlement),
     )
     .dual_route(
         "/providers/{provider}/administration",
@@ -632,12 +661,12 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::providers::offer_revision),
     )
     .dual_route(
-        "/providers/{provider}/offers/{offer}/qualification",
-        axum::routing::put(crate::providers::qualify_offer),
+        "/providers/{provider}/offers/{offer}/authorization",
+        axum::routing::put(crate::providers::authorize_offer),
     )
     .dual_route(
-        "/providers/{provider}/offers/{offer}/qualification/revoke",
-        axum::routing::post(crate::providers::revoke_offer_qualification),
+        "/providers/{provider}/offers/{offer}/authorization/{authorization}",
+        axum::routing::delete(crate::providers::revoke_offer_authorization),
     )
 }
 
@@ -656,6 +685,43 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
     .dual_route(
         "/session/mode",
         axum::routing::put(crate::admin::update_admin_mode)
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/organization",
+        axum::routing::put(crate::admin::switch_session_organization)
+            .layer(DefaultBodyLimit::max(1024))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/memberships",
+        axum::routing::post(crate::admin::claim_session_membership)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/invitations",
+        axum::routing::post(super::invitations::accept_invitation)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/organizations/{organization}/invitations",
+        get(super::invitations::list_invitations)
+            .post(super::invitations::create_invitation)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/invitations/preview",
+        axum::routing::post(super::invitations::preview_invitation)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/invitations/{invitation}",
+        axum::routing::delete(super::invitations::cancel_invitation)
+            .layer(DefaultBodyLimit::max(1024))
             .layer(middleware::from_fn(password_response_headers)),
     )
     .dual_route(
@@ -722,6 +788,36 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(middleware::from_fn(password_response_headers)),
     )
     .dual_route(
+        "/auth/registrations",
+        axum::routing::post(crate::admin::registrations::submit)
+            .layer(DefaultBodyLimit::max(8192))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registration",
+        get(crate::admin::registrations::read_policy)
+            .put(crate::admin::registrations::save_policy)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registrations",
+        get(crate::admin::registrations::list)
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registrations/{registration}/approve",
+        axum::routing::post(crate::admin::registrations::approve)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/platform/registrations/{registration}/reject",
+        axum::routing::post(crate::admin::registrations::reject)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
         "/operators/{operator}/password",
         get(crate::admin::passwords::password_configuration)
             .put(crate::admin::passwords::set_password)
@@ -731,6 +827,14 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
     .dual_route(
         "/setup/default-workspace",
         axum::routing::post(crate::admin::default_workspace),
+    )
+    .dual_route(
+        "/organizations/by-route/{route_slug}",
+        get(crate::admin::organization_route),
+    )
+    .dual_route(
+        "/organizations/{organization}",
+        axum::routing::patch(crate::admin::rename_organization).layer(DefaultBodyLimit::max(1024)),
     )
     .dual_route(
         "/organizations",
@@ -748,6 +852,10 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
     .dual_route(
         "/workspaces",
         get(crate::admin::workspaces).post(crate::admin::create_workspace),
+    )
+    .route(
+        "/api/v1/workspaces/{workspace}/incidents",
+        get(crate::admin::connection_incidents::workspace_list),
     )
     .route(
         "/api/v1/workspaces/{workspace}/keys",
@@ -1007,34 +1115,45 @@ fn media_and_inference_routes(app: Router<AppState>) -> Router<AppState> {
     .route("/v1/video/jobs/{id}", get(super::inference::video::status))
     .route(
         "/v1beta/models/{model_action}",
-        post(generate_content).layer(DefaultBodyLimit::max(1_048_576)),
+        post(generate_content).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
     )
     .route(
         "/v1/messages",
-        post(messages).layer(DefaultBodyLimit::max(1_048_576)),
+        post(messages).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
     )
     .route("/v1/chat/completions", axum::routing::post(chat))
-    .route("/v1/responses", axum::routing::post(responses))
+    .route(
+        "/v1/responses",
+        axum::routing::post(responses).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
+    )
     .route("/v1/embeddings", axum::routing::post(embeddings))
+    .route(
+        "/v1/decisions",
+        post(super::decisions::create).layer(DefaultBodyLimit::max(64 * 1024)),
+    )
 }
 
 fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
     app
         .dual_route("/models", get(admin_models))
         .dual_route("/vendors/{vendor}/cooldown", get(crate::admin::vendor_cooldown::read))
+        .dual_route("/vendors/{vendor}/incidents", get(crate::admin::connection_incidents::list))
+        .dual_route("/incidents", get(crate::admin::connection_incidents::platform_list))
+        .route("/api/v1/incidents/{incident}/connection", get(crate::admin::connection_incidents::resolve_connection))
         .dual_route("/vendors/{vendor}/request-rate-limit", get(crate::admin::vendor_request_rate::read).put(crate::admin::vendor_request_rate::write))
         .dual_route("/vendors/{vendor}/request-rate-limit/history", get(crate::admin::vendor_request_rate::history))
         .dual_route("/vendors", get(crate::vendors::list).post(crate::vendors::create))
-        .route("/admin/v1/pools", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
-        .route("/api/v1/pools", axum::routing::get(crate::vendors::route_pools::collection).put(crate::vendors::route_pools::put))
-        .dual_route("/pools/index", axum::routing::get(crate::vendors::route_pools::index))
-        .route("/api/v1/pools/{reference}", axum::routing::get(crate::vendors::route_pools::member))
-        .route("/api/v1/pools/{reference}/history", axum::routing::get(crate::vendors::route_pools::member_history))
-        .route("/api/v1/pools/{reference}/preview", axum::routing::post(crate::vendors::route_pools::member_preview))
-        .route("/api/v1/pools/{reference}/audit", axum::routing::get(crate::vendors::route_pools::member_audit))
-        .dual_route("/pools/history", axum::routing::get(crate::vendors::route_pools::history))
+        .route("/admin/v1/routing", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
+        .route("/api/v1/routing", axum::routing::get(crate::vendors::route_pools::collection).put(crate::vendors::route_pools::put))
+        .dual_route("/routing/index", axum::routing::get(crate::vendors::route_pools::index))
+        .route("/api/v1/routing/{reference}", axum::routing::get(crate::vendors::route_pools::member))
+        .route("/api/v1/routing/{reference}/history", axum::routing::get(crate::vendors::route_pools::member_history))
+        .route("/api/v1/routing/{reference}/preview", axum::routing::post(crate::vendors::route_pools::member_preview))
+        .route("/api/v1/routing/{reference}/audit", axum::routing::get(crate::vendors::route_pools::member_audit))
+        .dual_route("/routing/history", axum::routing::get(crate::vendors::route_pools::history))
         .dual_route("/routing-registry", get(crate::vendors::publication::status))
         .dual_route("/vendors/{id}", axum::routing::put(crate::vendors::update))
+        .dual_route("/vendors/{id}/retire", axum::routing::post(crate::vendors::retire))
         .dual_route("/vendors/{id}/supplier", get(crate::vendors::supplier).put(crate::vendors::associate_supplier))
         .dual_route("/vendors/{id}/asset-management", get(crate::vendors::asset_management_configuration).put(crate::vendors::configure_asset_management).delete(crate::vendors::revoke_asset_management).layer(DefaultBodyLimit::max(16 * 1024)))
         .dual_route("/vendors/{id}/asset-management/authorizations", get(crate::vendors::asset_authorizations::list).post(crate::vendors::asset_authorizations::create).layer(DefaultBodyLimit::max(16 * 1024)))
@@ -1055,6 +1174,7 @@ fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
         .dual_route("/vendors/{id}/asset-management/groups", axum::routing::post(crate::vendors::asset_groups::create).layer(DefaultBodyLimit::max(16 * 1024)))
         .dual_route("/vendors/{id}/personal-owner", axum::routing::put(crate::vendors::assign_personal_owner))
         .dual_route("/vendors/{id}/models", get(crate::vendors::list_models).post(crate::vendors::upsert_model))
+        .dual_route("/vendors/{id}/import", post(crate::vendors::import_models))
         .dual_route("/vendors/{id}/catalog", get(crate::vendors::catalog).post(crate::vendors::refresh_catalog))
         .dual_route("/vendors/{id}/check", axum::routing::post(crate::vendors::check_model))
         .dual_route("/organizations/{organization}/projects/{project}/accounts", get(crate::admin::accounts).post(crate::admin::create_account))
@@ -1123,19 +1243,21 @@ pub(crate) fn router(state: AppState) -> Router {
     let app = app.merge(
         Router::new()
             .route(
-                "/api/v1/workspaces/{workspace}/pools",
+                "/api/v1/workspaces/{workspace}/routing",
                 get(super::workspace_review::pools),
             )
             .route(
-                "/api/v1/workspaces/{workspace}/pools/{slug}",
-                get(super::workspace_review::pool),
+                "/api/v1/workspaces/{workspace}/routing/{slug}",
+                get(super::workspace_review::pool)
+                    .put(super::workspace_review::put_pool)
+                    .delete(super::workspace_review::delete_pool),
             )
             .route(
-                "/api/v1/workspaces/{workspace}/pools/{slug}/history",
+                "/api/v1/workspaces/{workspace}/routing/{slug}/history",
                 get(super::workspace_review::pool_history),
             )
             .route(
-                "/api/v1/workspaces/{workspace}/pools/{slug}/selections",
+                "/api/v1/workspaces/{workspace}/routing/{slug}/selections",
                 get(super::workspace_review::pool_selections),
             )
             .route(
@@ -1156,7 +1278,8 @@ pub(crate) fn router(state: AppState) -> Router {
             )
             .route(
                 "/api/v1/workspaces/{workspace}/evaluations/{slug}",
-                get(super::workspace_review::evaluation),
+                get(super::workspace_review::evaluation)
+                    .put(super::workspace_review::put_evaluation),
             )
             .route(
                 "/api/v1/workspaces/{workspace}/evaluations/{slug}/runs",
@@ -1198,6 +1321,10 @@ pub(crate) fn router(state: AppState) -> Router {
             .route("/v1/events", get(super::workspace_events::list))
             .route("/v1/events/log", get(super::workspace_events::log))
             .route(
+                "/v1/incidents/{reference}",
+                get(super::workspace_events::incident),
+            )
+            .route(
                 "/v1/events/{slug}",
                 get(super::workspace_events::get).put(super::workspace_events::put),
             )
@@ -1213,18 +1340,20 @@ pub(crate) fn router(state: AppState) -> Router {
                 "/v1/events/{slug}/test",
                 post(super::workspace_events::test),
             )
-            .route("/v1/pools", get(super::workspace_pools::list))
-            .route("/v1/pools/preview", post(super::workspace_pools::preview))
+            .route("/v1/routing", get(super::workspace_pools::list))
+            .route("/v1/routing/preview", post(super::workspace_pools::preview))
             .route(
-                "/v1/pools/{slug}",
-                get(super::workspace_pools::get).put(super::workspace_pools::put),
+                "/v1/routing/{slug}",
+                get(super::workspace_pools::get)
+                    .put(super::workspace_pools::put)
+                    .delete(super::workspace_pools::remove),
             )
             .route(
-                "/v1/pools/{slug}/selections",
+                "/v1/routing/{slug}/selections",
                 get(super::workspace_pools::selections),
             )
             .route(
-                "/v1/pools/{slug}/history",
+                "/v1/routing/{slug}/history",
                 get(super::workspace_pools::history),
             )
             .layer(DefaultBodyLimit::max(65536))
@@ -1296,6 +1425,7 @@ pub(crate) fn router(state: AppState) -> Router {
         crate::request_source::capture,
     ))
     .layer(middleware::from_fn(request_id_correlation))
+    .layer(CompressionLayer::new().compress_when(NotForContentType::const_new("text/event-stream")))
     .with_state(state)
 }
 
@@ -1398,7 +1528,7 @@ async fn enterprise_ready(
 ///   "operation": {
 ///     "operationId": "listModels",
 ///     "summary": "List key-accessible model aliases and workspace customer prices",
-///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
+///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. Tool capability flags reflect the configured route, not a guarantee of admission or live upstream availability. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1462,6 +1592,15 @@ async fn enterprise_ready(
 ///                           "object",
 ///                           "null"
 ///                         ]
+///                       },
+///                       "capabilities": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": ["tool_calls", "streaming_tool_calls"],
+///                         "properties": {
+///                           "tool_calls": {"type": "boolean"},
+///                           "streaming_tool_calls": {"type": "boolean"}
+///                         }
 ///                       }
 ///                     }
 ///                   }
@@ -1656,7 +1795,10 @@ async fn public_models(
         .map_err(ApiError::from_store)?;
     for route in state
         .store
-        .personal_vendor_routes(principal.scope().organization_id)
+        .accessible_vendor_routes(
+            principal.scope().organization_id,
+            state.operating_mode == crate::state::OperatingMode::Internal,
+        )
         .await
         .map_err(ApiError::from_store)?
     {
@@ -1664,9 +1806,9 @@ async fn public_models(
         unit_prices.remove(&route.model.alias);
     }
     let data: Vec<_> = models
-        .keys()
-        .filter(|model| principal.allows_model(model))
-        .map(|model| {
+        .iter()
+        .filter(|(name, _)| principal.allows_model(name))
+        .map(|(model, route)| {
             let customer_pricing = if billing_mode == "credits" {
                 None
             } else {
@@ -1691,12 +1833,23 @@ async fn public_models(
                 "id": model,
                 "object": "model",
                 "owned_by": "niu",
+                "capabilities": chat_tool_capabilities(route),
                 "customer_pricing": customer_pricing,
                 "customer_unit_pricing": customer_unit_pricing
             })
         })
         .collect();
     Ok(Json(json!({"object": "list", "data": data})))
+}
+
+fn chat_tool_capabilities(model: &crate::config::ModelConfig) -> Value {
+    let tools = model.protocol().is_openai_compatible()
+        && model.protocol().supports_chat_completions()
+        && model.supports_tool_calls;
+    json!({
+        "tool_calls": tools,
+        "streaming_tool_calls": tools && model.protocol().supports_streaming() && model.supports_streaming_tool_calls
+    })
 }
 
 /// ```openapi
@@ -1742,9 +1895,31 @@ async fn public_models(
 ///                     "rate_limits",
 ///                     "usage_window",
 ///                     "allowed_cidrs",
-///                     "management_capabilities"
+///                     "management_capabilities",
+///                     "invocation_allowed",
+///                     "invocation_protocols"
 ///                   ],
 ///                   "properties": {
+///                     "invocation_allowed": {
+///                       "type": "boolean",
+///                       "description": "Current credential invocation authority, independent of discovery and resource management."
+///                     },
+///                     "invocation_protocols": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "string",
+///                         "enum": [
+///                           "chat",
+///                           "responses",
+///                           "messages",
+///                           "content",
+///                           "decisions",
+///                           "embeddings",
+///                           "video"
+///                         ]
+///                       },
+///                       "description": "Exact approved model interfaces. An interface outside this list is denied even when invocation_allowed is true."
+///                     },
 ///                     "object": {
 ///                       "type": "string",
 ///                       "const": "api_key"
@@ -2126,34 +2301,109 @@ async fn get_generation(
     })))
 }
 
+fn sanitize_public_unit_price(mut value: Value) -> Value {
+    if let Some(obj) = value.as_object_mut() {
+        obj.remove("revision");
+        obj.remove("definition_revision");
+        if let Some(media) = obj.get_mut("media_tariffs").and_then(Value::as_array_mut) {
+            for item in media {
+                if let Some(entry) = item.as_object_mut() {
+                    entry.remove("revision");
+                    entry.remove("definition_revision");
+                }
+            }
+        }
+    }
+    value
+}
+
 async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     let (models, generation_routes) = crate::vendors::generation_catalog(&state, None).await?;
+    let prices = state
+        .store
+        .public_standard_text_prices()
+        .await
+        .map_err(ApiError::from_store)?;
+    let (billing_mode, unit_prices) = state
+        .store
+        .customer_unit_model_prices()
+        .await
+        .map_err(ApiError::from_store)?;
+    let sanitized_unit_prices: std::collections::BTreeMap<String, Value> = unit_prices
+        .into_iter()
+        .map(|(alias, value)| (alias, sanitize_public_unit_price(value)))
+        .collect();
     let data: Vec<_> = models
         .iter()
         .filter(|(_, model)| model.public_catalog)
         .map(|(name, model)| {
-            let video_configuration = generation_routes.get(name)
+            let internal_shared = generation_routes
+                .get(name)
+                .is_some_and(niu_storage::VendorCatalogRoute::is_internal_shared);
+            let billing_source = if internal_shared {
+                "own_api_key"
+            } else {
+                "niu_credits"
+            };
+            let customer_pricing = if !internal_shared && billing_mode != "credits" {
+                prices.get(name).cloned()
+            } else {
+                None
+            };
+            let customer_unit_pricing = if !internal_shared && billing_mode == "credits" {
+                sanitized_unit_prices.get(name).cloned()
+            } else {
+                None
+            };
+            let video_configuration = generation_routes
+                .get(name)
                 .filter(|route| route.model.capabilities.get("video_schema").is_some())
                 .map(super::inference::video_models::configured_preview);
+            let tools = chat_tool_capabilities(model);
             json!({
                 "id": name,
                 "object": "model",
                 "owned_by": "niu",
+                "public_catalog": model.public_catalog,
                 "catalog": model.catalog.customer_metadata(),
+                "billing_mode": billing_mode,
+                "billing_source": billing_source,
+                "customer_pricing": customer_pricing,
+                "customer_unit_pricing": customer_unit_pricing,
                 "generation_capabilities": configured_generation_capabilities(model, video_configuration),
                 "capabilities": {
                     "chat_completions": video_configuration.is_none() && model.protocol().supports_chat_completions(),
                     "streaming": model.protocol().supports_streaming(),
+                    "tool_calls": tools["tool_calls"],
+                    "streaming_tool_calls": tools["streaming_tool_calls"],
                     "embeddings": model.supports_embeddings,
                     "messages": model.supports_messages,
                     "messages_streaming": model.supports_messages_streaming,
                     "generate_content": model.supports_generate_content,
-                    "responses": model.supports_responses
+                    "generate_content_streaming": model.supports_generate_content_streaming,
+                    "responses": model.supports_responses,
+                    "supports_embeddings": model.supports_embeddings,
+                    "supports_embedding_dimensions": model.supports_embedding_dimensions,
+                    "supports_embedding_base64": model.supports_embedding_base64,
+                    "supports_tool_calls": model.supports_tool_calls,
+                    "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
+                    "supports_structured_output": model.supports_structured_output,
+                    "supports_messages": model.supports_messages,
+                    "supports_messages_streaming": model.supports_messages_streaming,
+                    "supports_messages_tools": model.supports_messages_tools,
+                    "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
+                    "supports_generate_content": model.supports_generate_content,
+                    "supports_generate_content_streaming": model.supports_generate_content_streaming,
+                    "supports_responses": model.supports_responses
                 }
             })
         })
         .collect();
-    Ok(Json(json!({"object": "list", "data": data})))
+    Ok(Json(json!({
+        "object": "list",
+        "billing_mode": billing_mode,
+        "data": data
+    })))
 }
 
 #[derive(Deserialize)]
@@ -2235,7 +2485,10 @@ async fn admin_models(
         // Personal credentials do not incur a Niu customer tariff.
         for route in state
             .store
-            .personal_vendor_routes(organization_id)
+            .accessible_vendor_routes(
+                organization_id,
+                state.operating_mode == crate::state::OperatingMode::Internal,
+            )
             .await
             .map_err(ApiError::from_store)?
         {
@@ -2274,6 +2527,7 @@ async fn admin_models(
                 "supports_messages_tools": model.supports_messages_tools,
                 "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                 "supports_generate_content": model.supports_generate_content,
+                "supports_generate_content_streaming": model.supports_generate_content_streaming,
                 "supports_responses": model.supports_responses
             });
             if authorization.is_installation() {
@@ -2299,6 +2553,7 @@ async fn admin_models(
                 "supports_messages_tools": model.supports_messages_tools,
                 "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                 "supports_generate_content": model.supports_generate_content,
+                "supports_generate_content_streaming": model.supports_generate_content_streaming,
                     "supports_responses": model.supports_responses
                 })
             } else {
@@ -2463,14 +2718,14 @@ mod tests {
             );
             cursor = idx;
         }
-        // Only /admin/v1/pools is intentionally distinct from /api/v1/pools.
+        // Only /admin/v1/routing is intentionally distinct from /api/v1/routing.
         for (path, body) in &expanded {
             if let Some(suffix) = path.strip_prefix("/admin/v1") {
                 let api_twin = format!("/api/v1{suffix}");
                 let api_body = expanded
                     .get(&api_twin)
                     .unwrap_or_else(|| panic!("missing /api/v1 twin for {path}"));
-                if suffix != "/pools" {
+                if suffix != "/routing" {
                     assert_eq!(body, api_body, "route drift between {path} and {api_twin}");
                 }
             }
@@ -2487,5 +2742,37 @@ mod tests {
                 "alias handler/limit mismatch between {src} and {dst}"
             );
         }
+    }
+
+    #[test]
+    fn sanitize_public_unit_price_strips_internal_revisions() {
+        let input = json!({
+            "revision": "11111111-1111-1111-1111-111111111111",
+            "definition_revision": "22222222-2222-2222-2222-222222222222",
+            "unit_name": "Credits",
+            "display_precision": 2,
+            "atoms_per_unit": "1000000000",
+            "prompt_rate": "100",
+            "completion_rate": "200",
+            "media_tariffs": [
+                {
+                    "revision": "33333333-3333-3333-3333-333333333333",
+                    "definition_revision": "44444444-4444-4444-4444-444444444444",
+                    "channel": "default",
+                    "resolution": "720p",
+                    "reference_video": false,
+                    "meter": "second",
+                    "price": { "amount_atoms": "500" }
+                }
+            ]
+        });
+        let sanitized = sanitize_public_unit_price(input);
+        assert!(sanitized.get("revision").is_none());
+        assert!(sanitized.get("definition_revision").is_none());
+        assert_eq!(sanitized["unit_name"], "Credits");
+        let media = sanitized["media_tariffs"][0].as_object().unwrap();
+        assert!(!media.contains_key("revision"));
+        assert!(!media.contains_key("definition_revision"));
+        assert_eq!(media["channel"], "default");
     }
 }

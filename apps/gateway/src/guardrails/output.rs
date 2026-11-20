@@ -315,9 +315,16 @@ pub fn inspect(
     if paths.is_empty() || paths.len() > 4096 {
         return Err(InspectionError::ResourceLimit);
     }
-    let messages: Vec<Value> = paths.iter().map(|path| {
-        json!({"role":"assistant","content":body.pointer(path).and_then(Value::as_str).unwrap()})
-    }).collect();
+    let messages: Vec<Value> = paths
+        .iter()
+        .map(|path| {
+            let text = body
+                .pointer(path)
+                .and_then(Value::as_str)
+                .ok_or(InspectionError::UnsupportedContent)?;
+            Ok(json!({"role":"assistant","content":text}))
+        })
+        .collect::<Result<Vec<_>, InspectionError>>()?;
     let inspected = inspect_chat(&json!({"messages":messages}), rules)?;
     let mut transformed = body.clone();
     for (index, path) in paths.iter().enumerate() {

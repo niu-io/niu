@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for MessagesStreamRequest"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 /** Tool SSE requires the route's explicit supports_messages_streaming_tools opt-in. */

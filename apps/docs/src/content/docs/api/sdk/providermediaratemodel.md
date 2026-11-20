@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for ProviderMediaRateModel"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 /** Platform-administrator current qualified offer bindings for media pricing configuration. */
@@ -19,5 +19,7 @@ export type ProviderMediaRateModel = {
     channel: string;
     resolutions: string[];
     reference_video: boolean;
+    /** Billing unit derived from the model's validated output estimator; null when unavailable. */
+    meter: string | null;
 };
 ```

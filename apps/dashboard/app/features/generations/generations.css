@@ -1,8 +1,13 @@
+/* Secondary navigation has its own neutral tone on desktop and in the drawer. */
+.generations-history { --sidebar:color-mix(in srgb, var(--background) 60%, var(--card)); --sidebar-accent:color-mix(in srgb, var(--foreground) 8%, var(--sidebar)); }
+.dark .generations-history, :root[data-theme='dark'] .generations-history { --sidebar:var(--card); }
 .generations-layout { display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-rows:minmax(0,1fr); width:100%; height:100%; min-width:0; min-height:0; flex:1 1 0; overflow:hidden; }
 .generations-session { display:flex; min-width:0; min-height:0; overflow:hidden; }
 .generations-session .playground-chat-layout, .generations-session .video-shell { grid-template-columns:minmax(0,1fr); }
-.niu-workspace-sidebar .generations-history-heading, .niu-workspace-sidebar-mobile .generations-history-heading { display:flex; flex-direction:row; align-items:center; justify-content:space-between; }
+.generations-history .generations-history-heading, .niu-workspace-sidebar .generations-history-heading, .niu-workspace-sidebar-mobile .generations-history-heading { display:flex; flex-direction:row; align-items:center; justify-content:space-between; }
 .generations-history-heading h2 { margin:0; }
+.generations-history [data-slot="sidebar-content"] { display:flex; flex-direction:column; }
+.generations-mode-switch { align-items:center; gap:2px; margin:0; min-width:0; border:0; padding:2px; border-radius:var(--radius-control); background:var(--muted); }
 @media(max-width:959px) { .generations-layout { grid-template-columns:minmax(0,1fr); } }
 
 /* Both session types use the established chat text hierarchy. */
@@ -30,24 +35,114 @@
 }
 
 .generations-session { flex-direction:column; }
-.generations-session-content { display:flex; min-width:0; min-height:0; flex:1; overflow:hidden; }
-.generations-toolbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; flex-shrink:0; min-height:var(--dashboard-header-height); padding:10px 16px; border-bottom:1px solid var(--border); }
-.generations-toolbar h1 { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
-.generations-toolbar-actions { min-width:0; }
+.generations-session-content { position:relative; display:flex; min-width:0; min-height:0; flex:1; overflow:hidden; }
+.generations-session-primary { display:flex; flex-direction:column; min-width:0; min-height:0; flex:1 1 0; overflow:hidden; }
+.generations-toolbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; flex-shrink:0; min-height:var(--dashboard-header-height); padding:8px 32px; border-bottom:0; }
+.generations-toolbar:not(:has(> .playground-header-navigation)) { grid-template-columns:minmax(0,1fr) auto; }
+@media(max-width:1100px) { .generations-toolbar { padding-inline:24px; } }
+.generations-toolbar :where(h1) { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
+.generations-toolbar-actions { display:flex; align-items:center; gap:8px; min-width:0; }
 .generations-toolbar .playground-toolbar-actions { display:flex; }
-.generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr); }
-.generations-session .playground-transcript, .generations-session .playground-composer { grid-area:1 / 1; }
+.generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr) auto; }
+.generations-session .playground-transcript { grid-area:1 / 1; padding-bottom:24px; }
+.generations-session .playground-composer { grid-area:2 / 1; }
 .generations-layout { --generation-reading-width:880px; }
 .generations-layout .playground-comparison-thread, .generations-layout .playground-composer-surface { width:100%; max-width:var(--generation-reading-width); margin-inline:auto; }
-@media(max-width:640px) { .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice { width:36px; height:36px; padding:0; } .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span { display:none; } }
+.playground-composer-surface.is-blocked { min-height:132px; }
+.playground-composer-surface.is-blocked > :not(.composer-cover) { opacity:0; pointer-events:none; max-height:0; overflow:hidden; margin:0; padding:0; border:0; }
+.composer-cover { position:relative; z-index:2; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:8px; padding:16px 18px; border-radius:inherit; background:var(--card); pointer-events:auto; }
+.composer-cover :where(p) { margin:0; }
+.composer-cover-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.generations-layout .playground-composer-notices { width:100%; max-width:var(--generation-reading-width); margin:6px auto 0; padding:0 4px; color:var(--muted-foreground); font-size:12px; line-height:1.4; }
+@media(max-width:640px) { .generations-toolbar { gap:8px; padding:8px 16px; } .generations-toolbar-actions { gap:4px; } .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice, .generations-toolbar .generations-context-trigger { flex:0 0 36px; width:36px; min-width:36px; max-width:none; height:36px; padding:0; justify-content:center; } .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span, .generations-toolbar .generations-context-trigger span:not(.generations-context-trigger-count) { display:none; } }
 
-.generations-toolbar [data-slot="button"] { font-size:14px; font-weight:500; line-height:20px; }
+.generations-toolbar :where([data-slot="button"]) { font-size:14px; font-weight:500; line-height:20px; }
 .generations-layout .playground-transcript { padding-inline:clamp(14px,3vw,36px); }
+.generations-layout .playground-first-run { margin:clamp(36px, 10dvh, 96px) auto auto; }
 
-.generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:var(--border); background:var(--background); }
+.generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:transparent; background:var(--popover); box-shadow:var(--shadow-subtle); }
 .generations-history .generations-new-generation[data-variant="outline"]:hover { background:var(--accent); }
 
 /* Anchor the session list to the layout so app-level banners above it stay visible. */
 .generations-layout { position:relative; }
-.app-shell .generations-layout [data-slot="sidebar-container"].niu-workspace-sidebar { position:absolute; top:0; bottom:0; left:0; height:auto; }
-.app-shell .generations-layout [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-container"].niu-workspace-sidebar { left:0; }
+.generations-layout .generations-history[data-slot="sidebar-container"] { position:absolute; }
+.generations-run-metrics dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Route-owned chrome uses the same notice and inset rhythm as management pages. */
+.generations-session { container-type: inline-size; }
+.generations-session > .mock-payment-warning { margin-bottom: 16px; }
+
+/* Opening a saved turn keeps the readable fragment target visible. */
+.video-session-turn { scroll-margin-top: 12px; border-radius: var(--radius); }
+.video-session-turn.video-turn-target { animation: generation-turn-arrival 1.4s ease-out; }
+@keyframes generation-turn-arrival { from { background: var(--accent); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .video-session-turn.video-turn-target { animation: none; } }
+
+/* Right-hand Context sidebar for active/completed runs and deliverables. */
+.generations-context-trigger { gap: 6px; flex-shrink: 0; }
+.generations-context-trigger-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding-inline: 5px; border-radius: 999px; background: var(--muted); color: var(--muted-foreground); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media(max-width:640px) { .generations-toolbar .generations-context-trigger > span:first-of-type { display: none; } .generations-toolbar .generations-context-trigger { padding-inline: 8px; } }
+.generations-context-panel { display: flex; flex-direction: column; width: 320px; min-width: 320px; height: 100%; min-height: 0; flex-shrink: 0; border-left: 0; background: var(--sidebar); overflow: hidden; }
+@media(max-width:1100px) { .generations-context-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: 20; width: min(320px, 100%); min-width: 0; box-shadow: var(--shadow-overlay); } }
+.generations-context-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; border-bottom: 0; flex-shrink: 0; }
+.generations-context-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.generations-context-subtitle { margin: 2px 0 0; font-size: 12px; color: var(--muted-foreground); line-height: 1.3; }
+.generations-context-tabs { display: flex; flex-direction: column; min-width: 0; min-height: 0; flex: 1; overflow: hidden; }
+.generations-context-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; flex: 1; overflow-y: auto; padding: 12px; margin: 0; }
+.generations-context-runs { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.generations-run-selector { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; max-height: 200px; overflow-y: auto; padding-bottom: 4px; border-bottom: 0; }
+.generations-run-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; width: 100%; min-width: 0; padding: 9px 11px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--background) 65%, transparent); text-align: left; cursor: pointer; transition: background .15s ease, box-shadow .15s ease; }
+.generations-run-item:hover { background: var(--sidebar-accent); }
+.generations-run-item.is-selected { background: var(--popover); box-shadow: var(--shadow-subtle); }
+.generations-run-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.generations-run-item-model { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; }
+.generations-run-item-prompt { margin: 0; font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.generations-run-inspector { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 12px; padding: 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--background) 68%, transparent); }
+.generations-run-inspector-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; padding-bottom: 4px; border-bottom: 0; }
+.generations-run-progress { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--muted); font-size: 13px; }
+.generations-run-progress-title { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.generations-run-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12px; color: var(--muted-foreground); }
+.generations-run-steps li { display: flex; align-items: center; gap: 7px; }
+.generations-run-steps li.is-done { color: var(--foreground); }
+.generations-run-steps li.is-current { color: var(--primary); font-weight: 500; }
+.generations-run-step-dot { width: 6px; height: 6px; margin-inline: 4px; border-radius: 999px; background: var(--muted-foreground); opacity: .5; }
+.generations-run-metrics { display: grid; min-width: 0; gap: 8px; margin: 0; font-size: 13px; }
+.generations-run-metrics > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.generations-run-metrics dt { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted-foreground); }
+.generations-run-metrics dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-weight: 550; font-variant-numeric: tabular-nums; text-align: right; }
+.generations-run-section { display: grid; gap: 8px; padding-top: 6px; border-top: 0; }
+.generations-run-section h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+.generations-run-custom-details { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; gap: 12px; padding-top: 4px; border-top: 0; }
+.generations-run-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; border-top: 0; }
+.generations-deliverables-list { display: grid; gap: 8px; }
+.generations-deliverable-card { display: grid; gap: 10px; padding: 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--background) 68%, transparent); }
+.generations-deliverable-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.generations-deliverable-preview { margin: 0; max-height: 140px; overflow: auto; padding: 9px 11px; border-radius: 8px; background: var(--muted); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.generations-deliverable-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.playground-status-trigger { cursor: pointer; background: transparent; border: 0; padding: 0; font: inherit; display: inline-flex; align-items: center; border-radius: 999px; }
+.playground-status-trigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* Session history docks at desktop widths and uses a drawer on narrow screens. */
+.generations-layout { --context: 320px; }
+.generations-layout .generations-history[data-slot="sidebar-container"] { top: 0; left: 0; bottom: 0; right: auto; width: 320px; height: 100%; border-left: 0; }
+.generations-layout [data-collapsible="offcanvas"] .generations-history[data-slot="sidebar-container"] { left: -320px; visibility: hidden; pointer-events: none; }
+
+/* Keep the session identity and primary controls visible on narrow canvases. */
+.generations-more-actions { display: none; }
+@container (max-width: 680px) {
+  .generations-toolbar .generations-secondary-action { display: none; }
+  .generations-toolbar .generations-more-actions { display: inline-flex; }
+}
+
+/* Sidebars reduce the canvas independently of the browser viewport. */
+@container (max-width: 640px) {
+  .generations-toolbar .generations-identity { flex-direction:column; align-items:stretch; gap:0; }
+  .generations-toolbar .generations-identity > a { padding:0; background:transparent; font-size:11px; }
+  .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice { flex:0 0 36px; width:36px; min-width:36px; max-width:none; height:36px; padding:0; justify-content:center; }
+  .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span { display:none; }
+}
+
+@container (max-width: 360px) {
+  .generations-toolbar .generations-history-trigger { width:36px; height:36px; padding:0; gap:0; }
+  .generations-toolbar .generations-history-trigger > span { display:none; }
+}

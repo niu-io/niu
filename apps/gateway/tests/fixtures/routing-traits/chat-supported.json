@@ -1,0 +1,26 @@
+{
+  "model": "pool/assistant",
+  "stream": true,
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "See image" },
+        { "type": "image_url", "image_url": { "url": "https://example.invalid/image.png" } }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": { "name": "lookup", "parameters": { "type": "object" } }
+    }
+  ],
+  "tool_choice": "auto",
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": { "name": "answer", "schema": { "type": "object" } }
+  },
+  "reasoning_effort": "low",
+  "max_completion_tokens": 256
+}

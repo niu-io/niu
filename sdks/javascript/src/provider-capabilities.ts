@@ -1,13 +1,26 @@
 import type {RequestOptions} from './index.js';
+export type NativeProviderModuleId = 'volcengine' | (string & {});
+export type NativeProviderMaterialsCapability = {
+  groups: boolean;
+  assets: boolean;
+  kinds: Array<'image' | 'audio' | 'video'>;
+  reference_requires_active: boolean;
+  reference_requires_same_context: boolean;
+  reference_requires_dispatch_authorization: boolean;
+};
+export type NativeProviderReferenceInput = {
+  kind: 'image' | 'audio' | 'video';
+  roles: string[];
+  maximum_items: number;
+};
 /** Native tools for one exact authorized model/account context; not completion evidence. */
 export type NativeProviderModule = {
-  module: 'volcengine'; model_alias: string; display_name: string | null;
-  adapter: string; video_channel: 'ark-direct-v1'; management_channel: 'fastrouter-actions-v1';
+  module: NativeProviderModuleId; model_alias: string; display_name: string | null;
+  adapter: string; video_channel: string; management_channel: string;
   context_label: string;
-  materials: {groups: true; assets: true; kinds: Array<'image' | 'audio' | 'video'>;
-    reference_requires_active: true; reference_requires_same_context: true; reference_requires_dispatch_authorization: true};
-  human_verification: true;
-  reference_inputs: Array<{kind: 'image' | 'audio' | 'video'; roles: string[]; maximum_items: number}>;
+  materials: NativeProviderMaterialsCapability;
+  human_verification: boolean;
+  reference_inputs: NativeProviderReferenceInput[];
 };
 export type NativeProviderCapabilities = {complete: true; selected_model: string | null; modules: NativeProviderModule[]};
 export type NativeCapabilitySender = <T>(path: string, options?: RequestOptions) => Promise<T>;

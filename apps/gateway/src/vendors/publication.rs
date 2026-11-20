@@ -82,7 +82,9 @@ impl RouteRegistryCompiler for Compiler {
                 let route = routes
                     .get(&candidate.alias)
                     .ok_or(StoreError::InvalidVendor)?;
-                if route.metadata.personal_organization_id != pool.organization_id {
+                if route.metadata.personal_organization_id != pool.organization_id
+                    && !(pool.organization_id.is_some() && route.metadata.is_internal_shared())
+                {
                     return Err(StoreError::InvalidVendor);
                 }
             }

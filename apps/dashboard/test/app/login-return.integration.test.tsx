@@ -30,12 +30,7 @@ describe('sign-in destination restoration', () => {
     expect(router.state.location.hash).toBe(hash);
   });
 
-  it('redirects public /models returnTo outside the dashboard router', async () => {
-    const replace = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { ...window.location, origin: 'http://localhost', replace },
-    });
+  it('restores /models returnTo inside the dashboard router', async () => {
     vi.stubGlobal('fetch', vi.fn(async input => {
       const path = String(input);
       return new Response(JSON.stringify(path === '/healthz' ? { status: 'ok' }
@@ -48,6 +43,8 @@ describe('sign-in destination restoration', () => {
       { path: '*', element: <p>Destination</p> },
     ] }], { initialEntries: ['/login?returnTo=%2Fmodels%3Fsearch%3Dflash%23pricing'] });
     render(<RouterProvider router={router} />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/models?search=flash#pricing'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/models'));
+    expect(router.state.location.search).toBe('?search=flash');
+    expect(router.state.location.hash).toBe('#pricing');
   });
 });

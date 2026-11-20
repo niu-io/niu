@@ -208,6 +208,14 @@ impl WorkspaceProviderAssetRoute {
         self.generation
     }
 }
+/// A Provider asset can be created from a caller-supplied public HTTPS URL or
+/// from one active workspace material. The workspace source is resolved to a
+/// short-lived public capability only at dispatch, after authorization and the
+/// durable claim; the capability URL is never part of the stored request hash.
+pub enum WorkspaceProviderAssetSource {
+    Url(String),
+    WorkspaceAsset(Uuid),
+}
 pub enum WorkspaceProviderAssetMutation {
     CreateGroup {
         name: String,
@@ -225,7 +233,7 @@ pub enum WorkspaceProviderAssetMutation {
     },
     CreateAsset {
         group_id: Uuid,
-        url: String,
+        source: WorkspaceProviderAssetSource,
         name: Option<String>,
         kind: FastRouterAssetKind,
     },
@@ -244,6 +252,7 @@ pub struct WorkspaceProviderAssetPrepared {
     group: Option<WorkspaceProviderAssetGroup>,
     asset: Option<WorkspaceProviderAsset>,
     body: Value,
+    workspace_asset_id: Option<Uuid>,
 }
 impl WorkspaceProviderAssetPrepared {
     pub fn operation(&self) -> &WorkspaceProviderAssetOperation {
@@ -257,6 +266,12 @@ impl WorkspaceProviderAssetPrepared {
     }
     pub fn request_body(&self) -> &Value {
         &self.body
+    }
+    /// Present only for a CreateAsset sourced from one workspace material. The
+    /// caller must mint the public capability after claiming and replace `URL`
+    /// in the request body immediately before dispatch.
+    pub fn workspace_asset_id(&self) -> Option<Uuid> {
+        self.workspace_asset_id
     }
 }
 #[derive(Serialize)]
@@ -331,7 +346,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((models, next))
     }
     pub(crate) async fn provider_asset_key_using(
@@ -408,7 +423,7 @@ impl Store {
     ) -> Result<WorkspaceProviderAssetRoute, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let route = Self::provider_asset_route_using(&mut tx, p, model).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(route)
     }
     pub(crate) async fn provider_asset_route_check_using(
@@ -491,7 +506,7 @@ impl Store {
         if let Some(v) = &v {
             Self::provider_asset_key_using(&mut tx, p, &v.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v.filter(|v| v.status != "deleted"))
     }
     pub async fn workspace_provider_asset(
@@ -504,7 +519,7 @@ impl Store {
         if let Some(v) = &v {
             Self::provider_asset_key_using(&mut tx, p, &v.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v.filter(|v| v.status != "deleted"))
     }
     pub async fn workspace_provider_asset_operation(
@@ -517,7 +532,7 @@ impl Store {
         if let Some(v) = &v {
             Self::provider_asset_key_using(&mut tx, p, &v.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v)
     }
     pub async fn workspace_provider_asset_operation_bundle(
@@ -535,7 +550,7 @@ impl Store {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let scope = p.scope();
         let Some(operation) = Self::provider_operation_using(&mut tx, scope, id).await? else {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(None);
         };
         Self::provider_asset_key_using(&mut tx, p, &operation.model, false).await?;
@@ -549,7 +564,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some((operation, group, asset)))
     }
     /// Saved operations only: absence is not proof that a request was not sent.
@@ -575,7 +590,7 @@ impl Store {
         if let Some(value) = &data {
             Self::provider_asset_key_using(&mut tx, p, &value.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(data)
     }
 
@@ -639,7 +654,7 @@ impl Store {
             .bind(id)
             .fetch_optional(&mut *tx)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(value)
     }
     pub async fn historical_workspace_provider_asset_operations(
@@ -692,7 +707,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
     pub async fn workspace_provider_asset_operations(
@@ -740,7 +755,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
 
@@ -782,7 +797,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
     pub async fn workspace_provider_assets(
@@ -833,7 +848,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
 }
@@ -916,6 +931,7 @@ impl Store {
         };
         let mut new_group = false;
         let mut new_asset = false;
+        let mut prepared_workspace_asset_id: Option<Uuid> = None;
         let (action, gid, aid, body, name, description, prior_status) = match mutation {
             WorkspaceProviderAssetMutation::CreateGroup { name, description } => {
                 let body = FastRouterGroupCreate {
@@ -996,7 +1012,7 @@ impl Store {
             }
             WorkspaceProviderAssetMutation::CreateAsset {
                 group_id,
-                url,
+                source,
                 name,
                 kind,
             } => {
@@ -1007,16 +1023,39 @@ impl Store {
                 if replay.is_none() && g.status != "ready" {
                     return Err(StoreError::Conflict);
                 }
+                let kind_text = provider_kind(&kind)?;
+                // A workspace source is bound by its stable Niu asset reference,
+                // never by a public URL or an ephemeral fetch capability. The
+                // provider body carries a non-fetchable canonical placeholder
+                // for the request hash; the Gateway replaces it at dispatch.
+                let (source_url, workspace_asset_id) = match source {
+                    WorkspaceProviderAssetSource::Url(url) => (url, None),
+                    WorkspaceProviderAssetSource::WorkspaceAsset(id) => {
+                        let asset_kind: Option<String> = sqlx::query_scalar(
+                            "SELECT media_kind FROM workspace_asset_library                              WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND deleted_at IS NULL",
+                        )
+                        .bind(s.organization_id)
+                        .bind(s.project_id)
+                        .bind(id)
+                        .fetch_optional(&mut *tx)
+                        .await?;
+                        if asset_kind.as_deref() != Some(kind_text.as_str()) {
+                            return Err(StoreError::Conflict);
+                        }
+                        (format!("https://workspace-asset.invalid/{id}"), Some(id))
+                    }
+                };
+                prepared_workspace_asset_id = workspace_asset_id;
                 let reference = provider_ref(g.private_reference())?;
                 let mut body = FastRouterAssetCreate {
                     group_reference: &reference,
-                    url,
+                    url: source_url,
                     name: name.clone(),
                     kind,
                 }
                 .body()
                 .map_err(|_| StoreError::InvalidObservation)?;
-                body["_niu_kind"] = json!(provider_kind(&kind)?);
+                body["_niu_kind"] = json!(kind_text);
                 new_asset = replay.is_none();
                 (
                     "create_asset",
@@ -1145,12 +1184,13 @@ impl Store {
         if let Some(o) = body.as_object_mut() {
             o.remove("_niu_kind");
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPrepared {
             operation,
             group,
             asset,
             body,
+            workspace_asset_id: prepared_workspace_asset_id,
         })
     }
     /// Cancel only an unclaimed, original-key operation; never infer an unknown outcome.
@@ -1214,7 +1254,7 @@ impl Store {
             sqlx::query("UPDATE workspace_provider_asset_operations SET status='not_sent',updated_at=now() WHERE id=$1 AND status='prepared'")
                 .bind(id).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn claim_workspace_provider_asset_operation(
@@ -1241,7 +1281,7 @@ impl Store {
                 sqlx::query("UPDATE workspace_provider_asset_groups SET status='unknown',updated_at=now() WHERE id=$1").bind(op.group_id).execute(&mut *tx).await?;
             }
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(claimed)
     }
 }
@@ -1335,7 +1375,7 @@ impl Store {
             }
         };
         sqlx::query("UPDATE workspace_provider_asset_operations SET status=$2,http_status=$3,request_id=$4,diagnostic=COALESCE(diagnostic,$5),updated_at=now() WHERE id=$1").bind(id).bind(status).bind(http).bind(request).bind(diagnostic).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn observe_workspace_provider_asset_group(
@@ -1365,7 +1405,7 @@ impl Store {
         let v = Self::provider_group_using(&mut tx, s, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v)
     }
     pub async fn observe_workspace_provider_asset(
@@ -1398,7 +1438,7 @@ impl Store {
         let v = Self::provider_asset_using(&mut tx, s, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(v)
     }
 }

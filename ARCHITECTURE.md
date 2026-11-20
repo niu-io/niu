@@ -18,7 +18,7 @@ Cloud (`niu-io/cloud`) and self-hosted Enterprise (`niu-io/enterprise`) distribu
 apps/gateway     Rust process: inference, management, static files, recovery
 apps/dashboard   Workspace UI, built to static files
 apps/docs        Developer documentation, built to static files
-apps/catalog     Public model catalog, built to static files
+apps/catalog     Brand assets for /catalog-assets/; /models/ is the dashboard catalog
 contracts        OpenAPI and versioned wire contracts
 crates/storage   PostgreSQL persistence and ledger operations
 crates/metered-cost

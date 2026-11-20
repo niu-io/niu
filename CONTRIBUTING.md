@@ -6,9 +6,9 @@ Thank you for contributing to **Niu** (牛元), the open-source AI model gateway
 
 `niu-io/niu` contains the complete self-hosted open-source product:
 
-- `apps/gateway`: Single-process Rust HTTP gateway (`/v1` inference data plane, `/api/v1` control plane, `/catalog/v1` public catalog, and `/api/plugins/v1` plugin proxy)
+- `apps/gateway`: Single-process Rust HTTP gateway (`/v1` inference data plane, `/api/v1` control plane, `/catalog/v1` retired empty catalog list, and `/api/plugins/v1` plugin proxy)
 - `apps/dashboard`: Workspace, Provider, and platform management UI (React + TypeScript + Vite)
-- `apps/catalog`: Opt-in public model catalog (`/models/`)
+- `apps/catalog`: Brand assets served at `/catalog-assets/`. `/models/` is the signed-in dashboard catalog.
 - `apps/docs`: Developer documentation site (`/docs/`, Astro Starlight)
 - `contracts`: OpenAPI 3.1 specifications and test fixtures
 - `crates`: Storage, execution, cost calculation, benchmark, `plugin-api`, and `plugin-sdk` crates
@@ -47,10 +47,29 @@ Stop the local stack with `Ctrl-C` or `pnpm dev:stop`. See [`scripts/DEV.md`](sc
 
 Before submitting a pull request, run the checks relevant to your changes (all of these run in CI via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
 
+### Optional local commit checks
+
+To catch whitespace errors and Rust formatting failures before pushing, install
+the repository hook in the checkout where you want it:
+
+```sh
+git config --local --get core.hooksPath  # Check for an existing custom hook first.
+git config --local core.hooksPath .githooks
+```
+
+`--local` configuration is normally shared by linked worktrees. Do not replace
+an existing `core.hooksPath` without integrating its hooks first.
+The hook requires Python 3 and Rust 1.98.0 with `rustfmt` (see Prerequisites).
+It checks staged whitespace, and when Rust workspace inputs change it checks the
+entire staged workspace with the same pinned formatting command as CI. It does
+not alter the index or working tree. Format with `cargo +1.98.0 fmt --all`,
+review the changes, and stage the intended content again if the check fails.
+These quick checks do not replace the other checks below or CI.
+
 ### 1. Rust Workspace & Storage Tests
 
 ```sh
-cargo fmt --all -- --check
+cargo +1.98.0 fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 ```

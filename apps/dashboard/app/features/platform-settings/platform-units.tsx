@@ -1,17 +1,20 @@
+import { translateUI } from '@/shell/ui-locale';
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import { formatExactUnitAtoms, formatUnitAtoms } from '@/lib/money';
+import { formatUnitAtoms } from '@/lib/money';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +86,13 @@ const BLOCKER_LABELS: Record<string, string> = {
   missing_unit_definition: 'Missing branded unit definition',
   missing_purchase_rule: 'Missing platform-currency purchase conversion rule',
   customer_monetary_balance: 'Non-zero customer monetary balances',
+  monetary_balance: 'Non-zero customer monetary balances',
+  monetary_credit_facility: 'Active customer approved credit facilities',
+  monetary_reservation: 'Unresolved customer requests or reservations',
+  unposted_monetary_charge: 'Unresolved monetary inference or media attempts',
+  pending_checkout: 'Pending customer checkout orders',
+  unapplied_monetary_grant: 'Unapplied monetary balance grants',
+  missing_payment_currency: 'Platform currency required',
   approved_credit_limit: 'Active customer approved credit facilities',
   pending_topup_order: 'Pending customer checkout orders',
   unapplied_balance_grant: 'Unapplied monetary balance grants',
@@ -97,9 +107,9 @@ const BLOCKER_LABELS: Record<string, string> = {
 function formatRuleRate(rule: PurchaseRule, unitName: string, precision: number): string {
   try {
     const atomsForOneCurrency = (BigInt(rule.numerator) * 1000000000n) / BigInt(rule.denominator);
-    return `${formatUnitAtoms(atomsForOneCurrency.toString(), unitName, precision)} per 1 ${rule.payment_currency} (exact ratio ${rule.numerator}:${rule.denominator})`;
+    return formatLocalizedMessage('{0} = 1 {1}', [formatUnitAtoms(atomsForOneCurrency.toString(), unitName, precision), rule.payment_currency], readLocale());
   } catch {
-    return `${rule.numerator}:${rule.denominator} (${rule.payment_currency})`;
+    return `${rule.numerator}:${rule.denominator} ${rule.payment_currency}`;
   }
 }
 
@@ -111,12 +121,23 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
   const [config, setConfig] = useState<UnitConfiguration | null>(() => initialConfig);
   const [preview, setPreview] = useState<ModeSnapshot | null>(null);
   const [savedPreview, setSavedPreview] = useState<SavedModePreview | null>(null);
+  const [confirmMode, setConfirmMode] = useState(false);
   const [targetMode, setTargetMode] = useState<'currency' | 'credits'>(() =>
     initialConfig?.billing_mode === 'credits' ? 'currency' : 'credits',
   );
   const [loading, setLoading] = useState(() => !initialConfig);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  // Dialog & modal error state
+  const [defOpen, setDefOpen] = useState(false);
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const defBtnRef = useRef<HTMLButtonElement>(null);
+  const ruleBtnRef = useRef<HTMLButtonElement>(null);
+  const modeBtnRef = useRef<HTMLButtonElement>(null);
+  const [defError, setDefError] = useState('');
+  const [ruleError, setRuleError] = useState('');
+  const [modeError, setModeError] = useState('');
 
   // Definition form state
   const [unitName, setUnitName] = useState(() => initialConfig?.definition?.name ?? 'Niu Credits');
@@ -183,11 +204,11 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     if (!config || savingDef) return;
     const trimmed = unitName.trim();
     if (!trimmed) {
-      setError('Enter a branded unit name (for example, Niu Credits or 牛元).');
+      setDefError('Enter a branded unit name (for example, Niu Credits or 牛元).');
       return;
     }
     setSavingDef(true);
-    setError('');
+    setDefError('');
     setNotice('');
     try {
       await request(token, '/api/v1/platform/units/definitions', 'POST', {
@@ -196,11 +217,12 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         expected_revision: config.revision,
         idempotency_key: crypto.randomUUID(),
       });
+      setDefOpen(false);
       setNotice(`Published branded unit definition "${trimmed}" (${precision} decimal places).`);
       reloadPlatformCurrency();
       await loadAll(targetMode, true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not publish branded unit definition.');
+      setDefError(cause instanceof Error ? cause.message : 'Could not publish branded unit definition.');
     } finally {
       setSavingDef(false);
     }
@@ -212,7 +234,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     const currencyCode = (ruleCurrency || platformCurrency || 'USD').trim().toUpperCase();
     const trimmedRate = unitsPerCurrency.trim();
     if (!/^\d+(\.\d{1,6})?$/.test(trimmedRate) || Number(trimmedRate) <= 0) {
-      setError('Enter a positive conversion rate (up to 6 decimal places) of branded units per 1 currency unit.');
+      setRuleError('Enter a positive conversion rate (up to 6 decimal places) of branded units per 1 currency unit.');
       return;
     }
     const [whole, frac = ''] = trimmedRate.split('.');
@@ -220,7 +242,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     // 1 currency unit = 10^9 nanounits; 1 branded unit = 10^9 atoms.
     // scaledUnits / 10^6 branded units per 1 currency unit => numerator = scaledUnits, denominator = 1000000.
     setSavingRule(true);
-    setError('');
+    setRuleError('');
     setNotice('');
     try {
       await request(token, '/api/v1/platform/units/rules', 'POST', {
@@ -231,20 +253,21 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         expected_revision: config.revision,
         idempotency_key: crypto.randomUUID(),
       });
+      setRuleOpen(false);
       setNotice(`Published ${currencyCode} purchase conversion rule for ${config.definition.name}.`);
       reloadPlatformCurrency();
       await loadAll(targetMode, true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not publish purchase conversion rule.');
+      setRuleError(cause instanceof Error ? cause.message : 'Could not publish purchase conversion rule.');
     } finally {
       setSavingRule(false);
     }
   }
 
   async function handleSaveModePreview() {
-    if (!config || preparingMode) return;
+    if (!config || preparingMode || targetMode === config.billing_mode) return;
     setPreparingMode(true);
-    setError('');
+    setModeError('');
     setNotice('');
     try {
       const resp = await request<{ data: SavedModePreview }>(token, '/api/v1/platform/units/mode/previews', 'POST', {
@@ -255,10 +278,10 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
       setSavedPreview(resp.data);
       setPreview(resp.data.snapshot);
       setNotice(
-        `Saved 15-minute compatibility snapshot for switching to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'} mode.`,
+        `Compatibility snapshot ready for switching to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'} mode.`,
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save billing-mode preview.');
+      setModeError(cause instanceof Error ? cause.message : 'Could not save billing-mode preview.');
     } finally {
       setPreparingMode(false);
     }
@@ -267,7 +290,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
   async function handlePublishModeSwitch() {
     if (!config || !savedPreview || publishingMode) return;
     setPublishingMode(true);
-    setError('');
+    setModeError('');
     setNotice('');
     try {
       await request(token, '/api/v1/platform/units/mode', 'PUT', {
@@ -276,13 +299,14 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         idempotency_key: crypto.randomUUID(),
       });
       setSavedPreview(null);
+      setConfirmMode(false);
       setNotice(
         `Switched installation billing mode to ${targetMode === 'credits' ? 'Branded Credits' : 'Settlement Currency'}.`,
       );
       reloadPlatformCurrency();
       await loadAll(undefined, true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Billing-mode switch rejected.');
+      setModeError(cause instanceof Error ? cause.message : 'Billing-mode switch rejected.');
     } finally {
       setPublishingMode(false);
     }
@@ -292,12 +316,12 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
   const defPrecision = config?.definition?.display_precision ?? 2;
 
   return (
-    <section className="space-y-6 border-t pt-6" aria-label={uiT("Branded Credits and billing mode")}>
+    <section className="space-y-6" aria-label={uiT("Branded Credits and billing mode")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{uiT("Branded Credits & billing mode")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {uiT("Configure versioned branded consumption units (1 unit = 1,000,000,000 exact atoms), payment conversion rules, and guarded installation billing-mode transitions.")}</p>
+            {uiT("Configure branded consumption units, payment conversion rules, and guarded installation billing-mode transitions.")}</p>
         </div>
         <div className="flex items-center gap-2">
           {config && (
@@ -317,75 +341,72 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
       )}
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{uiT(error)}</AlertDescription>
         </Alert>
       )}
       {loading && !config && <FormSectionSkeleton fields={2} label={uiT("Loading branded unit configuration…")} />}
 
       {config && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4 rounded-lg bg-muted/30 p-4">
-            <div>
-              <h3 className="text-sm font-semibold">{uiT("1. Branded unit definition")}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Current revision:")}{" "}{config.definition ? uiF("v{0} ({1}, {2} decimals, {3} per unit)", [config.definition.revision, config.definition.name, config.definition.display_precision, formatExactUnitAtoms(config.definition.atoms_per_unit, config.definition.name)]) : uiT("Not published")}
-              </p>
-            </div>
-            <form className="space-y-3" onSubmit={event => void handlePublishDefinition(event)}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="unit-definition-name">{uiT("Unit display name")}</Label>
-                  <Input
-                    id="unit-definition-name"
-                    value={unitName}
-                    onChange={event => setUnitName(event.target.value)}
-                    placeholder={uiT("Niu Credits or 牛元")}
-                    disabled={savingDef}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="unit-definition-precision">{uiT("Display decimal places")}</Label>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        id="unit-definition-precision"
-                        type="button"
-                        variant="outline"
-                        disabled={savingDef}
-                        className="w-full justify-between"
-                      >
-                        <span>{precision}{" "}{uiT("decimal places")}</span>
-                        <ChevronDown className="size-4 shrink-0" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuRadioGroup value={precision} onValueChange={setPrecision}>
-                        {['0', '1', '2', '3', '4', '6', '9'].map(p => (
-                          <DropdownMenuRadioItem key={p} value={p}>
-                            {p}{" "}{uiT("decimal places")}</DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+          <div className="space-y-3 rounded-[var(--radius-panel)] bg-card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold">{uiT("1. Branded unit definition")}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {uiT("Active unit:")}{" "}
+                  {config.definition
+                    ? uiF("{0} ({1} decimal places)", [config.definition.name, config.definition.display_precision])
+                    : uiT("Not published")}
+                </p>
               </div>
-              <Button type="submit" size="sm" disabled={savingDef}>
-                {savingDef ? uiT("Publishing…") : uiT("Publish unit definition")}
+              <Button
+                ref={defBtnRef}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  setUnitName(config.definition?.name ?? 'Niu Credits');
+                  setPrecision(config.definition ? String(config.definition.display_precision) : '2');
+                  setDefError('');
+                  setDefOpen(true);
+                }}
+              >
+                {config.definition ? uiT('Edit definition', '编辑单位定义') : uiT('Set definition', '设置单位定义')}
               </Button>
-            </form>
+            </div>
           </div>
 
-          <div className="space-y-4 rounded-lg bg-muted/30 p-4">
-            <div>
-              <h3 className="text-sm font-semibold">{uiT("2. Purchase conversion rule")}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Defines how top-up payments in settlement currency convert into issued")}{" "}{defName}{" "}{uiT("atoms at checkout.")}</p>
+          <div className="space-y-3 rounded-[var(--radius-panel)] bg-card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold">{uiT("2. Purchase conversion rule")}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {uiF("Defines how top-up payments in settlement currency convert into issued {0} at checkout.", [defName])}
+                </p>
+              </div>
+              <Button
+                ref={ruleBtnRef}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                disabled={!config.definition}
+                onClick={() => {
+                  setRuleCurrency(platformCurrency || 'USD');
+                  setUnitsPerCurrency('100');
+                  setRuleError('');
+                  setRuleOpen(true);
+                }}
+              >
+                {uiT('Publish rule', '发布兑换规则')}
+              </Button>
             </div>
             {config.purchase_rules.length > 0 ? (
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {config.purchase_rules.map(rule => (
                   <li key={rule.revision}>
-                    <span className="font-medium text-foreground">{rule.payment_currency}</span>{" "}{uiT("(rule v")}{rule.revision}{uiT(", unit v")}{rule.definition_revision}):{' '}
+                    <span className="font-medium text-foreground">{rule.payment_currency}</span>{": "}
                     {formatRuleRate(rule, defName, defPrecision)}
                   </li>
                 ))}
@@ -393,113 +414,40 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
             ) : (
               <p className="text-xs text-muted-foreground">{uiT("No purchase rule published for the latest unit definition.")}</p>
             )}
-            <form className="space-y-3" onSubmit={event => void handlePublishRule(event)}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="unit-rule-currency">{uiT("Payment currency")}</Label>
-                  <Input
-                    id="unit-rule-currency"
-                    value={ruleCurrency || platformCurrency || 'USD'}
-                    onChange={event => setRuleCurrency(event.target.value.toUpperCase())}
-                    maxLength={3}
-                    disabled={savingRule || !config.definition}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="unit-rule-rate">{defName}{" "}{uiT("per 1")}{" "}{ruleCurrency || platformCurrency || 'USD'}</Label>
-                  <Input
-                    id="unit-rule-rate"
-                    inputMode="decimal"
-                    value={unitsPerCurrency}
-                    onChange={event => setUnitsPerCurrency(event.target.value)}
-                    disabled={savingRule || !config.definition}
-                  />
-                </div>
-              </div>
-              <Button type="submit" size="sm" disabled={savingRule || !config.definition}>
-                {savingRule ? uiT("Publishing…") : uiT("Publish purchase rule")}
-              </Button>
-            </form>
           </div>
         </div>
       )}
 
       {config && (
-        <div className="space-y-4 rounded-lg bg-muted/30 p-4">
+        <div className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-sm font-semibold">{uiT("3. Guarded billing-mode transition")}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {uiT("Switching modes requires zero incompatible obligations across all companies and an unexpired 15-minute compatibility preview bound to configuration revision v")}{config.revision}.
+                {uiT("Resolve the listed obligations before switching. Review expires after 15 minutes or when configuration changes.")}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="justify-between gap-2">
-                    <span>{uiT("Target:")}{" "}{targetMode === 'credits' ? uiF("Branded Credits ({0})", [defName]) : uiT("Settlement Currency")}</span>
-                    <ChevronDown className="size-4 shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuRadioGroup
-                    value={targetMode}
-                    onValueChange={val => {
-                      const next = val as 'currency' | 'credits';
-                      setSavedPreview(null);
-                      void loadAll(next);
-                    }}
-                  >
-                    <DropdownMenuRadioItem value="credits">{uiT("Branded Credits (")}{defName})</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="currency">{uiT("Settlement Currency")}</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={preparingMode || loading}
-                onClick={() => void handleSaveModePreview()}
-              >
-                {preparingMode ? uiT("Saving preview…") : uiT("Save 15-minute preview")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={
-                  publishingMode ||
-                  !savedPreview ||
-                  savedPreview.expected_revision !== config.revision ||
-                  !savedPreview.snapshot.blockers_empty ||
-                  !savedPreview.snapshot.change_required
-                }
-                onClick={() => void handlePublishModeSwitch()}
-              >
-                {publishingMode
-                  ? uiT("Switching mode…")
-                  : uiF("Switch to {0}", [targetMode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")])}
-              </Button>
-            </div>
+            <Button
+              ref={modeBtnRef}
+              type="button"
+              size="sm"
+              className="shrink-0"
+              disabled={publishingMode}
+              onClick={() => {
+                setModeError('');
+                setConfirmMode(true);
+              }}
+            >
+              {uiT("Switch billing mode")}
+            </Button>
           </div>
-
-          {savedPreview && (
-            <div className="rounded border bg-background p-3 text-xs space-y-1">
-              <p className="font-medium">
-                {uiT("Saved preview bound to revision v")}{savedPreview.expected_revision}:{' '}
-                {savedPreview.source_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")} →{' '}
-                {savedPreview.target_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")}
-              </p>
-              <p className="text-muted-foreground">
-                {uiT("Expires")}{" "}{new Date(savedPreview.expires_at).toLocaleString(readUILocale())} ·{' '}
-                {savedPreview.snapshot.blockers_empty
-                  ? uiT("No compatibility blockers detected at snapshot time.")
-                  : uiF("{0} blocker categories prevented activation.", [savedPreview.snapshot.blockers.length])}
-              </p>
-            </div>
-          )}
 
           {preview && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-muted-foreground">
+                  {uiT("Target:")}{" "}{targetMode === 'credits' ? uiF("Branded Credits ({0})", [defName]) : uiT("Settlement Currency")}
+                </span>
                 <Badge variant={preview.blockers_empty ? 'default' : 'destructive'}>
                   {preview.blockers_empty ? uiT("Compatible (0 blockers)") : uiF("{0} blocker categories", [preview.blockers.length])}
                 </Badge>
@@ -507,7 +455,8 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                   {uiT("Preserved configuration (retained without conversion):")}{" "}{preview.preserved_configuration.credits_text_tariffs}{' '}
                   {uiT("Credits text tariffs ·")}{" "}{preview.preserved_configuration.monetary_retail_prices}{" "}{uiT("standard monetary prices ·")}{' '}
                   {preview.preserved_configuration.monetary_workspace_limits}{" "}{uiT("monetary workspace limits ·")}{' '}
-                  {preview.preserved_configuration.monetary_key_limits}{" "}{uiT("monetary key limits")}</span>
+                  {preview.preserved_configuration.monetary_key_limits}{" "}{uiT("monetary key limits")}
+                </span>
               </div>
 
               {preview.blockers.length > 0 && (
@@ -524,7 +473,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
                     {preview.blockers.map(blocker => (
                       <TableRow key={blocker.category}>
                         <TableCell className="font-medium">
-                          {BLOCKER_LABELS[blocker.category] ?? blocker.category}
+                          {translateUI(BLOCKER_LABELS[blocker.category] ?? 'Compatibility check unavailable')}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{blocker.record_count}</TableCell>
                         <TableCell className="text-right tabular-nums">{blocker.organization_count}</TableCell>
@@ -542,6 +491,270 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
           )}
         </div>
       )}
+
+      <Dialog
+        open={defOpen && Boolean(config)}
+        onOpenChange={open => {
+          if (!savingDef) {
+            setDefOpen(open);
+            if (!open) setDefError('');
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[90dvh] overflow-y-auto"
+          onCloseAutoFocus={event => {
+            if (defBtnRef.current?.isConnected) {
+              event.preventDefault();
+              defBtnRef.current.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{uiT("1. Branded unit definition")}</DialogTitle>
+            <DialogDescription>
+              {uiT("Configure the display name and decimal precision used for Branded Credits.", "配置品牌积分的显示名称与小数位数。")}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={event => void handlePublishDefinition(event)} className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="unit-definition-name">{uiT("Unit display name")}</Label>
+                <Input
+                  id="unit-definition-name"
+                  autoFocus
+                  value={unitName}
+                  onChange={event => setUnitName(event.target.value)}
+                  placeholder={uiT("Niu Credits or 牛元")}
+                  disabled={savingDef}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="unit-definition-precision">{uiT("Display decimal places")}</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      id="unit-definition-precision"
+                      type="button"
+                      variant="outline"
+                      disabled={savingDef}
+                      className="w-full justify-between"
+                    >
+                      <span>{precision}{" "}{uiT("decimal places")}</span>
+                      <ChevronDown className="size-4 shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuRadioGroup value={precision} onValueChange={setPrecision}>
+                      {['0', '1', '2', '3', '4', '6', '9'].map(p => (
+                        <DropdownMenuRadioItem key={p} value={p}>
+                          {p}{" "}{uiT("decimal places")}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+            {defError && (
+              <Alert variant="destructive">
+                <AlertDescription>{uiT(defError)}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={savingDef} onClick={() => setDefOpen(false)}>
+                {uiT("Cancel")}
+              </Button>
+              <Button type="submit" disabled={savingDef}>
+                {savingDef ? uiT("Publishing…") : uiT("Publish unit definition")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={ruleOpen && Boolean(config?.definition)}
+        onOpenChange={open => {
+          if (!savingRule) {
+            setRuleOpen(open);
+            if (!open) setRuleError('');
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[90dvh] overflow-y-auto"
+          onCloseAutoFocus={event => {
+            if (ruleBtnRef.current?.isConnected) {
+              event.preventDefault();
+              ruleBtnRef.current.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{uiT("2. Purchase conversion rule")}</DialogTitle>
+            <DialogDescription>
+              {uiF("Defines how top-up payments in settlement currency convert into issued {0} at checkout.", [defName])}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={event => void handlePublishRule(event)} className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="unit-rule-currency">{uiT("Payment currency")}</Label>
+                <Input
+                  id="unit-rule-currency"
+                  autoFocus
+                  value={ruleCurrency || platformCurrency || 'USD'}
+                  onChange={event => setRuleCurrency(event.target.value.toUpperCase())}
+                  maxLength={3}
+                  disabled={savingRule || !config?.definition}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="unit-rule-rate">{defName}{" "}{uiT("per 1")}{" "}{ruleCurrency || platformCurrency || 'USD'}</Label>
+                <Input
+                  id="unit-rule-rate"
+                  inputMode="decimal"
+                  value={unitsPerCurrency}
+                  onChange={event => setUnitsPerCurrency(event.target.value)}
+                  disabled={savingRule || !config?.definition}
+                />
+              </div>
+            </div>
+            {ruleError && (
+              <Alert variant="destructive">
+                <AlertDescription>{uiT(ruleError)}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={savingRule} onClick={() => setRuleOpen(false)}>
+                {uiT("Cancel")}
+              </Button>
+              <Button type="submit" disabled={savingRule || !config?.definition}>
+                {savingRule ? uiT("Publishing…") : uiT("Publish purchase rule")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmMode && Boolean(config)}
+        onOpenChange={open => {
+          if (!preparingMode && !publishingMode) {
+            setConfirmMode(open);
+            if (!open) setModeError('');
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[90dvh] overflow-y-auto"
+          onCloseAutoFocus={event => {
+            if (modeBtnRef.current?.isConnected) {
+              event.preventDefault();
+              modeBtnRef.current.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{uiT("Switch billing mode")}</DialogTitle>
+            <DialogDescription>
+              {uiT("Review the compatibility snapshot, then confirm the installation-wide switch. The snapshot expires after 15 minutes.")}
+            </DialogDescription>
+          </DialogHeader>
+          {config && (
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="billing-mode-target">{uiT("Target billing mode", "目标计费模式")}</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      id="billing-mode-target"
+                      type="button"
+                      variant="outline"
+                      disabled={preparingMode || publishingMode}
+                      className="w-full justify-between gap-2"
+                    >
+                      <span>{targetMode === 'credits' ? uiF("Branded Credits ({0})", [defName]) : uiT("Settlement Currency")}</span>
+                      <ChevronDown className="size-4 shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                    <DropdownMenuRadioGroup
+                      value={targetMode}
+                      onValueChange={val => {
+                        const next = val as 'currency' | 'credits';
+                        setSavedPreview(null);
+                        setModeError('');
+                        void loadAll(next);
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="credits">{uiT("Branded Credits (")}{defName})</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="currency">{uiT("Settlement Currency")}</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {targetMode === config.billing_mode ? (
+                <p className="text-sm text-muted-foreground">
+                  {uiT("This billing mode is already active for the installation.", "当前实例已使用此计费模式。")}
+                </p>
+              ) : savedPreview && savedPreview.target_mode === targetMode && savedPreview.expected_revision === config.revision ? (
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
+                  <p className="font-medium">
+                    {savedPreview.source_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")} → {savedPreview.target_mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency")}
+                  </p>
+                  <p className="text-muted-foreground">{uiT("Expires")} {new Date(savedPreview.expires_at).toLocaleString(readUILocale())}</p>
+                  <p className="text-muted-foreground">
+                    {savedPreview.snapshot.blockers_empty
+                      ? uiT("No compatibility blockers detected at snapshot time.")
+                      : uiF("{0} blocker categories prevented activation.", [savedPreview.snapshot.blockers.length])}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 p-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {uiT("Create a fresh compatibility snapshot before confirming the switch.", "确认切换前，请先生成最新的兼容性快照。")}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={preparingMode || loading || publishingMode}
+                    onClick={() => void handleSaveModePreview()}
+                  >
+                    {preparingMode ? uiT("Preparing switch…") : uiT("Prepare compatibility check", "生成兼容性快照")}
+                  </Button>
+                </div>
+              )}
+              {modeError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{uiT(modeError)}</AlertDescription>
+                </Alert>
+              )}
+              <DialogFooter>
+                <Button variant="outline" disabled={preparingMode || publishingMode} onClick={() => setConfirmMode(false)}>
+                  {uiT("Cancel")}
+                </Button>
+                <Button
+                  disabled={
+                    publishingMode ||
+                    preparingMode ||
+                    !savedPreview ||
+                    savedPreview.target_mode !== targetMode ||
+                    savedPreview.expected_revision !== config.revision ||
+                    !savedPreview.snapshot.blockers_empty ||
+                    !savedPreview.snapshot.change_required
+                  }
+                  onClick={() => void handlePublishModeSwitch()}
+                >
+                  {publishingMode ? uiT("Switching mode…") : uiT("Confirm switch")}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

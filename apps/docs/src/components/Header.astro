@@ -4,27 +4,25 @@ import Search from '@astrojs/starlight/components/Search.astro';
 import ThemeSelect from './ThemeSelect.astro';
 import SessionLink from './SessionLink';
 import { publicNavigationActive, documentationNavigation } from '../navigation';
-import navigation from '../../../../branding/public-navigation.json';
 const links = documentationNavigation;
 const navZh: Record<string, string> = {
-  'For Human': '用户文档',
-  'For Agents': '智能体文档',
-  'Why Niu?': '为什么选择牛元？',
+  'Docs': '文档',
+  'Agents': 'Agents',
+  'Why Niu?': '为什么选择 Niu？',
   Blog: '博客',
   Models: '模型',
-  Docs: '文档',
   API: 'API',
   SDK: 'SDK',
   Compare: '对比',
 };
 ---
 <div class="docs-header">
-  <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span><span class="docs-embedded-name" data-i18n-en="Docs" data-i18n-zh="Docs">Docs</span></a>
-  <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={publicNavigationActive(Astro.url.pathname, label) ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}</nav>
+  <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span></a>
+  <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={publicNavigationActive(Astro.url.pathname, label) ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}<a href="/models/" data-public-models-link hidden data-i18n-en="Models" data-i18n-zh="模型"><span data-lang="en">Models</span><span data-lang="zh">模型</span></a></nav>
   <div class="public-session" transition:persist="docs-session"><SessionLink client:load /></div>
   <div class="docs-header-tools">
     <!-- Starlight initializes search on DOMContentLoaded. Keep that instance
-         across ClientRouter swaps, including navigation inside dashboard Help. -->
+         across ClientRouter swaps. -->
     <div class="contents" data-docs-search transition:persist="docs-search"><Search /></div>
     <div class="contents" transition:persist="docs-theme"><ThemeSelect /></div>
   </div>
@@ -39,7 +37,33 @@ const navZh: Record<string, string> = {
       event.newDocument.querySelector('[data-docs-search]')?.replaceChildren();
     }
   });
+  // Keep site-search inside .docs-header-tools so the header trigger button stays
+  // anchored across Astro ClientRouter transitions, while detaching ONLY its modal
+  // <dialog> into document.body so hidden mobile headers never suppress
+  // the open top-layer search dialog.
+  const ensureDialogInBody = () => {
+    const search = document.querySelector('site-search');
+    const dialog =
+      search?.querySelector<HTMLDialogElement>('dialog') ??
+      document.querySelector<HTMLDialogElement>('dialog[aria-label="Search"], dialog:has(#starlight__search)');
+    if (dialog && dialog.parentElement !== document.body) {
+      dialog.dataset.docsSearchDialog = 'true';
+      document.body.appendChild(dialog);
+    }
+    return dialog;
+  };
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('site-search button')) ensureDialogInBody();
+  }, true);
+  document.addEventListener('keydown', event => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      ensureDialogInBody();
+    }
+  }, true);
   document.addEventListener('astro:page-load', () => {
+    void syncPublicModelsLinks();
+    ensureDialogInBody();
     const url = new URL(location.href);
     if (url.searchParams.get('search') !== '1') return;
     const trigger = document.querySelector<HTMLButtonElement>('site-search button');
@@ -47,5 +71,69 @@ const navZh: Record<string, string> = {
     url.searchParams.delete('search');
     history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     trigger.click();
+    const focusSearch = () => {
+      const input = document.querySelector<HTMLInputElement>('#starlight__search .pagefind-ui__search-input');
+      if (!input) return false;
+      input.focus();
+      return true;
+    };
+    if (!focusSearch()) {
+      let attempts = 0;
+      const timer = window.setInterval(() => {
+        if (focusSearch() || ++attempts > 20) window.clearInterval(timer);
+      }, 50);
+    }
   });
+
+  const PUBLIC_MODELS_CACHE_KEY = 'niu:public-models-available';
+  const PUBLIC_MODELS_CACHE_TTL_MS = 5_000;
+  let publicModelsProbe: Promise<boolean> | null = null;
+
+  function applyPublicModelsVisibility(available: boolean) {
+    document.querySelectorAll<HTMLElement>('[data-public-models-link]').forEach(link => {
+      link.hidden = !available;
+    });
+  }
+
+  async function syncPublicModelsLinks() {
+    try {
+      const cached = sessionStorage.getItem(PUBLIC_MODELS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as { available?: unknown; expiresAt?: unknown };
+        if (typeof parsed.available === 'boolean' && typeof parsed.expiresAt === 'number' && Date.now() < parsed.expiresAt) {
+          applyPublicModelsVisibility(parsed.available);
+          return;
+        }
+      }
+    } catch {
+      // Ignore storage access failures cleanly.
+    }
+    if (!publicModelsProbe) {
+      publicModelsProbe = (async () => {
+        try {
+          const response = await fetch('/catalog/v1/models', {
+            headers: { accept: 'application/json' },
+            cache: 'no-store',
+          });
+          if (!response.ok) return false;
+          const payload = (await response.json()) as { data?: unknown };
+          return Array.isArray(payload?.data) && payload.data.length > 0;
+        } catch {
+          return false;
+        }
+      })();
+    }
+    const available = await publicModelsProbe;
+    publicModelsProbe = null;
+    try {
+      sessionStorage.setItem(
+        PUBLIC_MODELS_CACHE_KEY,
+        JSON.stringify({ available, expiresAt: Date.now() + PUBLIC_MODELS_CACHE_TTL_MS }),
+      );
+    } catch {
+      // Ignore storage access failures cleanly.
+    }
+    applyPublicModelsVisibility(available);
+  }
+  void syncPublicModelsLinks();
 </script>

@@ -1,4 +1,5 @@
 //! Provider-only business APIs. Installation configuration is a separate authority.
+pub(crate) mod adapters;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -8,10 +9,7 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
 };
-use niu_storage::{
-    OperatorAuditActor, ProviderOfferInput, ProviderOfferQualificationInput,
-    ProviderQualificationInput, ProviderQualificationRevocationInput, SupplierProfileUpdate,
-};
+use niu_storage::{OperatorAuditActor, ProviderOfferInput, SupplierProfileUpdate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -185,6 +183,91 @@ pub async fn set_offer(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizeOffer {
+    rate_revision: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/authorization",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "authorizeProviderOffer",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Authorize and enable the current Provider offer",
+///     "description": "Platform administration required. Atomically authorizes and enables the exact current rate revision for the Provider-owned enabled route and saved credential. A stale revision or unavailable route returns 409. Repeating a successful request for the same current revision returns its existing authorization. This does not verify upstream access, create a workspace selling price, or grant customer access. Media liability requirements remain independent.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [
+///       {"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"offer","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+///     ],
+///     "requestBody": {"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["rate_revision"],"properties":{"rate_revision":{"type":"string","format":"uuid"}}}}}},
+///     "responses": {
+///       "200":{"description":"Authorized and enabled","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["active","authorization_id"],"properties":{"active":{"type":"boolean"},"authorization_id":{"type":"string","format":"uuid"}}}}}}}},
+///       "401":{"description":"Authentication required"},
+///       "403":{"description":"Platform administration required"},
+///       "409":{"description":"Offer revision or route is unavailable"}
+///     }
+///   }
+/// }
+/// ```
+pub async fn authorize_offer(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, offer)): Path<(Uuid, Uuid)>,
+    Json(input): Json<AuthorizeOffer>,
+) -> Result<Json<Value>, ApiError> {
+    let actor = supplier_audit_actor(auth(&state, &headers).await?);
+    let authorization = state
+        .store
+        .enable_authorized_provider_offer(provider, offer, input.rate_revision, actor)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"active":true,"authorization_id":authorization}}),
+    ))
+}
+/// ```openapi
+/// {
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}",
+///   "method": "delete",
+///   "operation": {
+///     "operationId": "revokeProviderOfferAuthorization",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Revoke a Provider offer authorization",
+///     "description": "Platform administration required. Revokes the specified authorization and pauses the offer if it is still current. Historical attempts and records remain unchanged. Repeating the same revocation is safe. This does not revoke a different current authorization.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [
+///       {"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"offer","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"authorization","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+///     ],
+///     "responses": {
+///       "200":{"description":"Authorization revoked","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["revoked"],"properties":{"revoked":{"type":"boolean"}}}}}}}},
+///       "401":{"description":"Authentication required"},
+///       "403":{"description":"Platform administration required"},
+///       "409":{"description":"Authorization does not match this Provider and offer"}
+///     }
+///   }
+/// }
+/// ```
+pub async fn revoke_offer_authorization(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, offer, authorization)): Path<(Uuid, Uuid, Uuid)>,
+) -> Result<Json<Value>, ApiError> {
+    let actor = supplier_audit_actor(auth(&state, &headers).await?);
+    state
+        .store
+        .revoke_provider_offer_authorization(provider, offer, authorization, actor)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"revoked":true}})))
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/providers",
@@ -192,7 +275,7 @@ pub async fn set_offer(
 ///   "operation": {
 ///     "operationId": "createProviderBusiness",
 ///     "summary": "Create a Provider business identity",
-///     "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.",
+///     "description": "Requires platform administration. Creation grants no membership, commercial authorization, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -319,7 +402,7 @@ pub async fn create(
 ///   "operation": {
 ///     "operationId": "getProviderProfile",
 ///     "summary": "Read Provider business profile",
-///     "description": "Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.",
+///     "description": "Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or review evidence. Internal identity is for routing, not display.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -824,7 +907,7 @@ pub async fn set_member(
 ///     "x-niu-implementation": "implemented",
 ///     "security": [{"bearerAuth": []}],
 ///     "summary": "Publish an immutable agreed Provider payout schedule",
-///     "description": "Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.",
+///     "description": "Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer; an administrator must explicitly authorize the new revision before dispatch eligibility returns. Procurement budgets and customer charges remain independent.",
 ///     "parameters": [
 ///       {
 ///         "name": "provider",
@@ -1054,7 +1137,7 @@ pub async fn publish_offer(
 ///   "operation": {
 ///     "operationId": "getProviderOfferRevision",
 ///     "summary": "Read an immutable Provider procurement quote",
-///     "description": "Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
+///     "description": "Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, authorize or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1322,568 +1405,19 @@ pub async fn offer_revision(
     Ok(Json(json!({"data":data})))
 }
 
-/// ```openapi
-/// {
-///   "path": "/api/v1/providers/{provider}/qualification",
-///   "method": "put",
-///   "operation": {
-///     "operationId": "qualifyProviderBusiness",
-///     "x-niu-implementation": "implemented",
-///     "summary": "Record a Provider business qualification review",
-///     "description": "Platform administration required; Provider membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Provider conflicts.",
-///     "security": [
-///       {
-///         "bearerAuth": []
-///       }
-///     ],
-///     "parameters": [
-///       {
-///         "name": "provider",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       }
-///     ],
-///     "requestBody": {
-///       "required": true,
-///       "content": {
-///         "application/json": {
-///           "schema": {
-///             "type": "object",
-///             "additionalProperties": false,
-///             "required": [
-///               "supply_rights_sha256",
-///               "supply_capability_sha256",
-///               "data_handling_sha256",
-///               "valid_until_ms"
-///             ],
-///             "properties": {
-///               "supply_rights_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "supply_capability_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "data_handling_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "valid_until_ms": {
-///                 "type": "integer",
-///                 "format": "int64",
-///                 "maximum": 253402300799999,
-///                 "description": "Unix epoch milliseconds; must be strictly later than server time."
-///               }
-///             }
-///           }
-///         }
-///       }
-///     },
-///     "responses": {
-///       "400": {
-///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-///       },
-///       "401": {
-///         "description": "Missing or invalid administrator authentication."
-///       },
-///       "403": {
-///         "description": "Authenticated principal lacks platform management permission."
-///       },
-///       "409": {
-///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
-///       },
-///       "415": {
-///         "description": "Request is not JSON."
-///       },
-///       "422": {
-///         "description": "JSON has missing, unknown or incorrectly typed fields."
-///       },
-///       "500": {
-///         "description": "Unexpected internal persistence failure."
-///       },
-///       "503": {
-///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-///       },
-///       "200": {
-///         "description": "Qualification transaction committed.",
-///         "content": {
-///           "application/json": {
-///             "schema": {
-///               "type": "object",
-///               "required": [
-///                 "data"
-///               ],
-///               "properties": {
-///                 "data": {
-///                   "type": "object",
-///                   "required": [
-///                     "qualification_status"
-///                   ],
-///                   "properties": {
-///                     "qualification_status": {
-///                       "type": "string",
-///                       "enum": [
-///                         "qualified"
-///                       ]
-///                     }
-///                   }
-///                 }
-///               }
-///             }
-///           }
-///         }
-///       }
-///     }
-///   }
-/// }
-/// ```
-pub async fn qualify_business(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(provider): Path<Uuid>,
-    Json(input): Json<ProviderQualificationInput>,
-) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
-    state
-        .store
-        .qualify_provider_business(provider, &input)
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"qualification_status":"qualified"}})))
-}
-
-/// ```openapi
-/// {
-///   "path": "/api/v1/providers/{provider}/offers/{offer}/qualification",
-///   "method": "put",
-///   "operation": {
-///     "operationId": "qualifyProviderOffer",
-///     "x-niu-implementation": "implemented",
-///     "summary": "Record a Provider offer qualification review",
-///     "description": "Platform administration required. Requires current Provider business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.",
-///     "security": [
-///       {
-///         "bearerAuth": []
-///       }
-///     ],
-///     "parameters": [
-///       {
-///         "name": "provider",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "offer",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       }
-///     ],
-///     "requestBody": {
-///       "required": true,
-///       "content": {
-///         "application/json": {
-///           "schema": {
-///             "type": "object",
-///             "additionalProperties": false,
-///             "required": [
-///               "rate_revision",
-///               "model_identity_sha256",
-///               "protocol_matrix_sha256",
-///               "data_handling_sha256",
-///               "availability_sha256",
-///               "agreed_rates_sha256",
-///               "protocol_matrix_version",
-///               "valid_until_ms"
-///             ],
-///             "properties": {
-///               "rate_revision": {
-///                 "type": "string",
-///                 "format": "uuid",
-///                 "description": "Must equal the current immutable offer rate revision."
-///               },
-///               "model_identity_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "protocol_matrix_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "data_handling_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "availability_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "agreed_rates_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               },
-///               "protocol_matrix_version": {
-///                 "type": "string",
-///                 "minLength": 1,
-///                 "maxLength": 100,
-///                 "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved trimmed."
-///               },
-///               "valid_until_ms": {
-///                 "type": "integer",
-///                 "format": "int64",
-///                 "maximum": 253402300799999,
-///                 "description": "Unix epoch milliseconds; must be strictly later than server time."
-///               }
-///             }
-///           }
-///         }
-///       }
-///     },
-///     "responses": {
-///       "400": {
-///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-///       },
-///       "401": {
-///         "description": "Missing or invalid administrator authentication."
-///       },
-///       "403": {
-///         "description": "Authenticated principal lacks platform management permission."
-///       },
-///       "409": {
-///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
-///       },
-///       "415": {
-///         "description": "Request is not JSON."
-///       },
-///       "422": {
-///         "description": "JSON has missing, unknown or incorrectly typed fields."
-///       },
-///       "500": {
-///         "description": "Unexpected internal persistence failure."
-///       },
-///       "503": {
-///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-///       },
-///       "200": {
-///         "description": "Qualification transaction committed.",
-///         "content": {
-///           "application/json": {
-///             "schema": {
-///               "type": "object",
-///               "required": [
-///                 "data"
-///               ],
-///               "properties": {
-///                 "data": {
-///                   "type": "object",
-///                   "required": [
-///                     "qualification_status"
-///                   ],
-///                   "properties": {
-///                     "qualification_status": {
-///                       "type": "string",
-///                       "enum": [
-///                         "qualified"
-///                       ]
-///                     }
-///                   }
-///                 }
-///               }
-///             }
-///           }
-///         }
-///       }
-///     }
-///   }
-/// }
-/// ```
-pub async fn qualify_offer(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path((provider, offer)): Path<(Uuid, Uuid)>,
-    Json(input): Json<ProviderOfferQualificationInput>,
-) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
-    state
-        .store
-        .qualify_provider_offer(provider, offer, &input)
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"qualification_status":"qualified"}})))
-}
-
-/// ```openapi
-/// {
-///   "path": "/api/v1/providers/{provider}/qualification/revoke",
-///   "method": "post",
-///   "operation": {
-///     "operationId": "revokeProviderBusinessQualification",
-///     "x-niu-implementation": "implemented",
-///     "summary": "Revoke the current Provider business qualification",
-///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Provider offers while clearing their current reviews atomically. Missing/deleted Provider or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.",
-///     "security": [
-///       {
-///         "bearerAuth": []
-///       }
-///     ],
-///     "parameters": [
-///       {
-///         "name": "provider",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       }
-///     ],
-///     "requestBody": {
-///       "required": true,
-///       "content": {
-///         "application/json": {
-///           "schema": {
-///             "type": "object",
-///             "additionalProperties": false,
-///             "required": [
-///               "reason_sha256"
-///             ],
-///             "properties": {
-///               "reason_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               }
-///             }
-///           }
-///         }
-///       }
-///     },
-///     "responses": {
-///       "400": {
-///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-///       },
-///       "401": {
-///         "description": "Missing or invalid administrator authentication."
-///       },
-///       "403": {
-///         "description": "Authenticated principal lacks platform management permission."
-///       },
-///       "409": {
-///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
-///       },
-///       "415": {
-///         "description": "Request is not JSON."
-///       },
-///       "422": {
-///         "description": "JSON has missing, unknown or incorrectly typed fields."
-///       },
-///       "500": {
-///         "description": "Unexpected internal persistence failure."
-///       },
-///       "503": {
-///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-///       },
-///       "200": {
-///         "description": "Qualification transaction committed.",
-///         "content": {
-///           "application/json": {
-///             "schema": {
-///               "type": "object",
-///               "required": [
-///                 "data"
-///               ],
-///               "properties": {
-///                 "data": {
-///                   "type": "object",
-///                   "required": [
-///                     "qualification_status"
-///                   ],
-///                   "properties": {
-///                     "qualification_status": {
-///                       "type": "string",
-///                       "enum": [
-///                         "revoked"
-///                       ]
-///                     }
-///                   }
-///                 }
-///               }
-///             }
-///           }
-///         }
-///       }
-///     }
-///   }
-/// }
-/// ```
-pub async fn revoke_business_qualification(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(provider): Path<Uuid>,
-    Json(input): Json<ProviderQualificationRevocationInput>,
-) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
-    state
-        .store
-        .revoke_provider_qualification(provider, &input.reason_sha256)
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"qualification_status":"revoked"}})))
-}
-
-/// ```openapi
-/// {
-///   "path": "/api/v1/providers/{provider}/offers/{offer}/qualification/revoke",
-///   "method": "post",
-///   "operation": {
-///     "operationId": "revokeProviderOfferQualification",
-///     "x-niu-implementation": "implemented",
-///     "summary": "Revoke the current Provider offer qualification",
-///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Provider, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.",
-///     "security": [
-///       {
-///         "bearerAuth": []
-///       }
-///     ],
-///     "parameters": [
-///       {
-///         "name": "provider",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "offer",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       }
-///     ],
-///     "requestBody": {
-///       "required": true,
-///       "content": {
-///         "application/json": {
-///           "schema": {
-///             "type": "object",
-///             "additionalProperties": false,
-///             "required": [
-///               "reason_sha256"
-///             ],
-///             "properties": {
-///               "reason_sha256": {
-///                 "type": "string",
-///                 "pattern": "^[0-9a-f]{64}$",
-///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
-///               }
-///             }
-///           }
-///         }
-///       }
-///     },
-///     "responses": {
-///       "400": {
-///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
-///       },
-///       "401": {
-///         "description": "Missing or invalid administrator authentication."
-///       },
-///       "403": {
-///         "description": "Authenticated principal lacks platform management permission."
-///       },
-///       "409": {
-///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
-///       },
-///       "415": {
-///         "description": "Request is not JSON."
-///       },
-///       "422": {
-///         "description": "JSON has missing, unknown or incorrectly typed fields."
-///       },
-///       "500": {
-///         "description": "Unexpected internal persistence failure."
-///       },
-///       "503": {
-///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
-///       },
-///       "200": {
-///         "description": "Qualification transaction committed.",
-///         "content": {
-///           "application/json": {
-///             "schema": {
-///               "type": "object",
-///               "required": [
-///                 "data"
-///               ],
-///               "properties": {
-///                 "data": {
-///                   "type": "object",
-///                   "required": [
-///                     "qualification_status"
-///                   ],
-///                   "properties": {
-///                     "qualification_status": {
-///                       "type": "string",
-///                       "enum": [
-///                         "revoked"
-///                       ]
-///                     }
-///                   }
-///                 }
-///               }
-///             }
-///           }
-///         }
-///       }
-///     }
-///   }
-/// }
-/// ```
-pub async fn revoke_offer_qualification(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path((provider, offer)): Path<(Uuid, Uuid)>,
-    Json(input): Json<ProviderQualificationRevocationInput>,
-) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
-    state
-        .store
-        .revoke_provider_offer_qualification(provider, offer, &input.reason_sha256)
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"qualification_status":"revoked"}})))
-}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settlement {
     idempotency_key: Uuid,
     payment_reference: String,
-    attempt_ids: Vec<Uuid>,
+    #[serde(default)]
+    attempt_ids: Option<Vec<Uuid>>,
+    #[serde(default)]
+    currency: Option<String>,
+    #[serde(default)]
+    from_ms: Option<i64>,
+    #[serde(default)]
+    cutoff_ms: Option<i64>,
 }
 /// ```openapi
 /// {
@@ -1892,7 +1426,7 @@ pub struct Settlement {
 ///   "operation": {
 ///     "operationId": "recordExternalProviderPayment",
 ///     "summary": "Record an already completed external Provider payment",
-///     "description": "Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.",
+///     "description": "Platform administration required; Provider membership does not grant this write. Does not transfer funds or overpay. Send either attempt_ids (legacy request-level selection) or currency plus cutoff_ms (period settlement); from_ms is an optional inclusive lower bound. Period settlement selects every unpaid earning of that Provider and currency created on or before cutoff_ms, computes the exact total and ignores request-level identifiers supplied in that mode. The period response reports the recorded amount, entry count, and unpaid amount remaining in that currency; neither mode returns customer, request, credential or customer-price detail. Reuse the supplied idempotency key with the identical mode, reference and period bounds for retries; entry order is irrelevant. Changed replay, duplicate payment reference, unavailable selection, or a period with no positive unpaid earnings returns 409. No customer balance credit or Provider authorization is created.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1914,43 +1448,88 @@ pub struct Settlement {
 ///       "content": {
 ///         "application/json": {
 ///           "schema": {
-///             "type": "object",
-///             "additionalProperties": false,
-///             "required": [
-///               "idempotency_key",
-///               "payment_reference",
-///               "attempt_ids"
-///             ],
-///             "properties": {
-///               "idempotency_key": {
-///                 "type": "string",
-///                 "format": "uuid"
+///             "oneOf": [
+///               {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "idempotency_key",
+///                   "payment_reference",
+///                   "attempt_ids"
+///                 ],
+///                 "properties": {
+///                   "idempotency_key": {
+///                     "type": "string",
+///                     "format": "uuid"
+///                   },
+///                   "payment_reference": {
+///                     "type": "string",
+///                     "minLength": 1,
+///                     "maxLength": 200,
+///                     "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+///                   },
+///                   "attempt_ids": {
+///                     "type": "array",
+///                     "minItems": 1,
+///                     "maxItems": 1000,
+///                     "uniqueItems": true,
+///                     "items": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "description": "Legacy internal selection IDs from platform earning history. New callers should use the period mode."
+///                   }
+///                 }
 ///               },
-///               "payment_reference": {
-///                 "type": "string",
-///                 "minLength": 1,
-///                 "maxLength": 200,
-///                 "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
-///               },
-///               "attempt_ids": {
-///                 "type": "array",
-///                 "minItems": 1,
-///                 "maxItems": 1000,
-///                 "uniqueItems": true,
-///                 "items": {
-///                   "type": "string",
-///                   "format": "uuid"
-///                 },
-///                 "description": "Internal selection IDs from the platform earning history; never display IDs or require users to paste them."
+///               {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "idempotency_key",
+///                   "payment_reference",
+///                   "currency",
+///                   "cutoff_ms"
+///                 ],
+///                 "properties": {
+///                   "idempotency_key": {
+///                     "type": "string",
+///                     "format": "uuid"
+///                   },
+///                   "payment_reference": {
+///                     "type": "string",
+///                     "minLength": 1,
+///                     "maxLength": 200,
+///                     "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+///                   },
+///                   "currency": {
+///                     "type": "string",
+///                     "pattern": "^[A-Z]{3}$",
+///                     "description": "One currency without conversion."
+///                   },
+///                   "from_ms": {
+///                     "type": "integer",
+///                     "format": "int64",
+///                     "minimum": 0,
+///                     "maximum": 253402300799999,
+///                     "description": "Optional inclusive earning creation lower bound. Omit to include all unpaid earnings through the cutoff."
+///                   },
+///                   "cutoff_ms": {
+///                     "type": "integer",
+///                     "format": "int64",
+///                     "minimum": 0,
+///                     "maximum": 253402300799999,
+///                     "description": "Inclusive upper bound on earning creation time, Unix milliseconds."
+///                   }
+///                 }
 ///               }
-///             }
+///             ]
 ///           }
 ///         }
 ///       }
 ///     },
 ///     "responses": {
 ///       "200": {
-///         "description": "Recorded or replayed settlement identity.",
+///         "description": "Recorded or replayed settlement. Period settlement additionally reports amount, entry count and remaining unpaid balance.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -1968,6 +1547,26 @@ pub struct Settlement {
 ///                     "id": {
 ///                       "type": "string",
 ///                       "format": "uuid"
+///                     },
+///                     "currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "amount_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     },
+///                     "entry_count": {
+///                       "type": "integer",
+///                       "minimum": 1
+///                     },
+///                     "remaining_unpaid_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     },
+///                     "remaining_entry_count": {
+///                       "type": "integer",
+///                       "minimum": 0
 ///                     }
 ///                   }
 ///                 }
@@ -1977,7 +1576,7 @@ pub struct Settlement {
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid reference, entry set, or currency mix."
+///         "description": "Invalid reference, mixed mode fields, bad currency or cutoff, or amount overflow."
 ///       },
 ///       "401": {
 ///         "description": "Invalid administrative credential."
@@ -1986,7 +1585,7 @@ pub struct Settlement {
 ///         "description": "Platform administration required."
 ///       },
 ///       "409": {
-///         "description": "Provider or earnings unavailable, changed replay, or duplicate payment reference."
+///         "description": "Provider or earnings unavailable, changed replay, duplicate payment reference, or no unpaid earnings in the period."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -2003,17 +1602,213 @@ pub async fn record_settlement(
     Json(input): Json<Settlement>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
-    let id = state
+    let Settlement {
+        idempotency_key,
+        payment_reference,
+        attempt_ids,
+        currency,
+        from_ms,
+        cutoff_ms,
+    } = input;
+    if let Some(attempts) = attempt_ids {
+        if currency.is_some() || from_ms.is_some() || cutoff_ms.is_some() {
+            return Err(ApiError::invalid_request(
+                "Send either attempt_ids or currency and cutoff_ms, not both.",
+            ));
+        }
+        let id = state
+            .store
+            .record_provider_settlement(provider, idempotency_key, &payment_reference, &attempts)
+            .await
+            .map_err(ApiError::from_store)?;
+        return Ok(Json(json!({"data":{"id":id}})));
+    }
+    let (Some(currency), Some(cutoff_ms)) = (currency, cutoff_ms) else {
+        return Err(ApiError::invalid_request(
+            "Send either attempt_ids or currency and cutoff_ms.",
+        ));
+    };
+    let result = state
         .store
-        .record_provider_settlement(
+        .record_provider_period_settlement(
             provider,
-            input.idempotency_key,
-            &input.payment_reference,
-            &input.attempt_ids,
+            idempotency_key,
+            &payment_reference,
+            &currency,
+            from_ms,
+            cutoff_ms,
         )
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"id":id}})))
+    Ok(Json(json!({"data":result})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/providers/{provider}/settlements/preview",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "previewProviderPeriodSettlement",
+///     "summary": "Preview an unpaid Provider balance through a cutoff",
+///     "description": "Platform administration required. Read-only: creates no earning, payment, settlement entry or audit event and transfers no funds. Selects every unpaid earning of this Provider and currency created on or before cutoff_ms, optionally bounded below by from_ms (inclusive). Returns only aggregate count and exact amount plus the unpaid amount and count that would remain in that currency; never returns request IDs, customer, workspace, credential or customer-price detail. The write endpoint independently revalidates the same unpaid rows.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         },
+///         "description": "One currency without conversion."
+///       },
+///       {
+///         "name": "from_ms",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 0,
+///           "maximum": 253402300799999
+///         },
+///         "description": "Inclusive earning creation lower bound. Omit for all unpaid earnings through the cutoff."
+///       },
+///       {
+///         "name": "cutoff_ms",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 0,
+///           "maximum": 253402300799999
+///         },
+///         "description": "Inclusive earning creation cutoff, Unix milliseconds."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Aggregate unpaid selection and remaining balance.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "currency",
+///                     "from_ms",
+///                     "cutoff_ms",
+///                     "entry_count",
+///                     "amount_nanos",
+///                     "remaining_unpaid_nanos",
+///                     "remaining_entry_count"
+///                   ],
+///                   "properties": {
+///                     "currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "from_ms": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ]
+///                     },
+///                     "cutoff_ms": {
+///                       "type": "integer"
+///                     },
+///                     "entry_count": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     },
+///                     "amount_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     },
+///                     "remaining_unpaid_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     },
+///                     "remaining_entry_count": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid currency, cutoff or period range."
+///       },
+///       "401": {
+///         "description": "Invalid administrative credential."
+///       },
+///       "403": {
+///         "description": "Platform administration required."
+///       },
+///       "404": {
+///         "description": "Provider not found or deleted."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn preview_settlement(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Query(query): Query<SettlementPreviewQuery>,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let preview = state
+        .store
+        .preview_provider_period_settlement(
+            provider,
+            &query.currency,
+            query.from_ms,
+            query.cutoff_ms,
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":preview})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettlementPreviewQuery {
+    currency: String,
+    #[serde(default)]
+    from_ms: Option<i64>,
+    cutoff_ms: i64,
 }
 
 /// ```openapi
@@ -2023,7 +1818,7 @@ pub async fn record_settlement(
 ///   "operation": {
 ///     "operationId": "listProviderBusinesses",
 ///     "summary": "List active Provider business identities",
-///     "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.",
+///     "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Commercial authorization is explicit and never inferred from configuration counts.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Active directory",
@@ -2046,7 +1841,6 @@ pub async fn record_settlement(
 ///                       "api_keys",
 ///                       "models",
 ///                       "members",
-///                       "qualification_status",
 ///                       "slug"
 ///                     ],
 ///                     "properties": {
@@ -2078,10 +1872,18 @@ pub async fn record_settlement(
 ///                         "minimum": 0,
 ///                         "description": "Saved model offers with agreed Provider rates."
 ///                       },
+///                       "internal_api_keys": {
+///                         "type":"integer", "minimum":0,
+///                         "description":"Administrator-managed connections attributed to direct upstream-funded internal use; not end-user BYOK self-service."
+///                       },
+///                       "internal_model_routes": {
+///                         "type":"integer", "minimum":0,
+///                         "description":"Saved internal-use model mappings, including disabled entries; not live verification or sellable inventory."
+///                       },
 ///                       "ready_offers": {
 ///                         "type": "integer",
 ///                         "minimum": 0,
-///                         "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+///                         "description": "Active offers with a current exact-revision commercial authorization or a current legacy review, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
 ///                       },
 ///                       "enabled_api_keys": {
 ///                         "type": "integer",
@@ -2090,13 +1892,6 @@ pub async fn record_settlement(
 ///                       "enabled_model_routes": {
 ///                         "type": "integer",
 ///                         "minimum": 0
-///                       },
-///                       "qualification_status": {
-///                         "type": "string",
-///                         "enum": [
-///                           "qualified",
-///                           "unqualified"
-///                         ]
 ///                       },
 ///                       "slug": {
 ///                         "type": "string",
@@ -2383,12 +2178,12 @@ pub async fn publish_media_offer(
     Json(input): Json<niu_storage::SupplierMediaOfferInput>,
 ) -> Result<Json<Value>, ApiError> {
     state.authorize_platform_headers(&headers).await?;
-    let revision = state
+    let (offer, revision) = state
         .store
-        .publish_supplier_media_offer(provider, &input)
+        .publish_supplier_media_offer_with_offer(provider, &input)
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"revision":revision}})))
+    Ok(Json(json!({"data":{"offer_id":offer,"revision":revision}})))
 }
 
 /// Sanitized platform capabilities; credentials and deployment paths stay private.
@@ -2399,7 +2194,7 @@ pub async fn publish_media_offer(
 ///   "operation": {
 ///     "operationId": "getPlatformConfiguration",
 ///     "summary": "Read platform payment configuration presence",
-///     "description": "Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.",
+///     "description": "Requires platform management permission. Returns configuration-presence flags without merchant credentials. Stripe reflects the loaded checkout adapter. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -2436,8 +2231,6 @@ pub async fn publish_media_offer(
 ///                           "name": {
 ///                             "type": "string",
 ///                             "enum": [
-///                               "Zhifux",
-///                               "EPay",
 ///                               "Stripe"
 ///                             ]
 ///                           },
@@ -2530,7 +2323,7 @@ pub async fn platform_configuration(
     installation(&state, &headers).await?;
     Ok(Json(json!({"data":{
         "verification": crate::payments::readiness::verification(&state).await?,
-        "payment_gateways": [{"name":"Zhifux","configured":state.payments.is_some()},{"name":"EPay","configured":state.store.payment_gateway_configuration().await.map_err(ApiError::from_store)?.is_some() || state.epay_payments.is_some()},{"name":"Stripe","configured":state.stripe_payments.is_some()}]
+        "payment_gateways": [{"name":"Stripe","configured":state.stripe_payments.is_some()}]
     }})))
 }
 
@@ -2549,7 +2342,7 @@ pub struct OfferHistoryQuery {
 ///   "operation": {
 ///     "operationId": "listProviderOfferHistory",
 ///     "summary": "List immutable Provider quote history",
-///     "description": "Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.",
+///     "description": "Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not authorize, activate or reprice offers. Internal identifiers are API references, not UI labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3303,7 +3096,7 @@ pub struct CurrentOfferPage {
 ///   "operation": {
 ///     "operationId": "listProviderOffersPage",
 ///     "summary": "Page current Provider offers and rate revisions",
-///     "description": "Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
+///     "description": "Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unauthorized drafts; does not activate an offer or establish commercial authorization. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3394,7 +3187,8 @@ pub struct CurrentOfferPage {
 ///                         "type": "boolean"
 ///                       },
 ///                       "qualified": {
-///                         "type": "boolean"
+///                         "type": "boolean",
+///                         "description": "Compatibility field indicating a current exact-revision commercial authorization or a current legacy evidence review and required route binding. It is not proof of live upstream access, an active offer, an agreed rate or a customer selling price."
 ///                       },
 ///                       "revision": {
 ///                         "type": "string",
@@ -3551,4 +3345,177 @@ pub async fn offers(
         .map_err(ApiError::from_store)?
         .map(Json)
         .ok_or_else(ApiError::not_found)
+}
+
+/// ```openapi
+/// {"path":"/api/v1/providers/presets","method":"get","operation":{"operationId":"listProviderPresets","summary":"Discover supported Provider service adapters","description":"Platform administration required. Returns connection instructions and observed price-source support, not saved connections, inventory, entitlements or invoice prices. OpenAI-compatible transport never establishes price compatibility. No upstream request is issued.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Prepared Provider descriptors."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn presets(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    Ok(Json(
+        json!({"data":adapters::registry().iter().map(|adapter|adapter.descriptor()).collect::<Vec<_>>()}),
+    ))
+}
+
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing","method":"get","operation":{"operationId":"discoverProviderPricing","summary":"Read Provider-adapter advertised price evidence","description":"Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Unified advertised pricing evidence with completeness limits."},"502":{"description":"Source failure; retry the read without mutating configuration."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn adapter_pricing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let integration = state
+        .store
+        .provider_integration(provider)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let data = adapters::pricing(&state, &integration.effective_type).await?;
+    Ok(Json(json!({"data":data,"integration":integration})))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataQuery {
+    credential: Uuid,
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/metadata","method":"get","operation":{"operationId":"discoverProviderMetadata","summary":"Read normalized metadata through a Provider credential","description":"Platform administration required. credential selects one saved connection owned by this Provider; no key values are returned. Reuses bounded authenticated catalog discovery and explicit inherited service identity. Catalog access does not verify inference or publish models/prices.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"credential","in":"query","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Normalized model metadata, price evidence when present, and discovery scope."},"404":{"description":"Provider/credential binding unavailable."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn adapter_metadata(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Query(query): Query<MetadataQuery>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let owner = state
+        .store
+        .vendor_supplier(query.credential)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    if owner["id"].as_str() != Some(provider.to_string().as_str()) {
+        return Err(ApiError::not_found());
+    }
+    crate::vendors::catalog(State(state), Path(query.credential), headers).await
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing","method":"post","operation":{"operationId":"captureProviderPriceEvidence","summary":"Capture an immutable Provider quote version","description":"Platform administration required. Performs bounded price discovery and appends source evidence only if saved Provider adapter identity/revision still matches. Unknown/partial sources remain explicit. Does not change any customer tariff, route, balance or charge. Never blindly replay after uncertainty; retain the returned revision for historical estimates.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Immutable quote revision, capture time, adapter binding and evidence."},"409":{"description":"Adapter identity changed; no snapshot saved."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn capture_adapter_pricing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let integration = state
+        .store
+        .provider_integration(provider)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let evidence = adapters::pricing(&state, &integration.effective_type).await?;
+    let evidence = serde_json::to_value(evidence).map_err(|_| ApiError::unavailable())?;
+    let saved = state
+        .store
+        .save_provider_price_evidence(
+            provider,
+            &integration.effective_type,
+            integration.revision,
+            evidence,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":saved})))
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing/{revision}","method":"get","operation":{"operationId":"getProviderPriceEvidence","summary":"Read an immutable Provider quote version","description":"Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"revision","in":"path","required":true,"schema":{"type":"integer","format":"int64","minimum":1}}],"responses":{"200":{"description":"Original quote evidence and source identity."},"404":{"description":"Version unavailable under this Provider."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn price_evidence(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, revision)): Path<(Uuid, i64)>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let saved = state
+        .store
+        .provider_price_evidence(provider, revision)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":saved})))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuoteEstimateInput {
+    revision: String,
+    model: String,
+    quantities: Vec<adapters::Quantity>,
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/estimate","method":"post","operation":{"operationId":"estimateProviderQuoteCost","summary":"Estimate supplied billable quantities against an immutable quote","description":"Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["revision","model","quantities"],"properties":{"revision":{"type":"string","pattern":"^[1-9][0-9]*$"},"model":{"type":"string","minLength":1,"maxLength":200},"quantities":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["meter","units"],"properties":{"meter":{"type":"string","minLength":1,"maxLength":80},"units":{"type":"string","pattern":"^[0-9]+$"},"condition":{"type":"string","minLength":1,"maxLength":80}}}}}}}}},"responses":{"200":{"description":"Quote-bound estimate with currency totals and unknown coverage."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn estimate_pricing(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Json(input): Json<QuoteEstimateInput>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    if input.model.trim().is_empty() || input.model.len() > 200 {
+        return Err(ApiError::invalid_request("Choose an upstream model ID"));
+    }
+    let revision = input
+        .revision
+        .parse::<i64>()
+        .ok()
+        .filter(|r| *r > 0)
+        .ok_or_else(|| ApiError::invalid_request("Choose a captured quote revision"))?;
+    let saved = state
+        .store
+        .provider_price_evidence(provider, revision)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let result = adapters::estimate(&saved["evidence"], &input.model, &input.quantities)
+        .map_err(ApiError::invalid_request)?;
+    Ok(Json(
+        json!({"data":result,"quote_revision":saved["revision"],"adapter":saved["adapter"]}),
+    ))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PriceHistoryQuery {
+    after: Option<i64>,
+    limit: Option<i64>,
+}
+/// ```openapi
+/// {"path":"/api/v1/providers/{provider}/pricing/history","method":"get","operation":{"operationId":"listProviderPriceHistory","summary":"Inspect captured quote versions and recover uncertain refreshes","description":"Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"after","in":"query","schema":{"type":"integer","format":"int64","minimum":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}}],"responses":{"200":{"description":"Quote version summaries and optional next_after cursor."}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn price_history(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Query(query): Query<PriceHistoryQuery>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let limit = query.limit.unwrap_or(20);
+    let data = state
+        .store
+        .provider_price_history(provider, query.after, limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    let next_after = if data.len() == usize::try_from(limit).unwrap_or_default() {
+        data.last().and_then(|v| v["revision"].as_str())
+    } else {
+        None
+    };
+    Ok(Json(json!({"data":data,"next_after":next_after})))
 }

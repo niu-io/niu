@@ -2,10 +2,17 @@ import type { LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import ConnectGate from '@/shell/ConnectGate';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { workspaceKeyPath } from './api';
+import type { RouteHandle } from '@/shell/router-context';
+import { workspaceKeyPath, type ProjectKey } from './api';
 import KeyDetailView from './components/KeyDetailView';
 
-export function loader(args: LoaderFunctionArgs) {
+export const handle: RouteHandle = {
+  destination: 'Workspace',
+  navTo: 'keys',
+  title: { en: 'Key', zh: '密钥' },
+};
+
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace ? workspaceKeyPath(workspace.id) : null,
   }));
@@ -14,7 +21,7 @@ export function loader(args: LoaderFunctionArgs) {
 export const shouldRevalidate = routeShouldRevalidate;
 
 export default function KeyDetailRoute() {
-  useOptionalRouteLoaderData();
+  const loaderSnapshot = useOptionalRouteLoaderData<{ data: ProjectKey[] }>();
   const { workspace } = useDashboardContext();
   return <ConnectGate>
     {({ token, models, session }) => <KeyDetailView
@@ -24,6 +31,7 @@ export default function KeyDetailRoute() {
       canWrite={session?.permissions.write === true}
       canConfigureSpending={session?.kind === 'installation' || session?.operator?.role === 'owner'}
       initialScope={workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null}
+      initialData={loaderSnapshot?.status === 'ready' && loaderSnapshot.workspaceId === (workspace?.id ?? null) ? loaderSnapshot.data : undefined}
     />}
   </ConnectGate>;
 }

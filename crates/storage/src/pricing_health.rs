@@ -109,7 +109,9 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
                 result["message"] = json!("A required price dimension is missing.");
                 return result;
             };
-            if s < c {
+            // Ignore a single-nanounit sentinel rate (1 nanounit / 1M, i.e. $0.000000001 / 1M)
+            // often used as a minimal positive placeholder on zero-priced routes.
+            if s < c && c > 1 {
                 dimensions
                     .push(json!({"dimension":label,"minimum_input_tokens":input.to_string()}));
             }
@@ -304,5 +306,41 @@ mod tests {
         discounted["media_cards"][0]["discounts"] = json!([{"percent": 10}]);
         let incomparable = compare(&sell, "USD", &discounted);
         assert_eq!(incomparable["status"], "comparison_unavailable");
+    }
+
+    #[test]
+    fn ignores_single_nanounit_placeholder_provider_quote_on_free_model() {
+        let sell = json!({
+            "kind": "text",
+            "prompt_rate": "0",
+            "completion_rate": "0",
+            "cached_prompt_rate": null,
+            "cache_write_prompt_rate": null,
+            "reasoning_completion_rate": null,
+            "context_tiers": []
+        });
+        let placeholder_cost = json!({
+            "route": "qiniu/conatus-free",
+            "provider": "Qiniu",
+            "configured": true,
+            "currency": "USD",
+            "rate_kind": "text",
+            "schedule": {
+                "prompt_rate": "1",
+                "completion_rate": "1",
+                "cached_prompt_rate": null,
+                "cache_write_prompt_rate": null,
+                "reasoning_completion_rate": null,
+                "context_tiers": []
+            }
+        });
+        assert_eq!(
+            compare(&sell, "USD", &placeholder_cost)["status"],
+            "no_lower_unit_rates"
+        );
+
+        let mut real_cost = placeholder_cost;
+        real_cost["schedule"]["prompt_rate"] = json!("1000");
+        assert_eq!(compare(&sell, "USD", &real_cost)["status"], "below_cost");
     }
 }

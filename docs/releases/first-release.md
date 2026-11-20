@@ -2,6 +2,8 @@
 
 **Status: incomplete. No F01–F10 gate is fully qualified.** Reviewed 2026-10-09.
 
+This October planning record predates the hosted 0.3 funding decision. For current deployment guidance on Stripe checkout and optional bank transfer instructions, see [Hosted 0.3 funding](../reference/payment-aggregators.md#hosted-03-funding).
+
 ## Release outcome
 
 A developer can install Niu, configure a qualified Supplier, create a workspace API key, make supported text and video requests, retrieve authorized video results, and diagnose usage, latency, failures and customer charges. The hosted service additionally offers verified discounted supply.

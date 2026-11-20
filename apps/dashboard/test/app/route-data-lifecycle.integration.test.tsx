@@ -3,8 +3,8 @@ import { RouterProvider, type RouteObject } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { request } from '../../app/lib/api-client';
 import { peekQuery } from '../../app/lib/query-cache';
-import { routeShouldRevalidate } from '../../app/lib/route-data';
-import { buildAppRoutes, createDashboardMemoryRouter } from '../../app/routes';
+import { loadCriticalRouteEndpoint, routeShouldRevalidate } from '../../app/lib/route-data';
+import { bindLazy, buildAppRoutes, createDashboardMemoryRouter } from '../../app/routes';
 import AppLayout from '../../app/shell/AppLayout';
 import AppError from '../../app/shell/route-error';
 import { dashboardRouterContext, type RouterSessionSnapshot } from '../../app/shell/router-context';
@@ -127,9 +127,10 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(observedContexts[0]?.session?.operator?.id).toBe('op-1');
     expect(observedContexts[0]?.activeWorkspace?.slug).toBe('alpha');
 
-    // Opening ?settings=account modal or changing #hash must NOT re-run the page route loader
+    // Hash-only changes must NOT re-run the page route loader. The former
+    // ?settings= modal was replaced by a canonical Settings route navigation.
     await act(async () => {
-      await router.navigate('/workspaces/alpha/probe?settings=account#details');
+      await router.navigate('/workspaces/alpha/probe#details');
     });
     expect(loaderRuns).toBe(1);
 
@@ -160,7 +161,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
             );
           });
         }
-        if (url === '/api/v1/workspaces/ws-alpha/keys') {
+        if (url === '/api/v1/workspaces/ws-alpha/keys' || url.startsWith('/api/v1/workspaces/ws-alpha/keys?')) {
           return Response.json({
             data: [
               {
@@ -184,7 +185,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     render(<RouterProvider router={router} />);
 
     // Wait for authenticated Overview shell to finish mounting
-    await screen.findByRole('heading', { name: 'Overview' });
+    await screen.findByRole('heading', { name: 'Overview' }, { timeout: 5000 });
 
     // Navigate to slow Guardrails route -> non-blocking loader starts deduplicated fetch & renders 1:1 route skeleton immediately
     await act(async () => {
@@ -234,7 +235,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     vi.stubGlobal(
       'fetch',
       createBaseFetchMock((url, init) => {
-        if (url === '/api/v1/workspaces/ws-alpha/keys' && (!init?.method || init.method === 'GET')) {
+        if ((url === '/api/v1/workspaces/ws-alpha/keys' || url.startsWith('/api/v1/workspaces/ws-alpha/keys?')) && (!init?.method || init.method === 'GET')) {
           keysEndpointCalls += 1;
           return Response.json({
             data: [
@@ -261,7 +262,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
 
     const router = createDashboardMemoryRouter(['/workspaces/alpha'], buildAppRoutes());
     render(<RouterProvider router={router} />);
-    await screen.findByRole('heading', { name: 'Overview' });
+    await screen.findByRole('heading', { name: 'Overview' }, { timeout: 5000 });
 
     await act(async () => {
       await router.navigate('/workspaces/alpha/keys');
@@ -281,7 +282,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(
       peekQuery<{ data: Array<{ name: string }> }>(
         'niu-browser-member-session',
-        '/api/v1/workspaces/ws-alpha/keys',
+        '/api/v1/workspaces/ws-alpha/keys?limit=50&status=active',
       )?.data[0]?.name,
     ).toBe('Agent Key v2');
   });
@@ -326,7 +327,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Application error' })).toBeTruthy();
-    expect(screen.getByRole('navigation', { name: 'Product navigation' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
 
     // Recover zero-refresh by navigating back to a healthy sibling route without full document reload
     await act(async () => {
@@ -336,5 +337,179 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(await screen.findByTestId('healthy-overview')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Application error' })).toBeNull();
     consoleSpy.mockRestore();
+  });
+
+  it('preserves ErrorBoundary, HydrateFallback, clientAction/action, and handle in bindLazy and rejects dual loader + clientLoader (niu-wnr.6, niu-wnr.8)', async () => {
+    const DummyComponent = () => null;
+    const DummyBoundary = () => null;
+    const DummyHydrate = () => null;
+    const dummyClientAction = async () => null;
+
+    const bound = bindLazy(
+      async () => ({
+        default: DummyComponent,
+        ErrorBoundary: DummyBoundary,
+        HydrateFallback: DummyHydrate,
+        clientAction: dummyClientAction,
+        handle: { section: 'custom' },
+      }),
+      { destination: 'Workspace', navTo: 'routing' },
+    );
+
+    const resolved = await bound();
+    expect(resolved.Component).toBe(DummyComponent);
+    expect(resolved.ErrorBoundary).toBe(DummyBoundary);
+    expect(resolved.HydrateFallback).toBe(DummyHydrate);
+    expect(resolved.clientAction).toBe(dummyClientAction);
+    // Data Mode has no server action; bindLazy must expose clientAction to the
+    // action slot so fetcher submissions work outside framework mode.
+    expect(resolved.action).toBe(dummyClientAction);
+    expect(resolved.handle).toEqual({
+      destination: 'Workspace',
+      navTo: 'routing',
+      section: 'custom',
+    });
+
+    const invalidBound = bindLazy(async () => ({
+      default: DummyComponent,
+      loader: async () => null,
+      clientLoader: async () => null,
+    }));
+    await expect(invalidBound()).rejects.toThrow(/both loader and clientLoader/i);
+  });
+
+  it('supports concurrent parent and child route loaders on the same navigation without aborting each other (niu-wnr.11)', async () => {
+    let parentAborted = false;
+    let childAborted = false;
+
+    vi.stubGlobal(
+      'fetch',
+      createBaseFetchMock((url, init) => {
+        if (url === '/api/v1/workspaces/ws-alpha/parent-resource') {
+          init?.signal?.addEventListener('abort', () => {
+            parentAborted = true;
+          });
+          return Response.json({ data: [{ id: 'parent-ok' }] });
+        }
+        if (url === '/api/v1/workspaces/ws-alpha/child-resource') {
+          init?.signal?.addEventListener('abort', () => {
+            childAborted = true;
+          });
+          return Response.json({ data: [{ id: 'child-ok' }] });
+        }
+        return null;
+      }),
+    );
+
+    const concurrentRoutes: RouteObject[] = [
+      {
+        path: '/',
+        element: <AppLayout />,
+        children: [
+          {
+            path: 'workspaces/:workspace/parent',
+            loader: args =>
+              loadCriticalRouteEndpoint(args, ({ workspace }) =>
+                workspace ? `/api/v1/workspaces/${workspace.id}/parent-resource` : null,
+              ),
+            children: [
+              {
+                path: 'child',
+                loader: args =>
+                  loadCriticalRouteEndpoint(args, ({ workspace }) =>
+                    workspace ? `/api/v1/workspaces/${workspace.id}/child-resource` : null,
+                  ),
+                element: <div data-testid="concurrent-child">Concurrent Child Ready</div>,
+              },
+            ],
+          },
+          {
+            path: 'workspaces/:workspace',
+            element: <div data-testid="ws-root">Root Ready</div>,
+          },
+        ],
+      },
+    ];
+
+    const router = createDashboardMemoryRouter(['/workspaces/alpha'], concurrentRoutes);
+    render(<RouterProvider router={router} />);
+    await screen.findByTestId('ws-root');
+
+    await act(async () => {
+      await router.navigate('/workspaces/alpha/parent/child');
+    });
+
+    await screen.findByTestId('concurrent-child');
+    expect(parentAborted).toBe(false);
+    expect(childAborted).toBe(false);
+  });
+
+  it('executes loader redirect() on legacy routes preserving search and hash (niu-wnr.10)', async () => {
+    vi.stubGlobal('fetch', createBaseFetchMock());
+    const router = createDashboardMemoryRouter(
+      ['/workspaces/alpha/costs?period=30d#breakdown'],
+      buildAppRoutes(),
+    );
+    render(<RouterProvider router={router} />);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/alpha/billing'));
+    expect(router.state.location.search).toBe('?period=30d');
+    expect(router.state.location.hash).toBe('#breakdown');
+  });
+
+  it('renders TableSkeleton instead of No keys yet while /workspaces/:workspace/keys is loading (niu-xa7o)', async () => {
+    let resolveKeys: ((res: Response) => void) | undefined;
+    let keysRequests = 0;
+
+    vi.stubGlobal(
+      'fetch',
+      createBaseFetchMock(url => {
+        if (url === '/api/v1/workspaces/ws-alpha/keys?limit=50&status=active') {
+          keysRequests += 1;
+          return new Promise<Response>(resolve => {
+            resolveKeys = resolve;
+          });
+        }
+        return null;
+      }),
+    );
+
+    const router = createDashboardMemoryRouter(['/workspaces/alpha'], buildAppRoutes());
+    const { container } = render(<RouterProvider router={router} />);
+    await screen.findByRole('heading', { name: 'Overview' }, { timeout: 5000 });
+
+    await act(async () => {
+      await router.navigate('/workspaces/alpha/keys');
+    });
+
+    expect(router.state.location.pathname).toBe('/workspaces/alpha/keys');
+    expect(screen.getByText('Loading keys…')).toBeTruthy();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    expect(screen.queryByText('No keys yet')).toBeNull();
+    expect(keysRequests).toBe(1);
+
+    await act(async () => {
+      resolveKeys?.(
+        Response.json({
+          data: [
+            {
+              id: 'key-skeleton-test',
+              slug: 'skeleton-verified-key',
+              name: 'Skeleton Verified Key',
+              allowed_models: ['*'],
+              expires_at_ms: null,
+              last_used_at_ms: null,
+              revoked: false,
+              expired: false,
+            },
+          ],
+          next_cursor: null,
+        }),
+      );
+    });
+
+    expect(await screen.findByText('Skeleton Verified Key')).toBeTruthy();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
+    expect(screen.queryByText('No keys yet')).toBeNull();
+    expect(keysRequests).toBe(1);
   });
 });

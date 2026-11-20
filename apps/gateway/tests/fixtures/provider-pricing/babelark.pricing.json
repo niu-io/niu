@@ -1,0 +1,203 @@
+{
+  "success": true,
+  "auto_groups": [
+    "default"
+  ],
+  "group_ratio": {
+    "default": 1,
+    "svip": 0.8,
+    "vip": 0.85
+  },
+  "usable_group": {
+    "default": "\u9ed8\u8ba4\u5206\u7ec4",
+    "svip": "svip",
+    "vip": "vip"
+  },
+  "supported_endpoint": {
+    "aliyun-video-synthesis": {
+      "path": "{   \"path\": \"/aliyun/api/v1/services/aigc/video-generation/video-synthesis\",   \"method\": \"POST\" }",
+      "method": "POST"
+    },
+    "anthropic": {
+      "path": "/v1/messages",
+      "method": "POST"
+    },
+    "embedding": {
+      "path": "/v1/embeddings",
+      "method": "POST"
+    },
+    "gemini": {
+      "path": "/v1beta/models/{model}:generateContent",
+      "method": "POST"
+    },
+    "image-edit": {
+      "path": "{   \"path\": \"/v1/images/edits\",   \"method\": \"POST\" }",
+      "method": "POST"
+    },
+    "image-generation": {
+      "path": "/v1/images/generations",
+      "method": "POST"
+    },
+    "openai": {
+      "path": "/v1/chat/completions",
+      "method": "POST"
+    },
+    "openai-response": {
+      "path": "/v1/responses",
+      "method": "POST"
+    },
+    "typesafe-systemone": {
+      "path": "/v1/systemone",
+      "method": "POST"
+    },
+    "video-generation": {
+      "path": "/v1/videos",
+      "method": "POST"
+    }
+  },
+  "data": [
+    {
+      "model_name": "kimi-k3.1-pro-highspeed",
+      "model_ratio": 1.9360796,
+      "completion_ratio": 5.2307692,
+      "cache_ratio": 0.05,
+      "model_price": 0,
+      "quota_type": 0,
+      "enable_groups": [
+        "general",
+        "vip",
+        "svip",
+        "channel_filter_qiu",
+        "channel_filter_gt",
+        "channel_filter_ali",
+        "ka_group1",
+        "ka_group0",
+        "channel_filter_step",
+        "channel_filter_jd",
+        "default"
+      ]
+    },
+    {
+      "model_name": "claude-haiku-5-5",
+      "model_ratio": 0.05,
+      "completion_ratio": 5,
+      "cache_ratio": 0.1,
+      "model_price": 0,
+      "quota_type": 0,
+      "enable_groups": [
+        "channel_filter_gt",
+        "test",
+        "channel_filter_step",
+        "vip",
+        "svip",
+        "channel_filter_jd",
+        "channel_filter_qiu",
+        "default",
+        "ka_group0",
+        "ka_group1",
+        "general",
+        "channel_filter_ali"
+      ],
+      "tiered_ratios": [
+        {
+          "threshold": 0,
+          "input_ratio": 0.05,
+          "output_ratio": 5
+        },
+        {
+          "threshold": 100000,
+          "input_ratio": 0.25,
+          "output_ratio": 5
+        }
+      ]
+    },
+    {
+      "model_name": "gpt-5.5",
+      "model_ratio": 2.5,
+      "completion_ratio": 6,
+      "cache_ratio": 0.1,
+      "model_price": 0,
+      "quota_type": 0,
+      "enable_groups": [
+        "general",
+        "vip",
+        "svip",
+        "channel_filter_gt",
+        "ka_group0",
+        "default",
+        "ka_group1",
+        "channel_filter_qiu",
+        "channel_filter_step",
+        "channel_filter_ali",
+        "channel_filter_jd"
+      ],
+      "tiered_ratios": [
+        {
+          "threshold": 0,
+          "input_ratio": 2.5,
+          "output_ratio": 6
+        },
+        {
+          "threshold": 272000,
+          "input_ratio": 5,
+          "output_ratio": 4.5
+        }
+      ]
+    },
+    {
+      "model_name": "wan2.7-i2v",
+      "model_ratio": 0,
+      "completion_ratio": 0,
+      "cache_ratio": 0,
+      "model_price": 0.08572,
+      "quota_type": 1,
+      "enable_groups": [
+        "channel_filter_gt",
+        "channel_filter_step",
+        "channel_filter_qiu",
+        "ka_group1",
+        "general",
+        "channel_filter_jd",
+        "test",
+        "default",
+        "vip",
+        "svip",
+        "ka_group0"
+      ]
+    },
+    {
+      "model_name": "qwen3.6-plus",
+      "model_ratio": 0.1449275362,
+      "completion_ratio": 6,
+      "cache_ratio": 0.2,
+      "model_price": 0,
+      "quota_type": 0,
+      "enable_groups": [
+        "channel_filter_step",
+        "vip",
+        "svip",
+        "channel_filter_jd",
+        "test",
+        "default",
+        "ka_group1",
+        "general",
+        "ka_group0",
+        "channel_filter_gt",
+        "channel_filter_ali",
+        "channel_filter_qiu"
+      ],
+      "tiered_ratios": [
+        {
+          "threshold": 0,
+          "input_ratio": 0.1449275362,
+          "output_ratio": 6
+        },
+        {
+          "threshold": 256000,
+          "input_ratio": 0.5797101449,
+          "output_ratio": 6
+        }
+      ]
+    }
+  ]
+}

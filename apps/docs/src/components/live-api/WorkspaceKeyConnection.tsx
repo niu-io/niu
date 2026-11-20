@@ -227,6 +227,21 @@ export default function WorkspaceKeyConnection({
     );
   }
 
+  const workspaceAriaValue = loading
+    ? t("Loading workspaces…", "正在加载工作空间…")
+    : workspace
+      ? displayName(workspace.name, t("Unnamed workspace", "未命名工作空间"))
+      : workspaces.length
+        ? t("Choose workspace", "选择工作空间")
+        : t("No workspaces", "暂无工作空间");
+  const keyAriaValue = keysLoading
+    ? t("Loading keys…", "正在加载密钥…")
+    : key
+      ? displayName(key.name, t("Unnamed API key", "未命名 API 密钥"))
+      : keys.length
+        ? t("Choose API key", "选择 API 密钥")
+        : t("No active keys", "暂无有效密钥");
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -242,7 +257,7 @@ export default function WorkspaceKeyConnection({
                   size="sm"
                   disabled={disabled || loading || !workspaces.length}
                   className="max-w-56 justify-between gap-2 font-normal"
-                  aria-label="API test workspace"
+                  aria-label={t(`API test workspace: ${workspaceAriaValue}`, `API 测试工作空间：${workspaceAriaValue}`)}
                 >
                   <span className="truncate font-medium">
                     {loading
@@ -318,7 +333,7 @@ export default function WorkspaceKeyConnection({
                   size="sm"
                   disabled={disabled || !workspace || keysLoading || !keys.length}
                   className="max-w-56 justify-between gap-2 font-normal"
-                  aria-label="API test key"
+                  aria-label={t(`API test key: ${keyAriaValue}`, `API 测试密钥：${keyAriaValue}`)}
                 >
                   <IconKey size={14} className="text-muted-foreground" />
                   <span className="truncate font-medium">

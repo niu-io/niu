@@ -1,3 +1,4 @@
+import type { ProviderServiceDescriptor } from '@niu-io/sdk';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -5,6 +6,9 @@ import { Link, useNavigate } from 'react-router';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { providerAvailability, type ProviderSetup } from './provider-setup';
 import ProviderMark from './components/ProviderMark';
+import { identifyProvider } from '@/lib/providers';
+import { providerPreset, type ProviderPreset } from './provider-presets';
+import ProviderConnectDialog from './components/ProviderConnectDialog';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -13,19 +17,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { IconDots as MoreHorizontal, IconPlus as Plus, IconChevronDown, IconPlugConnected, IconRoute } from '@tabler/icons-react';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { IconDots as MoreHorizontal, IconPlus as Plus, IconChevronDown, IconPlugConnected } from '@tabler/icons-react';
 import { providerLogoPresets, providerLogoIsMonochrome } from './provider-logos';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateForMutation, peekQuery } from '@/lib/query-cache';
 import { prefetchRouteIntent } from '@/shell/prefetch';
 import { prefetchGet, request, writeMayHaveCommitted } from './api';
 
-type ProviderSummary = ProviderSetup & { id: string; slug?: string; name: string; logo_url?: string; api_keys?: number; models?: number; members: number; qualification_status: string };
+type ProviderSummary = ProviderSetup & { id: string; slug?: string; name: string; logo_url?: string; api_keys?: number; models?: number; members: number };
 const PROVIDERS_PATH = '/api/v1/providers';
 export default function ProviderList() {
   const { t: uiT, format: uiF } = useUILocale();
-  const { token } = useDashboardContext();
+  const { token, session } = useDashboardContext();
   const navigate = useNavigate();
   const scope = token || 'public';
   const initialProviders = token ? peekQuery<{ data: ProviderSummary[] }>(scope, PROVIDERS_PATH)?.data ?? null : null;
@@ -34,6 +38,10 @@ export default function ProviderList() {
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const lastRevision = useRef(0);
+  const [providerPresets, setProviderPresets] = useState<ProviderPreset[]>([]);
+  const [presetError, setPresetError] = useState('');
+  const [presetsLoading, setPresetsLoading] = useState(true);
+  const [preset, setPreset] = useState<ProviderPreset | null>(null);
   const [dialog, setDialog] = useState<'add' | 'delete' | ''>('');
   const [selected, setSelected] = useState<ProviderSummary | null>(null);
   const [name, setName] = useState('');
@@ -66,6 +74,15 @@ export default function ProviderList() {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [scope, token, revision]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setPresetsLoading(true); setPresetError(''); setProviderPresets([]);
+    void request<{data:ProviderServiceDescriptor[]}>(token, '/api/v1/providers/presets', 'GET', undefined, controller.signal)
+      .then(result => { if (!controller.signal.aborted) setProviderPresets(result.data.map(providerPreset)); })
+      .catch(reason => { if (!controller.signal.aborted) setPresetError(reason instanceof Error ? reason.message : 'Could not load Provider presets.'); })
+      .finally(() => { if (!controller.signal.aborted) setPresetsLoading(false); });
+    return () => controller.abort();
+  }, [token, revision]);
   function open(action: typeof dialog, provider: ProviderSummary | null = null) {
     setError(''); setSelected(provider); setName(provider?.name ?? '');
     setDescription(''); setWebsite(''); setLogo(''); setDialog(action);
@@ -86,7 +103,7 @@ export default function ProviderList() {
         setDialog('');
         window.dispatchEvent(new Event('niu:provider-profile-updated'));
         if (typeof result?.data?.id === 'string' && result.data.id.trim()) {
-          navigate('/admin/providers/' + encodeURIComponent(result.data.slug || result.data.id));
+          navigate('/admin/providers/' + encodeURIComponent(result.data.slug || result.data.id) + (session?.operating_mode === 'internal' ? '/keys' : ''));
         } else {
           setError('Provider was created, but its page could not be opened. Refresh the list to find it before adding another Provider.');
         }
@@ -103,14 +120,28 @@ export default function ProviderList() {
   }
   const visible = providers;
   return <>
-    <PageHeader title={uiT("Providers")} action={<div className="flex flex-wrap items-center gap-2"><Button asChild variant="outline" className="header-icon-action"><Link to="/admin/pools" aria-label={uiT("Model pools")} title={uiT("Model pools")}><IconRoute className="size-4"/><span>{uiT("Model pools")}</span></Link></Button><Button className="header-icon-action" aria-label={uiT("Add Provider")} title={uiT("Add Provider")} onClick={event => { dialogTrigger.current = event.currentTarget; open('add'); }}><Plus className="size-4" /><span>{uiT("Add Provider")}</span></Button></div>} />
-    <div className="space-y-5 py-5">
-      <p className="text-sm text-muted-foreground">{uiT("Connect an upstream API key, then add model routes. Commercial supply requires current Provider and offer approval, agreed rates, and enabled API routes. Personal API keys do not require commercial approval; usage is billed directly by the Provider. Set customer selling prices in Pricing. Manage model access and limits in each workspace.")}</p>
-      {error && !dialog && <p role="alert">{error}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-      {loading ? <TableSkeleton columns={6} rows={5} label={uiT("Loading Providers…")} /> : <Table className="supplier-directory-table"><TableHeader><TableRow><TableHead>Provider</TableHead><TableHead className="hidden sm:table-cell">{uiT("API keys")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Model routes")}</TableHead><TableHead>{uiT("Commercial supply")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Next step")}</TableHead><TableHead className="w-12"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader><TableBody>
-        {visible.map(provider => { const availability = providerAvailability(provider); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/providers/${encodeURIComponent(provider.id)}`); }; return <TableRow key={provider.id}><TableCell className="whitespace-normal"><div className="flex items-center gap-3"><ProviderMark url={provider.logo_url} /><Link className="min-w-0 break-words font-medium hover:underline" to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{provider.name}</Link></div></TableCell><TableCell className="hidden sm:table-cell">{provider.api_keys ?? '—'}</TableCell><TableCell className="hidden sm:table-cell">{provider.models ?? '—'}</TableCell><TableCell className="whitespace-normal"><Badge className="whitespace-normal" variant={availability.usable ? "secondary" : "outline"}>{availability.label}</Badge><p className="mt-1 whitespace-normal text-xs text-muted-foreground">{availability.detail}</p><Button asChild={availability.section !== 'refresh'} onClick={availability.section === 'refresh' ? () => setRevision(value => value + 1) : undefined} variant="link" className="mt-2 h-auto whitespace-normal p-0 text-left sm:hidden">{availability.section === 'refresh' ? availability.action : <Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/' + availability.section} onMouseEnter={warmProvider} onFocus={warmProvider}>{availability.action}</Link>}</Button></TableCell><TableCell className="hidden sm:table-cell"><Button asChild={availability.section !== 'refresh'} onClick={availability.section === 'refresh' ? () => setRevision(value => value + 1) : undefined} variant="link" className="h-auto whitespace-normal p-0 text-left">{availability.section === 'refresh' ? availability.action : <Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/' + availability.section} onMouseEnter={warmProvider} onFocus={warmProvider}>{availability.action}</Link>}</Button></TableCell><TableCell><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" ref={node => { if (node) actionTriggers.current.set(provider.id, node); else actionTriggers.current.delete(provider.id); }} onClick={event => { dialogTrigger.current = event.currentTarget; }} onFocus={event => { dialogTrigger.current = event.currentTarget; }} aria-label={'Actions for ' + provider.name}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Open Provider")}</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/settings'} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Edit Provider")}</Link></DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogTrigger.current = actionTriggers.current.get(provider.id) ?? null; open('delete', provider); }}>{uiT("Delete Provider")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>; })}
-        {!visible.length && <TableRow><TableCell colSpan={6} className="py-12 text-center text-muted-foreground">{providers.length ? uiT("No matching Providers.") : uiT("No Providers yet. Add your first Provider to configure its API keys and models.")}</TableCell></TableRow>}
-      </TableBody></Table>}
+    {preset && <ProviderConnectDialog key={preset.id} preset={preset} onClose={() => setPreset(null)} onSaved={() => { invalidateForMutation(token, PROVIDERS_PATH, 'POST'); setRevision(value => value + 1); window.dispatchEvent(new Event('niu:provider-profile-updated')); }} />}
+    <PageHeader title={uiT("Providers")} action={<Button className="header-icon-action" aria-label={uiT("Add Provider")} title={uiT("Add Provider")} onClick={event => { dialogTrigger.current = event.currentTarget; open('add'); }}><Plus className="size-4" /><span>{uiT("Add Provider")}</span></Button>} />
+    <div className="empty-region space-y-5 pb-5 pt-0">
+      <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Manage upstream supply for customer billing. Commercial offers and customer prices are required.") : uiT("Connect Providers for your internal workspaces. You pay each Provider directly.")}</p>
+
+      <h2 className="text-[15px] font-semibold">{uiT("Configured Providers")}</h2>
+      {error && !dialog && <p role="alert">{uiT(error)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
+      {loading ? <TableSkeleton columns={3} rows={5} label={uiT("Loading Providers…")} /> : !visible.length ? !error && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconPlugConnected size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No Providers yet. Choose one below to connect.")}</EmptyDescription></EmptyHeader></Empty> : <ul className="space-y-2" aria-label={uiT("Configured Providers")}>
+        {visible.map(provider => { const availability = providerAvailability(provider, session?.operating_mode); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/providers/${encodeURIComponent(provider.id)}`); }; return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5">
+          <div className="flex min-w-48 flex-1 items-center gap-3"><ProviderMark url={provider.logo_url} preset={providerPresets.find(item => item.name.toLowerCase() === provider.name.toLowerCase() || item.id === identifyProvider(provider.name)?.id)} /><Link className="min-w-0 break-words font-medium hover:underline" to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{provider.name}</Link></div>
+          <div className="min-w-48 flex-[2]"><Badge className="whitespace-normal" variant={availability.usable ? "secondary" : "outline"}>{uiT(availability.label)}</Badge>{availability.detail !== 'Internal use. Upstream fees are paid directly; no commercial approval is required.' && <p className="mt-1 text-xs text-muted-foreground">{availability.label === 'Ready to supply' ? uiF("{0} of {1} offers ready · Set customer prices in Pricing", [provider.ready_offers ?? 0, provider.offers ?? '—']) : uiT(availability.detail)}</p>}</div>
+          <div className="flex items-center gap-2"><Button asChild={availability.section !== 'refresh'} onClick={availability.section === 'refresh' ? () => setRevision(value => value + 1) : undefined} variant="outline" size="sm">{availability.section === 'refresh' ? uiT(availability.action) : <Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/' + availability.section} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT(availability.action)}</Link>}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" ref={node => { if (node) actionTriggers.current.set(provider.id, node); else actionTriggers.current.delete(provider.id); }} onClick={event => { dialogTrigger.current = event.currentTarget; }} onFocus={event => { dialogTrigger.current = event.currentTarget; }} aria-label={uiF("Actions for {0}", [provider.name])}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Open Provider")}</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/settings'} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Edit Provider")}</Link></DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogTrigger.current = actionTriggers.current.get(provider.id) ?? null; open('delete', provider); }}>{uiT("Delete Provider")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
+        </li>; })}
+      </ul>}
+      <section aria-labelledby="provider-presets-title" className="space-y-3">
+        <h2 id="provider-presets-title" className="text-[15px] font-semibold">{uiT("Available Providers")}</h2>
+        <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Choose a Provider and save its API key. Commercial offers and customer prices are required before selling.") : uiT("Choose a Provider and enter its API key to import models. You pay the Provider directly.")}</p>
+        {presetError && <p role="alert">{uiT(presetError)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
+        {presetsLoading ? <TableSkeleton columns={2} rows={5} label={uiT("Loading Providers…")} /> : <ul className="space-y-2" aria-label={uiT("Available Providers")}>
+          {providerPresets.filter(item => !visible.some(p => p.name.toLowerCase() === item.name.toLowerCase() || identifyProvider(p.name)?.id === item.id)).map(item => <li key={item.id} className="flex min-w-0 items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card px-4 py-3"><span className="flex min-w-0 items-center gap-3 font-medium"><ProviderMark preset={item} /><span>{item.name}</span></span><Button variant="outline" size="sm" onClick={() => setPreset(item)} aria-label={uiF("Connect {0}", [item.name])}>{uiT("Connect")}</Button></li>)}
+        </ul>}
+      </section>
     </div>
     <Dialog open={Boolean(dialog)} onOpenChange={open => { if (!open && !busy) setDialog(''); }}><DialogContent className="niu-modal max-h-[calc(100dvh-2rem)] overflow-y-auto" onCloseAutoFocus={event => { if (dialogTrigger.current?.isConnected) { event.preventDefault(); dialogTrigger.current.focus(); } }}><DialogHeader><DialogTitle>{dialog === 'delete' ? uiF("Delete {0}?", [selected?.name]) : uiT("Add Provider")}</DialogTitle><DialogDescription>{dialog === 'delete' ? deletionBlocked ? uiT("This Provider has API keys, models, or members and cannot be deleted. Audit history is retained.") : uiT("Only Providers without API keys, offers, or members can be deleted. Audit history is retained.") : uiT("Add the business supplying your models. Only the name is required; you can update these details in Settings.")}</DialogDescription></DialogHeader><form onSubmit={event => void save(event)} className="space-y-5">{dialog !== 'delete' && <fieldset disabled={busy} className="space-y-4">
           <div className="space-y-2"><Label htmlFor="supplier-name">{uiT("Provider name")}</Label><Input id="supplier-name" autoFocus maxLength={100} required value={name} onChange={event => setName(event.target.value)} placeholder={uiT("e.g. OpenRouter")} /></div>

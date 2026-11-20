@@ -136,12 +136,19 @@ pub(super) async fn notification_runtime(
 pub(super) async fn runtime_snapshot(
     state: &AppState,
 ) -> Result<(i64, Option<Arc<EPayRuntime>>), ApiError> {
-    if let Some((revision, ciphertext)) = state
+    let configuration = state
         .store
         .payment_gateway_configuration()
         .await
-        .map_err(ApiError::from_store)?
-    {
+        .map_err(ApiError::from_store)?;
+    runtime_snapshot_from_configuration(state, configuration).await
+}
+
+async fn runtime_snapshot_from_configuration(
+    state: &AppState,
+    configuration: Option<(i64, Vec<u8>)>,
+) -> Result<(i64, Option<Arc<EPayRuntime>>), ApiError> {
+    if let Some((revision, ciphertext)) = configuration {
         let cipher = state
             .vendor_cipher
             .as_ref()
@@ -425,10 +432,8 @@ pub(crate) async fn save(
         _ => None,
     };
     let _guard = state.payment_configuration_guard.write().await;
-    if input.enabled && super::mock_runtime::enabled().await {
-        return Err(ApiError::invalid_request(
-            "Disable mock payments before enabling EPay",
-        ));
+    if input.enabled {
+        return Err(ApiError::invalid_request("EPay is closed to new top-ups"));
     }
     let (current_revision, previous) = settings(&state).await?;
     let expected = input

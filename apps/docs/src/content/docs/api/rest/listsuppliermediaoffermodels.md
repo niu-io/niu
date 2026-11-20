@@ -1,5 +1,5 @@
 ---
-title: "List named draft media offer bindings"
+title: "List configured video models with draft offer status"
 description: "GET /api/v1/providers/{provider}/media-offer-models"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/providers/{provider}/media-offer-models`
 
-Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or qualification. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
+Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or authorization. Each record exposes the current offer status and exact configuration bindings so an authorized administrator can publish a purchase rate without a separate pinning step. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
 
 Operation: `listSupplierMediaOfferModels`.
 
@@ -78,7 +78,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Draft configuration choices, not dispatch qualification
+Draft configuration choices, not dispatch authorization
 
 Content type: `application/json`.
 
@@ -115,7 +115,15 @@ Content type: `application/json`.
           "model_revision",
           "schema_revision",
           "channel",
-          "offer_revision"
+          "offer_revision",
+          "offer_id",
+          "offer_active",
+          "offer_qualified",
+          "offer_current",
+          "route_ready",
+          "resolutions",
+          "reference_video",
+          "meter"
         ],
         "properties": {
           "model_alias": {
@@ -148,6 +156,45 @@ Content type: `application/json`.
               "null"
             ],
             "format": "uuid"
+          },
+          "offer_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "offer_active": {
+            "type": "boolean",
+            "description": "The current offer record is active."
+          },
+          "offer_qualified": {
+            "type": "boolean",
+            "description": "The active offer revision currently satisfies the authorization or legacy review predicate."
+          },
+          "offer_current": {
+            "type": "boolean",
+            "description": "The current offer revision still matches this configuration binding."
+          },
+          "route_ready": {
+            "type": "boolean",
+            "description": "The credential and model route are enabled and a credential is saved. This does not verify upstream access."
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference_video": {
+            "type": "boolean"
+          },
+          "meter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Output-estimator billing unit when configured; never inferred from a price."
           }
         }
       }
@@ -174,4 +221,4 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or qualification. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
+Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or authorization. Each record exposes the current offer status and exact configuration bindings so an authorized administrator can publish a purchase rate without a separate pinning step. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.

@@ -141,12 +141,14 @@ pub struct Test {
 ///         "event_types": {
 ///           "type": "array",
 ///           "minItems": 1,
-///           "maxItems": 2,
+///           "maxItems": 4,
 ///           "items": {
 ///             "type": "string",
 ///             "enum": [
 ///               "pool.changed",
-///               "evaluation.recorded"
+///               "evaluation.recorded",
+///               "incident.opened",
+///               "incident.resolved"
 ///             ]
 ///           },
 ///           "uniqueItems": true
@@ -186,6 +188,8 @@ pub struct Test {
 ///           "enum": [
 ///             "pool.changed",
 ///             "evaluation.recorded",
+///             "incident.opened",
+///             "incident.resolved",
 ///             "subscription.test"
 ///           ]
 ///         },
@@ -205,6 +209,7 @@ pub struct Test {
 ///               "enum": [
 ///                 "pool",
 ///                 "evaluation",
+///                 "incident",
 ///                 "subscription"
 ///               ]
 ///             },
@@ -778,7 +783,10 @@ pub async fn history(
         .event_subscription_history(principal.scope(), &name, query.before)
         .await
         .map_err(ApiError::from_store)?;
-    let next = (rows.len() == 100).then(|| rows.last().unwrap()["revision"].clone());
+    let next = (rows.len() == 100)
+        .then(|| rows.last())
+        .flatten()
+        .map(|row| row["revision"].clone());
     Ok(Json(json!({"data":rows,"next_before":next})))
 }
 /// ```openapi
@@ -1000,4 +1008,38 @@ pub async fn test(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":receipt})))
+}
+
+/// ```openapi
+/// {"path":"/v1/incidents/{reference}","method":"get","operation":{"operationId":"getWorkspaceIncidentEvent","summary":"Reconcile an incident event in the current workspace","description":"Requires a current workspace key with events:read. The opaque reference is unique to the affected workspace. Returns that workspace's model, whether its connection is owner-funded, current incident state, recovery time and the current lifecycle event's durable notification state for this exact workspace. notification reports not_configured, authority_inactive, queued, sending, delivered, failed or partial from enabled incident subscriptions and current delegation; a 2xx receiver acknowledgement is not processing or task success. No upstream connection, credentials, request content, procurement data or other workspace identity. Historical references remain readable after recovery. A missing or foreign reference returns 404. The event signals a specific incident, not current health of all models or Provider supply. No inference or notification is sent. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"reference","in":"path","required":true,"schema":{"type":"string","pattern":"^incident-[0-9a-f]{32}$"}}],"responses":{"200":{"description":"Workspace-scoped incident","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["reference","model","owner_funded","status","recovered_at","notification"],"properties":{"reference":{"type":"string"},"model":{"type":"string"},"owner_funded":{"type":"boolean"},"status":{"type":"string","enum":["active","resolved"]},"recovered_at":{"type":["string","null"],"format":"date-time"},"notification":{"type":"object","required":["state","event","subscribers","authorized","delivered","failed","cancelled","queued","sending","last_attempt_at"],"properties":{"state":{"type":"string","enum":["not_configured","authority_inactive","queued","sending","delivered","failed","partial"]},"event":{"type":"string","enum":["opened","resolved"]},"subscribers":{"type":"integer","minimum":0},"authorized":{"type":"integer","minimum":0},"delivered":{"type":"integer","minimum":0},"failed":{"type":"integer","minimum":0},"cancelled":{"type":"integer","minimum":0},"queued":{"type":"integer","minimum":0},"sending":{"type":"integer","minimum":0},"last_attempt_at":{"type":["string","null"],"format":"date-time"}}}}}}}}}},"400":{"description":"Invalid reference"},"401":{"description":"Authentication required"},"403":{"description":"events:read required"},"404":{"description":"Incident unavailable"},"503":{"description":"Evidence unavailable"}},"x-niu-implementation":"implemented"}}
+/// ```
+pub async fn incident(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Result<axum::response::Response, ApiError> {
+    use axum::response::IntoResponse;
+    let principal = authorize(&state, &headers, "events:read").await?;
+    if reference.len() != 41
+        || !reference.starts_with("incident-")
+        || !reference[9..]
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(ApiError::invalid_request(
+            "Use the workspace incident event reference",
+        ));
+    }
+    let data = state
+        .store
+        .workspace_incident_event_detail(principal.scope(), &reference)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let mut response = Json(json!({"data":data})).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    Ok(response)
 }

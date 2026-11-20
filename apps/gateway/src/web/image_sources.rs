@@ -139,33 +139,47 @@ pub(crate) async fn read(
     let Some(cipher) = &state.vendor_cipher else {
         return status(StatusCode::NOT_FOUND);
     };
-    let detectors: Vec<_> = state
-        .image_detectors
-        .iter()
-        .map(|(name, runtime)| (name.as_str(), runtime))
-        .collect();
-    let source = match state
-        .store
-        .deliver_asset_image_source(&token, &detectors, |aad, bytes| {
-            let open = || {
-                cipher
-                    .open_bytes_with_aad(aad, bytes)
-                    .map_err(|_| niu_storage::StoreError::InvalidObservation)
-            };
-            if tokio::runtime::Handle::try_current()
-                .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
-            {
-                tokio::task::block_in_place(open)
-            } else {
-                open()
-            }
-        })
-        .await
-    {
-        Ok(Some(source)) => source,
-        Ok(None) | Err(_) => return status(StatusCode::NOT_FOUND),
+    let decrypt = |aad: &[u8], bytes: &[u8]| {
+        let open = || {
+            cipher
+                .open_bytes_with_aad(aad, bytes)
+                .map_err(|_| niu_storage::StoreError::InvalidObservation)
+        };
+        if tokio::runtime::Handle::try_current()
+            .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+        {
+            tokio::task::block_in_place(open)
+        } else {
+            open()
+        }
     };
-    let (content_type, raw_bytes) = source.into_parts();
+    // One public route serves two capability families. Inspected image sources
+    // retain detector/consent checks; workspace materials carry their own
+    // workspace/asset/hash/expiry/delivery binding.
+    let (content_type, raw_bytes) = if token.starts_with("nws_") {
+        match state
+            .store
+            .deliver_workspace_asset_source(&token, decrypt)
+            .await
+        {
+            Ok(Some(source)) => source.into_parts(),
+            Ok(None) | Err(_) => return status(StatusCode::NOT_FOUND),
+        }
+    } else {
+        let detectors: Vec<_> = state
+            .image_detectors
+            .iter()
+            .map(|(name, runtime)| (name.as_str(), runtime))
+            .collect();
+        match state
+            .store
+            .deliver_asset_image_source(&token, &detectors, decrypt)
+            .await
+        {
+            Ok(Some(source)) => source.into_parts(),
+            Ok(None) | Err(_) => return status(StatusCode::NOT_FOUND),
+        }
+    };
     let bytes = Bytes::from(raw_bytes);
     let length = bytes.len();
     // Retain the slot in the body stream until the chunk is yielded or the response is dropped.
@@ -175,10 +189,9 @@ pub(crate) async fn read(
         });
     let mut response = Body::from_stream(stream).into_response();
     protect(&mut response);
-    response.headers_mut().insert(
-        "content-type",
-        axum::http::HeaderValue::from_str(&content_type).expect("validated image content type"),
-    );
+    if let Ok(value) = axum::http::HeaderValue::from_str(&content_type) {
+        response.headers_mut().insert("content-type", value);
+    }
     response
         .headers_mut()
         .insert("content-length", axum::http::HeaderValue::from(length));

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = new Set(['Niu', 'Niu Docs', 'API', 'SDK', 'MCP', 'HTTP', 'HTTPS', 'JSON', 'Markdown', 'UTC', 'USD', 'CNY', 'ID', 'Token', 'Tokens', 'Provider', 'OpenAI', 'Anthropic', 'OpenRouter', 'Claude Code', 'Codex', 'DeepSeek Harness', 'GitHub', 'OAuth', 'URL', 'SSE', 'SQL', 'Chat', 'Video', 'English', 'Google', 'GitLab', 'Microsoft', 'SAML', 'OIDC', 'SCIM', 'MIT', '&lt;', '<slug>', 'deepseek/deepseek-chat', 'chat', 'responses', 'messages', 'embeddings', 'generate_content']);
+const allowed = new Set(['Niu', 'Niu Docs', 'API', 'SDK', 'MCP', 'HTTP', 'HTTPS', 'JSON', 'Markdown', 'UTC', 'USD', 'CNY', 'ID', 'Token', 'Tokens', 'KB', 'MB', 'ms', 'Provider', 'OpenAI', 'Anthropic', 'OpenRouter', 'Claude Code', 'Codex', 'DeepSeek Harness', 'GitHub', 'OAuth', 'URL', 'SSE', 'SQL', 'Chat', 'Video', 'English', 'Google', 'GitLab', 'Microsoft', 'SAML', 'OIDC', 'SCIM', 'MIT', '&lt;', '<slug>', 'deepseek/deepseek-chat', 'chat', 'responses', 'messages', 'embeddings', 'generate_content']);
 const attributes = new Set(['aria-label', 'aria-description', 'title', 'placeholder', 'alt', 'label', 'description', 'emptyLabel', 'loadingLabel']);
 const source = fs.readFileSync(path.join(root, 'app/shell/locale-messages.ts'), 'utf8');
 const messages = ts.createSourceFile('messages.ts', source, ts.ScriptTarget.Latest, true);
@@ -21,18 +21,25 @@ export function auditSource(text, file = 'fixture.tsx', translations = known) {
  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
  const declarations = new Map();
  function collect(node) {
-  if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+  if ((ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) || (ts.isFunctionDeclaration(node) && node.name)) {
    let scope = node.parent;
    while (scope && !ts.isBlock(scope) && !ts.isSourceFile(scope)) scope = scope.parent;
    if (!declarations.has(scope)) declarations.set(scope, new Map());
-   declarations.get(scope).set(node.name.text, node.initializer);
+   declarations.get(scope).set(node.name.text, ts.isFunctionDeclaration(node) ? node : node.initializer);
   }
   ts.forEachChild(node, collect);
  }
  collect(sf);
  function resolve(node) {
   for (let scope = node.parent; scope; scope = scope.parent) {
-   if (ts.isFunctionLike(scope) && scope.parameters?.some(p => p.name.getText(sf) === node.text)) return null;
+   if (ts.isFunctionLike(scope) && scope.parameters?.some(p => p.name.getText(sf) === node.text)) {
+    const call = scope.parent;
+    if (scope.parameters[0]?.name.getText(sf) === node.text && ts.isCallExpression(call) && ts.isPropertyAccessExpression(call.expression) && call.expression.name.text === 'map') {
+     const source = call.expression.expression;
+     return ts.isIdentifier(source) ? resolve(source) : source;
+    }
+    return null;
+   }
    const found = declarations.get(scope)?.get(node.text);
    if (found) return found;
   }
@@ -40,11 +47,27 @@ export function auditSource(text, file = 'fixture.tsx', translations = known) {
  }
  const reported = new Set();
  function report(node, kind, value) { const key = `${node.pos}:${kind}`; if (reported.has(key)) return; reported.add(key); const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf)); findings.push({file:path.relative(root, file),line:pos.line+1,column:pos.character+1,kind,text:value.trim().replace(/\s+/g,' ')}); }
+ function translatedKeys(value, seen = new Set()) {
+  if (!value || seen.has(value)) return; seen.add(value);
+  if (ts.isStringLiteral(value) && isCopy(value.text) && !translations.has(value.text)) report(value,'missing-translation',value.text);
+  else if (ts.isIdentifier(value)) translatedKeys(resolve(value),seen);
+  else if (ts.isParenthesizedExpression(value)) translatedKeys(value.expression,seen);
+  else if (ts.isElementAccessExpression(value) && ts.isIdentifier(value.expression)) translatedKeys(resolve(value.expression),seen);
+  else if (ts.isObjectLiteralExpression(value)) for (const item of value.properties) { if (ts.isPropertyAssignment(item)) translatedKeys(item.initializer,seen); }
+  else if (ts.isArrayLiteralExpression(value)) for (const item of value.elements) translatedKeys(item,seen);
+  else if (ts.isConditionalExpression(value)) {translatedKeys(value.whenTrue,seen);translatedKeys(value.whenFalse,seen);}
+  else if (ts.isBinaryExpression(value) && [ts.SyntaxKind.BarBarToken,ts.SyntaxKind.QuestionQuestionToken].includes(value.operatorToken.kind)) {translatedKeys(value.left,seen);translatedKeys(value.right,seen);}
+ }
  function visit(n) {
+  if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['t','uiT','translateUI'].includes(n.expression.text) && n.arguments.length===1 && !ts.isStringLiteral(n.arguments[0])) translatedKeys(n.arguments[0]);
+  if (ts.isNewExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.expression.getText(sf)==='Intl' && ['DateTimeFormat','DisplayNames'].includes(n.expression.name.text)) {
+   const argument=n.arguments?.[0];const values=argument && ts.isArrayLiteralExpression(argument) ? argument.elements : argument ? [argument] : [];
+   for(const value of values) if(ts.isStringLiteral(value) && /^en(?:-|$)/.test(value.text))report(value,'unlocalized-formatter',value.text);
+  }
   if (ts.isJsxText(n) && isCopy(n.text) && !inCode(n)) report(n,'untranslated-text',n.text);
   if (ts.isJsxAttribute(n) && attributes.has(n.name.getText(sf)) && n.initializer && ts.isStringLiteral(n.initializer) && isCopy(n.initializer.text)) report(n,'untranslated-attribute',n.initializer.text);
-  if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['t', 'uiT'].includes(n.expression.text) && n.arguments.length === 1 && ts.isStringLiteral(n.arguments[0]) && !translations.has(n.arguments[0].text) && isCopy(n.arguments[0].text)) report(n,'missing-translation',n.arguments[0].text);
-  if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['format', 'uiF'].includes(n.expression.text) && n.arguments.length === 2 && ts.isStringLiteral(n.arguments[0]) && !translations.has(n.arguments[0].text)) report(n, 'missing-translation', n.arguments[0].text);
+  if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['t', 'uiT', 'translateUI'].includes(n.expression.text) && n.arguments.length === 1 && ts.isStringLiteral(n.arguments[0]) && !translations.has(n.arguments[0].text) && isCopy(n.arguments[0].text)) report(n,'missing-translation',n.arguments[0].text);
+  if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['format', 'uiF', 'formatLocalizedMessage'].includes(n.expression.text) && n.arguments.length >= 2 && ts.isStringLiteral(n.arguments[0]) && !translations.has(n.arguments[0].text)) report(n, 'missing-translation', n.arguments[0].text);
   if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['t', 'uiT'].includes(n.expression.text) && n.arguments.length === 2 && ts.isStringLiteral(n.arguments[1]) && !n.arguments[1].text.trim()) report(n, 'missing-translation', n.arguments[0].getText(sf));
   if (ts.isJsxExpression(n) && n.expression && !inCode(n) && (!ts.isJsxAttribute(n.parent) || attributes.has(n.parent.name.getText(sf)))) {
     const seen = new Set();
@@ -52,9 +75,19 @@ export function auditSource(text, file = 'fixture.tsx', translations = known) {
       if (!value || seen.has(value)) return; seen.add(value);
       if (ts.isIdentifier(value)) { check(resolve(value)); return; }
       if (ts.isParenthesizedExpression(value)) { check(value.expression); return; }
+      if (ts.isArrayLiteralExpression(value)) { for (const item of value.elements) check(item); return; }
+      if (ts.isElementAccessExpression(value) && ts.isIdentifier(value.expression)) { check(resolve(value.expression)); return; }
+      if (ts.isObjectLiteralExpression(value)) { for (const item of value.properties) if (ts.isPropertyAssignment(item)) check(item.initializer); return; }
       if ((ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) && isCopy(value.text)) report(value,'untranslated-expression',value.text);
+      else if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && !['t','uiT','format','uiF','translateUI','formatLocalizedMessage'].includes(value.expression.text)) {
+       const fn = resolve(value.expression);
+       if (fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn) || ts.isFunctionDeclaration(fn))) {
+        const returns = node => { if (node !== fn.body && ts.isFunctionLike(node)) return; if (ts.isReturnStatement(node)) check(node.expression); else ts.forEachChild(node, returns); };
+        if (fn.body && ts.isBlock(fn.body)) returns(fn.body); else if (fn.body) check(fn.body);
+       }
+      }
       else if (ts.isConditionalExpression(value)) { check(value.whenTrue); check(value.whenFalse); }
-      else if (ts.isBinaryExpression(value) && [ts.SyntaxKind.AmpersandAmpersandToken,ts.SyntaxKind.BarBarToken,ts.SyntaxKind.QuestionQuestionToken].includes(value.operatorToken.kind)) check(value.right);
+      else if (ts.isBinaryExpression(value) && [ts.SyntaxKind.AmpersandAmpersandToken,ts.SyntaxKind.BarBarToken,ts.SyntaxKind.QuestionQuestionToken].includes(value.operatorToken.kind)) { if(value.operatorToken.kind!==ts.SyntaxKind.AmpersandAmpersandToken)check(value.left);check(value.right); }
       else if (ts.isTemplateExpression(value)) {
        if (isCopy(value.head.text + value.templateSpans.map(x=>x.literal.text).join(''))) report(value,'untranslated-template',value.getText(sf));
        else for (const span of value.templateSpans) check(span.expression);
@@ -111,16 +144,67 @@ export function auditTypedDisplay(program, dashboardRoot = root) {
  return results;
 }
 
+/** Display fields declared by application `.ts` helpers must be translated where rendered. */
+export function auditTsDisplayLabels(program, dashboardRoot = root) {
+ const checker = program.getTypeChecker();
+ const results = [];
+ const translatedCalls = new Set(['t', 'uiT', 'format', 'uiF', 'translateUI', 'formatLocalizedMessage']);
+ const displayFields = new Set(['label', 'detail', 'title', 'message', 'help']);
+ function translatedByAncestor(node) {
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+   if (ts.isCallExpression(ancestor) && ts.isIdentifier(ancestor.expression) && translatedCalls.has(ancestor.expression.text)) return true;
+   if (ts.isJsxExpression(ancestor)) return false;
+  }
+  return false;
+ }
+ function renderedInJsx(node) {
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+   if (ts.isJsxAttribute(ancestor) && !attributes.has(ancestor.name.getText())) return false;
+   if (ts.isConditionalExpression(ancestor) && node.pos >= ancestor.condition.pos && node.end <= ancestor.condition.end) return false;
+   if (ts.isPrefixUnaryExpression(ancestor) && ancestor.operator === ts.SyntaxKind.ExclamationToken) return false;
+   if (ts.isBinaryExpression(ancestor) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken].includes(ancestor.operatorToken.kind) && node.pos >= ancestor.left.pos && node.end <= ancestor.left.end) return false;
+   if (ts.isBinaryExpression(ancestor) && ancestor.operatorToken.kind >= ts.SyntaxKind.FirstComparisonOperator && ancestor.operatorToken.kind <= ts.SyntaxKind.LastComparisonOperator) return false;
+   if (ts.isJsxExpression(ancestor)) { const holder = ancestor.parent; if (ts.isJsxAttribute(holder) && !attributes.has(holder.name.getText())) return false; return true; }
+   if (ts.isFunctionLike(ancestor) || ts.isSourceFile(ancestor)) return false;
+  }
+  return false;
+ }
+ for (const sf of program.getSourceFiles()) {
+  const relative = path.relative(dashboardRoot, sf.fileName).split(path.sep).join('/');
+  if (!relative.startsWith('app/') || relative.includes('/ui/') || !relative.endsWith('.tsx')) continue;
+  function visit(node) {
+   if (ts.isPropertyAccessExpression(node) && displayFields.has(node.name.text) && !translatedByAncestor(node) && renderedInJsx(node)) {
+    const type = checker.getTypeAtLocation(node.expression);
+    const property = type.getProperty(node.name.text);
+    const declaration = property?.valueDeclaration ?? property?.declarations?.[0];
+    const declarationFile = declaration?.getSourceFile();
+    const declarationRelative = declarationFile ? path.relative(dashboardRoot, declarationFile.fileName).split(path.sep).join('/') : '';
+    if (declarationFile && declarationRelative.startsWith('app/') && declarationRelative.endsWith('.ts') && !declarationRelative.endsWith('.tsx')) {
+     const propertyType = checker.getTypeOfSymbolAtLocation(property, node);
+     const types = propertyType.isUnion() ? propertyType.types : [propertyType];
+     if (types.some(t => t.flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))) {
+      const pos = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+      results.push({file: relative, line: pos.line + 1, column: pos.character + 1, kind: 'untranslated-display-label', text: node.getText(sf)});
+     }
+    }
+   }
+   ts.forEachChild(node, visit);
+  }
+  visit(sf);
+ }
+ return results;
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile);
  if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'));
  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root);
  const program = ts.createProgram(parsed.fileNames, parsed.options, ts.createCompilerHost(parsed.options, true));
- const findings = [...files(path.join(root, 'app')).flatMap(file => auditSource(fs.readFileSync(file, 'utf8'), file)), ...auditTypedDisplay(program)];
+ const findings = [...files(path.join(root, 'app')).flatMap(file => auditSource(fs.readFileSync(file, 'utf8'), file)), ...auditTypedDisplay(program), ...auditTsDisplayLabels(program)];
  if (process.argv.includes('--json')) process.stdout.write(JSON.stringify(findings, null, 2) + '\n');
  else {
   for (const x of findings) console.error(`${x.file}:${x.line}:${x.column} ${x.kind}: ${x.text}`);
-  console.log(`i18n: ${findings.length} findings. Full dashboard TSX audit; no baseline waivers.`);
+  console.log(`i18n: ${findings.length} findings. Full dashboard TSX and helper-label audit; no baseline waivers.`);
  }
  process.exitCode = findings.length ? 1 : 0;
 }

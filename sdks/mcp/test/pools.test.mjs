@@ -11,12 +11,12 @@ test('pool tools use only scoped routes and preserve explicit revision without r
     return { ok: true, status: 200, text: async () => JSON.stringify({ data: { ...configuration, revision: 1 } }) };
   } };
   for (const [name, args, method, suffix] of [
-    ['list_pools', { after: 'assistant' }, 'GET', '/pools?after=assistant'],
-    ['get_pool', { slug: 'assistant' }, 'GET', '/pools/assistant'],
-    ['preview_pool', { configuration }, 'POST', '/pools/preview'],
-    ['set_pool', { configuration }, 'PUT', '/pools/assistant'],
-    ['get_pool_history', { slug: 'assistant', before: 2 }, 'GET', '/pools/assistant/history?before=2'],
-    ['get_pool_selections', { slug: 'assistant' }, 'GET', '/pools/assistant/selections'],
+    ['list_pools', { after: 'assistant' }, 'GET', '/routing?after=assistant'],
+    ['get_pool', { slug: 'assistant' }, 'GET', '/routing/assistant'],
+    ['preview_pool', { configuration }, 'POST', '/routing/preview'],
+    ['set_pool', { configuration }, 'PUT', '/routing/assistant'],
+    ['get_pool_history', { slug: 'assistant', before: 2 }, 'GET', '/routing/assistant/history?before=2'],
+    ['get_pool_selections', { slug: 'assistant' }, 'GET', '/routing/assistant/selections'],
   ]) {
     const result = await callTool(client, name, args);
     assert.equal(result.isError, undefined);
@@ -65,7 +65,7 @@ test('contextual pool preview schema matches the handler and sends only a non-di
   let proposal;
   const context = { protocol: 'chat', tools: true, requested_output_tokens: 128 };
   const client = { baseURL: 'https://niu.example/v1', apiKey: 'fixture', fetch: async (url, init) => {
-    assert.equal(url, 'https://niu.example/v1/pools/preview'); assert.equal(init.method, 'POST');
+    assert.equal(url, 'https://niu.example/v1/routing/preview'); assert.equal(init.method, 'POST');
     proposal = JSON.parse(init.body);
     return { ok: true, status: 200, text: async () => JSON.stringify({ data: { persisted: false, live_model_verification: 'not_performed' } }) };
   } };

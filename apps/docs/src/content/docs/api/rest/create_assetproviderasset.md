@@ -76,8 +76,20 @@ Location: **header**. Optional. Canonical nonnil UUID. Same key and unchanged in
   "required": [
     "model",
     "group_id",
-    "url",
     "kind"
+  ],
+  "description": "Provide exactly one source: a public HTTPS url or one active workspace_asset_id.",
+  "oneOf": [
+    {
+      "required": [
+        "url"
+      ]
+    },
+    {
+      "required": [
+        "workspace_asset_id"
+      ]
+    }
   ],
   "properties": {
     "model": {
@@ -90,7 +102,14 @@ Location: **header**. Optional. Canonical nonnil UUID. Same key and unchanged in
     "url": {
       "type": "string",
       "maxLength": 8192,
-      "format": "uri"
+      "format": "uri",
+      "writeOnly": true,
+      "description": "Public HTTPS source. Not retained in operation history."
+    },
+    "workspace_asset_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Active workspace material; the Gateway mints a short-lived public fetch capability only at dispatch."
     },
     "name": {
       "type": "string",

@@ -1,0 +1,86 @@
+{
+  "at": "2026-11-17T12:26:06.621880+00:00",
+  "core": "23cae63a8a5eb38a008ab5836ef2961c786e9cdf",
+  "website": "8d3f49200f0d99d27dd39e17d71b904ee3b34108",
+  "verification": "Actual hosted HTTP requests, independent saved-result/request/billing readback, and downloaded package consumer; no fixture evidence.",
+  "nonstream": {
+    "http_status": 200,
+    "exact_output": true,
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 10,
+      "total_tokens": 30,
+      "prompt_tokens_details": {},
+      "completion_tokens_details": {}
+    },
+    "fresh_session_prompt_equal": true,
+    "fresh_session_output_equal": true
+  },
+  "requests": [
+    {
+      "execution": "confirmed_completed",
+      "prompt_tokens": "13",
+      "completion_tokens": "26",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_currency": "USD",
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "execution": "confirmed_completed",
+      "prompt_tokens": "18",
+      "completion_tokens": "48",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "length"
+        }
+      ],
+      "customer_charge_currency": "USD",
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    },
+    {
+      "execution": "confirmed_completed",
+      "prompt_tokens": "20",
+      "completion_tokens": "10",
+      "finish_reasons": [
+        {
+          "index": 0,
+          "reason": "stop"
+        }
+      ],
+      "customer_charge_currency": "USD",
+      "customer_charge_nanos": "0",
+      "customer_charge_status": "charged"
+    }
+  ],
+  "billing": {
+    "balances": [
+      {
+        "currency": "USD",
+        "due_nanos": "0",
+        "paid_nanos": "0",
+        "charged_nanos": "0",
+        "unbilled_nanos": "0"
+      }
+    ],
+    "unresolved": "0",
+    "unpriced": "0"
+  },
+  "temporary_key_revoked": true,
+  "packages": {
+    "niu-io-mcp-0.1.0.tgz": "62bb3f44c789473be1a39ac7cce4be9515b160a44e33cbf061a96e37d635980c",
+    "SOURCE_COMMIT": "63ddf91f5c28ffa97945a5775f58b7aed5b3a7208499fdd09f1edf6d21068e60",
+    "SHA256SUMS": "0e1b83411b30d54c2023b1fb4bd81737d5af02aa396bc4ffd61ebf226e9d17fa",
+    "niu-deepseek-harness.tar.gz": "1497fc71358c7446fa2950ab360c4b9fba1ef23507e752701a2e1dfc81c1ae2d",
+    "niu-agent-marketplace.tar.gz": "59087d7e87ba7496833eeb42d34a50a59ff3d94cbc40449f6b2108ecba59fe99"
+  },
+  "package_source_commit": "d8f3cfa194ea79fd4f3a8b073bf935bcf6368e1a",
+  "current_tag_commit": "bf0fca4d58fce2b5fade5c297b61fcc4844c12ea"
+}

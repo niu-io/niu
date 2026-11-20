@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import YAML from 'yaml';
 import { isDeepStrictEqual } from 'node:util';
-import { addOpenApiNavigation } from './openapi-navigation.mjs';
+import { addOpenApiNavigation, pruneOpenApiDocument } from './openapi-navigation.mjs';
 import { requestExamples } from './request-examples.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const check = process.argv.includes('--check');
@@ -93,12 +93,184 @@ for (const item of [spec, ...Object.values(spec.paths).flatMap(item => Object.va
     if (!spec.components?.securitySchemes?.[name]) throw new Error(`Undefined bundled security scheme ${name}`);
   }
 }
+const LEGACY_DUPLICATE_PROJECT_PATHS = new Set([
+  '/api/v1/organizations/{organization}/projects',
+  '/api/v1/organizations/{organization}/projects/{project}',
+  '/api/v1/organizations/{organization}/projects/{project}/keys',
+  '/api/v1/organizations/{organization}/projects/{project}/keys/{key}',
+  '/api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate',
+]);
+
+const BUNDLE_DOMAIN_PREFIXES = new Map([
+  ['billing_openapi_yaml', 'Billing'],
+  ['guardrails_openapi_yaml', 'Guardrail'],
+  ['provider_business_openapi_yaml', 'Provider'],
+  ['password_sessions_openapi_yaml', 'Auth'],
+  ['request_observability_openapi_yaml', 'Observability'],
+  ['handler_operations_json', 'Api'],
+]);
+
+function mapStrings(value, transform) {
+  if (typeof value === 'string') return transform(value);
+  if (!value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(item => mapStrings(item, transform));
+  const next = {};
+  for (const [k, v] of Object.entries(value)) {
+    next[k] = mapStrings(v, transform);
+  }
+  return next;
+}
+
+function rewriteRefs(document, refReplacements) {
+  if (refReplacements.size === 0) return document;
+  return mapStrings(document, value => refReplacements.get(value) ?? value);
+}
+
+function stripBundlePrefix(key) {
+  const match = key.match(/^(handler_operations_json|[a-z0-9_]+_openapi_yaml)_(.+)$/);
+  return match ? { prefix: match[1], bare: match[2] } : null;
+}
+
+function normalizeSchemaForComparison(value, components) {
+  return JSON.stringify(mapStrings(value, str => {
+    const match = str.match(/^#\/components\/([^/]+)\/([^/]+)$/);
+    if (!match) return str;
+    const stripped = stripBundlePrefix(match[2]);
+    if (stripped && components?.[match[1]]?.[stripped.bare]) {
+      return `#/components/${match[1]}/${stripped.bare}`;
+    }
+    return str;
+  }));
+}
+
+function cleanSpecComponentNames(document) {
+  let current = document;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const replacements = new Map();
+    for (const [category, entries] of Object.entries(current.components ?? {})) {
+      if (!entries || typeof entries !== 'object') continue;
+      for (const [name, definition] of Object.entries(entries)) {
+        if (!definition || typeof definition !== 'object' || Array.isArray(definition)) continue;
+        const keys = Object.keys(definition);
+        if (keys.length === 1 && keys[0] === '$ref' && typeof definition.$ref === 'string') {
+          const match = definition.$ref.match(/^#\/components\/([^/]+)\/([^/]+)$/);
+          if (match && match[1] === category && match[2] !== name && entries[match[2]]) {
+            const targetName = match[2];
+            const targetStripped = stripBundlePrefix(targetName);
+            const nameStripped = stripBundlePrefix(name);
+            if (!nameStripped && targetStripped && targetStripped.bare === name) {
+              entries[name] = entries[targetName];
+              delete entries[targetName];
+              replacements.set(`#/components/${category}/${targetName}`, `#/components/${category}/${name}`);
+            } else {
+              delete entries[name];
+              replacements.set(`#/components/${category}/${name}`, `#/components/${category}/${targetName}`);
+            }
+            changed = true;
+            break;
+          }
+        }
+      }
+      if (changed) break;
+    }
+    if (replacements.size > 0) {
+      current = rewriteRefs(current, replacements);
+    }
+  }
+
+  let unified = true;
+  while (unified) {
+    unified = false;
+    const replacements = new Map();
+    for (const [category, entries] of Object.entries(current.components ?? {})) {
+      if (!entries || typeof entries !== 'object') continue;
+      for (const name of Object.keys(entries)) {
+        const stripped = stripBundlePrefix(name);
+        if (!stripped || !entries[stripped.bare]) continue;
+        const a = normalizeSchemaForComparison(entries[name], current.components);
+        const b = normalizeSchemaForComparison(entries[stripped.bare], current.components);
+        if (a === b) {
+          delete entries[name];
+          replacements.set(`#/components/${category}/${name}`, `#/components/${category}/${stripped.bare}`);
+          unified = true;
+        }
+      }
+    }
+    if (replacements.size > 0) {
+      current = rewriteRefs(current, replacements);
+    }
+  }
+
+  const finalReplacements = new Map();
+  for (const [category, entries] of Object.entries(current.components ?? {})) {
+    if (!entries || typeof entries !== 'object') continue;
+    const rebuilt = {};
+    const pendingRenames = new Map();
+    for (const name of Object.keys(entries)) {
+      const stripped = stripBundlePrefix(name);
+      if (!stripped) {
+        rebuilt[name] = entries[name];
+        continue;
+      }
+      let nextName = stripped.bare;
+      if (entries[nextName] || rebuilt[nextName]) {
+        const domain = BUNDLE_DOMAIN_PREFIXES.get(stripped.prefix) ?? 'Api';
+        nextName = nextName.startsWith(domain) ? nextName : `${domain}${nextName}`;
+        let suffix = 2;
+        while (entries[nextName] || rebuilt[nextName]) {
+          nextName = `${domain}${stripped.bare}${suffix++}`;
+        }
+      }
+      rebuilt[nextName] = entries[name];
+      pendingRenames.set(`#/components/${category}/${name}`, `#/components/${category}/${nextName}`);
+    }
+    current.components[category] = rebuilt;
+    for (const [from, to] of pendingRenames) finalReplacements.set(from, to);
+  }
+  return rewriteRefs(current, finalReplacements);
+}
+
+function annotatePublicLegacyFields(value) {
+  if (!value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(annotatePublicLegacyFields);
+  if (value.name === 'project_id' && value.in && !value.description) {
+    return { ...value, description: 'Workspace scope (legacy API identifier).' };
+  }
+  const next = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (k === 'project_id' && v && typeof v === 'object' && !Array.isArray(v) && !v.description) {
+      next[k] = { ...annotatePublicLegacyFields(v), description: 'Workspace scope (legacy API identifier).' };
+    } else {
+      next[k] = annotatePublicLegacyFields(v);
+    }
+  }
+  return next;
+}
+
+const cleanSpec = cleanSpecComponentNames(spec);
+for (const key of Object.keys(spec)) delete spec[key];
+Object.assign(spec, cleanSpec);
 addOpenApiNavigation(spec);
-outputs.set('contracts/generated/public-openapi.json', JSON.stringify(spec, null, 2) + '\n');
-function buildAudienceView(title, audiences) {
+
+function buildAudienceView(title, audiences, { canonicalOnly = false, sanitizePublicDescription = false } = {}) {
   const allowed = new Set(audiences);
+  const aliasedLegacyRoutes = new Set();
+  if (canonicalOnly) {
+    for (const item of Object.values(spec.paths)) {
+      for (const [key, value] of Object.entries(item)) {
+        if (methods.has(key) && allowed.has(value?.['x-niu-authority']?.audience) && value?.['x-niu-compatibility-route']) {
+          aliasedLegacyRoutes.add(value['x-niu-compatibility-route']);
+        }
+      }
+    }
+  }
   const filteredPaths = {};
   for (const [route, item] of Object.entries(spec.paths)) {
+    if (canonicalOnly && (aliasedLegacyRoutes.has(route) || LEGACY_DUPLICATE_PROJECT_PATHS.has(route))) {
+      continue;
+    }
     const filteredItem = {};
     for (const [key, value] of Object.entries(item)) {
       if (!methods.has(key)) {
@@ -111,16 +283,37 @@ function buildAudienceView(title, audiences) {
       filteredPaths[route] = filteredItem;
     }
   }
-  return {
+  let info = { ...spec.info, title };
+  if (sanitizePublicDescription && typeof info.description === 'string') {
+    info = {
+      ...info,
+      description: info.description
+        .replace(
+          'Management operations require the member session,\nplatform authority, explicit delegated workspace capability or Provider membership stated by that operation.',
+          'Management operations require the member session or explicit delegated workspace capability stated by that operation.',
+        )
+        .replace(
+          'Legacy `project` path segments refer to workspaces; legacy `provider` paths refer to Providers.',
+          'Legacy `project` field names refer to workspaces.',
+        )
+        .replace(' Provider purchase rates and customer charges are separate.', ''),
+    };
+  }
+  const view = pruneOpenApiDocument({
     openapi: spec.openapi,
-    info: { ...spec.info, title },
+    info,
     servers: spec.servers,
-    paths: filteredPaths,
+    tags: spec.tags,
+    'x-tagGroups': spec['x-tagGroups'],
+    paths: canonicalOnly ? annotatePublicLegacyFields(filteredPaths) : filteredPaths,
     components: spec.components,
-  };
+  });
+  return view;
 }
+
+outputs.set('contracts/generated/public-openapi.json', JSON.stringify(buildAudienceView(spec.info.title, ['public', 'model', 'console', 'customer-management'], { canonicalOnly: true, sanitizePublicDescription: true }), null, 2) + '\n');
 outputs.set('contracts/generated/views/model-openapi.json', JSON.stringify(buildAudienceView('Niu Model & Inference API', ['model', 'public']), null, 2) + '\n');
-outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.stringify(buildAudienceView('Niu Customer Workspace & Billing Management API', ['customer-management']), null, 2) + '\n');
+outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.stringify(buildAudienceView('Niu Customer Workspace & Billing Management API', ['customer-management'], { canonicalOnly: true, sanitizePublicDescription: true }), null, 2) + '\n');
 outputs.set('contracts/generated/views/console-openapi.json', JSON.stringify(buildAudienceView('Niu Console & Saved Session API', ['console']), null, 2) + '\n');
 outputs.set('contracts/generated/views/platform-provider-openapi.json', JSON.stringify(buildAudienceView('Niu Platform & Provider Administration API', ['platform', 'provider']), null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';
@@ -222,6 +415,7 @@ const checker=program.getTypeChecker();
 const entry=program.getSourceFile(path.join(root,'sdks/javascript/src/index.ts'));
 const exports=checker.getExportsOfModule(checker.getSymbolAtLocation(entry));
 const printer=ts.createPrinter({newLine:ts.NewLineKind.LineFeed});
+const releaseLine = fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim().split('.').slice(0, 2).join('.');
 const sdkIndex=['The reference is emitted from the TypeScript SDK source, including inferred return types. Import the public exports from `@niu-io/sdk`.', '', '## Clients and functions', ''];
 const types=[];
 let symbols=0;
@@ -233,7 +427,7 @@ for(const exported of exports.sort((a,b)=>a.name.localeCompare(b.name))) {
  const node=file?.statements.find(n=>n.name?.text===symbol.name);
  if(!node) throw new Error('Missing public declaration '+symbol.name);
  symbols++;
- const sourceLink='https://github.com/niu-io/niu/blob/main/'+path.relative(root,original.getSourceFile().fileName).split(path.sep).join('/');
+ const sourceLink=`https://github.com/niu-io/niu/blob/release/${releaseLine}/`+path.relative(root,original.getSourceFile().fileName).split(path.sep).join('/');
  const slug=exported.name.toLowerCase();
  const lines=[`[SDK source](${sourceLink}). [All SDK types](/docs/api/sdk/).`, '', ...block('typescript',printer.printNode(ts.EmitHint.Unspecified,node,file))];
  if(ts.isClassDeclaration(node)) {

@@ -11,7 +11,7 @@ it('keeps Admin sections independent of the Provider directory', () => {
   const context = {token:'test',session:{kind:'installation',operator:null}} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={['/admin/providers']}><SidebarProvider><ProviderNav context={context}/></SidebarProvider></MemoryRouter>);
   expect(screen.queryByRole('button', {name:'Switch provider'})).toBeNull();
-  for (const [name, href] of [['Providers','/admin/providers'],['Model pools','/admin/pools'],['Financial reports','/admin/reports'],['Account balances','/admin/balances'],['Pricing','/admin/pricing'],['Payment gateways','/admin/payments'],['Branding','/admin/branding']]) {
+  for (const [name, href] of [['Providers','/admin/providers'],['Routing','/admin/routing'],['Customers','/admin/customers'],['Financial reports','/admin/reports'],['Pricing','/admin/pricing'],['Payment gateways','/admin/payments'],['Branding','/admin/branding']]) {
     expect(screen.getByRole('link', {name}).getAttribute('href')).toBe(href);
   }
 });
@@ -30,7 +30,7 @@ it('keeps Admin navigation available on Provider detail routes', () => {
   expect(screen.getByRole('link', {name:'Payment gateways'}).hasAttribute('aria-current')).toBe(false);
   const adminLinks=screen.getByRole('navigation',{name:'Admin navigation'}).querySelectorAll('a');
   expect(adminLinks[adminLinks.length-1].getAttribute('href')).toBe('/admin/settings');
-  for (const name of ['All providers','Overview','API keys','Models','Usage','Settlements','Members']) {
+  for (const name of ['All providers','Overview','Keys','Models','Usage','Settlements','Members']) {
     expect(screen.queryByRole('link', {name})).toBeNull();
   }
 });

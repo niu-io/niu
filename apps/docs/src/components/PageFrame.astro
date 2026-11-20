@@ -8,14 +8,33 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   (() => {
     const isZh = document.documentElement.dataset.locale === 'zh-CN';
     const DICT = {
-      'Why Niu?': '为什么选择牛元？',
+      'Why Niu?': '为什么选择 Niu？',
       'Blog': '博客',
-      'For Human': '用户文档',
-      'For Agents': '智能体文档',
-      'Agent documentation': '智能体文档',
+      'Docs': '文档',
+      'Agents': 'Agents',
+      'Agent documentation': '概览',
+      'Install and configure': '安装与配置',
+      'Install and Connect Coding Agents to Niu': '安装并连接编码智能体到 Niu',
+      'Capability map': '能力概览',
+      'Agent Capability & Verification Contract': '智能体能力与验证契约',
+      'Model inference': '模型推理',
+      'Model Inference & Application Integration Contract': '模型推理与应用集成契约',
+      'Model Inference and Application Integration': '模型推理与应用集成',
+      'Workspace routing': '工作空间路由',
+      'Workspace Routing': '工作空间路由',
+      'Task Evaluations': '任务评估',
+      'Workspace Resource Events': '工作空间资源事件',
+      'Model pools': '模型池',
+      'Evaluations': '评测',
+      'Resource events': '资源事件',
       'For coding agents': '智能体参考',
+      'Agent contracts': 'Agent 契约',
+      'Install & connect': '安装与连接',
+      'Capabilities & grants': '能力与授权',
+      'MCP server': 'MCP 服务',
+      'Platform & deployment': '平台与部署',
       'Start here': '快速开始',
-      'Use Niu': '使用牛元',
+      'Use Niu': '使用 Niu',
       'Product references': '产品参考',
       'Administration': '平台管理',
       'Operate Niu': '运维与部署',
@@ -23,7 +42,6 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       'SDK': 'SDK',
       'Compare': '对比',
       'Models': '模型目录',
-      'Docs': '文档',
       'Documentation': '文档',
       'Overview': '概览',
       'Quickstart': '快速入门',
@@ -41,7 +59,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       'Request logs': '请求日志',
       'Request capacity': '请求容量与限流',
       'Guardrails': '安全护栏',
-      'Material library': '素材库',
+      'Assets': '素材库',
       'Usage & billing': '用量与计费',
       'Request lifecycle': '请求生命周期',
       'Access & roles': '访问权限与角色',
@@ -62,6 +80,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       'Gateway load testing': '网关负载测试',
       'Local development': '本地开发',
       'REST specification': 'REST 接口规范',
+      'API explorer': 'API 浏览器',
       'REST API specification': 'REST API 接口规范',
       'Model discovery': '模型发现',
       'Chat completions': '对话补全',
@@ -71,9 +90,9 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       'API Reference': 'API 参考',
       'Implemented API operations': '已实现的 API 操作',
       'Compare AI gateways': '对比 AI 网关',
-      'Niu vs New API': 'Niu 牛元对比 New API',
-      'Niu vs OpenRouter': 'Niu 牛元对比 OpenRouter',
-      'Compare Niu': 'Niu 牛元能力对比',
+      'Niu vs New API': 'Niu 对比 New API',
+      'Niu vs OpenRouter': 'Niu 对比 OpenRouter',
+      'Compare Niu': 'Niu 能力对比',
       'Page not found': '页面未找到',
       'SDK interfaces': 'SDK 接口',
       'Start with a tutorial': '从教程开始',
@@ -97,9 +116,12 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       if (el.dataset.origText === undefined) el.dataset.origText = (el.textContent || '').trim();
       return el.dataset.origText;
     };
-    document.querySelectorAll('.docs-article-eyebrow, .sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a').forEach((el) => {
+    document.querySelectorAll('.docs-article-eyebrow, .sidebar-content summary span.large, .sidebar-content a:not(.docs-brand) span, .docs-mobile-public nav a').forEach((el) => {
       const o = orig(el);
       if (Object.hasOwn(DICT, o)) el.textContent = isZh ? DICT[o] : o;
+    });
+    document.querySelectorAll('.docs-brand').forEach((el) => {
+      el.setAttribute('aria-label', isZh ? 'Niu 首页' : 'Niu home');
     });
     const h1 = document.querySelector('h1#_top');
     if (h1) {
@@ -132,18 +154,37 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   })();
 </script>
 <script>
-  import { navigate, type TransitionBeforeSwapEvent } from 'astro:transitions/client';
+  import type { TransitionBeforeSwapEvent } from 'astro:transitions/client';
 
   const SIDEBAR_AND_TITLE_ZH: Record<string, string> = {
     // Sidebar groups & public nav
-    'Why Niu?': '为什么选择牛元？',
+    'Why Niu?': '为什么选择 Niu？',
     'Blog': '博客',
-    'For Human': '用户文档',
-      'For Agents': '智能体文档',
-      'Agent documentation': '智能体文档',
+    'Docs': '文档',
+      'Agents': 'Agents',
+      'Agent documentation': '概览',
+      'Install and configure': '安装与配置',
+      'Install and Connect Coding Agents to Niu': '安装并连接编码智能体到 Niu',
+      'Capability map': '能力概览',
+      'Agent Capability & Verification Contract': '智能体能力与验证契约',
+      'Model inference': '模型推理',
+      'Model Inference & Application Integration Contract': '模型推理与应用集成契约',
+      'Model Inference and Application Integration': '模型推理与应用集成',
+      'Workspace routing': '工作空间路由',
+      'Workspace Routing': '工作空间路由',
+      'Task Evaluations': '任务评估',
+      'Workspace Resource Events': '工作空间资源事件',
+      'Model pools': '模型池',
+      'Evaluations': '评测',
+      'Resource events': '资源事件',
       'For coding agents': '智能体参考',
+      'Agent contracts': 'Agent 契约',
+      'Install & connect': '安装与连接',
+      'Capabilities & grants': '能力与授权',
+      'MCP server': 'MCP 服务',
+      'Platform & deployment': '平台与部署',
       'Start here': '快速开始',
-    'Use Niu': '使用牛元',
+    'Use Niu': '使用 Niu',
       'Product references': '产品参考',
     'Administration': '平台管理',
     'Operate Niu': '运维与部署',
@@ -151,7 +192,6 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     'SDK': 'SDK',
     'Compare': '对比',
     'Models': '模型目录',
-    'Docs': '文档',
     'Documentation': '文档',
     // Sidebar links & page titles
     'Overview': '概览',
@@ -170,7 +210,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     'Request logs': '请求日志',
     'Request capacity': '请求容量与限流',
     'Guardrails': '安全护栏',
-    'Material library': '素材库',
+    'Assets': '素材库',
     'Usage & billing': '用量与计费',
     'Request lifecycle': '请求生命周期',
     'Access & roles': '访问权限与角色',
@@ -191,6 +231,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     'Gateway load testing': '网关负载测试',
     'Local development': '本地开发',
     'REST specification': 'REST 接口规范',
+    'API explorer': 'API 浏览器',
     'REST API specification': 'REST API 接口规范',
     'Model discovery': '模型发现',
     'Chat completions': '对话补全',
@@ -200,9 +241,9 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     'API Reference': 'API 参考',
     'Implemented API operations': '已实现的 API 操作',
     'Compare AI gateways': '对比 AI 网关',
-    'Niu vs New API': 'Niu 牛元对比 New API',
-    'Niu vs OpenRouter': 'Niu 牛元对比 OpenRouter',
-    'Compare Niu': 'Niu 牛元能力对比',
+    'Niu vs New API': 'Niu 对比 New API',
+    'Niu vs OpenRouter': 'Niu 对比 OpenRouter',
+    'Compare Niu': 'Niu 能力对比',
     'Page not found': '页面未找到',
     // Generated API / SDK headings & group labels
     'SDK interfaces': 'SDK 接口',
@@ -587,6 +628,13 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       }
     });
 
+    root.querySelectorAll<HTMLElement>('.hero .tagline').forEach((el) => {
+      const orig = rememberOriginalText(el);
+      if (orig === 'This documentation link may be outdated.') {
+        el.textContent = isZh ? '此文档链接可能已过时。' : orig;
+      }
+    });
+
     // 2. Search button in header & search modal
     root.querySelectorAll<HTMLElement>('site-search button').forEach((btn) => {
       const label = isZh ? '搜索文档 (⌘K)' : 'Search documentation (⌘K)';
@@ -600,9 +648,12 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
     localizeSearchModal(isZh, root);
 
-    // 3. Sidebar group labels, sidebar links, and mobile public nav
+    // 3. Brand label, sidebar group labels, sidebar links, and mobile public nav
+    root.querySelectorAll<HTMLElement>('.docs-brand').forEach((el) => {
+      el.setAttribute('aria-label', isZh ? 'Niu 首页' : 'Niu home');
+    });
     root.querySelectorAll<HTMLElement>(
-      '.sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a'
+      '.sidebar-content summary span.large, .sidebar-content a:not(.docs-brand) span, .docs-mobile-public nav a'
     ).forEach((el) => {
       const orig = rememberOriginalText(el);
       const zh = translation(SIDEBAR_AND_TITLE_ZH, orig);
@@ -694,10 +745,6 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     newDoc.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
     newDoc.documentElement.toggleAttribute('data-docs-home', /^\/docs\/?$/.test(event.to.pathname));
     newDoc.documentElement.toggleAttribute('data-api-reference', /\/api(?:\/|$)/.test(event.to.pathname));
-    newDoc.documentElement.toggleAttribute(
-      'data-docs-embedded',
-      document.documentElement.hasAttribute('data-docs-embedded'),
-    );
 
     // Pre-localize incoming document tree before swap & View Transition snapshot
     applyDocsLocale(newDoc);
@@ -709,43 +756,4 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   window.addEventListener('storage', syncDocsSurface);
   document.addEventListener('astro:after-swap', syncDocsSurface);
   document.addEventListener('astro:page-load', syncDocsSurface);
-
-  if (document.documentElement.hasAttribute('data-docs-embedded')) {
-    // The dashboard owns browser history; Astro swaps articles without blanking
-    // the iframe or rebuilding the documentation shell.
-    window.addEventListener('message', (event) => {
-      if (event.origin !== location.origin || event.source !== parent) return;
-      if (event.data?.type === 'niu-docs-locale' && (event.data.locale === 'en' || event.data.locale === 'zh-CN')) {
-        document.documentElement.dataset.locale = event.data.locale;
-        document.documentElement.lang = event.data.locale;
-        window.dispatchEvent(new CustomEvent('niu:locale', { detail: event.data.locale }));
-        syncDocsSurface();
-        return;
-      }
-      if (event.data?.type !== 'niu-docs-navigate' || typeof event.data.path !== 'string') return;
-      const url = new URL(event.data.path, location.origin);
-      if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
-        url.searchParams.set('embed', 'help');
-        void navigate(url.pathname + url.search + url.hash, { history: 'replace' });
-      }
-    });
-    window.addEventListener('click', (event) => {
-      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null;
-      if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
-      const url = new URL(link.href, location.href);
-      url.searchParams.delete('embed');
-      if (url.origin === location.origin && link.classList.contains('docs-brand') && url.pathname === '/') {
-        event.preventDefault();
-        parent.postMessage({ type: 'niu-docs-navigation', path: '/docs/' }, location.origin);
-      } else if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
-        event.preventDefault();
-        parent.postMessage({ type: 'niu-docs-navigation', path: url.pathname + url.search + url.hash }, location.origin);
-      } else if (url.origin === location.origin) {
-        link.target = '_top';
-      } else {
-        link.target = '_blank';
-        link.rel = 'noopener';
-      }
-    }, { capture: true });
-  }
 </script>

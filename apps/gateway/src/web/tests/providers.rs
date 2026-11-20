@@ -1,7 +1,385 @@
 use super::*;
 use axum::http::Method;
 use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+use std::time::{SystemTime, UNIX_EPOCH};
 const ADMIN: &str = "niu-test-admin-token-that-is-long-1234";
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn commercial_offer_authorization_requires_platform_admin_and_current_revision(pool: PgPool) {
+    let mut state = test_state(None, pool.clone());
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(
+            "authorization-test-master-secret-at-least-32-characters",
+        )
+        .unwrap(),
+    ));
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let member = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "customer member",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+        Some(json!({"name":"Authorization test", "adapter":"openai", "api_base":"https://example.com/v1", "api_key":"synthetic-key"}))).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let vendor = vendor["data"]["id"].as_str().unwrap();
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            &format!("/admin/v1/vendors/{vendor}/models"),
+            ADMIN,
+            Some(
+                json!({"alias":"authorization-api-model","upstream_model":"model","enabled":true})
+            )
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let provider = store
+        .create_provider_business("Authorization Provider")
+        .await
+        .unwrap();
+    let vendor_id: Uuid = vendor.parse().unwrap();
+    let vendor_revision: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1")
+        .bind(vendor_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    store
+        .associate_vendor_supplier(vendor_id, provider, vendor_revision)
+        .await
+        .unwrap();
+    let revision = store
+        .publish_provider_offer(
+            provider,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "authorization-api-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1".into(),
+                completion_rate: "1".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let offer: Uuid = sqlx::query_scalar("SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='authorization-api-model'")
+        .bind(provider).fetch_one(&pool).await.unwrap();
+    let path = format!("/admin/v1/providers/{provider}/offers/{offer}/authorization");
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &path,
+            &member.token,
+            Some(json!({"rate_revision":revision}))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &path,
+            ADMIN,
+            Some(json!({"rate_revision":Uuid::new_v4()}))
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let first = call(
+        &app,
+        Method::PUT,
+        &path,
+        ADMIN,
+        Some(json!({"rate_revision":revision})),
+    )
+    .await;
+    assert_eq!(first.0, StatusCode::OK);
+    assert_eq!(first.1["data"]["active"], true);
+    let retry = call(
+        &app,
+        Method::PUT,
+        &path,
+        ADMIN,
+        Some(json!({"rate_revision":revision})),
+    )
+    .await;
+    assert_eq!(retry.0, StatusCode::OK);
+    assert_eq!(
+        retry.1["data"]["authorization_id"],
+        first.1["data"]["authorization_id"]
+    );
+    let authorization = first.1["data"]["authorization_id"].as_str().unwrap();
+    let revoke_path = format!("{path}/{authorization}");
+    assert_eq!(
+        call(&app, Method::DELETE, &revoke_path, &member.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, &revoke_path, ADMIN, None)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, &revoke_path, ADMIN, None)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let active: bool = sqlx::query_scalar("SELECT active FROM provider_offers WHERE id=$1")
+        .bind(offer)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(!active);
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let supplier = state
+        .store
+        .create_provider_business("Period API Provider")
+        .await
+        .unwrap();
+    let app = router(state);
+    let settlements = format!("/admin/v1/providers/{supplier}/settlements");
+    let mixed = call(
+        &app,
+        Method::POST,
+        &settlements,
+        ADMIN,
+        Some(json!({
+            "idempotency_key": Uuid::new_v4(),
+            "payment_reference": "mixed",
+            "attempt_ids": [Uuid::new_v4()],
+            "currency": "USD",
+            "cutoff_ms": 1
+        })),
+    )
+    .await;
+    assert_eq!(mixed.0, StatusCode::BAD_REQUEST);
+    let missing = call(
+        &app,
+        Method::POST,
+        &settlements,
+        ADMIN,
+        Some(json!({"idempotency_key": Uuid::new_v4(), "payment_reference": "missing"})),
+    )
+    .await;
+    assert_eq!(missing.0, StatusCode::BAD_REQUEST);
+    let empty = call(
+        &app,
+        Method::POST,
+        &settlements,
+        ADMIN,
+        Some(json!({
+            "idempotency_key": Uuid::new_v4(),
+            "payment_reference": "empty period",
+            "currency": "USD",
+            "cutoff_ms": 1
+        })),
+    )
+    .await;
+    assert_eq!(empty.0, StatusCode::CONFLICT);
+    let preview = format!("/admin/v1/providers/{supplier}/settlements/preview");
+    let lowercase = call(
+        &app,
+        Method::GET,
+        &format!("{preview}?currency=usd&cutoff_ms=1"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(lowercase.0, StatusCode::BAD_REQUEST);
+    let unknown = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/admin/v1/providers/{}/settlements/preview?currency=USD&cutoff_ms=1",
+            Uuid::new_v4()
+        ),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(unknown.0, StatusCode::NOT_FOUND);
+    let empty_preview = call(
+        &app,
+        Method::GET,
+        &format!("{preview}?currency=USD&cutoff_ms=1"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(empty_preview.0, StatusCode::OK);
+    assert_eq!(empty_preview.1["data"]["entry_count"], 0);
+    assert_eq!(empty_preview.1["data"]["amount_nanos"], "0");
+    assert_eq!(empty_preview.1["data"]["remaining_unpaid_nanos"], "0");
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let supplier = store
+        .create_provider_business("HTTP period provider")
+        .await
+        .unwrap();
+    let vendor = Uuid::new_v4();
+    sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'http period upstream','openai','https://example.com/v1',$2)")
+        .bind(vendor)
+        .bind(vec![1u8; 48])
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('http-period-model',$1,'qwen/http-period',$2)")
+        .bind(vendor)
+        .bind(json!({}))
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+        .bind(vendor)
+        .bind(supplier)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let revision = store
+        .publish_provider_offer(
+            supplier,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "http-period-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000000".into(),
+                completion_rate: "2000000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let offer: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='http-period-model'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    store
+        .enable_authorized_provider_offer(
+            supplier,
+            offer,
+            revision,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let operation = store
+        .create_operation(scope, "http-period-model")
+        .await
+        .unwrap();
+    let attempt = store
+        .prepare_attempt(scope, operation, "http-period-model", "route-v1")
+        .await
+        .unwrap();
+    store
+        .bind_provider_offer(
+            scope,
+            attempt,
+            "http-period-model",
+            "qwen/http-period",
+            Some("https://example.com/v1"),
+        )
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1",
+    )
+    .bind(attempt)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,created_at) VALUES($1,$2,$3,'USD',$4,1,1,to_timestamp($5::bigint / 1000.0))")
+        .bind(attempt)
+        .bind(supplier)
+        .bind(revision)
+        .bind(2_500_000_000i64)
+        .bind(now_ms - 86_400_000)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let app = router(state);
+    let preview = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/admin/v1/providers/{supplier}/settlements/preview?currency=USD&cutoff_ms={now_ms}"
+        ),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(preview.0, StatusCode::OK);
+    assert_eq!(preview.1["data"]["entry_count"], 1);
+    assert_eq!(preview.1["data"]["amount_nanos"], "2500000000");
+    let key = Uuid::new_v4();
+    let body = json!({
+        "idempotency_key": key,
+        "payment_reference": "http-period-payment",
+        "currency": "USD",
+        "cutoff_ms": now_ms
+    });
+    let first = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/providers/{supplier}/settlements"),
+        ADMIN,
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(first.0, StatusCode::OK);
+    assert_eq!(first.1["data"]["entry_count"], 1);
+    assert_eq!(first.1["data"]["amount_nanos"], "2500000000");
+    assert_eq!(first.1["data"]["remaining_unpaid_nanos"], "0");
+    let replay = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/providers/{supplier}/settlements"),
+        ADMIN,
+        Some(body),
+    )
+    .await;
+    assert_eq!(replay.0, StatusCode::OK);
+    assert_eq!(replay.1["data"]["id"], first.1["data"]["id"]);
+    assert_eq!(replay.1["data"]["amount_nanos"], "2500000000");
+}
+
 async fn call(
     app: &Router,
     method: Method,
@@ -53,109 +431,6 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
     let supplier = store.create_provider_business("Supplier").await.unwrap();
     let foreign = store.create_provider_business("Foreign").await.unwrap();
     let app = router(state);
-    let supplier_qualification = format!("/admin/v1/providers/{supplier}/qualification");
-    let valid_until_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-        + 30 * 24 * 60 * 60 * 1000;
-    let qualification = json!({
-        "supply_rights_sha256":"a".repeat(64),
-        "supply_capability_sha256":"b".repeat(64),
-        "data_handling_sha256":"c".repeat(64),
-        "valid_until_ms":valid_until_ms
-    });
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &supplier_qualification,
-            &owner.token,
-            Some(qualification.clone())
-        )
-        .await
-        .0,
-        StatusCode::FORBIDDEN
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &supplier_qualification,
-            ADMIN,
-            Some(json!({
-                "supply_rights_sha256":"not-a-digest",
-                "supply_capability_sha256":"b".repeat(64),
-                "data_handling_sha256":"c".repeat(64),
-                "valid_until_ms":valid_until_ms
-            }))
-        )
-        .await
-        .0,
-        StatusCode::BAD_REQUEST
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &supplier_qualification,
-            ADMIN,
-            Some(qualification)
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    let businesses = call(&app, Method::GET, "/admin/v1/providers", ADMIN, None)
-        .await
-        .1["data"]
-        .as_array()
-        .unwrap()
-        .clone();
-    assert_eq!(
-        businesses
-            .iter()
-            .find(|business| business["id"] == supplier.to_string())
-            .unwrap()["qualification_status"],
-        "qualified"
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::POST,
-            &format!("/admin/v1/providers/{supplier}/qualification/revoke"),
-            &owner.token,
-            Some(json!({"reason_sha256":"d".repeat(64)}))
-        )
-        .await
-        .0,
-        StatusCode::FORBIDDEN
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::POST,
-            &format!("/admin/v1/providers/{supplier}/qualification/revoke"),
-            ADMIN,
-            Some(json!({"reason_sha256":"d".repeat(64)}))
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    let businesses = call(&app, Method::GET, "/admin/v1/providers", ADMIN, None)
-        .await
-        .1["data"]
-        .as_array()
-        .unwrap()
-        .clone();
-    assert_eq!(
-        businesses
-            .iter()
-            .find(|business| business["id"] == supplier.to_string())
-            .unwrap()["qualification_status"],
-        "unqualified"
-    );
     let path = format!("/admin/v1/providers/{supplier}/dashboard");
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,
@@ -356,7 +631,11 @@ async fn customer_billing_is_project_scoped_and_financial_writes_are_installatio
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
-async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(pool: PgPool) {
+async fn authorized_offer_inference_preserves_independent_financial_ledgers(pool: PgPool) {
+    inference_independent_ledgers(pool).await;
+}
+
+async fn inference_independent_ledgers(pool: PgPool) {
     let upstream = Router::new()
         .route("/v1/chat/completions", post(provider))
         .with_state(Captured::default());
@@ -427,70 +706,19 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     .fetch_one(&pool)
     .await
     .unwrap();
-    let valid_until_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let (status, result) = call(
+        &app,
+        Method::PUT,
+        &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization"),
+        ADMIN,
+        Some(json!({"rate_revision":revision})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let authorization = result["data"]["authorization_id"]
+        .as_str()
         .unwrap()
-        .as_millis() as i64
-        + 30 * 24 * 60 * 60 * 1000;
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &format!("/admin/v1/providers/{supplier}/qualification"),
-            ADMIN,
-            Some(json!({
-                "supply_rights_sha256":"a".repeat(64),
-                "supply_capability_sha256":"b".repeat(64),
-                "data_handling_sha256":"c".repeat(64),
-                "valid_until_ms":valid_until_ms
-            }))
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    assert_eq!(
-        call(
-            &app,
-            Method::PUT,
-            &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification"),
-            ADMIN,
-            Some(json!({
-                "rate_revision":revision,
-                "model_identity_sha256":"d".repeat(64),
-                "protocol_matrix_sha256":"e".repeat(64),
-                "protocol_matrix_version":"chat-v1",
-                "data_handling_sha256":"f".repeat(64),
-                "availability_sha256":"1".repeat(64),
-                "agreed_rates_sha256":"2".repeat(64),
-                "valid_until_ms":valid_until_ms
-            }))
-        )
-        .await
-        .0,
-        StatusCode::OK
-    );
-    let supplier_manager = store
-        .create_operator(
-            OperatorScope {
-                organization_id: scope.organization_id,
-                project_id: None,
-            },
-            "supplier manager",
-            OperatorRole::Owner,
-            3600,
-            OperatorAuditActor::Installation,
-        )
-        .await
-        .unwrap();
-    store
-        .set_provider_member(supplier, supplier_manager.operator_id, "manager", true)
-        .await
-        .unwrap();
-    store
-        .set_provider_offer_active(supplier, offer, supplier_manager.operator_id, true)
-        .await
-        .unwrap();
+        .to_owned();
     rates.prompt_rate = "3000000000".into();
     rates.completion_rate = "6000000000".into();
     store.publish_customer_tariff(scope, &rates).await.unwrap();
@@ -602,10 +830,10 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     assert_eq!(
         call(
             &app,
-            Method::POST,
-            &format!("/admin/v1/providers/{supplier}/offers/{offer}/qualification/revoke"),
+            Method::DELETE,
+            &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization/{authorization}"),
             ADMIN,
-            Some(json!({"reason_sha256":"3".repeat(64)}))
+            None
         )
         .await
         .0,
@@ -1170,6 +1398,14 @@ async fn media_offer_configuration_is_installation_only_bounded_and_receipt_safe
     assert_eq!(status, StatusCode::OK);
     let choice = &page["data"][0];
     assert_eq!(choice["api_key_name"], "Video credential");
+    assert_eq!(choice["offer_id"], json!(null));
+    assert_eq!(choice["offer_active"], false);
+    assert_eq!(choice["offer_qualified"], false);
+    assert_eq!(choice["offer_current"], false);
+    assert_eq!(choice["route_ready"], true);
+    assert_eq!(choice["resolutions"], json!([]));
+    assert_eq!(choice["reference_video"], false);
+    assert_eq!(choice["meter"], json!(null));
     for forbidden in [
         "credential_ciphertext",
         "api_base",
@@ -1254,10 +1490,16 @@ async fn media_offer_configuration_is_installation_only_bounded_and_receipt_safe
         .0,
         StatusCode::FORBIDDEN
     );
+    let mut offer_id = None;
     for _ in 0..2 {
         let (status, saved) = call(&app, Method::POST, &publish, ADMIN, Some(body.clone())).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(saved["data"]["revision"], receipt.to_string());
+        let current = saved["data"]["offer_id"].as_str().unwrap().to_owned();
+        match &offer_id {
+            Some(existing) => assert_eq!(existing, &current),
+            None => offer_id = Some(current),
+        }
     }
     let mut changed = body.clone();
     changed["schema_revision"] = json!("different");
@@ -1804,4 +2046,184 @@ async fn supplier_profile_is_durable_validated_and_revision_guarded(pool: PgPool
             .await
             .unwrap();
     assert_eq!(events, 5); // creation, membership, and three successful profile updates
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_service_registry_and_native_identity_preserve_unknown_prices(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let app = router(state);
+    let (status, presets) = call(&app, Method::GET, "/api/v1/providers/presets", ADMIN, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let ids: Vec<_> = presets["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["openrouter", "fastrouter", "babelark", "qiniu", "deepseek"]
+    );
+    let (status, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Qiniu source test"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let id = created["data"]["id"].as_str().unwrap();
+    let integration = format!("/api/v1/providers/{id}/integration");
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &integration,
+            ADMIN,
+            Some(json!({"integration_type":"qiniu","expected_revision":0}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    // Identity discovery is deterministic and does not depend on a live external price source.
+    let (status, result) = call(&app, Method::GET, &integration, ADMIN, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(result["data"]["effective_type"], "qiniu");
+    assert_eq!(presets["data"][3]["price_support"], "official_page_json");
+    assert_eq!(presets["data"][4]["price_support"], "official_markdown");
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_quote_versions_remain_scoped_immutable_and_do_not_become_charges(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let app = router(state);
+    let (_, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Quote evidence"})),
+    )
+    .await;
+    let provider: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+    let path = format!("/api/v1/providers/{provider}");
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &format!("{path}/integration"),
+            ADMIN,
+            Some(json!({"integration_type":"qiniu","expected_revision":0}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    // Seed source evidence; live public retrieval is verified separately and cannot make this SQL regression network-dependent.
+    let captured = json!({"data":store.save_provider_price_evidence(provider,"qiniu",1,json!({"status":"unavailable","prices":[],"reason":"fixture_source_unavailable"})).await.unwrap()});
+    let first = captured["data"]["revision"].as_str().unwrap();
+    let read = call(
+        &app,
+        Method::GET,
+        &format!("{path}/pricing/{first}"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(read.1["data"], captured["data"]);
+    let (status,unknown)=call(&app,Method::POST,&format!("{path}/estimate"),ADMIN,Some(json!({"revision":first,"model":"unknown","quantities":[{"meter":"input_tokens","units":"1000"}]}))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(unknown["data"]["status"], "unavailable");
+    assert_eq!(unknown["data"]["totals"], json!([]));
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &format!("{path}/integration"),
+            ADMIN,
+            Some(json!({"integration_type":"openrouter","expected_revision":1}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert!(matches!(
+        store
+            .save_provider_price_evidence(provider, "qiniu", 1, json!({"status":"unavailable"}))
+            .await,
+        Err(niu_storage::StoreError::Conflict)
+    ));
+    let fixture = json!({"status":"available","source":"https://openrouter.ai/api/v1/models","basis":"advertised","observed_at_ms":1,"prices":[{"model":"maker/model","rates":[{"meter":"input_tokens","amount":"0.0000003","currency":"USD","per_units":1,"unit":"token"},{"meter":"output_tokens","amount":"0.0000012","currency":"USD","per_units":1,"unit":"token"}],"unsupported_dimensions":[]}],"native_ratios":[],"reason":null});
+    let second = store
+        .save_provider_price_evidence(provider, "openrouter", 2, fixture)
+        .await
+        .unwrap();
+    let (status,estimate)=call(&app,Method::POST,&format!("{path}/estimate"),ADMIN,Some(json!({"revision":second["revision"],"model":"maker/model","quantities":[{"meter":"input_tokens","units":"1000"},{"meter":"output_tokens","units":"800"}]}))).await;
+    assert_eq!(status, StatusCode::OK, "{estimate}");
+    assert_eq!(estimate["data"]["totals"][0]["amount"], "0.00126");
+    assert_eq!(estimate["data"]["is_actual_provider_charge"], false);
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!("{path}/pricing/{first}"),
+            ADMIN,
+            None
+        )
+        .await
+        .1,
+        captured
+    );
+    let history = call(
+        &app,
+        Method::GET,
+        &format!("{path}/pricing/history?limit=1"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(history.1["data"][0]["revision"], second["revision"]);
+    assert_eq!(history.1["next_after"], second["revision"]);
+    assert!(
+        sqlx::query("UPDATE provider_price_evidence SET adapter='qiniu' WHERE provider_id=$1")
+            .bind(provider)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    let (_, other) = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Other quote account"})),
+    )
+    .await;
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!(
+                "/api/v1/providers/{}/pricing/{first}",
+                other["data"]["id"].as_str().unwrap()
+            ),
+            ADMIN,
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM operations")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        0
+    );
 }

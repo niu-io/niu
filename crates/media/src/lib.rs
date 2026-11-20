@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 //! Configured video validation and bounded query transport; no entitlement.
 pub mod asset_create;
 pub mod asset_group;
@@ -8,6 +10,7 @@ pub mod asset_lookup;
 pub mod asset_read;
 pub mod asset_signing;
 pub mod asset_transport;
+pub mod babelark_video;
 pub mod fastrouter_actions;
 pub mod fastrouter_domain;
 pub mod image_detector;
@@ -18,6 +21,7 @@ pub mod media_inspection;
 pub mod media_reference_facts;
 pub mod openrouter;
 pub mod output;
+pub mod providers;
 pub mod query;
 pub mod result;
 pub mod submission;
@@ -581,7 +585,8 @@ impl VideoSchema {
             .output
             .as_ref()
             .map(|output| output.resolve(&effective, &self.revision))
-            .transpose()?;
+            .transpose()?
+            .flatten();
         Ok(ValidatedVideoRequest {
             body,
             body_sha256,
@@ -733,7 +738,8 @@ fn inline_image_format_parts(mime: &str, total_len: usize, head: &[u8], tail: &[
                 && head.starts_with(b"RIFF")
                 && &head[8..12] == b"WEBP"
                 && matches!(&head[12..16], b"VP8 " | b"VP8L" | b"VP8X")
-                && u32::from_le_bytes(head[4..8].try_into().unwrap()) as usize == total_len - 8
+                && u32::from_le_bytes(head[4..8].try_into().unwrap_or_default()) as usize
+                    == total_len - 8
         }
         _ => false,
     }

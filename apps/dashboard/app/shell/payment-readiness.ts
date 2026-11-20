@@ -1,3 +1,4 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useState } from 'react';
 import { invalidateQueries, peekQuery, primeQuery } from '@/lib/query-cache';
 
@@ -89,14 +90,12 @@ export function usePaymentReadiness(token: string, organization?: string | null,
     };
 
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 10000);
     window.addEventListener('niu:payment-mode', refresh);
     window.addEventListener('focus', refresh);
     window.addEventListener('online', refresh);
     return () => {
       alive = false;
       pending?.abort();
-      clearInterval(timer);
       window.removeEventListener('niu:payment-mode', refresh);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('online', refresh);

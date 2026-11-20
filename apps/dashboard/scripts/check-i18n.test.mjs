@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { auditSource, auditTypedDisplay } from './check-i18n.mjs';
+import { auditSource, auditTsDisplayLabels, auditTypedDisplay } from './check-i18n.mjs';
 const scan = source => auditSource(source, 'fixture.tsx', new Set(['Save']));
 test('detects visible copy, accessible attributes and dynamic branches', () => {
  const result = scan('<><h1>Available credits</h1><Input placeholder="Search models" aria-label="Find model"/><p>{ok ? "Enabled" : "Disabled"}</p><p>{`Available ${amount} credits`}</p></>');
@@ -48,5 +48,51 @@ test('typed audit follows imported finite labels but preserves customer strings 
   const program=ts.createProgram([file],{jsx:ts.JsxEmit.Preserve});
   const findings=auditTypedDisplay(program,root);
   assert.equal(findings.length,1);assert.equal(findings[0].text,'Enabled | Disabled');
+ } finally {rmSync(root,{recursive:true,force:true});}
+});
+
+test('follows widened literal arrays rendered by map callbacks', () => {
+ assert.equal(scan(`<tr>{['Company','Currency'].map(name => <th>{name}</th>)}</tr>`).length,2);
+ assert.equal(scan(`function Page(){const headers=['Company','Currency'];return <tr>{headers.map(name => <th>{name}</th>)}</tr>}`).length,2);
+ assert.equal(scan(`<tr>{[uiT('Save')].map(name => <th>{name}</th>)}</tr>`).length,0);
+ assert.equal(scan(`<tr>{customers.map(customer => <td>{customer.name}</td>)}</tr>`).length,0);
+});
+
+test('traces local display helper return values without auditing customer arguments', () => {
+ assert.equal(scan(`function caption(value){if(value===null)return 'Unavailable';return value;} function Page(){return <p>{caption(customer.name)}</p>}`).length,1);
+ assert.equal(scan(`function Page(){const caption=value=>value===null?'Unavailable':value;return <p>{caption(customer.name)}</p>}`).length,1);
+ assert.equal(scan(`function caption(value){return uiT('Save')} function Page(){return <p>{caption(customer.name)}</p>}`).length,0);
+});
+
+test('traces widened local object labels rendered through indexed access', () => {
+ assert.equal(scan(`function Page(){const labels={mtd:'Month to date',rolling:'Rolling day window'};return <p>{labels[mode]}</p>}`).length,2);
+ assert.equal(scan(`function Page(){const labels={mtd:uiT('Save')};return <p>{labels[mode]}</p>}`).length,0);
+});
+
+test('requires translations for indexed display dictionaries even when their lookup is translated', () => {
+ assert.equal(scan(`function Page(){const labels={save:'Save',other:'Missing'};return <p>{uiT(labels[key])}</p>}`).filter(x=>x.kind==='missing-translation').length,1);
+});
+
+test('rejects fixed English date and currency-name presentation locales', () => {
+ assert.equal(scan(`const dates=new Intl.DateTimeFormat('en-US');const names=new Intl.DisplayNames(['en'],{type:'currency'});`).filter(x=>x.kind==='unlocalized-formatter').length,2);
+ assert.equal(scan(`const dates=new Intl.DateTimeFormat(locale);const names=new Intl.DisplayNames([locale],{type:'currency'});`).length,0);
+});
+
+test('typed audit catches display labels declared by application .ts helpers', async () => {
+ const ts = (await import('typescript')).default;
+ const {mkdtempSync,mkdirSync,writeFileSync,rmSync}=await import('node:fs');
+ const {tmpdir}=await import('node:os');const path=await import('node:path');
+ const root=mkdtempSync(path.join(tmpdir(),'niu-i18n-dynamic-'));
+ try {
+  mkdirSync(path.join(root,'app'));
+  writeFileSync(path.join(root,'app','display.ts'),`export function outcome(){return {label:'Done',detail:'The answer may be incomplete.'};}\nexport function rows(){return [{label:'Before running'}];}`);
+  const file=path.join(root,'app','page.tsx');
+  writeFileSync(file,`import {outcome,rows} from './display';
+   declare function uiT(value:string):string;
+   export const Page = () => <><p>{outcome().label}</p><p>{outcome().detail}</p><p>{rows().map(row=><span key={row.label}>{row.label}</span>)}</p><p>{uiT(outcome().label)}</p></>;`);
+  const program=ts.createProgram([file],{jsx:ts.JsxEmit.Preserve,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler});
+  const findings=auditTsDisplayLabels(program,root);
+  assert.deepEqual(findings.map(x=>x.text),['outcome().label','outcome().detail','row.label']);
+  assert.ok(findings.every(x=>x.kind==='untranslated-display-label'));
  } finally {rmSync(root,{recursive:true,force:true});}
 });

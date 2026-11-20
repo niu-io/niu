@@ -101,6 +101,7 @@ Content type: `application/json`.
           "enum": [
             "connected",
             "credentials_rejected",
+            "account_chat_banned",
             "endpoint_unavailable",
             "private_endpoint_blocked",
             "invalid_endpoint",

@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/providers/{provider}/offers`
 
-Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
+Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unauthorized drafts; does not activate an offer or establish commercial authorization. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
 
 Operation: `listProviderOffersPage`.
 
@@ -148,7 +148,8 @@ Content type: `application/json`.
             "type": "boolean"
           },
           "qualified": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Compatibility field indicating a current exact-revision commercial authorization or a current legacy evidence review and required route binding. It is not proof of live upstream access, an active offer, an agreed rate or a customer selling price."
           },
           "revision": {
             "type": "string",
@@ -296,6 +297,6 @@ Storage unavailable.
 
 ## Behavior and supported scope
 
-Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
+Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unauthorized drafts; does not activate an offer or establish commercial authorization. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
 
 **Supported scope:** implemented

@@ -140,14 +140,22 @@ fn functional_protocol_contracts_and_commercial_sanitization_matrix() {
     });
     assert!(validate_responses_request(&mut valid_responses_req, model.pricing.as_ref()).is_ok());
 
-    let mut unsupported_responses_req = json!({
+    let mut tool_responses_req = json!({
         "model": "fast",
         "input": "Summarize the release notes",
         "tools": [{"type": "function", "name": "lookup_doc", "parameters": {"type": "object"}}]
     });
-    assert!(
-        validate_responses_request(&mut unsupported_responses_req, model.pricing.as_ref()).is_err()
-    );
+    assert!(validate_responses_request(&mut tool_responses_req, model.pricing.as_ref()).is_ok());
+
+    for invalid in [
+        json!({"model": "fast", "input": "hi", "tools": [{"type": "web_search_preview"}]}),
+        json!({"model": "fast", "input": "hi", "previous_response_id": "resp_1"}),
+    ] {
+        let mut invalid_responses_req = invalid;
+        assert!(
+            validate_responses_request(&mut invalid_responses_req, model.pricing.as_ref()).is_err()
+        );
+    }
 
     let valid_embedding_req = json!({
         "model": "fast",

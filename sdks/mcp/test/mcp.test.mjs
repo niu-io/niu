@@ -330,6 +330,95 @@ test('inspect_key, list_catalog_models, get_generation, compare_models, and mult
   assert.deepEqual(JSON.parse(embTool.result.content[0].text).data[0].embedding, [0.1, 0.2, 0.3]);
 });
 
+test('create_response, create_message, generate_content, and list_catalog_models support expanded native protocol parameters', async () => {
+  const captured = [];
+  const client = {
+    baseURL: 'https://niu.io/v1',
+    apiKey: 'niu_secret_key',
+    fetch: async (url, init) => {
+      captured.push({ url, headers: init.headers, body: init.body ? JSON.parse(init.body) : undefined });
+      if (url === 'https://niu.io/catalog/v1/models') {
+        return json({
+          object: 'list',
+          data: [{ id: 'gemini-2.5', capabilities: { generate_content: true, generate_content_streaming: true } }],
+        });
+      }
+      if (url === 'https://niu.io/v1/responses') {
+        return json({
+          id: 'resp_2',
+          object: 'response',
+          status: 'completed',
+          model: 'gpt-5',
+          output: [{ type: 'function_call', call_id: 'call_1', name: 'lookup', arguments: '{"q":"niu"}' }],
+        });
+      }
+      if (url === 'https://niu.io/v1/messages') {
+        return json({
+          id: 'msg_2',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-sonnet',
+          content: [{ type: 'thinking', thinking: 'ok', signature: 'sig' }, { type: 'text', text: 'Done' }],
+          stop_reason: 'end_turn',
+        });
+      }
+      if (url === 'https://niu.io/v1beta/models/gemini-2.5:generateContent') {
+        return json({
+          candidates: [{ index: 0, content: { role: 'model', parts: [{ functionCall: { name: 'lookup', args: {} } }] }, finishReason: 'STOP' }],
+          modelVersion: 'gemini-2.5',
+        });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    },
+  };
+
+  const cat = JSON.parse(await dispatch(client, rpc('tools/call', {
+    name: 'list_catalog_models',
+    arguments: { capability: 'generate_content_streaming' },
+  })));
+  assert.equal(JSON.parse(cat.result.content[0].text).data.length, 1);
+
+  const resp = JSON.parse(await dispatch(client, rpc('tools/call', {
+    name: 'create_response',
+    arguments: {
+      model: 'gpt-5',
+      input: [{ role: 'user', content: [{ type: 'input_text', text: 'Call lookup' }] }],
+      tools: [{ type: 'function', name: 'lookup', parameters: { type: 'object' } }],
+      tool_choice: 'required',
+      reasoning: { effort: 'low' },
+      store: false,
+    },
+  })));
+  const respData = JSON.parse(resp.result.content[0].text);
+  assert.equal(respData.function_calls[0].name, 'lookup');
+
+  await dispatch(client, rpc('tools/call', {
+    name: 'create_message',
+    arguments: {
+      model: 'claude-sonnet',
+      max_tokens: 2048,
+      thinking: { type: 'enabled', budget_tokens: 1024 },
+      output_config: { effort: 'high' },
+      top_k: 40,
+      metadata: { user_id: 'agent-1' },
+      anthropic_beta: ['interleaved-thinking-2025-05-14'],
+      messages: [{ role: 'user', content: 'Think first' }],
+    },
+  }));
+  assert.equal(captured[2].headers['anthropic-beta'], 'interleaved-thinking-2025-05-14');
+
+  const gem = JSON.parse(await dispatch(client, rpc('tools/call', {
+    name: 'generate_content',
+    arguments: {
+      model: 'gemini-2.5',
+      contents: [{ role: 'user', parts: [{ text: 'Call lookup' }] }],
+      tools: [{ functionDeclarations: [{ name: 'lookup' }] }],
+      toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
+    },
+  })));
+  assert.equal(JSON.parse(gem.result.content[0].text).candidates[0].finishReason, 'STOP');
+});
+
 test('video generation, estimation, waiting, diagnostics, and result downloads work end-to-end', async () => {
   let jobPolls = 0;
   const savedFiles = new Map();
@@ -560,7 +649,7 @@ test('resources and prompts are exposed over MCP JSON-RPC', async () => {
     },
   };
 
-  assert.equal(toolDefinitions.length, 50);
+  assert.equal(toolDefinitions.length, 51);
   assert.equal(resourceDefinitions.length, 6);
   assert.equal(resourceTemplates.length, 2);
   assert.equal(promptDefinitions.length, 4);

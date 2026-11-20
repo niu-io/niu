@@ -71,6 +71,14 @@ Content type: `application/json`.
             "operator"
           ]
         },
+        "operating_mode": {
+          "type": "string",
+          "enum": [
+            "internal",
+            "resale"
+          ],
+          "description": "Deployment-wide NIU_OPERATING_MODE policy. Missing configuration defaults to internal; only explicit resale enables commercial operation. Read-only in the dashboard; independent of live/test payments and not an end-user BYOK grant."
+        },
         "roles": {
           "type": "object",
           "required": [

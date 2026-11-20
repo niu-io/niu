@@ -11,7 +11,7 @@ impl Store {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let result = sqlx::query_scalar("SELECT jsonb_build_object('requests_per_minute',requests_per_minute,'revision',revision::text) FROM vendor_request_rate_limits WHERE vendor_id=$1")
             .bind(vendor).fetch_optional(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(result)
     }
 
@@ -27,7 +27,7 @@ impl Store {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let result = sqlx::query_scalar("SELECT jsonb_build_object('requests_per_minute',requests_per_minute,'revision',revision::text,'recorded_at',recorded_at,'actor_kind',CASE WHEN actor_operator_id IS NULL THEN 'installation' ELSE 'member' END,'actor_name',actor_name) FROM vendor_request_rate_history WHERE vendor_id=$1 AND ($2::bigint IS NULL OR revision<$2) ORDER BY revision DESC LIMIT $3")
             .bind(vendor).bind(before).bind(limit).fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(result)
     }
 
@@ -85,7 +85,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO vendor_request_rate_history(vendor_id,revision,requests_per_minute,actor_operator_id,actor_name) VALUES($1,$2,$3,$4,$5)")
             .bind(vendor).bind(next).bind(rpm).bind(actor_id).bind(name).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(Some(next))
     }
 }

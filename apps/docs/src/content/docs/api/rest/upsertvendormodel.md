@@ -727,7 +727,7 @@ Location: **path**. **Required.**
                 "estimator",
                 "estimator_revision"
               ],
-              "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation additionally requires a positive frames_per_second control; seconds estimation may omit it. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
+              "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation requires a positive frame-rate control or an observed output frame rate. With allow_unmapped_output enabled, owner-funded generation accepts other supported combinations without an estimate. Customer-funded generation still requires a mapped pair. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
               "properties": {
                 "estimator": {
                   "type": "string",
@@ -735,6 +735,17 @@ Location: **path**. **Required.**
                     "SeedancePixelsV1",
                     "OutputSecondsV1"
                   ]
+                },
+                "observed_frames_per_second": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4294967295,
+                  "description": "Observed output FPS for pixel estimates when no request FPS control exists. Never sent upstream."
+                },
+                "allow_unmapped_output": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Allow owner-funded generation for otherwise supported combinations without an effective output estimate."
                 },
                 "estimator_revision": {
                   "type": "string",
@@ -833,7 +844,12 @@ Location: **path**. **Required.**
         "supports_generate_content": {
           "type": "boolean",
           "default": false,
-          "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+          "description": "Native GenerateContent opt-in for static or managed gemini routes. Pair with supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, or supports_generate_content_streaming as needed."
+        },
+        "supports_generate_content_streaming": {
+          "type": "boolean",
+          "default": false,
+          "description": "Explicit native :streamGenerateContent SSE/JSON stream opt-in; requires supports_generate_content on a gemini route."
         },
         "supports_messages_streaming_tools": {
           "type": "boolean",
@@ -983,7 +999,7 @@ Content type: `application/json`.
         "owner_funded": {
           "type": "boolean",
           "readOnly": true,
-          "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+          "description": "Management-list metadata identifying owner-funded routes. Omitted from configuration writes."
         },
         "capabilities": {
           "type": "object",
@@ -1629,7 +1645,7 @@ Content type: `application/json`.
                     "estimator",
                     "estimator_revision"
                   ],
-                  "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation additionally requires a positive frames_per_second control; seconds estimation may omit it. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
+                  "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation requires a positive frame-rate control or an observed output frame rate. With allow_unmapped_output enabled, owner-funded generation accepts other supported combinations without an estimate. Customer-funded generation still requires a mapped pair. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
                   "properties": {
                     "estimator": {
                       "type": "string",
@@ -1637,6 +1653,17 @@ Content type: `application/json`.
                         "SeedancePixelsV1",
                         "OutputSecondsV1"
                       ]
+                    },
+                    "observed_frames_per_second": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4294967295,
+                      "description": "Observed output FPS for pixel estimates when no request FPS control exists. Never sent upstream."
+                    },
+                    "allow_unmapped_output": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "Allow owner-funded generation for otherwise supported combinations without an effective output estimate."
                     },
                     "estimator_revision": {
                       "type": "string",
@@ -1735,7 +1762,12 @@ Content type: `application/json`.
             "supports_generate_content": {
               "type": "boolean",
               "default": false,
-              "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+              "description": "Native GenerateContent opt-in for static or managed gemini routes. Pair with supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, or supports_generate_content_streaming as needed."
+            },
+            "supports_generate_content_streaming": {
+              "type": "boolean",
+              "default": false,
+              "description": "Explicit native :streamGenerateContent SSE/JSON stream opt-in; requires supports_generate_content on a gemini route."
             },
             "supports_messages_streaming_tools": {
               "type": "boolean",

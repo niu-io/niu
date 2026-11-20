@@ -102,7 +102,7 @@ impl Store {
         if let Some(session) = &session {
             Self::provider_asset_key_using(&mut tx, p, &session.model, false).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(session)
     }
     pub async fn workspace_provider_verifications(
@@ -143,7 +143,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderAssetPage { data, next_cursor })
     }
     pub async fn prepare_workspace_provider_verification(
@@ -201,7 +201,7 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)?;
         Self::verification_bound(&session, route)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(session)
     }
     pub async fn claim_workspace_provider_verification(
@@ -222,7 +222,7 @@ impl Store {
         } else {
             false
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(claimed)
     }
     pub async fn record_workspace_provider_verification_created(
@@ -242,7 +242,7 @@ impl Store {
         if count != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn record_workspace_provider_verification_failure(
@@ -262,7 +262,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("UPDATE workspace_provider_verification_sessions SET status=CASE WHEN $6 THEN 'not_sent' ELSE status END,http_status=$4,request_id=$5,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND status='unknown' AND ciphertext IS NULL")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(http_status.map(i32::from)).bind(request_id).bind(not_dispatched).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn workspace_provider_verification_content(
@@ -287,7 +287,7 @@ impl Store {
         .fetch_one(&mut *tx)
         .await?;
         let aad = workspace_provider_verification_aad(p.scope(), session.key_id, id);
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(WorkspaceProviderVerificationContent {
             session,
             ciphertext,
@@ -312,7 +312,7 @@ impl Store {
         } else {
             false
         };
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(claimed)
     }
     pub async fn record_workspace_provider_verification_query_failure(
@@ -333,7 +333,7 @@ impl Store {
         let _ = not_dispatched;
         sqlx::query("UPDATE workspace_provider_verification_sessions SET status=CASE WHEN expires_at IS NOT NULL AND expires_at<=clock_timestamp() THEN 'expired' ELSE query_previous_status END,ciphertext=CASE WHEN expires_at IS NOT NULL AND expires_at<=clock_timestamp() THEN NULL ELSE ciphertext END,query_previous_status=NULL,http_status=$4,request_id=$5,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND status='resolving'")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(http_status.map(i32::from)).bind(request_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn observe_workspace_provider_verification(
@@ -390,7 +390,7 @@ impl Store {
         let session = Self::verification_using(&mut tx, scope, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(session)
     }
     pub async fn purge_expired_workspace_provider_verification_sessions(

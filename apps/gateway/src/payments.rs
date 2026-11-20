@@ -1,4 +1,5 @@
 //! Trusted merchant reconciliation. No browser-return URL grants funding.
+pub(crate) mod bank;
 mod configuration;
 pub(crate) mod mock_runtime;
 pub(crate) mod readiness;
@@ -107,9 +108,7 @@ pub(crate) fn background_polling_enabled() -> Result<bool, &'static str> {
 ///                       "id": {
 ///                         "type": "string",
 ///                         "enum": [
-///                           "epay",
-///                           "stripe",
-///                           "zhifux"
+///                           "stripe"
 ///                         ]
 ///                       },
 ///                       "name": {
@@ -174,8 +173,6 @@ pub(crate) async fn integrations(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     state.authorize_platform_headers(&headers).await?;
-    let epay = configuration::runtime(&state).await?;
-    let epay_checkout = epay.as_ref().and_then(|runtime| runtime.checkout.as_ref());
     let mock_enabled = !mock_runtime::available() || mock_runtime::enabled().await;
     let stripe_checkout = state
         .stripe_payments
@@ -183,18 +180,10 @@ pub(crate) async fn integrations(
         .and_then(|runtime| runtime.checkout.as_ref())
         .filter(|_| mock_enabled);
     Ok(Json(json!({"data": [
-        {"id":"epay", "name":"EPay-compatible gateway", "configuration":"administration_api",
-         "checkout":true, "signed_notifications":true, "query_recovery":"unsupported",
-         "refunds":false, "checkout_enabled":epay_checkout.is_some(),
-         "enabled_methods":epay_checkout.map(|checkout| checkout.methods.as_slice()).unwrap_or_default()},
         {"id":"stripe", "name":if env::var_os("NIU_MOCK_PAYMENT_URL").is_some() { "Mock payments (test only)" } else { "Stripe" }, "configuration":"server_environment",
          "checkout":true, "signed_notifications":true, "query_recovery":"bound_session",
          "refunds":false, "checkout_enabled":stripe_checkout.is_some(),
-         "enabled_methods":stripe_checkout.map(|checkout| checkout.methods.as_slice()).unwrap_or_default()},
-        {"id":"zhifux", "name":"PaymentFM native API", "configuration":"server_file",
-         "checkout":true, "signed_notifications":true, "query_recovery":"saved_order",
-         "refunds":false, "checkout_enabled":state.payments.is_some(),
-         "enabled_methods":state.payments.as_ref().map(|runtime| runtime.payment_methods.as_slice()).unwrap_or_default()}
+         "enabled_methods":stripe_checkout.map(|checkout| checkout.methods.as_slice()).unwrap_or_default()}
     ]})))
 }
 
@@ -610,7 +599,7 @@ pub(crate) async fn notify(
 ///   "operation": {
 ///     "operationId": "createCustomerTopup",
 ///     "summary": "Create or recover a company prepaid top-up",
-///     "description": "Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.",
+///     "description": "Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. New online orders use Stripe and its configured currency and minor-unit precision. Replay the same idempotency key and intent after an uncertain response. Verified payment gates funding. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -632,9 +621,7 @@ pub(crate) async fn notify(
 ///               "payment_gateway": {
 ///                 "type": "string",
 ///                 "enum": [
-///                   "epay",
-///                   "stripe",
-///                   "zhifux"
+///                   "stripe"
 ///                 ],
 ///                 "description": "Optional explicit integration. Never falls through to a different gateway; omission preserves default priority."
 ///               },
@@ -859,34 +846,6 @@ pub(crate) async fn create_topup(
             "Choose an enabled payment method",
         ));
     }
-    // Reject unauthorized or malformed requests before joining the checkout
-    // configuration queue. Concurrent checkouts share a read guard while
-    // merchant configuration changes require exclusive access.
-    let configuration_guard = state.payment_configuration_guard.read().await;
-    let (epay_revision, epay) = configuration::runtime_snapshot(&state).await?;
-    if let Some(runtime) = epay.as_ref()
-        && input
-            .payment_gateway
-            .is_none_or(|gateway| gateway == PaymentGatewaySelection::Epay)
-        && let Some(checkout) = runtime.checkout.as_ref()
-        && checkout.methods.contains(&input.payment_method)
-        && input
-            .currency
-            .as_deref()
-            .is_none_or(|currency| currency == "CNY")
-    {
-        return create_epay_topup(
-            &state,
-            organization,
-            runtime,
-            checkout,
-            input,
-            epay_revision,
-            member,
-        )
-        .await;
-    }
-    drop(configuration_guard);
     if let Some(runtime) = state.stripe_payments.as_ref()
         && input
             .payment_gateway
@@ -900,126 +859,9 @@ pub(crate) async fn create_topup(
     {
         return create_stripe_topup(&state, organization, runtime, checkout, input, member).await;
     }
-    if input
-        .payment_gateway
-        .is_some_and(|gateway| gateway != PaymentGatewaySelection::Zhifux)
-    {
-        return Err(ApiError::invalid_request(
-            "Choose an enabled method and currency for this payment gateway",
-        ));
-    }
-    if input
-        .currency
-        .as_deref()
-        .is_some_and(|currency| currency != "CNY")
-    {
-        return Err(ApiError::invalid_request(
-            "Choose an enabled method for this currency",
-        ));
-    }
-    let runtime = state
-        .payments
-        .as_ref()
-        .ok_or_else(|| ApiError::upstream_message("Payment integration is not configured"))?;
-    if !runtime.payment_methods.contains(&input.payment_method) {
-        return Err(ApiError::invalid_request(
-            "Choose an enabled payment method",
-        ));
-    }
-    if input.amount_nanos.is_empty() || !input.amount_nanos.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(ApiError::invalid_request(
-            "Provide an exact positive CNY amount",
-        ));
-    }
-    let amount = input
-        .amount_nanos
-        .parse::<i64>()
-        .map_err(|_| ApiError::invalid_request("Provide an exact positive CNY amount"))?;
-    cny_decimal(amount).map_err(|_| {
-        ApiError::invalid_request(
-            "CNY top-ups require a positive amount with at most two decimal places",
-        )
-    })?;
-    let order = state
-        .store
-        .create_authorized_customer_topup_with_quote(
-            organization,
-            &niu_storage::TopupInput {
-                currency: "CNY",
-                amount_nanos: amount,
-                aggregator: "zhifux",
-                merchant: &runtime.merchant,
-                payment_method: &input.payment_method,
-                idempotency_key: input.idempotency_key,
-            },
-            None,
-            member,
-            input.quote_id,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    if state
-        .store
-        .customer_topup_closed(organization, order.id)
-        .await
-        .map_err(ApiError::from_store)?
-        == Some(true)
-    {
-        return topup_response(&state, organization, order.id).await;
-    }
-    if state
-        .store
-        .customer_topup_checkout(organization, order.id)
-        .await
-        .map_err(ApiError::from_store)?
-        .is_none()
-        && state
-            .store
-            .claim_customer_topup_creation(organization, order.id)
-            .await
-            .map_err(ApiError::from_store)?
-    {
-        state
-            .store
-            .bind_payment_checkout_verification(
-                order.id,
-                "zhifux",
-                &readiness::zhifux_configuration_digest(runtime),
-            )
-            .await
-            .map_err(ApiError::from_store)?;
-        let created = runtime.client.create_order(&order.id.simple().to_string(), amount, &input.payment_method, &runtime.notify_url).await
-            .map_err(|failure| {
-                use niu_payments::zhifux_transport::Error;
-                let (failure_kind, provider_code) = match failure {
-                    Error::Configuration => ("configuration", None),
-                    Error::Transport => ("transport", None),
-                    Error::Response => ("invalid_response", None),
-                    Error::Rejected { code } => ("provider_rejected", Some(code)),
-                    Error::NotPaid => ("not_paid", None),
-                    Error::Protocol(_) => ("protocol", None),
-                };
-                tracing::warn!(
-                    payment_gateway = "zhifux",
-                    order_id = %order.id,
-                    failure_kind,
-                    provider_code,
-                    "Checkout creation remains uncertain; recover the saved intent"
-                );
-                ApiError::upstream_message("Checkout creation is uncertain; recover the saved top-up instead of creating another order")
-            })?;
-        state
-            .store
-            .bind_customer_topup_checkout(
-                organization,
-                order.id,
-                &created.platform_reference,
-                &created.checkout_url,
-            )
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    topup_response(&state, organization, order.id).await
+    Err(ApiError::invalid_request(
+        "Choose an enabled Stripe payment method and currency",
+    ))
 }
 
 fn present_mock_checkout(state: &AppState, view: &mut Value) {
@@ -1307,9 +1149,7 @@ pub(crate) struct PaymentMethodsQuery {
 ///         "schema": {
 ///           "type": "string",
 ///           "enum": [
-///             "epay",
-///             "stripe",
-///             "zhifux"
+///             "stripe"
 ///           ]
 ///         },
 ///         "description": "Select one configured integration without falling through to another."
@@ -1357,9 +1197,7 @@ pub(crate) struct PaymentMethodsQuery {
 ///                         "null"
 ///                       ],
 ///                       "enum": [
-///                         "epay",
 ///                         "stripe",
-///                         "zhifux",
 ///                         null
 ///                       ],
 ///                       "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."
@@ -1435,29 +1273,6 @@ pub(crate) async fn payment_methods(
         .customer_balance_summary(organization)
         .await
         .map_err(ApiError::from_store)?;
-    let epay = configuration::runtime(&state).await?;
-    if let Some(checkout) = epay
-        .as_ref()
-        .and_then(|runtime| runtime.checkout.as_ref())
-        .filter(|_| {
-            query
-                .payment_gateway
-                .is_none_or(|gateway| gateway == PaymentGatewaySelection::Epay)
-        })
-        .filter(|_| {
-            query
-                .currency
-                .as_deref()
-                .is_none_or(|currency| currency == "CNY")
-        })
-    {
-        let available = accounts.iter().any(|account| account["currency"] == "CNY");
-        return Ok(Json(
-            json!({"data":{"currency":"CNY","payment_gateway":"epay","available":available,
-            "payment_methods":if available { checkout.methods.clone() } else { Vec::new() },
-            "unavailable_reason":if available { None } else { Some("currency_account_missing") }}}),
-        ));
-    }
     if let Some(checkout) = state
         .stripe_payments
         .as_ref()
@@ -1487,32 +1302,9 @@ pub(crate) async fn payment_methods(
         ));
     }
     let currency = query.currency.as_deref().unwrap_or("CNY");
-    let has_account = accounts
-        .iter()
-        .any(|account| account["currency"] == currency);
-    let reason = if currency != "CNY"
-        || state.payments.is_none()
-        || query
-            .payment_gateway
-            .is_some_and(|gateway| gateway != PaymentGatewaySelection::Zhifux)
-    {
-        Some("integration_unavailable")
-    } else if !has_account {
-        Some("currency_account_missing")
-    } else {
-        None
-    };
-    let methods = if reason.is_none() {
-        state
-            .payments
-            .as_ref()
-            .map(|runtime| runtime.payment_methods.clone())
-            .unwrap_or_default()
-    } else {
-        Vec::new()
-    };
     Ok(Json(
-        json!({"data":{"currency":currency,"payment_gateway":if reason == Some("integration_unavailable") { None } else { Some("zhifux") },"available":reason.is_none(),"payment_methods":methods,"unavailable_reason":reason}}),
+        json!({"data":{"currency":currency,"payment_gateway":null,"available":false,
+        "payment_methods":[],"unavailable_reason":"integration_unavailable"}}),
     ))
 }
 
@@ -3841,63 +3633,6 @@ impl EPayRuntime {
             _ => Err("EPay requires both merchant ID and key"),
         }
     }
-}
-async fn create_epay_topup(
-    state: &AppState,
-    organization: Uuid,
-    runtime: &EPayRuntime,
-    checkout: &EPayCheckout,
-    input: CreateTopup,
-    configuration_revision: i64,
-    member: Option<niu_storage::OperatorPrincipal>,
-) -> Result<Json<Value>, ApiError> {
-    if input.amount_nanos.is_empty() || !input.amount_nanos.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(ApiError::invalid_request(
-            "Provide an exact positive CNY amount",
-        ));
-    }
-    let amount = input
-        .amount_nanos
-        .parse::<i64>()
-        .map_err(|_| ApiError::invalid_request("Provide an exact positive CNY amount"))?;
-    cny_decimal(amount)
-        .map_err(|_| ApiError::invalid_request("CNY top-ups require at most two decimal places"))?;
-    let order = state
-        .store
-        .create_authorized_epay_checkout_with_quote(
-            organization,
-            &niu_storage::TopupInput {
-                currency: "CNY",
-                amount_nanos: amount,
-                aggregator: "epay",
-                merchant: &runtime.merchant,
-                payment_method: &input.payment_method,
-                idempotency_key: input.idempotency_key,
-            },
-            configuration_revision,
-            member,
-            &readiness::epay_configuration_digest(runtime)
-                .ok_or_else(|| ApiError::upstream_message("EPay checkout is not configured"))?,
-            &|id| {
-                runtime
-                    .verifier
-                    .checkout(
-                        &checkout.endpoint,
-                        &checkout.notify,
-                        &checkout.return_url,
-                        &niu_payments::epay::ExpectedOrder {
-                            number: &id.simple().to_string(),
-                            payment_method: &input.payment_method,
-                            amount_nanos: amount,
-                        },
-                    )
-                    .map_err(|_| niu_storage::StoreError::InvalidPrice)
-            },
-            input.quote_id,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    topup_response(state, organization, order.id).await
 }
 /// ```openapi
 /// {

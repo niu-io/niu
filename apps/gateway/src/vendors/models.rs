@@ -25,6 +25,7 @@ pub(super) struct Capabilities {
     supports_messages_tools: bool,
     supports_messages_streaming_tools: bool,
     supports_generate_content: bool,
+    supports_generate_content_streaming: bool,
 }
 
 /// Explicit protocol capability, not asset readiness or Provider qualification.
@@ -158,9 +159,10 @@ pub(crate) async fn resolve_scoped_model_excluding(
     if !excluded_vendors.is_empty() {
         return Err(ApiError::route_pool_unavailable());
     }
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     if let Some(route) = state
         .store
-        .personal_vendor_route(organization_id, alias)
+        .accessible_vendor_route(organization_id, alias, allow_internal)
         .await
         .map_err(ApiError::from_store)?
     {
@@ -198,6 +200,8 @@ pub(crate) fn rule_conditions_match(
             Some(Protocol::Chat) => Some("chat"),
             Some(Protocol::Responses) => Some("responses"),
             Some(Protocol::Messages) => Some("messages"),
+            Some(Protocol::GenerateContent) => Some("generate_content"),
+            Some(Protocol::Embeddings) => Some("embeddings"),
             _ => None,
         };
         if actual != Some(expected_protocol.as_str()) {
@@ -205,7 +209,8 @@ pub(crate) fn rule_conditions_match(
         }
     }
     if let Some(expected) = conditions.streaming {
-        let actual = requirements.is_some_and(|r| r.streaming || r.messages_streaming);
+        let actual = requirements
+            .is_some_and(|r| r.streaming || r.messages_streaming || r.generate_content_streaming);
         if actual != expected {
             return false;
         }
@@ -312,7 +317,10 @@ async fn resolve_pool(
     let mut eligible = Vec::new();
     for route in state
         .store
-        .eligible_pool_routes(&pool)
+        .eligible_pool_routes_for(
+            &pool,
+            state.operating_mode == crate::state::OperatingMode::Internal,
+        )
         .await
         .map_err(ApiError::from_store)?
     {
@@ -349,6 +357,10 @@ async fn resolve_pool(
         model.catalog.description = Some(description.clone());
     }
     let personal = pool.organization_id.is_some();
+    if !personal && state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
+
     if personal {
         model.pricing = None;
     }
@@ -442,6 +454,7 @@ pub(super) fn make_model(
         supports_messages_tools: caps.supports_messages_tools,
         supports_messages_streaming_tools: caps.supports_messages_streaming_tools,
         supports_generate_content: caps.supports_generate_content,
+        supports_generate_content_streaming: caps.supports_generate_content_streaming,
     })
 }
 
@@ -531,6 +544,7 @@ pub(crate) async fn scoped_managed_catalog(
     state: &AppState,
     organization_id: uuid::Uuid,
 ) -> Result<Vec<niu_storage::VendorCatalogRoute>, ApiError> {
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     if let Some(published) = super::publication::snapshot(state).await? {
         let (unavailable, cooling_down) = state
             .store
@@ -542,6 +556,7 @@ pub(crate) async fn scoped_managed_catalog(
             &unavailable,
             &cooling_down,
             Some(organization_id),
+            allow_internal,
         )?;
         return Ok(published
             .registry
@@ -551,23 +566,24 @@ pub(crate) async fn scoped_managed_catalog(
                 visible.contains_key(&compiled.metadata.model.alias)
                     && compiled
                         .metadata
-                        .personal_organization_id
-                        .is_none_or(|owner| owner == organization_id)
+                        .visible_to(Some(organization_id), allow_internal)
             })
             .map(|compiled| compiled.metadata.clone())
             .collect());
     }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
-    let visible =
-        super::catalog_compiler::compile_catalog(&static_models, &inputs, Some(organization_id))?;
+    let visible = super::catalog_compiler::compile_catalog(
+        &static_models,
+        &inputs,
+        Some(organization_id),
+        allow_internal,
+    )?;
     Ok(inputs
         .routes
         .into_iter()
         .filter(|route| {
             visible.contains_key(&route.model.alias)
-                && route
-                    .personal_organization_id
-                    .is_none_or(|owner| owner == organization_id)
+                && route.visible_to(Some(organization_id), allow_internal)
         })
         .collect())
 }
@@ -579,6 +595,7 @@ async fn catalog_models(
     state: &AppState,
     organization_id: Option<uuid::Uuid>,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     if let Some(published) = super::publication::snapshot(state).await? {
         let (unavailable, cooling_down) = state
             .store
@@ -590,10 +607,16 @@ async fn catalog_models(
             &unavailable,
             &cooling_down,
             organization_id,
+            allow_internal,
         );
     }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
-    super::catalog_compiler::compile_catalog(&static_models, &inputs, organization_id)
+    super::catalog_compiler::compile_catalog(
+        &static_models,
+        &inputs,
+        organization_id,
+        allow_internal,
+    )
 }
 
 /// Pair the visible catalog and managed routing metadata from one registry read.
@@ -609,6 +632,7 @@ pub(crate) async fn generation_catalog(
     ),
     ApiError,
 > {
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     if let Some(published) = super::publication::snapshot(state).await? {
         let (unavailable, cooling_down) = state
             .store
@@ -620,6 +644,7 @@ pub(crate) async fn generation_catalog(
             &unavailable,
             &cooling_down,
             organization_id,
+            allow_internal,
         )?;
         let routes = published
             .registry
@@ -633,8 +658,12 @@ pub(crate) async fn generation_catalog(
         return Ok((models, routes));
     }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
-    let models =
-        super::catalog_compiler::compile_catalog(&static_models, &inputs, organization_id)?;
+    let models = super::catalog_compiler::compile_catalog(
+        &static_models,
+        &inputs,
+        organization_id,
+        allow_internal,
+    )?;
     let routes = inputs
         .routes
         .into_iter()
@@ -654,6 +683,9 @@ pub(crate) async fn resolve_model(
     state: &AppState,
     alias: &str,
 ) -> Result<ResolvedModel, ApiError> {
+    if state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
     if let Some(published) = super::publication::snapshot(state).await? {
         return resolve_published(state, &published, None, alias, None, None, &[]).await;
     }
@@ -693,10 +725,28 @@ pub(crate) async fn resolve_model(
             .ok_or_else(ApiError::unavailable)?;
         let api_key =
             open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
+        let mut model = stored_model(&route)?;
+        if model.pricing.is_none()
+            && let Some((currency, prompt, completion)) = state
+                .store
+                .platform_retail_text_pricing(alias)
+                .await
+                .map_err(ApiError::from_store)?
+        {
+            model.pricing = Some(crate::config::RoutePricing {
+                currency,
+                api_prompt_rate: prompt,
+                api_completion_rate: completion,
+                cash_prompt_rate: prompt,
+                cash_completion_rate: completion,
+                max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
+                max_output_tokens: 4_096,
+            });
+        }
         return Ok(ResolvedModel {
             route_generation: None,
             managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
-            model: stored_model(&route)?,
+            model,
             api_key,
             personal_route: None,
         });
@@ -749,6 +799,7 @@ async fn resolve_published(
     excluded_vendors: &[uuid::Uuid],
 ) -> Result<ResolvedModel, ApiError> {
     let registry = &published.registry;
+    let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
     let pool = registry.pools.get(alias);
     let selected = if let Some(pool) = pool {
         if !pool.enabled
@@ -779,7 +830,10 @@ async fn resolve_published(
                     && !excluded_vendors.contains(&metadata.vendor.id)
                     && !cooling_down.contains(&metadata.vendor.id)
                     && metadata.model.capabilities.get("video_schema").is_none()
-                    && metadata.personal_organization_id == pool.organization_id
+                    && (metadata.personal_organization_id == pool.organization_id
+                        || (allow_internal
+                            && pool.organization_id.is_some()
+                            && metadata.is_internal_shared()))
                     && (pool.organization_id.is_some()
                         || (route.model.pricing.is_some()
                             && !unavailable.contains(&candidate.alias)))
@@ -816,9 +870,7 @@ async fn resolve_published(
     let metadata = &selected.metadata;
     if !metadata.vendor.enabled
         || !metadata.model.enabled
-        || metadata
-            .personal_organization_id
-            .is_some_and(|owner| Some(owner) != organization)
+        || !metadata.visible_to(organization, allow_internal)
     {
         return Err(ApiError::not_found());
     }
@@ -834,12 +886,17 @@ async fn resolve_published(
         || route.vendor.revision != metadata.vendor.revision
         || route.model.revision != metadata.model.revision
         || route.personal_organization_id != metadata.personal_organization_id
+        || route.access_scope() != metadata.access_scope()
     {
         return Err(ApiError::from_store(
             niu_storage::StoreError::ManagedRouteChanged,
         ));
     }
     let personal = metadata.personal_organization_id.is_some();
+    if !personal && state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
+
     if !personal && !live.supplier_available {
         return Err(ApiError::unavailable());
     }
@@ -865,6 +922,22 @@ async fn resolve_published(
     if personal {
         model.pricing = None;
         model.public_catalog = false;
+    } else if model.pricing.is_none()
+        && let Some((currency, prompt, completion)) = state
+            .store
+            .platform_retail_text_pricing(alias)
+            .await
+            .map_err(ApiError::from_store)?
+    {
+        model.pricing = Some(crate::config::RoutePricing {
+            currency,
+            api_prompt_rate: prompt,
+            api_completion_rate: completion,
+            cash_prompt_rate: prompt,
+            cash_completion_rate: completion,
+            max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
+            max_output_tokens: 4_096,
+        });
     }
     let mut managed = niu_storage::ManagedRouteSnapshot::from(&route);
     if let Some(pool) = pool {

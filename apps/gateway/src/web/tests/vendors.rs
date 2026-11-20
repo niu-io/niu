@@ -30,7 +30,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         ));
         state
     };
-    let state = make_state();
+    let mut state = make_state();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let stripe_runtime = state.stripe_payments.clone();
     let store = state.store.clone();
     let app = router(state);
     let (status, first) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
@@ -51,8 +53,48 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     for (id, alias, upstream_model, _) in routes {
         let (status, _) = call(&app, Method::POST,
             &format!("/admin/v1/vendors/{id}/models"), ADMIN,
-            json!({"alias":alias,"upstream_model":upstream_model,"enabled":true,"public_catalog":true,"capabilities":{}})).await;
+            json!({"alias":alias,"upstream_model":upstream_model,"enabled":true,"public_catalog":true,"capabilities":{},"pricing":{"currency":"USD","api_prompt_rate":1000000000,"api_completion_rate":2000000000,"cash_prompt_rate":1000000000,"cash_completion_rate":2000000000,"max_input_tokens":64,"max_output_tokens":10}})).await;
         assert_eq!(status, StatusCode::OK);
+    }
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    store
+        .create_budget(scope, "USD", 1_000_000_000)
+        .await
+        .unwrap();
+    let provider_id: Uuid = supplier_id.parse().unwrap();
+    let mut offers = Vec::new();
+    for (vendor, alias, _, _) in routes {
+        let rate = niu_storage::ProviderOfferInput {
+            model_alias: alias.into(),
+            currency: "USD".into(),
+            prompt_rate: "1000000000".into(),
+            completion_rate: "2000000000".into(),
+            expected_revision: None,
+        };
+        let revision = store
+            .publish_provider_offer(provider_id, &rate)
+            .await
+            .unwrap();
+        let offer: Uuid = sqlx::query_scalar(
+            "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias=$2",
+        )
+        .bind(provider_id)
+        .bind(alias)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        store
+            .enable_authorized_provider_offer(
+                provider_id,
+                offer,
+                revision,
+                OperatorAuditActor::Installation,
+            )
+            .await
+            .unwrap();
+        store.publish_customer_tariff(scope, &rate).await.unwrap();
+        offers.push((vendor, offer, revision));
     }
     let first_mappings =
         serde_json::to_value(store.vendor_models(first_id).await.unwrap()).unwrap();
@@ -60,7 +102,6 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         serde_json::to_value(store.vendor_models(second_id).await.unwrap()).unwrap();
     let second_metadata = serde_json::to_value(store.vendor(second_id).await.unwrap()).unwrap();
     let second_ciphertext = store.vendor_credential_ciphertext(second_id).await.unwrap();
-    let scope = store.default_workspace().await.unwrap();
     let mut key = store
         .issue_key(
             scope,
@@ -79,6 +120,27 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
                 &format!("/admin/v1/vendors/{first_id}"), ADMIN,
                 json!({"name":"Independent Supplier","api_base":endpoints[0],"api_key":secret,"enabled":true,"expected_revision":first["data"]["revision"]})).await;
             assert_eq!(status, StatusCode::OK);
+            for (vendor, offer, revision) in &offers {
+                if *vendor == first_id {
+                    let (active, authorization): (bool, Option<Uuid>) = sqlx::query_as(
+                        "SELECT active,current_authorization FROM provider_offers WHERE id=$1",
+                    )
+                    .bind(offer)
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+                    assert!(!active && authorization.is_none());
+                    store
+                        .enable_authorized_provider_offer(
+                            provider_id,
+                            *offer,
+                            *revision,
+                            OperatorAuditActor::Installation,
+                        )
+                        .await
+                        .unwrap();
+                }
+            }
             // A stale editor cannot replace the rotated credential or disable
             // this key; neither action may affect the other Supplier key.
             let (status, _) = call(&app, Method::PUT,
@@ -103,7 +165,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             );
         }
         // Rebuild process-local state: stored ownership, mappings and encrypted keys survive.
-        let reloaded = router(make_state());
+        let mut reloaded_state = make_state();
+        reloaded_state.stripe_payments = stripe_runtime.clone();
+        let reloaded = router(reloaded_state);
         for (_, alias, upstream_model, index) in routes {
             for capture in &captures {
                 *capture.0.lock().unwrap() = None;
@@ -116,7 +180,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
                 json!({"model":alias,"messages":[{"role":"user","content":"hello"}]}),
             )
             .await;
-            assert_eq!(status, StatusCode::OK);
+            assert_eq!(status, StatusCode::OK, "{body}");
             assert_eq!(body["model"], alias);
             let captured = captures[index].0.lock().unwrap();
             let (headers, request) = captured.as_ref().unwrap();
@@ -170,7 +234,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             .unwrap()
             .revoked
     );
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     let attempts_before: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
         .fetch_one(&pool)
         .await
@@ -251,23 +317,23 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     let current = store.vendor(first_id).await.unwrap().unwrap();
     assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{first_id}"), ADMIN,
         json!({"name":current.name,"api_base":current.api_base,"enabled":false,"expected_revision":current.revision})).await.0, StatusCode::OK);
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     for capture in &captures {
         *capture.0.lock().unwrap() = None;
     }
     for alias in ["independent-a", "independent-b"] {
-        assert_eq!(
-            call(
-                &reloaded,
-                Method::POST,
-                "/v1/chat/completions",
-                &key.token,
-                json!({"model":alias,"messages":[{"role":"user","content":"hello"}]})
-            )
-            .await
-            .0,
-            StatusCode::NOT_FOUND
-        );
+        let (status, body) = call(
+            &reloaded,
+            Method::POST,
+            "/v1/chat/completions",
+            &key.token,
+            json!({"model":alias,"messages":[{"role":"user","content":"hello"}]}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+        assert_eq!(body["error"]["type"], "upstream_error", "{body}");
     }
     assert!(
         captures
@@ -311,7 +377,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     let disabled = store.vendor(first_id).await.unwrap().unwrap();
     assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{first_id}"), ADMIN,
         json!({"name":disabled.name,"api_base":disabled.api_base,"enabled":true,"expected_revision":disabled.revision})).await.0, StatusCode::OK);
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     for (_, alias, upstream_model, index) in routes {
         for capture in &captures {
             *capture.0.lock().unwrap() = None;
@@ -364,7 +432,9 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             .0,
         StatusCode::NO_CONTENT
     );
-    let reloaded = router(make_state());
+    let mut reloaded_state = make_state();
+    reloaded_state.stripe_payments = stripe_runtime.clone();
+    let reloaded = router(reloaded_state);
     for capture in &captures {
         *capture.0.lock().unwrap() = None;
     }
@@ -513,6 +583,105 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
     );
 }
 
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let vendor = store
+        .create_vendor(niu_storage::VendorInput {
+            id: Uuid::new_v4(),
+            name: "Retire Me".into(),
+            adapter: "openai".into(),
+            api_base: "https://example.com/v1".into(),
+            enabled: true,
+            credential_ciphertext: vec![1u8; 48],
+        })
+        .await
+        .unwrap();
+    let other = store
+        .create_vendor(niu_storage::VendorInput {
+            id: Uuid::new_v4(),
+            name: "Keep Me".into(),
+            adapter: "openai".into(),
+            api_base: "https://example.com/v1".into(),
+            enabled: true,
+            credential_ciphertext: vec![2u8; 48],
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_vendor_model(
+            vendor.id,
+            niu_storage::VendorModelInput {
+                alias: "retire-model".into(),
+                upstream_model: "retire-upstream".into(),
+                public_catalog: false,
+                enabled: true,
+                capabilities: json!({}),
+                pricing: None,
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    let id = vendor.id.to_string();
+    let path = format!("/admin/v1/vendors/{id}/retire");
+    let (status, _) = call(&app, Method::POST, &path, "", json!({})).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let second = app.clone();
+    let (first_result, second_result) = tokio::join!(
+        call(&app, Method::POST, &path, ADMIN, json!({})),
+        call(&second, Method::POST, &path, ADMIN, json!({})),
+    );
+    assert_eq!(first_result.0, StatusCode::OK, "{}", first_result.1);
+    assert_eq!(second_result.0, StatusCode::OK, "{}", second_result.1);
+    assert_eq!(first_result.1["data"]["enabled"], false);
+    assert_eq!(first_result.1["data"]["has_credential"], false);
+    assert_eq!(second_result.1["data"]["enabled"], false);
+    let (status, replay) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(replay["data"]["enabled"], false);
+    let audits: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM vendor_audit_events WHERE vendor_id=$1::uuid AND action='vendor_retired'",
+    )
+    .bind(&id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(audits, 3);
+    let model_enabled: bool = sqlx::query_scalar(
+        "SELECT enabled FROM vendor_models WHERE vendor_id=$1::uuid AND alias='retire-model'",
+    )
+    .bind(&id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!model_enabled);
+    let other_enabled: bool = sqlx::query_scalar("SELECT enabled FROM vendors WHERE id=$1")
+        .bind(other.id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(other_enabled);
+    let vendor_count: i64 = sqlx::query_scalar("SELECT count(*) FROM vendors WHERE id=$1::uuid")
+        .bind(&id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(vendor_count, 1);
+    let (status, _) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{}/retire", Uuid::new_v4()),
+        ADMIN,
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 async fn call(
     app: &Router,
     method: Method,
@@ -619,12 +788,23 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
             .0,
         StatusCode::CONFLICT
     );
-    for (path, auth) in [
-        ("/catalog/v1/models", ""),
-        ("/admin/v1/models", ADMIN),
-        ("/admin/v1/models", operator.token.as_str()),
-    ] {
-        let (status, catalog) = call(&app, Method::GET, path, auth, Value::Null).await;
+    let (status, public_catalog) =
+        call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let public_fast = public_catalog["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|model| model["id"] == "fast")
+        .expect("published model alias should appear in public catalog");
+    assert_eq!(public_fast["catalog"]["name"], "Friendly model");
+    assert!(public_fast["catalog"].get("input_price").is_none());
+    assert!(public_fast["catalog"].get("output_price").is_none());
+    assert!(!public_catalog.to_string().contains("0.12345"));
+    assert!(!public_catalog.to_string().contains("maker/first"));
+    for auth in [ADMIN, operator.token.as_str()] {
+        let (status, catalog) =
+            call(&app, Method::GET, "/admin/v1/models", auth, Value::Null).await;
         assert_eq!(status, StatusCode::OK);
         let model = catalog["data"]
             .as_array()
@@ -8223,4 +8403,863 @@ async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool:
         row["generation_capabilities"],
         json!({"chat":false,"video":false})
     );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPool) {
+    let fixture = CatalogFixture::default();
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[
+            {"id":"maker/first","name":"First model","supported_parameters":["tools","structured_outputs"]},
+            {"id":"maker/second"}
+        ]}),
+        None,
+    ));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}/v1", listener.local_addr().unwrap());
+    let upstream = Router::new()
+        .route("/v1/models", axum::routing::get(fixture_model_catalog))
+        .route("/v1/chat/completions", post(|| async { Json(json!({"id":"fixture-response","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"READY"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}})) }))
+        .with_state(fixture.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, upstream).await.unwrap();
+    });
+    let mut state = test_state(Some(base.clone()), pool.clone());
+    Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap()
+        .pricing = Some(crate::config::RoutePricing {
+        currency: "USD".into(),
+        api_prompt_rate: 2_000_000,
+        api_completion_rate: 4_000_000,
+        cash_prompt_rate: 1_000_000,
+        cash_completion_rate: 2_000_000,
+        max_input_tokens: 32768,
+        max_output_tokens: 10,
+    });
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    state.operating_mode = crate::state::OperatingMode::Internal;
+    let mut resale_state = state.clone();
+    resale_state.operating_mode = crate::state::OperatingMode::Resale;
+    let resale_app = router(resale_state);
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let app = router(state);
+    let input = json!({"name":"DeepSeek official","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true,"personal_organization_id":scope.organization_id});
+    let (status, created) = call(&app, Method::POST, "/api/v1/vendors", ADMIN, input.clone()).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["data"]["owner_funded"], true);
+    assert!(!created.to_string().contains("fixture-only-upstream-key"));
+    let id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(
+        store.personal_vendor_organization(id).await.unwrap(),
+        Some(scope.organization_id)
+    );
+    let path = format!("/api/v1/vendors/{id}/import");
+    for expected in [2, 0] {
+        let (status, result) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{result}");
+        assert_eq!(result["data"]["imported"], expected);
+        assert_eq!(result["discovery"]["inference_verified"], false);
+    }
+    let saved = store.vendor_models(id).await.unwrap();
+    assert_eq!(saved.len(), 2);
+    assert!(
+        saved
+            .iter()
+            .all(|m| !m.public_catalog && m.pricing.is_none() && m.enabled)
+    );
+    let advertised = saved
+        .iter()
+        .find(|model| model.upstream_model == "maker/first")
+        .unwrap();
+    assert_eq!(advertised.alias, "deepseek-official/first");
+    assert_eq!(advertised.capabilities["supports_tool_calls"], true);
+    assert_eq!(
+        advertised.capabilities["supports_streaming_tool_calls"],
+        true
+    );
+    assert_eq!(advertised.capabilities["supports_structured_output"], true);
+    assert_eq!(advertised.capabilities["supports_responses"], false);
+    assert_eq!(
+        advertised.capabilities["catalog"]["supported_parameters"],
+        json!(["tools", "structured_outputs"])
+    );
+    let unknown = saved
+        .iter()
+        .find(|model| model.upstream_model == "maker/second")
+        .unwrap();
+    assert_eq!(unknown.alias, "deepseek-official/second");
+    for flag in [
+        "supports_tool_calls",
+        "supports_streaming_tool_calls",
+        "supports_structured_output",
+        "supports_responses",
+    ] {
+        assert_eq!(unknown.capabilities[flag], false, "{flag}");
+    }
+    let (status, listed) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={}&project_id={}",
+            scope.organization_id, scope.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        listed["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == "deepseek-official/first")
+    );
+    let (_, public) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert!(!public.to_string().contains("deepseek-official/first"));
+    assert!(store.platform_currency().await.unwrap().is_none());
+    let (status, readiness) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/payments/readiness?organization={}",
+            scope.organization_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(readiness["data"]["ready"], true);
+    let key = store
+        .issue_key(
+            scope,
+            "Internal use test",
+            &["deepseek-official/first".to_owned(), "fast".to_owned()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let (status, completion) = call(&app, Method::POST, "/v1/chat/completions", &key.token, json!({"model":"deepseek-official/first","messages":[{"role":"user","content":"hello"}],"max_tokens":8})).await;
+    assert_eq!(status, StatusCode::OK, "{completion}");
+    assert_eq!(completion["choices"][0]["message"]["content"], "READY");
+    // Explicit upstream tools evidence makes the imported route ready for Chat
+    // function declarations instead of failing route selection.
+    let (status, tool_completion) = call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        &key.token,
+        json!({"model":"deepseek-official/first","messages":[{"role":"user","content":"hello"}],"max_tokens":8,"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object"}}}]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{tool_completion}");
+    assert_eq!(tool_completion["choices"][0]["message"]["content"], "READY");
+    // A personal route does not make paid shared inference free for this account.
+    store.configure_platform_currency("USD").await.unwrap();
+    store.create_budget(scope, "USD", 1).await.unwrap();
+    store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "3000000".into(),
+                completion_rate: "5000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let (status, denied) = call(
+        &resale_app,
+        Method::POST,
+        "/v1/chat/completions",
+        &key.token,
+        json!({"model":"fast","messages":[{"role":"user","content":"hello"}],"max_tokens":8}),
+    )
+    .await;
+    assert!(
+        matches!(
+            status,
+            StatusCode::PAYMENT_REQUIRED | StatusCode::SERVICE_UNAVAILABLE
+        ),
+        "{denied}"
+    );
+    let (status, _) = call(&app, Method::POST, &format!("/api/v1/vendors/{id}/models"), ADMIN, json!({"alias":"deepseek-official/second","upstream_model":"maker/second","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":1})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        call(&app, Method::POST, &path, ADMIN, json!({})).await.1["data"]["imported"],
+        0
+    );
+    assert!(
+        !store
+            .vendor_models(id)
+            .await
+            .unwrap()
+            .iter()
+            .find(|m| m.upstream_model == "maker/second")
+            .unwrap()
+            .enabled
+    );
+    *fixture.response.lock().unwrap() =
+        Some((StatusCode::UNAUTHORIZED, json!({"error":"rejected"}), None));
+    assert_eq!(
+        call(&app, Method::POST, &path, ADMIN, json!({})).await.0,
+        StatusCode::BAD_GATEWAY
+    );
+    assert_eq!(store.vendor_models(id).await.unwrap().len(), 2);
+    assert!(store.vendor(id).await.unwrap().is_some());
+    let mut invalid = input;
+    invalid["name"] = json!("Must roll back");
+    invalid["personal_organization_id"] = json!(Uuid::new_v4());
+    assert_eq!(
+        call(&app, Method::POST, "/api/v1/vendors", ADMIN, invalid)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert!(
+        !store
+            .vendors_with_supplier(None)
+            .await
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "Must roll back")
+    );
+
+    // Internal use requires an explicit access choice instead of silently
+    // binding a new administrator-supplied credential to the current account.
+    let (status, body) = call(
+        &app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({"name":"Unscoped internal","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    // Internal scope spans organizations on the same Internal-use installation.
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[
+            {"id":"maker/first","name":"First model","supported_parameters":["tools","structured_outputs"]},
+            {"id":"maker/second"}
+        ]}),
+        None,
+    ));
+    let org_b = store
+        .create_organization("Second internal org")
+        .await
+        .unwrap();
+    let scope_b = store
+        .create_workspace(Some(org_b), "Second workspace")
+        .await
+        .unwrap();
+    let (status, shared_created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({"name":"DeepSeek shared","adapter":"openai","api_base":base,"api_key":"fixture-only-shared-key","create_supplier":true,"access_scope":"internal","personal_organization_id":scope.organization_id}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{shared_created}");
+    assert_eq!(shared_created["data"]["owner_funded"], true);
+    assert_eq!(shared_created["data"]["access_scope"], "internal");
+    assert!(
+        !shared_created
+            .to_string()
+            .contains("fixture-only-shared-key")
+    );
+    let shared_id: Uuid = shared_created["data"]["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            &format!("/api/v1/vendors/{shared_id}/import"),
+            ADMIN,
+            json!({})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let shared_alias = "deepseek-shared/first";
+    let shared_model = store
+        .vendor_models(shared_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|model| model.alias == shared_alias)
+        .expect("imported shared model");
+    // Visibility is independent of the public-catalog flag inside the installation.
+    let (status, org_b_models) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={org_b}&project_id={}",
+            scope_b.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        org_b_models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == shared_alias),
+        "{org_b_models}"
+    );
+    assert!(
+        !org_b_models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == "deepseek-official/first"),
+        "personal routes must remain isolated"
+    );
+    assert!(!org_b_models.to_string().contains("fixture-only-shared-key"));
+    let (status, public_before) =
+        call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let public_items = public_before["data"].as_array().unwrap();
+    let shared_public = public_items
+        .iter()
+        .find(|model| model["id"] == shared_alias)
+        .expect("internal shared model should appear in public catalog immediately after import");
+    assert_eq!(shared_public["billing_source"], "own_api_key");
+    assert!(
+        !public_before
+            .to_string()
+            .contains("deepseek-official/first")
+    );
+    assert!(
+        !public_before
+            .to_string()
+            .contains("fixture-only-shared-key")
+    );
+    let (status, updated) = call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/vendors/{shared_id}/models"),
+        ADMIN,
+        json!({"alias":shared_alias,"upstream_model":shared_model.upstream_model,"enabled":true,"public_catalog":false,"capabilities":{},"expected_revision":1}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    let (_, public_after) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert!(
+        !public_after.to_string().contains(shared_alias),
+        "{public_after}"
+    );
+    assert!(!public_after.to_string().contains("fixture-only-shared-key"));
+    let key_b = store
+        .issue_key(
+            scope_b,
+            "Second org internal key",
+            &[shared_alias.to_owned()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let (status, completion_b) = call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        &key_b.token,
+        json!({"model":shared_alias,"messages":[{"role":"user","content":"hello"}],"max_tokens":8}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{completion_b}");
+    // Resale mode refuses an internal-scope connection instead of sharing it,
+    // and an existing internal credential remains private to its funding account.
+    let (status, _) = call(
+        &resale_app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({"name":"Resale internal","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true,"access_scope":"internal","personal_organization_id":scope.organization_id}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, resale_models) = call(
+        &resale_app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={org_b}&project_id={}",
+            scope_b.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !resale_models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == shared_alias),
+        "{resale_models}"
+    );
+    assert_ne!(
+        call(
+            &resale_app,
+            Method::POST,
+            "/v1/chat/completions",
+            &key_b.token,
+            json!({"model":shared_alias,"messages":[{"role":"user","content":"hello"}],"max_tokens":8}),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    server.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool: PgPool) {
+    let fixture = CatalogFixture::default();
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[
+            {"id":"maker/first","name":"First model","supported_parameters":["tools"]},
+            {"id":"maker/second"}
+        ]}),
+        None,
+    ));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}/v1", listener.local_addr().unwrap());
+    let upstream = Router::new()
+        .route("/v1/models", axum::routing::get(fixture_model_catalog))
+        .with_state(fixture.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, upstream).await.unwrap();
+    });
+
+    // Resale creates commercial supply when the caller names no funding account.
+    let mut state = test_state(Some(base.clone()), pool.clone());
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    state.operating_mode = crate::state::OperatingMode::Resale;
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let app = router(state);
+    let secret = "fixture-resale-discovery-key";
+    let (status, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/vendors",
+        ADMIN,
+        json!({
+            "name":"Resale discovery",
+            "adapter":"openai",
+            "api_base":base,
+            "api_key":secret,
+            "create_supplier":true
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["data"]["owner_funded"], false);
+    assert_eq!(created["data"]["access_scope"], "commercial");
+    assert!(!created.to_string().contains(secret));
+    let id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
+
+    let path = format!("/api/v1/vendors/{id}/import");
+    assert_eq!(
+        call(&app, Method::POST, &path, "invalid", json!({}))
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, first) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    assert_eq!(first["data"]["imported"], 2);
+    assert_eq!(first["data"]["discovered"], 2);
+    assert_eq!(first["discovery"]["inference_verified"], false);
+    assert!(!first.to_string().contains(secret));
+
+    let models = store.vendor_models(id).await.unwrap();
+    assert_eq!(models.len(), 2);
+    for model in &models {
+        assert!(
+            !model.enabled,
+            "imported commercial route must start disabled: {}",
+            model.alias
+        );
+        assert!(model.public_catalog);
+        assert!(model.pricing.is_none());
+        let offers: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM provider_offers WHERE model_alias=$1")
+                .bind(&model.alias)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(offers, 0, "import must not create a purchase offer");
+    }
+    let availability = store.vendor_models_with_availability(id).await.unwrap();
+    assert_eq!(availability.len(), 2);
+    for model in &availability {
+        assert_eq!(model["enabled"], false);
+        assert_eq!(model["public_catalog"], true);
+        assert!(model["pricing"].is_null());
+        assert_eq!(model["available"], false);
+        assert_eq!(model["owner_funded"], false);
+    }
+
+    // Imported inventory is not sellable or visible as customer supply until an
+    // operator explicitly enables it and qualifies a commercial offer.
+    let (status, listed) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={}&project_id={}",
+            scope.organization_id, scope.project_id
+        ),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, public) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    for model in &models {
+        assert!(!listed.to_string().contains(&model.alias), "{listed}");
+        assert!(!public.to_string().contains(&model.alias), "{public}");
+    }
+
+    // Repeating the import adds nothing and does not enable or price existing routes.
+    let (status, second) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{second}");
+    assert_eq!(second["data"]["imported"], 0);
+    assert_eq!(second["data"]["discovered"], 2);
+    assert!(
+        store
+            .vendor_models(id)
+            .await
+            .unwrap()
+            .iter()
+            .all(|model| !model.enabled && model.pricing.is_none())
+    );
+
+    // Discovery failure retains the saved connection and its disabled routes.
+    *fixture.response.lock().unwrap() =
+        Some((StatusCode::UNAUTHORIZED, json!({"error":"rejected"}), None));
+    let (status, failure) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "{failure}");
+    assert!(store.vendor(id).await.unwrap().is_some());
+    assert_eq!(store.vendor_models(id).await.unwrap().len(), 2);
+    server.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn legacy_provider_qualification_routes_are_removed(pool: PgPool) {
+    let state = test_state(None, pool);
+    let app = router(state);
+    let provider = Uuid::new_v4();
+    let offer = Uuid::new_v4();
+    for (method, path) in [
+        (
+            Method::PUT,
+            format!("/admin/v1/providers/{provider}/qualification"),
+        ),
+        (
+            Method::POST,
+            format!("/admin/v1/providers/{provider}/qualification/revoke"),
+        ),
+        (
+            Method::PUT,
+            format!("/admin/v1/providers/{provider}/offers/{offer}/qualification"),
+        ),
+        (
+            Method::POST,
+            format!("/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke"),
+        ),
+    ] {
+        let (status, _) = call(&app, method, &path, ADMIN, json!({})).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
+    }
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn public_catalog_publishes_qualified_commercial_and_shared_models_without_internal_revisions(
+    pool: PgPool,
+) {
+    let mut state = AppState::new(
+        toml::from_str("").expect("empty test config"),
+        niu_storage::Store::from_pool(pool.clone()),
+        TokenSet::parse("NIU_ADMIN_TOKENS", ADMIN.into()).expect("valid test admin token"),
+        HashMap::new(),
+    );
+    state.operating_mode = crate::state::OperatingMode::Resale;
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let store = state.store.clone();
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    let app = router(state);
+
+    let (status, empty_catalog) =
+        call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(empty_catalog["data"], json!([]));
+
+    let (status, commercial_vendor) = call(
+        &app,
+        Method::POST,
+        "/admin/v1/vendors",
+        ADMIN,
+        json!({
+            "name": "Commercial Provider",
+            "adapter": "openai",
+            "api_base": "https://provider.example.invalid/v1",
+            "api_key": "fixture-secret-commercial-key",
+            "create_supplier": true
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{commercial_vendor}");
+    let comm_vendor_id: Uuid = commercial_vendor["data"]["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let provider_id: Uuid = store
+        .vendor_supplier(comm_vendor_id)
+        .await
+        .unwrap()
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    // Qualified commercial route with procurement pricing that must stay confidential.
+    let (status, added) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{comm_vendor_id}/models"),
+        ADMIN,
+        json!({
+            "alias": "comm/chat",
+            "upstream_model": "upstream-secret/gpt-5",
+            "enabled": true,
+            "public_catalog": true,
+            "capabilities": {
+                "catalog": {
+                    "name": "Commercial Chat",
+                    "description": "Public commercial model",
+                    "input_modalities": ["text"],
+                    "output_modalities": ["text"],
+                    "context_length": 128000
+                }
+            },
+            "pricing": {
+                "currency": "USD",
+                "api_prompt_rate": 111111111,
+                "api_completion_rate": 222222222,
+                "cash_prompt_rate": 111111111,
+                "cash_completion_rate": 222222222,
+                "max_input_tokens": 64,
+                "max_output_tokens": 10
+            }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{added}");
+
+    // Unqualified commercial route (disabled / no approved offer).
+    let (status, disabled_add) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{comm_vendor_id}/models"),
+        ADMIN,
+        json!({
+            "alias": "comm/unqualified",
+            "upstream_model": "upstream-secret/disabled",
+            "enabled": false,
+            "public_catalog": true,
+            "capabilities": {}
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{disabled_add}");
+
+    let offer_rate = niu_storage::ProviderOfferInput {
+        model_alias: "comm/chat".into(),
+        currency: "USD".into(),
+        prompt_rate: "333333333".into(),
+        completion_rate: "444444444".into(),
+        expected_revision: None,
+    };
+    let offer_rev = store
+        .publish_provider_offer(provider_id, &offer_rate)
+        .await
+        .unwrap();
+    let offer_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='comm/chat'",
+    )
+    .bind(provider_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    store
+        .enable_authorized_provider_offer(
+            provider_id,
+            offer_id,
+            offer_rev,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    store
+        .publish_retail_standard(
+            niu_storage::RetailStandardPublication {
+                model_alias: "comm/chat".into(),
+                currency: "USD".into(),
+                schedule: niu_storage::RetailSchedule::Text(niu_storage::TextRetailSchedule {
+                    prompt_rate: "1500000000".into(),
+                    completion_rate: "6000000000".into(),
+                    cached_prompt_rate: None,
+                    cache_write_prompt_rate: None,
+                    reasoning_completion_rate: None,
+                    minimum_charge_nanos: "0".into(),
+                    request_fee_nanos: "0".into(),
+                    context_tiers: vec![],
+                }),
+                expected_version: "0".into(),
+                idempotency_key: Uuid::new_v4(),
+                reason: "Public catalog verification".into(),
+            },
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+
+    // Personal route belonging to a customer workspace must never enter /catalog/v1/models.
+    let (status, personal_vendor) = call(
+        &app,
+        Method::POST,
+        "/admin/v1/vendors",
+        ADMIN,
+        json!({
+            "name": "Personal Provider",
+            "adapter": "openai",
+            "api_base": "https://personal.example.invalid/v1",
+            "api_key": "fixture-secret-personal-key",
+            "personal_organization_id": scope.organization_id
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{personal_vendor}");
+    let personal_id = personal_vendor["data"]["id"].as_str().unwrap();
+    let (status, priv_added) = call(
+        &app,
+        Method::POST,
+        &format!("/admin/v1/vendors/{personal_id}/models"),
+        ADMIN,
+        json!({
+            "alias": "priv/chat",
+            "upstream_model": "upstream-secret/personal",
+            "enabled": true,
+            "public_catalog": false,
+            "capabilities": {}
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{priv_added}");
+
+    // Platform-shared pool vs organization-scoped pool.
+    let (status, pub_pool) = call(
+        &app,
+        Method::PUT,
+        "/admin/v1/routing",
+        ADMIN,
+        json!({
+            "alias": "pool/public",
+            "organization_id": null,
+            "display_name": "Shared Routing Pool",
+            "public_catalog": true,
+            "enabled": true,
+            "expected_revision": 0,
+            "candidates": [{"alias": "comm/chat", "priority": 100, "weight": 100, "enabled": true}]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{pub_pool}");
+
+    let (status, org_pool) = call(
+        &app,
+        Method::PUT,
+        "/admin/v1/routing",
+        ADMIN,
+        json!({
+            "alias": "pool/org-private",
+            "organization_id": scope.organization_id,
+            "display_name": "Workspace Private Pool",
+            "public_catalog": false,
+            "enabled": true,
+            "expected_revision": 0,
+            "candidates": [{"alias": "priv/chat", "priority": 100, "weight": 100, "enabled": true}]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{org_pool}");
+
+    let (status, catalog) = call(&app, Method::GET, "/catalog/v1/models", "", Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{catalog}");
+    let items = catalog["data"].as_array().unwrap();
+    let ids: Vec<&str> = items.iter().filter_map(|m| m["id"].as_str()).collect();
+    assert_eq!(ids, vec!["comm/chat", "pool/public"], "{catalog}");
+
+    let comm = &items[0];
+    assert_eq!(comm["billing_source"], "niu_credits");
+    assert_eq!(comm["customer_pricing"]["prompt_rate"], "1500000000");
+    assert_eq!(comm["customer_pricing"]["completion_rate"], "6000000000");
+    assert_eq!(comm["customer_pricing"]["currency"], "USD");
+    assert_eq!(comm["catalog"]["name"], "Commercial Chat");
+
+    let serialized = catalog.to_string();
+    for forbidden in [
+        "111111111",
+        "222222222",
+        "333333333",
+        "444444444",
+        "upstream-secret",
+        "fixture-secret",
+        "revision",
+        "definition_revision",
+        "price_id",
+        "comm/unqualified",
+        "priv/chat",
+        "pool/org-private",
+        &scope.organization_id.to_string(),
+    ] {
+        assert!(
+            !serialized.contains(forbidden),
+            "public catalog leaked forbidden string `{forbidden}`: {serialized}"
+        );
+    }
 }

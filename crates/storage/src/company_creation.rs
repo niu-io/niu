@@ -31,7 +31,7 @@ impl Store {
                 if request != request_sha256 {
                     return Err(StoreError::Conflict);
                 }
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 return Ok(organization);
             }
         }
@@ -40,7 +40,7 @@ impl Store {
             sqlx::query("INSERT INTO company_creation_receipts(key_sha256,request_sha256,organization_id) VALUES($1,$2,$3)")
                 .bind(key).bind(request_sha256).bind(organization).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(organization)
     }
 }

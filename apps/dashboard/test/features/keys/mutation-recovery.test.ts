@@ -1,28 +1,36 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { KeyRequestError } from '../../../app/features/keys/api';
-import { confirmedKeyValidationFailure, forgetPendingKeyMutation, readPendingKeyMutation, reconcileKeyMutation, recoveryCacheKey, savePendingKeyMutation, submitKeyMutation, type PendingKeyMutation } from '../../../app/features/keys/mutation-recovery';
+import { confirmedKeyValidationFailure, forgetKeyMutationHint, keyMutationHintKey, readKeyMutationHint, reconcileKeyMutation, rememberKeyMutationHint, submitKeyMutation, type PendingKeyMutation } from '../../../app/features/keys/mutation-recovery';
 
 const requestId='12345678-1234-4234-8234-123456789abc';
 const pending: PendingKeyMutation={version:1,requestId,action:'create',label:'App',body:{name:'App',ttl_seconds:3600}};
 const key={id:'key',name:'App',allowed_models:['fast'],revoked:false,expired:false,expires_at_ms:null};
-const cacheKey=recoveryCacheKey('member','workspace');
+const cacheKey=keyMutationHintKey('member','workspace');
 beforeEach(()=>{localStorage.clear();});
 
-it('retains a secret-free pending hint across navigation and isolates actors/workspaces',()=>{
- savePendingKeyMutation(localStorage,cacheKey,pending);
- expect(readPendingKeyMutation(localStorage,cacheKey)).toEqual(pending);
- expect(readPendingKeyMutation(localStorage,recoveryCacheKey('other','workspace'))).toBeNull();
- expect(readPendingKeyMutation(localStorage,recoveryCacheKey('member','other'))).toBeNull();
- forgetPendingKeyMutation(localStorage,cacheKey,'different-request');
- expect(readPendingKeyMutation(localStorage,cacheKey)).toEqual(pending);
- forgetPendingKeyMutation(localStorage,cacheKey,requestId);
- expect(readPendingKeyMutation(localStorage,cacheKey)).toBeNull();
+it('retains a secret-free hint across navigation and isolates actors/workspaces',()=>{
+ rememberKeyMutationHint(cacheKey,pending);
+ expect(readKeyMutationHint(cacheKey)).toEqual(pending);
+ expect(readKeyMutationHint(keyMutationHintKey('other','workspace'))).toBeNull();
+ expect(readKeyMutationHint(keyMutationHintKey('member','other'))).toBeNull();
+ forgetKeyMutationHint(cacheKey,'different-request');
+ expect(readKeyMutationHint(cacheKey)).toEqual(pending);
+ forgetKeyMutationHint(cacheKey,requestId);
+ expect(readKeyMutationHint(cacheKey)).toBeNull();
 });
-it('does not erase an unreadable pending request or permit an untracked submission',()=>{
+it('treats a corrupt hint or unavailable browser storage as no hint',()=>{
  localStorage.setItem(cacheKey,'broken');
- expect(()=>readPendingKeyMutation(localStorage,cacheKey)).toThrow(/cannot be read/);
- expect(localStorage.getItem(cacheKey)).toBe('broken');
- expect(()=>savePendingKeyMutation({setItem(){throw new Error('denied');}} as unknown as Storage,cacheKey,pending)).toThrow(/has not been sent/);
+ expect(readKeyMutationHint(cacheKey)).toBeNull();
+ localStorage.setItem(cacheKey,JSON.stringify({version:1,requestId:'not-a-uuid',action:'create',label:'App',body:{}}));
+ expect(readKeyMutationHint(cacheKey)).toBeNull();
+ const getItem=vi.spyOn(Storage.prototype,'getItem').mockImplementation(()=>{throw new Error('denied');});
+ expect(readKeyMutationHint(cacheKey)).toBeNull();
+ expect(()=>rememberKeyMutationHint(cacheKey,pending)).not.toThrow();
+ getItem.mockRestore();
+ const setItem=vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('denied');});
+ expect(()=>rememberKeyMutationHint(cacheKey,pending)).not.toThrow();
+ expect(()=>forgetKeyMutationHint(cacheKey,requestId)).not.toThrow();
+ setItem.mockRestore();
 });
 it('retries the original request after a pre-commit response loss rather than changing identity',async()=>{
  const calls: RequestInit[]=[];
@@ -51,6 +59,11 @@ it('preserves rotation target and stops on role loss',async()=>{
  expect(calls[0].path).toBe('/keys/original/rotate');
  expect(calls[0].init.body).toBeUndefined();
  expect(confirmedKeyValidationFailure(new KeyRequestError('Access removed',403))).toBe(false);
+});
+it('keeps server conflict visible without authorizing a fresh mutation',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Idempotency-Key was already used'}},{status:409})));
+ await expect(submitKeyMutation('session','/keys',pending)).rejects.toThrow('Idempotency-Key was already used');
+ expect(confirmedKeyValidationFailure(new KeyRequestError('Idempotency-Key was already used',409))).toBe(false);
 });
 it.each([400,422])('allows confirmed validation failure %s to be corrected',status=>{
  expect(confirmedKeyValidationFailure(new KeyRequestError('Invalid input',status))).toBe(true);

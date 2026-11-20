@@ -29,16 +29,19 @@ const commonLicenses = new Set([
   "BlueOak-1.0.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "CC-BY-4.0",
   "CC0-1.0",
   "ISC",
   "MIT",
   "MIT-0",
+  "MIT OR Apache-2.0",
   "(MIT OR CC0-1.0)",
   "(AFL-2.1 OR BSD-3-Clause)",
   // Recharts uses victory-vendor; both parts require permissive attribution.
   "MIT AND ISC",
   "OFL-1.1",
   "Python-2.0",
+  "Unlicense",
 ]);
 
 // These exact build-only packages are not copied into the runtime image, which

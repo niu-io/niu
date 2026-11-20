@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for MessagesResponse"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 export type MessagesResponse = {
@@ -16,7 +16,7 @@ export type MessagesResponse = {
     content: Array<{
         type: 'text';
         text: string;
-    } | MessagesToolUse>;
+    } | MessagesThinkingBlock | MessagesRedactedThinkingBlock | MessagesToolUse>;
     stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
     stop_sequence: string | null;
     /** Null categories do not establish zero usage or settled customer charges. */

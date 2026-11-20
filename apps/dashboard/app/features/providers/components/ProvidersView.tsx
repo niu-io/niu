@@ -1,9 +1,8 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import IntegrationSettings from './IntegrationSettings';
 import { useProviderParams } from '@/shell/provider-route';
 import { Link, useSearchParams } from 'react-router';
 import { IconX as X } from "@tabler/icons-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ProviderLogo from '@/components/ProviderLogo';
 import { connectionIdentity } from '@/lib/providers';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -13,17 +12,20 @@ import { IconPlugConnected as Router } from "@tabler/icons-react";
 import { IconShieldExclamation as ShieldAlert } from "@tabler/icons-react";
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
+import { invalidateForMutation } from '@/lib/query-cache';
 import type { AdminSession } from '@/shell/dashboard-context';
 import { Button } from '@/components/ui/button';
-import { cachedGet, peekCachedGet, ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ModelWrite, type ProviderDiscoveryEvidence, type ProviderCatalogModel, type ProviderModelCheck, type ProviderConnection, type ProviderModel, type ProviderConnectionWrite } from '../api';
+import { cachedGet, peekCachedGet, ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ProviderConnection, type ProviderConnectionWrite } from '../api';
 import ProviderDirectory from './ProviderDirectory';
 import ProviderEditor, { type ProviderConnectionCreate } from './ProviderEditor';
-import ModelMappings from './ModelMappings';
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function ProvidersView({ token, session, refreshWorkspace, catalogPath = '/models' }: {
+export default function ProvidersView({ token, session, refreshWorkspace, catalogPath = '/workspaces', providerSlug, fixedConnectionId, organizationId }: {
   catalogPath?: string;
+  fixedConnectionId?: string;
+  organizationId?: string;
+  providerSlug?: string;
   token: string;
   session: AdminSession;
   refreshWorkspace: () => Promise<void>;
@@ -35,31 +37,19 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const providerId = routeScopedId ?? search.get('provider') ?? search.get('supplier');
   const connectionsPath = '/api/v1/vendors' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
   const canManage = Boolean(session.permissions?.platform_admin || (session.kind === 'installation' && session.permissions?.manage_operators !== false));
-  const initialConnections = canManage && token ? peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null : null;
+  const cachedConnections = canManage && token ? peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null : null;
+  const initialConnections = cachedConnections && fixedConnectionId ? cachedConnections.filter(connection => connection.id === fixedConnectionId) : cachedConnections;
   const initialSelectedId = initialConnections?.[0]?.id ?? '';
-  const initialModels = canManage && token && initialSelectedId
-    ? peekCachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(initialSelectedId)}/models`)?.data ?? null
-    : null;
   const [connections, setConnections] = useState<ProviderConnection[]>(() => initialConnections ?? []);
   const [selectedConnectionId, setSelectedConnectionId] = useState(initialSelectedId);
-  const [models, setModels] = useState<ProviderModel[]>(() => initialModels ?? []);
-  const [catalog, setCatalog] = useState<ProviderCatalogModel[]>([]);
-  const [discovery, setDiscovery] = useState<ProviderDiscoveryEvidence | null>(null);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogError, setCatalogError] = useState('');
   const [loadingConnections, setLoadingConnections] = useState(() => Boolean(canManage && token && !initialConnections));
-  const [loadingModels, setLoadingModels] = useState(false);
   const [busy, setBusy] = useState(false);
   const [addingConnection, setAddingConnection] = useState(false);
   const [editingConnection, setEditingConnection] = useState(false);
-  const [managingModels, setManagingModels] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
   const [error, setError] = useState('');
   const authController = useRef<AbortController | null>(null);
   const authGeneration = useRef(0);
-  const modelsController = useRef<AbortController | null>(null);
-  const modelsGeneration = useRef(0);
-  const catalogController = useRef<AbortController | null>(null);
-  const catalogGeneration = useRef(0);
   const busyRef = useRef(false);
   const currentScope = useRef({ selectedConnectionId, token, canManage });
   currentScope.current = { selectedConnectionId, token, canManage };
@@ -87,47 +77,29 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     if (!requestSignal || requestSignal.aborted) return;
     const result = await cachedGet<{ data: ProviderConnection[] }>(token, connectionsPath, { signal: requestSignal, force });
     if (requestSignal.aborted || generation !== authGeneration.current || !currentScope.current.canManage || currentScope.current.token !== token) return;
-    setConnections(result.data);
-    setSelectedConnectionId(current => result.data.some(connection => connection.id === current) ? current : result.data[0]?.id ?? '');
-    if (result.data.length > 0) setAddingConnection(false);
-  }, [canManage, token, connectionsPath]);
-
-  const reloadModels = useCallback(async (connectionId: string, signal?: AbortSignal, force = false) => {
-    const generation = modelsGeneration.current;
-    const controller = modelsController.current;
-    const requestSignal = signal ?? controller?.signal;
-    if (!canManage || !token || !requestSignal || requestSignal.aborted) return;
-    const result = await cachedGet<{ data: ProviderModel[] }>(
-      token,
-      `/api/v1/vendors/${encodeURIComponent(connectionId)}/models`,
-      { signal: requestSignal, force },
-    );
-    const scope = currentScope.current;
-    if (requestSignal.aborted || generation !== modelsGeneration.current || !scope.canManage || scope.token !== token || scope.selectedConnectionId !== connectionId) return;
-    setModels(result.data);
-  }, [canManage, token]);
+    const visible = fixedConnectionId ? result.data.filter(connection => connection.id === fixedConnectionId) : result.data;
+    setConnections(visible);
+    setSelectedConnectionId(current => visible.some(connection => connection.id === current) ? current : visible[0]?.id ?? '');
+    if (visible.length > 0) setAddingConnection(false);
+  }, [canManage, token, connectionsPath, fixedConnectionId]);
 
   useEffect(() => {
     const generation = ++authGeneration.current;
     authController.current?.abort();
-    modelsController.current?.abort();
-    modelsGeneration.current += 1;
     if (!canManage || !token) {
       setLoadingConnections(false);
-      setLoadingModels(false);
       setConnections([]);
-      setModels([]);
       setSelectedConnectionId('');
       setAddingConnection(false);
       setEditingConnection(false);
-      setManagingModels(false);
       busyRef.current = false;
       setBusy(false);
       return;
     }
     const controller = new AbortController();
     authController.current = controller;
-    const cached = peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null;
+    const cachedAll = peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null;
+    const cached = cachedAll && fixedConnectionId ? cachedAll.filter(connection => connection.id === fixedConnectionId) : cachedAll;
     if (cached) {
       setConnections(cached);
       setSelectedConnectionId(current => cached.some(connection => connection.id === current) ? current : cached[0]?.id ?? '');
@@ -139,8 +111,9 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     void cachedGet<{ data: ProviderConnection[] }>(token, connectionsPath, { signal: controller.signal })
       .then(result => {
         if (controller.signal.aborted || generation !== authGeneration.current) return;
-        setConnections(result.data);
-        setSelectedConnectionId(current => result.data.some(connection => connection.id === current) ? current : result.data[0]?.id ?? '');
+        const visible = fixedConnectionId ? result.data.filter(connection => connection.id === fixedConnectionId) : result.data;
+        setConnections(visible);
+        setSelectedConnectionId(current => visible.some(connection => connection.id === current) ? current : visible[0]?.id ?? '');
       })
       .catch(reason => {
         if (controller.signal.aborted || generation !== authGeneration.current) return;
@@ -153,74 +126,10 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       controller.abort();
       if (authController.current === controller) authController.current = null;
       authGeneration.current += 1;
-      modelsController.current?.abort();
-      modelsController.current = null;
-      modelsGeneration.current += 1;
       busyRef.current = false;
       setBusy(false);
     };
-  }, [canManage, token, explainError, connectionsPath]);
-
-  useEffect(() => {
-    modelsController.current?.abort();
-    modelsController.current = null;
-    const generation = ++modelsGeneration.current;
-    if (!canManage || !token || !selectedConnectionId || addingConnection) {
-      setModels([]);
-      setLoadingModels(false);
-      return;
-    }
-    const controller = new AbortController();
-    modelsController.current = controller;
-    const modelsPath = `/api/v1/vendors/${encodeURIComponent(selectedConnectionId)}/models`;
-    const cached = peekCachedGet<{ data: ProviderModel[] }>(token, modelsPath)?.data ?? null;
-    if (cached) {
-      setModels(cached);
-      setLoadingModels(false);
-    } else {
-      setModels([]);
-      setLoadingModels(true);
-    }
-    void cachedGet<{ data: ProviderModel[] }>(
-      token,
-      modelsPath,
-      { signal: controller.signal },
-    )
-      .then(result => {
-        if (controller.signal.aborted || generation !== modelsGeneration.current) return;
-        const scope = currentScope.current;
-        if (scope.token !== token || scope.selectedConnectionId !== selectedConnectionId || !scope.canManage) return;
-        setModels(result.data);
-      })
-      .catch(reason => {
-        if (controller.signal.aborted || generation !== modelsGeneration.current) return;
-        const scope = currentScope.current;
-        if (scope.token !== token || scope.selectedConnectionId !== selectedConnectionId || !scope.canManage) return;
-        explainError(reason);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted && generation === modelsGeneration.current) setLoadingModels(false);
-      });
-    return () => {
-      controller.abort();
-      if (modelsController.current === controller) modelsController.current = null;
-      modelsGeneration.current += 1;
-    };
-  }, [addingConnection, canManage, explainError, selectedConnectionId, token]);
-
-  useEffect(() => {
-    catalogController.current?.abort();
-    catalogController.current = null;
-    catalogGeneration.current += 1;
-    setCatalog([]); setDiscovery(null);
-    setCatalogError('');
-    setCatalogLoading(false);
-    return () => {
-      catalogController.current?.abort();
-      catalogController.current = null;
-      catalogGeneration.current += 1;
-    };
-  }, [addingConnection, selectedConnectionId, selectedConnection?.revision, token]);
+  }, [canManage, token, explainError, connectionsPath, fixedConnectionId]);
 
   const mutate = useCallback(async (action: (signal: AbortSignal, generation: number) => Promise<void>) => {
     const controller = authController.current;
@@ -264,7 +173,6 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       setAddingConnection(false);
       setEditingConnection(false);
       setSelectedConnectionId(result.data.id);
-      setManagingModels(true);
       try {
         await reloadConnections(signal, true);
       } catch {
@@ -292,64 +200,26 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     });
   }
 
-  async function saveModel(input: ModelWrite) {
-    const connectionId = selectedConnectionId;
-    if (!connectionId) return;
-    await mutate(async (signal, generation) => {
-      await request<{ data?: ProviderModel }>(
-        token,
-        `/api/v1/vendors/${encodeURIComponent(connectionId)}/models`,
-        'POST',
-        input,
-        signal,
-      );
-      if (signal.aborted || generation !== authGeneration.current || currentScope.current.token !== token || currentScope.current.selectedConnectionId !== connectionId) return;
-      // Configuration writes do not return dispatch eligibility. Read it again
-      // after saving rather than retaining a stale availability badge.
-      await reloadModels(connectionId, undefined, true);
-      void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
-    });
-  }
-
-  async function checkModel(connectionId: string, alias: string): Promise<ProviderModelCheck> {
-    const result = await request<{ data: ProviderModelCheck }>(
-      token,
-      `/api/v1/vendors/${encodeURIComponent(connectionId)}/check`,
-      'POST',
-      { alias },
-    );
-    return result.data;
-  }
-
-  async function loadProviderCatalog() {
-    const connectionId = selectedConnectionId;
-    if (!canManage || !token || !connectionId || catalogLoading) return;
-    catalogController.current?.abort();
-    const controller = new AbortController();
-    catalogController.current = controller;
-    const generation = ++catalogGeneration.current;
-    setCatalogLoading(true);
-    setCatalog([]); setDiscovery(null);
-    setCatalogError('');
+  async function retireConnection() {
+    if (!selectedConnection) return;
+    setBusy(true);
+    setError('');
     try {
-      const result = await request<{ data: ProviderCatalogModel[]; discovery: ProviderDiscoveryEvidence }>(
+      await request(
         token,
-        `/api/v1/vendors/${encodeURIComponent(connectionId)}/catalog`,
-        'GET',
-        undefined,
-        controller.signal,
+        `/api/v1/vendors/${encodeURIComponent(selectedConnection.id)}/retire`,
+        'POST',
+        {},
       );
-      const scope = currentScope.current;
-      if (!controller.signal.aborted && generation === catalogGeneration.current && scope.canManage && scope.token === token && scope.selectedConnectionId === connectionId) {
-        setCatalog(result.data); setDiscovery(result.discovery);
-      }
+      setDisconnectOpen(false);
+      invalidateForMutation(token, '/api/v1/vendors', 'POST');
+      await reloadConnections(undefined, true);
+      void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
     } catch (reason) {
-      const scope = currentScope.current;
-      if (!controller.signal.aborted && generation === catalogGeneration.current && scope.canManage && scope.token === token && scope.selectedConnectionId === connectionId) {
-        setCatalogError(reason instanceof Error ? reason.message : 'Provider models could not be loaded.');
-      }
+      explainError(reason);
+      setError(reason instanceof Error && !(reason instanceof TypeError) ? reason.message : 'Could not disconnect this Provider. Nothing was changed. Retry.');
     } finally {
-      if (!controller.signal.aborted && generation === catalogGeneration.current) setCatalogLoading(false);
+      setBusy(false);
     }
   }
 
@@ -365,36 +235,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     }
   }
 
-  async function refreshSelectedModels() {
-    if (!selectedConnectionId) return;
-    setError('');
-    const connectionId = selectedConnectionId;
-    modelsController.current?.abort();
-    const controller = new AbortController();
-    modelsController.current = controller;
-    const generation = ++modelsGeneration.current;
-    setLoadingModels(true);
-    try {
-      const result = await cachedGet<{ data: ProviderModel[] }>(
-        token,
-        `/api/v1/vendors/${encodeURIComponent(connectionId)}/models`,
-        { signal: controller.signal, force: true },
-      );
-      const scope = currentScope.current;
-      if (!controller.signal.aborted && generation === modelsGeneration.current && scope.canManage && scope.token === token && scope.selectedConnectionId === connectionId) {
-        setModels(result.data);
-      }
-    } catch (reason) {
-      const scope = currentScope.current;
-      if (!controller.signal.aborted && generation === modelsGeneration.current && scope.canManage && scope.token === token && scope.selectedConnectionId === connectionId) explainError(reason);
-    } finally {
-      if (!controller.signal.aborted && generation === modelsGeneration.current) setLoadingModels(false);
-    }
-  }
-
   async function retryData() {
     await refreshConnections();
-    if (selectedConnectionId) await refreshSelectedModels();
   }
 
   if (!canManage) {
@@ -407,12 +249,12 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     </>;
   }
 
-  const selectedOwnerName = selectedConnection?.provider?.name ?? selectedConnection?.supplier?.name;
+  const modelsHref = providerId ? `/admin/providers/${encodeURIComponent(providerSlug ?? providerId)}/models` : '';
 
   return <>
-    {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>{uiT("API keys")}</h2>}<p>{uiT("Configure API keys and the model routes they serve.")}</p></div>}
-    <PageHeader title={uiT("Providers")} action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
-    {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
+    {providerId && <div className="supplier-section-heading"><h2 className="sr-only">{uiT("Keys")}</h2><p>{uiT("Manage upstream API keys, request limits and cooldowns for this Provider.")}</p></div>}
+    <PageHeader title={uiT("Keys")} action={!fixedConnectionId && canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? uiT("Add API key") : uiT("Add provider")} title={providerId ? uiT("Add API key") : uiT("Add provider")} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span></Button>}</>} />
+    {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{uiT(error)}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections} onClick={() => void retryData()}>{uiT("Retry")}</Button></div>}
     <div className="supplier-detail-layout">
       {connections.length > 1 && <ProviderDirectory
         connections={connections}
@@ -424,54 +266,38 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       />}
       {!loadingConnections && selectedConnection ? <section className="supplier-detail-header" aria-labelledby="vendor-detail-title">
         <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedConnection)} size="large" /><div><h2 id="vendor-detail-title">{selectedConnection.name}</h2><p>{providerAdapterApiLabels[selectedConnection.adapter]}</p></div><span className={'vendor-status-badge' + (selectedConnection.enabled ? ' is-enabled' : '')}>{selectedConnection.enabled ? uiT("Enabled") : uiT("Disabled")}</span></div>
-        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>{uiT("Model routes")}{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit API key")}</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/pools">{uiT("Model pools")}</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>{uiT("Model catalog")}</Link></Button></div></div>
+        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions">{modelsHref && <Link to={modelsHref}>{uiT("Models")}</Link>}<Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />{uiT("Edit key")}</Button><Link to={catalogPath}>{uiT("Model catalog")}</Link>{selectedConnection.enabled && <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => { setError(''); setDisconnectOpen(true); }}>{uiT("Disconnect")}</Button>}</div></div>
         {!selectedConnection.has_credential && <p className="error-text" role="status">{uiT("No credential stored. Edit this API key to configure access.")}</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}
-        {canManage && <IntegrationSettings key={`${token}:${selectedConnection.id}:integration`} token={token} resource="vendors" id={selectedConnection.id} onSaved={() => { catalogController.current?.abort(); catalogGeneration.current += 1; setCatalog([]); setDiscovery(null); setCatalogError(''); setCatalogLoading(false); }} />}
-      </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading"><FormSectionSkeleton fields={3} label={uiT("Loading API keys…")} /></section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>{uiT("No API keys")}</strong><p>{uiT("Add an API key to configure the models supplied by this Provider.")}</p><Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button></div></section>}
+      </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading"><FormSectionSkeleton fields={3} label={uiT("Loading API keys…")} /></section> : fixedConnectionId ? <section role="alert" className="panel vendor-detail-panel"><p>{uiT("This connection is unavailable. Return to incidents and refresh before taking action.")}</p></section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>{uiT("No API keys")}</strong><p>{uiT("Add an API key to connect this Provider. Model routes are managed in Models.")}</p><Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button></div></section>}
     </div>
-    <Dialog open={managingModels && !!selectedConnection && !addingConnection} onOpenChange={setManagingModels}>
-      <DialogContent className="supplier-models-dialog" showCloseButton={false}>
-        <DialogHeader className="flex-row items-start justify-between gap-4 text-left">
-          <div><DialogTitle>{selectedOwnerName ?? selectedConnection?.name ?? 'Provider'}{" "}{uiT("routes")}</DialogTitle><DialogDescription>{uiT("Model routes served by")}{" "}{selectedConnection?.name ?? uiT("this API key")}.</DialogDescription></div>
-          <DialogClose asChild><Button variant="ghost" size="icon-sm" aria-label={uiT("Close model management")}><X /></Button></DialogClose>
-        </DialogHeader>
-        {selectedConnection && <ModelMappings
-      key={selectedConnection.id}
-      credentialRevision={selectedConnection.revision}
-      ownerFunded={selectedConnection.owner_funded === true}
-      models={models}
-      catalog={catalog}
-      discovery={discovery}
-      catalogLoading={catalogLoading}
-      catalogError={catalogError}
-      loading={loadingModels}
-      disabled={busy || loadingModels}
-      onRefresh={() => void refreshSelectedModels()}
-      onLoadCatalog={loadProviderCatalog}
-      onSave={saveModel}
-      onCheck={alias => checkModel(selectedConnection.id, alias)}
-    />}
-      </DialogContent>
-    </Dialog>
     <Dialog open={addingConnection || editingConnection} onOpenChange={open => { if (!open && !busy) { setAddingConnection(false); setEditingConnection(false); } }}>
       <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{addingConnection ? uiT("Add Provider API key") : uiF("Edit {0}", [selectedConnection?.name ?? uiT("API key")])}</DialogTitle><DialogDescription>{addingConnection ? uiT("Choose a Provider and configure the API key for its model routes.") : uiT("Update the provider endpoint or replace its stored credential.")}</DialogDescription></div>
+          <div><DialogTitle>{addingConnection ? uiT("Add Provider API key") : uiF("Edit {0}", [selectedConnection?.name ?? uiT("API key")])}</DialogTitle><DialogDescription>{addingConnection ? uiT("Choose a Provider and save its API key. Add model routes in Models.") : uiT("Update the provider endpoint or replace its stored credential.")}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
-      {error && <p className="error-text" role="alert">{error}</p>}
+      {error && <p className="error-text" role="alert">{uiT(error)}</p>}
       {(addingConnection || editingConnection && selectedConnection) && <ProviderEditor
         key={addingConnection ? 'new-vendor' : `${selectedConnection!.id}:${selectedConnection!.revision}`}
         token={token}
         initialProviderId={providerId}
         connection={addingConnection ? null : selectedConnection}
+        operatingMode={session.operating_mode}
+        organizationId={organizationId}
         disabled={busy}
         onCreate={createConnection}
         onSave={saveConnection}
       />}
     </DialogContent>
     </Dialog>
+    <Dialog open={disconnectOpen} onOpenChange={open => { if (!busy) setDisconnectOpen(open); }}>
+      <DialogContent className="niu-modal" showCloseButton={false}>
+        <DialogHeader><DialogTitle>{uiT("Disconnect this Provider connection?")}</DialogTitle><DialogDescription>{uiT("New requests stop immediately, all model bindings are disabled and the stored credential is erased. In-flight requests may finish. Requests, billing, incidents and audit history are retained. This cannot be undone; reconnect and re-import models to restore access.")}</DialogDescription></DialogHeader>
+        <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => setDisconnectOpen(false)}>{uiT("Cancel")}</Button><Button type="button" variant="destructive" disabled={busy} onClick={() => void retireConnection()}>{busy ? uiT("Disconnecting…") : uiT("Disconnect")}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+
   </>;
 }

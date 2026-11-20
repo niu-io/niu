@@ -63,8 +63,8 @@ impl Config {
     }
 
     fn processing_fingerprint(&self, revision: &str) -> String {
-        let bytes = serde_json::to_vec(&(revision, self))
-            .expect("detector processing configuration is serializable");
+        let bytes =
+            serde_json::to_vec(&(revision, self)).unwrap_or_else(|_| revision.as_bytes().to_vec());
         format!("{:x}", Sha256::digest(bytes))
     }
 

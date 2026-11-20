@@ -1,6 +1,7 @@
+import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { PlatformUnitInfo } from '../lib/money';
-import { peekQuery, primeQuery } from '@/lib/query-cache';
+import { fetchQuery, peekQuery } from '@/lib/query-cache';
 
 export type BillingMode = 'currency' | 'credits';
 
@@ -56,8 +57,11 @@ export function PlatformCurrencyProvider({ children }: { children: ReactNode }) 
     }
     setFailed(false);
 
-    void fetch('/v1/currency', { signal: controller.signal })
-      .then(async response => {
+    void fetchQuery<CurrencyPayload>(
+      'public',
+      CURRENCY_CACHE_KEY,
+      async signal => {
+        const response = await fetch('/v1/currency', { signal });
         if (!response.ok) throw new Error('Platform currency is unavailable.');
         const body = await response.json();
         const value = body?.data?.currency;
@@ -76,19 +80,25 @@ export function PlatformCurrencyProvider({ children }: { children: ReactNode }) 
                 atoms_per_unit: String(rawUnit.atoms_per_unit ?? '1000000000'),
               }
             : null;
+        const nextCurrency = value ?? '';
+        const nextError = !value && nextMode === 'currency' ? 'Configure the platform currency in Admin → Settings.' : '';
+        return { currency: nextCurrency, billingMode: nextMode, unit: nextUnit, error: nextError };
+      },
+      {
+        persist: true,
+        force: revision > 0,
+        freshMs: 0,
+        awaitRevalidate: true,
+        background: true,
+        signal: controller.signal,
+      },
+    )
+      .then(payload => {
         if (!controller.signal.aborted) {
-          const nextCurrency = value ?? '';
-          const nextError = !value && nextMode === 'currency' ? 'Configure the platform currency in Admin → Settings.' : '';
-          setCurrency(nextCurrency);
-          setBillingMode(nextMode);
-          setUnit(nextUnit);
-          setError(nextError);
-          primeQuery(
-            'public',
-            CURRENCY_CACHE_KEY,
-            { currency: nextCurrency, billingMode: nextMode, unit: nextUnit, error: nextError },
-            { persist: true },
-          );
+          setCurrency(payload.currency);
+          setBillingMode(payload.billingMode);
+          setUnit(payload.unit);
+          setError(payload.error);
         }
       })
       .catch(cause => {

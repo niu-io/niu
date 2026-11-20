@@ -213,6 +213,8 @@ Content type: `application/json`.
                 "revision",
                 "name",
                 "allowed_models",
+                "invocation_allowed",
+                "invocation_protocols",
                 "expires_at_ms",
                 "last_used_at_ms",
                 "revoked",
@@ -237,6 +239,26 @@ Content type: `application/json`.
                   "items": {
                     "type": "string"
                   }
+                },
+                "invocation_allowed": {
+                  "type": "boolean",
+                  "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+                },
+                "invocation_protocols": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "chat",
+                      "responses",
+                      "messages",
+                      "content",
+                      "decisions",
+                      "embeddings",
+                      "video"
+                    ]
+                  },
+                  "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
                 },
                 "expires_at_ms": {
                   "type": [

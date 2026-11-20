@@ -1,7 +1,8 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { IconChevronDown, IconLanguage } from '@tabler/icons-react';
+import { loadPublicCatalogModels } from '@/features/models/public-catalog';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale, type Locale } from '@/shell/ui-locale';
 import { Button } from '@/components/ui/button';
@@ -18,16 +19,32 @@ export default function InstallationRoute() {
   const context = useDashboardContext();
   const {settings:branding,logo} = useBranding();
   const navigate = useNavigate();
+  const [hasPublicModels, setHasPublicModels] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadPublicCatalogModels({ signal: controller.signal })
+      .then(result => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(result.models.length > 0);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setHasPublicModels(false);
+        }
+      });
+    return () => controller.abort();
+  }, []);
   useEffect(() => {
     if (context.token && context.session?.kind === 'installation') navigate('/admin/providers', { replace: true });
   }, [context.token, context.session?.kind, navigate]);
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
-      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={uiF("{0} home", [branding.display_name])}>
-        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span></>}<span className="dashboard-login-product">{t('Dashboard', '控制台')}</span>
+      <Link className="dashboard-login-brand" to="/" aria-label={uiF("{0} home", [branding.display_name])}>
+        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu') : branding.display_name}</span></>}
       </Link>
       <nav aria-label={uiT("Public resources")} className="dashboard-login-nav">
-        <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
+        {hasPublicModels && <Button asChild variant="ghost" size="sm"><Link to="/models">{t('Models', '模型')}</Link></Button>}
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -66,10 +83,11 @@ export default function InstallationRoute() {
               onChange={event => context.setDraftToken(event.target.value)}
             />
           </div>
-          {context.error && <p className="dashboard-login-error" role="alert">{context.error}</p>}
+          {context.error && <p className="dashboard-login-error" role="alert">{t(context.error)}</p>}
           {context.token && context.session?.kind === 'operator' && <p className="dashboard-login-error" role="alert">{t('An installation administrator credential is required.', '需要提供实例管理员凭证。')}</p>}
           <Button type="submit" className="dashboard-login-submit">{t('Continue', '继续')}</Button>
         </form>
+        <p className="dashboard-login-hint"><Link className="underline underline-offset-2" to="/login">{t('Account sign-in', '账户登录')}</Link></p>
       </section>
     </div>
   </main>;

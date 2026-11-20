@@ -27,7 +27,7 @@ const embeddings = await niu.embeddings.create({
 
 ## Verify client setup
 
-The packaged `examples/verify-inference.mjs` checks key-scoped model discovery, one nonstreaming text request and one completed text stream. Set `NIU_API_KEY` to a key generated in your workspace's Keys page, using a private environment. For the configured local development demo:
+The packaged `examples/verify-inference.mjs` checks key-scoped model discovery, one nonstreaming text request and one completed text stream. Each request defaults to 64 output tokens. Set `NIU_MAX_OUTPUT_TOKENS` to a positive integer within your budget when the model needs more room for reasoning and visible text. Set `NIU_API_KEY` to a key generated in your workspace's Keys page, using a private environment. For the configured local development demo:
 
 ```sh
 NIU_BASE_URL=http://localhost:2566/v1 \
@@ -41,7 +41,31 @@ Embedding calls use the configured OpenAI-compatible route and are available onl
 
 `chat.completions()` types OpenAI-compatible function tools, tool choices, JSON response formats, tool-call results, and usage. The selected route must enable the matching server-side capability. Niu returns tool requests to the client; the application remains responsible for reviewing and executing them. Niu checks structured JSON against the supplied schema within its documented offline validation bounds; invalid schemas are rejected before dispatch, and nonconforming outputs fail delivery.
 
-`responses.create()` supports the documented non-streaming text subset of the OpenAI Responses API when the selected route enables `supports_responses`. It accepts a string `input`; multimodal inputs, tool calls and conversation state are not included in this subset. Use `responses.stream()` with the same text input to iterate Responses SSE events. The iterator ends at `response.completed` or `response.incomplete`; missing terminal evidence is an error. The SDK passes `AbortSignal` through to the request.
+`responses.create()` and `responses.stream()` support OpenAI's stateless Responses API on routes with `supports_responses` enabled: string or multi-turn `input` item arrays (`message`, `function_call`, `function_call_output`, `reasoning`, unpriced `input_image`), client `function` `tools`, `tool_choice`, `parallel_tool_calls`, structured JSON Schema via `text.format`, `reasoning`, and `truncation` (`store: false`). Stateful `previous_response_id` and hosted server tools remain unsupported. `messages.create()` / `messages.stream()` support native Anthropic Messages with Extended Thinking, safe `anthropic-beta` flags via `{ anthropicBeta }`, client tools, array `tool_result.content`, `cache_control`, and unpriced media; `generateContent()` / `streamGenerateContent()` support native Gemini `:generateContent` and `:streamGenerateContent` (JSON array or `{ alt: 'sse' }`) with `functionDeclarations`, `toolConfig`, `thinkingConfig`, `responseMimeType` / `responseSchema`, and unpriced `inlineData`. The SDK passes `AbortSignal` through to requests and ends streams on validated terminal events.
+
+`createDecision()` invokes the explicit System 1 capability separately from Chat generation and Auto routing. It requires a concrete workspace model with a declared structured-output capability and a key grant; `pool/…` and `codex/…` aliases are rejected so routing cannot substitute a generated response. The caller supplies a bounded `input` and a closed flat `output_schema`; Niu validates the model's JSON itself.
+
+```ts
+const result = await niu.createDecision({
+  model: 'fast',
+  input: { message: 'The invoice total is wrong' },
+  output_schema: {
+    type: 'object',
+    properties: {
+      label: { type: 'string', enum: ['billing', 'technical'] },
+      urgent: { type: 'boolean' },
+    },
+    required: ['label'],
+    additionalProperties: false,
+  },
+  timeout_ms: 800,
+  max_output_tokens: 32,
+});
+// result.decision is the validated object, or null for an explicit abstention.
+// result.evidence records outcome, calls, latency and reported/estimated tokens.
+```
+
+`decision: null` is an explicit `abstained` outcome, never a missing value replaced with a preferred label. Invalid, missing, over-bound or timed-out output rejects with a `decision_*` gateway code and `x-niu-decision-outcome` evidence; there is no fallback to text. The model is called once through ordinary inference admission, so key grants, workspace spending caps, billing, guardrails and cancellation apply. The nested prompt is not retained as an ordinary Logs payload; use the response `x-niu-attempt-id` with `getGeneration()` for authoritative customer charges. Token counts can be estimates, and the decision is not calibrated probability or task-quality evidence.
 
 The SDK also provides a metadata-only task recorder. It is independent of the inference client and does not capture prompts, model responses, source code, tool arguments, or tool output.
 
@@ -57,7 +81,7 @@ for await (const chunk of niu.chat.stream({
 }
 ```
 
-The iterator requests provider usage events. Breaking the loop cancels the response body; `AbortSignal` also cancels the underlying fetch. Cancellation does not prove that the provider stopped execution or incurred no cost. The event buffer limit is 65,536 UTF-8 bytes for Chat and Messages, and 16 MiB for Responses. The SDK does not retry or reconnect a stream automatically.
+The iterator requests provider usage events. Breaking the loop cancels the response body; `AbortSignal` also cancels the underlying fetch. Cancellation does not prove that the provider stopped execution or incurred no cost. The event buffer limit is 65,536 UTF-8 bytes for Chat, 262,144 UTF-8 bytes for Messages and Gemini streams, and 16 MiB for Responses. The SDK does not retry or reconnect a stream automatically.
 
 Failures after headers arrive throw `NiuStreamError`, a subclass of `NiuAPIError`.
 Its `kind` distinguishes `api`, `invalid_stream`, `incomplete_stream` and
@@ -192,15 +216,15 @@ Summary latency percentiles use completed gateway body-consumption durations acr
 
 Installation administrators can read a configured adapter's business association with `getSupplierAssociation(configurationId)` and set it with `associateSupplier(configurationId, supplierId, expectedRevision)`. The existing `/vendors` API path is preserved. Association requires the current configuration revision; conflicts propagate without retries or reassignment. The read returns a Provider name or null, without configuration credentials. Customer and Provider credentials cannot use these installation administration operations.
 
-`publishSupplierRates(supplierId, rates)` publishes agreed Provider input/output rates through the installation-only `/providers/{provider}/offers` compatibility contract. `prompt_rate` and `completion_rate` are exact decimal integer strings in currency nanounits per million tokens; for example, USD `400000000` means $0.40 per million tokens. Publication creates an immutable revision and clears the offer's prior qualification and activation. Review and qualify the new revision before enabling it for dispatch. Set `expected_revision` to null for a new offer, or to its current opaque revision identifier for an update. Stale updates conflict without changing rates. The returned revision is an opaque identifier. This operation does not publish customer tariffs, establish a discount or retry failed writes.
+`publishSupplierRates(supplierId, rates)` publishes agreed Provider input/output rates through the installation-only `/providers/{provider}/offers` compatibility contract. `prompt_rate` and `completion_rate` are exact decimal integer strings in currency nanounits per million tokens; for example, USD `400000000` means $0.40 per million tokens. Publication creates an immutable revision, pauses the offer and clears its prior authorization. An authorized platform administrator explicitly authorizes the new current revision with `authorizeProviderOffer()` before dispatch eligibility returns. Set `expected_revision` to null for a new offer, or to its current opaque revision identifier for an update. Stale updates conflict without changing rates. The returned revision is an opaque identifier. This operation does not publish customer tariffs, establish a discount or retry failed writes.
 
-`listSupplierOffers(supplierId)` reads current agreed rates and their activation, qualification and route-readiness fields. It returns only offers from the installation administration response, excluding earnings and settlement records. To update a reviewed offer, pass its `revision` as `expected_revision`; never derive or increment this opaque identifier. Provider managers can manage availability through their authorized API, but cannot publish agreed rates through this installation-only method.
+`listSupplierOffers(supplierId)` reads current agreed rates and their activation, authorization-readiness and route-readiness fields. Readiness means the saved route, credential and exact revision can support supply; it does not verify live upstream access, prove an agreed commercial agreement or establish customer selling eligibility. It returns only offers from the installation administration response, excluding earnings and settlement records. To update an authorized offer, pass its `revision` as `expected_revision`; never derive or increment this opaque identifier. Provider managers can manage availability through their authorized API, but cannot publish agreed rates through this installation-only method.
 
 `listChatSessions(scope)` reads the authenticated owner's latest 100 active saved sessions in a workspace. `listArchivedChatSessions(scope)` reads the corresponding archived history. `setChatSessionArchived(scope, sessionId, true)` archives and `false` restores a conversation; archive state is stored by the backend and survives autosave. Read access is required to list; write access is required to archive or restore, and missing or foreign-owner records return 404. These methods accept cancellation options and do not retry writes automatically. `deleteChatSession(scope, sessionId)` removes that owner's session durably; repeated deletion is safe. Workspace write access is required, and request accounting and billing records remain intact. Browser caches are not the source of truth for this history.
 
-Provider review workflows use installation-only `qualifySupplier()` and `qualifySupplierOffer()`, followed by an explicit `setSupplierOfferActive()` call under installation or Provider owner/admin access. Reviews contain lowercase SHA-256 digests of independently reviewed evidence and a future expiry; offer reviews pin the current immutable rate revision and protocol-matrix version. The SDK does not establish supply rights from a digest or upload the underlying private agreement. Revocation methods `revokeSupplierQualification()` and `revokeSupplierOfferQualification()` record a reason digest and pause affected supply. Qualification, activation and revocation are separate operations without automatic write retries. Personal use of an owned upstream key is distinct from commercial Provider qualification; do not record fabricated resale evidence to enable a personal test connection.
+Commercial supply uses `authorizeProviderOffer(providerId, offerId, rateRevision)`. This installation-or-platform-administrator action atomically records an immutable exact-revision authorization and enables the offer for its current Provider-owned route and saved credential. A stale revision, disabled route, personal credential or unavailable media binding conflicts. Repeated enable for the same current revision returns the existing authorization. `revokeProviderOfferAuthorization()` records the revocation and pauses the offer if that authorization is still current; `setProviderOfferActive()` pauses or resumes an existing offer without changing its rates. Authorization does not verify live upstream availability, create a customer selling price or grant customer access; those remain separate. Personal owner-funded use is distinct from commercial supply and never becomes commercially authorized by saving a key. These writes do not retry automatically.
 
-`assignPersonalCredentialOwner(configurationId, organizationId, expectedRevision)` assigns an installation-managed upstream credential to one immutable account owner. It requires installation administrator access and the current credential revision. Exact retries succeed without another assignment event; assigning another owner or a commercially qualified credential fails. It does not grant funds or activate Provider offers. The owning account's workspace keys can discover and use its enabled models, subject to grants and guardrails, without Niu prepaid charges. The credential owner pays the upstream directly. These assignments are separate from Provider memberships and commercial qualification, and the SDK does not retry writes automatically.
+`assignPersonalCredentialOwner(configurationId, organizationId, expectedRevision)` assigns an installation-managed upstream credential to one immutable account owner. It requires installation administrator access and the current credential revision. Exact retries succeed without another assignment event; assigning another owner or a credential with a current commercial authorization fails. It does not grant funds or activate Provider offers. The owning account's workspace keys can discover and use its enabled models, subject to grants and guardrails, without Niu prepaid charges. The credential owner pays the upstream directly. These assignments are separate from Provider memberships and commercial qualification, and the SDK does not retry writes automatically.
 
 `exportChatSession(scope, sessionId)` reads one saved conversation directly, including older conversations outside the latest-100 list. It requires workspace read access and the same personal owner. The versioned `niu-chat` JSON contains title, creation time, ordered prompts, model response content/status and saved attachment content. Legacy single-turn sessions become one turn. Internal identifiers, settings, diagnostic errors, token/timing metrics and accounting fields are excluded. Conversation text and attachments are intentionally included; review their content before sharing the export. This does not export Logs or establish customer charges.
 
@@ -313,7 +337,7 @@ Use an organization-wide owner/admin credential. The example prints exact curren
 
 `createCustomerTopup(organizationId, { amount_nanos, payment_method, idempotency_key })` creates or explicitly replays a company top-up through the configured merchant. The initial integration supports CNY amounts in whole cents and an existing CNY account; no currency conversion or account creation occurs. Use exact nanounit strings and preserve the same UUID idempotency key after any uncertain response. There is no automatic retry. Only explicitly enabled merchant methods are accepted; the SDK does not claim their live qualification.
 
-`getCustomerPaymentMethods(organizationId)` reads checkout availability and configured method codes without contacting the payment service. Missing integration or CNY account returns an explicit unavailable reason and no choices. An available result does not grant write access or guarantee collection; top-up creation rechecks its requirements.
+`getCustomerPaymentMethods(organizationId)` reads checkout availability and configured method codes without contacting the payment service. A missing integration or an account missing the checkout currency returns an explicit unavailable reason and no choices. An available result does not grant write access or guarantee collection; top-up creation rechecks its requirements.
 
 `listCustomerTopups(organizationId, { before })` recovers backend-owned checkout history across browsers. Each page has at most 100 orders and a nullable `next_cursor`; pass that cursor as `before` for older orders. Records include creation dates, saved status and pending checkout links. Foreign or missing cursors fail rather than reading another company. The history is a live view; refresh to see new intents. Keep routing/cursor IDs out of product labels.
 
@@ -327,7 +351,7 @@ Run `node examples/inspect-topups.mjs --all` from an installed package with `NIU
 
 Authenticated `listModels()` responses include `customer_pricing` when the key's workspace has a current selling tariff. It contains `currency`, immutable `revision`, `unit: "nanounits_per_million_tokens"`, and exact string `prompt_rate` / `completion_rate` amounts. A null value means no selling tariff is configured; it does not mean free inference. Provider prices are never substituted. The revision advertised by discovery can change before a request: admission pins the tariff actually used for that request.
 
-`getKeyGuardrail(scope, keyId)` reads a key's preserved policy revision and current assignment revision. `assignKeyGuardrail(scope, keyId, policyRevision, expectedAssignmentRevision)` assigns a validated policy from the same workspace to an active key. Pass zero for a first assignment; updates require its current assignment revision. Stale writes conflict without automatic retry. Workspace readers can inspect assignments; workspace write access is required to change them. Inference credentials cannot administer assignments. Assigned key restrictions intersect the current mandatory workspace policy and cannot expand it. Assignment changes retain immutable actor/policy history in the same transaction; session credentials are not recorded. Rotation preserves the assigned policy. `clearKeyGuardrail(scope, keyId, expectedAssignmentRevision)` removes only the optional key policy, retaining its incremented assignment revision and immutable history. This requires a positive current revision and sends an explicit null policy. Stale writers cannot recreate a cleared assignment with revision zero. Mandatory workspace restrictions remain enforced. `listKeyGuardrailHistory(scope, keyId, beforeAssignmentRevision)` reads up to 100 newest immutable events with readable actor/policy names and revision numbers. Use its exclusive `next_cursor` for older events. No history from before audit support is fabricated, and internal actor identifiers and credentials are excluded. The dashboard provides a read-only Assignment history view on key details, including inactive keys. Full role and large-history workflow qualification remains open.
+`getKeyGuardrail(scope, keyId)` reads a key's assignment mode, preserved policy revision when fixed, and current assignment revision. `assignKeyGuardrail(scope, keyId, policyRevision, expectedAssignmentRevision)` pins a validated policy revision from the same workspace to an active key. `followActiveKeyGuardrail(scope, keyId, expectedAssignmentRevision)` makes the key follow the workspace's active policy instead; later workspace edits apply without re-pinning the key and the key carries no separate pinned layer. Existing assignments remain fixed until explicitly switched. Both writes require the current assignment revision. Pass zero for a first assignment; updates require its current assignment revision. Stale writes conflict without automatic retry. Workspace readers can inspect assignments; workspace write access is required to change them. Inference credentials cannot administer assignments. Assigned key restrictions intersect the current mandatory workspace policy and cannot expand it. Assignment changes retain immutable actor/policy history in the same transaction; session credentials are not recorded. Rotation preserves the assigned policy. `clearKeyGuardrail(scope, keyId, expectedAssignmentRevision)` removes only the optional fixed key policy, retaining its incremented assignment revision and immutable history. This requires a positive current revision and sends an explicit null policy. Stale writers cannot recreate a cleared assignment with revision zero. Mandatory workspace restrictions remain enforced. `listKeyGuardrailHistory(scope, keyId, beforeAssignmentRevision)` reads up to 100 newest immutable events with readable actor/policy names and revision numbers. Use its exclusive `next_cursor` for older events. No history from before audit support is fabricated, and internal actor identifiers and credentials are excluded. The dashboard provides a read-only Assignment history view on key details, including inactive keys. Full role and large-history workflow qualification remains open.
 
 ### Synthetic input-rule tests
 
@@ -477,6 +501,14 @@ estimated amount and independently reviewed maximum charge are exact decimal
 nanounit strings. Owner-funded amounts remain null. The estimate is nonbinding;
 submission rechecks current rates, configuration and available funds.
 
+For an owner-funded model with `output.allow_unmapped_output === true`,
+use the model's controls to discover supported resolution and aspect ratio
+choices. The pairs in `output.specifications` have measured or configured
+dimensions for estimation. Other supported pairs can return HTTP 501
+(`unsupported_operation_error`) from the estimate endpoint. A missing estimate
+leaves the Provider expense unknown. Request generation separately under the
+workspace owner's spending authority.
+
 Read saved video customer billing with `await client.video.jobs.billing(job.id)`.
 The call performs one authenticated GET without polling or settlement. Exact
 customer amounts are decimal strings in billionths of the declared currency;
@@ -530,7 +562,9 @@ historical publication dates remain null. Installation readers and the Provider'
 active members can read these terms. Installation readers use
 `admin.listSupplierMediaRateModels(supplierId, { after, limit })` for named current
 configuration choices; bindings are exact strings and do not qualify dispatch.
-Installation writers use `admin.replaceSupplierMediaRate(supplierId, oldRevision, card)`
+Each choice's `meter` is derived from the model's validated output estimator and is
+null when no output mapping is configured. Installation writers use
+`admin.replaceSupplierMediaRate(supplierId, oldRevision, card)`
 to publish new terms and end the old schedule at their start in one transaction, or
 `admin.retireSupplierMediaRate(supplierId, oldRevision, cutoffUnixSeconds)` to end a
 schedule without a replacement. Dimensions and meter remain fixed during replacement;

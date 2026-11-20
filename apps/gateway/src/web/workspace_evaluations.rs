@@ -538,12 +538,12 @@ pub async fn list(
         .evaluation_definitions(principal.scope(), query.after.as_deref())
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(page(
-        rows.into_iter()
-            .map(|row| serde_json::to_value(row).unwrap())
-            .collect(),
-        "slug",
-    )))
+    let data = rows
+        .into_iter()
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| ApiError::storage_unavailable())?;
+    Ok(Json(page(data, "slug")))
 }
 /// ```openapi
 /// {

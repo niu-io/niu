@@ -11,6 +11,8 @@ pub struct KeyView {
     pub revision: i64,
     pub name: String,
     pub allowed_models: Vec<String>,
+    pub invocation_allowed: bool,
+    pub invocation_protocols: Vec<String>,
     pub expires_at_ms: Option<i64>,
     /// Latest durable dispatch intent; absent does not establish that a key was never authenticated.
     pub last_used_at_ms: Option<i64>,
@@ -44,9 +46,30 @@ pub struct Principal {
     key_id: Uuid,
     scope: TenantScope,
     allowed_models: Vec<String>,
+    invocation_allowed: bool,
+    invocation_protocols: Vec<String>,
 }
 
 impl Principal {
+    pub fn invocation_allowed(&self) -> bool {
+        self.invocation_allowed
+    }
+
+    /// Both the paid-execution switch and the exact interface grant must allow
+    /// the request. A protocol added after approval is never implicitly
+    /// authorized, including a protocol that did not exist at approval time.
+    pub fn allows_invocation_protocol(&self, protocol: &str) -> bool {
+        self.invocation_allowed
+            && self
+                .invocation_protocols
+                .iter()
+                .any(|allowed| allowed == protocol)
+    }
+
+    pub fn invocation_protocols(&self) -> &[String] {
+        &self.invocation_protocols
+    }
+
     pub fn allows_model(&self, model: &str) -> bool {
         self.allowed_models
             .iter()
@@ -112,7 +135,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         let issued =
             Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -129,7 +152,7 @@ impl Store {
         let issued =
             Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
         Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -151,7 +174,7 @@ impl Store {
         let digest = Sha256::digest(intent.to_string().as_bytes()).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
         if let Some(id) = Self::recover_key_request_in_tx(&mut tx, scope, request, &digest).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(KeyMutationResult { id, token: None });
         }
         let issued =
@@ -159,7 +182,7 @@ impl Store {
         Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
         Self::record_key_request_in_tx(&mut tx, scope, request, "create", &digest, issued.id)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(KeyMutationResult {
             id: issued.id,
             token: Some(issued.token),
@@ -175,13 +198,13 @@ impl Store {
         let digest = Sha256::digest(format!("rotate:{old}").as_bytes()).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
         if let Some(id) = Self::recover_key_request_in_tx(&mut tx, scope, request, &digest).await? {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
             return Ok(KeyMutationResult { id, token: None });
         }
         let issued = Self::rotate_key_in_tx(&mut tx, scope, old).await?;
         Self::record_key_request_in_tx(&mut tx, scope, request, "rotate", &digest, issued.id)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(KeyMutationResult {
             id: issued.id,
             token: Some(issued.token),
@@ -257,7 +280,7 @@ impl Store {
             .await?;
         }
         Self::apply_key_policies_in_tx(&mut tx, scope, id, policies, actor).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -318,8 +341,8 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Issuance and its audit record commit together; bound contention on
         // either write so a failed request never leaves an undisclosed key.
-        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $7 * interval '1 second' END,$8)")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
+        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, token_secret, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $8 * interval '1 second' END,$9)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(&token).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
             .execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'issued')")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
@@ -333,13 +356,15 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Single-statement indexed lookup executes under its own PostgreSQL MVCC
         // statement snapshot without paying BEGIN/set_config/COMMIT round-trips.
-        let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models, invocation_allowed, invocation_protocols FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(hash)
             .fetch_optional(&self.pool)
             .await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
             key_id: row.get("id"),
             scope: TenantScope {
                 organization_id: row.get("organization_id"),
@@ -358,7 +383,7 @@ impl Store {
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         let row = sqlx::query(
-            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, \
+            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, k.invocation_protocols, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $2::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
@@ -378,6 +403,8 @@ impl Store {
         }
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
             key_id: row.get("id"),
             scope: TenantScope {
                 organization_id: row.get("organization_id"),
@@ -394,7 +421,7 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Principal, StoreError> {
-        let row = sqlx::query("SELECT allowed_models FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let row = sqlx::query("SELECT allowed_models,invocation_allowed,invocation_protocols FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id)
             .bind(scope.project_id)
             .bind(id)
@@ -405,6 +432,8 @@ impl Store {
             key_id: id,
             scope,
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
         })
     }
 
@@ -415,7 +444,7 @@ impl Store {
         source: Option<std::net::IpAddr>,
     ) -> Result<Principal, StoreError> {
         let row = sqlx::query(
-            "SELECT k.allowed_models, \
+            "SELECT k.allowed_models, k.invocation_allowed, k.invocation_protocols, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $4::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $4::text::inet <<= n::cidr) \
@@ -439,6 +468,8 @@ impl Store {
             key_id: id,
             scope,
             allowed_models: row.get("allowed_models"),
+            invocation_allowed: row.get("invocation_allowed"),
+            invocation_protocols: row.get("invocation_protocols"),
         })
     }
 
@@ -455,7 +486,7 @@ impl Store {
         source: Option<std::net::IpAddr>,
     ) -> Result<(Principal, bool), StoreError> {
         let row = sqlx::query(
-            "SELECT k.organization_id, k.project_id, k.allowed_models, \
+            "SELECT k.organization_id, k.project_id, k.allowed_models, k.invocation_allowed, k.invocation_protocols, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
                   WHEN $2::text IS NULL THEN false \
                   ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
@@ -478,6 +509,8 @@ impl Store {
                     project_id: row.get("project_id"),
                 },
                 allowed_models: row.get("allowed_models"),
+                invocation_allowed: row.get("invocation_allowed"),
+                invocation_protocols: row.get("invocation_protocols"),
             },
             ip_allowed,
         ))
@@ -492,7 +525,7 @@ impl Store {
         let scope = principal.scope;
         let id = principal.key_id;
         let key: KeyView = sqlx::query_as(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= transaction_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -571,6 +604,9 @@ impl Store {
 
         Ok(serde_json::json!({
             "object": "api_key",
+            "invocation_allowed": self.key_invocation_allowed(principal).await?,
+            "invocation_protocols": self.key_invocation_protocols(principal).await?,
+            "management_capabilities": self.agent_key_capabilities(scope, id).await?,
             "label": name,
             "allowed_models": allowed_models,
             "expires_at_ms": expires_at_ms,
@@ -590,6 +626,21 @@ impl Store {
         }))
     }
 
+    pub async fn key_invocation_allowed(&self, principal: &Principal) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT invocation_allowed FROM api_keys WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp()")
+            .bind(principal.key_id()).bind(principal.scope().organization_id).bind(principal.scope().project_id)
+            .fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)
+    }
+
+    pub async fn key_invocation_protocols(
+        &self,
+        principal: &Principal,
+    ) -> Result<Vec<String>, StoreError> {
+        sqlx::query_scalar("SELECT invocation_protocols FROM api_keys WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp()")
+            .bind(principal.key_id()).bind(principal.scope().organization_id).bind(principal.scope().project_id)
+            .fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)
+    }
+
     /// Unified console key detail view combining metadata, spending limits,
     /// rate/concurrency limits, token window, and IP policy.
     pub async fn key_detail(
@@ -598,7 +649,7 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let key: Option<KeyView> = sqlx::query_as(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= transaction_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -626,7 +677,10 @@ impl Store {
         let key_ids: Vec<Uuid> = keys.iter().map(|k| k.id).collect();
         let mut snapshot = self.begin_bounded_financial_snapshot().await?;
         let rows = sqlx::query(
-            "WITH selected_keys AS (
+            "WITH as_of AS (
+                SELECT statement_timestamp() AS ts
+            ),
+            selected_keys AS (
                 SELECT sel.ord, k.id, k.spending_root_id, k.organization_id
                 FROM unnest($3::uuid[]) WITH ORDINALITY AS sel(id, ord)
                 JOIN api_keys k ON k.organization_id=$1 AND k.project_id=$2 AND k.id=sel.id
@@ -635,38 +689,245 @@ impl Store {
                 SELECT DISTINCT spending_root_id, organization_id
                 FROM selected_keys
             ),
+            root_keys AS MATERIALIZED (
+                SELECT dr.spending_root_id, k.organization_id, k.project_id, k.id
+                FROM distinct_roots dr
+                JOIN api_keys k ON k.spending_root_id=dr.spending_root_id
+            ),
+            root_attempts AS MATERIALIZED (
+                SELECT k.spending_root_id, k.organization_id, k.project_id, a.id AS attempt_id
+                FROM root_keys k
+                JOIN attempts a
+                  ON a.api_key_id=k.id
+                 AND a.organization_id=k.organization_id
+                 AND a.project_id=k.project_id
+                UNION
+                SELECT k.spending_root_id, k.organization_id, k.project_id, a.id AS attempt_id
+                FROM root_keys k
+                JOIN inspected_guardrail_bindings b ON b.key_id=k.id
+                JOIN attempts a
+                  ON a.id=b.attempt_id
+                 AND a.organization_id=k.organization_id
+                 AND a.project_id=k.project_id
+                UNION
+                SELECT k.spending_root_id, k.organization_id, k.project_id, a.id AS attempt_id
+                FROM root_keys k
+                JOIN gateway_retry_policies rp ON rp.key_id=k.id
+                JOIN attempts a
+                  ON a.operation_id=rp.operation_id
+                 AND a.organization_id=k.organization_id
+                 AND a.project_id=k.project_id
+            ),
+            org_accounts AS MATERIALIZED (
+                SELECT a.id, a.organization_id, a.currency
+                FROM customer_balance_accounts a
+                WHERE a.organization_id=$1
+            ),
+            money_charges AS MATERIALIZED (
+                SELECT ra.spending_root_id, e.account_id, -SUM(e.amount_nanos)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_balance_entries e ON e.attempt_id=ra.attempt_id
+                JOIN org_accounts oa ON oa.id=e.account_id
+                WHERE e.kind='charge'
+                GROUP BY ra.spending_root_id, e.account_id
+            ),
+            money_refunds AS MATERIALIZED (
+                SELECT ra.spending_root_id, c.account_id, SUM(r.amount_nanos)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_balance_entries c ON c.attempt_id=ra.attempt_id
+                JOIN org_accounts oa ON oa.id=c.account_id
+                JOIN customer_balance_entries r ON r.reverses_entry_id=c.id
+                WHERE c.kind='charge'
+                  AND r.account_id=c.account_id
+                  AND r.kind='refund'
+                GROUP BY ra.spending_root_id, c.account_id
+            ),
+            money_reserved AS MATERIALIZED (
+                SELECT ra.spending_root_id,
+                       r.account_id,
+                       SUM(GREATEST(r.amount_nanos, COALESCE(m.amount_nanos, 0)))::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_balance_reservations r ON r.attempt_id=ra.attempt_id
+                JOIN org_accounts oa ON oa.id=r.account_id
+                LEFT JOIN customer_media_charges m ON m.attempt_id=r.attempt_id
+                WHERE r.released_at IS NULL
+                  AND NOT EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.attempt_id=r.attempt_id AND e.kind='charge')
+                GROUP BY ra.spending_root_id, r.account_id
+            ),
+            root_spending_limits AS MATERIALIZED (
+                SELECT
+                    r.spending_root_id,
+                    COALESCE(
+                        jsonb_agg(
+                            jsonb_build_object(
+                                'currency', a.currency,
+                                'limit_nanos', l.limit_nanos::text,
+                                'revision', l.revision::text,
+                                'committed_nanos', (
+                                    COALESCE(mc.amount, 0) - COALESCE(mr.amount, 0) + COALESCE(mres.amount, 0)
+                                )::text,
+                                'remaining_nanos', CASE
+                                    WHEN l.limit_nanos IS NULL THEN NULL
+                                    ELSE GREATEST(
+                                        l.limit_nanos::numeric - (
+                                            COALESCE(mc.amount, 0) - COALESCE(mr.amount, 0) + COALESCE(mres.amount, 0)
+                                        ),
+                                        0
+                                    )::text
+                                END
+                            )
+                            ORDER BY a.currency
+                        ) FILTER (WHERE a.id IS NOT NULL),
+                        '[]'::jsonb
+                    ) AS spending_limits
+                FROM distinct_roots r
+                LEFT JOIN org_accounts a ON a.organization_id=r.organization_id
+                LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=r.spending_root_id AND l.account_id=a.id
+                LEFT JOIN money_charges mc ON mc.spending_root_id=r.spending_root_id AND mc.account_id=a.id
+                LEFT JOIN money_refunds mr ON mr.spending_root_id=r.spending_root_id AND mr.account_id=a.id
+                LEFT JOIN money_reserved mres ON mres.spending_root_id=r.spending_root_id AND mres.account_id=a.id
+                GROUP BY r.spending_root_id
+            ),
+            latest_unit_definition AS MATERIALIZED (
+                SELECT jsonb_build_object(
+                    'definition_revision', d.revision::text,
+                    'name', d.name,
+                    'display_precision', d.display_precision,
+                    'atoms_per_unit', '1000000000'
+                ) AS unit_json
+                FROM customer_unit_definitions d
+                ORDER BY d.revision DESC
+                LIMIT 1
+            ),
+            unit_charged AS MATERIALIZED (
+                SELECT ra.spending_root_id, SUM(s.charged_atoms)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_unit_reservations r ON r.attempt_id=ra.attempt_id
+                JOIN customer_unit_resolutions s ON s.attempt_id=r.attempt_id
+                WHERE ra.organization_id=$1
+                  AND ra.project_id=$2
+                  AND r.organization_id=$1
+                  AND r.project_id=$2
+                  AND s.kind='charge'
+                GROUP BY ra.spending_root_id
+            ),
+            unit_restored AS MATERIALIZED (
+                SELECT ra.spending_root_id, SUM(rest.end_atom-rest.first_atom)::numeric AS amount
+                FROM root_attempts ra
+                JOIN customer_unit_reservations r ON r.attempt_id=ra.attempt_id
+                JOIN customer_unit_resolutions s ON s.attempt_id=r.attempt_id
+                JOIN customer_unit_restorations rest ON rest.attempt_id=s.attempt_id
+                WHERE ra.organization_id=$1
+                  AND ra.project_id=$2
+                  AND r.organization_id=$1
+                  AND r.project_id=$2
+                  AND s.kind='charge'
+                GROUP BY ra.spending_root_id
+            ),
+            unit_pending AS MATERIALIZED (
+                SELECT ra.spending_root_id,
+                       SUM(GREATEST(
+                           r.maximum_atoms::numeric + COALESCE(e.additional_atoms, 0),
+                           COALESCE(c.charged_atoms, mc.charged_atoms, 0)::numeric
+                       )) AS amount
+                FROM root_attempts ra
+                JOIN customer_unit_reservations r ON r.attempt_id=ra.attempt_id
+                LEFT JOIN customer_unit_reservation_extensions e ON e.attempt_id=r.attempt_id
+                LEFT JOIN customer_unit_text_charges c ON c.attempt_id=r.attempt_id
+                LEFT JOIN customer_unit_media_charges mc ON mc.attempt_id=r.attempt_id
+                WHERE ra.organization_id=$1
+                  AND ra.project_id=$2
+                  AND r.organization_id=$1
+                  AND r.project_id=$2
+                  AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions s WHERE s.attempt_id=r.attempt_id)
+                GROUP BY ra.spending_root_id
+            ),
+            active_requests_by_root AS MATERIALIZED (
+                SELECT k.spending_root_id, count(*)::bigint AS active_requests
+                FROM root_keys k
+                JOIN attempts a ON a.api_key_id=k.id
+                WHERE a.dispatched_at IS NOT NULL
+                  AND a.execution='may_have_executed'
+                  AND a.completed_at IS NULL
+                  AND NOT EXISTS(SELECT 1 FROM request_failures rf WHERE rf.attempt_id=a.id AND rf.kind<>'response_stream_cancelled')
+                GROUP BY k.spending_root_id
+            ),
+            token_known AS MATERIALIZED (
+                SELECT k.spending_root_id,
+                       sum(a.prompt_tokens::numeric + a.completion_tokens::numeric) AS known_tokens
+                FROM root_keys k
+                CROSS JOIN as_of
+                JOIN attempts a ON a.api_key_id=k.id
+                WHERE a.dispatched_at IS NOT NULL
+                  AND a.execution='confirmed_completed'
+                  AND a.usage_confidence='provider_reported'
+                  AND a.prompt_tokens IS NOT NULL
+                  AND a.completion_tokens IS NOT NULL
+                  AND a.completed_at > as_of.ts - interval '60 seconds'
+                GROUP BY k.spending_root_id
+            ),
+            token_pending AS MATERIALIZED (
+                SELECT k.spending_root_id,
+                       COALESCE(sum(b.token_bound::numeric), 0) AS reserved_tokens,
+                       count(*) FILTER (WHERE b.token_bound IS NULL)::bigint AS unbounded_requests
+                FROM root_keys k
+                CROSS JOIN as_of
+                JOIN attempts a ON a.api_key_id=k.id
+                LEFT JOIN key_attempt_token_bounds b ON b.attempt_id=a.id
+                LEFT JOIN request_failures rf ON rf.attempt_id=a.id
+                LEFT JOIN request_timings rt ON rt.attempt_id=a.id
+                WHERE a.dispatched_at IS NOT NULL
+                  AND a.execution<>'confirmed_not_executed'
+                  AND NOT (
+                      a.execution='confirmed_completed'
+                      AND a.usage_confidence='provider_reported'
+                      AND a.prompt_tokens IS NOT NULL
+                      AND a.completion_tokens IS NOT NULL
+                  )
+                  AND NOT (
+                      rf.attempt_id IS NOT NULL
+                      AND niu_request_failure_releases_tpm_immediately(rf.kind, rf.upstream_http_status, rf.transport_phase)
+                  )
+                  AND (
+                      COALESCE(
+                          a.completed_at,
+                          rf.recorded_at,
+                          CASE
+                              WHEN rf.attempt_id IS NOT NULL THEN
+                                  a.dispatched_at + (COALESCE(rt.total_ms, 0) * interval '1 millisecond')
+                          END
+                      ) IS NULL
+                      OR COALESCE(
+                          a.completed_at,
+                          rf.recorded_at,
+                          CASE
+                              WHEN rf.attempt_id IS NOT NULL THEN
+                                  a.dispatched_at + (COALESCE(rt.total_ms, 0) * interval '1 millisecond')
+                          END
+                      ) > as_of.ts - interval '60 seconds'
+                  )
+                GROUP BY k.spending_root_id
+            ),
+            token_window AS MATERIALIZED (
+                SELECT k.spending_root_id,
+                       count(a.id)::bigint AS requests,
+                       count(a.id) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL)::bigint AS known_usage_requests,
+                       count(a.id) FILTER(WHERE a.usage_confidence IS DISTINCT FROM 'provider_reported' OR a.prompt_tokens IS NULL OR a.completion_tokens IS NULL)::bigint AS unknown_usage_requests,
+                       COALESCE(sum(a.prompt_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL), 0)::text AS known_prompt_tokens,
+                       COALESCE(sum(a.completion_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL), 0)::text AS known_completion_tokens
+                FROM root_keys k
+                CROSS JOIN as_of
+                JOIN attempts a ON a.api_key_id=k.id
+                WHERE a.dispatched_at > as_of.ts - interval '60 seconds'
+                  AND a.dispatched_at <= as_of.ts
+                GROUP BY k.spending_root_id
+            ),
             root_policies AS MATERIALIZED (
                 SELECT
                     r.spending_root_id,
-                    COALESCE((
-                        SELECT jsonb_agg(
-                            jsonb_build_object(
-                                'currency', amounts.currency,
-                                'limit_nanos', amounts.limit_nanos::text,
-                                'revision', amounts.revision::text,
-                                'committed_nanos', amounts.committed::text,
-                                'remaining_nanos', CASE WHEN amounts.limit_nanos IS NULL THEN NULL ELSE GREATEST(amounts.limit_nanos::numeric-amounts.committed,0)::text END
-                            )
-                            ORDER BY amounts.currency
-                        )
-                        FROM (
-                            SELECT a.currency, l.limit_nanos, l.revision, niu_customer_key_committed(r.spending_root_id, a.id) AS committed
-                            FROM customer_balance_accounts a
-                            LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=r.spending_root_id AND l.account_id=a.id
-                            WHERE a.organization_id=r.organization_id
-                        ) amounts
-                    ), '[]'::jsonb) AS spending_limits,
+                    COALESCE(rsl.spending_limits, '[]'::jsonb) AS spending_limits,
                     jsonb_build_object(
-                        'unit', (
-                            SELECT jsonb_build_object(
-                                'definition_revision', d.revision::text,
-                                'name', d.name,
-                                'display_precision', d.display_precision,
-                                'atoms_per_unit', '1000000000'
-                            )
-                            FROM customer_unit_definitions d
-                            ORDER BY d.revision DESC LIMIT 1
-                        ),
+                        'unit', (SELECT unit_json FROM latest_unit_definition),
                         'limit_atoms', ukl.limit_atoms::text,
                         'revision', ukl.revision::text,
                         'definition_revision', ukl.definition_revision::text,
@@ -681,48 +942,47 @@ impl Store {
                     jsonb_build_object(
                         'max_concurrent_requests', conc.max_concurrent_requests,
                         'revision', conc.revision::text,
-                        'active_requests', (
-                            SELECT count(*)
-                            FROM attempts a
-                            JOIN api_keys lineage ON lineage.id=a.api_key_id
-                            WHERE lineage.spending_root_id=r.spending_root_id
-                              AND a.dispatched_at IS NOT NULL
-                              AND a.execution='may_have_executed'
-                        )
+                        'active_requests', COALESCE(ar.active_requests, 0)
                     ) AS concurrency_limit,
                     jsonb_build_object(
                         'tokens_per_minute', tpm.tokens_per_minute,
                         'revision', tpm.revision::text,
-                        'snapshot_at', statement_timestamp(),
-                        'known_tokens', b.known_tokens::text,
-                        'reserved_tokens', b.reserved_tokens::text,
-                        'unbounded_requests', b.unbounded_requests,
-                        'committed_tokens', CASE WHEN b.unbounded_requests=0 THEN (b.known_tokens+b.reserved_tokens)::text END
+                        'snapshot_at', as_of.ts,
+                        'known_tokens', COALESCE(tk.known_tokens, 0)::text,
+                        'reserved_tokens', COALESCE(tp.reserved_tokens, 0)::text,
+                        'unbounded_requests', COALESCE(tp.unbounded_requests, 0),
+                        'committed_tokens', CASE
+                            WHEN COALESCE(tp.unbounded_requests, 0)=0
+                            THEN (COALESCE(tk.known_tokens, 0) + COALESCE(tp.reserved_tokens, 0))::text
+                        END
                     ) AS token_rate_limit,
-                    (
-                        SELECT jsonb_build_object(
-                            'window_seconds', 60,
-                            'window_end', statement_timestamp(),
-                            'requests', count(a.id),
-                            'known_usage_requests', count(a.id) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),
-                            'unknown_usage_requests', count(a.id) FILTER(WHERE a.usage_confidence IS DISTINCT FROM 'provider_reported' OR a.prompt_tokens IS NULL OR a.completion_tokens IS NULL),
-                            'known_prompt_tokens', COALESCE(sum(a.prompt_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text,
-                            'known_completion_tokens', COALESCE(sum(a.completion_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text
-                        )
-                        FROM api_keys lineage
-                        LEFT JOIN attempts a ON a.api_key_id=lineage.id
-                            AND a.dispatched_at>statement_timestamp()-interval '60 seconds'
-                            AND a.dispatched_at<=statement_timestamp()
-                        WHERE lineage.spending_root_id=r.spending_root_id
+                    jsonb_build_object(
+                        'window_seconds', 60,
+                        'window_end', as_of.ts,
+                        'requests', COALESCE(tw.requests, 0),
+                        'known_usage_requests', COALESCE(tw.known_usage_requests, 0),
+                        'unknown_usage_requests', COALESCE(tw.unknown_usage_requests, 0),
+                        'known_prompt_tokens', COALESCE(tw.known_prompt_tokens, '0'),
+                        'known_completion_tokens', COALESCE(tw.known_completion_tokens, '0')
                     ) AS token_usage_window
                 FROM distinct_roots r
+                CROSS JOIN as_of
+                LEFT JOIN root_spending_limits rsl ON rsl.spending_root_id=r.spending_root_id
                 LEFT JOIN customer_unit_key_spending_limits ukl ON ukl.organization_id=r.organization_id AND ukl.project_id=$2 AND ukl.spending_root_id=r.spending_root_id
-                CROSS JOIN LATERAL (SELECT niu_customer_unit_key_committed(r.organization_id, $2, r.spending_root_id) AS committed) unit_committed
+                LEFT JOIN unit_charged uc ON uc.spending_root_id=r.spending_root_id
+                LEFT JOIN unit_restored ur ON ur.spending_root_id=r.spending_root_id
+                LEFT JOIN unit_pending up ON up.spending_root_id=r.spending_root_id
+                CROSS JOIN LATERAL (
+                    SELECT (COALESCE(uc.amount, 0) - COALESCE(ur.amount, 0) + COALESCE(up.amount, 0))::numeric AS committed
+                ) unit_committed
                 LEFT JOIN key_ip_policies ip ON ip.spending_root_id=r.spending_root_id
                 LEFT JOIN key_request_rate_limits rpm ON rpm.spending_root_id=r.spending_root_id
                 LEFT JOIN key_concurrency_limits conc ON conc.spending_root_id=r.spending_root_id
+                LEFT JOIN active_requests_by_root ar ON ar.spending_root_id=r.spending_root_id
                 LEFT JOIN key_token_rate_limits tpm ON tpm.spending_root_id=r.spending_root_id
-                CROSS JOIN LATERAL niu_key_token_budget(r.spending_root_id, NULL, statement_timestamp()) b
+                LEFT JOIN token_known tk ON tk.spending_root_id=r.spending_root_id
+                LEFT JOIN token_pending tp ON tp.spending_root_id=r.spending_root_id
+                LEFT JOIN token_window tw ON tw.spending_root_id=r.spending_root_id
             )
             SELECT
                 sk.id,
@@ -742,7 +1002,7 @@ impl Store {
         .bind(&key_ids)
         .fetch_all(&mut *snapshot)
         .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
 
         let mut by_id: std::collections::HashMap<Uuid, sqlx::postgres::PgRow> = rows
             .into_iter()
@@ -787,6 +1047,8 @@ impl Store {
                 "revision": key.revision,
                 "name": key.name,
                 "allowed_models": key.allowed_models,
+                "invocation_allowed": key.invocation_allowed,
+                "invocation_protocols": key.invocation_protocols,
                 "expires_at_ms": key.expires_at_ms,
                 "last_used_at_ms": key.last_used_at_ms,
                 "revoked": key.revoked,
@@ -816,7 +1078,7 @@ impl Store {
     }
 
     pub async fn list_keys(&self, scope: TenantScope) -> Result<Vec<KeyView>, StoreError> {
-        self.key_directory_selection(scope, None, None).await
+        self.key_directory_selection(scope, None, None, None).await
     }
 
     pub async fn list_key_details(
@@ -832,8 +1094,9 @@ impl Store {
         scope: TenantScope,
         after: Option<Uuid>,
         limit: u16,
+        active: Option<bool>,
     ) -> Result<(Vec<serde_json::Value>, Option<Uuid>), StoreError> {
-        let (keys, next) = self.key_directory_page(scope, after, limit).await?;
+        let (keys, next) = self.key_directory_page(scope, after, limit, active).await?;
         let details = self.enrich_key_views(scope, keys).await?;
         Ok((details, next))
     }
@@ -844,12 +1107,13 @@ impl Store {
         scope: TenantScope,
         after: Option<Uuid>,
         limit: u16,
+        active: Option<bool>,
     ) -> Result<(Vec<KeyView>, Option<Uuid>), StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidKey);
         }
         let mut rows = self
-            .key_directory_selection(scope, after, Some(i64::from(limit) + 1))
+            .key_directory_selection(scope, after, Some(i64::from(limit) + 1), active)
             .await?;
         let more = rows.len() > usize::from(limit);
         rows.truncate(usize::from(limit));
@@ -866,6 +1130,7 @@ impl Store {
         scope: TenantScope,
         after: Option<Uuid>,
         limit: Option<i64>,
+        active: Option<bool>,
     ) -> Result<Vec<KeyView>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let cursor: Option<(String, Uuid)> = if let Some(id) = after {
@@ -876,7 +1141,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,k.invocation_allowed,k.invocation_protocols,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= transaction_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,invocation_allowed,invocation_protocols,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
         );
         query
             .push(" WHERE k.organization_id=")
@@ -891,6 +1156,11 @@ impl Store {
                 .push_bind(id)
                 .push(")");
         }
+        if let Some(active) = active {
+            query
+                .push(" AND (k.revoked_at IS NULL AND k.expires_at > transaction_timestamp()) = ")
+                .push_bind(active);
+        }
         query.push(" ORDER BY k.created_at,k.id");
         if let Some(limit) = limit {
             query.push(" LIMIT ").push_bind(limit);
@@ -899,7 +1169,7 @@ impl Store {
         // can probe attempts for every workspace key before the final sort/limit.
         query.push(") k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true ORDER BY k.created_at,k.id");
         let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(rows)
     }
 
@@ -925,7 +1195,7 @@ impl Store {
             actor,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
@@ -980,7 +1250,7 @@ impl Store {
     pub async fn rotate_key(&self, scope: TenantScope, old: Uuid) -> Result<IssuedKey, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let issued = Self::rotate_key_in_tx(&mut tx, scope, old).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(issued)
     }
 
@@ -992,18 +1262,22 @@ impl Store {
         let id = Uuid::new_v4();
         let token = format!("niu_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug FROM api_keys WHERE id=$3")
-            .bind(id).bind(hash).bind(old).execute(&mut **tx).await?;
-        sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,token_secret,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols) SELECT $1,organization_id,project_id,name,$2,$3,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols FROM api_keys WHERE id=$4")
+            .bind(id).bind(hash).bind(&token).bind(old).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO agent_key_capabilities (key_id,capability,authorization_id) SELECT $1,c.capability,c.authorization_id FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=$2 AND k.organization_id=$3 AND k.project_id=$4 AND a.organization_id=k.organization_id AND a.project_id=k.project_id AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id)")
+            .bind(id).bind(old).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
+        sqlx::query("UPDATE workspace_event_subscriptions SET issuer_key_id=$1 WHERE organization_id=$2 AND project_id=$3 AND issuer_key_id=$4 AND EXISTS(SELECT 1 FROM agent_key_capabilities WHERE key_id=$1 AND capability='events:write')")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,mode,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,mode,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?;
         // Record the replacement's inherited assignment at rotation time. The
         // original key's immutable history remains attached to that key.
-        sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor) SELECT organization_id,project_id,key_id,assignment_revision,policy_revision,'system' FROM key_guardrail_assignments WHERE organization_id=$1 AND project_id=$2 AND key_id=$3")
+        sqlx::query("INSERT INTO key_guardrail_assignment_events (organization_id,project_id,key_id,assignment_revision,policy_revision,actor,mode) SELECT organization_id,project_id,key_id,assignment_revision,policy_revision,'system',mode FROM key_guardrail_assignments WHERE organization_id=$1 AND project_id=$2 AND key_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action,replacement_key_id) VALUES ($1,$2,$3,$4,'rotated',$5)")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(old).bind(id).execute(&mut **tx).await?;
@@ -1016,14 +1290,66 @@ impl Store {
         let revoked: bool = sqlx::query_scalar("SELECT revoked_at IS NOT NULL FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if !revoked {
-            sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp() WHERE id=$1")
-                .bind(id)
-                .execute(&mut *tx)
-                .await?;
+            sqlx::query(
+                "UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE id=$1",
+            )
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
             sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'revoked')")
                 .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
+        Ok(())
+    }
+
+    /// Attaches persisted plaintext API key secrets (`token` and `token_preview`)
+    /// to active workspace key detail payloads when requested by an authorized
+    /// workspace operator with write permission.
+    pub async fn attach_key_secrets(
+        &self,
+        scope: TenantScope,
+        details: &mut [serde_json::Value],
+    ) -> Result<(), StoreError> {
+        if details.is_empty() {
+            return Ok(());
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let rows: Vec<(Uuid, String)> = sqlx::query_as(
+            "SELECT id, token_secret FROM api_keys WHERE organization_id = $1 AND project_id = $2 AND revoked_at IS NULL AND expires_at > clock_timestamp() AND token_secret IS NOT NULL",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        crate::commit_tx(tx).await?;
+        let secrets: std::collections::HashMap<Uuid, String> = rows.into_iter().collect();
+        for detail in details {
+            let Some(obj) = detail.as_object_mut() else {
+                continue;
+            };
+            let Some(id_str) = obj.get("id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let Ok(id) = Uuid::parse_str(id_str) else {
+                continue;
+            };
+            if let Some(secret) = secrets.get(&id) {
+                let preview = if secret.len() >= 12 {
+                    format!("{}••••••••{}", &secret[..8], &secret[secret.len() - 4..])
+                } else {
+                    "niu_••••••••".to_string()
+                };
+                obj.insert(
+                    "token".to_string(),
+                    serde_json::Value::String(secret.clone()),
+                );
+                obj.insert(
+                    "token_preview".to_string(),
+                    serde_json::Value::String(preview),
+                );
+            }
+        }
         Ok(())
     }
 
@@ -1036,22 +1362,22 @@ impl Store {
             Self::mark_dispatched_with_rate_denial_audit(&mut tx, principal, id, true).await?;
         match outcome {
             1 => {
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 Ok(())
             }
             -1 => {
-                tx.commit().await?;
+                crate::commit_tx(tx).await?;
                 // The audited denial committed without authorizing transport.
                 Err(StoreError::GuardrailAdmissionConflict)
             }
             -2 => {
                 // Diagnostic failure must not change the original rejection
                 // or authorize another dispatch / audit writer retry.
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 Err(StoreError::KeyRequestRateDisabled)
             }
             -3 => {
-                let _ = tx.commit().await;
+                let _ = crate::commit_tx(tx).await;
                 Err(StoreError::KeyRequestRateExceeded)
             }
             _ => Err(StoreError::Conflict),
@@ -1081,13 +1407,16 @@ impl Store {
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
 
-        let key = sqlx::query("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
+        let key = sqlx::query("SELECT k.id,k.invocation_allowed FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
             .bind(principal.key_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
-        if key.is_none() {
+        let Some(key) = key else {
             // The composite key foreign key guarantees that a valid key also
             // has its project. Locking both rows together keeps key revocation
             // and budget creation ordered with dispatch in a single query.
             return Err(StoreError::Unauthorized);
+        };
+        if !key.get::<bool, _>("invocation_allowed") {
+            return Err(StoreError::InvocationDenied);
         }
         let account_eligible = sqlx::query_scalar::<_, bool>("SELECT a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FROM account_assignments s JOIN supplier_accounts a ON a.organization_id=s.organization_id AND a.project_id=s.project_id AND a.id=s.account_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.attempt_id=$3 FOR SHARE OF a")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?;
@@ -1107,6 +1436,17 @@ impl Store {
         // reservation check observes any release committed while we waited.
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+        // Owned here rather than in a PL/pgSQL trigger (0429): the retry deadline
+        // is one static timestamp and this transaction already holds the attempt
+        // lock. The original SQLSTATE P0028 meaning is preserved.
+        let retry_deadline_expired: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM attempts a JOIN gateway_retry_policies p ON p.operation_id=a.operation_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.execution='not_sent' AND p.deadline<=clock_timestamp())",
+        )
+            .bind(scope.organization_id).bind(scope.project_id).bind(id)
+            .fetch_one(&mut **tx).await?;
+        if retry_deadline_expired {
+            return Err(StoreError::GatewayRequestDeadlineExceeded);
+        }
         let changed: i64 =
             sqlx::query_scalar("SELECT niu_mark_dispatched_with_guardrail_audit($1,$2,$3,$4,$5)")
                 .bind(scope.organization_id)

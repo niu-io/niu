@@ -4,7 +4,7 @@ SELECT jsonb_build_object(
     'currency', o.currency,
     'amount_nanos', o.amount_nanos::text,
     'payment_method', o.payment_method,
-    'simulated', o.aggregator = 'stripe' AND o.merchant = 'NiuMockPayments',
+    'simulated', niu_simulated_payment(o.aggregator || ':' || o.merchant, provider.platform_reference),
     'credits', CASE WHEN q.id IS NULL THEN NULL ELSE jsonb_build_object(
         'credit_atoms', q.credit_atoms::text,
         'definition_revision', r.definition_revision::text,
@@ -28,6 +28,7 @@ SELECT jsonb_build_object(
 FROM customer_topup_orders o
 LEFT JOIN customer_topup_settlements s ON s.order_id = o.id
 LEFT JOIN customer_topup_closures c ON c.order_id = o.id
+LEFT JOIN customer_topup_provider_orders provider ON provider.order_id = o.id
 LEFT JOIN customer_topup_checkout h ON h.order_id = o.id
 LEFT JOIN customer_unit_topups t ON t.order_id = o.id
 LEFT JOIN customer_unit_purchase_quotes q ON q.id = t.quote_id

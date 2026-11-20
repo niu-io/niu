@@ -1,36 +1,74 @@
 # Release checklist
 
-This is the permanent release acceptance entry point for Niu. Keep this path stable across releases. Execution state and ownership live in Beads; this document is its generated, reviewable view, not a separate backlog.
+This is the permanent release acceptance entry point for Niu. Keep this path stable across releases. Execution state and ownership live in Beads. This document describes the procedure and preserves historical evidence; generated snapshots are separate outputs, not a second backlog.
 
 ## Execution procedure
 
-1. Identify the live immutable core, website and composition revisions. Record them on the release-gate parent before executing acceptance. A changed candidate invalidates prior GREEN evidence.
+1. Select an explicitly agreed current acceptance scope in Beads. Do not reuse a retired scope or infer requirements from an old checklist. Identify the live immutable core, website and composition revisions. Record them on the release-gate parent before executing acceptance. A changed candidate invalidates prior GREEN evidence.
 2. Claim each required case in Beads and execute its complete acceptance scope against the actual candidate with fresh inputs. Product journeys require hosted evidence. Distribution cases explicitly require native and packaged Linux evidence. Prefer free upstream models and bounded test workspaces; distinguish simulated payment settlement from real merchant settlement.
 3. Independently inspect the final artifacts: saved responses, downloaded bytes, persisted settings, request logs and applicable ledger entries. Record timestamp, inputs, observed outcome, artifact verification and evidence reference. Fixture-test outcomes have zero evidentiary value.
-4. Search existing findings before publishing a reproducible defect in the owning GitHub repository. Link the finding to the bead. Keep credentials, private identifiers and customer information out of public evidence.
+4. Search existing findings and record reproducible defects in Beads. Use GitHub Issues only when explicitly requested or needed for external discussion. Keep credentials, private identifiers and customer information out of public evidence.
 5. Mark GREEN and close a case only when its entire acceptance scope is verified for the candidate. Record partial progress in Beads notes; partial success remains non-green. Fixes require deployed regression verification.
-6. Refresh this document and evaluate the gate with the command below. Exit 0 requires qualifying GREEN evidence for every case and any explicit issue-closure requirement for this release. Nonzero blocks release. This command validates recorded evidence; it does not execute journeys, fetch GitHub state or replace review of the evidence.
+6. Validate the recorded evidence using an explicit current gate. This script reads Beads records; it does not run product journeys, fetch GitHub state or prove that the product works. It prints JSON and only writes a snapshot when `--output` is supplied. It never overwrites this permanent document by default.
 
 ```sh
-python3 scripts/release-checklist.py --check
+python3 scripts/release-checklist.py --parent <current-gate-id> --output /tmp/niu-release-assessment.md --check
 ```
 
-For a new release, preserve historical evidence in Beads, update the candidate and re-execute required cases. Use `--parent` for a replacement release-gate epic; never shrink scope merely to obtain GREEN.
+With `--check`, the result distinguishes three states:
+
+| Decision | Exit | Meaning |
+| --- | --- | --- |
+| `ELIGIBLE` | 0 | The selected scope has qualifying candidate-bound records. Release-owner review and the other promotion requirements still apply. |
+| `BLOCKED` | 1 | The selected scope contains recorded RED/BLOCKED cases; inspect their actual evidence. |
+| `ASSESSMENT_INCOMPLETE` | 2 | Scope is absent/retired/invalid or required evidence is missing, stale or unverified. This does **not** establish a product defect. |
+
+Neither nonzero state authorizes promotion. A command without `--parent` reports
+`ASSESSMENT_INCOMPLETE`; it does not select an old release automatically. Gates
+labeled `release-gate-retired` are historical even when explicitly selected.
+For a new release, preserve historical evidence, agree the scope, pin the
+candidate and execute the required journeys. An explicit product decision may
+change scope; never remove requirements merely to manufacture GREEN.
 
 ## Later dated releases
 
 The [v0.2.29 architecture hardening record](releases/architecture-hardening-2026-10-30.md) documents the later patch candidate, current-input checks and deployment evidence. The generated v0.2.26 evidence below remains historical; its GREEN result does not qualify a different candidate.
 
-## Current 0.3.0 acceptance
+## Current 0.3 acceptance scope (2026-11-18)
 
-The active release gate is `niu-ayj`. The default checker uses this gate and
-requires fresh candidate-bound evidence for all 50 cases. The v0.2.26 results
-below are historical and cannot qualify 0.3.0. To inspect current execution
-without replacing this historical record:
+The explicit release-readiness goal is tracked by `niu-nrcn`. Its current
+acceptance cases cover immutable deployment/build provenance, new-user onboarding,
+organization/workspace/member settings, supported invocation and saved results,
+configured video and recovery, real merchant settlement, customer charging and
+commercial boundaries, independent-actor security, SDK/MCP/native consumers,
+public installation/upgrade/restore, and a complete known-finding audit.
 
-```sh
-python3 scripts/release-checklist.py --parent niu-ayj --output /tmp/niu-0.3.0-acceptance.md --check
-```
+These cases organize the authorized current goal; they do not reinstate the
+retired gate or silently remove any existing release-scope finding. Scope and
+execution state live in Beads. Candidate revisions remain unset until the next
+integrated staging deployment. Earlier current-input run records remain useful
+historical evidence, but cannot establish GREEN for that new candidate.
+
+Use `python3 scripts/release-checklist.py --parent niu-nrcn --check` to inspect
+record completeness. The scope was recorded while the candidate was unset, and
+the command reported `ASSESSMENT_INCOMPLETE`; that observation is not a product
+failure or release acceptance. Real merchant configuration/authorization and final
+published-artifact verification remain required by the goal.
+
+## Historical assessment correction (2026-11-17)
+
+**Assessment incomplete; product readiness has not been established.**
+
+The previous 50-case gate `niu-ayj` was withdrawn by an explicit product decision
+and is labeled `release-gate-retired`. It is no longer the default or the current
+release requirement. Its UNTESTED entries are historical missing evidence, not
+50 current product defects. Historical GREEN records below also cannot qualify
+the current candidate.
+
+No replacement acceptance scope or candidate is established by this bookkeeping
+correction. Select the agreed scope explicitly for the next actual assessment.
+Current follow-up is tracked in Beads `niu-sdwx`; updating the checker does not
+constitute product acceptance, staging verification or release authorization.
 
 ## Historical v0.2.26 execution
 

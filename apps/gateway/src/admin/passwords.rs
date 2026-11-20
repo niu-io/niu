@@ -240,6 +240,17 @@ impl Runtime {
         }
         self.check_cookie_request(headers)
     }
+
+    pub(super) async fn hash_password_bounded(&self, password: String) -> Result<String, ApiError> {
+        let _permit = tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            self.unknown_identity_permits.clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| ApiError::registration_rate_limited())?
+        .map_err(|_| ApiError::storage_unavailable())?;
+        self.workers.hash(password).await.map_err(worker_error)
+    }
 }
 
 pub async fn browser_login(
@@ -328,7 +339,7 @@ pub struct PasswordInput {
     expected_revision: Option<i64>,
 }
 
-fn worker_error(error: PasswordWorkError) -> ApiError {
+pub(super) fn worker_error(error: PasswordWorkError) -> ApiError {
     match error {
         PasswordWorkError::Capacity => ApiError::sign_in_limited(),
         PasswordWorkError::Credential(niu_storage::passwords::PasswordError::InvalidPassword) => {
@@ -342,7 +353,9 @@ fn worker_error(error: PasswordWorkError) -> ApiError {
 
 pub(super) fn runtime(state: &AppState) -> Result<&Runtime, ApiError> {
     state.password_auth.as_deref().ok_or_else(|| {
-        ApiError::unsupported_message("Production password sign-in is not configured")
+        ApiError::unsupported_message(
+            "Ask the installation administrator to set NIU_AUTH_PUBLIC_ORIGIN to the trusted HTTPS origin for browser authentication",
+        )
     })
 }
 
@@ -379,13 +392,33 @@ pub async fn login(
         .member_password_credential(&input.email)
         .await
         .map_err(ApiError::from_store)?;
-    let verified = if let Some(credential) = credential {
-        runtime
+    let pending_approval = if let Some(credential) = credential {
+        let verified = runtime
             .workers
             .verify(credential, input.password)
             .await
-            .map_err(worker_error)?
+            .map_err(worker_error)?;
+        let Some(verified) = verified else {
+            return Err(ApiError::sign_in_failed());
+        };
+        let issued = state
+            .store
+            .issue_password_login_session(verified)
+            .await
+            .map_err(|error| {
+                if matches!(error, niu_storage::StoreError::Unauthorized) {
+                    ApiError::sign_in_failed()
+                } else {
+                    ApiError::from_store(error)
+                }
+            })?;
+        return Ok(Json(json!({"token":issued.token,"session":issued.session})));
     } else {
+        let pending_hash = state
+            .store
+            .pending_registration_password_hash(&input.email)
+            .await
+            .map_err(ApiError::from_store)?;
         let _unknown_permit = tokio::time::timeout(
             std::time::Duration::from_millis(250),
             runtime.unknown_identity_permits.clone().acquire_owned(),
@@ -393,26 +426,21 @@ pub async fn login(
         .await
         .map_err(|_| ApiError::sign_in_limited())?
         .map_err(|_| ApiError::storage_unavailable())?;
-        runtime
+        let candidate = pending_hash
+            .as_deref()
+            .unwrap_or(runtime.dummy_hash.as_str())
+            .to_string();
+        let matched = runtime
             .workers
-            .verify_encoded(runtime.dummy_hash.clone(), input.password)
+            .verify_encoded(candidate, input.password)
             .await
             .map_err(worker_error)?;
-        None
+        pending_hash.is_some() && matched
     };
-    let verified = verified.ok_or_else(ApiError::sign_in_failed)?;
-    let issued = state
-        .store
-        .issue_password_login_session(verified)
-        .await
-        .map_err(|error| {
-            if matches!(error, niu_storage::StoreError::Unauthorized) {
-                ApiError::sign_in_failed()
-            } else {
-                ApiError::from_store(error)
-            }
-        })?;
-    Ok(Json(json!({"token":issued.token,"session":issued.session})))
+    if pending_approval {
+        return Err(ApiError::registration_pending_approval());
+    }
+    Err(ApiError::sign_in_failed())
 }
 
 /// Read only non-secret metadata under the same boundary as password reset.
@@ -544,7 +572,8 @@ pub async fn logout(
 ///               "type": "object",
 ///               "required": [
 ///                 "password_login",
-///                 "browser_token_login"
+///                 "browser_token_login",
+///                 "registration_mode"
 ///               ],
 ///               "properties": {
 ///                 "password_login": {
@@ -555,6 +584,14 @@ pub async fn logout(
 ///                 },
 ///                 "demo_login": {
 ///                   "type": "boolean"
+///                 },
+///                 "registration_mode": {
+///                   "type": "string",
+///                   "enum": [
+///                     "disabled",
+///                     "approval_required"
+///                   ],
+///                   "description": "Public registration capability: disabled (invite/admin setup only) or approval_required (Limited Preview)."
 ///                 }
 ///               }
 ///             }
@@ -565,10 +602,24 @@ pub async fn logout(
 ///   }
 /// }
 /// ```
-pub async fn configuration(State(state): State<AppState>) -> Json<Value> {
-    Json(
-        json!({"password_login":state.password_auth.is_some(),"browser_token_login":state.password_auth.is_some(),"demo_login":state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some())}),
-    )
+pub async fn configuration(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let password_login = state.password_auth.is_some();
+    let registration_mode = if password_login {
+        state
+            .store
+            .registration_policy()
+            .await
+            .map_err(ApiError::from_store)?
+            .mode
+    } else {
+        niu_storage::RegistrationMode::Disabled
+    };
+    Ok(Json(json!({
+        "password_login": password_login,
+        "browser_token_login": password_login,
+        "demo_login": state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some()),
+        "registration_mode": registration_mode.as_str(),
+    })))
 }
 
 #[derive(Deserialize)]

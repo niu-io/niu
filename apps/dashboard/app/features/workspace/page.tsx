@@ -3,7 +3,7 @@ import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoade
 import { useDashboardContext } from '@/shell/dashboard-context';
 import WorkspaceDirectory from './WorkspaceDirectory';
 
-export function loader(args: LoaderFunctionArgs) {
+export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, () => ({
     endpoint: '/api/v1/workspaces',
     persist: true,

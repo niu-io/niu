@@ -155,6 +155,13 @@ pub async fn submit_job(
     maximum_response_bytes: usize,
     timeout: Duration,
 ) -> Result<SubmissionReceipt, SubmissionError> {
+    // BabelArk's create endpoint can take several minutes before returning the
+    // queued task id; every other protocol retains the 60-second bound.
+    let maximum_timeout = if protocol_revision == crate::babelark_video::REVISION {
+        Duration::from_secs(300)
+    } else {
+        Duration::from_secs(60)
+    };
     if !valid_name(protocol_revision)
         || token.is_empty()
         || token.trim() != token
@@ -162,7 +169,7 @@ pub async fn submit_job(
         || token.chars().any(char::is_control)
         || !(1..=1024 * 1024).contains(&maximum_response_bytes)
         || timeout.is_zero()
-        || timeout > Duration::from_secs(60)
+        || timeout > maximum_timeout
     {
         return Err(SubmissionError::InvalidConfiguration);
     }
@@ -177,6 +184,9 @@ pub async fn submit_job(
     .map_err(|_| SubmissionError::EndpointRejected)?;
     let body = if protocol_revision == crate::openrouter::REVISION {
         crate::openrouter::submission_body(request)
+            .map_err(|_| SubmissionError::InvalidConfiguration)?
+    } else if protocol_revision == crate::babelark_video::REVISION {
+        crate::babelark_video::submission_body(request)
             .map_err(|_| SubmissionError::InvalidConfiguration)?
     } else {
         request.body().clone()
@@ -213,11 +223,15 @@ pub async fn submit_job(
         if object.get("error").is_some_and(|v| !v.is_null()) {
             return Err(SubmissionError::Uncertain);
         }
-        let job = object
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .filter(|v| valid_name(v))
-            .ok_or(SubmissionError::Uncertain)?;
+        let job = if protocol_revision == crate::babelark_video::REVISION {
+            crate::babelark_video::receipt(&value).ok_or(SubmissionError::Uncertain)?
+        } else {
+            object
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .filter(|v| valid_name(v))
+                .ok_or(SubmissionError::Uncertain)?
+        };
         Ok(SubmissionReceipt {
             upstream_job: job.into(),
             protocol_revision: protocol_revision.into(),

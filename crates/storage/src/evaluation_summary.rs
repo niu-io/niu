@@ -58,8 +58,13 @@ pub(crate) fn summarize(results: &[Value]) -> Value {
     }
     let accepted = verdicts.get("accepted").copied().unwrap_or(0);
     let per_accepted = if unknown == 0 && accepted > 0 && totals.len() == 1 {
-        let (dimension, amount) = totals.iter().next().unwrap();
-        json!({"dimension":dimension,"numerator":amount.to_string(),"denominator":accepted})
+        totals
+            .iter()
+            .next()
+            .map(|(dimension, amount)| {
+                json!({"dimension":dimension,"numerator":amount.to_string(),"denominator":accepted})
+            })
+            .unwrap_or(Value::Null)
     } else {
         Value::Null
     };

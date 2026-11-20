@@ -1,3 +1,5 @@
+import { formatLocalizedMessage, readLocale } from '@/shell/ui-locale';
+import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -13,8 +15,8 @@ type Decision = {
 };
 const outcomes: Record<string, string> = { allowed: 'Allowed', redacted: 'Redacted', blocked: 'Blocked', indeterminate: 'Inspection incomplete', clear: 'No match observed', matched: 'Match observed' };
 const reasons: Record<string, string> = { pattern_match: 'Response unchanged', pattern_denial: 'Matched a blocking rule', unsupported_content: 'Unsupported content', resource_limit: 'Inspection limit exceeded', inspection_unavailable: 'Inspection unavailable' };
-const label = (inspection: Inspection | null) => inspection ? `${outcomes[inspection.outcome] || 'Outcome unavailable'}${inspection.reason && reasons[inspection.reason] ? ` · ${reasons[inspection.reason]}` : ''}` : 'No inspection result recorded';
-const policy = (name: string | null, revision: number | null) => revision ? `${name || 'Saved policy'} · Version ${revision}` : 'None recorded';
+const label = (inspection: Inspection | null) => inspection ? `${translateUI(outcomes[inspection.outcome]) || translateUI('Outcome unavailable')}${inspection.reason && translateUI(reasons[inspection.reason]) ? ` · ${translateUI(reasons[inspection.reason])}` : ''}` : translateUI('No inspection result recorded');
+const policy = (name: string | null, revision: number | null) => revision ? formatLocalizedMessage('{0} · Version {1}', [name || translateUI('Saved policy'), revision], readLocale()) : translateUI('None recorded');
 
 export default function RequestGuardrails({ token, endpoint, historyPath }: { token: string; endpoint: string; historyPath: string }) {
   const { t: uiT } = useUILocale();
@@ -39,7 +41,7 @@ export default function RequestGuardrails({ token, endpoint, historyPath }: { to
   if (!loading && !error && (!data || (!hasPolicy && !data.input_inspection && !data.output_inspection && !data.output_observation))) return null;
   return <section className="gateway-request-detail" aria-label={uiT("Guardrails decision")}>
     <h3 className="mb-3 text-sm font-medium">{uiT("Guardrails")}</h3>
-    {loading ? <p role="status">{uiT("Loading Guardrails…")}</p> : error ? <p role="alert">{error} <Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>{uiT("Reload decision")}</Button></p> : data && <>
+    {loading ? <p role="status">{uiT("Loading Guardrails…")}</p> : error ? <p role="alert">{uiT(error)} <Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>{uiT("Reload decision")}</Button></p> : data && <>
       <dl><div><dt>{uiT("Model & Provider access")}</dt><dd>{uiT("Allowed at dispatch")}</dd></div>{data.workspace_revision && <div><dt>{uiT("Workspace policy")}</dt><dd>{policy(data.workspace_policy_name, data.workspace_revision)}</dd></div>}{data.key_policy_revision && <div><dt>{uiT("Key policy")}</dt><dd>{policy(data.key_policy_name, data.key_policy_revision)}</dd></div>}{data.input_inspection && <div><dt>{uiT("Input inspection")}</dt><dd>{label(data.input_inspection)}</dd></div>}{data.output_inspection && <div><dt>{uiT("Output inspection")}</dt><dd>{label(data.output_inspection)}</dd></div>}{data.output_observation && <div><dt>{uiT("Output observation")}</dt><dd>{label(data.output_observation)}{" "}{uiT("· Non-enforcing")}</dd></div>}</dl>
       {data.output_inspection && ['blocked', 'indeterminate'].includes(data.output_inspection.outcome) && <p className="text-sm text-muted-foreground">{uiT("The output was withheld. Provider usage and any incurred customer charge remain accounted for.")}</p>}
       {hasPolicy && <Button asChild variant="link" className="px-0"><Link to={historyPath}>{uiT("Inspect saved policy versions")}</Link></Button>}

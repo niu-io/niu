@@ -77,7 +77,7 @@ struct CompatibleExecution<'a> {
 ///         "name": "x-niu-log-payloads",
 ///         "in": "header",
 ///         "required": false,
-///         "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
+///         "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content unless store is false. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
 ///         "schema": {
 ///           "type": "string",
 ///           "enum": [
@@ -108,6 +108,16 @@ struct CompatibleExecution<'a> {
 ///           "type": "string",
 ///           "maxLength": 200,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*/[A-Za-z0-9_.-]+$"
+///         }
+///       },
+///       {
+///         "name": "x-niu-routing-context",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional bounded JSON task context for an explicitly selected semantic Auto policy, for example {\"task\":\"coding\",\"stage\":\"implementation\"}. task and stage are lowercase tokens of at most 64 characters. Unknown fields, repeated headers and malformed values are rejected before selection. The value is not forwarded upstream; a configured decider receives only the validated context and declared path metadata, never conversation content. Present but invalid context is rejected even when the selected policy is not Auto.",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 512
 ///         }
 ///       }
 ///     ],
@@ -364,7 +374,7 @@ struct CompatibleExecution<'a> {
 ///         }
 ///       }
 ///     },
-///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools or structured format remain unsupported. Observation-only plain-text streams preserve delivery and asynchronously record clear, matched or indeterminate without transforming output. Mandatory and observation rules compose across workspace/key scopes. Optional collection and inspection have separate bounded capacity; observation overload does not deny the request. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools or structured format remain unsupported. Observation-only plain-text streams preserve delivery and asynchronously record clear, matched or indeterminate without transforming output. Mandatory and observation rules compose across workspace/key scopes. Optional collection and inspection have separate bounded capacity; observation overload does not deny the request. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls, text-only tool results and user image_url inputs on models declaring image input. Images use reported prompt-token accounting; no separately billed media operations are admitted. Image TPM admission reserves the configured route input-token ceiling plus the output bound instead of estimating image tokens from compressed bytes or URL length. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools, audio/video input and image output remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
 ///     "x-niu-implementation": "implemented",
 ///     "description": "Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions."
 ///   },
@@ -379,8 +389,14 @@ struct CompatibleExecution<'a> {
 ///         "model": {
 ///           "type": "string"
 ///         },
+///         "store": {
+///           "type": "boolean",
+///           "const": false,
+///           "description": "When false, Niu does not retain request or response payloads, even when payload capture is enabled. Accounting metadata remains. Compatible upstream providers receive this flag; their retention policies apply independently. True is unsupported."
+///         },
 ///         "messages": {
 ///           "type": "array",
+///           "description": "Text messages and, on routes with function tools enabled, assistant tool calls and associated tool results. Priced text routes also accept string reasoning_content on assistant history for compatible providers that require it; it counts toward the input bound. Required input inspection can reject tool or reasoning history when it cannot inspect the full content.",
 ///           "items": {
 ///             "type": "object"
 ///           }
@@ -755,7 +771,7 @@ pub(in crate::web) async fn chat(
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state.authorize_invocation_headers(&headers, "chat").await?;
     chat_as(state, headers, body, principal).await
 }
 
@@ -765,6 +781,14 @@ async fn chat_as(
     mut body: Value,
     principal: niu_storage::Principal,
 ) -> Result<Response, ApiError> {
+    if body
+        .get("store")
+        .is_some_and(|value| value != &Value::Bool(false))
+    {
+        return Err(ApiError::invalid_request(
+            "store must be false; stored Chat completions are not supported",
+        ));
+    }
     let mut public_model = body
         .get("model")
         .and_then(Value::as_str)
@@ -808,6 +832,7 @@ async fn chat_as(
         &mut body,
         crate::guardrails::input::Protocol::Chat,
         &requirements.model,
+        &headers,
     )
     .await?;
     let result = super::retry::execute(
@@ -818,6 +843,7 @@ async fn chat_as(
         public_model,
         crate::guardrails::input::Protocol::Chat,
         Some(requirements.model),
+        true,
     )
     .await;
     if let Some(selection) = selection {
@@ -1202,7 +1228,7 @@ async fn complete_openai_compatible(
             "OpenAI-compatible provider returned a non-success response"
         );
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(provider_rejection(upstream).await);
+        return Err(provider_rejection_for_base(upstream, model.endpoint_base()).await);
     }
     let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
@@ -1451,7 +1477,7 @@ async fn stream_openai_compatible(
         StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     if !status.is_success() {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(provider_rejection(upstream).await);
+        return Err(provider_rejection_for_base(upstream, model.endpoint_base()).await);
     }
     let content_type = upstream
         .headers()
@@ -1608,6 +1634,17 @@ fn validate_chat_capabilities_with_requirements(
     stream: bool,
 ) -> Result<ChatRouteRequirements, ApiError> {
     let requirements = chat_route_requirements(body, stream)?;
+    if requirements.model.vision
+        && !model
+            .catalog
+            .input_modalities
+            .iter()
+            .any(|mode| mode == "image")
+    {
+        return Err(ApiError::unsupported_message(
+            "Image input is not enabled for this model",
+        ));
+    }
     let has_tool_semantics = requirements.model.tools;
     if has_tool_semantics {
         if !model.supports_tool_calls {
@@ -1772,51 +1809,14 @@ fn chat_route_requirements(body: &Value, stream: bool) -> Result<ChatRouteRequir
         }
     }
 
-    let mut has_vision = false;
-    let mut input_chars = 0usize;
-    if let Some(msgs) = body.get("messages").and_then(Value::as_array) {
-        for msg in msgs {
-            if let Some(s) = msg.get("content").and_then(Value::as_str) {
-                input_chars = input_chars.saturating_add(s.chars().count());
-            } else if let Some(parts) = msg.get("content").and_then(Value::as_array) {
-                for part in parts {
-                    if let Some(s) = part.get("text").and_then(Value::as_str) {
-                        input_chars = input_chars.saturating_add(s.chars().count());
-                    }
-                    if matches!(
-                        part.get("type").and_then(Value::as_str),
-                        Some("image_url" | "input_image" | "image")
-                    ) {
-                        has_vision = true;
-                    }
-                }
-            }
-        }
-    }
-    let has_reasoning = body.get("reasoning").is_some()
-        || body.get("reasoning_effort").is_some()
-        || body.get("include_reasoning").and_then(Value::as_bool) == Some(true);
-    let requested_output_tokens = body
-        .get("max_completion_tokens")
-        .and_then(Value::as_u64)
-        .or_else(|| body.get("max_tokens").and_then(Value::as_u64));
-
+    let mut traits = crate::routing_traits::extract(crate::guardrails::input::Protocol::Chat, body);
+    // The caller has already validated the native `stream` shape; keep the same
+    // normalized value used by dispatch rather than treating an invalid value as
+    // a false requirement.
+    traits.streaming = stream;
+    traits.tools = has_tool_semantics;
     Ok(ChatRouteRequirements {
-        model: crate::config::ModelRequirements {
-            streaming: stream,
-            tools: has_tool_semantics,
-            streaming_tools: stream && has_tool_semantics,
-            structured_output: matches!(
-                body.pointer("/response_format/type")
-                    .and_then(Value::as_str),
-                Some("json_object" | "json_schema")
-            ),
-            vision: has_vision,
-            reasoning: has_reasoning,
-            estimated_input_tokens: Some(((input_chars.saturating_add(3)) / 4).max(1) as u64),
-            requested_output_tokens,
-            ..Default::default()
-        },
+        model: traits.requirements(None, crate::guardrails::input::Protocol::Chat),
         schema_validator,
     })
 }

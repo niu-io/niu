@@ -59,18 +59,6 @@ jobs:
       - name: Build documentation
         run: pnpm --dir apps/docs build
       - name: Verify built documentation entrypoints
-        run: |
-          node --input-type=module <<'JS'
-          import { readFileSync } from 'node:fs';
-          import { deepStrictEqual, ok } from 'node:assert/strict';
-          const root = 'apps/docs/dist/';
-          for (const file of ['index.html', 'reference/api/index.html', 'reference/handler-operations/index.html', 'releases/first-release/index.html']) {
-            ok(readFileSync(root + file, 'utf8').includes('<html'), `Missing HTML entrypoint: ${file}`);
-          }
-          deepStrictEqual(
-            JSON.parse(readFileSync(root + 'openapi/handler-operations.json', 'utf8')),
-            JSON.parse(readFileSync('contracts/generated/handler-operations.json', 'utf8')),
-          );
-          JS
+        run: node apps/docs/scripts/verify-built-docs.mjs
       - name: Record verification scope
         run: echo 'Documentation compilation and built API artifacts only. Browser behavior, backend workflows and release readiness require separate current-input verification.' >> "$GITHUB_STEP_SUMMARY"

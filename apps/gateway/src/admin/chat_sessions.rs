@@ -58,8 +58,14 @@ fn valid_results(payload: &Value) -> bool {
 }
 
 fn sanitize_results(results: &mut Value) {
-    for result in results.as_array_mut().unwrap() {
-        result.as_object_mut().unwrap().retain(|key, _| {
+    let Some(items) = results.as_array_mut() else {
+        return;
+    };
+    for result in items {
+        let Some(object) = result.as_object_mut() else {
+            continue;
+        };
+        object.retain(|key, _| {
             [
                 "model",
                 "content",
@@ -149,6 +155,8 @@ pub struct DraftAttachment {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftPayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    key_id: Option<Uuid>,
     session_id: Option<Uuid>,
     prompt: String,
     models: Vec<String>,
@@ -289,6 +297,11 @@ pub struct DraftInput {
 ///         "settings"
 ///       ],
 ///       "properties": {
+///         "keyId": {
+///           "type": ["string", "null"],
+///           "format": "uuid",
+///           "description": "Selected API key in this workspace. Retained after revocation for explicit recovery; never grants invocation authority. Omitted on legacy drafts."
+///         },
 ///         "sessionId": {
 ///           "oneOf": [
 ///             {
@@ -535,6 +548,17 @@ pub async fn save_draft(
             })
         {
             return Err(ApiError::invalid_request("Invalid chat draft"));
+        }
+        if let Some(key) = payload.key_id
+            && !state
+                .store
+                .key_spending_scope_exists(scope, key)
+                .await
+                .map_err(ApiError::from_store)?
+        {
+            return Err(ApiError::invalid_request(
+                "The selected API key is unavailable in this workspace",
+            ));
         }
         if let Some(id) = payload.session_id
             && !state
@@ -1616,10 +1640,10 @@ pub async fn save(
         "settings",
         "turns",
     ];
-    payload
-        .as_object_mut()
-        .unwrap()
-        .retain(|key, _| permitted.contains(&key.as_str()));
+    let Some(payload_object) = payload.as_object_mut() else {
+        return Err(ApiError::invalid_request("Invalid chat session"));
+    };
+    payload_object.retain(|key, _| permitted.contains(&key.as_str()));
     sanitize_results(&mut payload["results"]);
     if let Some(turns) = payload.get_mut("turns") {
         let turns = turns
@@ -1638,8 +1662,10 @@ pub async fn save(
             return Err(ApiError::invalid_request("Invalid chat turns"));
         }
         for turn in turns {
-            turn.as_object_mut()
-                .unwrap()
+            let Some(turn_object) = turn.as_object_mut() else {
+                return Err(ApiError::invalid_request("Invalid chat turns"));
+            };
+            turn_object
                 .retain(|key, _| ["prompt", "results", "attachments"].contains(&key.as_str()));
             sanitize_results(&mut turn["results"]);
             sanitize_attachments(turn)?;

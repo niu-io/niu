@@ -34,6 +34,17 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/requests
 
 ## Parameters
 
+### q
+
+Location: **query**. Optional. Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.
+
+```json
+{
+  "type": "string",
+  "maxLength": 128
+}
+```
+
 ### http_status
 
 Location: **query**. Optional. Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.
@@ -527,6 +538,7 @@ Content type: `application/json`.
                     "enum": [
                       "upstream_http_error",
                       "upstream_region_unavailable",
+                      "upstream_account_restricted",
                       "upstream_timeout",
                       "upstream_connection_error",
                       "upstream_transport_error",

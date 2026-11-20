@@ -8,6 +8,10 @@ servers:
 security:
   - operatorBearer: []
 paths:
+  /api/v1/providers/{provider}/offers/{offer}/authorization:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization'
+  /api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization~1{authorization}'
   /api/v1/providers/{provider}/offers/{offer}/revisions:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1revisions'
   /api/v1/providers/{provider}/members:
@@ -17,14 +21,14 @@ paths:
       - $ref: '#/components/parameters/provider'
     get:
       operationId: listSupplierMediaOfferModels
-      summary: List named draft media offer bindings
-      description: Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or qualification. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
+      summary: List configured video models with draft offer status
+      description: Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or authorization. Each record exposes the current offer status and exact configuration bindings so an authorized administrator can publish a purchase rate without a separate pinning step. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
       parameters:
         - { name: after, in: query, schema: { type: string, minLength: 1, maxLength: 256 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
       responses:
         '200':
-          description: Draft configuration choices, not dispatch qualification
+          description: Draft configuration choices, not dispatch authorization
           content:
             application/json:
               schema:
@@ -40,7 +44,7 @@ paths:
                     items:
                       type: object
                       additionalProperties: false
-                      required: [model_alias, api_key_name, vendor_id, vendor_revision, model_revision, schema_revision, channel, offer_revision]
+                      required: [model_alias, api_key_name, vendor_id, vendor_revision, model_revision, schema_revision, channel, offer_revision, offer_id, offer_active, offer_qualified, offer_current, route_ready, resolutions, reference_video, meter]
                       properties:
                         model_alias: { type: string }
                         api_key_name: { type: string }
@@ -50,6 +54,16 @@ paths:
                         schema_revision: { type: string }
                         channel: { type: string }
                         offer_revision: { type: [string, 'null'], format: uuid }
+                        offer_id: { type: [string, 'null'], format: uuid }
+                        offer_active: { type: boolean, description: The current offer record is active. }
+                        offer_qualified: { type: boolean, description: The active offer revision currently satisfies the authorization or legacy review predicate. }
+                        offer_current: { type: boolean, description: The current offer revision still matches this configuration binding. }
+                        route_ready: { type: boolean, description: The credential and model route are enabled and a credential is saved. This does not verify upstream access. }
+                        resolutions: { type: array, items: { type: string } }
+                        reference_video: { type: boolean }
+                        meter:
+                          type: [string, 'null']
+                          description: Output-estimator billing unit when configured; never inferred from a price.
         '400': { description: Invalid cursor or page size }
         '401': { description: Valid management session required }
         '403': { description: Installation administration required }
@@ -60,7 +74,7 @@ paths:
     post:
       operationId: publishSupplierMediaOffer
       summary: Save an inactive versioned media offer without text-token prices
-      description: Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer qualification. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor reviewed digests establish live protocol qualification.
+      description: Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer authorization. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor an administrator authorization establishes live protocol availability.
       requestBody:
         required: true
         content:
@@ -96,9 +110,10 @@ paths:
                 properties:
                   data:
                     type: object
-                    required: [revision]
+                    required: [revision, offer_id]
                     properties:
                       revision: { type: string, format: uuid }
+                      offer_id: { type: string, format: uuid, description: Stable Provider offer identity for the returned revision. Enabling the returned revision uses this identity; it is not a display label. }
         '400': { description: Invalid model binding }
         '401': { description: Valid management session required }
         '403': { description: Installation write administration required }
@@ -151,7 +166,7 @@ paths:
     get:
       operationId: listSupplierMediaRateModels
       summary: List current media pricing configuration choices
-      description: Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
+      description: Installation read authority only. Named model and API-key choices include current authorized active offer bindings and syntactically validated media-schema constraints, including the billing unit derived from a validated output estimator. This does not establish dispatch availability or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
       parameters:
         - { name: after, in: query, schema: { type: string, minLength: 1, maxLength: 256 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -173,7 +188,7 @@ paths:
                     items:
                       type: object
                       additionalProperties: false
-                      required: [model_alias, api_key_name, offer_revision, vendor_revision, model_revision, schema_revision, channel, resolutions, reference_video]
+                      required: [model_alias, api_key_name, offer_revision, vendor_revision, model_revision, schema_revision, channel, resolutions, reference_video, meter]
                       properties:
                         model_alias: { type: string }
                         api_key_name: { type: string }
@@ -184,6 +199,7 @@ paths:
                         channel: { type: string }
                         resolutions: { type: array, maxItems: 64, items: { type: string } }
                         reference_video: { type: boolean }
+                        meter: { type: [string, 'null'], description: Billing unit derived from the validated output estimator; null when the model has no configured output mapping. }
         '400': { description: Invalid cursor or page size }
         '401': { description: Valid management session required }
         '403': { description: Installation administration required }
@@ -228,7 +244,7 @@ paths:
     post:
       operationId: publishSupplierMediaRate
       summary: Publish confidential agreed Provider media purchase terms
-      description: Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.
+      description: Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current authorized offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.
       requestBody:
         required: true
         content:
@@ -253,7 +269,7 @@ paths:
         '400': { description: Invalid tariff or discount }
         '401': { description: Installation authentication required }
         '403': { description: Installation write permission required }
-        '409': { description: Changed revision or mismatched/unqualified Provider route }
+        '409': { description: Changed revision or mismatched/unauthorized Provider route }
         '413': { description: Body exceeds 128 KiB }
         '422': { description: Malformed typed JSON }
         '503': { description: Durable storage unavailable }
@@ -393,6 +409,8 @@ paths:
   /api/v1/providers/{provider}/earnings:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1earnings/get'
+  /api/v1/providers/{provider}/settlements/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements~1preview'
   /api/v1/providers/{provider}/settlements:
     get:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements/get'

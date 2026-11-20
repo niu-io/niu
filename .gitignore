@@ -16,8 +16,9 @@ coverage/
 .aider.chat.history.md
 .aider.input.history
 
-# Generated Astro types and content caches
+# Generated Astro and React Router types and content caches
 **/.astro/
+**/.react-router/
 
 # Beads / Dolt files (added by bd init)
 .dolt/

@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import GlobalActivityRoute, {activityTotals} from '@/features/activity/global-page';
+import { saveLocale } from '@/shell/locale';
 vi.mock('@/shell/ConnectGate',()=>({default:({children}: {children: (value: unknown)=>unknown})=>children({token:'authorized-token',models:[]})}));
 vi.mock('@/features/executions/components/GatewayActivity',()=>({default:({initialScope,statisticsOnly}: {initialScope:{projectId:string};statisticsOnly:boolean})=><p>{initialScope.projectId} scoped {statisticsOnly ? 'Overview' : 'Logs'}</p>}));
 const workspaces=[{id:'a',organization_id:'first',name:'Application',organization_name:'First organization'},{id:'b',organization_id:'second',name:'Research',organization_name:'Second organization'}];
@@ -25,6 +26,13 @@ describe('Global Activity',()=>{
   expect(totals.charges.get('CNY')).toBe(5n);
   expect(totals.unresolved).toBe(2);
  });
+ it('aggregates customer unit charges alongside currency charges',()=>{
+  const withUnits={...summary('7','USD'),customer_unit_charges:[{unit_name:'Credits',display_precision:2,net_atoms:'12300000000'}]};
+  const totals=activityTotals([{page:{summary:withUnits}}]);
+  expect(totals.charges.get('USD')).toBe(7n);
+  expect(totals.units.get('Credits')?.amount).toBe(12300000000n);
+  expect(totals.units.get('Credits')?.precision).toBe(2);
+ });
  it('loads all authorized organizations and switches workspace scope',async()=>{
   mockData();open();const user=userEvent.setup();
   expect(await screen.findByRole('link',{name:'Research'})).toBeTruthy();
@@ -40,7 +48,7 @@ describe('Global Activity',()=>{
   mockData();open('/activity/logs');
   const links=await screen.findAllByRole('link',{name:/Open model-one request/});
   expect(links.map(link=>link.getAttribute('href')).sort()).toEqual(['/workspaces/a/executions#gateway-attempt-run-1001','/workspaces/b/executions#gateway-attempt-run-1001']);
-  expect(screen.getAllByText('Own API key').length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText('No Niu charge').length).toBeGreaterThanOrEqual(2);
  });
  it.each(['click','Enter',' '])('opens request details from the whole row using %s',async action=>{
   mockData();open('/activity/logs');const user=userEvent.setup();
@@ -52,6 +60,11 @@ describe('Global Activity',()=>{
   mockData(true);open();expect(await screen.findByRole('alert')).toBeTruthy();
   expect(screen.queryByRole('region',{name:'All workspace totals'})).toBeNull();
   expect(screen.queryByText('Usage by workspace')).toBeNull();
+ });
+ it('renders a zh-CN status-bearing activity failure without translating identifiers',async()=>{
+  saveLocale('zh-CN');mockData(true);open();
+  expect((await screen.findByRole('alert')).textContent).toContain('无法加载活动记录（403）。请重试。');
+  saveLocale('en');
  });
  it('recovers from an unavailable workspace by clearing the scope',async()=>{
   mockData();open('/activity?workspace=outside');const user=userEvent.setup();
@@ -121,6 +134,75 @@ describe('Global Activity',()=>{
   await user.click(screen.getByRole('button',{name:'Try again'}));
   expect(await screen.findAllByRole('link',{name:/Open model-one request/})).toHaveLength(2);
   expect(screen.queryByRole('alert')).toBeNull();
+ });
+
+ it('displays Credits unit charges instead of Unknown on cross-workspace logs',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    const path=String(input);
+    if(path==='/api/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    return Response.json({
+      data:[{
+        ...request,
+        attempt_id:'unit-charged-attempt',
+        customer_charge_status:'charged',
+        customer_charge_currency:null,
+        customer_charge_nanos:null,
+        customer_unit_charge:{unit_name:'Credits',display_precision:2,net_atoms:'1250000000'},
+      }],
+      summary:{...summary('0','USD'),customer_charges:[],customer_unit_charges:[{unit_name:'Credits',display_precision:2,net_atoms:'1250000000'}]},
+      next_cursor:null,
+    });
+  }));
+  open('/activity/logs');
+  expect((await screen.findAllByText('1.25 Credits')).length).toBeGreaterThanOrEqual(1);
+  expect(screen.queryByText('Unknown')).toBeNull();
+ });
+
+ it('renders shared Niu charges card and workspace charge states cleanly across workspaces',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    const path=String(input);
+    if(path==='/api/v1/workspaces')return Response.json({data:workspaces});
+    if(path.includes('/projects/a/'))return Response.json({
+      data:[],
+      summary:{request_count:5,usage_count:5,prompt_tokens:'100',completion_tokens:'50',customer_charges:[],unresolved_customer_charge_count:2,unpriced_request_count:0,owner_funded_request_count:3},
+      next_cursor:null,
+    });
+    return Response.json({
+      data:[],
+      summary:{request_count:4,usage_count:4,prompt_tokens:'80',completion_tokens:'40',customer_charges:[],unresolved_customer_charge_count:0,unpriced_request_count:1,owner_funded_request_count:3},
+      next_cursor:null,
+    });
+  }));
+  open();
+  const totals=await screen.findByRole('region',{name:'All workspace totals'});
+  expect(totals.textContent).toContain('Niu charges');
+  expect(totals.textContent).toContain('Pending settlement');
+  expect(totals.textContent).toContain('2 requests awaiting settlement');
+  expect(totals.textContent).toContain('1 request without a customer rate');
+  expect(totals.textContent).toContain('6 with own API keys (not billed by Niu; Provider charges may still apply)');
+  const inspectLink=await screen.findByRole('link',{name:'Inspect'});
+  expect(inspectLink.getAttribute('href')).toBe('/activity/logs');
+  expect(await screen.findByRole('cell',{name:'No rate set'})).toBeTruthy();
+ });
+
+ it('preserves settled $0.00 charges when all requests are settled with zero charge', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+    const path = String(input);
+    if (path === '/api/v1/workspaces') return Response.json({data: [workspaces[0]]});
+    return Response.json({
+      data: [],
+      summary: {
+        ...summary('0', 'USD'),
+        customer_charges: [{currency: 'USD', amount_nanos: '0', charged_requests: 3}],
+        unresolved_customer_charge_count: 0,
+        unpriced_request_count: 0,
+        owner_funded_request_count: 0,
+      },
+      next_cursor: null,
+    });
+  }));
+  open('/activity');
+  expect((await screen.findAllByText('$0.00')).length).toBeGreaterThanOrEqual(2);
  });
 
 });

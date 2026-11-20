@@ -7,6 +7,10 @@ import InstallationRoute from '../../app/features/login/installation-page';
 import AppLayout from '../../app/shell/AppLayout';
 import { BrandingProvider, defaultBranding } from '../../app/shell/branding';
 
+vi.mock('../../app/features/models/public-catalog', () => ({
+  loadPublicCatalogModels: vi.fn(async () => ({ models: [] })),
+}));
+
 function showLogin(withBranding = false) {
   const context = { token: '', error: '', connect: vi.fn(), connectWithToken: vi.fn(), draftToken: '', setDraftToken: vi.fn() };
   const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [{ path: '/login', element: <LoginRoute /> }] }], { initialEntries: ['/login'] });
@@ -16,6 +20,13 @@ function showLogin(withBranding = false) {
 }
 
 describe('account sign-in service availability', () => {
+  it('explains how to obtain or recover account access when password sign-in is available', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:true,browser_token_login:false})));
+    showLogin();
+    await screen.findByText(/Need an account or forgot your password\? Ask your organization owner for an invitation or contact your installation administrator\./);
+    expect(screen.getByRole('link', { name: 'Administrator token sign-in' }).getAttribute('href')).toBe('/installation');
+    expect(screen.queryByRole('link', {name:/reset password/i})).toBeNull();
+  });
   it.each([
     { display_name: 'Example Cloud', logo_data_url: null },
     { display_name: 'Niu', logo_data_url: 'data:image/png;base64,iVBORw0KGgo=' },
@@ -45,6 +56,21 @@ describe('account sign-in service availability', () => {
     expect(screen.getByLabelText('Administrator token')).toBeTruthy();
     expect(screen.queryByLabelText('Password')).toBeNull();
     expect(router.state.location.pathname).toBe('/installation');
+  });
+  it('offers the installation administrator path when account sign-in is not configured', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:false,browser_token_login:false})));
+    showLogin();
+    await screen.findByText('Account sign-in is not configured. Contact your installation administrator.');
+    expect(screen.getByRole('link', {name:'Open installation administration'}).getAttribute('href')).toBe('/installation');
+    expect(screen.queryByLabelText('Password')).toBeNull();
+    expect(screen.queryByLabelText('User access token')).toBeNull();
+  });
+  it('shows user-token sign-in directly when it is available without password login', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:false,browser_token_login:true})));
+    showLogin();
+    expect(await screen.findByLabelText('User access token')).toBeTruthy();
+    expect((screen.getByRole('button', {name:'Sign in'}) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByLabelText('Password')).toBeNull();
   });
   it.each(['offline', 'disabled', 'missing', 'malformed'])('keeps account fields when configuration is %s', async failure => {
     vi.stubGlobal('fetch', vi.fn(async () => {

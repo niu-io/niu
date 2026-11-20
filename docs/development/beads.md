@@ -90,8 +90,10 @@ bd dolt commit -m "Record review follow-up and acceptance evidence"
 python3 scripts/beads-snapshot.py
 ```
 
-The snapshot script omits the automatically inferred owner email. All other
-content, including comments and assignees, still requires public-boundary review.
+The snapshot script omits issues labeled `private` and the automatically inferred
+owner email. Apply that label to issues that must remain local or in a private
+tracker before exporting. The label does not remove material from Git history.
+All other content, including comments and assignees, still requires public-boundary review.
 Use public-safe task content and actors; never include credentials, customer
 records, private URLs, machine paths or private research.
 

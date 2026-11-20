@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for NiuAdminClient"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ## Constructor and members
 
@@ -28,6 +28,20 @@ listWorkspaceReviewPools(workspace: string, after?: string, options?: RequestOpt
 getWorkspaceReviewPool(workspace: string, slug: string, options?: RequestOptions): Promise<{
     data: import('./index.js').WorkspaceModelPool;
 }>;
+```
+
+### setWorkspaceReviewPool
+
+```typescript
+setWorkspaceReviewPool(workspace: string, slug: string, configuration: import('./index.js').WorkspaceModelPool, options?: RequestOptions): Promise<{
+    data: import('./index.js').WorkspaceModelPool;
+}>;
+```
+
+### deleteWorkspaceReviewPool
+
+```typescript
+deleteWorkspaceReviewPool(workspace: string, slug: string, revision: number, options?: RequestOptions): Promise<void>;
 ```
 
 ### getWorkspaceReviewPoolHistory
@@ -87,6 +101,12 @@ listWorkspaceReviewEvaluations(workspace: string, after?: string, options?: Requ
 getWorkspaceReviewEvaluation(workspace: string, slug: string, revision?: number, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition>;
 ```
 
+### setWorkspaceReviewEvaluation
+
+```typescript
+setWorkspaceReviewEvaluation(workspace: string, slug: string, definition: import('./index.js').EvaluationDefinition, options?: RequestOptions): Promise<import('./index.js').EvaluationDefinition>;
+```
+
 ### listWorkspaceReviewEvaluationRuns
 
 ```typescript
@@ -124,6 +144,45 @@ createOperatorIdentity(input: {
     session: null;
     token: null;
 }>;
+```
+
+### createMemberInvitation
+
+```typescript
+/** Create a one-time invitation and return its link secret exactly once. */
+createMemberInvitation(organizationId: string, input: MemberInvitationInput, options?: RequestOptions): Promise<CreatedMemberInvitation>;
+```
+
+### listMemberInvitations
+
+```typescript
+/** Owner-only invitation directory; never returns redemption secrets. */
+listMemberInvitations(organizationId: string, options?: RequestOptions): Promise<{
+    data: MemberInvitation[];
+}>;
+```
+
+### cancelMemberInvitation
+
+```typescript
+/** Cancel a pending invitation. Repeated cancellation is idempotent. */
+cancelMemberInvitation(invitationId: string, options?: RequestOptions): Promise<void>;
+```
+
+### previewMemberInvitation
+
+```typescript
+/** Inspect a signed-in recipient's invitation before acceptance. */
+previewMemberInvitation(token: string, options?: RequestOptions): Promise<{
+    data: MemberInvitationPreview;
+}>;
+```
+
+### acceptMemberInvitation
+
+```typescript
+/** Accept an invitation for the signed-in account and switch to its exact role/scope. */
+acceptMemberInvitation(token: string, options?: RequestOptions): Promise<AcceptedMemberInvitation>;
 ```
 
 ### listOperatorsPage
@@ -308,10 +367,92 @@ getProviderProfile(providerId: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
-### getProviderIntegration
+### listProviderPresets
 
 ```typescript
 /** Platform-only Provider integration default, independent of inference formats. */
+/** Supported service implementations, separate from wire formats and saved connections. */
+listProviderPresets(options?: RequestOptions): Promise<{
+    data: ProviderServiceDescriptor[];
+}>;
+```
+
+### discoverProviderPricing
+
+```typescript
+/** Advertised evidence only. Partial ratios are not a monetary quote or customer tariff. */
+discoverProviderPricing(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderPriceEvidence;
+    integration: ProviderIntegration;
+}>;
+```
+
+### discoverProviderMetadata
+
+```typescript
+discoverProviderMetadata(providerId: string, credentialId: string, options?: RequestOptions): Promise<{
+    data: ProviderCatalogModel[];
+    discovery: ProviderDiscovery;
+    pricing?: ProviderPriceEvidence | null;
+}>;
+```
+
+### captureProviderPriceEvidence
+
+```typescript
+/** Explicit source refresh; persist the returned revision. No automatic write retry. */
+captureProviderPriceEvidence(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderPriceVersion;
+}>;
+```
+
+### listProviderPriceHistory
+
+```typescript
+listProviderPriceHistory(providerId: string, query?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: Array<{
+        revision: string;
+        adapter: string;
+        status: string;
+        source: string;
+        captured_at_ms: number;
+    }>;
+    next_after: string | null;
+}>;
+```
+
+### getProviderPriceEvidence
+
+```typescript
+getProviderPriceEvidence(providerId: string, revision: string, options?: RequestOptions): Promise<{
+    data: ProviderPriceVersion;
+}>;
+```
+
+### estimateProviderQuoteCost
+
+```typescript
+estimateProviderQuoteCost(providerId: string, input: {
+    revision: string;
+    model: string;
+    quantities: Array<{
+        meter: string;
+        units: string;
+        condition?: string;
+    }>;
+}, options?: RequestOptions): Promise<{
+    data: ProviderCostEstimate;
+    quote_revision: string;
+    adapter: string;
+}>;
+```
+
+### getProviderIntegration
+
+```typescript
 getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{
     data: ProviderIntegration;
 }>;
@@ -585,8 +726,33 @@ listCompanies(options?: RequestOptions): Promise<{
 ### createCompany
 
 ```typescript
-/** Installation-only atomic company/account creation; retain idempotencyKey on uncertain responses. */
+/** Atomic company/account creation; retain idempotencyKey on uncertain responses. */
 createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany>;
+```
+
+### renameCompany
+
+```typescript
+/** Rename an organization while preserving its immutable slug and UUID. */
+renameCompany(organizationId: string, name: string, options?: RequestOptions): Promise<CompanyMetadata>;
+```
+
+### switchSessionOrganization
+
+```typescript
+/** Switch the active organization for the current authenticated member session by UUID or slug. */
+switchSessionOrganization(organization: string, options?: RequestOptions): Promise<{
+    data: unknown;
+}>;
+```
+
+### claimSessionMembership
+
+```typescript
+/** Link an issued member access token to the signed-in account and switch to that organization. */
+claimSessionMembership(token: string, options?: RequestOptions): Promise<{
+    data: unknown;
+}>;
 ```
 
 ### getPlatformCurrency
@@ -849,6 +1015,60 @@ generations(scope: TenantScope | WorkspaceScope): {
 getBranding(options?: RequestOptions): Promise<BrandingConfiguration>;
 ```
 
+### getRegistrationPolicy
+
+```typescript
+/** Read Limited Preview registration policy (platform administration). */
+getRegistrationPolicy(options?: RequestOptions): Promise<{
+    data: PlatformRegistrationPolicy;
+}>;
+```
+
+### saveRegistrationPolicy
+
+```typescript
+/** Switch registration policy between Limited Preview approval and closed (platform administration). */
+saveRegistrationPolicy(input: {
+    mode: import('./auth.js').RegistrationMode;
+    expected_revision: string;
+}, options?: RequestOptions): Promise<{
+    data: PlatformRegistrationPolicy;
+}>;
+```
+
+### listRegistrations
+
+```typescript
+/** List Limited Preview registration requests (platform administration). */
+listRegistrations(query?: PlatformRegistrationQuery, options?: RequestOptions): Promise<PlatformRegistrationQueuePage>;
+```
+
+### approveRegistration
+
+```typescript
+/** Atomically approve a pending Limited Preview registration and provision workspace owner access. */
+approveRegistration(registrationId: string, input: {
+    expected_revision: string;
+    organization_name?: string;
+    workspace_name?: string;
+    note?: string;
+}, options?: RequestOptions): Promise<{
+    data: RegistrationRequestRecord;
+}>;
+```
+
+### rejectRegistration
+
+```typescript
+/** Reject a pending Limited Preview registration without provisioning an account. */
+rejectRegistration(registrationId: string, input: {
+    expected_revision: string;
+    note?: string;
+}, options?: RequestOptions): Promise<{
+    data: RegistrationRequestRecord;
+}>;
+```
+
 ### saveBranding
 
 ```typescript
@@ -1004,13 +1224,7 @@ dashboardMedia(scope: TenantScope, keyId: string): {
         } & {
             group_id?: string;
         }, options?: RequestOptions) => Promise<MediaAssetPage<import("./media-assets.js").MediaAsset>>;
-        create: (input: {
-            model: string;
-            group_id: string;
-            url: string;
-            name?: string;
-            kind: "image" | "video" | "audio";
-        }, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        create: (input: import("./media-assets.js").MediaAssetCreateInput, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
         retrieve: (id: string, model: string, options?: RequestOptions) => Promise<{
             data: import("./media-assets.js").MediaAsset;
         }>;
@@ -1259,6 +1473,31 @@ listProviderEarnings(providerId: string, page?: LedgerHistoryQuery, options?: Re
 listSupplierEarnings(supplierId: string, page?: LedgerHistoryQuery, options?: RequestOptions): Promise<SupplierEarningPage>;
 ```
 
+### previewProviderSettlement
+
+```typescript
+/** Read-only aggregate preview of the unpaid earnings a period settlement would include. */
+previewProviderSettlement(providerId: string, page: {
+    currency: string;
+    cutoff_ms: number;
+    from_ms?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderSettlementPreview;
+}>;
+```
+
+### previewSupplierSettlement
+
+```typescript
+previewSupplierSettlement(supplierId: string, page: {
+    currency: string;
+    cutoff_ms: number;
+    from_ms?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderSettlementPreview;
+}>;
+```
+
 ### recordProviderSettlement
 
 ```typescript
@@ -1293,95 +1532,36 @@ listProviderSettlements(providerId: string, page?: ProviderSettlementQuery, opti
 listSupplierSettlements(supplierId: string, page?: SupplierSettlementQuery, options?: RequestOptions): Promise<SupplierSettlementPage>;
 ```
 
-### qualifyProvider
-
-```typescript
-/** Platform-administrator review. Does not activate offers or verify the underlying evidence. */
-qualifyProvider(providerId: string, input: ProviderQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### qualifySupplier
-
-```typescript
-qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### qualifyProviderOffer
-
-```typescript
-/** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
-qualifyProviderOffer(providerId: string, offerId: string, input: ProviderOfferQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### qualifySupplierOffer
-
-```typescript
-qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'qualified';
-    };
-}>;
-```
-
-### revokeProviderQualification
-
-```typescript
-revokeProviderQualification(providerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
-### revokeSupplierQualification
-
-```typescript
-revokeSupplierQualification(supplierId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
-### revokeProviderOfferQualification
-
-```typescript
-revokeProviderOfferQualification(providerId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
-### revokeSupplierOfferQualification
-
-```typescript
-revokeSupplierOfferQualification(supplierId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
-    data: {
-        qualification_status: 'revoked';
-    };
-}>;
-```
-
 ### setProviderOfferActive
 
 ```typescript
-/** Requires Provider owner/admin or installation access; activation still requires current qualification. */
+/** Requires Provider owner/admin or installation access; resuming still requires a current authorization. */
 setProviderOfferActive(providerId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{
     data: {
         active: boolean;
+    };
+}>;
+```
+
+### authorizeProviderOffer
+
+```typescript
+/** Atomically authorize and enable the exact current offer revision. */
+authorizeProviderOffer(providerId: string, offerId: string, rateRevision: string, options?: RequestOptions): Promise<{
+    data: {
+        active: boolean;
+        authorization_id: string;
+    };
+}>;
+```
+
+### revokeProviderOfferAuthorization
+
+```typescript
+/** Revoke one exact authorization; a different current authorization is unaffected. */
+revokeProviderOfferAuthorization(providerId: string, offerId: string, authorizationId: string, options?: RequestOptions): Promise<{
+    data: {
+        revoked: boolean;
     };
 }>;
 ```
@@ -1472,6 +1652,7 @@ listWorkspaceKeys(scope: TenantScope | string, options?: RequestOptions): Promis
 iterateWorkspaceKeys(scope: TenantScope | string, query?: {
     after?: string;
     limit?: number;
+    status?: 'active' | 'inactive';
 }, options?: RequestOptions): AsyncGenerator<WorkspaceKeyDetail>;
 ```
 
@@ -1482,6 +1663,7 @@ iterateWorkspaceKeys(scope: TenantScope | string, query?: {
 listWorkspaceKeyPage(scope: TenantScope | string, query?: {
     after?: string;
     limit?: number;
+    status?: 'active' | 'inactive';
 }, options?: RequestOptions): Promise<WorkspaceKeyDetailPage>;
 ```
 
@@ -1494,11 +1676,7 @@ listPlatformCustomerAccounts(page?: {
     after?: string;
     limit?: number;
 }, options?: RequestOptions): Promise<{
-    data: {
-        organization_id: string;
-        organization_name: string;
-        accounts: CustomerBalance[];
-    }[];
+    data: PlatformCustomerAccount[];
     next_after: string | null;
 }>;
 ```
@@ -2197,6 +2375,7 @@ listSupplierMediaOfferModels(supplierId: string, page?: {
 publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
+        offer_id: string;
     };
 }>;
 ```
@@ -2207,6 +2386,7 @@ publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, op
 publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
+        offer_id: string;
     };
 }>;
 ```
@@ -2371,6 +2551,19 @@ createProviderCredential(input: ProviderCredentialCreateInput, options?: Request
 }>;
 ```
 
+### importPersonalProviderModels
+
+```typescript
+/** Explicit bounded discovery and idempotent private model import; no inference or billing setup. */
+importPersonalProviderModels(id: string, options?: RequestOptions): Promise<{
+    data: {
+        imported: number;
+        discovered: number;
+    };
+    discovery: Record<string, unknown>;
+}>;
+```
+
 ### createSupplierCredential
 
 ```typescript
@@ -2392,6 +2585,23 @@ updateProviderCredential(id: string, input: ProviderCredentialUpdateInput, optio
 
 ```typescript
 updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{
+    data: Omit<SupplierCredential, 'supplier'>;
+}>;
+```
+
+### retireProviderCredential
+
+```typescript
+/** Retire a connection: disable new dispatch, erase the credential and disable models; history remains. */
+retireProviderCredential(id: string, options?: RequestOptions): Promise<{
+    data: Omit<ProviderCredential, 'supplier'>;
+}>;
+```
+
+### retireSupplierCredential
+
+```typescript
+retireSupplierCredential(id: string, options?: RequestOptions): Promise<{
     data: Omit<SupplierCredential, 'supplier'>;
 }>;
 ```
@@ -2491,6 +2701,57 @@ getProviderCooldown(providerId: string, options?: RequestOptions): Promise<{
 ```typescript
 getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{
     data: VendorCooldown;
+}>;
+```
+
+### listProviderConnectionIncidents
+
+```typescript
+/** Platform-only operational evidence. Follow next_before for older incidents. */
+listProviderConnectionIncidents(connectionId: string, before?: string, options?: RequestOptions): Promise<{
+    data: ProviderConnectionIncident[];
+    next_before: string | null;
+}>;
+```
+
+### resolveIncidentConnection
+
+```typescript
+/** Platform-only incident routing; the connection identifier is not a user-facing label. */
+resolveIncidentConnection(reference: string, options?: RequestOptions): Promise<{
+    data: {
+        connection_id: string;
+    };
+}>;
+```
+
+### listWorkspaceIncidents
+
+```typescript
+/** Models with recorded active incidents in this authorized workspace only. */
+listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{
+    data: {
+        model: string;
+        owner_funded: boolean;
+    }[];
+    more: boolean;
+    notifications: WorkspaceIncidentNotifications;
+}>;
+```
+
+### listConnectionIncidents
+
+```typescript
+listConnectionIncidents(page?: {
+    status?: 'active' | 'resolved';
+    before?: string;
+}, options?: RequestOptions): Promise<{
+    data: PlatformConnectionIncident[];
+    next_before: string | null;
+    coverage: {
+        request_observed: true;
+        proactive_probe: 'not_configured';
+    };
 }>;
 ```
 
@@ -2917,6 +3178,7 @@ getKeyGuardrail(scope: TenantScope, keyId: string, options?: RequestOptions): Pr
     data: {
         assignment_revision: number;
         policy_revision: number | null;
+        mode: KeyGuardrailMode;
         policy: GuardrailPolicy | null;
     } | null;
 }>;
@@ -2930,6 +3192,15 @@ assignKeyGuardrail(scope: TenantScope, keyId: string, policyRevision: number, ex
 }>;
 ```
 
+### followActiveKeyGuardrail
+
+```typescript
+/** Follow the workspace's active policy; later activations apply without re-pinning this key. */
+followActiveKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{
+    assignment_revision: number;
+}>;
+```
+
 ### listKeyGuardrailHistory
 
 ```typescript
@@ -2937,6 +3208,7 @@ listKeyGuardrailHistory(scope: TenantScope, keyId: string, beforeAssignmentRevis
     data: Array<{
         assignment_revision: number;
         policy_revision: number | null;
+        mode: KeyGuardrailMode;
         policy_name: string | null;
         actor_name: string;
         created_at: string;

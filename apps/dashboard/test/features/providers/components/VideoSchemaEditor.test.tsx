@@ -6,6 +6,10 @@ import ModelMappingForm from '@/features/providers/components/ModelMappingForm';
 import { emptyCapabilities, type VendorModel } from '@/features/providers/api';
 import type { VideoSchema } from '@/features/providers/video-schema';
 
+async function openAdvanced(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button',{name:/Advanced schema overrides/}));
+}
+
 const schema: VideoSchema = {version:1,revision:'private-schema-revision',model_alias:'video-fixture',upstream_model:'upstream-fixture',channel:'ark-direct-v1',maximum_body_bytes:8192,maximum_content_items:4,inputs:{text:{maximum_items:2,maximum_bytes:4096,https:false,data_mime_types:[],roles:[],role_required:false},image_url:{maximum_items:1,maximum_bytes:2048,https:true,data_mime_types:['image/png'],roles:['reference_image'],role_required:true}},controls:{duration:{kind:'integer',minimum:2,maximum:10,default:5},resolution:{kind:'choice',values:['720p','1080p'],default:'720p'},watermark:{kind:'boolean',default:false}},required_controls:['resolution'],exclusive_controls:[],callbacks_qualified:false};
 
 it('keeps full saved input/control constraints without exposing internal references or claiming qualification', async () => {
@@ -39,6 +43,7 @@ it('builds contracted text and resolution constraints with no assumed limits or 
   await user.type(screen.getByLabelText('Channel'),'ark-direct-v1');
   await user.type(screen.getByLabelText('Maximum request bytes'),'8192');
   await user.type(screen.getByLabelText('Maximum content items'),'4');
+  await openAdvanced(user);
   await user.click(screen.getByRole('tab',{name:'Inputs',exact:true}));
   await user.click(screen.getByRole('checkbox',{name:'Configure text input'}));
   await user.type(screen.getByLabelText('Maximum items'),'2');
@@ -60,6 +65,7 @@ it('rejects mutually defaulted controls and unqualified callbacks before applyin
   const user = userEvent.setup();
   const onApply = vi.fn();
   render(<VideoSchemaEditor modelAlias={schema.model_alias} upstreamModel={schema.upstream_model} schema={schema} onClose={vi.fn()} onApply={onApply}/>);
+  await openAdvanced(user);
   await user.click(screen.getByRole('tab',{name:'Rules',exact:true}));
   await user.type(screen.getByLabelText('Incompatible control pairs'),'duration, resolution');
   await user.click(screen.getByRole('button',{name:'Apply configuration'}));
@@ -80,6 +86,7 @@ it('rejects a default outside configured choices and oversized UTF-8 roles', asy
   const user = userEvent.setup();
   const onApply = vi.fn();
   render(<VideoSchemaEditor modelAlias={schema.model_alias} upstreamModel={schema.upstream_model} schema={schema} onClose={vi.fn()} onApply={onApply}/>);
+  await openAdvanced(user);
   await user.click(screen.getByRole('tab',{name:'Controls',exact:true}));
   await user.click(screen.getByLabelText('Generation control'));
   await user.click(screen.getByRole('menuitemradio',{name:'Resolution',exact:true}));
@@ -155,6 +162,7 @@ it('edits contracted output pixels and meter without exposing estimator revision
   const user = userEvent.setup(); const onApply = vi.fn();
   const configured: VideoSchema = {...schema,controls:{...schema.controls,ratio:{kind:'choice',values:['16:9'],default:'16:9'},frames_per_second:{kind:'integer',minimum:24,maximum:60,default:24}},output:{specifications:[{resolution:'720p',ratio:'16:9',width:1280,height:720}],estimator:'SeedancePixelsV1',estimator_revision:'private-estimator-revision'}};
   render(<VideoSchemaEditor modelAlias={schema.model_alias} upstreamModel={schema.upstream_model} schema={configured} onClose={vi.fn()} onApply={onApply}/>);
+  await openAdvanced(user);
   await user.click(screen.getByRole('tab',{name:'Output',exact:true}));
   expect(document.body.textContent).not.toContain('private-estimator-revision');
   await user.clear(screen.getByLabelText('Width (px)')); await user.type(screen.getByLabelText('Width (px)'),'1920');
@@ -168,6 +176,7 @@ it('edits contracted output pixels and meter without exposing estimator revision
 it('rejects missing output controls and empty mappings, and can remove estimation without removing request constraints', async () => {
   const user = userEvent.setup(); const onApply = vi.fn();
   render(<VideoSchemaEditor modelAlias={schema.model_alias} upstreamModel={schema.upstream_model} schema={schema} onClose={vi.fn()} onApply={onApply}/>);
+  await openAdvanced(user);
   await user.click(screen.getByRole('tab',{name:'Output',exact:true}));
   await user.click(screen.getByRole('checkbox',{name:'Configure output estimates'}));
   await user.click(screen.getByRole('button',{name:'Apply configuration'}));
@@ -188,10 +197,66 @@ it('accepts seconds estimates without a frame-rate control but keeps pixel estim
   expect(onApply).toHaveBeenCalledTimes(1);
   expect(onApply.mock.calls[0][0].controls.frames_per_second).toBeUndefined();
   expect(onApply.mock.calls[0][0].output).toEqual(configured.output);
+  await openAdvanced(user);
   await user.click(screen.getByRole('tab', {name:'Output',exact:true}));
   await user.click(screen.getByLabelText('Estimation meter'));
   await user.click(screen.getByRole('menuitemradio', {name:'Video tokens · Seedance pixels',exact:true}));
   await user.click(screen.getByRole('button', {name:'Apply configuration'}));
   expect(onApply).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('alert').textContent).toContain('frame rate controls');
+});
+
+it('prefills a reviewed template with channel, byte limits, MIME types and pixel mappings', async () => {
+  const user = userEvent.setup();
+  const onApply = vi.fn();
+  render(<VideoSchemaEditor modelAlias="team/seedance" upstreamModel="seedance-upstream" onClose={vi.fn()} onApply={onApply}/>);
+  await user.click(screen.getByLabelText('Template'));
+  await user.click(screen.getByRole('menuitemradio',{name:/Seedance/}));
+  await user.click(screen.getByRole('button',{name:'Use template'}));
+  expect((screen.getByLabelText('Channel') as HTMLInputElement).value).toBe('ark-direct-v1');
+  expect((screen.getByLabelText('Maximum request bytes') as HTMLInputElement).value).toBe('16777216');
+  expect((screen.getByLabelText('Maximum content items') as HTMLInputElement).value).toBe('4');
+  expect(screen.getByRole('checkbox',{name:/Image/}).getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByText('Templates prefill channel, request limits, MIME types and pixel mappings. They are starting points, not verified model capabilities. Review every value against the Provider contract.')).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Apply configuration'}));
+  expect(onApply).toHaveBeenCalledTimes(1);
+  const saved = onApply.mock.calls[0][0];
+  expect(saved).toMatchObject({
+    channel:'ark-direct-v1', maximum_body_bytes:16777216, maximum_content_items:4,
+    inputs:{text:{maximum_items:4,maximum_bytes:65536,https:false,data_mime_types:[],roles:[],role_required:false},image_url:{maximum_items:4,maximum_bytes:4194304,https:true,data_mime_types:['image/png','image/jpeg','image/webp'],roles:[],role_required:false}},
+    controls:{duration:{kind:'integer',minimum:4,maximum:12,default:5},resolution:{kind:'choice',values:['480p','720p','1080p'],default:'480p'},ratio:{kind:'choice',values:['16:9','9:16','1:1'],default:'16:9'},frames_per_second:{kind:'integer',minimum:24,maximum:60,default:24}},
+    output:{estimator:'SeedancePixelsV1'},
+  });
+  expect(saved.output.specifications).toHaveLength(9);
+  expect(saved.output.specifications).toContainEqual({resolution:'720p',ratio:'16:9',width:1280,height:720});
+  expect(saved.output.specifications).toContainEqual({resolution:'1080p',ratio:'9:16',width:1080,height:1920});
+  expect(saved.callbacks_qualified).toBe(false);
+  expect(saved.exclusive_controls).toEqual([]);
+});
+
+it('keeps the raw five-tab schema overrides collapsed until advanced is opened', async () => {
+  const user = userEvent.setup();
+  render(<VideoSchemaEditor modelAlias={schema.model_alias} upstreamModel={schema.upstream_model} schema={schema} onClose={vi.fn()} onApply={vi.fn()}/>);
+  expect(screen.queryByRole('tab',{name:'Inputs',exact:true})).toBeNull();
+  expect(screen.getByRole('checkbox',{name:/Text/})).toBeTruthy();
+  const advanced = screen.getByRole('button',{name:/Advanced schema overrides/});
+  expect(advanced.getAttribute('aria-expanded')).toBe('false');
+  await user.click(advanced);
+  expect(screen.getByRole('tab',{name:'Inputs',exact:true})).toBeTruthy();
+  expect(screen.queryByRole('checkbox',{name:/Text/})).toBeNull();
+  await user.click(advanced);
+  expect(screen.queryByRole('tab',{name:'Inputs',exact:true})).toBeNull();
+  expect(screen.getByRole('checkbox',{name:/Text/})).toBeTruthy();
+});
+
+it('round-trips saved choices outside the built-in template lists without changing the schema', async () => {
+  const user = userEvent.setup();
+  const onApply = vi.fn();
+  const custom: VideoSchema = {...schema,controls:{...schema.controls,resolution:{kind:'choice',values:['720p','1080p','custom-wide'],default:'720p'},ratio:{kind:'choice',values:['16:9','custom-ratio'],default:'16:9'}}};
+  render(<VideoSchemaEditor modelAlias={custom.model_alias} upstreamModel={custom.upstream_model} schema={custom} onClose={vi.fn()} onApply={onApply}/>);
+  expect(screen.getByRole('checkbox',{name:'custom-wide'})).toBeTruthy();
+  expect(screen.getByRole('checkbox',{name:'custom-ratio'})).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Apply configuration'}));
+  expect(onApply.mock.calls[0][0]).toEqual(custom);
+  expect(onApply.mock.calls[0][0].revision).toBe(custom.revision);
 });

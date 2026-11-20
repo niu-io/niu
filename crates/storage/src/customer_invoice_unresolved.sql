@@ -7,6 +7,7 @@ SELECT EXISTS (
     LEFT JOIN customer_media_charges mc ON mc.attempt_id=a.id
     WHERE a.organization_id=$1 AND a.project_id=$2
         AND a.execution<>'confirmed_not_executed'
+        AND NOT niu_attempt_failed_zero_cost(a.id)
         AND a.dispatched_at>=to_timestamp($4::double precision/1000)
         AND a.dispatched_at<to_timestamp($5::double precision/1000)
         AND (

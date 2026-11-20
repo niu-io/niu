@@ -32,7 +32,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let attempt = admission.attempt_id;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
         Self::insert_route_generation(&mut *tx, attempt, admission.route_generation).await?;
         if let Some(binding) = &admission.evaluation {
@@ -48,7 +48,14 @@ impl Store {
         if let Some(route) = &admission.managed_route {
             Self::insert_managed_route(&mut *tx, attempt, route).await?;
         }
-        Self::bind_key_token_bound_with(&mut *tx, scope, attempt, admission.token_bound).await?;
+        Self::bind_key_token_bound_with(
+            &mut *tx,
+            scope,
+            attempt,
+            admission.token_bound,
+            admission.token_bound_estimator,
+        )
+        .await?;
         Self::bind_personal_attempt_route_with(&mut *tx, scope, attempt, route).await?;
         if let Some(snapshot) = &admission.inspected_guardrails {
             Self::insert_inspected_guardrails(
@@ -67,7 +74,7 @@ impl Store {
             &admission.dispatch_provider,
         )
         .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok((admission.operation_id, attempt))
     }
 }

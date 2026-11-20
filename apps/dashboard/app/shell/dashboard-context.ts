@@ -7,7 +7,7 @@ export type CustomerUnitPricing = {definition_revision:string; unit_name:string;
 export type Model = { generation_capabilities?: {chat:boolean|null;video:boolean|null}|null; billing_source?: 'own_api_key' | 'niu_credits' | null; customer_pricing?: CustomerPricing | null; customer_unit_pricing?: CustomerUnitPricing | null; catalog?: CatalogMetadata; id: string; provider?: string; upstream_model?: string; public_catalog: boolean };
 export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';
-export type Organization = { id: string; name: string };
+export type Organization = { id: string; slug?: string; name: string };
 export type MemberProfile = {name:string; email:string | null; avatar_data_url:string | null; revision:number};
 export type Workspace = { id: string; slug?: string; route_slug?: string; slug_aliases?: string[]; is_default?: boolean; created_at_ms?: number; active_key_count?: number; requests_30d?: number; requests_by_day?: Array<{start_ms: number; request_count: number}>; last_request_at_ms?: number | null; name: string; organization_id: string; organization_name: string };
 export type SessionChatKey = {
@@ -25,6 +25,7 @@ export type WorkspaceProblem =
   | { kind: 'response' };
 export type AccountRole = 'user' | 'admin';
 export type AdminSession = {
+  operating_mode?: 'internal' | 'resale';
   roles?: {available: AccountRole[]; active: AccountRole; switchable: boolean};
   admin_mode?: {available: boolean; enabled: boolean};
   profile?: MemberProfile | null;
@@ -59,9 +60,20 @@ export type DashboardContext = {
   updateProfile?: (profile: MemberProfile) => void;
   providerDirectory?: {id: string; slug?: string; name: string}[];
   providerDirectoryLoading?: boolean;
+  /** Set when the shared provider directory request failed; cached entries remain in providerDirectory. */
+  providerDirectoryError?: string;
+  reloadProviderDirectory?: () => void;
   organizations: Organization[];
   organization: Organization | null;
-  selectOrganization: (organization: Organization) => void;
+  selectOrganization: (organization: Organization) => void | Promise<void>;
+  organizationSwitching?: boolean;
+  organizationSwitchError?: string;
+  createOrganization?: (name: string, slug?: string, initialWorkspaceName?: string, idempotencyKey?: string) => Promise<Organization>;
+  renameOrganization?: (target: Organization, name: string) => Promise<Organization>;
+  joinOrganization?: (inviteToken: string) => Promise<AdminSession>;
+  /** Redeem a purpose-bound one-time invitation for the signed-in account. */
+  acceptInvitation?: (invitationToken: string) => Promise<AdminSession>;
+  openCreateOrganization?: () => void;
   workspaces: Workspace[];
   workspace: Workspace | null;
   workspaceLoading: boolean;
@@ -69,7 +81,8 @@ export type DashboardContext = {
   workspaceError: WorkspaceProblem | null;
   selectWorkspace: (workspace: Workspace) => void;
   createWorkspace: (name: string, organizationId?: string, slug?: string, spendingLimit?: {currency: string; limit_nanos: string}) => Promise<Workspace>;
-  renameWorkspace: (workspace: Workspace, name: string) => Promise<Workspace>;
+  /** Apply a rename confirmed by the workspace settings route action. */
+  applyWorkspaceRename: (workspaceId: string, name: string) => void;
   deleteWorkspace: (workspace: Workspace) => Promise<void>;
   chatKeys: SessionChatKey[];
   rememberChatKey: (key: SessionChatKey) => void;

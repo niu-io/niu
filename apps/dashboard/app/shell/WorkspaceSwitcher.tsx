@@ -1,12 +1,12 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol } from '@/lib/money';
 import { Link } from 'react-router';
-import { IconList } from '@tabler/icons-react';
+import { IconArrowLeft, IconFolder, IconList } from '@tabler/icons-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconSelector as ChevronsUpDown } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconX as X } from "@tabler/icons-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,12 +16,13 @@ import { Label } from '@/components/ui/label';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useLocale } from './ui-locale';
 import type { DashboardContext } from './dashboard-context';
-import { workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
+import { organizationDisplayName, workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
 
-export default function WorkspaceSwitcher({ context, onCreateWorkspace, creationAvailable = true }: {
+export default function WorkspaceSwitcher({ context, onCreateWorkspace, creationAvailable = true, logo }: {
   context: DashboardContext;
   onCreateWorkspace: () => void;
   creationAvailable?: boolean;
+  logo?: string;
 }) {
   const { t: uiT } = useUILocale();
   const { t } = useLocale();
@@ -47,27 +48,39 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
   }
 
   const triggerTitle = workspace ? workspaceDisplayName(workspace.name) : workspaceLoading ? t('Loading workspaces…', '正在加载工作空间…') : t('Choose a workspace', '选择工作空间');
+  const duplicateNames = new Set(
+    entries
+      .map(item => workspaceDisplayName(item.name))
+      .filter((itemName, index, list) => list.indexOf(itemName) !== index),
+  );
   return <div className="workspace-switcher">
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label={uiT("Switch workspace")} title={t('Switch workspace', '切换工作空间')}>
-        <span className="workspace-switcher-copy"><strong>{triggerTitle}</strong></span>
+      <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" disabled={!token} aria-label={uiT("Switch workspace")} title={workspace ? `${triggerTitle} (${t('Switch workspace', '切换工作空间')})` : t('Switch workspace', '切换工作空间')}>
+        {logo ? <img src={logo} alt="" className="size-5 shrink-0" /> : <IconFolder size={18} aria-hidden="true" />}<span className="workspace-switcher-copy"><strong>{triggerTitle}</strong></span>
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-        <DropdownMenuLabel className="workspace-switcher-menu-title">{t('Workspaces', '工作空间')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="workspace-switcher-menu-title">{organization ? `${t('Workspaces', '工作空间')} · ${organizationDisplayName(organization.name)}` : t('Workspaces', '工作空间')}</DropdownMenuLabel>
         {workspaceLoading && <div className="workspace-switcher-empty">{t('Loading workspaces…', '正在加载工作空间…')}</div>}
         {!workspaceLoading && entries.length === 0 && <div className="workspace-switcher-empty">{t('No workspaces yet.', '暂无工作空间。')}</div>}
         {!workspaceLoading && <DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {
           const next = entries.find(item => item.id === id);
-          if (next) selectWorkspace(next);
+          if (next) {
+            selectWorkspace(next);
+            if (isMobile) window.requestAnimationFrame(() => setOpenMobile(false));
+          }
         }}>
-          {entries.map(item => <DropdownMenuRadioItem className="workspace-switcher-item" key={item.id} value={item.id}>
-            <span>{workspaceDisplayName(item.name)}</span>
-          </DropdownMenuRadioItem>)}
+          {entries.map(item => {
+            const displayName = workspaceDisplayName(item.name);
+            const slugHint = duplicateNames.has(displayName) && (item.slug || item.route_slug) ? ` · ${item.slug || item.route_slug}` : '';
+            return <DropdownMenuRadioItem className="workspace-switcher-item" key={item.id} value={item.id}>
+              <span>{displayName}{slugHint}</span>
+            </DropdownMenuRadioItem>;
+          })}
         </DropdownMenuRadioGroup>}
         {workspaceError && <div className="workspace-switcher-error" role="alert">{t('Workspace access is unavailable. Close this menu and retry.', '工作空间访问暂不可用，请关闭菜单后重试。')}</div>}
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild onSelect={() => { if (isMobile) setOpenMobile(false); }}>
+        <DropdownMenuItem asChild onSelect={() => { if (isMobile) window.requestAnimationFrame(() => setOpenMobile(false)); }}>
           <Link to="/workspaces"><IconList size={16} aria-hidden="true" />{t('All workspaces', '所有工作空间')}</Link>
         </DropdownMenuItem>
         {canCreate && !workspaceLoading && !workspaceError && <>
@@ -80,9 +93,10 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
   </div>;
 }
 
-export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
+export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSettings = false }: {
   context: DashboardContext;
   open: boolean;
+  withinSettings?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
@@ -94,9 +108,16 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
+  const [slugOpen, setSlugOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
   const openerRef = useRef<HTMLElement | null>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!withinSettings || !open) return;
+    const frame = requestAnimationFrame(() => nameInput.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, withinSettings]);
 
   useEffect(() => {
     if (!open) return;
@@ -104,6 +125,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
     setName('');
     setSlug('');
     setSlugEdited(false);
+    setSlugOpen(false);
     setCreateError('');
   }, [open]);
 
@@ -127,32 +149,179 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
     }
   }
 
+  const description = <>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organizationDisplayName(organization.name)}。` : uiF(" In {0}.", [organizationDisplayName(organization.name)])) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</>;
+  const form = <form onSubmit={submitCreate} className="niu-modal-form">
+        <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input ref={nameInput} id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
+        {slugOpen ? <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{slug ? t(`Used in /workspaces/${slug}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`) : t('Used in /workspaces/your-workspace. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.', '将用于 /workspaces/your-workspace。仅限小写字母、数字和连字符，中文名称自动转为拼音。')}</p></div>
+          : <div className="flex flex-wrap items-center justify-between gap-2"><p className="break-words text-sm text-muted-foreground">{slug ? <>{t('URL slug', '路径标识')}: {slug}</> : t('URL slug: generated from workspace name', '路径标识：将根据工作空间名称自动生成')}</p><Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setSlugOpen(true)}>{t('Edit slug', '编辑路径')}</Button></div>}
+        {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
+        {canSetLimit && <section className="grid gap-3" aria-labelledby="workspace-budget-title">
+          <div><h3 id="workspace-budget-title" className="text-sm font-medium">{t('Budget', '预算')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></h3><p id="workspace-budget-help" className="mt-2 text-sm text-muted-foreground">{t('Limit customer spending in this workspace. Leave blank for no workspace limit; zero blocks new paid requests. The organization’s shared balance and other limits still apply.', '限制此工作空间的客户消费。留空表示工作空间不限额；填写零会阻止新的付费请求。组织共享余额和其他限额仍然适用。')}</p><p className="mt-2 text-sm text-muted-foreground">{t('Saving a spending limit retains audit history and prevents deleting this workspace, even without requests.', '保存消费限额后会保留审计记录，即使没有请求，也无法删除此工作空间。')}</p></div>
+          <div className="grid gap-2"><Label htmlFor="workspace-limit">{t('Spending limit', '消费限额')}{currency ? ` (${currencySymbol(currency)})` : ''}</Label><Input id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-budget-help" /></div>
+          {currencyError && <p className="text-sm text-muted-foreground">{uiT(currencyError)}</p>}
+          {!currency && !currencyError && <p className="text-sm text-muted-foreground" role="status">{t('Loading platform currency…', '正在加载平台币种…')}</p>}
+        </section>}
+        {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}
+        <DialogFooter className="workspace-create-actions"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button><Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? t('Creating…', '创建中…') : t('Create workspace', '创建工作空间')}</Button></DialogFooter>
+      </form>;
+  if (withinSettings) return open ? <section className="space-y-5" aria-labelledby="workspace-create-title">
+    <Button type="button" variant="ghost" size="sm" data-settings-back disabled={saving} onClick={() => onOpenChange(false)}><IconArrowLeft size={16} />{t('Back to organization', '返回组织设置')}</Button>
+    <header className="space-y-2"><h3 id="workspace-create-title" className="text-base font-semibold">{t('Create workspace', '创建工作空间')}</h3><p className="text-sm text-muted-foreground">{description}</p></header>
+    {form}
+  </section> : null;
+
   return <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
     <DialogContent onOpenAutoFocus={() => { openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => {
       const opener = openerRef.current;
-      const target = opener?.isConnected && opener.getClientRects().length && !opener.closest('[role="dialog"]') ? opener : ['[aria-label="Create workspace"]', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
+      const closingDialog = event.target instanceof HTMLElement ? event.target : null;
+      const target = opener?.isConnected && opener.getClientRects().length && !closingDialog?.contains(opener) ? opener : ['[aria-label="Create workspace"]', '.workspace-switcher-trigger', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
-    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+    }} className="niu-modal workspace-create-dialog max-h-[90dvh] overflow-y-auto" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
-        <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organization.name}。` : uiF(" In {0}.", [organization.name])) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</DialogDescription></div>
+        <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{description}</DialogDescription></div>
         <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
       </DialogHeader>
-      <form onSubmit={submitCreate} className="niu-modal-form">
-        <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
-        <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{t(`Used in /workspaces/${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}</p></div>
-        {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
-        {canSetLimit && <section className="grid gap-3" aria-labelledby="workspace-budget-title">
-          <div><h3 id="workspace-budget-title" className="text-sm font-medium">{t('Budget', '预算')} <span className="font-normal text-muted-foreground">{t('(optional)', '（可选）')}</span></h3><p id="workspace-budget-help" className="mt-2 text-sm text-muted-foreground">{t('Cap customer spending across this workspace. Leave blank for no limit.', '限制此工作空间的客户总消费额度，留空则不设上限。')}</p></div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-            <div className="grid gap-2"><Label htmlFor="workspace-limit">{t('Spending limit', '消费限额')}{currency ? ` (${currencySymbol(currency)})` : ''}</Label><Input id="workspace-limit" inputMode="decimal" placeholder="0.00" disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-budget-help" /></div>
-            <div className="grid gap-2"><Label htmlFor="workspace-reset">{t('Reset', '重置周期')}</Label><Input id="workspace-reset" value={t('Never (lifetime)', '从不（终身有效）')} readOnly /></div>
-          </div>
-          {currencyError && <p className="text-sm text-muted-foreground">{currencyError}</p>}
-          {!currency && !currencyError && <p className="text-sm text-muted-foreground" role="status">{t('Loading platform currency…', '正在加载平台币种…')}</p>}
-        </section>}
-        {createError && <p className="error-text" role="alert">{createError}</p>}
-        <div className="workspace-create-actions"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button><Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? t('Creating…', '创建中…') : t('Create workspace', '创建工作空间')}</Button></div>
-      </form>
+      {form}
+    </DialogContent>
+  </Dialog>;
+}
+
+export function OrganizationCreateDialog({ context, open, onOpenChange, withinSettings = false }: {
+  context: DashboardContext;
+  open: boolean;
+  withinSettings?: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t: uiT } = useUILocale();
+  const { isZh, t } = useLocale();
+  const { createOrganization } = context;
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [initialWorkspace, setInitialWorkspace] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const idempotencyKeyRef = useRef('');
+  const openerRef = useRef<HTMLElement | null>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!withinSettings || !open) return;
+    const frame = requestAnimationFrame(() => nameInput.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, withinSettings]);
+
+  useEffect(() => {
+    if (!open) return;
+    setName('');
+    setSlug('');
+    setSlugEdited(false);
+    setInitialWorkspace(isZh ? '默认' : 'Default');
+    setCreateError('');
+    idempotencyKeyRef.current = crypto.randomUUID();
+  }, [open, isZh]);
+
+  async function submitCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving || !name.trim() || !createOrganization) return;
+    setSaving(true);
+    setCreateError('');
+    try {
+      if (!idempotencyKeyRef.current) idempotencyKeyRef.current = crypto.randomUUID();
+      await createOrganization(
+        name.trim(),
+        slug.trim() || undefined,
+        initialWorkspace.trim() || undefined,
+        idempotencyKeyRef.current,
+      );
+      onOpenChange(false);
+    } catch (cause) {
+      setCreateError(cause instanceof Error ? cause.message : t('Could not create organization.', '无法创建组织。'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const description = <>{t('Create a separate organization with its own members, workspaces, and independent zero-balance billing account.', '创建一个拥有独立成员、工作空间与零余额计费账户的新组织。')}</>;
+  const form = <form onSubmit={submitCreate} className="niu-modal-form">
+        <div className="grid gap-2">
+          <Label htmlFor="organization-name">{t('Organization name', '组织名称')}</Label>
+          <Input
+            ref={nameInput}
+            id="organization-name"
+            required
+            maxLength={200}
+            autoFocus
+            disabled={saving}
+            value={name}
+            onChange={event => {
+              const nextName = event.target.value;
+              setName(nextName);
+              idempotencyKeyRef.current = crypto.randomUUID();
+              if (!slugEdited) setSlug(workspaceSlugFromName(nextName));
+            }}
+            placeholder={t('e.g. Acme Studio', '例如：星云工作室')}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="organization-slug">{t('Slug', '路径标识 (Slug)')}</Label>
+          <Input
+            id="organization-slug"
+            required
+            maxLength={48}
+            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            disabled={saving}
+            value={slug}
+            onChange={event => {
+              setSlugEdited(true);
+              setSlug(event.target.value);
+              idempotencyKeyRef.current = crypto.randomUUID();
+            }}
+            placeholder={t('acme-studio', 'acme-studio')}
+            aria-describedby="organization-slug-help"
+          />
+          <p id="organization-slug-help" className="break-words text-sm text-muted-foreground">
+            {t(`Used in ?org=${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 ?org=${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <p id="organization-prereq-help" className="text-sm text-muted-foreground">
+            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度与充值”中充值或完成支付配置。')}
+          </p>
+        </div>
+        {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}
+        <DialogFooter className="workspace-create-actions">
+          <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button>
+          <Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? t('Creating…', '创建中…') : t('Create organization', '创建组织')}</Button>
+        </DialogFooter>
+      </form>;
+  if (withinSettings) return open ? <section className="space-y-5" aria-labelledby="organization-create-title">
+    <Button type="button" variant="ghost" size="sm" data-settings-back disabled={saving} onClick={() => onOpenChange(false)}><IconArrowLeft size={16} />{t('Back to organization', '返回组织设置')}</Button>
+    <header className="space-y-2"><h3 id="organization-create-title" className="text-base font-semibold">{t('Create organization', '创建组织')}</h3><p className="text-sm text-muted-foreground">{description}</p></header>
+    {form}
+  </section> : null;
+
+  return <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
+    <DialogContent onOpenAutoFocus={() => { openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => {
+      const opener = openerRef.current;
+      const closingDialog = event.target instanceof HTMLElement ? event.target : null;
+      const target = opener?.isConnected && opener.getClientRects().length && !closingDialog?.contains(opener)
+        ? opener
+        : ['[aria-label="Account menu"]', '[aria-label="Open navigation menu"]', '.sidebar-toggle']
+            .flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))
+            .find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
+      if (target) { event.preventDefault(); target.focus(); }
+    }} className="niu-modal workspace-create-dialog max-h-[90dvh] overflow-y-auto" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+      <DialogHeader className="niu-modal-heading flex-row text-left">
+        <div>
+          <DialogTitle>{t('Create organization', '创建组织')}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </div>
+        <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
+      </DialogHeader>
+      {form}
     </DialogContent>
   </Dialog>;
 }

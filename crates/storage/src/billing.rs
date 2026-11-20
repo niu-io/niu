@@ -98,9 +98,15 @@ SELECT jsonb_build_object(
             return Err(StoreError::InvalidPrice);
         }
         let organization = Uuid::new_v4();
-        sqlx::query("INSERT INTO organizations(id,name) VALUES($1,$2)")
+        let base_slug = crate::workspace_creation::workspace_slug_from_name(name);
+        let slug: String = sqlx::query_scalar("SELECT niu_available_organization_slug($1)")
+            .bind(base_slug)
+            .fetch_one(&mut **tx)
+            .await?;
+        sqlx::query("INSERT INTO organizations(id,name,slug) VALUES($1,$2,$3)")
             .bind(organization)
             .bind(name)
+            .bind(slug)
             .execute(&mut **tx)
             .await?;
         sqlx::query(
@@ -235,7 +241,7 @@ SELECT jsonb_build_object(
         let id = Uuid::new_v4();
         sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,reverses_entry_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(id).bind(organization).bind(account).bind(currency).bind(kind).bind(signed).bind(idempotency_key).bind(original).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
 
@@ -320,7 +326,7 @@ SELECT jsonb_build_object(
                 .bind(Uuid::new_v4()).bind(account).bind(next).bind(kind).bind(operator)
                 .execute(&mut *tx).await?;
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
@@ -352,7 +358,7 @@ SELECT jsonb_build_object(
         let next = revision + 1;
         sqlx::query("INSERT INTO customer_balance_policy_revisions(organization_id,account_id,currency,revision,credit_limit_nanos,warning_threshold_nanos) VALUES($1,$2,$3,$4,$5,$6)").bind(organization).bind(account).bind(currency).bind(next).bind(credit).bind(threshold).execute(&mut *tx).await?;
         sqlx::query("UPDATE customer_balance_accounts SET warning_threshold_nanos=$2,policy_revision=$3 WHERE id=$1").bind(account).bind(threshold).bind(next).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(next)
     }
 
@@ -373,9 +379,9 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         maximum_nanos: i64,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         reserve_customer_balance_in_tx(&mut tx, scope, attempt, maximum_nanos).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -385,9 +391,9 @@ SELECT jsonb_build_object(
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::release_nonexecuted_customer_balance_in_tx(&mut tx, scope, attempt).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -443,7 +449,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         // Serialize account creation and same-company callback retries.
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
@@ -474,7 +480,7 @@ SELECT jsonb_build_object(
         if inserted.rows_affected() != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(entry)
     }
 
@@ -493,7 +499,7 @@ SELECT jsonb_build_object(
                 .bind(vec![organization])
                 .fetch_all(&mut *snapshot)
                 .await?;
-        snapshot.commit().await?;
+        crate::commit_tx(snapshot).await?;
         Ok(balances.into_iter().map(|(_, balance)| balance).collect())
     }
 
@@ -555,9 +561,88 @@ SELECT jsonb_build_object(
         for (organization, balance) in balances {
             grouped.entry(organization).or_default().push(balance);
         }
-        let data: Vec<Value> = companies.into_iter().map(|company| json!({"organization_id":company.id,"organization_name":company.name,"accounts":grouped.remove(&company.id).unwrap_or_default()})).collect();
-        snapshot.commit().await?;
+        let credit_rows: Vec<(Uuid, String, i16, i64, bool)> =
+            sqlx::query_as(include_str!("platform_customer_unit_summaries.sql"))
+                .bind(
+                    companies
+                        .iter()
+                        .map(|company| company.id)
+                        .collect::<Vec<_>>(),
+                )
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let mut credits = std::collections::BTreeMap::<Uuid, Vec<(String, i16, i64, bool)>>::new();
+        for (organization, name, display_precision, available_atoms, is_current) in credit_rows {
+            credits.entry(organization).or_default().push((
+                name,
+                display_precision,
+                available_atoms,
+                is_current,
+            ));
+        }
+        let data: Vec<Value> = companies
+            .into_iter()
+            .map(|company| {
+                let credit_summary = credits
+                    .remove(&company.id)
+                    .map(|rows| platform_customer_credit_summary(&rows))
+                    .unwrap_or(Value::Null);
+                json!({
+                    "organization_id":company.id,
+                    "organization_name":company.name,
+                    "accounts":grouped.remove(&company.id).unwrap_or_default(),
+                    "credits":credit_summary
+                })
+            })
+            .collect();
+        crate::commit_tx(snapshot).await?;
         Ok(json!({"data":data,"next_after":next}))
+    }
+
+    /// Current platform retail text rates for one alias, used to price shared routes.
+    pub async fn platform_retail_text_pricing(
+        &self,
+        alias: &str,
+    ) -> Result<Option<(String, i64, i64)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT h.currency,(r.schedule->>'prompt_rate')::bigint,(r.schedule->>'completion_rate')::bigint FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions r ON r.id=h.current_revision WHERE h.model_alias=$1 AND h.rate_kind='text'",
+        )
+        .bind(alias)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    /// Standard published customer text schedules matching the active platform
+    /// currency, stripped of internal revision and price identifiers.
+    pub async fn public_standard_text_prices(
+        &self,
+    ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let rows: Vec<(String, String, Value)> = sqlx::query_as(
+            "SELECT h.model_alias, h.currency, r.schedule \
+             FROM platform_retail_price_heads h \
+             JOIN platform_currency c ON c.singleton AND c.currency = h.currency \
+             JOIN platform_retail_standard_revisions r ON r.id = h.current_revision \
+             WHERE h.rate_kind = 'text' AND h.current_revision IS NOT NULL \
+             ORDER BY h.model_alias",
+        )
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        let mut prices = std::collections::BTreeMap::new();
+        for (alias, currency, raw_schedule) in rows {
+            let schedule: crate::RetailSchedule =
+                serde_json::from_value(raw_schedule).map_err(|_| StoreError::InvalidPrice)?;
+            let crate::RetailSchedule::Text(text) = schedule else {
+                return Err(StoreError::InvalidPrice);
+            };
+            let mut price = serde_json::to_value(text).map_err(|_| StoreError::InvalidPrice)?;
+            price["currency"] = json!(currency);
+            price["unit"] = json!("nanounits_per_million_tokens");
+            price["pricing_source"] = json!("platform");
+            prices.insert(alias, price);
+        }
+        Ok(prices)
     }
 
     /// Complete customer catalog prices; this compatibility map has no cursor.
@@ -568,7 +653,7 @@ SELECT jsonb_build_object(
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let prices = Self::customer_model_prices_in_tx(&mut tx, scope).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(prices)
     }
 
@@ -791,7 +876,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
@@ -872,7 +957,7 @@ SELECT jsonb_build_object(
             .execute(&mut *tx)
             .await?;
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'tariff_published',$3)").bind(scope.organization_id).bind(scope.project_id).bind(revision).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(revision)
     }
     pub async fn bind_customer_tariff(
@@ -881,9 +966,9 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         alias: &str,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_tx().await?;
         Self::bind_customer_tariff_in_tx(&mut tx, scope, attempt, alias).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -948,7 +1033,7 @@ SELECT jsonb_build_object(
         let mut tx = self.begin_bounded_recording().await?;
         let result = Self::accrue_customer_charge_in_tx(&mut tx, attempt).await;
         if result.is_ok() || matches!(result, Err(StoreError::BudgetExceeded)) {
-            tx.commit().await?;
+            crate::commit_tx(tx).await?;
         }
         result
     }
@@ -1112,7 +1197,7 @@ SELECT jsonb_build_object(
         sqlx::query("INSERT INTO customer_invoices(id,organization_id,project_id,from_ms,to_ms,currency,amount_nanos,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(from).bind(to).bind(currency).bind(amount).bind(key).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO customer_invoice_entries(invoice_id,organization_id,project_id,attempt_id) SELECT $1,c.organization_id,c.project_id,c.attempt_id FROM customer_invoice_charge_sources c JOIN attempts a ON a.id=c.attempt_id WHERE c.organization_id=$2 AND c.project_id=$3 AND c.currency=$4 AND a.dispatched_at>=to_timestamp($5::double precision/1000) AND a.dispatched_at<to_timestamp($6::double precision/1000)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'invoice_issued',$3)").bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(id)
     }
     pub async fn record_customer_payment(
@@ -1178,14 +1263,11 @@ SELECT jsonb_build_object(
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'external_payment_recorded',$3)").bind(scope.organization_id).bind(scope.project_id).bind(invoice).execute(&mut *tx).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     pub async fn customer_billing(&self, scope: TenantScope) -> Result<Value, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let (balances, invoices): (Value, Value) =
             sqlx::query_as(include_str!("customer_billing_summary.sql"))
                 .bind(scope.organization_id)
@@ -1201,7 +1283,7 @@ SELECT jsonb_build_object(
         let mut prices = Self::customer_model_prices_in_tx(&mut tx, scope).await?;
         // Match model discovery: an enabled personally funded route does not
         // expose a customer selling price, even if a legacy tariff exists.
-        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE o.organization_id=$1 AND m.enabled AND v.enabled")
+        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE (o.organization_id=$1 OR o.access_scope='internal') AND m.enabled AND v.enabled")
             .bind(scope.organization_id).fetch_all(&mut *tx).await?;
         for alias in &personal {
             prices.remove(alias);
@@ -1369,7 +1451,7 @@ SELECT jsonb_build_object(
         .fetch_one(&mut *tx)
         .await?;
 
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(json!({
             "billing_mode": billing_mode,
             "balances": balances,
@@ -1493,4 +1575,78 @@ pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
         .await
         .map_err(crate::accounting::map_reservation_error)?;
     Ok(())
+}
+
+/// Standard-unit Credits summary for the platform customer list. The largest
+/// positive unit is shown; the current definition breaks ties at equal amounts.
+/// No lot, provenance or atom detail leaves this projection.
+fn platform_customer_credit_summary(rows: &[(String, i16, i64, bool)]) -> Value {
+    if rows.is_empty() {
+        return Value::Null;
+    }
+    let primary = rows.iter().position(|row| row.2 > 0).unwrap_or(0);
+    let (name, display_precision, available_atoms, _) = &rows[primary];
+    let additional_units = rows
+        .iter()
+        .enumerate()
+        .filter(|(index, row)| *index != primary && row.2 > 0)
+        .count();
+    json!({
+        "name": name,
+        "display_precision": display_precision,
+        "available": format_customer_unit_decimal(*available_atoms, *display_precision),
+        "additional_units": additional_units
+    })
+}
+
+/// Exact standard-unit decimal string, keeping every represented nanounit and
+/// padding to the configured display precision. Never rounds a positive value to zero.
+fn format_customer_unit_decimal(atoms: i64, display_precision: i16) -> String {
+    const NANOS_PER_UNIT: u64 = 1_000_000_000;
+    let negative = atoms < 0;
+    let absolute = atoms.unsigned_abs();
+    let whole = absolute / NANOS_PER_UNIT;
+    let remainder = absolute % NANOS_PER_UNIT;
+    let mut fraction = format!("{remainder:09}");
+    while fraction.ends_with('0') {
+        fraction.pop();
+    }
+    while fraction.len() < display_precision.clamp(0, 9) as usize {
+        fraction.push('0');
+    }
+    let number = if fraction.is_empty() {
+        whole.to_string()
+    } else {
+        format!("{whole}.{fraction}")
+    };
+    if negative {
+        format!("-{number}")
+    } else {
+        number
+    }
+}
+
+#[cfg(test)]
+mod platform_credit_summary_tests {
+    use super::{format_customer_unit_decimal, platform_customer_credit_summary};
+
+    #[test]
+    fn formats_exact_standard_units_without_rounding_to_zero() {
+        assert_eq!(format_customer_unit_decimal(0, 2), "0.00");
+        assert_eq!(format_customer_unit_decimal(69_000_000_000, 2), "69.00");
+        assert_eq!(format_customer_unit_decimal(1_500_000, 2), "0.0015");
+        assert_eq!(format_customer_unit_decimal(1_234_000_000_000, 0), "1234");
+        assert_eq!(format_customer_unit_decimal(-1_500_000_000, 2), "-1.50");
+    }
+
+    #[test]
+    fn chooses_a_positive_unit_and_counts_the_rest() {
+        let summary = platform_customer_credit_summary(&[
+            ("Niu Credits".to_string(), 2, 0, true),
+            ("Legacy Credits".to_string(), 2, 12_500_000_000, false),
+        ]);
+        assert_eq!(summary["name"], "Legacy Credits");
+        assert_eq!(summary["available"], "12.50");
+        assert_eq!(summary["additional_units"], 0);
+    }
 }

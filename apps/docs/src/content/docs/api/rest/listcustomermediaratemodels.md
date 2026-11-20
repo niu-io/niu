@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/billing/media-rate-models`
 
-Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings and the billing unit derived from a validated output estimator. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
 
 Operation: `listCustomerMediaRateModels`.
 
@@ -114,7 +114,8 @@ Content type: `application/json`.
           "schema_revision",
           "channel",
           "resolutions",
-          "reference_video"
+          "reference_video",
+          "meter"
         ],
         "properties": {
           "model_alias": {
@@ -154,6 +155,13 @@ Content type: `application/json`.
           },
           "reference_video": {
             "type": "boolean"
+          },
+          "meter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Billing unit derived from the validated output estimator; null when the model has no configured output mapping."
           }
         }
       }
@@ -180,6 +188,6 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings and the billing unit derived from a validated output estimator. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
 
 **Supported scope:** implemented

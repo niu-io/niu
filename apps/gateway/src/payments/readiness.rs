@@ -66,7 +66,7 @@ pub(super) fn zhifux_configuration_digest(runtime: &super::Runtime) -> [u8; 32] 
         &runtime.notify_url,
         &runtime.payment_methods,
     ))
-    .expect("serializable configuration");
+    .unwrap_or_else(|_| b"zhifux-configuration-unavailable".to_vec());
     runtime.client.configuration_digest(&context)
 }
 
@@ -86,58 +86,24 @@ pub(crate) struct Verification {
 }
 
 /// Same authoritative evidence powers admission and the administrator recovery view.
+/// One statement returns installation currency, merchant configuration and
+/// configuration-bound evidence; digests still come from the live runtime, so
+/// a cache can never keep a revoked or expired gateway positive.
 pub(crate) async fn verification(state: &AppState) -> Result<Verification, ApiError> {
-    let currency = state
+    let facts = state
         .store
-        .platform_currency()
+        .payment_readiness_facts()
         .await
         .map_err(ApiError::from_store)?;
-    let epay = super::configuration::runtime(state).await?;
+    verification_from_facts(state, facts).await
+}
+
+async fn verification_from_facts(
+    state: &AppState,
+    facts: niu_storage::PaymentReadinessFacts,
+) -> Result<Verification, ApiError> {
+    let currency = facts.currency.clone();
     let mut gateways = Vec::new();
-    let checkout_enabled = epay
-        .as_ref()
-        .and_then(|r| r.checkout.as_ref())
-        .is_some_and(|c| !c.methods.is_empty());
-    let currency_supported = currency.as_deref() == Some("CNY");
-    let callback_verified =
-        if let Some(digest) = epay.as_ref().and_then(|r| epay_configuration_digest(r)) {
-            state
-                .store
-                .payment_callback_verified("epay", &digest)
-                .await
-                .map_err(ApiError::from_store)?
-        } else {
-            false
-        };
-    gateways.push(GatewayVerification {
-        gateway: "epay",
-        checkout_enabled,
-        currency_supported,
-        account_verified: None,
-        callback_verified,
-        ready: checkout_enabled && currency_supported && callback_verified,
-    });
-    let checkout_enabled = state
-        .payments
-        .as_ref()
-        .is_some_and(|r| !r.payment_methods.is_empty());
-    let callback_verified = if let Some(runtime) = state.payments.as_ref() {
-        state
-            .store
-            .payment_callback_verified("zhifux", &zhifux_configuration_digest(runtime))
-            .await
-            .map_err(ApiError::from_store)?
-    } else {
-        false
-    };
-    gateways.push(GatewayVerification {
-        gateway: "zhifux",
-        checkout_enabled,
-        currency_supported,
-        account_verified: None,
-        callback_verified,
-        ready: checkout_enabled && currency_supported && callback_verified,
-    });
     let checkout = state
         .stripe_payments
         .as_ref()
@@ -156,18 +122,8 @@ pub(crate) async fn verification(state: &AppState) -> Result<Verification, ApiEr
                 .and_then(|c| stripe_configuration_digest(r, c))
         }) {
             (
-                Some(
-                    state
-                        .store
-                        .payment_verification_valid("stripe", &digest, "account")
-                        .await
-                        .map_err(ApiError::from_store)?,
-                ),
-                state
-                    .store
-                    .payment_callback_verified("stripe", &digest)
-                    .await
-                    .map_err(ApiError::from_store)?,
+                Some(facts.verification_valid("stripe", "account", &digest)),
+                facts.callback_verified("stripe", &digest),
             )
         } else {
             (Some(false), false)
@@ -232,13 +188,15 @@ async fn organization_has_funding(
     Ok(false)
 }
 
-/// Company funding is an alternative to merchant setup, never a cross-tenant
+/// Owner-funded models or company funding are alternatives to merchant setup, never a cross-tenant
 /// installation bypass. Callers must resolve and authorize the company first.
 pub(crate) async fn inspect_organization(
     state: &AppState,
     organization: Option<uuid::Uuid>,
 ) -> Result<Readiness, ApiError> {
-    if organization_has_funding(state, organization).await? {
+    if state.operating_mode == crate::state::OperatingMode::Internal
+        || organization_has_funding(state, organization).await?
+    {
         return Ok(Readiness {
             ready: true,
             reason: None,
@@ -253,7 +211,7 @@ pub(crate) struct ReadinessQuery {
 }
 
 /// ```openapi
-/// {"path":"/api/v1/payments/readiness","method":"get","operation":{"operationId":"getPaymentReadiness","summary":"Read payment or scoped funding readiness","x-niu-implementation":"implemented","security":[{},{"bearerAuth":[]}],"description":"Anonymous reads describe installation payment configuration only. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup and funding recovery stay available. No amounts, merchant credentials or identities are returned.","responses":{"200":{"description":"Current prerequisite state","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["ready","reason"],"properties":{"ready":{"type":"boolean"},"reason":{"type":["string","null"],"enum":["currency_required","payment_setup_required",null]}}}}}}}},"500":{"description":"Readiness could not be established; clients must not assume readiness."},"401":{"description":"Requested authenticated scope has no valid session"},"403":{"description":"Company outside authorized scope"}},"parameters":[{"name":"organization","in":"query","required":false,"schema":{"type":"string","format":"uuid"},"description":"Authenticated company scope; installation credentials may select a company, members may only select their own."}]}}
+/// {"path":"/api/v1/payments/readiness","method":"get","operation":{"operationId":"getPaymentReadiness","summary":"Read deployment service and payment readiness","x-niu-implementation":"implemented","security":[{},{"bearerAuth":[]}],"description":"Anonymous reads describe installation payment configuration only. Internal-use deployments do not require payment setup; this never authorizes shared commercial inference. Authenticated reads may select an authorized company using organization; member sessions default to their own company. An explicit funded, granted or approved-credit arrangement in the platform currency permits that company to use self-hosted workspace features without a merchant. Empty accounts and another company’s funds never qualify. This setup decision is separate from per-request balance reservation; spending credits does not hide history or settings. Authentication, administration, directory lookup, credential inspection, model discovery, non-inference routing/evaluation/event management and funding recovery stay available. No amounts, merchant credentials or identities are returned.","responses":{"200":{"description":"Current prerequisite state","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["ready","reason"],"properties":{"ready":{"type":"boolean"},"reason":{"type":["string","null"],"enum":["currency_required","payment_setup_required",null]}}}}}}}},"500":{"description":"Readiness could not be established; clients must not assume readiness."},"401":{"description":"Requested authenticated scope has no valid session"},"403":{"description":"Company outside authorized scope"}},"parameters":[{"name":"organization","in":"query","required":false,"schema":{"type":"string","format":"uuid"},"description":"Authenticated company scope; installation credentials may select a company, members may only select their own."}]}}
 /// ```
 pub(crate) async fn read(
     State(state): State<AppState>,
@@ -290,18 +248,6 @@ fn authorized_organization(
         AdminAuthorization::Installation => None,
         AdminAuthorization::Operator(member) => Some(member.scope.organization_id),
     })
-}
-
-pub(crate) async fn require_creation_ready(
-    state: &AppState,
-    authorization: AdminAuthorization,
-    organization: Option<uuid::Uuid>,
-) -> Result<(), ApiError> {
-    let organization = authorized_organization(authorization, organization)?;
-    if inspect_organization(state, organization).await?.ready {
-        return Ok(());
-    }
-    Err(ApiError::payment_setup_required())
 }
 
 // Match registered route templates rather than user-supplied path spellings.
@@ -348,14 +294,12 @@ async fn check_stripe_account(state: &AppState) -> Result<&'static str, ApiError
         .begin_payment_verification("stripe", &digest, "account")
         .await
         .map_err(ApiError::from_store)?;
-    let result = match runtime
-        .checkout
-        .as_ref()
-        .expect("validated checkout")
-        .client
-        .account_status()
-        .await
-    {
+    let Some(checkout) = runtime.checkout.as_ref() else {
+        return Err(ApiError::upstream_message(
+            "Payment checkout is not configured",
+        ));
+    };
+    let result = match checkout.client.account_status().await {
         Ok(account) if account.charges_enabled => "account_enabled",
         Ok(_) => "account_disabled",
         Err(niu_payments::stripe_transport::AccountCheckError::Rejected) => "credentials_rejected",
@@ -449,7 +393,33 @@ async fn current_stripe_verification(
 
 // Account funding, authentication and administration remain available for recovery.
 fn customer_feature(path: &str) -> bool {
-    if path == "/v1/currency" {
+    if matches!(
+        path,
+        "/v1/currency" | "/v1/branding" | "/v1/key" | "/v1/models"
+    ) {
+        return false;
+    }
+    // A short-lived source capability is not a spending feature. The Provider
+    // must be able to fetch it even while the installation is not ready; the
+    // handler still enforces token expiry, binding and delivery limits.
+    if path.starts_with("/v1/media/sources/") {
+        return false;
+    }
+    // These resource operations never invoke models or reserve customer funds.
+    // Their handlers still enforce the credential's scope and management grants.
+    if [
+        "/v1/routing",
+        "/v1/evaluations",
+        "/v1/events",
+        "/api/v1/workspaces/{workspace}/routing",
+        "/api/v1/workspaces/{workspace}/evaluations",
+        "/api/v1/workspaces/{workspace}/events",
+    ]
+    .iter()
+    .any(|root| {
+        path.strip_prefix(root)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    }) {
         return false;
     }
     path == "/v1"
@@ -465,6 +435,108 @@ fn customer_feature(path: &str) -> bool {
         })
 }
 
+// These operations maintain existing credentials; they do not admit spending.
+// Match registered templates and methods so key creation and limit writes remain gated.
+fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
+    let workspace = "/api/v1/workspaces/{workspace}/keys";
+    let project_api = "/api/v1/organizations/{organization}/projects/{project}/keys";
+    let project_admin = "/admin/v1/organizations/{organization}/projects/{project}/keys";
+    [workspace, project_api, project_admin].iter().any(|root| {
+        let Some(rest) = path.strip_prefix(root) else {
+            return false;
+        };
+        (rest.is_empty() && *method == axum::http::Method::GET)
+            || (rest == "/{key}"
+                && (*method == axum::http::Method::GET || *method == axum::http::Method::DELETE))
+            || (rest == "/{key}/rotate" && *method == axum::http::Method::POST)
+            || (rest == "/requests/{request}"
+                && *method == axum::http::Method::GET
+                && *root == workspace)
+    })
+}
+
+// Existing request history remains readable without funding. Individual
+// handlers still enforce workspace and payload authorization.
+fn saved_history(path: &str, method: &axum::http::Method) -> bool {
+    if *method != axum::http::Method::GET {
+        return false;
+    }
+    // Read-only incident and customer billing history remains available without
+    // funding; each handler independently enforces its scope and grant.
+    if matches!(
+        path,
+        "/v1/incidents/{reference}"
+            | "/api/v1/workspaces/{workspace}/incidents"
+            | "/api/v1/workspaces/{workspace}/billing"
+            | "/api/v1/organizations/{organization}/projects/{project}/billing"
+            | "/admin/v1/organizations/{organization}/projects/{project}/billing"
+            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices"
+            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices"
+            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
+            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
+    ) {
+        return true;
+    }
+    let request_history = [
+        "/api/v1/organizations/{organization}/projects/{project}/requests",
+        "/admin/v1/organizations/{organization}/projects/{project}/requests",
+        "/api/v1/workspaces/{workspace}/requests",
+    ]
+    .iter()
+    .any(|root| {
+        path.strip_prefix(root).is_some_and(|rest| {
+            matches!(rest, "" | "/{attempt}" | "/{attempt}/payloads" | "/export")
+        })
+    });
+    request_history
+        || [
+            "/api/v1/workspaces/{workspace}/video/draft",
+            "/api/v1/organizations/{organization}/projects/{project}/video/draft",
+            "/admin/v1/organizations/{organization}/projects/{project}/video/draft",
+        ]
+        .contains(&path)
+        || [
+            "/api/v1/workspaces/{workspace}/chats",
+            "/api/v1/organizations/{organization}/projects/{project}/chats",
+            "/admin/v1/organizations/{organization}/projects/{project}/chats",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/draft" | "/{id}" | "/{id}/export"))
+        })
+        || [
+            "/api/v1/workspaces/{workspace}/sessions",
+            "/api/v1/organizations/{organization}/projects/{project}/generations",
+            "/admin/v1/organizations/{organization}/projects/{project}/generations",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/{session}"))
+        })
+        || [
+            "/api/v1/workspaces/{workspace}/video/intents",
+            "/api/v1/organizations/{organization}/projects/{project}/video/intents",
+            "/admin/v1/organizations/{organization}/projects/{project}/video/intents",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/{intent}"))
+        })
+        || [
+            "/api/v1/workspaces/{workspace}/tasks",
+            "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
+            "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks",
+        ]
+        .iter()
+        .any(|root| {
+            path.strip_prefix(root)
+                .is_some_and(|rest| matches!(rest, "" | "/{task}" | "/{task}/diagnostics"))
+        })
+}
+
 pub(crate) async fn gate(
     State(state): State<AppState>,
     mut request: Request<Body>,
@@ -476,12 +548,34 @@ pub(crate) async fn gate(
         .map(|value| value.as_str())
         .unwrap_or(request.uri().path())
         .to_owned();
-    // Directory/slug lookup is necessary to select a funded workspace. Creation
-    // checks the authorized body scope in its handler, before any write.
-    let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str());
+    // Directory and creation handlers enforce their own scope and write access.
+    let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str())
+        || ((request.method() == axum::http::Method::GET
+            || request.method() == axum::http::Method::POST)
+            && [
+                "/api/v1/organizations/{organization}/projects",
+                "/admin/v1/organizations/{organization}/projects",
+            ]
+            .contains(&path.as_str()));
+    let workspace_management = matches!(
+        *request.method(),
+        axum::http::Method::PATCH | axum::http::Method::DELETE
+    ) && matches!(
+        path.as_str(),
+        "/api/v1/workspaces/{workspace}"
+            | "/admin/v1/workspaces/{workspace}"
+            | "/api/v1/organizations/{organization}/projects/{project}"
+            | "/admin/v1/organizations/{organization}/projects/{project}"
+    );
     let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
         && request.method() == axum::http::Method::GET;
-    if customer_feature(&path) && !directory && !lookup {
+    if customer_feature(&path)
+        && !directory
+        && !workspace_management
+        && !lookup
+        && !credential_maintenance(&path, request.method())
+        && !saved_history(&path, request.method())
+    {
         let base_readiness = inspect(&state).await;
         if matches!(base_readiness, Ok(Readiness { ready: true, .. })) {
             return next.run(request).await;
@@ -542,25 +636,29 @@ pub(crate) async fn gate(
             Ok(value) => value,
             Err(error) => return error.into_response(),
         };
-        match organization_has_funding(&state, organization).await {
-            Ok(true) => {}
-            Ok(false) => {
-                let reason = base_readiness
-                    .ok()
-                    .and_then(|value| value.reason)
-                    .unwrap_or("readiness_unavailable");
-                return (axum::http::StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":{
-                    "type":"payment_setup_required", "code":reason,
-                    "message":"Workspace features require platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
-                }}))).into_response();
+        let reason = match inspect_organization(&state, organization).await {
+            Ok(Readiness { ready: true, .. }) => return next.run(request).await,
+            Ok(readiness) => readiness.reason.unwrap_or("readiness_unavailable"),
+            Err(_) => "readiness_unavailable",
+        };
+        let message = match reason {
+            "currency_required" => {
+                "Ask your service administrator to configure the platform currency, then retry."
             }
-            Err(_) => {
-                return (axum::http::StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":{
-                    "type":"payment_setup_required", "code":"readiness_unavailable",
-                    "message":"Workspace features require platform currency setup and either an available payment gateway or funding for this company's account. Contact your service administrator."
-                }}))).into_response();
+            "payment_setup_required" => {
+                "Check Billing for available funding methods. If none are available, ask your service administrator to arrange funding. Retry after funds are credited."
             }
-        }
+            _ => {
+                "Payment readiness could not be checked. Retry shortly. If the problem persists, contact your service administrator."
+            }
+        };
+        return (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "type":"payment_setup_required", "code":reason, "message":message
+            }})),
+        )
+            .into_response();
     }
     next.run(request).await
 }
@@ -680,6 +778,12 @@ mod tests {
         }
         for path in [
             "/v1/currency",
+            "/v1/key",
+            "/v1/models",
+            "/v1/routing",
+            "/v1/evaluations/example/runs",
+            "/v1/events/example/test",
+            "/api/v1/workspaces/{workspace}/routing/{slug}",
             "/api/v1/payments/readiness",
             "/api/v1/platform/payments/epay",
             "/api/v1/platform/currency",
@@ -692,6 +796,41 @@ mod tests {
         ] {
             assert!(!customer_feature(path), "{path}");
         }
+    }
+    #[test]
+    fn credential_maintenance_is_read_only_except_revocation_and_rotation() {
+        use axum::http::Method;
+        let keys = "/api/v1/workspaces/{workspace}/keys";
+        assert!(credential_maintenance(keys, &Method::GET));
+        assert!(!credential_maintenance(keys, &Method::POST));
+        let key = "/api/v1/workspaces/{workspace}/keys/{key}";
+        assert!(credential_maintenance(key, &Method::GET));
+        assert!(credential_maintenance(key, &Method::DELETE));
+        assert!(!credential_maintenance(key, &Method::PATCH));
+        let rotate = "/api/v1/workspaces/{workspace}/keys/{key}/rotate";
+        assert!(credential_maintenance(rotate, &Method::POST));
+        assert!(!credential_maintenance(rotate, &Method::GET));
+        for spending in [
+            "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit/USD",
+            "/api/v1/workspaces/{workspace}/keys/{key}/guardrail",
+        ] {
+            assert!(!credential_maintenance(spending, &Method::PUT));
+        }
+        for keys in [
+            "/api/v1/organizations/{organization}/projects/{project}/keys",
+            "/admin/v1/organizations/{organization}/projects/{project}/keys",
+        ] {
+            assert!(credential_maintenance(keys, &Method::GET));
+            assert!(!credential_maintenance(keys, &Method::POST));
+            assert!(credential_maintenance(
+                &format!("{keys}/{{key}}/rotate"),
+                &Method::POST
+            ));
+        }
+        // Saved history is read-only; a write must still pass the gate.
+        let history = "/api/v1/workspaces/{workspace}/requests/{attempt}/payloads";
+        assert!(saved_history(history, &Method::GET));
+        assert!(!saved_history(history, &Method::POST));
     }
     #[test]
     fn stripe_evidence_digest_covers_every_checkout_and_callback_setting() {
@@ -1004,6 +1143,22 @@ mod tests {
                 .unwrap()
                 .ready
         );
+        let mut internal_state = state.clone();
+        internal_state.operating_mode = crate::state::OperatingMode::Internal;
+        assert!(
+            inspect_organization(&internal_state, Some(other))
+                .await
+                .unwrap()
+                .ready,
+            "internal use keeps its separate no-payment bypass"
+        );
+        assert!(
+            !inspect_organization(&state, Some(other))
+                .await
+                .unwrap()
+                .ready,
+            "resale remains funding-bound"
+        );
         let revision = store
             .configure_customer_balance_policy(funded, "USD", 1_000_000_000, None, 0)
             .await
@@ -1100,6 +1255,10 @@ mod tests {
             "a wholly corrected grant is not a funding arrangement"
         );
         let app = crate::web::router(state.clone());
+        // Credential inspection is maintenance, not spending. Installation
+        // authority may inspect any workspace's keys without funding, while an
+        // ordinary company owner gets the handler's non-disclosure 404 outside
+        // its own tenant.
         for (path, token, status) in [
             (
                 "/api/v1/platform/configuration".into(),
@@ -1114,7 +1273,12 @@ mod tests {
             (
                 format!("/api/v1/workspaces/{}/keys", foreign.project_id),
                 "funding-fixture-installation-token",
-                503,
+                200,
+            ),
+            (
+                format!("/api/v1/workspaces/{}/keys", foreign.project_id),
+                owner.token.as_str(),
+                404,
             ),
             (
                 format!(
@@ -1122,10 +1286,10 @@ mod tests {
                     foreign.project_id
                 ),
                 owner.token.as_str(),
-                403,
+                404,
             ),
             ("/v1/models".into(), key.token.as_str(), 200),
-            ("/v1/models".into(), foreign_key.token.as_str(), 503),
+            ("/v1/models".into(), foreign_key.token.as_str(), 200),
             ("/api/v1/workspaces".into(), owner.token.as_str(), 200),
             (
                 format!("/api/v1/payments/readiness?organization={other}"),
@@ -1144,6 +1308,29 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status().as_u16(), status, "{path}");
+        }
+        // Exempting discovery and maintenance must not turn missing or foreign
+        // credentials into an anonymous success.
+        for path in [
+            "/v1/key".to_owned(),
+            "/v1/models".to_owned(),
+            format!("/api/v1/workspaces/{}/keys", workspace.project_id),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(&path)
+                        .header("authorization", "Bearer invalid-credential-fixture")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                axum::http::StatusCode::UNAUTHORIZED,
+                "{path}"
+            );
         }
         let configuration = app
             .clone()
@@ -1209,7 +1396,10 @@ mod tests {
                     .unwrap();
             assert_eq!(body["data"]["ready"], ready);
         }
-        for (organization, expected) in [(funded, 201), (other, 503)] {
+        // Authorized workspace setup is configuration, not spend. It remains
+        // available before company funding while its handler still enforces
+        // scope and write authority; readiness for actual use stays per company.
+        for organization in [funded, other] {
             let response = app
                 .clone()
                 .oneshot(
@@ -1224,7 +1414,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            assert_eq!(response.status().as_u16(), expected);
+            assert_eq!(response.status().as_u16(), 201);
         }
     }
 
@@ -1376,6 +1566,10 @@ mod tests {
                 .await
                 .unwrap()
         );
+        let facts = store.payment_readiness_facts().await.unwrap();
+        assert!(facts.callback_verified("stripe", &digest));
+        assert!(!facts.callback_verified("stripe", &changed));
+        assert!(!facts.callback_verified("epay", &digest));
         assert!(
             !store
                 .payment_callback_verified("epay", &digest)
@@ -1484,6 +1678,12 @@ mod tests {
                     .await
                     .unwrap()
             );
+            let facts = store.payment_readiness_facts().await.unwrap();
+            assert!(
+                facts.callback_verified("zhifux", &digest),
+                "signed receipt plus settlement needs no later worker write"
+            );
+            assert!(!facts.callback_verified("zhifux", &changed));
             let count: i64 = sqlx::query_scalar(
                 "SELECT count(*) FROM payment_signed_notifications WHERE order_id=$1",
             )
@@ -1663,7 +1863,6 @@ mod tests {
     async fn payment_readiness_gates_and_recovers_without_mutating_customer_data(
         pool: sqlx::PgPool,
     ) {
-        use http_body_util::BodyExt;
         use std::sync::Arc;
         use tower::ServiceExt;
         let store = niu_storage::Store::from_pool(pool);
@@ -1703,14 +1902,9 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(
-            response.status(),
-            axum::http::StatusCode::SERVICE_UNAVAILABLE
-        );
-        let body: serde_json::Value =
-            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
-                .unwrap();
-        assert_eq!(body["error"]["type"], "payment_setup_required");
+        // Key listing is credential maintenance, not spending: an unready
+        // installation must still let an administrator inspect and rotate keys.
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
         let response = app
             .oneshot(
                 Request::builder()
@@ -1819,6 +2013,32 @@ mod tests {
             inspect(&state).await.unwrap().ready,
             "recovery reuses only unchanged configuration-bound callback evidence"
         );
+        let expiring = store
+            .begin_payment_verification("stripe", &digest, "account")
+            .await
+            .unwrap();
+        store
+            .finish_payment_verification(expiring, Some(1))
+            .await
+            .unwrap();
+        assert!(
+            inspect(&state).await.unwrap().ready,
+            "fresh positive evidence is authoritative within its interval"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+        assert!(
+            !inspect(&state).await.unwrap().ready,
+            "expired evidence is never served from a cache or prior readiness"
+        );
+        let recovered = store
+            .begin_payment_verification("stripe", &digest, "account")
+            .await
+            .unwrap();
+        store
+            .finish_payment_verification(recovered, Some(600))
+            .await
+            .unwrap();
+        assert!(inspect(&state).await.unwrap().ready);
         Arc::get_mut(state.stripe_payments.as_mut().unwrap())
             .unwrap()
             .endpoint_secret
@@ -1833,7 +2053,7 @@ mod tests {
         state.stripe_payments = None;
         let app = crate::web::router(state);
         for (path, expected) in [
-            (keys.as_str(), axum::http::StatusCode::SERVICE_UNAVAILABLE),
+            (keys.as_str(), axum::http::StatusCode::OK),
             ("/api/v1/payments/readiness", axum::http::StatusCode::OK),
             ("/api/v1/platform/payments/epay", axum::http::StatusCode::OK),
         ] {
@@ -1852,6 +2072,35 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status(), expected, "{path}");
+        }
+        // Credential inspection is exempt; creation and limit writes can widen
+        // spend authority and must still require payment readiness.
+        let key_id = uuid::Uuid::new_v4();
+        for (method, path) in [
+            ("POST", keys.clone()),
+            ("PATCH", format!("{keys}/{key_id}")),
+            ("PUT", format!("{keys}/{key_id}/spending-limit/USD")),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(&path)
+                        .header(
+                            "authorization",
+                            "Bearer readiness-fixture-administrator-token",
+                        )
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                "{method} {path}"
+            );
         }
     }
 }

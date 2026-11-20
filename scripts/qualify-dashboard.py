@@ -23,7 +23,7 @@ FILES = (
     'branding/identity.css', 'branding/rounded/manifest.json',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
     'apps/dashboard/package.json', 'apps/dashboard/vite.config.ts',
-    'apps/dashboard/tsconfig.json', 'apps/dashboard/index.html',
+    'apps/dashboard/tsconfig.json', 'apps/dashboard/react-router.config.ts',
     'apps/docs/package.json', 'sdks/javascript/package.json',
 )
 DEPENDENCIES = ('node_modules', 'apps/dashboard/node_modules', 'apps/docs/node_modules')

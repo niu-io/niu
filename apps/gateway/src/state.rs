@@ -13,8 +13,25 @@ use subtle::ConstantTimeEq;
 
 use crate::{config::AppConfig, error::ApiError};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatingMode {
+    Internal,
+    Resale,
+}
+impl OperatingMode {
+    fn parse(value: Option<&str>) -> Result<Self, &'static str> {
+        match value.map(str::trim) {
+            None | Some("") | Some("internal") => Ok(Self::Internal),
+            Some("resale") => Ok(Self::Resale),
+            _ => Err("NIU_OPERATING_MODE must be internal or resale"),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
+    pub(crate) operating_mode: OperatingMode,
     pub(crate) route_registry:
         Arc<tokio::sync::RwLock<Option<Arc<crate::vendors::publication::Published>>>>,
     pub(crate) route_registry_reload: Arc<tokio::sync::Mutex<()>>,
@@ -197,11 +214,22 @@ fn resolve_demo_account_password(raw: Option<&str>) -> Result<String, Box<dyn st
     let password = raw
         .filter(|value| !value.trim().is_empty())
         .ok_or("NIU_DEMO_ACCOUNT_ENABLED requires an explicit NIU_DEMO_ACCOUNT_PASSWORD")?;
+    if password.eq_ignore_ascii_case("Hello123") {
+        return Err(
+            "NIU_DEMO_ACCOUNT_PASSWORD must not use the well-known development password".into(),
+        );
+    }
     Ok(password.to_owned())
 }
 
 impl AppState {
     pub async fn load_from_env() -> Result<Self, Box<dyn std::error::Error>> {
+        let mode_value = match env::var("NIU_OPERATING_MODE") {
+            Ok(value) => Some(value),
+            Err(env::VarError::NotPresent) => None,
+            Err(_) => return Err("NIU_OPERATING_MODE must be valid text".into()),
+        };
+        let operating_mode = OperatingMode::parse(mode_value.as_deref())?;
         let config = AppConfig::load()?;
         let enterprise = crate::enterprise::EnterpriseRuntime::from_env().await?;
         let database_url =
@@ -252,6 +280,16 @@ impl AppState {
         crate::vendors::validate_saved_codex_credentials(&store, vendor_cipher.as_deref()).await?;
         let seeds =
             crate::vendors::collect_seeds_from_env(&store, vendor_cipher.as_deref()).await?;
+        if operating_mode == OperatingMode::Internal {
+            let shared = store
+                .vendors_with_supplier(None)
+                .await?
+                .iter()
+                .any(|v| v["enabled"] == true && v["owner_funded"] != true);
+            if !config.models.is_empty() || !seeds.is_empty() || shared {
+                return Err("Internal use cannot activate existing shared/commercial or static routes. Keep NIU_OPERATING_MODE=resale for this installation; do not change historical ownership or billing.".into());
+            }
+        }
         let expected_generation = match env::var("NIU_ROUTING_EXPECTED_GENERATION") {
             Ok(value) => Some(
                 value
@@ -277,6 +315,7 @@ impl AppState {
         )?;
         let mut state =
             Self::new(config, store, admin_tokens, provider_keys).with_enterprise(enterprise);
+        state.operating_mode = operating_mode;
         state.vendor_cipher = vendor_cipher;
         state.payments = crate::payments::Runtime::from_env().await?.map(Arc::new);
         state.epay_payments = crate::payments::EPayRuntime::from_env()?.map(Arc::new);
@@ -302,6 +341,9 @@ impl AppState {
             runtime
                 .provision_local_account(&state.store, "demo@niu.io", &demo_password)
                 .await?;
+            if env::var("NIU_DEMO_PLATFORM_ADMIN").as_deref() == Ok("1") {
+                state.store.grant_demo_platform_administration().await?;
+            }
         }
         if let Ok(origin) = env::var("NIU_DEV_MEMBER_ORIGIN") {
             if state.password_auth.is_some() {
@@ -322,9 +364,10 @@ impl AppState {
             state.password_auth = Some(Arc::new(runtime));
         }
         if let Some(auth) = state.password_auth.as_mut() {
-            Arc::get_mut(auth)
-                .expect("authentication runtime is not shared during setup")
-                .configure_demo_from_env()?;
+            let Some(auth) = Arc::get_mut(auth) else {
+                return Err("Authentication runtime is already shared during setup".into());
+            };
+            auth.configure_demo_from_env()?;
         } else if env::var_os("NIU_DEMO_LOGIN_EMAIL").is_some()
             || env::var_os("NIU_DEMO_LOGIN_PASSWORD").is_some()
         {
@@ -374,6 +417,9 @@ impl AppState {
             })
             .collect();
         Self {
+            // Internal constructor preserves existing programmatic fixtures; runtime always
+            // sets the explicit deployment policy parsed above (default Internal).
+            operating_mode: OperatingMode::Resale,
             route_registry: Arc::new(tokio::sync::RwLock::new(None)),
             route_registry_reload: Arc::new(tokio::sync::Mutex::new(())),
             trusted_proxies: Arc::new(Vec::new()),
@@ -476,6 +522,25 @@ impl AppState {
     ) -> Result<niu_storage::Principal, ApiError> {
         self.authorize_api_headers_with_permission(headers, niu_storage::AdminPermission::Write)
             .await
+    }
+
+    pub async fn authorize_invocation_headers(
+        &self,
+        headers: &HeaderMap,
+        protocol: &str,
+    ) -> Result<niu_storage::Principal, ApiError> {
+        let principal = self
+            .authorize_api_headers_with_permission(headers, niu_storage::AdminPermission::Write)
+            .await?;
+        if !principal.invocation_allowed() {
+            return Err(ApiError::from_store(
+                niu_storage::StoreError::InvocationDenied,
+            ));
+        }
+        if !principal.allows_invocation_protocol(protocol) {
+            return Err(ApiError::invocation_protocol_not_authorized());
+        }
+        Ok(principal)
     }
 
     pub async fn authorize_api_headers_with_permission(
@@ -955,6 +1020,8 @@ mod tests {
         assert!(super::resolve_demo_account_password(None).is_err());
         assert!(super::resolve_demo_account_password(Some("")).is_err());
         assert!(super::resolve_demo_account_password(Some("   ")).is_err());
+        assert!(super::resolve_demo_account_password(Some("Hello123")).is_err());
+        assert!(super::resolve_demo_account_password(Some("hello123")).is_err());
         assert_eq!(
             super::resolve_demo_account_password(Some("explicit-demo-password-15chars")).unwrap(),
             "explicit-demo-password-15chars"
@@ -976,5 +1043,23 @@ mod tests {
                 project_id,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod operating_mode_tests {
+    use super::OperatingMode;
+    #[test]
+    fn only_explicit_resale_enables_resale() {
+        assert_eq!(OperatingMode::parse(None).unwrap(), OperatingMode::Internal);
+        assert_eq!(
+            OperatingMode::parse(Some("internal")).unwrap(),
+            OperatingMode::Internal
+        );
+        assert_eq!(
+            OperatingMode::parse(Some("resale")).unwrap(),
+            OperatingMode::Resale
+        );
+        assert!(OperatingMode::parse(Some("true")).is_err());
     }
 }

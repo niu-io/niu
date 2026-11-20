@@ -8,7 +8,6 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use futures_util::StreamExt;
 use serde_json::Value;
 use std::error::Error as _;
 use uuid::Uuid;
@@ -193,6 +192,7 @@ pub async fn capture(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
+    let chat = path == "/v1/chat/completions";
     let saved_video_submit = request
         .extensions()
         .get::<axum::extract::MatchedPath>()
@@ -234,8 +234,24 @@ pub async fn capture(
                 return ApiError::invalid_request("Could not read request body").into_response();
             }
         };
-        if serde_json::from_slice::<serde::de::IgnoredAny>(&bytes).is_err() {
-            return ApiError::invalid_request("Invalid JSON request").into_response();
+        let no_store = if chat {
+            match serde_json::from_slice::<Value>(&bytes) {
+                Ok(value) => value.get("store") == Some(&Value::Bool(false)),
+                Err(_) => return ApiError::invalid_request("Invalid JSON request").into_response(),
+            }
+        } else {
+            if serde_json::from_slice::<serde::de::IgnoredAny>(&bytes).is_err() {
+                return ApiError::invalid_request("Invalid JSON request").into_response();
+            }
+            false
+        };
+        // The Chat compatibility flag takes precedence over an explicit capture
+        // header. Metadata and accounting remain available, but neither payload
+        // is persisted by this middleware.
+        if no_store {
+            return next
+                .run(Request::from_parts(parts, Body::from(bytes)))
+                .await;
         }
         (
             CapturedRequest::Raw(bytes.clone()),
@@ -283,29 +299,40 @@ pub async fn capture(
         failed: false,
         truncated: false,
     };
-    let stream = futures_util::stream::unfold(
-        (body.into_data_stream(), capture),
-        |(mut stream, mut capture)| async move {
-            match stream.next().await {
-                Some(chunk) => {
-                    if let Ok(bytes) = &chunk {
-                        let remaining = LIMIT - capture.bytes.len();
-                        capture
-                            .bytes
-                            .extend_from_slice(&bytes[..remaining.min(bytes.len())]);
-                        capture.truncated |= bytes.len() > remaining;
-                    }
-                    capture.failed |= chunk.is_err();
-                    Some((chunk, (stream, capture)))
+    let mut stream = body.into_data_stream();
+    let mut capture = Some(capture);
+    let mut done = false;
+    let stream = futures_util::stream::poll_fn(move |cx| {
+        if done {
+            return std::task::Poll::Ready(None);
+        }
+        match futures_util::Stream::poll_next(std::pin::Pin::new(&mut stream), cx) {
+            std::task::Poll::Ready(Some(chunk)) => {
+                let Some(state) = capture.as_mut() else {
+                    done = true;
+                    return std::task::Poll::Ready(None);
+                };
+                if let Ok(bytes) = &chunk {
+                    let remaining = LIMIT - state.bytes.len();
+                    state
+                        .bytes
+                        .extend_from_slice(&bytes[..remaining.min(bytes.len())]);
+                    state.truncated |= bytes.len() > remaining;
                 }
-                None => {
-                    capture.complete = !capture.failed;
-                    drop(capture);
-                    None
-                }
+                state.failed |= chunk.is_err();
+                std::task::Poll::Ready(Some(chunk))
             }
-        },
-    );
+            std::task::Poll::Ready(None) => {
+                if let Some(mut state) = capture.take() {
+                    state.complete = !state.failed;
+                    drop(state);
+                }
+                done = true;
+                std::task::Poll::Ready(None)
+            }
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    });
     Response::from_parts(parts, Body::from_stream(stream))
 }
 

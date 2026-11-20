@@ -204,7 +204,13 @@ pub(super) async fn infer(
                 (response, finish_reasons)
             }
             Protocol::Chat=>{
-                let parts: Vec<&Value>=response["output"].as_array().unwrap().iter().filter_map(|item| item.get("content").and_then(Value::as_array)).flatten().collect();
+                let parts: Vec<&Value> = response["output"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|item| item.get("content").and_then(Value::as_array))
+                    .flatten()
+                    .collect();
                 let text: String=parts.iter().filter_map(|part| part.get("text").and_then(Value::as_str)).collect();
                 let refusal: String=parts.iter().filter_map(|part| part.get("refusal").and_then(Value::as_str)).collect();
                 let finish_reason=if response["status"]=="incomplete" {
@@ -251,7 +257,7 @@ fn upstream_body(body: &Value, slug: &str, protocol: Protocol) -> Result<Value, 
         .as_object()
         .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
     let allowed: &[&str] = match protocol {
-        Protocol::Chat => &["model", "messages", "stream"],
+        Protocol::Chat => &["model", "messages", "stream", "store"],
         Protocol::Responses => &["model", "input", "instructions", "stream", "store"],
     };
     if object.keys().any(|k| !allowed.contains(&k.as_str())) {

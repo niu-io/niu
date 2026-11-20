@@ -5,13 +5,15 @@ import { appRoutes } from '@/routes';
 
 it.each([
   ['/admin/financial-reports', '/admin/reports'],
-  ['/admin/account-balances', '/admin/balances'],
-  ['/admin/model-pools', '/admin/pools'],
+  ['/admin/account-balances', '/admin/customers'],
+  ['/admin/model-pools', '/admin/routing'],
+  ['/admin/pools', '/admin/routing'],
   ['/admin/audit-logs', '/admin/audit'],
   ['/admin/providers/example/api-keys', '/admin/providers/example/keys'],
   ['/admin/commercial', '/admin/reports'],
-  ['/admin/customer-accounts', '/admin/balances'],
-  ['/admin/route-pools', '/admin/pools'],
+  ['/admin/customer-accounts', '/admin/customers'],
+  ['/admin/balances', '/admin/customers'],
+  ['/admin/route-pools', '/admin/routing'],
   ['/admin/payment-gateways', '/admin/payments'],
   ['/admin/providers/example/configuration', '/admin/providers/example/keys'],
   ['/admin/providers/example/consumption', '/admin/providers/example/usage'],
@@ -36,9 +38,9 @@ it.each([
 });
 
 it.each([
+  '/admin/customers',
   '/admin/reports',
-  '/admin/balances',
-  '/admin/pools',
+  '/admin/routing',
   '/admin/payments',
   '/admin/providers/example/keys',
   '/admin/providers/example/usage',

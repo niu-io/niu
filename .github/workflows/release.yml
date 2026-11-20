@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -29,26 +30,58 @@ jobs:
         run: python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --commit "$(git rev-parse HEAD)"
 
       - name: Generate structured Release Notes
-        run: python3 scripts/release-version.py notes --tag "${GITHUB_REF_NAME}" --output /tmp/release-notes.md
-
-      - name: Set up Node for the standalone MCP package
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Build and package the MCP client
-        working-directory: sdks/mcp
         run: |
-          npm install --ignore-scripts --package-lock=false
-          npm run build
-          mkdir -p /tmp/mcp-release
-          npm pack --pack-destination /tmp/mcp-release
+          python3 scripts/release-version.py check --tag "${GITHUB_REF_NAME}"
+          python3 scripts/release-version.py notes --tag "${GITHUB_REF_NAME}" --output /tmp/release-notes.md
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish the tagged application image
+        id: image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/niu-io/niu:${{ github.ref_name }}
+          build-args: |
+            NIU_CORE_GIT_COMMIT=${{ github.sha }}
+
+      - name: Require anonymous image access and matching source provenance
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
           mkdir -p /tmp/niu-release
-          cp "$GITHUB_WORKSPACE/compose.yaml" "$GITHUB_WORKSPACE/scripts/install.sh" "$GITHUB_WORKSPACE/config/niu.example.toml" /tmp/niu-release/
-          cp /tmp/mcp-release/*.tgz /tmp/niu-release/
+          python3 scripts/verify-release-image.py \
+            --image "ghcr.io/niu-io/niu:${GITHUB_REF_NAME}" \
+            --commit "$(git rev-parse HEAD)" --digest "$IMAGE_DIGEST" \
+            --output /tmp/niu-release/IMAGE_DIGEST
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build and package the standalone SDK and MCP clients
+        run: |
+          pnpm --filter @niu-io/sdk --filter @niu-io/mcp install --frozen-lockfile
+          mkdir -p /tmp/niu-release
+          for package in sdks/javascript sdks/mcp; do
+            pnpm --dir "$package" build
+            pnpm --dir "$package" pack --pack-destination /tmp/niu-release
+          done
+          cp compose.yaml scripts/install.sh config/niu.example.toml /tmp/niu-release/
           git rev-parse HEAD > /tmp/niu-release/SOURCE_COMMIT
           cd /tmp/niu-release
-          sha256sum compose.yaml install.sh niu.example.toml *.tgz SOURCE_COMMIT > SHA256SUMS
+          sha256sum compose.yaml install.sh niu.example.toml *.tgz SOURCE_COMMIT IMAGE_DIGEST > SHA256SUMS
 
       - name: Build native coding-agent packages
         run: |
@@ -57,7 +90,20 @@ jobs:
           tar -czf /tmp/niu-release/niu-agent-marketplace.tar.gz -C /tmp/niu-agent-marketplace .
           tar -czf /tmp/niu-release/niu-deepseek-harness.tar.gz -C /tmp/niu-deepseek-harness .
           cd /tmp/niu-release
-          sha256sum compose.yaml install.sh niu.example.toml *.tgz *.tar.gz SOURCE_COMMIT > SHA256SUMS
+          sha256sum compose.yaml install.sh niu.example.toml *.tgz *.tar.gz SOURCE_COMMIT IMAGE_DIGEST > SHA256SUMS
+
+      - name: Link packaged clients and plugins in the release notes
+        working-directory: /tmp/niu-release
+        run: |
+          download_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          {
+            printf '\n## Client and plugin downloads\n\n'
+            for archive in *.tgz *.tar.gz; do
+              test -f "$archive"
+              printf -- '- [%s](%s/%s)\n' "$archive" "$download_url" "$archive"
+            done
+            printf '\nVerify downloaded files against [SHA256SUMS](%s/SHA256SUMS).\n' "$download_url"
+          } >> /tmp/release-notes.md
 
       - name: Publish a new GitHub Release with immutable assets
         env:

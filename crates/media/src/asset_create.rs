@@ -180,7 +180,7 @@ pub async fn create_asset_now(
         .map_err(|_| ReadError::InvalidConfiguration)?;
     decode(
         &signed_read(
-            "https://ark.cn-beijing.volcengineapi.com/?Action=CreateAsset&Version=2024-01-01",
+            crate::providers::volcengine::CREATE_ASSET_ENDPOINT,
             signed,
             maximum_bytes,
             timeout,

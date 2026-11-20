@@ -122,7 +122,10 @@ impl Store {
                 "schema_revision": schema.revision,
                 "channel": schema.channel,
                 "resolutions": resolutions,
-                "reference_video": schema.inputs.contains_key("video_url")
+                "reference_video": schema.inputs.contains_key("video_url"),
+                // The configured output estimator owns the billing unit. Absent
+                // output configuration cannot be turned into a guessed rate unit.
+                "meter": schema.output.as_ref().map(|output| output.estimator.meter())
             }));
         }
         Ok(serde_json::json!({"data":data,"has_more":more,"next_after":next}))
@@ -135,7 +138,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         publish_rate(&mut tx, supplier, card).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
     /// Publish and retire in one commit, never leaving a partially saved transition.
@@ -162,7 +165,7 @@ impl Store {
         }
         publish_rate(&mut tx, supplier, card).await?;
         retire_rate(&mut tx, supplier, previous, card.tariff.effective_from).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -175,7 +178,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         retire_rate(&mut tx, supplier, revision, cutoff).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -220,7 +223,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         Self::bind_supplier_media_rate_in_tx(&mut tx, scope, attempt, dimensions, meter, at)
             .await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 
@@ -276,7 +279,7 @@ impl Store {
     pub async fn accrue_supplier_media_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         Self::accrue_supplier_media_earning_in_tx(&mut tx, attempt).await?;
-        tx.commit().await?;
+        crate::commit_tx(tx).await?;
         Ok(())
     }
 

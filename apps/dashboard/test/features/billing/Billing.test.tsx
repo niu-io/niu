@@ -5,6 +5,52 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import AccountBilling from "../../../app/features/billing/AccountBilling";
 
+it('renders account balance and top-up surfaces in Chinese', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
+    const view = render(<AccountBilling token="test" organization="org" section="billing" />);
+    expect(await screen.findByRole('region', {name: '账户余额'})).toBeTruthy();
+    expect(screen.getByText('可用额度')).toBeTruthy();
+    expect(await screen.findByText('暂无交易记录。')).toBeTruthy();
+    view.rerender(<AccountBilling token="test" organization="org" section="payments" />);
+    expect(await screen.findByRole('region', {name: '账户充值'})).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
+it('localizes account balance and transaction failures', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({}, {status: 503})));
+    render(<AccountBilling token="test" organization="org" section="billing" />);
+    expect(await screen.findByText('账户余额暂不可用')).toBeTruthy();
+    expect(screen.getByText('无法加载账户余额，请重试。')).toBeTruthy();
+    expect(await screen.findByText('交易记录暂不可用')).toBeTruthy();
+    expect(screen.getByText('无法加载交易记录，请重试。')).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
+it('renders the low-balance warning dialog in Chinese', async () => {
+  window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+  try {
+    vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
+    render(<AccountBilling token="test" organization="org" section="billing" canConfigure />);
+    await screen.findByRole('region', {name: '账户余额'});
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', {name: /设置 CNY 余额提醒/}));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('余额不足提醒')).toBeTruthy();
+    expect(within(dialog).getByLabelText('启用提醒')).toBeTruthy();
+    expect(within(dialog).getByRole('button', {name: '保存'})).toBeTruthy();
+  } finally {
+    window.localStorage.removeItem('niu-dashboard-locale');
+  }
+});
+
 it('separates balance reporting from payment actions in global Settings', async () => {
   vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'USD',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
   const view = render(<AccountBilling token="test" organization="org" section="billing" />);
@@ -95,6 +141,35 @@ function setup(kind = "operator", initialEntry = "/billing") {
   return render(<MemoryRouter initialEntries={[initialEntry]}><BillingRoute /></MemoryRouter>);
 }
 describe("customer billing", () => {
+  it('identifies the workspace organization and never links to another organization billing context', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data})));
+    fixture.context = {
+      token:'test', workspace:{id:'workspace',organization_id:'org-a',organization_name:'Alpha'},
+      organization:{id:'org-b',name:'Beta'}, session:{kind:'operator',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
+    } as unknown as DashboardContext;
+    const view = render(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.getByText(/Alpha's Niu balance is shared across its workspaces/)).toBeTruthy();
+    expect(screen.getByText(/Organization billing is unavailable/)).toBeTruthy();
+    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    fixture.context = {...fixture.context, organization:{id:'org-a',name:'Alpha'}};
+    view.rerender(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.getByRole('link',{name:'Manage credits'})).toBeTruthy();
+    fixture.context = {...fixture.context, session:{kind:'operator',operator:{role:'viewer',organization_id:'org-a',project_id:null}}} as unknown as DashboardContext;
+    view.rerender(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    expect(screen.getByText('Contact your organization owner to add credits.')).toBeTruthy();
+  });
+  it('does not offer credits management in internal mode', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data})));
+    fixture.context = {
+      token:'test', workspace:{id:'workspace',organization_id:'org-a',organization_name:'Alpha'}, organization:{id:'org-a',name:'Alpha'},
+      session:{kind:'operator',operating_mode:'internal',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
+    } as unknown as DashboardContext;
+    render(<MemoryRouter><BillingRoute /></MemoryRouter>);
+    expect(screen.getByText(/Usage billed by a Provider is paid directly/)).toBeTruthy();
+    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    expect(screen.queryByText('Contact your organization owner to add credits.')).toBeNull();
+  });
   it("opens a directly linked billing tab", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data })));
     setup("operator", "/billing?tab=rates");
@@ -113,7 +188,6 @@ describe("customer billing", () => {
     expect(screen.queryByRole("button", { name: "Record payment" })).toBeNull();
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
       "/api/v1/organizations/org/projects/project/billing",
-      "/api/v1/organizations/org/projects/project/spending-limit",
     ]);
   });
   it("loads only the selected workspace invoice details", async () => {
@@ -598,4 +672,47 @@ it('localizes funding, recovery and warning drafts reactively without changing s
   expect((screen.getByLabelText(/Threshold/) as HTMLInputElement).value).toBe('2');
   await userEvent.click(screen.getByRole('button', {name: 'Cancel'}));
   expect(screen.getByText('¥1.00')).toBeTruthy();
+});
+
+it('separates pending settlement and missing rates headlines with direct action links on workspace Billing', async () => {
+  const { Route, Routes } = await import('react-router');
+  const scenario = (unresolved: string, unpriced: string) => ({
+    balances: [],
+    unresolved,
+    unpriced,
+    tariffs: [],
+    invoices: [],
+  });
+  let current = scenario('2', '3');
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: current })));
+  fixture.context = {
+    token: 'test',
+    workspace: { id: 'project', organization_id: 'org' },
+    session: { kind: 'operator' },
+    models: [{ id: 'qwen/text' }],
+  } as unknown as DashboardContext;
+  const view = render(
+    <MemoryRouter initialEntries={['/workspaces/demo/billing']}>
+      <Routes>
+        <Route path="/workspaces/:ws/billing" element={<BillingRoute />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByText('Pending settlement · missing rates');
+  expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/demo/executions?status=may_have_executed');
+  const reviewRates = screen.getByRole('button', { name: 'Review rates' });
+  expect(reviewRates).toBeTruthy();
+
+  current = scenario('4', '0');
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  await screen.findByText('Pending settlement');
+  expect(screen.queryByRole('button', { name: 'Review rates' })).toBeNull();
+
+  current = scenario('0', '5');
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  await screen.findByText('No rate set');
+  expect(screen.queryByRole('link', { name: 'Inspect pending requests' })).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'Review rates' }));
+  await screen.findByRole('tabpanel', { name: 'Rates' });
+  view.unmount();
 });
