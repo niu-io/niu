@@ -24,9 +24,8 @@ that minor continue on it until the next minor branch replaces it.
 4. Deploy the exact `release/<minor>` tip to staging and run the staging
    acceptance scope. Record commit-bound GREEN evidence; passing unit tests,
    fixture diagnostics or a local build does not qualify staging.
-5. Tag the accepted commit on `release/<minor>` as `v<minor>.<patch>` and publish
-   the release from that tag.
-6. Merge `release/<minor>` into `main`. That merge is the production promotion.
+5. Promote the staging-accepted source revision to hosted production using the production composition pins.
+6. Dispatch community image and installer publication separately when a public release is requested.
 
 ## Rules
 
@@ -43,16 +42,7 @@ that minor continue on it until the next minor branch replaces it.
 
 ## When to verify published artifacts
 
-Before tagging, run the hosted staging journeys and the installation, upgrade
-and restore checks against artifacts built from the exact release tip. Keep
-their evidence bound to that commit. Once staging accepts that commit, tag it
-on the release branch. The tag triggers the release workflow.
-
-Before merging into `main`, independently download the published assets and
-verify their checksums, source commit, image digest and anonymous accessibility.
-Keep the distribution case open until both its pre-tag installation checks and
-its published-artifact checks have passed. If publication or retrieval fails,
-keep production on its current revision and preserve the tag.
+Hosted promotion uses the exact staged source, production configuration, and a production smoke check. Public distribution has a separate gate. For a community release, verify installation, upgrade and restore before tagging. After publication, independently download the assets and verify checksums, source commit, image digest and anonymous access before announcing public installation.
 
 ## Staging gate before production
 
