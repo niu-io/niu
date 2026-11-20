@@ -5,9 +5,9 @@ Niu supports two connection tracks against any deployment origin (`{ORIGIN}`, su
 1. **Track 1 (Universal)**: Any coding agent capable of HTTP requests (Cursor, Windsurf, Zed, OpenCode, Claude Code, Codex, DeepSeek Harness, or a custom harness) can connect directly via Niu's browser device-authorization flow, optionally paired with the standalone `@niu-io/mcp` (`niu-mcp`) stdio server.
 2. **Track 2 (Native Host Bundles)**: Prepackaged host bundles (`niu-agent-marketplace.tar.gz` and `niu-deepseek-harness.tar.gz`) bundle local `niu-login` and `niu-mcp` runtime helpers with Niu skills.
 
-Always check the active deployment origin selected by the user and verify release identity (`SHA256SUMS` and `SOURCE_COMMIT`) before installation. Release assets for `v0.3.1` are published at `https://github.com/niu-io/niu/releases/tag/v0.3.1`:
+Always check the active deployment origin selected by the user and verify release identity (`SHA256SUMS` and `SOURCE_COMMIT`) before installation. Release assets for `v0.3.2` are published at `https://github.com/niu-io/niu/releases/tag/v0.3.2`:
 
-- `niu-io-mcp-0.3.1.tgz` — standalone `@niu-io/mcp` stdio server (release `v0.3.1`).
+- `niu-io-mcp-0.3.2.tgz` — standalone `@niu-io/mcp` stdio server (release `v0.3.2`).
 - `niu-agent-marketplace.tar.gz` — native marketplace bundle for Claude Code and Codex.
 - `niu-deepseek-harness.tar.gz` — native Cordis bundle for DeepSeek Harness.
 
@@ -131,7 +131,7 @@ Verify the new connection immediately with `GET {ORIGIN}/v1/key` and `GET {ORIGI
 If your agent supports stdio MCP servers and does not already bundle Niu:
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.3.1.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.2/niu-io-mcp-0.3.2.tgz
 ```
 
 For hosted Niu (`https://niu.io/v1`): configure command `niu-mcp` with `args: ["--hosted"]`. For any self-hosted or local deployment: omit `--hosted` and pass `NIU_BASE_URL="{ORIGIN}/v1"`. Prefer `NIU_CREDENTIAL_FILE` or `~/.config/niu/credential.json` from `/connect`, or pass a workspace key via `NIU_API_KEY` env without hardcoding secrets in tracked files. See [MCP guide](/docs/guides/mcp/).
@@ -143,7 +143,7 @@ For hosted Niu (`https://niu.io/v1`): configure command `niu-mcp` with `args: ["
 For Claude Code, Codex, and DeepSeek Harness:
 
 1. Preserve unrelated plugins, MCP servers, provider settings, and credentials.
-2. Download and inspect the matching `v0.3.1` tarball (`niu-agent-marketplace.tar.gz` or `niu-deepseek-harness.tar.gz`) or build from a checked-out repo (`python3 scripts/build-agent-plugin.py` / `python3 scripts/build-deepseek-plugin.py`).
+2. Download and inspect the matching `v0.3.2` tarball (`niu-agent-marketplace.tar.gz` or `niu-deepseek-harness.tar.gz`) or build from a checked-out repo (`python3 scripts/build-agent-plugin.py` / `python3 scripts/build-deepseek-plugin.py`).
 3. Bundled `runtime/connect/bin/niu-login.mjs` automates Track 1 and reloads credentials per operation in `niu-mcp`:
 
 ```sh

@@ -14,12 +14,12 @@ All paths below are deployment-relative against your active Niu origin (`{ORIGIN
 
 ## Connection tracks
 
-- **Track 1 — Universal Coding-Agent Connection (any HTTP agent or editor)**: Works from Cursor, Windsurf, Zed, OpenCode, Claude Code, Codex, DeepSeek Harness, or custom agents via `POST /api/v1/auth/agents`, browser review at `/connect?code={user_code}`, polling `POST /api/v1/auth/agents/token`, direct REST calls to `/v1/...`, or standalone stdio MCP (`niu-io-mcp-0.3.1.tgz`).
-- **Track 2 — Native Host Bundles**: Prepackaged Niu `v0.3.1` host bundles (verify `SHA256SUMS` and `SOURCE_COMMIT` before installation) (`niu-agent-marketplace.tar.gz` for Claude Code & Codex; `niu-deepseek-harness.tar.gz` for DeepSeek Harness `0.2.1-rc.5` local macOS hosts) bundling `niu-login` and `niu-mcp`.
+- **Track 1 — Universal Coding-Agent Connection (any HTTP agent or editor)**: Works from Cursor, Windsurf, Zed, OpenCode, Claude Code, Codex, DeepSeek Harness, or custom agents via `POST /api/v1/auth/agents`, browser review at `/connect?code={user_code}`, polling `POST /api/v1/auth/agents/token`, direct REST calls to `/v1/...`, or standalone stdio MCP (`niu-io-mcp-0.3.2.tgz`).
+- **Track 2 — Native Host Bundles**: Prepackaged Niu `v0.3.2` host bundles (verify `SHA256SUMS` and `SOURCE_COMMIT` before installation) (`niu-agent-marketplace.tar.gz` for Claude Code & Codex; `niu-deepseek-harness.tar.gz` for DeepSeek Harness `0.2.1-rc.5` local macOS hosts) bundling `niu-login` and `niu-mcp`.
 
 ## Agent contracts
 
-- [Install and connect](/docs/install.md): Track 1 universal HTTP device flow, `/connect` workspace hints, `0600` credential persistence, Track 2 host bundles, and standalone MCP (`niu-io-mcp-0.3.1.tgz`).
+- [Install and connect](/docs/install.md): Track 1 universal HTTP device flow, `/connect` workspace hints, `0600` credential persistence, Track 2 host bundles, and standalone MCP (`niu-io-mcp-0.3.2.tgz`).
 - [Agent capabilities and verification](/docs/agents.md): Post-connection `/v1/key` & `/v1/models` inspection, authorization boundaries, and HTTP <-> MCP parity.
 - [Model inference and app integration](/docs/inference.md): Multi-protocol endpoints (`/v1/chat/completions`, `/v1/responses`, `/v1/messages`, `/v1beta/models/{model}:generateContent`, `/v1/embeddings`, `/v1/decisions`, `/v1/video/jobs`), `pool/<slug>` aliases, SDK env vars, headers, and `GET /v1/generations/{id}` reconciliation.
 - [Workspace routing](/docs/routing.md): Delegated `pools:read` / `pools:write` policies (`pool/<slug>`), v1 `priority_weight`/`customer_price` and v2 `auto` strategies, dry-run preview, optimistic revisions, and selection logs (alias: `/docs/pools.md`).

@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/sdk",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "TypeScript client for the Niu AI gateway",
   "license": "MIT",
   "type": "module",
@@ -40,7 +40,12 @@
       "import": "./dist/workspace-assets.js"
     }
   },
-  "files": ["dist", "examples", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "examples",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "node -e \"import('node:fs').then(({ rmSync }) => rmSync('dist', { recursive: true, force: true }))\" && tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",

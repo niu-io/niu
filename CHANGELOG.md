@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-20
+
+Admin workflow redesign, pre-release security/protocol hardening, commercial catalog readiness gating, and native multi-arch release builds.
+
+### Added
+- Grouped Platform Admin sidebar (`Overview`, `Supply`, `Commerce`, `Operations`, `Settings`), interactive `/admin` Overview setup checklist, and 4-step commercial sellability checklist on Provider Models (`Connection`, `Model routes`, `Purchase rates`, `Customer selling price`).
+- AEAD encryption at rest for revealable API key secrets (migration `0440`), scoped single-key reveal with `revealed` audit events, and expiry purge.
+- Native multi-arch concurrent container builds (`linux/amd64` on `ubuntu-24.04` + `linux/arm64` on `ubuntu-24.04-arm`) in `release.yml` with pinned action SHAs and `VITE_NIU_RELEASE_DATE`.
+
+### Changed
+- Gate uncallable unpriced commercial models out of `/catalog/v1/models`, `/v1/models`, and default customer `/api/v1/models` responses; expose `callable` and `readiness_issues` to admins (`?include_uncallable=true`), hide active generation/curl CTAs for uncallable models in Dashboard, and default new commercial routes/pools to `public_catalog = false`.
+- Stream 1–8 MiB multimodal payloads through `request_payloads::capture` (prefix-capped at 1 MiB) on `/v1/responses`, `/v1/messages`, and `/v1beta/models/*`, honor `store: false` on `/v1/responses`, and pass through `/v1/messages` document citations in buffered and streaming responses.
+- Deduplicate Admin registration queue/policy views, move Payments into tabbed gateway/bank-transfer configuration, and replace remaining nested modal `<Dialog>` components with inline in-dialog subviews and `Escape`-back focus restoration.
+- Synchronize `@niu-io/sdk`, `@niu-io/mcp`, `@niu-io/agent-connect`, and `MCP_SERVER_VERSION` with `VERSION`, enforce changelog/SDK version parity in `scripts/release-version.py`, and align CI workflows with `release/*`.
+
+### Fixed
+- Execute rolling-upgrade-safe SQL for migrations `0435` (atomic route-registry generation publish) and `0439` (lock-safe `bank_memo` backfill) via `migration_compatibility` while keeping released `v0.3.1` migration files byte-for-byte immutable.
+- Fix Limited Preview workspace deletion foreign keys (migration `0441`), Stripe `wechat_pay` underscore payment method validation and CHECK constraint (migration `0442`), and separate IP vs. email login admission with HTTP `400` on invalid email syntax (migration `0443`).
+- Add `redirect: 'error'` to `NiuClient.send()`, honor `NIU_CREDENTIAL_FILE` in `niu-login`, clean stale `dist/` artifacts and bundle `LICENSE` in packed SDK/MCP tarballs, trim `NIU_API_KEY` and forward `routing_context` in `niu-mcp`, and fix all remaining Dashboard test, media-cache abort, and i18n findings.
+- Harden `scripts/install.sh` (canonical `--dir`, SIGPIPE-safe `/dev/urandom`, `SHA256SUMS` verification, `gzip`/`docker compose` guards) and repair documentation links, MCP contracts, and Track 1 `"version": 1` credential JSON.
+
+### Verification
+- Verified across Rust unit/clippy/fmt checks, PostgreSQL 17.11 migration & gateway integration suites, `check-migration-history.py` against `v0.3.1`, Dashboard (`154/154` test files, `check:i18n` 0 findings, desktop & narrow Chromium UI checks), SDK/MCP/agent-connect test suites, OpenAPI/docs parity (`pnpm check:api`, `pnpm check:docs`), and public-boundary scans.
+
 ## [0.3.1] - 2026-11-20
 
 Release hardening, native protocol completion, Stripe checkout, and Dashboard UX refinement.
@@ -603,7 +627,8 @@ Agent-oriented UX, documentation and native coding-agent integrations.
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/niu-io/niu/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/niu-io/niu/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/niu-io/niu/compare/v0.2.31...v0.3.0
 [0.2.28]: https://github.com/niu-io/niu/compare/v0.2.27...v0.2.28

@@ -1091,8 +1091,8 @@ async fn running_gateway_serves_without_503_immediately_after_migration_0435(poo
     assert_eq!(status, StatusCode::OK, "{before}");
     assert!(before["data"].as_array().unwrap().is_empty());
 
-    // Apply migration 0435..=latest while the existing replica is running.
-    niu_storage::MIGRATOR.run(&pool).await.unwrap();
+    // Apply migration 0435..=latest via production compatibility runner while the existing replica is running.
+    niu_storage::run_migrations(&pool).await.unwrap();
 
     // Clear the 100ms in-memory check cache so the running replica hits DB immediately.
     *state.route_registry.write().await = None;

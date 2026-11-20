@@ -3,10 +3,7 @@ use niu_storage::{
     RouteRegistryCompiler, RouteRegistryInputs, Store, StoreError, VendorInput, VendorModelInput,
 };
 use serde_json::json;
-use sqlx::{
-    ConnectOptions, PgPool,
-    migrate::{Migration, Migrator},
-};
+use sqlx::{ConnectOptions, PgPool, migrate::Migrator};
 use std::borrow::Cow;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -170,8 +167,8 @@ async fn migration_0435_atomically_publishes_new_generation_without_emptying_act
 
     let gen_before = store.route_registry_generation().await.unwrap().unwrap();
 
-    // 2. Now run the remaining migrations (0435..=latest).
-    MIGRATOR.run(&pool).await.unwrap();
+    // 2. Now run the remaining migrations via production compatibility runner (0435..=latest).
+    niu_storage::run_migrations(&pool).await.unwrap();
 
     // 3. Immediately after migrating (before any new replica bootstraps),
     // routing_registry_active MUST remain populated with a valid generation!
@@ -216,10 +213,10 @@ async fn migration_0435_atomically_publishes_new_generation_without_emptying_act
 #[sqlx::test(migrations = false)]
 #[ignore = "requires PostgreSQL"]
 async fn migration_0439_backfills_bank_memo_without_volatile_not_null_add_column(pool: PgPool) {
-    let sql_0439 = include_str!("../migrations/0439_optional_bank_details.sql");
+    let sql_0439 = include_str!("../compatibility/0439_safe.sql");
     assert!(
         !sql_0439.contains("ADD COLUMN bank_memo text NOT NULL"),
-        "0439 must not use volatile-default ADD COLUMN NOT NULL which forces ACCESS EXCLUSIVE rewrite"
+        "0439_safe.sql must not use volatile-default ADD COLUMN NOT NULL which forces ACCESS EXCLUSIVE rewrite"
     );
 
     // Run migrations before 0439 and seed two organizations.
@@ -248,8 +245,8 @@ async fn migration_0439_backfills_bank_memo_without_volatile_not_null_add_column
         .await
         .unwrap();
 
-    // Run remaining migrations including 0439..=latest.
-    MIGRATOR.run(&pool).await.unwrap();
+    // Run remaining migrations including 0439..=latest via production compatibility runner.
+    niu_storage::run_migrations(&pool).await.unwrap();
 
     let memos: Vec<String> =
         sqlx::query_scalar("SELECT bank_memo FROM organizations WHERE id = ANY($1) ORDER BY id")
@@ -277,26 +274,13 @@ async fn migration_0439_backfills_bank_memo_without_volatile_not_null_add_column
 #[sqlx::test(migrations = false)]
 #[ignore = "requires PostgreSQL"]
 async fn pre_tag_0435_and_0439_checksums_remain_compatible_on_upgrade(pool: PgPool) {
-    // Simulate a staging DB that already ran the original 0435 and 0439 SQL.
-    let mut staged: Vec<_> = MIGRATOR
+    // Simulate a v0.3.1 DB that already ran the immutable released 0435 and 0439 SQL.
+    let staged: Vec<_> = MIGRATOR
         .migrations
         .iter()
         .filter(|m| m.version <= 439)
         .cloned()
         .collect();
-    for (version, sql) in [
-        (435_i64, include_str!("../compatibility/0435_original.sql")),
-        (439_i64, include_str!("../compatibility/0439_original.sql")),
-    ] {
-        let entry = staged.iter_mut().find(|m| m.version == version).unwrap();
-        *entry = Migration::new(
-            version,
-            entry.description.clone(),
-            entry.migration_type,
-            Cow::Borrowed(sql),
-            entry.no_tx,
-        );
-    }
     Migrator {
         migrations: Cow::Owned(staged),
         ignore_missing: false,
