@@ -152,7 +152,7 @@ with 7.924 ms p95 client latency; the preceding implementation (`81f41ac`) compl
 69.20 reads/second with 153.757 ms p95. Every response matched the saved 104-model
 workspace catalog. Independent reopening confirmed unchanged inference and
 financial records. This was a short read-only workload, not maximum capacity or
-inference throughput. See the [full measurements and limits](https://github.com/niu-io/niu/blob/main/docs/reference/pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11).
+inference throughput. See the [full measurements and limits](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11).
 
 </div>
 
@@ -212,6 +212,6 @@ python3 scripts/verify-reporting-load.py \
 
 ## 限定作用域的模型目录读取
 
-针对同一个包含 103 个路由池的数据库进行的原生回环对比测试中，使用了 8 个并发客户端和包含 2 个连接的网关数据库连接池。在每个版本各两个 10 秒的测量区间内，采用目录快照合成（catalog snapshot composition，`136d2f1`）的实现完成了 1,346.39 次读取/秒，客户端 P95 延迟为 7.924 ms；而前一个版本实现（`81f41ac`）完成了 69.20 次读取/秒，客户端 P95 延迟为 153.757 ms。每次响应均与已保存的 104 模型工作空间目录完全一致。独立重开数据库核验确认推理记录与财务记录均未发生改变。这是一项短时间的只读工作负载测试，不代表最大容量上限或推理吞吐量。请参阅[完整测量数据与限制说明](https://github.com/niu-io/niu/blob/main/docs/reference/pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11)。
+针对同一个包含 103 个路由池的数据库进行的原生回环对比测试中，使用了 8 个并发客户端和包含 2 个连接的网关数据库连接池。在每个版本各两个 10 秒的测量区间内，采用目录快照合成（catalog snapshot composition，`136d2f1`）的实现完成了 1,346.39 次读取/秒，客户端 P95 延迟为 7.924 ms；而前一个版本实现（`81f41ac`）完成了 69.20 次读取/秒，客户端 P95 延迟为 153.757 ms。每次响应均与已保存的 104 模型工作空间目录完全一致。独立重开数据库核验确认推理记录与财务记录均未发生改变。这是一项短时间的只读工作负载测试，不代表最大容量上限或推理吞吐量。请参阅[完整测量数据与限制说明](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11)。
 
 </div>

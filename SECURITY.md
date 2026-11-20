@@ -6,8 +6,8 @@ Niu follows Semantic Versioning (`vX.Y.Z`). Security fixes are applied to the la
 
 | Version | Supported |
 | --- | --- |
-| `0.2.x` | Yes |
-| `< 0.2.0` | No |
+| `0.3.x` | Yes |
+| `< 0.3.0` | No |
 
 ## Reporting a Vulnerability
 

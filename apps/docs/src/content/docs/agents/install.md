@@ -8,7 +8,7 @@ Niu supports two connection tracks against any deployment origin (`{ORIGIN}`, su
 1. **Track 1 (Universal)**: Any coding agent capable of HTTP requests (Cursor, Windsurf, Zed, OpenCode, Claude Code, Codex, DeepSeek Harness, or a custom harness) can connect directly via Niu's browser device-authorization flow, optionally paired with the standalone `@niu-io/mcp` (`niu-mcp`) stdio server.
 2. **Track 2 (Native Host Bundles)**: Prepackaged host bundles (`niu-agent-marketplace.tar.gz` and `niu-deepseek-harness.tar.gz`) bundle local `niu-login` and `niu-mcp` runtime helpers with Niu skills.
 
-Always check the active deployment origin selected by the user and confirm required assets exist before installation. The current source candidate targets `v0.3.1`, which is not yet published. Do not install the URLs below until that exact release and its integrity metadata are available; use a matching source build only when explicitly selected. The intended release location is `https://github.com/niu-io/niu/releases/tag/v0.3.1`:
+Always check the active deployment origin selected by the user and verify release identity (`SHA256SUMS` and `SOURCE_COMMIT`) before installation. Release assets for `v0.3.1` are published at `https://github.com/niu-io/niu/releases/tag/v0.3.1`:
 
 - `niu-io-mcp-0.1.0.tgz` — standalone `@niu-io/mcp` stdio server (`0.1.0` package tarball inside release `v0.3.1`).
 - `niu-agent-marketplace.tar.gz` — native marketplace bundle for Claude Code and Codex.
@@ -62,7 +62,7 @@ Response `201 Created`:
 ```json
 {
   "device_secret": "<64 lowercase hex characters>",
-  "user_code": "<12 uppercase alphanumeric characters>",
+  "user_code": "<12 uppercase hex characters (^[0-9A-F]{12}$)>",
   "verification_uri": "/connect",
   "expires_in": 600,
   "interval": 5
@@ -96,8 +96,8 @@ Poll at `interval` (`5` seconds) until `expires_in` (`600` seconds) elapses:
 }
 ```
 
-- While waiting: server returns `202 Accepted` (keep waiting at `>= 5s` intervals; polling too fast returns rate-limit errors).
-- Denied, unknown, or expired: `401` / `404` / `410` — stop polling and inform the user.
+- While waiting: server returns `202 Accepted` (keep waiting at `>= 5s` intervals; polling faster than `interval` returns `429 Too Many Requests`).
+- Unknown, denied, expired, consumed, or revoked approval: `401 Unauthorized` — stop polling and inform the user.
 - Approved (`200 OK`):
 
 ```json
@@ -116,10 +116,16 @@ JSON credential shape compatible with `niu-mcp`:
 
 ```json
 {
+  "version": 1,
   "origin": "{ORIGIN}",
-  "token": "niu_<...>"
+  "token": "niu_<64 lowercase hex characters>"
 }
 ```
+
+- `version` (required): Must be integer `1`.
+- `origin` (required): Exact deployment origin without a trailing slash or path (HTTPS, or loopback HTTP `localhost` / `127.0.0.1` / `[::1]`).
+- `base_path` (optional): Sub-path mount prefix matching `^/[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$` (omit when Niu is mounted at `/`). When present, `niu-mcp` resolves API requests to `{origin}{base_path}/v1`.
+- `token` (required): Issued workspace credential matching `^niu_[0-9a-f]{64}$`.
 
 Verify the new connection immediately with `GET {ORIGIN}/v1/key` and `GET {ORIGIN}/v1/models` (see [Agent capabilities](/docs/agents.md)).
 
